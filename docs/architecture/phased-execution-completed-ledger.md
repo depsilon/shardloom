@@ -16,9 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Python/DataFrame deterministic blocker coverage closeout
+  - Date: 2026-06-19
+  - Branch/PR: `codex/clickbench-olap-polish` / PR #1303, with follow-up phase-plan cleanup in
+    `codex/python-dataframe-surface-closeout`.
+  - Source:
+    - Maintainer direction to finish feasible Python/DataFrame runtime sub-shapes and leave only
+      precise future-contract blockers where semantics genuinely need validity, typed-UDF,
+      equality, spill, or provider evidence.
+  - Scope:
+    - Closed `PY-DATAFRAME-DETERMINISTIC-BLOCKER-COVERAGE-1` as an active phase-plan item. The
+      scoped feasible shapes are implemented through Vortex-prepared/native runtime families:
+      deterministic sampling, fractional/replacement sampling, duplicate masks, source-order
+      tail, scoped metadata-first describe, explicit index metadata/source-order sorting,
+      melt/explode/pivot/pivot-table row expansion, rolling sum/mean/count, scoped mask/replace,
+      expression-project `eval`/`transform`/`map`/`applymap`/`map_rows`, and explicit
+      `plan_transform` `apply`/`pipe`.
+    - Reclassified broad pandas/DataFrame parity variants as explicit future-contract boundaries
+      instead of unowned blockers: weighted/RNG-object sampling, nullable/nested duplicate
+      equality, hidden index materialization, nested or multi-column reshape, broad type-union
+      melt, time/calendar/custom rolling windows, null-aware rewrite variants, arbitrary Python
+      callables, and broad typed UDF routes.
+    - Confirmed the user-surface method matrix has no active `blocker_id` method rows after PR
+      #1303; residual broader runtime, claim, object-store/table, and production-evidence gaps are
+      tracked by their own runtime-gap inventory rows with stable blocker IDs.
+    - Updated the benchmark publish doctor test so an empty `## Planned` queue reports
+      `next_implementation_slice=none` instead of failing against a stale hard-coded phase ID.
+  - Evidence:
+    - `python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-after-1303.json`
+      passed with 113 method rows and no active method-level `blocker_id` rows.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-after-1303.json`
+      passed with residual runtime/claim/platform gaps classified by owner and blocker ID.
+    - PR #1303 passed all GitHub checks and was merged after resolving the Codex review blockers.
+  - Claim boundary:
+    - This closes the active Python/DataFrame deterministic blocker coverage checklist. It does not
+      claim broad pandas parity, arbitrary Python callable execution, object-store/table/Foundry
+      production support, performance superiority, or production readiness.
+  - Fallback boundary:
+    - Successful and blocked paths continue to report `fallback_attempted=false` and
+      `external_engine_invoked=false`; no DuckDB, Polars, pandas, Spark, DataFusion, Vortex
+      query-engine integration, or other external engine fallback was added.
+
 - [x] Session label: ClickBench and Python runtime-surface polish
   - Date: 2026-06-18
-  - Branch/PR: `codex/clickbench-olap-polish` / pending PR.
+  - Branch/PR: `codex/clickbench-olap-polish` / PR #1303.
   - Source:
     - Maintainer direction to finish ClickBench polish with capillary/PulseWeave memory and spill
       diagnostics, state budgeting, scale fixture strategy, benchmark/site readiness fields, and

@@ -6146,11 +6146,28 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertRegex(
-            packet["next_implementation_slice"],
-            r"^`[A-Z0-9][A-Z0-9-]+` ",
-        )
+        next_slice = packet["next_implementation_slice"]
+        if next_slice != "none":
+            self.assertRegex(next_slice, r"^`[A-Z0-9][A-Z0-9-]+` ")
         self.assertIn("performance superiority", packet["forbidden_claims"])
+
+    def test_clickbench_olap_coverage_accepts_relative_output_path(self) -> None:
+        output = Path("target/clickbench-olap-runtime-coverage-test-relative.json")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/check_clickbench_olap_runtime_coverage.py",
+                "--output",
+                output.as_posix(),
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertIn(f"wrote {output.as_posix()}", result.stdout)
+        self.assertTrue((REPO_ROOT / output).exists())
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
         base = {
