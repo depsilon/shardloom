@@ -450,6 +450,7 @@ pub fn evaluate_vortex_metadata_physical_kernels(
         VortexQueryPrimitiveKind::ProjectColumns
         | VortexQueryPrimitiveKind::FilterAndProject
         | VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::DropDuplicateRows
         | VortexQueryPrimitiveKind::DuplicateMaskRows
         | VortexQueryPrimitiveKind::TailRows
         | VortexQueryPrimitiveKind::SampleRows

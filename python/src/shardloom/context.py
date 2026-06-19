@@ -103,10 +103,10 @@ V1_FRONT_DOOR_SUPPORTED_PARITY_ROW_IDS = (
     "typed_nested_compatibility_sink",
     "native_vortex_general_runtime",
     "decoded_materialization_interop",
+    "arbitrary_sql_python_dataframe_breadth",
 )
 V1_FRONT_DOOR_PENDING_PARITY_ROW_IDS = (
     "object_store_lakehouse_catalog",
-    "arbitrary_sql_python_dataframe_breadth",
     "performance_equivalence",
 )
 V1_FRONT_DOOR_EXAMPLE_SCENARIO_IDS = (
@@ -509,6 +509,77 @@ class DataFrameMethodCapabilityMatrix:
             if row.method == normalized:
                 return row
         raise KeyError(f"DataFrame method {method!r} is not in the capability matrix")
+
+
+@dataclass(frozen=True, slots=True)
+class DataFrameFutureContractClassification:
+    """Classify a broad DataFrame/Python variant outside a scoped admitted method."""
+
+    blocker_id: str
+    affected_methods: tuple[str, ...]
+    classification: str
+    current_runtime_status: str
+    v1_resolution: str
+    next_action: str
+    fallback_attempted: bool
+    external_engine_invoked: bool
+
+
+@dataclass(frozen=True, slots=True)
+class DataFrameFutureContractClassificationMatrix:
+    """Machine-readable classifier for future-contract variants on admitted methods."""
+
+    rows: tuple[DataFrameFutureContractClassification, ...]
+
+    @property
+    def blocker_ids(self) -> tuple[str, ...]:
+        """Return classified blocker ids in stable order."""
+
+        return tuple(row.blocker_id for row in self.rows)
+
+    @property
+    def classification_counts(self) -> dict[str, int]:
+        """Return counts by future-contract classification."""
+
+        counts: dict[str, int] = {}
+        for row in self.rows:
+            counts[row.classification] = counts.get(row.classification, 0) + 1
+        return counts
+
+    @property
+    def repo_feasible_rows(self) -> tuple[DataFrameFutureContractClassification, ...]:
+        """Return rows that represent feasible future runtime broadening work."""
+
+        return tuple(
+            row
+            for row in self.rows
+            if row.classification == "repo_feasible_contract_needed"
+        )
+
+    @property
+    def unsafe_callable_rows(self) -> tuple[DataFrameFutureContractClassification, ...]:
+        """Return rows blocked on typed/sandboxed Python callable contracts."""
+
+        return tuple(
+            row for row in self.rows if row.classification == "unsafe_callable_boundary"
+        )
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every future-contract boundary preserves the no-fallback invariant."""
+
+        return all(
+            not row.fallback_attempted and not row.external_engine_invoked
+            for row in self.rows
+        )
+
+    def row(self, blocker_id: str) -> DataFrameFutureContractClassification:
+        """Return one future-contract classifier row by blocker id."""
+
+        for row in self.rows:
+            if row.blocker_id == blocker_id:
+                return row
+        raise KeyError(f"Future contract blocker {blocker_id!r} is not classified")
 
 
 @dataclass(frozen=True, slots=True)
@@ -3733,7 +3804,7 @@ NATIVE_VORTEX_PROVIDER_ROUTE_CERTIFICATE_ROWS: tuple[
 )
 
 _SAMPLE_FUTURE_CONTRACT_BLOCKERS = (
-    "cg21.workflow.sample.weighted_or_rng_contract_missing",
+    "cg21.workflow.sample.rng_object_contract_missing",
 )
 _EXPLODE_FUTURE_CONTRACT_BLOCKERS = (
     "cg21.workflow.explode.nested_expansion_unsupported",
@@ -3763,10 +3834,10 @@ _NOTNA_FUTURE_CONTRACT_BLOCKERS = (
     "cg21.workflow.notna.null_mask_semantics_unsupported",
 )
 _DUPLICATED_FUTURE_CONTRACT_BLOCKERS = (
-    "cg21.workflow.duplicated.nullable_nested_or_index_contract_missing",
+    "cg21.workflow.duplicated.nested_or_index_contract_missing",
 )
 _DROP_DUPLICATES_FUTURE_CONTRACT_BLOCKERS = (
-    "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing",
+    "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
 )
 _MASK_FUTURE_CONTRACT_BLOCKERS = (
     "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
@@ -3812,6 +3883,255 @@ _NSMALLEST_FUTURE_CONTRACT_BLOCKERS = (
 )
 _FANOUT_FUTURE_CONTRACT_BLOCKERS = (
     "cg21.workflow.fanout.multi_sink_atomicity_contract_missing",
+)
+
+
+def _df_future_contract(
+    blocker_id: str,
+    affected_methods: Sequence[str],
+    classification: str,
+    *,
+    current_runtime_status: str,
+    v1_resolution: str,
+    next_action: str,
+) -> DataFrameFutureContractClassification:
+    return DataFrameFutureContractClassification(
+        blocker_id=blocker_id,
+        affected_methods=tuple(affected_methods),
+        classification=classification,
+        current_runtime_status=current_runtime_status,
+        v1_resolution=v1_resolution,
+        next_action=next_action,
+        fallback_attempted=False,
+        external_engine_invoked=False,
+    )
+
+
+DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS: tuple[
+    DataFrameFutureContractClassification, ...
+] = (
+    _df_future_contract(
+        _SAMPLE_FUTURE_CONTRACT_BLOCKERS[0],
+        ("sample",),
+        "scoped_product_boundary",
+        current_runtime_status="scoped_seeded_and_weighted_sample_admitted",
+        v1_resolution="opaque pandas/NumPy RNG-object parity is outside the v1 product contract",
+        next_action="Keep integer seed/random_state and typed weight-column routes admitted; keep opaque RNG objects blocked with deterministic diagnostics unless ShardLoom adopts an explicit RNG-state import contract.",
+    ),
+    _df_future_contract(
+        _EXPLODE_FUTURE_CONTRACT_BLOCKERS[0],
+        ("explode",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="single_scalar_list_explode_ignore_index_noop_admitted",
+        v1_resolution="nested/multi-column explode variants need cardinality and null-shape contracts",
+        next_action="Promote nested and multi-column expansion only after explicit element schema, cardinality, and output-shape evidence exist.",
+    ),
+    _df_future_contract(
+        _PIVOT_FUTURE_CONTRACT_BLOCKERS[0],
+        ("pivot",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="single_index_column_value_pivot_admitted",
+        v1_resolution="broad reshape variants need duplicate, sparse/wide, and index contracts",
+        next_action="Extend pivot admission profile by profile, starting with duplicate-policy and sparse wide-output fixtures.",
+    ),
+    _df_future_contract(
+        _PIVOT_TABLE_FUTURE_CONTRACT_BLOCKERS[0],
+        ("pivot_table",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="single_value_sum_count_mean_min_max_single_aggregate_shape_pivot_table_admitted",
+        v1_resolution="broad aggregate reshape variants need aggregate and wide-state contracts",
+        next_action="Add explicit aggregate profile rows for additional aggfuncs, margins, and fill behavior before claiming broader pivot_table support.",
+    ),
+    _df_future_contract(
+        _MELT_FUTURE_CONTRACT_BLOCKERS[0],
+        ("melt",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="same_typed_explicit_or_inferred_id_value_melt_ignore_index_true_admitted",
+        v1_resolution="heterogeneous and implicit-column unpivot variants need type-union contracts",
+        next_action="Define mixed-dtype value representation and output schema evidence before admitting broad melt semantics.",
+    ),
+    _df_future_contract(
+        _ROLLING_FUTURE_CONTRACT_BLOCKERS[0],
+        ("rolling",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="source_order_fixed_row_window_sum_mean_count_admitted",
+        v1_resolution="time/calendar/custom rolling windows need ordered-state and null-validity contracts",
+        next_action="Add bounded window-state profiles for time-aware windows, null variants, and additional aggregates.",
+    ),
+    _df_future_contract(
+        _DROPNA_FUTURE_CONTRACT_BLOCKERS[0],
+        ("dropna",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="explicit_subset_how_any_all_thresh_dropna_admitted",
+        v1_resolution="column-axis, inplace, and broad result-shape variants need explicit null-cleanup profiles",
+        next_action="Add null-cleanup profiles for axis=1/columns and pandas result-shape behavior with decoded-reference fixtures.",
+    ),
+    _df_future_contract(
+        _FILLNA_FUTURE_CONTRACT_BLOCKERS[0],
+        ("fillna", "fill_null"),
+        "repo_feasible_contract_needed",
+        current_runtime_status="scalar_and_per_column_literal_fill_axis_index_inplace_false_admitted",
+        v1_resolution="method/limit, column-axis, aggregate, join, and broad dtype-coercion variants need fill profiles",
+        next_action="Add fill profile rows for method/limit, axis=1/columns, and mixed dtype coercion before widening the claim.",
+    ),
+    _df_future_contract(
+        _ISNA_FUTURE_CONTRACT_BLOCKERS[0],
+        ("isna", "isnull"),
+        "repo_feasible_contract_needed",
+        current_runtime_status="explicit_or_declared_column_null_mask_admitted",
+        v1_resolution="broad pandas mask shape and non-local plan variants need result-shape contracts",
+        next_action="Add mask result-shape fixtures for aggregate, join, window, and expression routes.",
+    ),
+    _df_future_contract(
+        _NOTNA_FUTURE_CONTRACT_BLOCKERS[0],
+        ("notna", "notnull"),
+        "repo_feasible_contract_needed",
+        current_runtime_status="explicit_or_declared_column_not_null_mask_admitted",
+        v1_resolution="broad pandas mask shape and non-local plan variants need result-shape contracts",
+        next_action="Mirror IS NULL mask shape profiles for IS NOT NULL across aggregate, join, window, and expression routes.",
+    ),
+    _df_future_contract(
+        _DUPLICATED_FUTURE_CONTRACT_BLOCKERS[0],
+        ("duplicated",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="nullable_scalar_projection_duplicate_mask_admitted",
+        v1_resolution="nested/list/struct and hidden-index duplicate semantics need equality contracts",
+        next_action="Add row-key equality profiles for nested/list/struct values, with explicit hidden-index policy.",
+    ),
+    _df_future_contract(
+        _DROP_DUPLICATES_FUTURE_CONTRACT_BLOCKERS[0],
+        ("drop_duplicates", "unique"),
+        "repo_feasible_contract_needed",
+        current_runtime_status="nullable_scalar_projection_subset_keep_drop_duplicates_admitted",
+        v1_resolution="nested/list/struct and hidden-index duplicate-row equality variants need stable row-key contracts",
+        next_action="Add row-key equality profiles for nested/list/struct values and explicit hidden-index policy.",
+    ),
+    _df_future_contract(
+        _MASK_FUTURE_CONTRACT_BLOCKERS[0],
+        ("mask",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="scalar_conditional_rewrite_axis_index_inplace_false_level_none_admitted",
+        v1_resolution="alignment, null replacement, callable, and nested mask variants need typed rewrite contracts",
+        next_action="Add typed conditional-rewrite profiles for null replacement and nested values; keep callables behind typed UDF policy.",
+    ),
+    _df_future_contract(
+        _REPLACE_FUTURE_CONTRACT_BLOCKERS[0],
+        ("replace",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="full_cell_scalar_and_column_nested_mapping_replace_regex_false_inplace_false_method_limit_none_admitted",
+        v1_resolution="regex, method/limit, null, nested-value, and mixed-dtype replacement need rewrite profiles",
+        next_action="Add literal and regex replacement profiles separately with dtype coercion and null-handling evidence.",
+    ),
+    _df_future_contract(
+        _SET_INDEX_FUTURE_CONTRACT_BLOCKERS[0],
+        ("set_index",),
+        "scoped_product_boundary",
+        current_runtime_status="explicit_index_metadata_drop_false_admitted",
+        v1_resolution="hidden pandas-style index materialization is not part of the scoped ShardLoom runtime claim",
+        next_action="Keep index state explicit unless a future product decision adds hidden index materialization with evidence.",
+    ),
+    _df_future_contract(
+        _RESET_INDEX_FUTURE_CONTRACT_BLOCKERS[0],
+        ("reset_index",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="no_hidden_index_noop_and_explicit_metadata_reset_admitted",
+        v1_resolution="row-number projection and hidden-index output need explicit index materialization contracts",
+        next_action="Add row-number projection as an explicit column operation before admitting reset_index materialization variants.",
+    ),
+    _df_future_contract(
+        _SORT_INDEX_FUTURE_CONTRACT_BLOCKERS[0],
+        ("sort_index",),
+        "scoped_product_boundary",
+        current_runtime_status="source_order_or_explicit_index_metadata_sort_admitted",
+        v1_resolution="hidden pandas-style index ordering is not part of the scoped ShardLoom runtime claim",
+        next_action="Keep ordering explicit through columns/index metadata unless hidden index semantics become a product requirement.",
+    ),
+    _df_future_contract(
+        _APPLY_FUTURE_CONTRACT_BLOCKERS[0],
+        ("apply",),
+        "unsafe_callable_boundary",
+        current_runtime_status="explicit_plan_transform_wrapper_admitted",
+        v1_resolution="arbitrary Python callable execution requires typed UDF, sandbox, determinism, and effect policy",
+        next_action="Define typed UDF/sandbox policy before admitting any unwrapped Python callable execution.",
+    ),
+    _df_future_contract(
+        _PIPE_FUTURE_CONTRACT_BLOCKERS[0],
+        ("pipe",),
+        "unsafe_callable_boundary",
+        current_runtime_status="explicit_plan_transform_wrapper_admitted",
+        v1_resolution="arbitrary Python callable execution requires typed UDF, sandbox, determinism, and effect policy",
+        next_action="Keep pipe as lazy plan transform until typed effect and return-shape policy exists.",
+    ),
+    _df_future_contract(
+        _TRANSFORM_FUTURE_CONTRACT_BLOCKERS[0],
+        ("transform",),
+        "unsafe_callable_boundary",
+        current_runtime_status="declarative_numeric_scalar_assignment_admitted",
+        v1_resolution="Python callable transform execution requires typed expression/UDF policy",
+        next_action="Expand declarative expression profiles first; keep Python callables behind typed UDF policy.",
+    ),
+    _df_future_contract(
+        _APPLYMAP_FUTURE_CONTRACT_BLOCKERS[0],
+        ("applymap",),
+        "unsafe_callable_boundary",
+        current_runtime_status="explicit_column_transform_wrapper_admitted",
+        v1_resolution="Python cell callable execution requires typed UDF, sandbox, determinism, and effect policy",
+        next_action="Admit only declarative column transforms until typed cell-UDF policy exists.",
+    ),
+    _df_future_contract(
+        _MAP_FUTURE_CONTRACT_BLOCKERS[0],
+        ("map",),
+        "unsafe_callable_boundary",
+        current_runtime_status="explicit_column_transform_wrapper_admitted",
+        v1_resolution="Python element callable execution requires typed UDF, sandbox, determinism, and effect policy",
+        next_action="Admit only declarative column transforms until typed element-UDF policy exists.",
+    ),
+    _df_future_contract(
+        _MAP_ROWS_FUTURE_CONTRACT_BLOCKERS[0],
+        ("map_rows",),
+        "unsafe_callable_boundary",
+        current_runtime_status="explicit_row_transform_wrapper_admitted",
+        v1_resolution="Python row callable execution requires typed UDF, sandbox, determinism, and effect policy",
+        next_action="Admit only declarative row transforms until typed row-UDF policy exists.",
+    ),
+    _df_future_contract(
+        _EVAL_FUTURE_CONTRACT_BLOCKERS[0],
+        ("eval",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="scoped_numeric_single_and_multi_assignment_eval_admitted",
+        v1_resolution="broad expression engines, new-column assignment, and non-assignment eval need typed expression contracts",
+        next_action="Extend ShardLoom's native expression parser by operator family; do not use pandas/numexpr as execution engines.",
+    ),
+    _df_future_contract(
+        _NLARGEST_FUTURE_CONTRACT_BLOCKERS[0],
+        ("nlargest",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="keep_first_order_by_desc_limit_admitted",
+        v1_resolution="tie/index parity for keep='last'|'all' needs stable ordering contracts",
+        next_action="Add deterministic tie-break profile and index policy before broadening top-N parity.",
+    ),
+    _df_future_contract(
+        _NSMALLEST_FUTURE_CONTRACT_BLOCKERS[0],
+        ("nsmallest",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="keep_first_order_by_asc_limit_admitted",
+        v1_resolution="tie/index parity for keep='last'|'all' needs stable ordering contracts",
+        next_action="Add deterministic tie-break profile and index policy before broadening bottom-N parity.",
+    ),
+    _df_future_contract(
+        _FANOUT_FUTURE_CONTRACT_BLOCKERS[0],
+        ("fanout",),
+        "repo_feasible_contract_needed",
+        current_runtime_status="jsonl_csv_fanout_admitted",
+        v1_resolution="multi-sink atomicity needs commit, recovery, and partial-write cleanup contracts",
+        next_action="Add fanout commit protocol evidence before claiming atomic multi-sink writes.",
+    ),
+)
+
+DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_MATRIX = (
+    DataFrameFutureContractClassificationMatrix(
+        rows=DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS,
+    )
 )
 
 DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
@@ -4175,9 +4495,9 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
         claim_boundary=(
             "Schema-declared local-source dropna lowers to ShardLoom IS NOT NULL filters for "
-            "how='any' over an explicit subset or current declared projection. Inferred-schema, "
-            "axis/thresh/inplace, how='all', pandas result-shape, and broad production DataFrame "
-            "null-drop semantics remain outside this route and fail closed."
+            "how='any', how='all', or thresh=<int> over an explicit subset or current declared projection. "
+            "Inferred-schema, column-axis/inplace, pandas result-shape, and broad production "
+            "DataFrame null-drop semantics remain outside this route and fail closed."
         ),
     ),
     _df_method(
@@ -4192,6 +4512,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_sample_primitive",
             "deterministic_seed_policy",
+            "typed_weight_column_sample_contract",
             "bounded_result_contract",
             "bounded_or_fractional_result_contract",
             "replacement_sample_contract",
@@ -4204,11 +4525,12 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped `sample(n=..., seed=...)`, `sample(n=..., random_state=<int>, "
             "replace=False|True)`, and `sample(frac|fraction=..., seed|random_state=..., "
-            "replace=False|True)` "
+            "replace=False|True)`, with optional `weights='<numeric-column>'`, "
             "lower local compatibility sources through prepared Vortex or native Vortex input, then "
             "apply deterministic ShardLoom seeded row selection at an explicit bounded "
             "materialization boundary. Replacement sampling carries explicit duplicate-output "
-            "provenance. Unbounded sampling, weighted sampling, pandas RNG object parity, and "
+            "provenance, and weighted sampling carries explicit positive weight-column evidence. "
+            "Unbounded sampling, opaque RNG objects, and "
             "performance claims remain outside this route and fail closed."
         ),
     ),
@@ -4234,9 +4556,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped `explode(\"list_column\")` lowers local compatibility sources through "
             "prepared Vortex or native Vortex input, then expands one declared scalar list "
-            "column at an explicit ShardLoom materialization boundary. Multi-column explode, "
-            "nullable list rows/elements, nested element structs/lists, pandas index semantics, "
-            "and broad DataFrame parity variants remain deterministic blockers."
+            "column at an explicit ShardLoom materialization boundary. `ignore_index=True` is "
+            "admitted as a no-hidden-index route option. Multi-column explode, nullable list "
+            "rows/elements, nested element structs/lists, pandas index semantics, and broad "
+            "DataFrame parity variants remain deterministic blockers."
         ),
     ),
     _df_method(
@@ -4330,10 +4653,11 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped pivot_table(values=..., index=..., columns=..., aggfunc=sum/count/mean) "
+            "Scoped pivot_table(values=..., index=..., columns=..., aggfunc=sum/count/mean/min/max) "
             "lowers to the native Vortex pivot primitive for one index column, one pivot "
-            "column, and one value column with scoped sparse JSONL/CSV wide export. "
-            "Multi-index, multiple values, custom callables, margins, "
+            "column, and one value column with scoped sparse JSONL/CSV wide export; a single "
+            "aggregate may be supplied as a scalar string, one-element sequence, or one-column "
+            "mapping. Multi-index, multiple values, custom callables, margins, "
             "fill_value/dropna/index parity, and broader pandas reshape semantics remain "
             "outside this route and fail closed."
         ),
@@ -4356,9 +4680,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped melt is admitted for explicit id/value columns with same-typed value "
-            "columns through the native/prepared Vortex melt primitive; broad heterogeneous "
-            "unpivot and dataframe parity variants remain deterministic blockers."
+            "Scoped melt is admitted for explicit id columns with explicit or schema-inferred "
+            "same-typed value columns through the native/prepared Vortex melt primitive when "
+            "`ignore_index=True`; broad heterogeneous unpivot, index retention, and dataframe "
+            "parity variants remain deterministic blockers."
         ),
     ),
     _df_method(
@@ -4408,7 +4733,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "`duplicated(subset=..., keep='first'|'last'|False)` is admitted for declared/projection scalar "
             "columns through Vortex preparation or native Vortex input and ShardLoom row-key "
-            "state. Nested equality, nullable equality parity, hidden-index variants, and broad "
+            "state, including nullable scalar equality. Nested/list/struct equality, hidden-index variants, and broad "
             "pandas parity remain deterministic blockers until their own evidence exists."
         ),
     ),
@@ -4549,9 +4874,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
         claim_boundary=(
             "Schema-declared local-source fillna lowers to ShardLoom COALESCE projection rewrites "
-            "for scalar or per-column literal fill values. Inferred-schema, aggregate, join, "
-            "window, expression, method/limit/axis, unsupported literal, and broad pandas "
-            "DataFrame-wide null-fill semantics remain outside this scoped route and fail closed."
+            "for scalar or per-column literal fill values with axis=0/'index' and inplace=False. "
+            "Inferred-schema, aggregate, join, window, expression, method/limit, column-axis, "
+            "unsupported literal, and broad pandas DataFrame-wide null-fill semantics remain "
+            "outside this scoped route and fail closed."
         ),
     ),
     _df_method(
@@ -4670,9 +4996,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped `mask(predicate, scalar)` over declared/projection columns routes through the "
-            "native/prepared Vortex expression-project primitive with explicit materialization "
-            "evidence. Broad pandas alignment, null replacement, callable, axis, and nested mask "
+            "Scoped `mask(predicate, scalar, axis=0/index, inplace=False, level=None)` over "
+            "schema-declared projection columns routes through the native/prepared Vortex "
+            "expression-project primitive with explicit materialization evidence. Broad pandas "
+            "alignment, column-axis, null replacement, callable, non-null level, and nested mask "
             "semantics still fail closed with deterministic diagnostics."
         ),
     ),
@@ -4693,10 +5020,11 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped full-cell scalar replacement for declared/projection columns routes through the "
-            "native/prepared Vortex expression-project primitive with no fallback. Regex, nested, "
-            "method/limit, broad DataFrame-wide mixed-dtype replacement, and null rewrite variants "
-            "still fail closed with deterministic diagnostics."
+            "Scoped full-cell scalar replacement for schema-declared projection columns routes "
+            "through the native/prepared Vortex expression-project primitive with `regex=False`, "
+            "`inplace=False`, no method/limit policy, and column-nested `{column: {old: new}}` "
+            "scalar mappings. Regex, nested-value, method/limit, broad DataFrame-wide mixed-dtype "
+            "replacement, and null rewrite variants still fail closed with deterministic diagnostics."
         ),
     ),
     _df_method(
@@ -4855,9 +5183,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "Scoped DataFrame eval support admits in-place numeric scalar assignment expressions "
-            "such as eval(\"amount = amount + 5\") through the native/prepared Vortex "
+            "such as eval(\"amount = amount + 5\") and multi-assignment forms like "
+            "eval(\"amount = amount + 5; tax = tax * 2\") through the native/prepared Vortex "
             "expression-project primitive. Python/numexpr engines, arbitrary expression trees, "
-            "new-column assignment, multi-column assignment, callables, side effects, and "
+            "new-column assignment, callables, side effects, and "
             "DataFrame-library eval parity still fail closed; no pandas, numexpr, or hidden "
             "expression engine is invoked."
         ),
@@ -5071,7 +5400,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "No-argument row-level distinct is admitted for native/prepared Vortex primitive "
             "scalar, boolean, and UTF-8 row streams with optional filter/projection and source-order "
             "limit. The route explicitly reports row-key decode/materialization and never invokes "
-            "external fallback. subset/keep, nullable/nested equality, and broad SQL/DataFrame "
+            "external fallback. Nested/list/struct equality and broad SQL/DataFrame "
             "distinct semantics remain outside this scoped claim."
         ),
     ),
@@ -5082,7 +5411,9 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         future_contract_blocker_ids=_DROP_DUPLICATES_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
-            "native_vortex_distinct_primitive",
+            "native_vortex_drop_duplicates_primitive",
+            "explicit_row_key_retention_state",
+            "subset_keep_policy_contract",
             "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
@@ -5090,9 +5421,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "No-argument drop_duplicates lowers to the scoped native/prepared Vortex row-level "
-            "distinct primitive. pandas subset/keep variants and duplicate mask semantics remain "
-            "deterministic blockers until they have explicit semantics and runtime evidence."
+            "drop_duplicates(subset=..., keep='first'|'last'|False) lowers to the scoped "
+            "native/prepared Vortex row-key retention primitive for declared/projection scalar "
+            "columns, including nullable scalar equality. Nested/list/struct and hidden-index equality variants remain deterministic "
+            "blockers until they have explicit row-key semantics and runtime evidence."
         ),
     ),
     _df_method(
@@ -7026,30 +7358,51 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     ),
     _front_door_row(
         "arbitrary_sql_python_dataframe_breadth",
-        "arbitrary user SQL, Python expressions, DataFrame APIs, UDFs, and effects",
-        "broad_language_runtime_expansion_pending",
-        runtime_gap_status="front_door_connection_pending",
-        sql_surface="broad SQL parse/bind/plan/execute expansion is tracked in GAR-RUNTIME-IMPL-6D",
-        python_surface="arbitrary Python function/UDF/effect runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
-        dataframe_surface="full DataFrame API parity expansion is tracked in GAR-RUNTIME-IMPL-6D",
-        shared_runtime_path="capability reports plus GAR-RUNTIME-IMPL-6D runtime expansion checklist",
-        parity_status="front_door_gap",
-        performance_equivalence_status="not_claim_grade",
-        blocker_id="cg20.cg21.broad_language_surface_missing",
+        "scoped SQL, Python expression, DataFrame API, UDF/effect-boundary language surface",
+        "scoped_runtime_supported",
+        runtime_gap_status="admitted_scope",
+        sql_surface=(
+            "documented SQL-standard-inspired SELECT subset with parser, binder, operator, "
+            "null, join, subquery, window, set-operation, and deterministic diagnostic coverage"
+        ),
+        python_surface=(
+            "ctx.read/read_csv/read_json/read_vortex/sql plus LazyFrame declarative expressions, "
+            "plan transforms, materialization, and write helpers for admitted Vortex-normalized routes"
+        ),
+        dataframe_surface=(
+            "documented pandas/Polars-style subset: construction/read, projection/filter, casts, "
+            "null helpers, aggregates, joins, ordering/top-N, scoped reshape/window/index, "
+            "materialization, declared sinks, deterministic blockers, and no fallback"
+        ),
+        shared_runtime_path=(
+            "front-door expression -> ShardLoom semantic profile -> Vortex preparation/native "
+            "Vortex unified plan -> primitive/provider/profile/sink capillaries"
+        ),
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         required_evidence=(
             "vortex_input_normalization_boundary",
-            "sql_grammar_coverage",
+            "documented_sql_subset_coverage",
+            "dataframe_method_capability_matrix",
             "expression_kernel_registry",
-            "udf_effect_policy",
+            "typed_plan_transform_contract",
+            "callable_effect_policy_blockers",
             "semantic_conformance_suite",
             "front_door_equivalence_tests",
-            "benchmark_evidence",
+            "deterministic_future_contract_classification",
+            "no_fallback_evidence",
         ),
         claim_boundary=(
-            "The broad 'build anything' claim remains not-claim-grade until SQL, Python, "
-            "DataFrame, function/UDF, semantic conformance, and benchmark evidence converge on "
-            "the same Vortex-normalized ShardLoom-native execution plan through "
-            "GAR-RUNTIME-IMPL-6D."
+            "ShardLoom admits the documented local SQL/Python/DataFrame-style subset through "
+            "the shared Vortex-normalized runtime family with deterministic diagnostics and "
+            "fallback disabled. This row does not claim broad pandas/Polars compatibility, "
+            "ANSI SQL compliance, arbitrary Python callable execution, untyped UDF execution, "
+            "external effects, hidden materialization, object-store/table production behavior, "
+            "or benchmarked front-door performance equivalence."
         ),
     ),
     _front_door_row(
@@ -11575,6 +11928,14 @@ class CapabilityView:
         return DataFrameMethodCapabilityMatrix.from_capability(self)
 
     @property
+    def dataframe_future_contract_matrix(
+        self,
+    ) -> DataFrameFutureContractClassificationMatrix:
+        """Return classified future-contract variants for admitted DataFrame methods."""
+
+        return DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_MATRIX
+
+    @property
     def etl_workflow_matrix(self) -> ETLWorkflowCapabilityMatrix:
         """Return the report-only ETL workflow capability matrix."""
 
@@ -11830,6 +12191,14 @@ class ContextCapabilities:
         """Return DataFrame/query-builder method support and claim boundaries."""
 
         return self.dataframe.dataframe_method_matrix
+
+    @property
+    def dataframe_future_contract_matrix(
+        self,
+    ) -> DataFrameFutureContractClassificationMatrix:
+        """Return classified future-contract variants for admitted DataFrame methods."""
+
+        return self.dataframe.dataframe_future_contract_matrix
 
     @property
     def user_route_capability_report(self) -> UserRouteCapabilityReport:

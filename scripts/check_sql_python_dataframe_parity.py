@@ -45,6 +45,7 @@ REQUIRED_ADMITTED_ROWS = {
     "typed_nested_compatibility_sink",
     "native_vortex_general_runtime",
     "decoded_materialization_interop",
+    "arbitrary_sql_python_dataframe_breadth",
 }
 
 REQUIRED_EXPORT_PENDING_ROWS: set[str] = set()
@@ -154,7 +155,7 @@ REQUIRED_SOURCE_MARKERS = {
         "test_schema_declared_dataframe_query_dropna_astype_lowers_to_sql_smoke",
         "test_local_csv_query_builder_top_n_dataframe_aliases_lower_to_sort_limit",
         "workflow.duplicated(subset=[\"id\"])",
-        "workflow.mask(\"amount < 0\", other=0)",
+        ".mask(sl.col(\"amount\") < 0, other=0, axis=0, inplace=False, level=None)",
         "workflow.set_index(\"id\")",
         "projected_subquery_group_by_runtime_execution",
         "projected_subquery_having_runtime_execution",
@@ -177,14 +178,14 @@ REQUIRED_SOURCE_MARKERS = {
         "typed_complex_child_schema_not_admitted",
     ],
     "shardloom-cli/src/workflow_planning.rs": [
-        "cg21.workflow.sample.weighted_or_rng_contract_missing",
+        "cg21.workflow.sample.rng_object_contract_missing",
         "cg21.workflow.explode.nested_expansion_unsupported",
         "cg21.workflow.pivot.broad_reshape_contract_missing",
         "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing",
         "cg21.workflow.melt.reshape_semantics_unsupported",
         "cg21.workflow.rolling.broad_window_semantics_unsupported",
-        "cg21.workflow.duplicated.nullable_nested_or_index_contract_missing",
-        "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing",
+        "cg21.workflow.duplicated.nested_or_index_contract_missing",
+        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
         "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
         "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
@@ -200,14 +201,14 @@ REQUIRED_SOURCE_MARKERS = {
         "cg21.workflow.fanout.multi_sink_atomicity_contract_missing",
     ],
     "shardloom-cli/src/status_capabilities.rs": [
-        "cg21.workflow.sample.weighted_or_rng_contract_missing",
+        "cg21.workflow.sample.rng_object_contract_missing",
         "cg21.workflow.explode.nested_expansion_unsupported",
         "cg21.workflow.pivot.broad_reshape_contract_missing",
         "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing",
         "cg21.workflow.melt.reshape_semantics_unsupported",
         "cg21.workflow.rolling.broad_window_semantics_unsupported",
-        "cg21.workflow.duplicated.nullable_nested_or_index_contract_missing",
-        "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing",
+        "cg21.workflow.duplicated.nested_or_index_contract_missing",
+        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
         "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
         "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
@@ -300,7 +301,7 @@ REQUIRED_DATAFRAME_METHOD_STATUSES = {
 PLAN_TRANSFORM_ONLY_METHODS = {"apply", "pipe"}
 
 REQUIRED_DATAFRAME_METHOD_FUTURE_CONTRACT_BLOCKERS = {
-    "sample": {"cg21.workflow.sample.weighted_or_rng_contract_missing"},
+    "sample": {"cg21.workflow.sample.rng_object_contract_missing"},
     "explode": {"cg21.workflow.explode.nested_expansion_unsupported"},
     "pivot": {"cg21.workflow.pivot.broad_reshape_contract_missing"},
     "pivot_table": {"cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing"},
@@ -313,12 +314,12 @@ REQUIRED_DATAFRAME_METHOD_FUTURE_CONTRACT_BLOCKERS = {
     "isnull": {"cg21.workflow.isna.null_mask_semantics_unsupported"},
     "notna": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
     "notnull": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
-    "duplicated": {"cg21.workflow.duplicated.nullable_nested_or_index_contract_missing"},
+    "duplicated": {"cg21.workflow.duplicated.nested_or_index_contract_missing"},
     "drop_duplicates": {
-        "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing"
+        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
     },
     "unique": {
-        "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing"
+        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
     },
     "mask": {"cg21.workflow.mask.null_callable_or_alignment_contract_missing"},
     "replace": {
@@ -396,6 +397,15 @@ def load_dataframe_method_matrix(repo_root: Path) -> Any:
         return SimpleNamespace(rows=DATAFRAME_METHOD_CAPABILITY_ROWS)
 
 
+def load_dataframe_future_contract_matrix(repo_root: Path) -> Any:
+    src = repo_root / "python" / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    from shardloom.context import DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_MATRIX
+
+    return DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_MATRIX
+
+
 def load_semantic_surface_matrix(repo_root: Path) -> Any:
     src = repo_root / "python" / "src"
     if str(src) not in sys.path:
@@ -443,6 +453,19 @@ def dataframe_method_payload(row: Any) -> dict[str, Any]:
         "future_contract_blocker_ids": list(row.future_contract_blocker_ids),
         "required_evidence": list(row.required_evidence),
         "claim_boundary": row.claim_boundary,
+    }
+
+
+def dataframe_future_contract_payload(row: Any) -> dict[str, Any]:
+    return {
+        "blocker_id": row.blocker_id,
+        "affected_methods": list(row.affected_methods),
+        "classification": row.classification,
+        "current_runtime_status": row.current_runtime_status,
+        "v1_resolution": row.v1_resolution,
+        "next_action": row.next_action,
+        "fallback_attempted": row.fallback_attempted,
+        "external_engine_invoked": row.external_engine_invoked,
     }
 
 
@@ -506,6 +529,56 @@ def validate_dataframe_method_surface(
             blockers.append(f"{method}: claim_boundary is required")
 
     return rows, status_counts, blockers
+
+
+def validate_dataframe_future_contract_surface(
+    matrix: Any,
+    method_rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, int], list[str]]:
+    rows = [dataframe_future_contract_payload(row) for row in matrix.rows]
+    blockers: list[str] = []
+    classification_counts: dict[str, int] = {}
+    method_names = {str(row["method"]) for row in method_rows}
+    emitted_ids = {
+        blocker_id
+        for row in method_rows
+        for blocker_id in row.get("future_contract_blocker_ids", [])
+    }
+    classified_ids = {str(row["blocker_id"]) for row in rows}
+
+    for row in rows:
+        classification = str(row["classification"])
+        classification_counts[classification] = (
+            classification_counts.get(classification, 0) + 1
+        )
+        if not row["affected_methods"]:
+            blockers.append(f"{row['blocker_id']}: affected_methods is required")
+        for method in row["affected_methods"]:
+            if method not in method_names:
+                blockers.append(
+                    f"{row['blocker_id']}: affected method {method!r} is not in the method matrix"
+                )
+        if not str(row["classification"]).strip():
+            blockers.append(f"{row['blocker_id']}: classification is required")
+        if not str(row["current_runtime_status"]).strip():
+            blockers.append(f"{row['blocker_id']}: current_runtime_status is required")
+        if not str(row["v1_resolution"]).strip():
+            blockers.append(f"{row['blocker_id']}: v1_resolution is required")
+        if not str(row["next_action"]).strip():
+            blockers.append(f"{row['blocker_id']}: next_action is required")
+        if row["fallback_attempted"] or row["external_engine_invoked"]:
+            blockers.append(
+                f"{row['blocker_id']}: future-contract boundary must preserve no fallback and no external engine"
+            )
+
+    missing = sorted(emitted_ids - classified_ids)
+    extra = sorted(classified_ids - emitted_ids)
+    if missing:
+        blockers.append(f"missing future-contract classifications: {missing!r}")
+    if extra:
+        blockers.append(f"classified future-contract ids not emitted by method matrix: {extra!r}")
+
+    return rows, classification_counts, blockers
 
 
 def validate_semantic_surface(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
@@ -663,12 +736,21 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     dataframe_methods, dataframe_status_counts, dataframe_blockers = (
         validate_dataframe_method_surface(load_dataframe_method_matrix(repo_root))
     )
+    (
+        dataframe_future_contract_rows,
+        dataframe_future_contract_classification_counts,
+        dataframe_future_contract_blockers,
+    ) = validate_dataframe_future_contract_surface(
+        load_dataframe_future_contract_matrix(repo_root),
+        dataframe_methods,
+    )
     semantic_matrix = load_semantic_surface_matrix(repo_root)
     semantic_rows, semantic_blockers = validate_semantic_surface(semantic_matrix)
     marker_blockers = missing_marker_blockers(repo_root)
     blockers = [
         *matrix_blockers,
         *dataframe_blockers,
+        *dataframe_future_contract_blockers,
         *semantic_blockers,
         *marker_blockers,
     ]
@@ -721,6 +803,27 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             dataframe_future_contract_blocker_ids
         ),
         "dataframe_future_contract_blocker_ids": dataframe_future_contract_blocker_ids,
+        "dataframe_future_contract_classification_count": len(
+            dataframe_future_contract_rows
+        ),
+        "dataframe_future_contract_classification_counts": (
+            dataframe_future_contract_classification_counts
+        ),
+        "dataframe_future_contract_classification_rows": dataframe_future_contract_rows,
+        "dataframe_future_contract_repo_feasible_count": len(
+            [
+                row
+                for row in dataframe_future_contract_rows
+                if row["classification"] == "repo_feasible_contract_needed"
+            ]
+        ),
+        "dataframe_future_contract_unsafe_callable_count": len(
+            [
+                row
+                for row in dataframe_future_contract_rows
+                if row["classification"] == "unsafe_callable_boundary"
+            ]
+        ),
         "dataframe_method_pending_or_unsupported_count": len(
             dataframe_pending_or_unsupported_rows
         ),

@@ -41,13 +41,17 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             "docs/architecture/v1-front-door-runtime-scope.md",
         )
         self.assertIn("local_file_filter_project_limit", report["v1_supported_row_ids"])
+        self.assertIn(
+            "arbitrary_sql_python_dataframe_breadth",
+            report["v1_supported_row_ids"],
+        )
         self.assertIn("performance_equivalence", report["v1_pending_row_ids"])
         self.assertIn("selective_filter", report["v1_example_scenario_ids"])
         self.assertEqual(report["v1_expected_error_scenario_ids"], [])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
-        self.assertEqual(report["admitted_row_count"], 8)
-        self.assertGreaterEqual(report["remaining_gap_count"], 3)
+        self.assertEqual(report["admitted_row_count"], 9)
+        self.assertEqual(report["remaining_gap_count"], 2)
         self.assertEqual(report["dataframe_method_blocker_count"], 0)
         self.assertEqual(report["dataframe_method_pending_or_unsupported_count"], 0)
         self.assertEqual(report["dataframe_named_runtime_surface_status"], "passed")
@@ -112,12 +116,39 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertIn("map_rows", report["dataframe_named_runtime_surface_ids"])
         self.assertIn("apply", report["dataframe_plan_transform_only_method_ids"])
         self.assertIn(
-            "cg21.workflow.sample.weighted_or_rng_contract_missing",
+            "cg21.workflow.sample.rng_object_contract_missing",
             report["dataframe_future_contract_blocker_ids"],
         )
         self.assertIn(
             "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported",
             report["dataframe_future_contract_blocker_ids"],
+        )
+        self.assertEqual(report["dataframe_future_contract_classification_count"], 27)
+        self.assertEqual(report["dataframe_future_contract_repo_feasible_count"], 18)
+        self.assertEqual(report["dataframe_future_contract_unsafe_callable_count"], 6)
+        self.assertEqual(
+            report["dataframe_future_contract_classification_counts"],
+            {
+                "repo_feasible_contract_needed": 18,
+                "scoped_product_boundary": 3,
+                "unsafe_callable_boundary": 6,
+            },
+        )
+        future_contract_by_id = {
+            row["blocker_id"]: row
+            for row in report["dataframe_future_contract_classification_rows"]
+        }
+        self.assertEqual(
+            future_contract_by_id[
+                "cg21.workflow.fanout.multi_sink_atomicity_contract_missing"
+            ]["classification"],
+            "repo_feasible_contract_needed",
+        )
+        self.assertIn(
+            "typed UDF",
+            future_contract_by_id[
+                "cg21.workflow.apply.python_callable_unsupported"
+            ]["v1_resolution"],
         )
         fillna = next(
             row
@@ -150,10 +181,11 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             "Vortex-backed runtime path",
             report["vortex_normalization_contract"],
         )
-        self.assertIn(
+        self.assertNotIn(
             "arbitrary_sql_python_dataframe_breadth",
             report["remaining_gap_row_ids"],
         )
+        self.assertIn("object_store_lakehouse_catalog", report["remaining_gap_row_ids"])
         self.assertIn("performance_equivalence", report["remaining_gap_row_ids"])
         local = next(
             row
@@ -205,6 +237,18 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertEqual(native["runtime_gap_status"], "admitted_scope")
         self.assertEqual(native["parity_status"], "equivalent_admitted_scope")
         self.assertIn("native_vortex_unified_plan", native["shared_runtime_path"])
+        language = next(
+            row
+            for row in report["rows"]
+            if row["row_id"] == "arbitrary_sql_python_dataframe_breadth"
+        )
+        self.assertEqual(language["runtime_gap_status"], "admitted_scope")
+        self.assertEqual(language["parity_status"], "equivalent_admitted_scope")
+        self.assertIsNone(language["blocker_id"])
+        self.assertIn(
+            "documented local SQL/Python/DataFrame-style subset",
+            language["claim_boundary"],
+        )
         performance = next(
             row
             for row in report["rows"]
@@ -240,7 +284,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         ]
         rows.append(
             SimpleNamespace(
-                row_id="arbitrary_sql_python_dataframe_breadth",
+                row_id="performance_equivalence",
                 workflow="broad",
                 support_status="blocked",
                 runtime_gap_status="unsupported",

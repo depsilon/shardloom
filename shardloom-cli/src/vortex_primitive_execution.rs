@@ -2895,6 +2895,20 @@ pub(crate) fn parse_vortex_primitive_request(
                 None,
             ),
         )
+    } else if let Some(payload) = primitive_arg
+        .strip_prefix("drop-duplicates:")
+        .or_else(|| primitive_arg.strip_prefix("drop_duplicates:"))
+        .or_else(|| primitive_arg.strip_prefix("drop-duplicate-rows:"))
+        .or_else(|| primitive_arg.strip_prefix("drop_duplicate_rows:"))
+    {
+        let (output_columns, key_columns) = parse_drop_duplicate_columns(payload)?;
+        Ok(
+            shardloom_vortex::VortexQueryPrimitiveRequest::drop_duplicate_rows(
+                uri,
+                output_columns,
+                key_columns,
+            ),
+        )
     } else if let Some(cols) = primitive_arg
         .strip_prefix("duplicate-mask:")
         .or_else(|| primitive_arg.strip_prefix("duplicate_mask:"))
@@ -3022,6 +3036,24 @@ fn parse_vortex_compound_primitive_request(
             ),
         );
     }
+    if let Some((predicate, columns, key_columns)) = prefixed_predicate_columns_payload(
+        primitive_arg,
+        &[
+            "drop-duplicates-filter-project:",
+            "drop-duplicates-filter-and-project:",
+            "drop_duplicates_filter_project:",
+            "drop_duplicate_rows_filter_project:",
+        ],
+        "drop-duplicates-filter-project",
+    )? {
+        let mut request = shardloom_vortex::VortexQueryPrimitiveRequest::drop_duplicate_rows(
+            uri,
+            parse_projection_columns(columns)?,
+            parse_projection_columns(key_columns)?,
+        );
+        request.predicate = Some(parse_tiny_predicate(predicate)?);
+        return Ok(request);
+    }
     if let Some((predicate, columns)) = prefixed_predicate_columns(
         primitive_arg,
         &["sample-filter-project:", "sample-filter-and-project:"],
@@ -3043,7 +3075,26 @@ fn parse_vortex_compound_primitive_request(
         return parse_sort_rows_primitive_request(uri, payload, Some(predicate), Some(columns));
     }
     Err(ShardLoomError::InvalidOperation(
-        "invalid primitive; expected count, count-where:<predicate>, project:<columns>, distinct:<columns>, tail:<columns>, sample:<columns>, expression-project:<json>, melt:<json>, explode:<json>, pivot:<json>, rolling:<json>, sort-rows:<json>, aggregate:<json>, aggregate-filter:<predicate>|<json>, filter:<predicate>, filter-project:<predicate>|<columns>, distinct-filter-project:<predicate>|<columns>, sample-filter-project:<predicate>|<columns>, sort-filter-project:<predicate>|<columns>|<json>".to_string(),
+        "invalid primitive; expected count, count-where:<predicate>, project:<columns>, distinct:<columns>, drop-duplicates:<output-columns>|<key-columns>, tail:<columns>, sample:<columns>, expression-project:<json>, melt:<json>, explode:<json>, pivot:<json>, rolling:<json>, sort-rows:<json>, aggregate:<json>, aggregate-filter:<predicate>|<json>, filter:<predicate>, filter-project:<predicate>|<columns>, distinct-filter-project:<predicate>|<columns>, drop-duplicates-filter-project:<predicate>|<output-columns>|<key-columns>, sample-filter-project:<predicate>|<columns>, sort-filter-project:<predicate>|<columns>|<json>".to_string(),
+    ))
+}
+
+fn parse_drop_duplicate_columns(
+    value: &str,
+) -> Result<(ProjectionRequest, ProjectionRequest), ShardLoomError> {
+    let Some((output_columns, key_columns)) = value.split_once('|') else {
+        return Err(ShardLoomError::InvalidOperation(
+            "drop-duplicates requires <output-columns>|<key-columns>".to_string(),
+        ));
+    };
+    if output_columns.is_empty() || key_columns.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "drop-duplicates output and key column lists must not be empty".to_string(),
+        ));
+    }
+    Ok((
+        parse_projection_columns(output_columns)?,
+        parse_projection_columns(key_columns)?,
     ))
 }
 
@@ -3740,6 +3791,7 @@ fn parse_structured_scalar(
         return Ok(ScalarValue::Null);
     }
     Ok(match parse_expression_scalar(value, field)? {
+        StatValue::Null => ScalarValue::Null,
         StatValue::Boolean(value) => ScalarValue::Boolean(value),
         StatValue::Int64(value) => ScalarValue::Int64(value),
         StatValue::UInt64(value) => ScalarValue::UInt64(value),
@@ -4498,6 +4550,7 @@ pub(crate) fn local_primitive_correctness_fixture_for_request(
             }
         }
         shardloom_vortex::VortexQueryPrimitiveKind::DistinctRows
+        | shardloom_vortex::VortexQueryPrimitiveKind::DropDuplicateRows
         | shardloom_vortex::VortexQueryPrimitiveKind::DuplicateMaskRows
         | shardloom_vortex::VortexQueryPrimitiveKind::TailRows
         | shardloom_vortex::VortexQueryPrimitiveKind::SampleRows
