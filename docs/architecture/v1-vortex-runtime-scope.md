@@ -173,6 +173,12 @@ keys, group ordinals/constants, arithmetic group-key projection, `CASE` group ke
 `SUM(column +/- constant)` aggregate measures. The current local map validates 43 admitted rows and
 0 implementation-required rows.
 
+The machine-readable report exposes `route_family_counts`,
+`clickbench_olap_readiness_status`, `memory_spill_diagnostic_status`,
+`admitted_query_count`, `implementation_required_count`, `feature_gated_query_count`, and
+`site_readiness_claim_boundary` as the site/readiness contract. These fields are route-readiness
+evidence only; they are deliberately separate from timing surfaces and performance artifacts.
+
 This is route-readiness evidence only. It must not be satisfied through external engine delegation
 or scenario-only shims, and it does not authorize a ClickBench performance or superiority claim.
 

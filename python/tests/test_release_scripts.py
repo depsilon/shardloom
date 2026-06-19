@@ -6167,7 +6167,24 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         self.assertIn(f"wrote {output.as_posix()}", result.stdout)
-        self.assertTrue((REPO_ROOT / output).exists())
+        report_path = REPO_ROOT / output
+        self.assertTrue(report_path.exists())
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["admitted_query_count"], 43)
+        self.assertEqual(report["implementation_required_count"], 0)
+        self.assertEqual(report["feature_gated_query_count"], 0)
+        self.assertTrue(report["route_family_counts"])
+        self.assertEqual(
+            report["clickbench_olap_readiness_status"],
+            "all_queries_admitted_route_readiness",
+        )
+        self.assertEqual(
+            report["memory_spill_diagnostic_status"],
+            "state_budget_declared_spill_fail_closed_no_spill_io",
+        )
+        self.assertFalse(report["performance_claim_allowed"])
+        self.assertIn("route readiness only", report["site_readiness_claim_boundary"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
         base = {
@@ -13595,30 +13612,30 @@ jobs:
         )
         self.assertEqual(
             by_method["fillna"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn("null_fill_semantics", by_method["fillna"]["required_evidence"])
         self.assertEqual(
             by_method["fill_null"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             by_method["isna"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn("null_mask_semantics", by_method["isna"]["required_evidence"])
         self.assertEqual(
             by_method["isnull"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             by_method["notna"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn("not_null_mask_semantics", by_method["notna"]["required_evidence"])
         self.assertEqual(
             by_method["notnull"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             by_method["pivot"]["support_status"],

@@ -14,6 +14,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 
@@ -170,7 +171,72 @@ REQUIRED_SOURCE_MARKERS = {
         "fn contains_all_null_complex_dtype_without_child_schema(",
         "typed_complex_child_schema_not_admitted",
     ],
+    "shardloom-cli/src/workflow_planning.rs": [
+        "cg21.workflow.sample.weighted_or_rng_contract_missing",
+        "cg21.workflow.pivot.broad_reshape_contract_missing",
+        "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing",
+        "cg21.workflow.melt.reshape_semantics_unsupported",
+        "cg21.workflow.rolling.broad_window_semantics_unsupported",
+        "cg21.workflow.apply.python_callable_unsupported",
+        "cg21.workflow.pipe.python_callable_unsupported",
+        "cg21.workflow.transform.python_callable_unsupported",
+        "cg21.workflow.applymap.python_callable_unsupported",
+        "cg21.workflow.map.python_callable_unsupported",
+        "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported",
+        "cg21.workflow.eval.expression_engine_unsupported",
+    ],
+    "shardloom-cli/src/status_capabilities.rs": [
+        "cg21.workflow.sample.weighted_or_rng_contract_missing",
+        "cg21.workflow.pivot.broad_reshape_contract_missing",
+        "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing",
+        "cg21.workflow.melt.reshape_semantics_unsupported",
+        "cg21.workflow.rolling.broad_window_semantics_unsupported",
+        "cg21.workflow.apply.python_callable_unsupported",
+        "cg21.workflow.pipe.python_callable_unsupported",
+        "cg21.workflow.transform.python_callable_unsupported",
+        "cg21.workflow.applymap.python_callable_unsupported",
+        "cg21.workflow.map.python_callable_unsupported",
+        "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported",
+        "cg21.workflow.eval.expression_engine_unsupported",
+    ],
 }
+
+REQUIRED_DATAFRAME_METHOD_STATUSES = {
+    "sample": {"production_admitted_local_workflow"},
+    "set_index": {"scoped_runtime_supported"},
+    "reset_index": {"scoped_runtime_supported"},
+    "sort_index": {"production_admitted_local_workflow"},
+    "pivot": {"production_admitted_local_workflow"},
+    "pivot_table": {"production_admitted_local_workflow"},
+    "melt": {"production_admitted_local_workflow"},
+    "explode": {"production_admitted_local_workflow"},
+    "rolling": {"production_admitted_local_workflow"},
+    "mask": {"production_admitted_local_workflow"},
+    "replace": {"production_admitted_local_workflow"},
+    "dropna": {"production_admitted_local_workflow"},
+    "fillna": {"production_admitted_local_workflow"},
+    "fill_null": {"production_admitted_local_workflow"},
+    "isna": {"production_admitted_local_workflow"},
+    "isnull": {"production_admitted_local_workflow"},
+    "notna": {"production_admitted_local_workflow"},
+    "notnull": {"production_admitted_local_workflow"},
+    "eval": {"production_admitted_local_workflow"},
+    "transform": {"production_admitted_local_workflow"},
+    "applymap": {"production_admitted_local_workflow"},
+    "map": {"production_admitted_local_workflow"},
+    "map_rows": {"production_admitted_local_workflow"},
+    "apply": {"lazy_plan_supported"},
+    "pipe": {"lazy_plan_supported"},
+    "write": {"production_admitted_local_workflow"},
+    "write_jsonl": {"production_admitted_local_workflow"},
+    "write_csv": {"production_admitted_local_workflow"},
+    "fanout": {"production_admitted_local_workflow"},
+    "distinct": {"production_admitted_local_workflow"},
+    "drop_duplicates": {"production_admitted_local_workflow"},
+    "unique": {"production_admitted_local_workflow"},
+}
+
+PLAN_TRANSFORM_ONLY_METHODS = {"apply", "pipe"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -214,6 +280,19 @@ def load_matrix(repo_root: Path) -> Any:
     return ShardLoomContext(client=None).front_door_parity_matrix()
 
 
+def load_dataframe_method_matrix(repo_root: Path) -> Any:
+    src = repo_root / "python" / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    from shardloom import ShardLoomBinaryNotFoundError, ShardLoomContext
+    from shardloom.context import DATAFRAME_METHOD_CAPABILITY_ROWS
+
+    try:
+        return ShardLoomContext(client=None).dataframe_method_matrix()
+    except ShardLoomBinaryNotFoundError:
+        return SimpleNamespace(rows=DATAFRAME_METHOD_CAPABILITY_ROWS)
+
+
 def row_payload(row: Any) -> dict[str, Any]:
     return {
         "row_id": row.row_id,
@@ -236,6 +315,57 @@ def row_payload(row: Any) -> dict[str, Any]:
         "required_evidence": list(row.required_evidence),
         "claim_boundary": row.claim_boundary,
     }
+
+
+def dataframe_method_payload(row: Any) -> dict[str, Any]:
+    return {
+        "method": row.method,
+        "family": row.family,
+        "support_status": row.support_status,
+        "runtime_execution": row.runtime_execution,
+        "data_read": row.data_read,
+        "write_io": row.write_io,
+        "materialization_required": row.materialization_required,
+        "diagnostic_operation": row.diagnostic_operation,
+        "blocker_id": row.blocker_id,
+        "required_evidence": list(row.required_evidence),
+        "claim_boundary": row.claim_boundary,
+    }
+
+
+def validate_dataframe_method_surface(
+    matrix: Any,
+) -> tuple[list[dict[str, Any]], dict[str, int], list[str]]:
+    rows = [dataframe_method_payload(row) for row in matrix.rows]
+    by_method = {str(row["method"]): row for row in rows}
+    blockers: list[str] = []
+    status_counts: dict[str, int] = {}
+    for row in rows:
+        status = str(row["support_status"])
+        status_counts[status] = status_counts.get(status, 0) + 1
+        if row["blocker_id"]:
+            blockers.append(f"{row['method']}: method matrix must not carry active blocker_id")
+
+    for method, allowed_statuses in REQUIRED_DATAFRAME_METHOD_STATUSES.items():
+        row = by_method.get(method)
+        if row is None:
+            blockers.append(f"dataframe method matrix missing required method {method}")
+            continue
+        status = str(row["support_status"])
+        if status not in allowed_statuses:
+            blockers.append(
+                f"{method}: support_status {status!r} not in {sorted(allowed_statuses)!r}"
+            )
+        if method not in PLAN_TRANSFORM_ONLY_METHODS and row["runtime_execution"] is not True:
+            blockers.append(f"{method}: feasible method shape must have runtime_execution=true")
+        if method in PLAN_TRANSFORM_ONLY_METHODS and row["runtime_execution"] is not False:
+            blockers.append(f"{method}: plan-transform method must remain plan-only")
+        if not row["required_evidence"]:
+            blockers.append(f"{method}: required_evidence is required")
+        if not str(row["claim_boundary"]).strip():
+            blockers.append(f"{method}: claim_boundary is required")
+
+    return rows, status_counts, blockers
 
 
 def validate_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
@@ -324,12 +454,26 @@ def validate_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
 def build_report(repo_root: Path) -> dict[str, Any]:
     matrix = load_matrix(repo_root)
     rows, matrix_blockers = validate_matrix(matrix)
+    dataframe_methods, dataframe_status_counts, dataframe_blockers = (
+        validate_dataframe_method_surface(load_dataframe_method_matrix(repo_root))
+    )
     marker_blockers = missing_marker_blockers(repo_root)
-    blockers = [*matrix_blockers, *marker_blockers]
+    blockers = [*matrix_blockers, *dataframe_blockers, *marker_blockers]
     remaining_gaps = [
         row
         for row in rows
         if row["parity_status"] == "front_door_gap" or row["blocker_id"]
+    ]
+    dataframe_named_surface_rows = [
+        row
+        for row in dataframe_methods
+        if row["method"] in REQUIRED_DATAFRAME_METHOD_STATUSES
+    ]
+    dataframe_pending_or_unsupported_rows = [
+        row
+        for row in dataframe_methods
+        if "pending" in str(row["support_status"]).lower()
+        or "unsupported" in str(row["support_status"]).lower()
     ]
     return {
         "schema_version": SCHEMA_VERSION,
@@ -348,6 +492,22 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "performance_equivalence_claim_allowed": matrix.performance_equivalence_claim_allowed,
         "all_no_fallback_no_external_engine": matrix.all_no_fallback_no_external_engine,
         "row_count": len(rows),
+        "dataframe_method_row_count": len(dataframe_methods),
+        "dataframe_method_support_status_counts": dataframe_status_counts,
+        "dataframe_method_blocker_count": len(
+            [row for row in dataframe_methods if row["blocker_id"]]
+        ),
+        "dataframe_method_pending_or_unsupported_count": len(
+            dataframe_pending_or_unsupported_rows
+        ),
+        "dataframe_named_runtime_surface_status": (
+            "passed" if not dataframe_blockers else "blocked"
+        ),
+        "dataframe_named_runtime_surface_ids": [
+            str(row["method"]) for row in dataframe_named_surface_rows
+        ],
+        "dataframe_named_runtime_surface_rows": dataframe_named_surface_rows,
+        "dataframe_plan_transform_only_method_ids": sorted(PLAN_TRANSFORM_ONLY_METHODS),
         "runtime_gap_status_vocabulary": [
             ADMITTED_RUNTIME_GAP_STATUS,
             *sorted(PRECISE_RUNTIME_GAP_STATUSES),

@@ -171,11 +171,7 @@ python examples\local-python-smoke\run.py --repo-root .
 ```
 
 The selected local/source/package v1 release track is source checkout plus GitHub pre-release,
-TestPyPI, PyPI, and Homebrew. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for
-v0.1.4; later patch releases must add their own channel-proof transcripts before this README or
-package-status docs advance their published-version wording. Scoop/winget/conda are feasible later
-channels, while real production object-store, lakehouse, distributed, live/hybrid, and Foundry
-claims stay fail-closed without environments.
+TestPyPI, PyPI, and Homebrew. Source is currently at v0.1.5. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for v0.1.4 with checked-in channel proof until the next release pass advances the transcripts. Scoop/winget/conda are feasible later channels, while real production object-store, lakehouse, distributed, live/hybrid, and Foundry claims stay fail-closed without environments.
 
 Package installs:
 
@@ -405,7 +401,9 @@ python3 scripts/check_clickbench_olap_runtime_coverage.py
 
 The generated coverage report includes route readiness, state-budget families, capillary work
 units, PulseWeave pressure signals, fail-closed spill posture, and the small/medium/full fixture
-strategy. It does not contain ClickBench timing results.
+strategy. The report-level `route_family_counts`, `memory_spill_diagnostic_status`, and
+`site_readiness_claim_boundary` fields exist for the benchmark site and release gates; they do not
+contain ClickBench timing results.
 
 Current promoted local snapshot:
 

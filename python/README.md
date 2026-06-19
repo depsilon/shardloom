@@ -32,11 +32,11 @@ python -m pip install -e python
 ```
 
 The source package exposes the v0.1.5 technical-preview version through
-`shardloom.__version__`. Until the v0.1.5 release train lands, the selected published package
-channels remain proof-backed at v0.1.4. The PyPI package is published as `shardloom==0.1.4`;
-GitHub release assets and the `depsilon/tap/shardloom` Homebrew formula are also published for
-v0.1.4. These channels are install access only and do not imply production readiness, broad runtime
-support, or performance claims.
+`shardloom.__version__`. The selected published package channels are currently proof-backed at
+v0.1.4 until the next release pass advances the checked-in channel-proof contract. The PyPI package
+is published as `shardloom==0.1.4`; GitHub release assets and the `depsilon/tap/shardloom` Homebrew
+formula are also proof-backed for v0.1.4. These channels are install access only and do not imply
+production readiness, broad runtime support, or performance claims.
 
 ```sh
 python -m pip install shardloom==0.1.4
@@ -1547,10 +1547,10 @@ report-only surfaces into runtime support.
 
 ## Package Build Smoke
 
-The current source package is v0.1.5; the latest published channel proof remains v0.1.4 until the
-v0.1.5 release train lands. It is a Python client surface over ShardLoom's CLI, with bundled CLI
-resources in supported platform wheels. Bundled platform-wheel readiness can be checked locally
-without publishing:
+The current source package is v0.1.5; the latest selected published channel proof remains v0.1.4
+until the next release pass updates the release contract. It is a Python client surface over
+ShardLoom's CLI, with bundled CLI resources in supported platform wheels.
+Bundled platform-wheel readiness can be checked locally without publishing:
 
 ```powershell
 python -m pip install build

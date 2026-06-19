@@ -1261,7 +1261,6 @@ impl VortexQueryPrimitiveRequest {
     pub fn with_sample_fraction(mut self, fraction: f64) -> Self {
         self.sample_fraction = Some(fraction);
         self.source_order_limit = None;
-        self.sample_with_replacement = false;
         self
     }
     #[must_use]
@@ -2148,6 +2147,30 @@ mod tests {
         );
         assert_eq!(req.kind, VortexQueryPrimitiveKind::CountWhere);
         assert!(req.predicate.is_some());
+    }
+    #[test]
+    fn sample_fraction_builder_preserves_replacement_policy() {
+        let from_count_sample =
+            VortexQueryPrimitiveRequest::sample_rows(uri(), ProjectionRequest::all(), None, 10, 7)
+                .with_sample_replacement(true)
+                .with_sample_fraction(0.5);
+        assert_eq!(from_count_sample.kind, VortexQueryPrimitiveKind::SampleRows);
+        assert_eq!(from_count_sample.source_order_limit, None);
+        assert_eq!(from_count_sample.sample_seed, Some(7));
+        assert_eq!(from_count_sample.sample_fraction, Some(0.5));
+        assert!(from_count_sample.sample_with_replacement);
+
+        let from_fraction_sample = VortexQueryPrimitiveRequest::sample_fraction_rows(
+            uri(),
+            ProjectionRequest::all(),
+            None,
+            0.25,
+            11,
+        )
+        .with_sample_replacement(true);
+        assert_eq!(from_fraction_sample.sample_fraction, Some(0.25));
+        assert_eq!(from_fraction_sample.sample_seed, Some(11));
+        assert!(from_fraction_sample.sample_with_replacement);
     }
     fn seg_with_stats(
         row_count: Option<u64>,
