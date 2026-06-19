@@ -11190,6 +11190,11 @@ class ShardLoomClient:
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
+        vortex_expression_projection: str | None = None,
+        vortex_melt_projection: str | None = None,
+        vortex_explode_projection: str | None = None,
+        vortex_pivot_projection: str | None = None,
+        vortex_rolling_window: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -11240,6 +11245,11 @@ class ShardLoomClient:
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
+            vortex_expression_projection=vortex_expression_projection,
+            vortex_melt_projection=vortex_melt_projection,
+            vortex_explode_projection=vortex_explode_projection,
+            vortex_pivot_projection=vortex_pivot_projection,
+            vortex_rolling_window=vortex_rolling_window,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -11277,6 +11287,11 @@ class ShardLoomClient:
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
+        vortex_expression_projection: str | None = None,
+        vortex_melt_projection: str | None = None,
+        vortex_explode_projection: str | None = None,
+        vortex_pivot_projection: str | None = None,
+        vortex_rolling_window: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -11314,6 +11329,11 @@ class ShardLoomClient:
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
+            vortex_expression_projection=vortex_expression_projection,
+            vortex_melt_projection=vortex_melt_projection,
+            vortex_explode_projection=vortex_explode_projection,
+            vortex_pivot_projection=vortex_pivot_projection,
+            vortex_rolling_window=vortex_rolling_window,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -11384,6 +11404,11 @@ class ShardLoomClient:
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
+        vortex_expression_projection: str | None = None,
+        vortex_melt_projection: str | None = None,
+        vortex_explode_projection: str | None = None,
+        vortex_pivot_projection: str | None = None,
+        vortex_rolling_window: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
     ) -> list[CommandPart]:
@@ -11433,6 +11458,11 @@ class ShardLoomClient:
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
+            vortex_expression_projection=vortex_expression_projection,
+            vortex_melt_projection=vortex_melt_projection,
+            vortex_explode_projection=vortex_explode_projection,
+            vortex_pivot_projection=vortex_pivot_projection,
+            vortex_rolling_window=vortex_rolling_window,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -13905,6 +13935,11 @@ def _append_public_vortex_payload_args(
     vortex_source_order_limit: int | None,
     vortex_sample_seed: int | None,
     vortex_sample_fraction: float | None,
+    vortex_expression_projection: str | None,
+    vortex_melt_projection: str | None,
+    vortex_explode_projection: str | None,
+    vortex_pivot_projection: str | None,
+    vortex_rolling_window: str | None,
     memory_gb: int | None,
     max_parallelism: int | None,
 ) -> None:
@@ -13941,6 +13976,31 @@ def _append_public_vortex_payload_args(
                 _sample_fraction_arg(vortex_sample_fraction),
             ]
         )
+    if vortex_expression_projection is not None:
+        payload = str(vortex_expression_projection).strip()
+        if not payload:
+            raise ValueError("vortex_expression_projection must not be empty")
+        args.extend(["--vortex-expression-projection", payload])
+    if vortex_melt_projection is not None:
+        payload = str(vortex_melt_projection).strip()
+        if not payload:
+            raise ValueError("vortex_melt_projection must not be empty")
+        args.extend(["--vortex-melt-projection", payload])
+    if vortex_explode_projection is not None:
+        payload = str(vortex_explode_projection).strip()
+        if not payload:
+            raise ValueError("vortex_explode_projection must not be empty")
+        args.extend(["--vortex-explode-projection", payload])
+    if vortex_pivot_projection is not None:
+        payload = str(vortex_pivot_projection).strip()
+        if not payload:
+            raise ValueError("vortex_pivot_projection must not be empty")
+        args.extend(["--vortex-pivot-projection", payload])
+    if vortex_rolling_window is not None:
+        payload = str(vortex_rolling_window).strip()
+        if not payload:
+            raise ValueError("vortex_rolling_window must not be empty")
+        args.extend(["--vortex-rolling-window", payload])
     if memory_gb is not None:
         args.extend(["--memory-gb", str(_positive_int("memory_gb", memory_gb))])
     if max_parallelism is not None:

@@ -361,6 +361,7 @@ fn generalized_projection_local_scan_pushdown_safe(
                     && report.filter_pushdown_applied
                     && report.upstream_filter_expression_used
             }
+            VortexQueryPrimitiveKind::ExpressionProjectRows => false,
             _ => false,
         }
 }

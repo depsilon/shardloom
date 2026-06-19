@@ -158,6 +158,65 @@ REQUIRED_SAMPLING_RUNTIME_METHODS = [
     "sample",
 ]
 
+REQUIRED_DEDUP_RUNTIME_METHODS = [
+    "duplicated",
+]
+
+REQUIRED_RESHAPE_RUNTIME_METHODS = [
+    "melt",
+    "explode",
+    "pivot",
+    "pivot_table",
+]
+
+REQUIRED_RESHAPE_RUNTIME_EVIDENCE = {
+    "melt": [
+        "native_vortex_melt_primitive",
+        "explicit_id_value_column_contract",
+        "same_typed_value_columns",
+        "explicit_decode_materialization_boundary",
+    ],
+    "explode": [
+        "native_vortex_explode_primitive",
+        "typed_list_projection",
+        "list_element_scalar_contract",
+        "explicit_decode_materialization_boundary",
+    ],
+    "pivot": [
+        "native_vortex_pivot_primitive",
+        "single_index_column_contract",
+        "single_pivot_column_contract",
+        "single_value_column_contract",
+        "duplicate_cell_fail_closed_policy",
+        "explicit_decode_materialization_boundary",
+    ],
+    "pivot_table": [
+        "native_vortex_pivot_primitive",
+        "single_index_column_contract",
+        "single_pivot_column_contract",
+        "single_value_column_contract",
+        "explicit_aggregate_kernel",
+        "explicit_decode_materialization_boundary",
+    ],
+}
+
+REQUIRED_WINDOW_RUNTIME_METHODS = [
+    "rolling",
+]
+
+REQUIRED_PLAN_TRANSFORM_METHODS = [
+    "apply",
+    "pipe",
+]
+
+REQUIRED_EXPRESSION_RUNTIME_METHODS = [
+    "applymap",
+    "eval",
+    "map",
+    "map_rows",
+    "transform",
+]
+
 REQUIRED_COMBINE_RUNTIME_METHODS = [
     "merge",
     "concat",
@@ -179,23 +238,7 @@ REQUIRED_INDEX_METADATA_METHODS = [
     "sort_index",
 ]
 
-REQUIRED_UNSUPPORTED_METHODS = [
-    "explode",
-    "pivot",
-    "pivot_table",
-    "melt",
-    "rolling",
-    "duplicated",
-    "mask",
-    "replace",
-    "apply",
-    "pipe",
-    "transform",
-    "applymap",
-    "map",
-    "map_rows",
-    "eval",
-]
+REQUIRED_UNSUPPORTED_METHODS: list[str] = []
 
 REQUIRED_DOC_MARKERS = {
     "README.md": [
@@ -294,7 +337,9 @@ REQUIRED_TEST_MARKERS = {
         "source.nlargest(5, \"amount\")",
         "test_local_csv_query_builder_sample_collect_routes_through_prepared_vortex",
         "native_vortex_sample",
-        "workflow.explode(\"items\")",
+        "test_local_csv_query_builder_explode_routes_through_prepared_vortex_explode",
+        "test_local_csv_query_builder_pivot_routes_through_prepared_vortex_pivot",
+        "test_local_csv_query_builder_pivot_table_routes_through_prepared_vortex_pivot",
         "workflow.pipe(\"workflow_udf\", \"arg1\", config=\"strict\")",
         "workflow.transform(\"column_udf\")",
         "workflow.applymap(\"cell_udf\")",
@@ -570,6 +615,11 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_TOP_N_RUNTIME_METHODS,
         *REQUIRED_SOURCE_ORDER_RUNTIME_METHODS,
         *REQUIRED_SAMPLING_RUNTIME_METHODS,
+        *REQUIRED_DEDUP_RUNTIME_METHODS,
+        *REQUIRED_RESHAPE_RUNTIME_METHODS,
+        *REQUIRED_WINDOW_RUNTIME_METHODS,
+        *REQUIRED_PLAN_TRANSFORM_METHODS,
+        *REQUIRED_EXPRESSION_RUNTIME_METHODS,
         *REQUIRED_COMBINE_RUNTIME_METHODS,
         *REQUIRED_NULL_RUNTIME_METHODS,
         *REQUIRED_UNSUPPORTED_METHODS,
@@ -597,6 +647,11 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_TOP_N_RUNTIME_METHODS,
         *REQUIRED_SOURCE_ORDER_RUNTIME_METHODS,
         *REQUIRED_SAMPLING_RUNTIME_METHODS,
+        *REQUIRED_DEDUP_RUNTIME_METHODS,
+        *REQUIRED_RESHAPE_RUNTIME_METHODS,
+        *REQUIRED_WINDOW_RUNTIME_METHODS,
+        *REQUIRED_PLAN_TRANSFORM_METHODS,
+        *REQUIRED_EXPRESSION_RUNTIME_METHODS,
         *REQUIRED_COMBINE_RUNTIME_METHODS,
         "sql",
     ]:
@@ -738,6 +793,129 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         ]:
             if evidence not in required_evidence:
                 blockers.append(f"{method}: sampling runtime row missing {evidence}")
+
+    for method in REQUIRED_DEDUP_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: deduplication runtime support must be production_admitted_local_workflow"
+            )
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: deduplication runtime support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: deduplication runtime support requires data_read true")
+        if row.get("materialization_required") is not True:
+            blockers.append(f"{method}: deduplication runtime must report materialization_required")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: deduplication runtime row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in [
+            "native_vortex_duplicate_mask_primitive",
+            "duplicate_mask_semantics",
+            "keep_first_subset_contract",
+            "explicit_decode_materialization_boundary",
+        ]:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: deduplication runtime row missing {evidence}")
+
+    for method in REQUIRED_RESHAPE_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: reshape runtime support must be production_admitted_local_workflow"
+            )
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: reshape runtime support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: reshape runtime support requires data_read true")
+        if row.get("materialization_required") is not True:
+            blockers.append(f"{method}: reshape runtime must report materialization_required")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: reshape runtime row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in REQUIRED_RESHAPE_RUNTIME_EVIDENCE.get(method, []):
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: reshape runtime row missing {evidence}")
+
+    for method in REQUIRED_WINDOW_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: window runtime support must be production_admitted_local_workflow"
+            )
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: window runtime support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: window runtime support requires data_read true")
+        if row.get("materialization_required") is not True:
+            blockers.append(f"{method}: window runtime must report materialization_required")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: window runtime row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in [
+            "native_vortex_rolling_window_primitive",
+            "source_order_window_contract",
+            "bounded_window_state",
+            "complete_window_sum_semantics",
+            "explicit_decode_materialization_boundary",
+        ]:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: window runtime row missing {evidence}")
+
+    for method in REQUIRED_PLAN_TRANSFORM_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "lazy_plan_supported":
+            blockers.append(f"{method}: plan-transform support must be lazy_plan_supported")
+        if row.get("runtime_execution") is not False:
+            blockers.append(f"{method}: plan-transform support must not claim direct runtime execution")
+        if row.get("data_read") is not False:
+            blockers.append(f"{method}: plan-transform support must not claim data_read")
+        if row.get("materialization_required") is not False:
+            blockers.append(f"{method}: plan-transform support must not require materialization")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: plan-transform row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in [
+            "explicit_shardloom_plan_transform_wrapper",
+            "lazy_plan_return_type_contract",
+            "terminal_route_preserves_execution_certificate",
+        ]:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: plan-transform row missing {evidence}")
+
+    for method in REQUIRED_EXPRESSION_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: expression runtime support must be production_admitted_local_workflow"
+            )
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: expression runtime support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: expression runtime support requires data_read true")
+        if row.get("materialization_required") is not True:
+            blockers.append(f"{method}: expression runtime must report materialization_required")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: expression runtime row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in [
+            "native_vortex_expression_project_primitive",
+            "numeric_scalar_assignment_contract",
+            "typed_expression_contract",
+            "explicit_decode_materialization_boundary",
+        ]:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: expression runtime row missing {evidence}")
 
     for method in REQUIRED_COMBINE_RUNTIME_METHODS:
         row = by_method.get(method)
@@ -1017,6 +1195,61 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_SAMPLING_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_deduplication_methods",
+            "scoped DataFrame duplicate-mask methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_DEDUP_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_reshape_methods",
+            "scoped DataFrame reshape runtime methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_RESHAPE_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_window_methods",
+            "scoped DataFrame window runtime methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_WINDOW_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_plan_transform_methods",
+            "scoped DataFrame plan-transform methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_PLAN_TRANSFORM_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_lazy_plan_rows_present",
+        ),
+        _row(
+            "scoped_expression_runtime_methods",
+            "scoped DataFrame expression runtime methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_EXPRESSION_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
             status_when_passed="scoped_runtime_rows_present",

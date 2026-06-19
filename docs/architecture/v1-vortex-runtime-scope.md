@@ -24,6 +24,8 @@ The machine-readable sources for this scope are:
 - `ShardLoomContext.native_vortex_provider_route_certificate_report()`
 - `ShardLoomContext.user_route_capability_report()`
 - `ShardLoomContext.local_file_benchmark_route_report()`
+- `benchmarks/clickbench/queries.sql`
+- `scripts/check_clickbench_olap_runtime_coverage.py`
 - `scripts/check_v1_vortex_runtime_scope.py`
 - `scripts/check_user_route_capability_report.py`
 
@@ -71,8 +73,9 @@ through the shared `public_workflow_run` facade with `surface=dataframe` or `sur
 logical plan or SQL statement attached, and `execution_policy=native_vortex`. The facade then
 dispatches only the admitted primitive payloads to `vortex-run`, `vortex-count-where`,
 `vortex-filter`, `vortex-project`, `vortex-filter-project`, or the scoped row-level distinct and
-source-order tail local Vortex primitives. This is still scoped primitive support, not broad Vortex
-SQL/DataFrame parity.
+source-order tail local Vortex primitives. Scoped SQL count/filter predicates include integer
+`=`, `<>`/`!=`, `<`, `<=`, `>`, and `>=`, plus supported null predicates. This is still scoped
+primitive support, not broad Vortex SQL/DataFrame parity.
 
 The admitted direct `.vortex` benchmark-family user routes are exact-shape provider routes:
 Python/DataFrame-style chains and equivalent exact SQL statements that match the existing native
@@ -93,8 +96,9 @@ Every native Vortex public route also emits the route-unification contract field
 `native_vortex_next_action`, `typed_result_contract`, `typed_sink_contract`, and
 `decode_materialization_boundary`. The same fields are attached to public run envelopes with the
 `public_workflow_` prefix. These fields are evidence metadata; they do not make a blocked operator
-supported. Count-style primitive routes report `native_vortex_capability_status=supported`;
-row-returning filter/project/filter-project/distinct/tail/sample primitive routes report
+supported. Count-style and scalar aggregate primitive routes report
+`native_vortex_capability_status=supported`;
+row-returning filter/project/filter-project/distinct/duplicate-mask/tail/sample/expression-project/melt/explode/rolling primitive routes report
 `native_vortex_capability_status=supported_with_materialization_boundary`. The matching
 `write_jsonl()` / `write_csv()` / JSONL+CSV `fanout()` shapes route to
 `native_vortex_primitive_row_export` and report
@@ -106,13 +110,17 @@ families:
 | Blocked family | Stable blocker ID |
 | --- | --- |
 | Unshaped/general native Vortex query | `py-vortex-route-unify-1.native_vortex_general_route_missing` |
-| Aggregate shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_aggregate_route_missing` |
+| Aggregate shape outside admitted scalar aggregate primitive or provider scenarios, such as grouped aggregate, grouped top-K, count-distinct, HAVING, or broad SQL aggregate planning | `py-vortex-route-unify-1.native_vortex_aggregate_route_missing` |
 | Join shape without admitted right-input/provider scenario | `py-vortex-route-unify-1.native_vortex_join_state_missing` |
 | Top-N shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_top_n_route_missing` |
 | Cast/try-cast shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_cast_route_missing` |
 | Substring contains shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_contains_route_missing` |
 | Row-level distinct/deduplication outside no-argument scalar/bool/UTF-8 primitive shapes, such as subset/keep variants, nested equality, nullable equality, or broad SQL/DataFrame distinct semantics | `py-vortex-route-unify-1.native_vortex_distinct_route_missing` |
+| Duplicate-mask variants outside scoped `duplicated(subset=..., keep="first")`, such as `keep="last"`, `keep=False`, nested equality, nullable equality, or hidden pandas index-state parity | `py-vortex-route-unify-1.native_vortex_duplicate_mask_route_missing` or scoped workflow blocker |
 | Sampling outside deterministic no-replacement `sample(n=..., seed=...|random_state=<int>, replace=False)` or `sample(frac|fraction=..., seed=...|random_state=<int>)`, such as weighted, replacement, pandas RNG-object parity, or unbounded sampling | `cg21.workflow.sample.variant_not_admitted` |
+| Expression rewrite outside scoped typed scalar `mask(predicate, scalar)`, full-cell scalar `replace(old, new)`, in-place UTF-8 `with_column("col", col("col").replace(...))`, or `eval("col = col + scalar")` numeric scalar assignment over declared/projection columns, such as broad pandas alignment, Python/numexpr eval, regex/callable/method/limit, nested, mixed-dtype, or null rewrite variants | `py-vortex-route-unify-1.native_vortex_expression_project_route_missing` or scoped workflow blocker |
+| Reshape outside scoped `melt(id_vars=..., value_vars=...)` with explicit flat scalar id/value columns and same-typed value columns, scoped `explode("list_column")` over one declared scalar list column, or scoped `pivot(...)` / `pivot_table(...)` over one index column, one pivot column, and one value column, such as heterogeneous unpivot, nullable/nested/multi-column explode, multi-index/multi-value pivot, custom pivot aggregates, hidden index-state reshape, or broad pandas parity | `py-vortex-route-unify-1.native_vortex_melt_route_missing`, `py-vortex-route-unify-1.native_vortex_explode_route_missing`, `py-vortex-route-unify-1.native_vortex_pivot_route_missing`, or scoped workflow blocker |
+| Windowing outside scoped `rolling(window=<positive int>, min_periods<=window, center=false).sum(column, alias=...)` over one scalar numeric source-order stream, such as time/calendar windows, centered windows, arbitrary frame bounds, Python callbacks, or broad pandas parity | `py-vortex-route-unify-1.native_vortex_rolling_window_route_missing` or scoped workflow blocker |
 | Provider-result compatibility sink outside JSONL/CSV | `py-vortex-route-unify-1.native_vortex_sink_format_missing` |
 | Primitive row-stream sink outside JSONL/CSV/fanout contract, invalid fanout payload, duplicate output, or unsafe output path | `py-vortex-route-unify-1.native_vortex_sink_format_missing`, `py-vortex-route-unify-1.native_vortex_fanout_payload_invalid`, `py-vortex-route-unify-1.native_vortex_fanout_sink_format_missing`, `py-vortex-route-unify-1.native_vortex_fanout_duplicate_output`, `py-vortex-route-unify-1.native_vortex_row_export_output_path_unsafe` |
 
@@ -132,13 +140,42 @@ The scoped local primitive report admits these route ids:
 | `vortex_filter_project_collect` | Filter and project supported columns. | No |
 | `vortex_filter_project_limit_collect` | Filter and project supported columns with source-order limit. | Yes |
 | `native_vortex_distinct` | Materialize no-argument row-level distinct/deduplication over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
+| `native_vortex_duplicate_mask` | Materialize scoped `duplicated(subset=..., keep="first")` boolean masks over supported scalar/bool/UTF-8 row-key columns with explicit decode/materialization evidence. | Yes |
 | `vortex_tail_collect` | Materialize bounded source-order tail over supported scalar/bool/UTF-8 row streams with optional projection and explicit decode/materialization evidence. | Yes |
 | `vortex_sample_collect` | Materialize deterministic no-replacement `sample(n=..., seed=...|random_state=<int>, replace=False)` or `sample(frac|fraction=..., seed=...|random_state=<int>)` over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
-| `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/tail/sample row streams to JSONL/CSV, including JSONL+CSV fanout. | Yes |
+| `vortex_expression_project_collect` | Materialize scoped typed scalar expression-project rewrites for `mask(predicate, scalar)`, full-cell scalar `replace(old, new)`, in-place UTF-8 string replacement, and numeric scalar assignment over declared/projection columns with explicit decode/materialization and changed-column evidence. | Yes |
+| `vortex_melt_collect` | Materialize scoped flat scalar melt/unpivot over explicit id/value columns with same-typed value columns and explicit row-expansion materialization evidence. | Yes |
+| `vortex_explode_collect` | Materialize scoped row expansion for one declared scalar list/fixed-size-list column with optional scalar companion columns, empty-list zero-row behavior, and explicit decode/materialization evidence. | Yes |
+| `vortex_pivot_collect` / `vortex_pivot_row_export` | Materialize scoped wide reshape for one index column, one pivot column, and one value column through first-unique or sum/count/mean aggregate policy with explicit decode/materialization evidence; sparse JSONL emits missing pivot cells as `null`, and CSV emits missing pivot cells as empty fields. | Yes |
+| `vortex_rolling_window_collect` | Materialize scoped source-order `rolling(...).sum(...)` over one numeric column with bounded window state and explicit decode/materialization evidence. | Yes |
+| `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/duplicate-mask/tail/sample/expression-project/melt/explode/rolling-window row streams and scalar aggregate result rows to JSONL/CSV, including JSONL+CSV fanout. | Yes |
 
 Each route must expose SQL, Python, DataFrame-style, context, session, and CLI surfaces. Each route
 must name output route, evidence route, materialization/decode boundary, required evidence,
 `claim_gate_status=not_claim_grade`, and the scoped claim boundary.
+
+## ClickBench OLAP Coverage Map
+
+ShardLoom tracks ClickBench query-family readiness through
+`benchmarks/clickbench/queries.sql` and
+`scripts/check_clickbench_olap_runtime_coverage.py`. The manifest contains the 43 canonical
+`hits` queries and the checker emits `target/clickbench-olap-runtime-coverage.json` with query ids,
+operator tags, input columns, result-shape classification, current route status, implementation
+ids, and no-fallback fields.
+
+The coverage map is an implementation driver, not a benchmark result. Current admitted direct
+Vortex SQL rows cover primitive count-all, integer not-equal filtered count, integer equality
+point lookup/filter-project shapes, no-group scalar aggregate projections over `count`, `sum`,
+`avg`, `min`, and `max`, count-distinct aggregate state, filtered grouped aggregates, grouped
+top-K/order/offset result rows, multi-key grouped aggregates, and repeated `SUM(column +/- constant)`
+aggregate measures. The current local map validates 28 admitted rows and 15 implementation-required
+rows.
+
+Remaining ClickBench rows are open implementation tracks for raw-row sort/top-K, UTF-8
+`LIKE`/`NOT LIKE` predicates, `IN` predicates, date/time extraction/truncation, `length` and
+`HAVING`, regex-replace group keys, group ordinals/constants, arithmetic group-key projection, and
+`CASE` group keys. Those rows require real ShardLoom/Vortex-native kernels; they must not be
+satisfied through external engine delegation, permanent blockers, or scenario-only shims.
 
 ## Supported Exact Native Vortex Provider Routes
 
@@ -161,9 +198,10 @@ traditional-analytics runtime scenarios:
 These routes emit `public_workflow_native_vortex_provider_scenario` and
 `public_workflow_native_vortex_right_input` fields. Provider-backed `write_jsonl()` and
 `write_csv()` export the bounded provider `result_json` after native Vortex execution with explicit
-decode/materialization evidence. Primitive filter/project/filter-project/distinct/tail/sample
-row-stream exports and JSONL/CSV fanout are admitted through `native_vortex_primitive_row_export` with explicit
-selected-column decode/materialization evidence. Arbitrary compatibility exports, unsupported
+decode/materialization evidence. Primitive filter/project/filter-project/distinct/duplicate-mask/tail/sample/expression-project/melt/explode/rolling
+row-stream exports, scalar aggregate one-row result exports, and JSONL/CSV fanout are admitted
+through `native_vortex_primitive_row_export` with explicit selected-column or result-row
+decode/materialization evidence. Arbitrary compatibility exports, unsupported
 formats, and non-admitted operator shapes remain blocked. Arbitrary SQL parity remains out of
 scope; only the exact shapes above emit the provider payload.
 

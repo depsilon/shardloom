@@ -450,8 +450,14 @@ pub fn evaluate_vortex_metadata_physical_kernels(
         VortexQueryPrimitiveKind::ProjectColumns
         | VortexQueryPrimitiveKind::FilterAndProject
         | VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::DuplicateMaskRows
         | VortexQueryPrimitiveKind::TailRows
         | VortexQueryPrimitiveKind::SampleRows
+        | VortexQueryPrimitiveKind::ExpressionProjectRows
+        | VortexQueryPrimitiveKind::MeltRows
+        | VortexQueryPrimitiveKind::ExplodeRows
+        | VortexQueryPrimitiveKind::PivotRows
+        | VortexQueryPrimitiveKind::RollingWindowRows
         | VortexQueryPrimitiveKind::SimpleAggregate
         | VortexQueryPrimitiveKind::Unsupported => VortexMetadataPhysicalKernelReport::blocked(
             result,

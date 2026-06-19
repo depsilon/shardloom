@@ -32,6 +32,9 @@ blanket performance claims:
   admitted Vortex route or fail closed, native Vortex inputs stay native, and non-admitted plans
   emit deterministic diagnostics instead of running through Spark, DataFusion, DuckDB, Polars,
   pandas, or another engine.
+  - compatibility inputs are source adapters, not alternate execution engines.
+  - native/prepared Vortex routes must report their route ID, feature gate, and runtime mode.
+  - direct local smoke paths stay internal safeguards and cannot masquerade as product runtime.
 - **Evidence-certified routes**: every public workflow is expected to expose what actually ran:
   source admission, Vortex preparation, execution mode, output planning, certificate state,
   fallback/external-engine status, and claim posture.
@@ -58,8 +61,14 @@ blanket performance claims:
 - **Metadata-first, late-materialized execution**: ShardLoom tries to answer from metadata, prune
   segments, compute over encoded Vortex data, decode only what is needed, and materialize at
   explicit output boundaries.
+  - metadata and statistics checks run before row reads where the route supports them.
+  - segment pruning and encoded kernels are preferred before decode.
+  - collect and compatibility writes must report bounded decode/materialization evidence.
 - **Timing-surface discipline**: hot runtime, replay proof, and publication proof are separated so
   proof-heavy evidence work does not silently become a query-runtime claim.
+  - `hot_runtime` covers the query/runtime lane.
+  - `full_replay_proof` covers replayable machine proof.
+  - `publication_proof` covers result-sink and human evidence rendering work.
 - **Patent-pending design notice**: PulseWeave, capillary work units, dynamic work shaping, and
   related route/evidence/certificate machinery include patent-pending design elements. ShardLoom
   remains distributed under Apache-2.0; this notice is informational, preserves attribution, and
@@ -128,8 +137,9 @@ This table is a README summary; the canonical public status matrix and claim bou
 | Local first-10-minutes smoke | Supported through local dry-run and Python examples. | Local technical-preview evidence only. |
 | CLI and Python front doors | Scoped local CSV, JSONL/NDJSON, flat JSON, generated rows, local Vortex, and selected feature-gated file/sink paths. | No broad SQL/DataFrame, package, production, or performance claim. |
 | SQL/DataFrame-style use | Many scoped local-source projections, filters, joins, aggregates, subqueries, aliases, bounded collects, metadata profiles, native Vortex writes, and scoped Vortex-derived JSONL/CSV row exports are admitted through ShardLoom routes. | Arbitrary compatibility exports still require a native Vortex-derived export contract; not PySpark/pandas/Polars parity and not broad production SQL/DataFrame support. |
+| OLAP query-family coverage | ClickBench query-family readiness is tracked by `benchmarks/clickbench/queries.sql` and `scripts/check_clickbench_olap_runtime_coverage.py`; the current local map validates 28 admitted rows and 15 implementation-required rows. Admitted rows use native Vortex SQL primitive routes, and remaining feasible rows stay open as reusable runtime families. | Coverage map only; no ClickBench performance or superiority claim without a promoted benchmark artifact. |
 | Vortex preparation | Feature-gated local `vortex_ingest` creates local `.vortex` artifacts with SourceState and VortexPreparedState evidence. | Scoped local flat-schema evidence; no broad writer, object-store, table, or performance claim. |
-| Local output/sink scope | `write_vortex(...)` is the highest-fidelity admitted native local sink for provider-backed routes. Exact provider-backed Vortex result summaries can export bounded `result_json` to workspace-safe `write_jsonl(...)` and `write_csv(...)`; scoped primitive filter/project/filter-project/distinct/tail/sample row streams can export JSONL/CSV and JSONL+CSV fanout through `native_vortex_primitive_row_export`. Broader `write(...)`, unsupported formats, unsafe fanout, and arbitrary compatibility exports block until a native Vortex-derived export contract exists. | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
+| Local output/sink scope | `write_vortex(...)` is the highest-fidelity admitted native local sink for provider-backed routes. Exact provider-backed Vortex result summaries can export bounded `result_json` to workspace-safe `write_jsonl(...)` and `write_csv(...)`; scoped primitive filter/project/filter-project/distinct/tail/sample/expression-project/melt/explode/pivot/rolling-window row streams and scalar/grouped aggregate result rows can export JSONL/CSV and JSONL+CSV fanout through `native_vortex_primitive_row_export`. Scoped pivot/pivot_table JSONL emits sparse wide cells as `null`; CSV emits sparse cells as empty fields. Broader `write(...)`, unsupported formats, unsafe fanout, and arbitrary compatibility exports block until a native Vortex-derived export contract exists. | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly fixture-scoped with report-only or blocked status for broader platform routes. | No production platform claim. |
 | Package/release status | The latest published technical-preview package is available through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
@@ -226,8 +236,24 @@ it admits feature-gated local Vortex primitives, prepared Vortex state, prepared
 artifacts, and generated local Vortex artifacts without claiming broad Vortex support.
 For direct `.vortex` inputs, exact benchmark-family Python and SQL shapes for grouped aggregation,
 hash join, global top-N, cast/try-cast, substring contains, no-argument row-level distinct, scoped
-bounded source-order tail, deterministic no-replacement `sample(n=..., seed=...|random_state=<int>, replace=False)` or `sample(frac|fraction=..., seed=...|random_state=<int>)`, native `write_vortex`
-sinks, and provider-backed bounded
+bounded source-order tail, deterministic no-replacement
+`sample(n=..., seed=...|random_state=<int>, replace=False)` or
+`sample(frac|fraction=..., seed=...|random_state=<int>)`, scoped typed scalar
+`mask(predicate, scalar)` / full-cell `replace(old, new)` / in-place UTF-8
+`with_column("col", sl.col("col").replace(...))` expression-project rewrites,
+`eval("col = col + scalar")` and `transform({"col": sl.col("col") + scalar})`
+numeric scalar assignment, `map(sl.column_transform(...))` / `applymap(sl.column_transform(...))`
+declarative column rewrites, `map_rows(sl.row_transform(...))` declarative row-shaped rewrites, scoped
+`duplicated(subset=..., keep="first")` duplicate masks, explicit
+`melt(id_vars=..., value_vars=...)` flat scalar row expansion, scoped
+`explode("list_column")` over one declared scalar list column, scoped
+`pivot(index=..., columns=..., values=...)` and
+`pivot_table(values=..., index=..., columns=..., aggfunc=sum|count|mean)` over one index/pivot/value
+column, scoped
+`rolling(window=<positive int>, min_periods<=window, center=False).sum(column, alias=...)`, and
+explicit `apply(sl.plan_transform(...))` / `pipe(sl.plan_transform(...))` lazy plan composition, native
+`write_vortex` sinks, and
+provider-backed bounded
 `write_jsonl`/`write_csv` result exports are listed by
 `ctx.native_vortex_provider_route_certificate_report()`; broader arbitrary Vortex SQL/DataFrame
 planning remains outside the v1 support claim and returns deterministic route diagnostics until it
@@ -369,7 +395,14 @@ Use:
 - [docs/benchmarks/local-taxonomy-benchmark.md](docs/benchmarks/local-taxonomy-benchmark.md)
 - [docs/benchmarks/baseline-comparison-boundary.md](docs/benchmarks/baseline-comparison-boundary.md)
 - [benchmarks/traditional_analytics/README.md](benchmarks/traditional_analytics/README.md)
+- [benchmarks/clickbench/README.md](benchmarks/clickbench/README.md)
 - [shardloom.io/benchmarks](https://shardloom.io/benchmarks)
+
+ClickBench OLAP coverage is tracked as a runtime-readiness map, not a benchmark-result row:
+
+```bash
+python3 scripts/check_clickbench_olap_runtime_coverage.py
+```
 
 Current promoted local snapshot:
 

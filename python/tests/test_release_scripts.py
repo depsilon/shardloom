@@ -13541,7 +13541,17 @@ jobs:
         self.assertTrue(by_method["sample"]["runtime_execution"])
         self.assertTrue(by_method["sample"]["materialization_required"])
         self.assertIsNone(by_method["sample"]["blocker_id"])
-        self.assertFalse(by_method["explode"]["runtime_execution"])
+        self.assertEqual(
+            by_method["explode"]["support_status"],
+            "production_admitted_local_workflow",
+        )
+        self.assertTrue(by_method["explode"]["runtime_execution"])
+        self.assertTrue(by_method["explode"]["materialization_required"])
+        self.assertIsNone(by_method["explode"]["blocker_id"])
+        self.assertIn(
+            "native_vortex_explode_primitive",
+            by_method["explode"]["required_evidence"],
+        )
         self.assertEqual(
             by_method["merge"]["support_status"],
             "fixture_smoke_supported",
@@ -13597,14 +13607,51 @@ jobs:
         )
         self.assertEqual(
             by_method["pivot"]["support_status"],
-            "deterministic_unsupported_diagnostic",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
-            "aggregate_reshape_semantics",
+            "native_vortex_pivot_primitive",
+            by_method["pivot"]["required_evidence"],
+        )
+        self.assertIsNone(by_method["pivot"]["blocker_id"])
+        self.assertEqual(
+            by_method["pivot_table"]["support_status"],
+            "production_admitted_local_workflow",
+        )
+        self.assertIn(
+            "native_vortex_pivot_primitive",
             by_method["pivot_table"]["required_evidence"],
         )
-        self.assertIn("unpivot_semantics", by_method["melt"]["required_evidence"])
+        self.assertIn(
+            "explicit_aggregate_kernel",
+            by_method["pivot_table"]["required_evidence"],
+        )
+        self.assertIsNone(by_method["pivot_table"]["blocker_id"])
+        self.assertEqual(
+            by_method["melt"]["support_status"],
+            "production_admitted_local_workflow",
+        )
+        self.assertIn(
+            "native_vortex_melt_primitive",
+            by_method["melt"]["required_evidence"],
+        )
+        self.assertEqual(
+            by_method["rolling"]["support_status"],
+            "production_admitted_local_workflow",
+        )
+        self.assertIn(
+            "native_vortex_rolling_window_primitive",
+            by_method["rolling"]["required_evidence"],
+        )
         self.assertFalse(by_method["rolling"]["write_io"])
+        self.assertEqual(
+            by_method["map_rows"]["support_status"],
+            "production_admitted_local_workflow",
+        )
+        self.assertIn(
+            "declarative_row_transform_contract",
+            by_method["map_rows"]["required_evidence"],
+        )
         self.assertTrue(by_method["to_pandas"]["materialization_required"])
         self.assertIsNone(by_method["to_pandas"]["blocker_id"])
         self.assertEqual(

@@ -1107,7 +1107,9 @@ fn workflow_unsupported_dataframe_operation(token: &str) -> Option<WorkflowUnsup
         "rename" | "rename-columns" | "rename_columns" => Some(workflow_unsupported_rename()),
         "drop" | "drop-columns" | "drop_columns" => Some(workflow_unsupported_drop()),
         "sample" => Some(workflow_unsupported_sample()),
-        "explode" => Some(workflow_unsupported_explode()),
+        "explode-nested" | "explode_nested" | "nested-explode" | "nested_explode" => {
+            Some(workflow_unsupported_explode())
+        }
         "merge" => Some(workflow_unsupported_merge()),
         "concat" => Some(workflow_unsupported_concat()),
         "pivot" => Some(workflow_unsupported_pivot()),
@@ -1490,13 +1492,13 @@ fn workflow_unsupported_sample() -> WorkflowUnsupportedOperation {
 
 fn workflow_unsupported_explode() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
-        operation: "explode",
-        label: "DataFrame nested/list explode",
+        operation: "explode_nested",
+        label: "DataFrame broad nested/list explode",
         surface: "dataframe_nested_transform",
         feature: "cg21.workflow.explode",
         blocker_id: "cg21.workflow.explode.nested_expansion_unsupported",
-        required_evidence: "nested_type_semantics,list_expansion_operator,semantic_conformance_suite,execution_certificate,native_io_certificate,no_fallback_evidence",
-        suggested_next_action: "Keep nested/list expansion as an explicit blocker until native nested semantics and conformance fixtures are certified.",
+        required_evidence: "nested_type_semantics,multi_column_or_nullable_list_expansion_operator,semantic_conformance_suite,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped explode(\"list_column\") for a single declared scalar list column; broad nested, nullable, multi-column, and index-preserving explode variants need separate native semantics before execution.",
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
         write_required: false,
@@ -1539,14 +1541,14 @@ fn workflow_unsupported_concat() -> WorkflowUnsupportedOperation {
 fn workflow_unsupported_pivot() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "pivot",
-        label: "DataFrame pivot",
+        label: "DataFrame pivot variant",
         surface: "dataframe_reshape",
         feature: "cg21.workflow.pivot",
-        blocker_id: "cg21.workflow.pivot.reshape_semantics_unsupported",
-        required_evidence: "reshape_semantics,grouping_key_contract,materialization_boundary,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Keep pivot as an explicit reshape blocker until key cardinality, output schema, materialization, and no-fallback evidence are certified.",
+        blocker_id: "cg21.workflow.pivot.variant_not_admitted",
+        required_evidence: "scoped_pivot_contract,wide_schema_contract,grouping_key_contract,materialization_boundary,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped pivot(index=..., columns=..., values=...) over one index column, one pivot column, and one value column, or add evidence for the broader pivot variant.",
         diagnostic_code: DiagnosticCode::NotImplemented,
-        materialization_required: false,
+        materialization_required: true,
         write_required: false,
         runtime_required: true,
     }
@@ -1555,14 +1557,14 @@ fn workflow_unsupported_pivot() -> WorkflowUnsupportedOperation {
 fn workflow_unsupported_pivot_table() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "pivot_table",
-        label: "DataFrame pivot table",
+        label: "DataFrame pivot-table variant",
         surface: "dataframe_aggregate_reshape",
         feature: "cg21.workflow.pivot_table",
-        blocker_id: "cg21.workflow.pivot_table.aggregate_reshape_unsupported",
-        required_evidence: "aggregate_reshape_semantics,aggregate_operator_capability,grouping_key_contract,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped aggregate/group_by only where evidence exists; aggregate reshape requires native pivot-table semantics and no-fallback evidence.",
+        blocker_id: "cg21.workflow.pivot_table.variant_not_admitted",
+        required_evidence: "scoped_pivot_table_contract,aggregate_operator_capability,grouping_key_contract,wide_schema_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped pivot_table(values=..., index=..., columns=..., aggfunc=sum|count|mean) over one index column, one pivot column, and one value column, or add evidence for the broader aggregate reshape variant.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
-        materialization_required: false,
+        materialization_required: true,
         write_required: false,
         runtime_required: true,
     }
@@ -1587,12 +1589,12 @@ fn workflow_unsupported_melt() -> WorkflowUnsupportedOperation {
 fn workflow_unsupported_rolling() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "rolling",
-        label: "DataFrame rolling window",
-        surface: "dataframe_window",
+        label: "DataFrame broad rolling window variants",
+        surface: "dataframe_broad_window",
         feature: "cg21.workflow.rolling",
-        blocker_id: "cg21.workflow.rolling.window_semantics_unsupported",
-        required_evidence: "window_frame_semantics,ordering_contract,window_operator_capability,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped window(...) only for admitted SQL window projections; rolling DataFrame windows require native frame semantics and no-fallback evidence.",
+        blocker_id: "cg21.workflow.rolling.broad_window_semantics_unsupported",
+        required_evidence: "time_calendar_window_semantics,centered_window_semantics,null_validity_window_semantics,window_operator_capability,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use rolling(window=<positive int>, min_periods<=window, center=false).sum(column, alias=...) for the admitted native/prepared Vortex route; broader rolling variants require certified frame, null, and spill semantics.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: false,
         write_required: false,
@@ -1795,12 +1797,12 @@ fn workflow_unsupported_map() -> WorkflowUnsupportedOperation {
 fn workflow_unsupported_map_rows() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "map_rows",
-        label: "DataFrame row-wise Python map",
-        surface: "dataframe_python_callable",
+        label: "DataFrame broad row-wise callable map variants",
+        surface: "dataframe_broad_row_callable",
         feature: "cg21.workflow.map_rows",
-        blocker_id: "cg21.workflow.map_rows.python_callable_unsupported",
+        blocker_id: "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported",
         required_evidence: "python_callable_policy,row_udf_type_contract,sandbox_policy,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use typed ShardLoom expressions or registered UDF plans; row-wise Python maps require explicit schema, sandbox, and effect evidence.",
+        suggested_next_action: "Use map_rows(sl.row_transform(...)) for the admitted declarative native/prepared Vortex expression-project route; Python row callables and row UDFs require explicit schema, sandbox, and effect evidence.",
         diagnostic_code: DiagnosticCode::UnsupportedEffect,
         materialization_required: false,
         write_required: false,

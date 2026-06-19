@@ -89,7 +89,9 @@ Python/SQL provider routes for grouped aggregation, hash join, global top-N, cas
 substring contains, and native `write_vortex` sink shapes. Scoped primitive routes also cover
 count/filter/project/limit, no-argument row-level distinct, bounded source-order tail, and
 deterministic no-replacement `sample(n=..., seed=...|random_state=<int>, replace=False)` or
-`sample(frac|fraction=..., seed=...|random_state=<int>)`. These
+`sample(frac|fraction=..., seed=...|random_state=<int>)`, and scoped
+`melt(id_vars=..., value_vars=...)` over same-typed value columns plus scoped
+`explode("list_column")` over one declared scalar list column. These
 reports are route evidence, not broad arbitrary Vortex SQL/DataFrame parity or performance claims.
 
 ## Python Query Builder
@@ -113,9 +115,37 @@ objects. Common supported or scoped methods include:
   scoped index metadata `set_index(..., drop=False)`, source-order-preserving
   `reset_index(drop=True)`/`sort_index(ascending=True)`, `nlargest(...)`, `nsmallest(...)`.
 - Null and duplicate helpers: `dropna(...)`, `fillna(...)`, `fill_null(...)`, `isna(...)`,
-  `isnull(...)`, `notna(...)`, `notnull(...)`, `distinct()`, `drop_duplicates()`, `unique()`.
+  `isnull(...)`, `notna(...)`, `notnull(...)`, `distinct()`, `drop_duplicates()`, `unique()`,
+  and scoped `duplicated(subset=..., keep="first")` duplicate masks.
+- Reshape: scoped `melt(id_vars=..., value_vars=..., var_name=..., value_name=...)` for explicit
+  flat scalar id/value columns with same-typed value columns through the native/prepared Vortex
+  melt primitive, scoped `explode("list_column")` over one declared scalar list column through the
+  native/prepared Vortex explode primitive, and scoped `pivot(...)` / `pivot_table(...)` over one
+  index column, one pivot column, and one value column through the native/prepared Vortex pivot
+  primitive; heterogeneous unpivot, nullable/nested/multi-column explode, multi-index/multi-value
+  pivot, custom pivot aggregates, hidden index-state reshape, and broad reshape parity remain
+  deterministic blockers.
+- Windows: scoped `rolling(window=<positive int>, min_periods<=window, center=False).sum(column,
+  alias=...)` for one scalar numeric column through the native/prepared Vortex rolling-window
+  primitive; time/calendar windows, centered windows, callbacks, and broad pandas rolling parity
+  remain deterministic blockers.
+- Conditional and value rewrites: scoped typed scalar `mask(predicate, scalar)`,
+  `replace(old, new)`/column-mapped full-cell scalar replacement, and in-place UTF-8
+  `with_column("col", col("col").replace(...))` string replacement when the schema and projection
+  admit the native Vortex expression-project primitive; broad pandas alignment, regex, callable,
+  method/limit, nested, mixed-dtype, or null rewrite variants remain deterministic blockers.
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
   lowers to the scoped ShardLoom expression surface.
+- Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar
+  assignment and `transform({"amount": sl.col("amount") + 5})` mapping-style in-place numeric
+  assignment through the native/prepared Vortex expression-project primitive. `map(...)` and
+  `applymap(...)` admit explicit `sl.column_transform(...)` wrappers, and `map_rows(...)` admits
+  explicit `sl.row_transform(...)` wrappers for the same declarative rewrite route. Python/numexpr
+  engines, arbitrary expression trees, shape-changing transforms, cell/element/row callables, and
+  row UDFs remain deterministic blockers.
+- Plan composition: `apply(sl.plan_transform(...))` and `pipe(sl.plan_transform(...))` when the
+  transform returns a ShardLoom
+  `LazyFrame`; unwrapped Python callables and data UDFs remain deterministic blockers.
 - Local execution and writes: bounded `collect(...)`, `run(...)`, `route(...)`, `prepare(...)`,
   `write(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated `write_parquet(...)`,
   `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and
@@ -255,6 +285,8 @@ future-gated unless the dynamic capability row says otherwise:
 - Broad SQL grammar or arbitrary SQL execution.
 - Hidden fallback execution in DuckDB, DataFusion, Spark, Polars, pandas, Velox, or another engine.
 - Unbounded materialization as a convenience path.
+- Duplicate-mask variants outside scoped `keep="first"` scalar subset semantics, including
+  `keep="last"`, `keep=False`, nested equality, and nullable equality parity.
 - Object-store, lakehouse/table, catalog, remote API, Foundry, live/hybrid, distributed, and
   production workflows without the matching evidence gate.
 - Effectful external writes, credentials, network calls, UDFs, plugins, LLM/API calls, embeddings,
