@@ -42,7 +42,7 @@
     "ghcr_container",
     "crates_io_future"
   ],
-  "claim_boundary": "This package-channel matrix is ready for selected v0.1.9 install access only. It does not allow production readiness, performance superiority, Spark replacement, production SQL/DataFrame support, production object-store/lakehouse support, production Foundry support, future package channels, or fallback execution.",
+  "claim_boundary": "This package-channel matrix is ready for selected v0.1.10 install access only. It does not allow production readiness, performance superiority, Spark replacement, production SQL/DataFrame support, production object-store/lakehouse support, production Foundry support, future package channels, or fallback execution.",
   "fallback_boundary": "Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as a ShardLoom runtime fallback dependency.",
   "publication_authorization_state": "approved",
   "package_gate_required_evidence": [
@@ -72,13 +72,13 @@
     {
       "channel_id": "github_prerelease",
       "display_name": "GitHub pre-release",
-      "target_artifact": "GitHub v0.1.9 pre-release assets",
+      "target_artifact": "GitHub v0.1.10 pre-release assets",
       "status": "ready",
       "ready": true,
       "v1_feasibility_status": "included_channel_proof_passed",
-      "v1_scope_decision": "included in the v0.1.9 release sequence with approved tag, GitHub release object, attached assets, and channel proof",
-      "v1_feasibility_reason": "v0.1.9 release assets are attached and the channel download proof verifies checksums plus CLI smoke status",
-      "install_command": "gh release download v0.1.9 --repo depsilon/shardloom --pattern '*' --dir <install-dir>",
+      "v1_scope_decision": "included in the v0.1.10 release sequence with approved tag, GitHub release object, attached assets, and channel proof",
+      "v1_feasibility_reason": "v0.1.10 release assets are attached and the channel download proof verifies checksums plus CLI smoke status",
+      "install_command": "gh release download v0.1.10 --repo depsilon/shardloom --pattern '*' --dir <install-dir>",
       "uninstall_command": "rm -rf <install-dir>",
       "channel_specific_proof_status": "passed",
       "clean_install_proof_status": "passed",
@@ -98,13 +98,13 @@
       "prepared_local_artifact_refs": [
         "target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json",
         "target/release-dry-run-proof/transcript.json",
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.9-cp313-cp313-macosx_26_0_arm64.whl",
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.9.tar.gz",
+        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.10-cp313-cp313-macosx_26_0_arm64.whl",
+        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.10.tar.gz",
         "target/release/shardloom"
       ],
       "prepared_local_github_prerelease_asset_manifest_ref": "target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json",
       "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
-      "prepared_local_install_smoke_ref": "docs/release/channel-proofs/github-prerelease-v0.1.9-transcript.json",
+      "prepared_local_install_smoke_ref": "docs/release/channel-proofs/github-prerelease-v0.1.10-transcript.json",
       "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
       "prepared_local_sbom_refs": [
         "target/release-provenance-dry-run/shardloom-rust-workspace.cdx.json",
@@ -113,14 +113,14 @@
       ],
       "current_blockers": [],
       "claim_boundary": "GitHub pre-release access is technical-preview distribution only, not production readiness, performance superiority, or broad runtime support.",
-      "install_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.1.9-transcript.json",
-      "uninstall_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.1.9-transcript.json",
-      "clean_install_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.1.9-transcript.json",
-      "smoke_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.1.9-transcript.json",
-      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/shardloom-rust-workspace.cdx.json",
+      "install_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.1.10-transcript.json",
+      "uninstall_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.1.10-transcript.json",
+      "clean_install_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.1.10-transcript.json",
+      "smoke_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.1.10-transcript.json",
+      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/shardloom-rust-workspace.cdx.json",
       "authorization_ref": "docs/release/final-release-approval-post-release-verification.json",
-      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/checksums.sha256",
-      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/supply-chain-release-evidence.json"
+      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/checksums.sha256",
+      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/supply-chain-release-evidence.json"
     },
     {
       "channel_id": "testpypi",
@@ -129,9 +129,9 @@
       "status": "ready",
       "ready": true,
       "v1_feasibility_status": "included_channel_proof_passed",
-      "v1_scope_decision": "included in the v0.1.9 package sequence with TestPyPI Trusted Publisher upload and clean registry proof",
+      "v1_scope_decision": "included in the v0.1.10 package sequence with TestPyPI Trusted Publisher upload and clean registry proof",
       "v1_feasibility_reason": "TestPyPI Trusted Publisher upload passed and the checked-in transcript proves registry install, Python client smoke, and uninstall",
-      "install_command": "python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.9",
+      "install_command": "python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.10",
       "uninstall_command": "python -m pip uninstall -y shardloom",
       "python_artifact_metadata_status": "local_build_and_twine_check_passed",
       "trusted_publisher_workflow_posture": "trusted_publisher_upload_passed",
@@ -150,8 +150,8 @@
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
       "prepared_local_artifact_refs": [
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.9-cp313-cp313-macosx_26_0_arm64.whl",
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.9.tar.gz",
+        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.10-cp313-cp313-macosx_26_0_arm64.whl",
+        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.10.tar.gz",
         "target/release-dry-run-proof/transcript.json"
       ],
       "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
@@ -160,17 +160,17 @@
         "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json"
       ],
       "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
-      "prepared_registry_install_smoke_proof_ref": "docs/release/channel-proofs/testpypi-v0.1.9-transcript.json",
+      "prepared_registry_install_smoke_proof_ref": "docs/release/channel-proofs/testpypi-v0.1.10-transcript.json",
       "current_blockers": [],
       "claim_boundary": "TestPyPI is packaging rehearsal only and does not imply production readiness, API breadth, or performance claims.",
-      "install_transcript_ref": "docs/release/channel-proofs/testpypi-v0.1.9-transcript.json",
-      "uninstall_transcript_ref": "docs/release/channel-proofs/testpypi-v0.1.9-transcript.json",
-      "clean_install_transcript_ref": "docs/release/channel-proofs/testpypi-v0.1.9-transcript.json",
-      "smoke_transcript_ref": "docs/release/channel-proofs/testpypi-v0.1.9-transcript.json",
-      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/shardloom-python-artifacts.cdx.json",
+      "install_transcript_ref": "docs/release/channel-proofs/testpypi-v0.1.10-transcript.json",
+      "uninstall_transcript_ref": "docs/release/channel-proofs/testpypi-v0.1.10-transcript.json",
+      "clean_install_transcript_ref": "docs/release/channel-proofs/testpypi-v0.1.10-transcript.json",
+      "smoke_transcript_ref": "docs/release/channel-proofs/testpypi-v0.1.10-transcript.json",
+      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/shardloom-python-artifacts.cdx.json",
       "authorization_ref": "docs/release/final-release-approval-post-release-verification.json",
-      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/checksums.sha256",
-      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/supply-chain-release-evidence.json"
+      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/checksums.sha256",
+      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/supply-chain-release-evidence.json"
     },
     {
       "channel_id": "pypi",
@@ -179,9 +179,9 @@
       "status": "ready",
       "ready": true,
       "v1_feasibility_status": "included_channel_proof_passed",
-      "v1_scope_decision": "included in the v0.1.9 public package path after TestPyPI proof, PyPI Trusted Publisher upload, and clean registry proof",
+      "v1_scope_decision": "included in the v0.1.10 public package path after TestPyPI proof, PyPI Trusted Publisher upload, and clean registry proof",
       "v1_feasibility_reason": "PyPI Trusted Publisher upload passed after TestPyPI proof and the checked-in transcript proves registry install, Python client smoke, and uninstall",
-      "install_command": "python -m pip install shardloom==0.1.9",
+      "install_command": "python -m pip install shardloom==0.1.10",
       "uninstall_command": "python -m pip uninstall -y shardloom",
       "python_artifact_metadata_status": "local_build_and_twine_check_passed",
       "trusted_publisher_workflow_posture": "trusted_publisher_upload_passed",
@@ -200,8 +200,8 @@
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
       "prepared_local_artifact_refs": [
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.9-cp313-cp313-macosx_26_0_arm64.whl",
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.9.tar.gz",
+        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.10-cp313-cp313-macosx_26_0_arm64.whl",
+        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.1.10.tar.gz",
         "target/release-dry-run-proof/transcript.json"
       ],
       "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
@@ -210,18 +210,18 @@
         "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json"
       ],
       "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
-      "prepared_registry_install_smoke_proof_ref": "docs/release/channel-proofs/pypi-v0.1.9-transcript.json",
-      "requires_prior_testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.1.9-transcript.json",
+      "prepared_registry_install_smoke_proof_ref": "docs/release/channel-proofs/pypi-v0.1.10-transcript.json",
+      "requires_prior_testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.1.10-transcript.json",
       "current_blockers": [],
       "claim_boundary": "PyPI package access does not imply production readiness, API breadth, SQL/DataFrame production support, object-store/lakehouse support, Foundry support, Spark replacement, or performance claims.",
-      "install_transcript_ref": "docs/release/channel-proofs/pypi-v0.1.9-transcript.json",
-      "uninstall_transcript_ref": "docs/release/channel-proofs/pypi-v0.1.9-transcript.json",
-      "clean_install_transcript_ref": "docs/release/channel-proofs/pypi-v0.1.9-transcript.json",
-      "smoke_transcript_ref": "docs/release/channel-proofs/pypi-v0.1.9-transcript.json",
-      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/shardloom-python-artifacts.cdx.json",
+      "install_transcript_ref": "docs/release/channel-proofs/pypi-v0.1.10-transcript.json",
+      "uninstall_transcript_ref": "docs/release/channel-proofs/pypi-v0.1.10-transcript.json",
+      "clean_install_transcript_ref": "docs/release/channel-proofs/pypi-v0.1.10-transcript.json",
+      "smoke_transcript_ref": "docs/release/channel-proofs/pypi-v0.1.10-transcript.json",
+      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/shardloom-python-artifacts.cdx.json",
       "authorization_ref": "docs/release/final-release-approval-post-release-verification.json",
-      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/checksums.sha256",
-      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/supply-chain-release-evidence.json"
+      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/checksums.sha256",
+      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/supply-chain-release-evidence.json"
     },
     {
       "channel_id": "homebrew_tap",
@@ -230,8 +230,8 @@
       "status": "ready",
       "ready": true,
       "v1_feasibility_status": "included_channel_proof_passed",
-      "v1_scope_decision": "included in the v0.1.9 CLI release path with reviewed tap formula, versioned checksum, install/uninstall/smoke transcript, and channel proof",
-      "v1_feasibility_reason": "the Homebrew tap formula points at the immutable v0.1.9 GitHub source archive, audit/style/test passed, and install/smoke/uninstall proof passed",
+      "v1_scope_decision": "included in the v0.1.10 CLI release path with reviewed tap formula, versioned checksum, install/uninstall/smoke transcript, and channel proof",
+      "v1_feasibility_reason": "the Homebrew tap formula points at the immutable v0.1.10 GitHub source archive, audit/style/test passed, and install/smoke/uninstall proof passed",
       "install_command": "brew install depsilon/tap/shardloom",
       "uninstall_command": "brew uninstall shardloom",
       "local_cli_binary_build_status": "release_dry_run_passed_and_homebrew_source_build_passed",
@@ -251,22 +251,22 @@
       "internal_crates_publish_allowed": false,
       "prepared_local_artifact_refs": [
         "/opt/homebrew/Library/Taps/depsilon/homebrew-tap/Formula/shardloom.rb",
-        "docs/release/channel-proofs/homebrew-v0.1.9-transcript.json"
+        "docs/release/channel-proofs/homebrew-v0.1.10-transcript.json"
       ],
       "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
       "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
       "current_blockers": [],
       "claim_boundary": "Homebrew distribution is CLI access only and not a production platform, performance, or broad runtime claim.",
       "channel_specific_proof_status": "passed",
-      "install_transcript_ref": "docs/release/channel-proofs/homebrew-v0.1.9-transcript.json",
-      "uninstall_transcript_ref": "docs/release/channel-proofs/homebrew-v0.1.9-transcript.json",
-      "clean_install_transcript_ref": "docs/release/channel-proofs/homebrew-v0.1.9-transcript.json",
-      "smoke_transcript_ref": "docs/release/channel-proofs/homebrew-v0.1.9-transcript.json",
-      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/shardloom-rust-workspace.cdx.json",
+      "install_transcript_ref": "docs/release/channel-proofs/homebrew-v0.1.10-transcript.json",
+      "uninstall_transcript_ref": "docs/release/channel-proofs/homebrew-v0.1.10-transcript.json",
+      "clean_install_transcript_ref": "docs/release/channel-proofs/homebrew-v0.1.10-transcript.json",
+      "smoke_transcript_ref": "docs/release/channel-proofs/homebrew-v0.1.10-transcript.json",
+      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/shardloom-rust-workspace.cdx.json",
       "authorization_ref": "docs/release/final-release-approval-post-release-verification.json",
-      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/checksums.sha256",
-      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.9/supply-chain-release-evidence.json",
-      "prepared_registry_install_smoke_proof_ref": "docs/release/channel-proofs/homebrew-v0.1.9-transcript.json"
+      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/checksums.sha256",
+      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/supply-chain-release-evidence.json",
+      "prepared_registry_install_smoke_proof_ref": "docs/release/channel-proofs/homebrew-v0.1.10-transcript.json"
     },
     {
       "channel_id": "scoop",
@@ -483,7 +483,7 @@
     "pypi",
     "homebrew_tap"
   ],
-  "selected_v0_1_0_publication_status": "published_and_verified_v0.1.9",
-  "selected_v0_1_0_release_tag": "v0.1.9",
-  "selected_v0_1_0_release_commit": "8b3bf02440c642c5142327329bd86c56501e909a"
+  "selected_v0_1_0_publication_status": "published_and_verified_v0.1.10",
+  "selected_v0_1_0_release_tag": "v0.1.10",
+  "selected_v0_1_0_release_commit": "7464854a0b4080183756ea6c59782980f46b866d"
 }

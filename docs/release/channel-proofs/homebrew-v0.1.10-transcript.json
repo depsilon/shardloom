@@ -1,0 +1,134 @@
+{
+  "audit_status": "passed",
+  "blockers": [],
+  "channel_id": "homebrew_tap",
+  "cli_version_stdout": "shardloom 0.1.10\n",
+  "display_name": "Homebrew tap",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "formula_checksum": "cb40dbb085f9e2e554df81c2d8a3fd8b4489990cd2dbf2df278b138797e540d2",
+  "formula_url": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/shardloom-7464854a0b40-source.tar.gz",
+  "formula_version": "0.1.10",
+  "install_transcript_status": "passed",
+  "installed_version": "0.1.10",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_upload_attempted_by_this_tool": false,
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "release_tag": "v0.1.10",
+  "schema_version": "shardloom.homebrew_channel_proof.v1",
+  "secrets_required": false,
+  "smoke_check_status": "passed",
+  "smoke_stdout": "{\"schema_version\":\"shardloom.output.v2\",\"command\":\"status\",\"status\":\"success\",\"summary\":\"engine status\",\"human_text\":\"ShardLoom workspace initialized (native Vortex-first execution facade)\\nfallback execution: disabled\",\"fallback\":{\"attempted\":false,\"allowed\":false,\"engine\":null,\"reason\":\"ShardLoom prohibits Spark, DataFusion, DuckDB, Polars, Velox, and other fallback execution engines.\"},\"diagnostics\":[],\"result\":{\"fields\":[{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"}]},\"result_refs\":[],\"artifacts\":[],\"artifact_refs\":[],\"certificates\":[],\"policy\":{\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]},\"lifecycle\":{\"fields\":[{\"key\":\"command_family\",\"value\":\"status_capabilities\"},{\"key\":\"cli_binary_version\",\"value\":\"0.1.10\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"}]},\"capability_snapshot\":{\"fields\":[]},\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"cli_binary_version\",\"value\":\"0.1.10\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"},{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]}\n",
+  "source_archive_sha256": "cb40dbb085f9e2e554df81c2d8a3fd8b4489990cd2dbf2df278b138797e540d2",
+  "source_archive_url": "https://github.com/depsilon/shardloom/releases/download/v0.1.10/shardloom-7464854a0b40-source.tar.gz",
+  "steps": [
+    {
+      "command": [
+        "brew",
+        "audit",
+        "--formula",
+        "depsilon/tap/shardloom"
+      ],
+      "name": "brew_audit",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "brew",
+        "style",
+        "depsilon/tap/shardloom"
+      ],
+      "name": "brew_style",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "1 file inspected, no offenses detected\n"
+    },
+    {
+      "command": [
+        "brew",
+        "install",
+        "--build-from-source",
+        "depsilon/tap/shardloom"
+      ],
+      "name": "brew_install",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "installed /opt/homebrew/Cellar/shardloom/0.1.10 from source\n"
+    },
+    {
+      "command": [
+        "shardloom",
+        "--version"
+      ],
+      "name": "cli_version",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "shardloom 0.1.10\n"
+    },
+    {
+      "command": [
+        "shardloom",
+        "status",
+        "--format",
+        "json"
+      ],
+      "name": "cli_status_smoke",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\"schema_version\":\"shardloom.output.v2\",\"command\":\"status\",\"status\":\"success\",\"summary\":\"engine status\",\"human_text\":\"ShardLoom workspace initialized (native Vortex-first execution facade)\\nfallback execution: disabled\",\"fallback\":{\"attempted\":false,\"allowed\":false,\"engine\":null,\"reason\":\"ShardLoom prohibits Spark, DataFusion, DuckDB, Polars, Velox, and other fallback execution engines.\"},\"diagnostics\":[],\"result\":{\"fields\":[{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"}]},\"result_refs\":[],\"artifacts\":[],\"artifact_refs\":[],\"certificates\":[],\"policy\":{\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]},\"lifecycle\":{\"fields\":[{\"key\":\"command_family\",\"value\":\"status_capabilities\"},{\"key\":\"cli_binary_version\",\"value\":\"0.1.10\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"}]},\"capability_snapshot\":{\"fields\":[]},\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"cli_binary_version\",\"value\":\"0.1.10\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"},{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]}\n"
+    },
+    {
+      "command": [
+        "brew",
+        "test",
+        "depsilon/tap/shardloom"
+      ],
+      "name": "brew_test",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "Testing depsilon/tap/shardloom\n"
+    },
+    {
+      "command": [
+        "git",
+        "commit",
+        "-m",
+        "Update shardloom formula to v0.1.10"
+      ],
+      "name": "tap_commit",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "0556a4c Update shardloom formula to v0.1.10\n"
+    },
+    {
+      "command": [
+        "git",
+        "push",
+        "origin",
+        "main"
+      ],
+      "name": "tap_push",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "d7f4cb8..0556a4c main -> main\n"
+    },
+    {
+      "command": [
+        "brew",
+        "uninstall",
+        "shardloom"
+      ],
+      "name": "brew_uninstall",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "uninstalled /opt/homebrew/Cellar/shardloom/0.1.10\n"
+    }
+  ],
+  "style_status": "passed",
+  "tap_commit": "0556a4c",
+  "test_status": "passed",
+  "uninstall_transcript_status": "passed"
+}

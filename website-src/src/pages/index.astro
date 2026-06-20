@@ -31,7 +31,7 @@ const firstHotRows: Record<string, unknown>[] = hotShardLoomRows
   .filter((row: Record<string, unknown>) => ["ShardLoom Warm Prepared Query", "ShardLoom Native Vortex Query", "ShardLoom Cold Certified Route"].includes(value(row, "Route")))
   .sort((left: Record<string, unknown>, right: Record<string, unknown>) => value(left, "Surface route geomean").localeCompare(value(right, "Surface route geomean")));
 const manifestAny = manifest as any;
-const selectedPackageReleaseTag = "v0.1.9";
+const selectedPackageReleaseTag = "v0.1.10";
 ---
 
 <SiteLayout title="ShardLoom" description="Evidence-gated compute over Vortex-native routes, explicit outputs, and claim-safe benchmark proof." path="/" active="home">

@@ -229,6 +229,21 @@ def locate_binary(repo_root: Path, explicit: Path | None) -> Path:
     return (target_root / "debug" / f"shardloom{suffix}").resolve()
 
 
+def is_transient_cargo_fetch_failure(stderr: str) -> bool:
+    lowered = stderr.lower()
+    transient_markers = (
+        "failed to get",
+        "failed to load source for dependency",
+        "unable to update registry",
+        "download of",
+        "curl failed",
+        "http2 framing",
+        "operation timed out",
+        "connection reset",
+    )
+    return any(marker in lowered for marker in transient_markers)
+
+
 def build_binary(repo_root: Path, features: str, skip_build: bool, binary: Path) -> dict[str, Any]:
     if skip_build:
         blockers = [] if binary.exists() else [f"binary does not exist: {binary}"]
@@ -246,7 +261,26 @@ def build_binary(repo_root: Path, features: str, skip_build: bool, binary: Path)
         "--features",
         features,
     ]
-    completed = run_subprocess(repo_root=repo_root, command=command)
+    attempts = []
+    completed: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(1, 4):
+        completed = run_subprocess(repo_root=repo_root, command=command)
+        attempts.append(
+            {
+                "attempt": attempt,
+                "returncode": completed.returncode,
+                "transient_cargo_fetch_failure": is_transient_cargo_fetch_failure(
+                    completed.stderr
+                ),
+            }
+        )
+        if completed.returncode == 0:
+            break
+        if not is_transient_cargo_fetch_failure(completed.stderr):
+            break
+        time.sleep(min(10, attempt * 2))
+    if completed is None:
+        raise RuntimeError("cargo build attempt loop did not execute")
     blockers = []
     if completed.returncode != 0:
         blockers.append("feature-gated CLI build failed")
@@ -260,6 +294,7 @@ def build_binary(repo_root: Path, features: str, skip_build: bool, binary: Path)
         "stdout_tail": tail(completed.stdout),
         "stderr_tail": tail(completed.stderr),
         "features": features,
+        "attempts": attempts,
         "blockers": blockers,
     }
 
