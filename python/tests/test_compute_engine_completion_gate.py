@@ -206,7 +206,7 @@ class ComputeEngineCompletionGateTests(unittest.TestCase):
                                 "fallback_attempted": False,
                                 "external_engine_invoked": False,
                                 "operator_hot_path_candidate_status": (
-                                    "blocked_selection_vector_metric_aggregation_not_admitted"
+                                    "admitted_selection_vector_metric_aggregation_residual_native"
                                 ),
                                 "pulseweave_result_assembly_coalescing_status": (
                                     "blocked_per_scenario_result_semantics"
@@ -254,7 +254,7 @@ class ComputeEngineCompletionGateTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         benchmark_report = report["benchmark_gap_report"]
         self.assertEqual(benchmark_report["residual_blocker_count"], 0)
-        self.assertEqual(benchmark_report["optimization_claim_blocker_count"], 11)
+        self.assertEqual(benchmark_report["optimization_claim_blocker_count"], 10)
         self.assertEqual(
             benchmark_report["optimization_claim_blocker_field_counts"],
             {
@@ -262,7 +262,6 @@ class ComputeEngineCompletionGateTests(unittest.TestCase):
                 "fused_pipeline_claim_gate_status": 1,
                 "fused_pipeline_correctness_digest_status": 1,
                 "fused_pipeline_selection_vector_status": 1,
-                "operator_hot_path_candidate_status": 1,
                 "pulseweave_result_assembly_coalescing_status": 1,
                 "source_columnar_provider_status": 1,
                 "source_read_scout_reuse_status": 1,

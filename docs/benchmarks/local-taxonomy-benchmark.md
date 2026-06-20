@@ -430,7 +430,8 @@ and `result_replay_reuse` independently from execution mode, evidence level, out
 claim gate. Reuse hits or misses remain `not_claim_grade` visibility evidence only.
 
 `GAR-PERF-1C` adds scoped fused-pipeline evidence for the current prepared/native
-filter/projection/limit row and selective-filter selection-vector metric aggregation row. The
+filter/projection/limit row and admitted selective-filter selection-vector metric aggregation
+residual-native bridge row. The
 benchmark harness now carries `fused_pipeline_*` fields, including `fused_pipeline_used`,
 `fused_operator_family`, `intermediate_materialization_avoided`,
 `fused_pipeline_rows_selected`, `fused_pipeline_rows_output`,
@@ -695,8 +696,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-Current executed families are filter + projection + limit, filter + aggregate through the
-selection-vector metric path, and top-k with projection. Filter + group-by is explicitly blocked as
+Current executed families are filter + projection + limit, filter + aggregate through the admitted
+selection-vector metric residual-native bridge, and top-k with projection. Filter + group-by is
+explicitly blocked as
 `gar-perf-2e.filter_group_by_filter_absent` until a scoped filtered grouped scenario exists.
 Unsupported fusion paths are deterministic blockers, not fallback execution. Fusion rows are local
 pre-release evidence and not a performance ranking or broad SQL/DataFrame claim.

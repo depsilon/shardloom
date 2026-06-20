@@ -74,9 +74,9 @@ REQUIRED_COMMANDS = (
     "route",
     "run",
     "prepare",
-    "sql-local-source-smoke",
+    "local-source-runtime",
     "generated-source-sql-smoke",
-    "vortex-ingest-smoke",
+    "vortex-prepare",
 )
 
 REQUIRED_PYTHON_METHODS = (
@@ -100,7 +100,7 @@ REQUIRED_PYTHON_METHODS = (
 REQUIRED_SQL_ENTRYPOINTS = (
     "ctx.sql",
     "sl.sql",
-    "shardloom sql-local-source-smoke --format json",
+    "shardloom local-source-runtime --format json",
 )
 
 

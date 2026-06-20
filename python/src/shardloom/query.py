@@ -1837,6 +1837,8 @@ class SqlWorkflow:
 
     statement: str
     client: ShardLoomClient
+    input_uri: str | None = None
+    input_format: str | None = None
 
     @property
     def operation_summary(self) -> str:
@@ -1867,6 +1869,8 @@ class SqlWorkflow:
             self.statement,
             requested_output=requested_output,
         )
+        workflow_kwargs = self._declared_or_embedded_vortex_input_kwargs()
+        workflow_kwargs.update(native_vortex_kwargs)
         return self.client.public_workflow_route(
             "sql",
             sql_statement=self.statement,
@@ -1878,7 +1882,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
-            **native_vortex_kwargs,
+            **workflow_kwargs,
         )
 
     def run(
@@ -1904,6 +1908,8 @@ class SqlWorkflow:
             self.statement,
             requested_output=requested_output,
         )
+        workflow_kwargs = self._declared_or_embedded_vortex_input_kwargs()
+        workflow_kwargs.update(native_vortex_kwargs)
         return self.client.public_workflow_run(
             "sql",
             sql_statement=self.statement,
@@ -1915,7 +1921,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
-            **native_vortex_kwargs,
+            **workflow_kwargs,
         )
 
     def collect(
@@ -1956,6 +1962,30 @@ class SqlWorkflow:
             max_parallelism=max_parallelism,
         ):
             return report
+        native_input_kwargs = self._declared_or_embedded_vortex_input_kwargs()
+        if native_input_kwargs.get("input_format") == "vortex":
+            memory_gb = _normalize_positive_int("memory_gb", memory_gb)
+            max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
+            execution = self.client.public_workflow_run(
+                "sql",
+                input_uri=str(native_input_kwargs["input_uri"]),
+                input_format="vortex",
+                sql_statement=self.statement,
+                plan_summary=self.operation_summary,
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+            return VortexWorkflowExecutionReport(
+                workflow=self._report_workflow(),
+                operation="collect",
+                envelope=execution.envelope,
+            )
         if (
             _is_local_source_sql_statement(self.statement)
             and self._bounded_local_source_statement(default_limit=None) is None
@@ -1984,7 +2014,33 @@ class SqlWorkflow:
         """Return this SQL workflow with an explicit LIMIT when one is absent."""
 
         statement = _sql_statement_with_limit(self.statement, count)
-        return SqlWorkflow(statement=statement, client=self.client)
+        return SqlWorkflow(
+            statement=statement,
+            client=self.client,
+            input_uri=self.input_uri,
+            input_format=self.input_format,
+        )
+
+    def _declared_input_kwargs(self) -> dict[str, Any]:
+        """Return public workflow input kwargs declared outside the SQL text."""
+
+        if self.input_uri is None:
+            return {}
+        payload: dict[str, Any] = {"input_uri": self.input_uri}
+        if self.input_format is not None:
+            payload["input_format"] = self.input_format
+        return payload
+
+    def _declared_or_embedded_vortex_input_kwargs(self) -> dict[str, Any]:
+        """Return declared input kwargs or a single embedded local Vortex input binding."""
+
+        payload = self._declared_input_kwargs()
+        if payload:
+            return payload
+        embedded = _embedded_vortex_input_uri(self.statement)
+        if embedded is None:
+            return {}
+        return {"input_uri": embedded, "input_format": "vortex"}
 
     def schema(
         self,
@@ -2728,7 +2784,7 @@ class SqlWorkflow:
                 envelope=preparation,
                 preparation_envelope=preparation,
             )
-        report = self.client.sql_local_source_smoke(
+        report = self.client.local_source_runtime(
             self.statement,
             product_local_workflow=True,
             check=check,
@@ -2760,7 +2816,7 @@ class SqlWorkflow:
                 envelope=preparation,
                 preparation_envelope=preparation,
             )
-        report = self.client.sql_local_source_smoke(
+        report = self.client.local_source_runtime(
             self.statement,
             output_path=target_uri,
             output_format=output_format,
@@ -2845,7 +2901,7 @@ class SqlWorkflow:
         first_preparation: OutputEnvelope | None = None
         for source in candidate.sources:
             source.target.parent.mkdir(parents=True, exist_ok=True)
-            report = self.client.vortex_ingest_smoke(
+            report = self.client.vortex_prepare(
                 source.source_uri,
                 source.target,
                 input_format=source.source_format,
@@ -6913,7 +6969,7 @@ class LazyFrame:
         """Prepare this raw local source into a caller-owned `VortexPreparedState`.
 
         When `workspace` is supplied without `target_vortex_path`, the target is derived as
-        `<workspace>/<source-stem>.vortex`. The real CLI `vortex-ingest-smoke` route owns
+        `<workspace>/<source-stem>.vortex`. The real CLI `vortex-prepare` route owns
         fingerprint-backed reuse and fail-closed invalidation through its artifact-adjacent
         manifest. Supplying ``dim=...`` returns the queryable compatibility prepared route used by
         ``ctx.prepare_vortex(..., dim=..., workspace=...).query(...).collect()``.
@@ -6964,17 +7020,17 @@ class LazyFrame:
                 )
             if target_vortex_path is not None:
                 raise ValueError(
-                    "target_vortex_path applies only to the single-source vortex-ingest-smoke "
+                    "target_vortex_path applies only to the single-source vortex-prepare "
                     "helper; prepared query routes use workspace=... plus dim=..."
                 )
             if allow_overwrite:
                 raise ValueError(
-                    "allow_overwrite applies only to the single-source vortex-ingest-smoke helper; "
+                    "allow_overwrite applies only to the single-source vortex-prepare helper; "
                     "prepared query routes use manifest-based reuse policy"
                 )
             if certification_level != "ingest_certified":
                 raise ValueError(
-                    "certification_level applies only to the single-source vortex-ingest-smoke "
+                    "certification_level applies only to the single-source vortex-prepare "
                     "helper; prepared query routes use traditional-analytics route evidence"
                 )
             return CompatibilityPreparedVortexRoute.from_inputs(
@@ -6995,7 +7051,7 @@ class LazyFrame:
             target_vortex_path=target_vortex_path,
             workspace=workspace,
         )
-        return self.client.vortex_ingest_smoke(
+        return self.client.vortex_prepare(
             self.source.uri,
             target,
             allow_overwrite=allow_overwrite,
@@ -7876,7 +7932,7 @@ class LazyFrame:
                 envelope=preparation.envelope,
                 preparation_envelope=preparation.envelope,
             )
-        report = self.client.sql_local_source_smoke(
+        report = self.client.local_source_runtime(
             statement,
             product_local_workflow=True,
             check=check,
@@ -7908,7 +7964,7 @@ class LazyFrame:
                 envelope=preparation.envelope,
                 preparation_envelope=preparation.envelope,
             )
-        report = self.client.sql_local_source_smoke(
+        report = self.client.local_source_runtime(
             statement,
             output_path=target_uri,
             output_format=output_format,
@@ -7945,7 +8001,7 @@ class LazyFrame:
                 preparation_envelope=preparation.envelope,
             )
         output_format, output_path = outputs[0]
-        report = self.client.sql_local_source_smoke(
+        report = self.client.local_source_runtime(
             statement,
             output_path=output_path,
             output_format=output_format,
@@ -8010,7 +8066,7 @@ class LazyFrame:
             candidate.right_target.parent.mkdir(parents=True, exist_ok=True)
             if candidate.right_source_uri is None or candidate.right_source_format is None:
                 raise ValueError("prepared Vortex join candidate is missing right source metadata")
-            right_preparation = self.client.vortex_ingest_smoke(
+            right_preparation = self.client.vortex_prepare(
                 candidate.right_source_uri,
                 candidate.right_target,
                 input_format=candidate.right_source_format,
@@ -8020,7 +8076,7 @@ class LazyFrame:
             )
             if right_preparation.envelope.status != "success":
                 return right_preparation
-        return self.client.vortex_ingest_smoke(
+        return self.client.vortex_prepare(
             self.source.uri,
             candidate.left_target,
             input_format=_public_workflow_input_format(self.source),
@@ -11011,9 +11067,9 @@ def _source_kind_from_path(uri: str | os.PathLike[str]) -> str:
         return "avro"
     if suffix == ".orc":
         return "orc"
-    if suffix == ".vortex":
+    if suffix in {".vortex", ".vtx", ".vortex-manifest"}:
         return "vortex"
-    admitted = ".csv, .json, .jsonl, .ndjson, .parquet, .arrow, .ipc, .feather, .avro, .orc, .vortex"
+    admitted = ".csv, .json, .jsonl, .ndjson, .parquet, .arrow, .ipc, .feather, .avro, .orc, .vortex, .vtx, .vortex-manifest"
     raise ValueError(
         f"ShardLoom cannot infer a local source adapter for {uri!s}; "
         f"admitted local source extensions are {admitted}"
@@ -11358,14 +11414,59 @@ def sql_literal_select(
 def sql(
     statement: object,
     *,
+    input: str | os.PathLike[str] | None = None,
+    input_format: str | None = None,
     client: ShardLoomClient | None = None,
     **client_config: object,
 ) -> SqlWorkflow:
     """Create a scoped SQL workflow over currently admitted ShardLoom SQL paths."""
 
+    input_uri, normalized_input_format = _normalize_sql_workflow_input(
+        input,
+        input_format,
+    )
     return SqlWorkflow(
         statement=_require_non_empty("SQL statement", statement),
         client=_client_from_config(client, client_config),
+        input_uri=input_uri,
+        input_format=normalized_input_format,
+    )
+
+
+def _normalize_sql_workflow_input(
+    input_ref: str | os.PathLike[str] | None,
+    input_format: str | None,
+) -> tuple[str | None, str | None]:
+    """Normalize optional input binding for SQL workflows."""
+
+    if input_ref is None:
+        if input_format is not None:
+            raise ValueError("input_format requires input")
+        return None, None
+    input_uri = _require_non_empty("SQL input", os.fspath(input_ref))
+    if input_format is None:
+        inferred = _source_format_for_sql_input_ref(input_uri)
+        if inferred is None:
+            raise ValueError(
+                "input_format is required when SQL input format cannot be inferred"
+            )
+        return input_uri, inferred
+    normalized = input_format.strip().lower().replace("_", "-")
+    admitted_formats = set(SUPPORTED_SOURCE_FORMATS) | {"jsonl", "ndjson"}
+    if normalized not in admitted_formats:
+        raise ValueError(
+            f"input_format must be one of {tuple(sorted(admitted_formats))}; got {input_format!r}"
+        )
+    return input_uri, normalized
+
+
+def _source_format_for_sql_input_ref(value: str) -> str | None:
+    """Infer source format from a normal Python path or SQL source literal."""
+
+    if _is_local_vortex_source_ref(value):
+        return "vortex"
+    return _source_format_for_local_source_ref(value) or _source_format_for_local_source_ref(
+        repr(value)
     )
 
 
@@ -15060,7 +15161,16 @@ def _is_local_vortex_source_ref(value: str) -> bool:
     lower = value.strip().lower()
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
         return False
-    return lower.endswith(".vortex")
+    return lower.endswith((".vortex", ".vtx", ".vortex-manifest"))
+
+
+def _embedded_vortex_input_uri(statement: str) -> str | None:
+    """Return the single embedded local Vortex SQL source ref, when unambiguous."""
+
+    refs = tuple(ref for ref in _sql_source_refs(statement) if _is_local_vortex_source_ref(ref))
+    if len(refs) != 1:
+        return None
+    return refs[0]
 
 
 def _vortex_sql_primitive_shape(

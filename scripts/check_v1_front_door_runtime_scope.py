@@ -122,7 +122,7 @@ REQUIRED_SEMANTIC_ROWS = {
 PUBLIC_DOC_MARKERS = {
     "README.md": (
         DOC_PATH.as_posix(),
-        "examples\\local-python-benchmark-scenarios\\run.py",
+        "examples/local-python-benchmark-scenarios/run.py",
         "fallback_attempted",
         "external_engine_invoked",
     ),

@@ -46859,6 +46859,70 @@ the current queue; promote any actionable unfinished work into Planned before im
       correctness and diagnostics only; no performance, superiority, object-store, Foundry, broad
       nested-data, or external-engine claim is made. All admitted and blocked paths preserve
       `fallback_attempted=false` and `external_engine_invoked=false`.
+- [x] PERF-SOURCE-ADAPTER-POST-UAT-1 closed the v0.2 local source-adapter optimization batch for
+      universal ingest, projection-aware text/JSONL decoding, columnar handoff, native Vortex
+      partition binding, and generated benchmark evidence freshness. The implementation keeps
+      direct local-source compatibility as an internal diagnostic/smoke safeguard while public
+      local file workflows normalize through Vortex-prepared/native routes. Source-read scout
+      evidence now separates metadata scout, byte acquisition, full body read, typed decode, row
+      assembly, anomaly quarantine, columnar handoff, mmap/borrowed-buffer eligibility,
+      read-buffer carry, and many-small-file batching status. Fixture coverage spans CSV, JSON,
+      JSONL/NDJSON, Parquet, Arrow IPC, Avro, ORC, Vortex single-file/directories/manifests,
+      partitioned native Vortex bindings, projected columns, nested JSON/text boundaries, typed
+      nested structured sinks, and traditional-analytics many-small-files profiles. Validation
+      covered focused source/Vortex tests, `python3 scripts/run_focused_checks.py --profile
+      current-native-vortex`, refreshed benchmark artifact promotion from
+      `target/benchmark-artifacts/traditional-full-local-final.json`, and
+      `python3 scripts/check_benchmark_artifact_completeness.py --manifest
+      website/assets/benchmarks/latest/manifest.json --output
+      target/benchmark-artifact-completeness-report.json` with `status=passed` and no blockers.
+      Claim boundary remains refreshed local benchmark/site evidence only; no performance,
+      superiority, production, object-store, Foundry, or Spark-displacement claim is made.
+- [x] PERF-PREPARED-WRITER-PROOF-POST-UAT-1 closed the prepared-state, Vortex writer, sink, and
+      proof-lane compaction batch for the v0.2 local runtime train. The Vortex write path records
+      writer-context reuse, segment/workspace/digest/reopen timing, workspace-safe staged writes,
+      copy-budget evidence, and content-addressed prepared-state reuse-index fields; result sinks
+      distinguish metadata-only, bounded JSONL/CSV compatibility export, and Vortex-native output
+      contracts; proof/publication timing remains separated from hot runtime through timing-surface
+      and evidence-tier fields. Docs and generated benchmark data now preserve publication-proof
+      costs without substituting them into hot-runtime route totals. Validation covered focused
+      writer/prepared-state tests already recorded in the phase item, the current native-Vortex
+      focused profile, regenerated benchmark/site artifacts, and the benchmark artifact
+      completeness/optimization-target validators. Claim boundary remains local artifact lifecycle
+      and proof-lane evidence only; external stores, hidden compatibility expansion, and external
+      execution engines remain disallowed.
+- [x] PERF-ENCODED-OPERATORS-POST-UAT-1 closed the encoded/operator attribution and selection-vector
+      metric aggregation refresh for the v0.2 local runtime train. Native Vortex primitives now
+      carry explicit residual-predicate handling for `contains` filter/project routes, null-safe
+      scalar/grouped aggregate semantics, all-null aggregate fixtures, state-budget/capillary
+      evidence, and benchmark promotion that classifies selection-vector metric aggregation as an
+      admitted residual-native bridge when the runtime evidence supports it instead of a stale
+      blocker. The benchmark promoter is idempotent for already-published `*_ms` stage fields, so
+      hot-runtime projections derived from publication-proof rows preserve complete source-scout
+      splits. Validation covered targeted `shardloom-vortex` aggregate/null/contains tests,
+      `python3 -m unittest` promoter regressions, `python3 -m py_compile
+      scripts/promote_benchmark_artifact.py scripts/run_focused_checks.py`, refreshed benchmark
+      promotion, `python3 scripts/check_benchmark_optimization_targets.py --artifact
+      website/assets/benchmarks/latest/benchmark-results.json --output
+      target/benchmark-optimization-targets-report.json`, and a direct generated-row scan showing
+      zero stale `blocked_selection_vector_metric_aggregation_not_admitted`,
+      `pending_selection_vector_metric_aggregation`, or source-scout split blockers. Claim boundary
+      remains admitted local ShardLoom/Vortex operator semantics and artifact evidence; broad
+      encoded-native physical-kernel claims still require physical encoding proof and benchmark
+      claim gates.
+- [x] CI-FOCUSED-CAPILLARY-1 closed the immediate test/CI optimization cleanup before returning to
+      runtime/release work. A new `scripts/run_focused_checks.py` runner records
+      `shardloom.focused_check_evidence.v1`, supports exact Rust binary/library/integration-test
+      targets plus Python unittest targets, and includes a `current-native-vortex` profile for the
+      current partitioned/native Vortex route family. GitHub Actions keeps the required
+      `rust-baseline` job id but splits `fmt`, `clippy`, and full workspace tests into
+      fail-fast-disabled matrix capillary lanes with lane-specific cache keys, removing the prior
+      serial hard-gate tail without weakening merge semantics. Docs in
+      `docs/release/ci-work-shaping.md`, `docs/release/ci-gate-matrix.md`, and the phase-plan
+      header now require exact focused targets before broad gates. Validation covered
+      `python3 scripts/run_focused_checks.py --profile current-native-vortex`, `python3
+      scripts/check_ci_gate_matrix.py`, focused release-script tests, and syntax checks for the
+      runner and benchmark promoter.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

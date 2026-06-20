@@ -949,7 +949,11 @@ fn collect_report_diagnostics(
     local_primitive_execution_report: Option<&VortexLocalPrimitiveExecutionReport>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = request.diagnostics.clone();
-    diagnostics.extend(query_result.diagnostics.clone());
+    let local_primitive_satisfied_query = local_primitive_execution_report
+        .is_some_and(|report| !report.has_errors() && report.result_summary.is_some());
+    if !local_primitive_satisfied_query {
+        diagnostics.extend(query_result.diagnostics.clone());
+    }
     if let Some(report) = metadata_open_report
         && metadata_open_diagnostics_are_blocking(local_primitive_execution_report, report)
     {
@@ -1525,6 +1529,8 @@ pub const fn vortex_local_engine_is_side_effect_free(report: &VortexLocalEngineR
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::VortexLocalPrimitiveExecutionMode;
+
     fn metadata_local_execution_report() -> crate::VortexLocalExecutionReport {
         let request = VortexQueryPrimitiveRequest::count_all(
             DatasetUri::new("file://tmp/metadata.vortex").expect("uri"),
@@ -1637,6 +1643,35 @@ mod tests {
         assert!(!effects.external_effects_executed);
         assert!(!effects.fallback_execution_allowed);
     }
+
+    #[test]
+    fn successful_local_primitive_suppresses_prior_encoded_read_warning() {
+        let uri = DatasetUri::new("file://tmp/data.vortex").unwrap();
+        let engine_request =
+            VortexLocalEngineRequest::new(uri.clone(), VortexLocalEnginePrimitive::Count, 4, 1)
+                .unwrap();
+        let query_request = VortexQueryPrimitiveRequest::count_all(uri);
+        let query_result =
+            VortexQueryPrimitiveResult::needs_encoded_read(query_request, "metadata unavailable");
+        let mut local_primitive = VortexLocalPrimitiveExecutionReport::feature_disabled(
+            VortexQueryPrimitiveKind::CountAll,
+        );
+        local_primitive.status = VortexLocalPrimitiveExecutionStatus::Executed;
+        local_primitive.mode = VortexLocalPrimitiveExecutionMode::MetadataPreservingCount;
+        local_primitive.result_summary = Some("42".to_string());
+
+        let diagnostics = collect_report_diagnostics(
+            &engine_request,
+            &query_result,
+            None,
+            None,
+            None,
+            Some(&local_primitive),
+        );
+
+        assert!(diagnostics.is_empty());
+    }
+
     #[test]
     fn unsupported_report_has_errors() {
         let uri = DatasetUri::new("file://tmp/data.vortex").unwrap();

@@ -13,6 +13,28 @@ fn local_primitive_struct_fixture() -> String {
         .to_string()
 }
 
+#[cfg(feature = "vortex-local-primitives")]
+fn unique_vortex_binding_dir(name: &str) -> std::path::PathBuf {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "shardloom-public-{name}-{}-{nanos}",
+        std::process::id()
+    ))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn copy_partitioned_vortex_fixture(name: &str) -> std::path::PathBuf {
+    let dir = unique_vortex_binding_dir(name);
+    std::fs::create_dir_all(&dir).expect("create partitioned fixture dir");
+    let fixture = std::path::PathBuf::from(local_primitive_struct_fixture());
+    std::fs::copy(&fixture, dir.join("part-000.vortex")).expect("copy first partition");
+    std::fs::copy(&fixture, dir.join("part-001.vortex")).expect("copy second partition");
+    dir
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("\"key\":\"{key}\",\"value\":\"{value}\"")
 }
@@ -40,6 +62,181 @@ fn run_facade(args: &[&str]) -> (bool, String) {
         output.status.success(),
         String::from_utf8(output.stdout).expect("stdout is utf8"),
     )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence() {
+    let fixture = local_primitive_struct_fixture();
+    let aggregate = r#"{"measures":[{"function":"sum","column":"metric","alias":"sum_metric"},{"function":"count","alias":"rows"}]}"#;
+    let (ok, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        &fixture,
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-primitive",
+        "aggregate",
+        "--vortex-aggregate",
+        aggregate,
+        "--format",
+        "json",
+    ]);
+
+    assert!(ok, "{stdout}");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "native_vortex_aggregate"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_state_budget_schema_version",
+        "shardloom.local_vortex_state_budget.v1"
+    )));
+    assert!(stdout.contains(&field("local_primitive_state_budget_required", "true")));
+    assert!(stdout.contains(&field(
+        "local_primitive_state_family",
+        "scalar_aggregate_state"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_capillary_work_units",
+        "vortex_scan,aggregate_state"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_pulseweave_pressure_signals",
+        "aggregate_measure_count,aggregate_input_rows"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_spill_policy",
+        "fail_closed_before_uncertified_spill"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_fail_closed_if_spill_required",
+        "true"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn public_run_native_vortex_directory_count_uses_partitioned_binding() {
+    let dir = copy_partitioned_vortex_fixture("directory-count");
+    let (ok, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        &dir.display().to_string(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-primitive",
+        "count",
+        "--format",
+        "json",
+    ]);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    assert!(ok, "{stdout}");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "native_vortex_count_all"
+    )));
+    assert!(stdout.contains(&field(
+        "native_vortex_input_binding_schema_version",
+        "shardloom.native_vortex_input_binding.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "native_vortex_input_binding_mode",
+        "local_directory"
+    )));
+    assert!(stdout.contains(&field("native_vortex_input_binding_count", "2")));
+    assert!(stdout.contains(&field(
+        "native_vortex_input_binding_strategy",
+        "sequential_capillary_parts"
+    )));
+    assert!(stdout.contains(&field("native_vortex_partitioned_input_binding", "true")));
+    assert!(stdout.contains(&field("local_primitive_rows_scanned", "10")));
+    assert!(stdout.contains(&field("local_primitive_rows_selected", "10")));
+    assert!(stdout.contains(&field("data_read", "true")));
+    assert!(stdout.contains(&field("data_decoded", "false")));
+    assert!(stdout.contains(&field("data_materialized", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
+    let dir = copy_partitioned_vortex_fixture("manifest-aggregate");
+    let manifest = dir.join("parts.vortex-manifest");
+    std::fs::write(
+        &manifest,
+        r#"{"inputs":["part-000.vortex","part-001.vortex"]}"#,
+    )
+    .expect("write manifest");
+    let aggregate = r#"{"measures":[{"function":"sum","column":"metric","alias":"sum_metric"},{"function":"count","alias":"rows"}]}"#;
+    let (ok, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        &manifest.display().to_string(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-primitive",
+        "aggregate",
+        "--vortex-aggregate",
+        aggregate,
+        "--format",
+        "json",
+    ]);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    assert!(ok, "{stdout}");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "native_vortex_aggregate"
+    )));
+    assert!(stdout.contains(&field("native_vortex_input_binding_mode", "manifest")));
+    assert!(stdout.contains(&field("native_vortex_input_binding_count", "2")));
+    assert!(stdout.contains(&field(
+        "native_vortex_input_binding_strategy",
+        "sequential_capillary_parts"
+    )));
+    assert!(stdout.contains(&field("native_vortex_partitioned_input_binding", "true")));
+    assert!(stdout.contains(&field("local_primitive_rows_scanned", "10")));
+    assert!(stdout.contains(&field("local_primitive_rows_selected", "10")));
+    assert!(stdout.contains(&field("local_primitive_rows_projected", "1")));
+    assert!(stdout.contains(&field(
+        "local_primitive_capillary_work_units",
+        "partitioned_vortex_source,vortex_scan,aggregate_state"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_pulseweave_pressure_signals",
+        "partition_count,aggregate_measure_count,aggregate_input_rows"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
@@ -82,11 +279,11 @@ fn public_route_blocks_local_file_auto_without_vortex_middle() {
         )));
         assert!(stdout.contains(&field(
             "resolved_internal_command",
-            "vortex-ingest-smoke->vortex-production-runtime-run"
+            "vortex-prepare->vortex-production-runtime-run"
         )));
         assert!(stdout.contains(&field(
             "underlying_runtime_command",
-            "vortex-ingest-smoke->vortex-production-runtime-run"
+            "vortex-prepare->vortex-production-runtime-run"
         )));
         assert!(stdout.contains(&field("start_state", "compatibility_local_source")));
         assert!(stdout.contains(&field("vortex_normalization_point", "VortexPreparedState")));
@@ -2011,10 +2208,21 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
         )));
         assert!(stdout.contains(&field(
             "public_workflow_resolved_internal_command",
-            "vortex-ingest-smoke"
+            "vortex-prepare"
         )));
         assert!(stdout.contains(&field("public_workflow_preparation_included", "true")));
-        assert!(stdout.contains(&field("vortex_ingest_performed", "true")));
+        assert!(stdout.contains(&field(
+            "public_workflow_preparation_vortex_ingest_performed",
+            "true"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_preparation_local_workflow_input_row_cap",
+            "none_synthetic_row_cap_disabled"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_preparation_local_workflow_synthetic_input_row_cap_enabled",
+            "false"
+        )));
     } else {
         assert!(stdout.contains("\"status\":\"unsupported\""));
         assert!(stdout.contains(&field(

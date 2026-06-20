@@ -23,8 +23,8 @@
   ],
   "row_order": [
     "cli_status_capability_reports",
-    "cli_sql_local_source_smoke",
-    "cli_vortex_ingest_smoke",
+    "cli_local_source_runtime",
+    "cli_vortex_prepare",
     "cli_generated_source_smokes",
     "cli_sqlite_local_import_export_smoke",
     "cli_udf_local_scalar_fixture_smoke",
@@ -538,10 +538,10 @@
       "external_engine_invoked": false
     },
     {
-      "id": "cli_sql_local_source_smoke",
+      "id": "cli_local_source_runtime",
       "family": "cli_command",
       "surface": [
-        "sql-local-source-smoke"
+        "local-source-runtime"
       ],
       "support_state": "executable",
       "feature_gate": "default",
@@ -553,7 +553,7 @@
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local-source SQL runtime ladder smoke execution only; not broad SQL/DataFrame, object-store/table SQL, external-engine, fallback, production, or performance support",
+      "claim_boundary": "scoped internal local-source SQL runtime diagnostic only; not broad SQL/DataFrame, product local workflow, object-store/table SQL, external-engine, fallback, production, or performance support",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -561,10 +561,10 @@
       "external_engine_invoked": false
     },
     {
-      "id": "cli_vortex_ingest_smoke",
+      "id": "cli_vortex_prepare",
       "family": "cli_command",
       "surface": [
-        "vortex-ingest-smoke"
+        "vortex-prepare"
       ],
       "support_state": "feature_gated",
       "feature_gate": "vortex-write",

@@ -2995,6 +2995,14 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         primary_micros_keys: tuple[str, ...] = (),
         prepare_batch_micros_keys: tuple[str, ...] = (),
     ) -> float | None:
+        if route_lane_id == "prepare_once_first_query":
+            prepare_batch_value = first_numeric_stage_millis(
+                fields,
+                millis_keys=prepare_batch_millis_keys,
+                micros_keys=prepare_batch_micros_keys,
+            )
+            if prepare_batch_value is not None:
+                return prepare_batch_value
         if route_lane_id == "prepare_once_batch" and batch_count and batch_count > 0:
             prepare_batch_value = first_numeric_stage_millis(
                 fields,
@@ -3010,7 +3018,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         )
 
     source_read_total = route_stage_millis(
-        ("source_read_millis",),
+        ("source_read_ms", "source_read_millis"),
         primary_micros_keys=("source_read_micros",),
     )
     source_parse = route_stage_millis(
@@ -3024,9 +3032,15 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         ("prepare_batch_source_to_columnar_micros",),
     )
     explicit_source_parse_or_decode = route_stage_millis(
-        ("exclusive_source_parse_or_decode_millis",),
+        (
+            "source_parse_or_columnar_decode_ms",
+            "exclusive_source_parse_or_decode_ms",
+            "exclusive_source_parse_or_decode_millis",
+        ),
         primary_micros_keys=("exclusive_source_parse_or_decode_micros",),
     )
+    if route_lane_id == "prepare_once_first_query" and source_to_columnar is not None:
+        explicit_source_parse_or_decode = None
     if explicit_source_parse_or_decode is not None:
         source_parse_or_decode = explicit_source_parse_or_decode
     elif source_parse is not None or source_to_columnar is not None:
@@ -3034,7 +3048,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     else:
         source_parse_or_decode = None
     explicit_source_read = route_stage_millis(
-        ("exclusive_source_read_millis",),
+        ("exclusive_source_read_ms", "exclusive_source_read_millis"),
         primary_micros_keys=("exclusive_source_read_micros",),
     )
     if explicit_source_read is not None:
@@ -3045,23 +3059,34 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         source_read = source_read_total
 
     source_to_vortex_array = route_stage_millis(
-        ("exclusive_source_to_vortex_array_millis", "vortex_array_build_millis"),
+        (
+            "source_to_vortex_array_ms",
+            "exclusive_source_to_vortex_array_ms",
+            "exclusive_source_to_vortex_array_millis",
+            "vortex_array_build_millis",
+        ),
         ("prepare_batch_vortex_array_build_millis",),
         ("exclusive_source_to_vortex_array_micros", "vortex_array_build_micros"),
         ("prepare_batch_vortex_array_build_micros",),
     )
     vortex_write = route_stage_millis(
-        ("exclusive_vortex_write_millis", "vortex_write_millis"),
+        ("vortex_write_ms", "exclusive_vortex_write_ms", "exclusive_vortex_write_millis", "vortex_write_millis"),
         ("prepare_batch_vortex_write_millis",),
         ("exclusive_vortex_write_micros", "vortex_write_micros"),
         ("prepare_batch_vortex_write_micros",),
     )
     vortex_digest = route_stage_millis(
-        ("exclusive_vortex_digest_millis", "vortex_digest_millis"),
+        (
+            "exclusive_vortex_digest_ms",
+            "exclusive_vortex_digest_millis",
+            "vortex_digest_millis",
+        ),
         primary_micros_keys=("exclusive_vortex_digest_micros", "vortex_digest_micros"),
     )
     vortex_reopen_or_verify = route_stage_millis(
         (
+            "vortex_reopen_or_verify_ms",
+            "exclusive_vortex_reopen_verify_ms",
             "exclusive_vortex_reopen_verify_millis",
             "vortex_reopen_verify_millis",
         ),
@@ -3089,7 +3114,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         vortex_scan = vortex_scan_substage
     else:
         vortex_scan = route_stage_millis(
-            ("exclusive_vortex_scan_millis", "vortex_scan_millis"),
+            ("vortex_scan_ms", "exclusive_vortex_scan_ms", "exclusive_vortex_scan_millis", "vortex_scan_millis"),
             primary_micros_keys=("exclusive_vortex_scan_micros", "vortex_scan_micros"),
         )
     operator_substage = summed_numeric_millis_from_micros(
@@ -3104,7 +3129,12 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         operator_compute = operator_substage
     else:
         operator_compute = route_stage_millis(
-            ("exclusive_operator_compute_millis", "operator_compute_millis"),
+            (
+                "operator_compute_ms",
+                "exclusive_operator_compute_ms",
+                "exclusive_operator_compute_millis",
+                "operator_compute_millis",
+            ),
             primary_micros_keys=("exclusive_operator_compute_micros", "operator_compute_micros"),
         )
     has_query_stage_split = vortex_scan is not None and operator_compute is not None
@@ -3131,12 +3161,20 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     output_delivery = output_delivery_millis(fields)
     evidence_render = evidence_render_route_millis(fields)
     explicit_result_sink = route_stage_millis(
-        ("exclusive_result_sink_write_millis",),
+        (
+            "result_sink_write_ms",
+            "exclusive_result_sink_write_ms",
+            "exclusive_result_sink_write_millis",
+        ),
         primary_micros_keys=("exclusive_result_sink_write_micros",),
     )
     result_sink_write = explicit_result_sink if explicit_result_sink is not None else output_delivery
     explicit_evidence_render = route_stage_millis(
-        ("exclusive_evidence_render_millis",),
+        (
+            "evidence_render_ms",
+            "exclusive_evidence_render_ms",
+            "exclusive_evidence_render_millis",
+        ),
         primary_micros_keys=("exclusive_evidence_render_micros",),
     )
     evidence_render = (
@@ -4311,6 +4349,57 @@ def source_read_scout_fields_for_row(
         {**fields, **stage_fields},
         ("exclusive_source_read_ms", "source_read_ms", "source_read_millis"),
     )
+    route_identity = route_identity_for_row(row)
+    if source_read is not None and not bool(route_identity.get("includes_preparation")):
+        return {
+            "source_read_scout_schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
+            "source_read_scout_status": "diagnostic_only_source_read_outside_route_total",
+            "source_read_scout_timing_split_status": "not_applicable_diagnostic_only",
+            "source_read_header_scout_ms": None,
+            "source_read_byte_acquisition_ms": None,
+            "source_read_full_body_ms": None,
+            "source_read_typed_decode_ms": None,
+            "source_read_row_assembly_ms": None,
+            "source_read_anomaly_quarantine_ms": None,
+            "source_read_columnar_handoff_ms": None,
+            "source_read_scout_residual_ms": None,
+            "source_read_scout_reuse_status": "diagnostic_only",
+            "source_read_decode_status": "diagnostic_only",
+            "source_read_projected_field_mask": "0x00000000",
+            "source_read_filter_field_mask": "0x00000000",
+            "source_read_decoded_columns": "none",
+            "source_read_skipped_columns": "none",
+            "source_read_decoded_column_count": 0,
+            "source_read_skipped_column_count": 0,
+            "source_read_row_materialization_status": "diagnostic_only",
+            "source_read_unsupported_shape_diagnostic": "not_applicable_diagnostic_only",
+            **source_typed_builder_default_fields(
+                "not_applicable_diagnostic_only",
+                claim_boundary=(
+                    "source typed-builder evidence is diagnostic-only because this row's "
+                    "selected route starts after source preparation"
+                ),
+            ),
+            **source_projection_default_fields(
+                "not_applicable_diagnostic_only",
+                claim_boundary=(
+                    "source projection admission is diagnostic-only because this row's selected "
+                    "route starts after source preparation"
+                ),
+            ),
+            **source_columnar_default_fields(
+                "not_applicable_diagnostic_only",
+                claim_boundary=(
+                    "source columnar-provider evidence is diagnostic-only because this row's "
+                    "selected route starts after source preparation"
+                ),
+            ),
+            "source_read_scout_claim_boundary": (
+                "source-read scout split completeness applies to source-preparation routes. "
+                "This row starts from Vortex/prepared state, so any source-read value is "
+                "diagnostic setup evidence outside the selected route total."
+            ),
+        }
     if source_read is None:
         return {
             "source_read_scout_schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
@@ -4364,6 +4453,7 @@ def source_read_scout_fields_for_row(
     header_scout = first_numeric_stage_millis(
         fields,
         millis_keys=(
+            "source_read_header_scout_ms",
             "source_read_header_scout_millis",
             "source_header_scout_millis",
             "source_scout_read_millis",
@@ -4377,6 +4467,7 @@ def source_read_scout_fields_for_row(
     byte_acquisition = first_numeric_stage_millis(
         fields,
         millis_keys=(
+            "source_read_byte_acquisition_ms",
             "source_read_byte_acquisition_millis",
             "source_byte_acquisition_millis",
             "source_body_read_millis",
@@ -4389,27 +4480,40 @@ def source_read_scout_fields_for_row(
     )
     full_body = first_numeric_stage_millis(
         fields,
-        millis_keys=("source_read_full_body_millis", "source_full_body_read_millis"),
+        millis_keys=(
+            "source_read_full_body_ms",
+            "source_read_full_body_millis",
+            "source_full_body_read_millis",
+        ),
         micros_keys=("source_read_full_body_micros", "source_full_body_read_micros"),
     )
     typed_decode = first_numeric_stage_millis(
         fields,
-        millis_keys=("source_read_typed_decode_millis",),
+        millis_keys=("source_read_typed_decode_ms", "source_read_typed_decode_millis"),
         micros_keys=("source_read_typed_decode_micros",),
     )
     row_assembly = first_numeric_stage_millis(
         fields,
-        millis_keys=("source_read_row_assembly_millis",),
+        millis_keys=(
+            "source_read_row_assembly_ms",
+            "source_read_row_assembly_millis",
+        ),
         micros_keys=("source_read_row_assembly_micros",),
     )
     anomaly_quarantine = first_numeric_stage_millis(
         fields,
-        millis_keys=("source_read_anomaly_quarantine_millis",),
+        millis_keys=(
+            "source_read_anomaly_quarantine_ms",
+            "source_read_anomaly_quarantine_millis",
+        ),
         micros_keys=("source_read_anomaly_quarantine_micros",),
     )
     columnar_handoff = first_numeric_stage_millis(
         fields,
-        millis_keys=("source_read_columnar_handoff_millis",),
+        millis_keys=(
+            "source_read_columnar_handoff_ms",
+            "source_read_columnar_handoff_millis",
+        ),
         micros_keys=("source_read_columnar_handoff_micros",),
     )
     read_pieces = [
@@ -6299,10 +6403,38 @@ def operator_hot_path_candidate_fields(
     )
     scenario = str(fields.get("scenario_name") or fields.get("scenario_id") or "").lower()
     if encoded_provider_status and "selective" in scenario:
+        selected_metric_selection_vector = field_bool(
+            fields,
+            "encoded_predicate_provider_selected_metric_selection_vector_consumed",
+            False,
+        )
+        selected_metric_status = str(
+            first_meaningful_field(
+                fields,
+                ("encoded_predicate_provider_selected_metric_aggregation_status",),
+            )
+            or ""
+        )
+        if selected_metric_selection_vector:
+            return (
+                "selective_filter_selection_vector_metric_aggregation",
+                "admitted_selection_vector_metric_aggregation_residual_native",
+                "keep the selected-metric aggregation bridge covered by decoded-reference, execution-certificate, Native I/O, and no-fallback evidence before considering full encoded-native promotion",
+            )
+        if selected_metric_status and selected_metric_status not in {
+            "none",
+            "not_applicable",
+            "missing",
+        }:
+            return (
+                "selective_filter_selected_metric_aggregation",
+                "admitted_selected_metric_aggregation_residual_native",
+                "selection/filter metric aggregation is runtime-admitted through ShardLoom-native residual state; add selection-vector consumption evidence before encoded-native promotion",
+            )
         return (
             "selective_filter_selection_vector_metric_aggregation",
-            "blocked_selection_vector_metric_aggregation_not_admitted",
-            "implement selection-vector-backed metric aggregation with decoded-reference correctness, execution certificate, and Native I/O evidence before changing encoded_native_claim_allowed",
+            "selection_vector_metric_aggregation_evidence_missing",
+            "emit selected-metric aggregation status and selection-vector consumption evidence before changing encoded_native_claim_allowed",
         )
     promoted_kernel_count = int(
         numeric_value(fields.get("encoded_kernel_promoted_pair_count")) or 0
@@ -6397,9 +6529,22 @@ def encoded_kernel_promotion_fields_for_row(row: dict[str, Any]) -> dict[str, An
         "encoded_predicate_provider_selected_metric_data_decoded",
         False,
     )
+    selected_metric_status = str(
+        first_meaningful_field(
+            fields,
+            ("encoded_predicate_provider_selected_metric_aggregation_status",),
+        )
+        or ""
+    )
     if promoted_pairs:
         status = "partial_encoded_kernel_pairs_promoted"
-    elif selected_metric_selection_vector and selected_metric_decoded:
+    elif selected_metric_selection_vector:
+        status = "selection_vector_metric_aggregation_admitted"
+    elif selected_metric_status and selected_metric_status not in {
+        "none",
+        "not_applicable",
+        "missing",
+    }:
         status = "selection_vector_bridge_promoted_metric_residual"
     else:
         status = "no_promoted_encoded_kernel_pairs"
@@ -8672,7 +8817,11 @@ def encoded_kernel_promotion_table(rows: list[dict[str, Any]]) -> dict[str, Any]
     bridge_count = sum(
         count
         for (status, _pairs, _families, _full_claim), count in grouped.items()
-        if status == "selection_vector_bridge_promoted_metric_residual"
+        if status
+        in {
+            "selection_vector_bridge_promoted_metric_residual",
+            "selection_vector_metric_aggregation_admitted",
+        }
     )
     return {
         "heading": "Encoded-Kernel Promotion",

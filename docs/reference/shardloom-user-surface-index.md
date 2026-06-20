@@ -33,7 +33,7 @@ Use this order before executing or documenting a workflow:
    `ctx.front_door_semantic_surface_matrix()` before treating a Python, SQL, DataFrame-style, or
    CLI surface as promoted user workflow support.
 
-The CLI command list is intentionally not hand-copied here. The exhaustive registry has 213 rows
+The CLI command list is intentionally not hand-copied here. The exhaustive registry has 214 rows
 and lives in `shardloom-cli/src/command_registry.rs`; the side-effect-free command
 `shardloom command-metadata --format json` renders those rows for agents without scraping Rust
 source or human text.
@@ -74,6 +74,11 @@ stores, touch catalogs, execute SQL, invoke external engines, or create hidden g
 
 Use `repo_root`, `profile_order`, `SHARDLOOM_BIN`, or `SHARDLOOM_REPO_ROOT` only when a source
 checkout, CI job, managed environment, or benchmark reproduction needs explicit CLI resolution.
+Normal resolved clients use a private local `python-worker` transport when available to amortize
+CLI process startup across repeated calls. This is not a separate execution route: every response is
+still the command's normal typed envelope with `fallback_attempted=false` and
+`external_engine_invoked=false` evidence from the underlying ShardLoom/Vortex route. Set
+`SHARDLOOM_PERSISTENT_WORKER=0` to force one-shot subprocess transport for diagnostics.
 
 ## Python Reads
 
@@ -86,6 +91,10 @@ Use `ctx.read(path)` for ordinary local input. It infers:
 - `.avro` -> Avro compatibility source when feature-gated.
 - `.orc` -> ORC compatibility source when feature-gated.
 - `.vortex` -> native Vortex source.
+- `.vortex-manifest` -> native Vortex manifest source; manifest `inputs`/`paths` entries bind as
+  local Vortex parts.
+- local directories of `.vortex` files -> native Vortex partitioned source when the route requests
+  native Vortex input.
 
 Explicit helpers remain available when an agent needs a pinned adapter:
 
@@ -105,7 +114,7 @@ raw envelopes when checking route ID/status, execution mode, native Vortex activ
 feature gate, parallelism, scan/pushdown signals, source-state reuse, decode/materialization,
 sink/write status, fallback/external-engine flags, claim gate, and unsupported diagnostics.
 
-For direct `.vortex` inputs, use
+For direct `.vortex`, `.vortex-manifest`, or local `.vortex` directory inputs, use
 `ctx.native_vortex_provider_route_certificate_report()` to inspect the exact release-feature-backed
 Python/SQL provider routes for grouped aggregation, hash join, global top-N, cast/try-cast,
 substring contains, and native `write_vortex` sink shapes. Scoped primitive routes also cover
@@ -249,15 +258,18 @@ pandas, Polars, or another external execution engine.
 Entry points:
 
 - `ctx.sql("SELECT ...")`
+- `ctx.sql("SELECT ... FROM hits ...", input="hits.vortex")` for a declared Vortex input when
+  SQL uses a logical table name.
 - `sl.sql("SELECT ...")`
-- `ShardLoomClient.sql_local_source_smoke(...)` for lower-level CLI-backed proof.
-- `shardloom sql-local-source-smoke ... --format json` for CLI smoke execution.
-- `shardloom generated-source-sql-smoke ... --format json` for source-free SQL writes.
+- `ShardLoomClient.local_source_runtime(...)` for lower-level CLI-backed proof.
+- `shardloom local-source-runtime ... --format json` for lower-level CLI proof execution.
+- `shardloom generated-source-sql-smoke ... --format json` for scoped source-free SQL proof writes.
 
-Admitted forms include scoped local-source `SELECT` over local file references, scoped projection,
-filter, group-by, having, order, limit, joins, set operations, bounded subquery predicates, source
-free `VALUES`, source-free literal `SELECT`, and generated range forms such as `generate_series`
-or `range` where the local runtime admits them.
+Admitted forms include scoped local-source `SELECT` over local file references, declared Vortex
+inputs bound to logical table names, scoped projection, filter, group-by, having, order, limit,
+joins, set operations, bounded subquery predicates, source-free `VALUES`, source-free literal
+`SELECT`, and generated range forms such as `generate_series` or `range` where the local runtime
+admits them.
 
 Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
 subqueries, broad optimizer parity, SQL UDFs, catalog-backed SQL, object-store/table SQL, JDBC/ODBC,
@@ -306,8 +318,8 @@ shardloom generated-source-user-rows-smoke --format json
 shardloom generated-source-range-smoke --format json
 shardloom generated-source-sequence-smoke --format json
 shardloom generated-source-sql-smoke --format json
-shardloom sql-local-source-smoke --format json
-shardloom vortex-ingest-smoke --format json
+shardloom local-source-runtime --format json
+shardloom vortex-prepare --format json
 shardloom vortex-production-runtime-run <scenario> <fact.vortex> <dim.vortex> --format json
 shardloom sqlite-local-import-export-smoke --format json
 ```

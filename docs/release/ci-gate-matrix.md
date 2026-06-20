@@ -44,6 +44,9 @@ into the serial release-readiness tail:
   `ci-work-shaping-evidence`. The report carries capillary family selection, pulseweave evidence
   fingerprints, source-aware benchmark rerun recommendations, and no-fallback/claim metadata gates
   without executing runtime, benchmark, package publication, or external engine work.
+- `rust_baseline` keeps the required Rust hard gate but runs `fmt`, `clippy`, and full workspace
+  tests as matrix capillary lanes under the stable `rust-baseline` job id. This preserves the same
+  commands and gate semantics while avoiding the old serial `fmt -> clippy -> test` runner tail.
 - `python_compatibility_matrix` checks Python 3.10 through 3.13 on `ubuntu-latest` and keeps
   `macos-latest` plus `windows-latest` smoke lanes for OS matrix coverage.
 - `rust_msrv_validation` derives the Rust MSRV toolchain from root `Cargo.toml` and checks it with
@@ -120,7 +123,7 @@ target/production-certification-gate.json
 | Lane id | GitHub job | Commands | Artifacts | Release blocker refs |
 | --- | --- | --- | --- | --- |
 | `ci_work_shaping_contract` | `ci-work-shaping` | `cargo run -q -p shardloom-cli -- ci-work-shaping-plan` | `target/ci-work-shaping-plan.json`<br>`target/ci-work-shaping-changed-files.txt`<br>`ci-work-shaping-evidence` | metadata-first CI work shaping; capillary changed-file selection; pulseweave evidence fingerprint; source-aware benchmark rerun recommendations |
-| `rust_baseline` | `rust-baseline` | `cargo fmt --all -- --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets` | none | default Rust formatting, linting, and tests |
+| `rust_baseline` | `rust-baseline` | `cargo fmt --all -- --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets` | none | default Rust formatting, linting, and tests; matrix capillary lanes for fmt, clippy, and test |
 | `rust_feature_matrix` | `rust-feature-matrix` | `cargo check --workspace`<br>`cargo check --workspace --all-features`<br>`cargo check --workspace --no-default-features`<br>`cargo check -p shardloom-vortex --features upstream-vortex`<br>`cargo check -p shardloom-vortex --features vortex-file-io`<br>`cargo check -p shardloom-vortex --features vortex-local-primitives`<br>`cargo check -p shardloom-vortex --features vortex-encoded-read-spike`<br>`cargo check -p shardloom-vortex --features release-user-surfaces`<br>`cargo test -p shardloom-contract-tests --test conda_packaging_recipes`<br>`cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` | none | workspace feature/build matrix |
 | `rust_msrv_validation` | `rust-msrv` | `cargo check --workspace --no-default-features`<br>`python scripts/write_release_compatibility_lane_report.py --lane "$SHARDLOOM_RUST_MSRV_LANE" --surface rust --rust-toolchain "$SHARDLOOM_RUST_MSRV_TOOLCHAIN" --os-name ubuntu-latest` | `target/release-compatibility/rust_msrv_*.json`<br>`release-compatibility-rust-msrv` | Rust MSRV derived from root Cargo.toml validation |
 | `python_test_shards` | `python-test-shards` | `python scripts/run_python_test_shard.py --shard ${{ matrix.shard }}` | `target/python-test-shards/${{ matrix.shard }}.json`<br>`python-test-shard-${{ matrix.shard }}` | Python test shards |
@@ -154,6 +157,9 @@ scripts report a coherent blocked state with
 
 The release hard-gate stack is split into parallel producers and a short final aggregate:
 
+- `rust-baseline` keeps the branch-protection job id while using a `fail-fast: false` matrix with
+  `fmt`, `clippy`, and `test` lanes. The commands are unchanged, but the workflow no longer waits
+  for formatting before starting lint and full workspace tests.
 - `python-test-shards` runs `core`, `front_door_benchmark_publication`, and `release_scripts`
   shards in parallel with `fail-fast: false`. The split isolates the two measured slow modules:
   `python.tests.test_release_scripts` and `python.tests.test_front_door_benchmark_publication`.

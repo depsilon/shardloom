@@ -5694,7 +5694,7 @@ def run_executable_case(
         format_paths[placeholder] = auxiliary_path
         auxiliary_refs.append(auxiliary_path)
     statement = case.statement_template.format(**format_paths)
-    cli_args = ["sql-local-source-smoke", statement]
+    cli_args = ["local-source-runtime", statement]
     output_path: Path | None = None
     if case.output_format is not None:
         output_name = case.output_name or f"{case.case_id}.{case.output_format}"
@@ -5852,7 +5852,7 @@ def run_unsupported_case(
 ) -> dict[str, Any]:
     source_path = materialize_source(work_dir, case.case_id, case.source_name, case.source_text)
     statement = case.statement_template.format(source=source_path)
-    cli_args = ["sql-local-source-smoke", statement]
+    cli_args = ["local-source-runtime", statement]
     output_path: Path | None = None
     if case.output_format is not None:
         output_name = case.output_name or f"{case.case_id}.{case.output_format}"

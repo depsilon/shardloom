@@ -1657,7 +1657,7 @@ class ShardLoomSession:
         """Prepare or reuse a local `VortexPreparedState` within this session.
 
         With only ``source_path`` and ``target_vortex_path`` this preserves the lower-level
-        session cache over ``vortex-ingest-smoke``. With ``workspace`` plus ``dim`` or a second
+        session cache over ``vortex-prepare``. With ``workspace`` plus ``dim`` or a second
         positional dimension path, it returns the same compatibility prepared-route handle as
         ``ShardLoomContext.prepare_vortex(...)``.
         """
@@ -1690,13 +1690,13 @@ class ShardLoomSession:
                 )
             if allow_overwrite:
                 raise ValueError(
-                    "allow_overwrite applies only to the lower-level vortex-ingest-smoke helper; "
+                    "allow_overwrite applies only to the lower-level vortex-prepare helper; "
                     "prepared-route result writes use write_vortex(...)/run_batch(..., "
                     "write_result_vortex=True)"
                 )
             if certification_level != "ingest_certified":
                 raise ValueError(
-                    "certification_level applies only to the lower-level vortex-ingest-smoke "
+                    "certification_level applies only to the lower-level vortex-prepare "
                     "helper; the compatibility prepared route uses certified traditional-analytics "
                     "preparation evidence emitted by ShardLoom"
                 )
@@ -1717,7 +1717,7 @@ class ShardLoomSession:
         if target_vortex_path is None:
             raise ValueError(
                 "prepare_vortex requires either a target_vortex_path for the session "
-                "vortex-ingest-smoke cache or workspace plus dim/second positional input for "
+                "vortex-prepare cache or workspace plus dim/second positional input for "
                 "the compatibility prepared route"
             )
         normalized_source = _normalized_path(source_path)
@@ -1761,7 +1761,7 @@ class ShardLoomSession:
             else reuse_reason
         )
         self._cache_misses += 1
-        report = self.client.vortex_ingest_smoke(
+        report = self.client.vortex_prepare(
             source_path,
             target_vortex_path,
             allow_overwrite=allow_overwrite,

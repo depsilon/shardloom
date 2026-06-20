@@ -1015,26 +1015,26 @@ const SQL_FIELD_KEYS: [&str; 55] = [
     "planner_readiness_external_engine_invoked",
     "planner_readiness_fallback_attempted",
     "planner_readiness_deterministic_diagnostics_present",
-    "sql_local_source_smoke_schema_version",
-    "sql_local_source_smoke_command",
-    "sql_local_source_smoke_support_status",
-    "sql_local_source_smoke_statement_shape",
-    "sql_local_source_smoke_execution_mode",
-    "sql_local_source_smoke_engine_mode",
-    "sql_local_source_smoke_source_format",
-    "sql_local_source_smoke_result_format",
-    "sql_local_source_smoke_runtime_execution",
-    "sql_local_source_smoke_parser_executed",
-    "sql_local_source_smoke_binder_executed",
-    "sql_local_source_smoke_planner_executed",
-    "sql_local_source_smoke_source_io_performed",
-    "sql_local_source_smoke_output_io_performed",
-    "sql_local_source_smoke_object_store_io",
-    "sql_local_source_smoke_external_engine_invoked",
-    "sql_local_source_smoke_fallback_attempted",
-    "sql_local_source_smoke_claim_gate_status",
-    "sql_local_source_smoke_claim_boundary",
-    "sql_local_source_smoke_blocked_shapes",
+    "local_source_runtime_schema_version",
+    "local_source_runtime_command",
+    "local_source_runtime_support_status",
+    "local_source_runtime_statement_shape",
+    "local_source_runtime_execution_mode",
+    "local_source_runtime_engine_mode",
+    "local_source_runtime_source_format",
+    "local_source_runtime_result_format",
+    "local_source_runtime_runtime_execution",
+    "local_source_runtime_parser_executed",
+    "local_source_runtime_binder_executed",
+    "local_source_runtime_planner_executed",
+    "local_source_runtime_source_io_performed",
+    "local_source_runtime_output_io_performed",
+    "local_source_runtime_object_store_io",
+    "local_source_runtime_external_engine_invoked",
+    "local_source_runtime_fallback_attempted",
+    "local_source_runtime_claim_gate_status",
+    "local_source_runtime_claim_boundary",
+    "local_source_runtime_blocked_shapes",
 ];
 
 const SQL_FRONTEND_RUNTIME_LADDER_FIELD_KEYS: [&str; 24] = [
@@ -3080,8 +3080,8 @@ fn assert_runs_today_effect_fields(output: &str) {
 
 fn assert_runs_today_row_states(output: &str) {
     for (row, support_state) in [
-        ("cli_sql_local_source_smoke", "executable"),
-        ("cli_vortex_ingest_smoke", "feature_gated"),
+        ("cli_local_source_runtime", "executable"),
+        ("cli_vortex_prepare", "feature_gated"),
         (
             "cli_direct_transient_local_adapter_benchmark",
             "feature_gated",
@@ -3119,16 +3119,16 @@ fn assert_runs_today_row_states(output: &str) {
 
 fn assert_runs_today_evidence_refs(output: &str) {
     assert!(output.contains(&string_field_pair(
-        "runs_today_row_cli_sql_local_source_smoke_evidence_refs",
-        "sql_local_source_runtime_smoke,sql_frontend_runtime_ladder_fields,sql_parser_tests,python_query_builder_tests"
+        "runs_today_row_cli_local_source_runtime_evidence_refs",
+        "local_source_runtime,sql_frontend_runtime_ladder_fields,sql_parser_tests,python_query_builder_tests"
     )));
     assert!(output.contains(&string_field_pair(
-        "runs_today_row_cli_vortex_ingest_smoke_evidence_refs",
-        "sql_local_source_runtime_smoke,vortex_ingest_evidence_fields,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields"
+        "runs_today_row_cli_vortex_prepare_evidence_refs",
+        "local_source_runtime,vortex_ingest_evidence_fields,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields"
     )));
     assert!(output.contains(&string_field_pair(
         "runs_today_row_input_parquet_arrow_avro_orc_evidence_refs",
-        "feature_gated_sql_local_source_tests,vortex_ingest_smoke_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_direct_transient_structured_tests,universal_ingress_route_taxonomy"
+        "feature_gated_sql_local_source_tests,vortex_prepare_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_direct_transient_structured_tests,universal_ingress_route_taxonomy"
     )));
     assert!(output.contains(&string_field_pair(
         "runs_today_row_cli_pre_oom_memory_guard_smoke_evidence_refs",
@@ -3465,10 +3465,10 @@ fn sql_and_dataframe_capabilities_expose_planner_readiness_matrix() {
         assert_planner_readiness_fields(&output, scope);
         if scope == "sql" {
             assert_sql_frontend_runtime_ladder_fields(&output);
-            assert_sql_local_source_smoke_fields(&output);
+            assert_local_source_runtime_fields(&output);
         } else {
             assert!(!output.contains("sql_frontend_runtime_ladder_schema_version"));
-            assert!(!output.contains("sql_local_source_smoke_schema_version"));
+            assert!(!output.contains("local_source_runtime_schema_version"));
         }
     }
 }
@@ -3544,7 +3544,7 @@ fn assert_sql_frontend_runtime_ladder_fields(output: &str) {
         ),
         (
             "sql_frontend_runtime_ladder_row_local_source_join_ladder_support_status",
-            "smoke-supported",
+            "runtime-supported",
         ),
         (
             "sql_frontend_runtime_ladder_row_broad_sql_parse_bind_plan_execute_blocker_id",
@@ -3577,38 +3577,35 @@ fn assert_sql_frontend_runtime_ladder_boolean_fields(output: &str) {
     }
 }
 
-fn assert_sql_local_source_smoke_fields(output: &str) {
+fn assert_local_source_runtime_fields(output: &str) {
     for (key, value) in [
         (
-            "sql_local_source_smoke_schema_version",
-            "shardloom.sql_local_source_smoke.v1",
+            "local_source_runtime_schema_version",
+            "shardloom.local_source_runtime.v1",
         ),
-        ("sql_local_source_smoke_command", "sql-local-source-smoke"),
+        ("local_source_runtime_command", "local-source-runtime"),
         (
-            "sql_local_source_smoke_support_status",
-            "fixture_smoke_supported",
-        ),
-        (
-            "sql_local_source_smoke_execution_mode",
-            "direct_compatibility_transient",
+            "local_source_runtime_support_status",
+            "production_admitted_local_workflow",
         ),
         (
-            "sql_local_source_smoke_claim_gate_status",
-            "fixture_smoke_only",
+            "local_source_runtime_execution_mode",
+            "prepared_vortex_then_native_runtime",
+        ),
+        (
+            "local_source_runtime_claim_gate_status",
+            "local_workflow_runtime_supported",
         ),
     ] {
         assert!(output.contains(&string_field_pair(key, value)));
     }
+    assert!(output.contains(&field_pair("local_source_runtime_runtime_execution", true)));
     assert!(output.contains(&field_pair(
-        "sql_local_source_smoke_runtime_execution",
-        true
-    )));
-    assert!(output.contains(&field_pair(
-        "sql_local_source_smoke_external_engine_invoked",
+        "local_source_runtime_external_engine_invoked",
         false
     )));
     assert!(output.contains(&field_pair(
-        "sql_local_source_smoke_fallback_attempted",
+        "local_source_runtime_fallback_attempted",
         false
     )));
 }
@@ -3884,27 +3881,27 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
         "help [command]"
     )));
     assert!(output.contains(&string_field_pair(
-        "command_registry_row_vortex_ingest_smoke_input_contract",
+        "command_registry_row_vortex_prepare_input_contract",
         "local_source_or_vortex_artifact_args"
     )));
     assert!(output.contains(&string_field_pair(
-        "command_registry_row_vortex_ingest_smoke_user_surface_graduation_posture",
+        "command_registry_row_vortex_prepare_user_surface_graduation_posture",
         "client_only"
     )));
     assert!(output.contains(&string_field_pair(
-        "command_registry_row_vortex_ingest_smoke_output_contract",
+        "command_registry_row_vortex_prepare_output_contract",
         "typed_envelope_plus_local_runtime_or_artifact_evidence"
     )));
     assert!(output.contains(&string_field_pair(
-        "command_registry_row_vortex_ingest_smoke_owning_phase_item",
+        "command_registry_row_vortex_prepare_owning_phase_item",
         "GAR-RUNTIME-IMPL-4"
     )));
     assert!(output.contains(&field_pair(
-        "command_registry_row_vortex_ingest_smoke_fallback_attempted",
+        "command_registry_row_vortex_prepare_fallback_attempted",
         false
     )));
     assert!(output.contains(&field_pair(
-        "command_registry_row_vortex_ingest_smoke_external_engine_invoked",
+        "command_registry_row_vortex_prepare_external_engine_invoked",
         false
     )));
 

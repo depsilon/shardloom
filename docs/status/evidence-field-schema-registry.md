@@ -8,7 +8,7 @@ Report id: `review-p1-2.evidence_field_schema_registry`
 
 Surface count: 8
 
-Field count: 297
+Field count: 300
 
 Surface order: execution_mode_selection_report, compute_flow_evidence,
 execution_certificate_report, native_io_report, benchmark_plan_report,

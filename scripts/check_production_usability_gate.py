@@ -77,7 +77,7 @@ REQUIRED_DOC_MARKERS = {
     "README.md": [
         "docs/getting-started/install.md",
         "docs/getting-started/first-10-minutes.md",
-        "scripts\\release_dry_run_proof.py",
+        "scripts/release_dry_run_proof.py",
         "selected local/source/package v1 release track",
     ],
     "docs/getting-started/install.md": [

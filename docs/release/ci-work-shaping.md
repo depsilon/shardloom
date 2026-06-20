@@ -90,6 +90,32 @@ fast_lane_authorizes_merge=false
 release_lane_authorizes_publication=false
 ```
 
+The required Rust baseline stays a hard lane, but it is shaped as matrix capillary work under the
+stable `rust-baseline` job id: `fmt`, `clippy`, and full workspace `test` run independently with
+`fail-fast: false`. That preserves the same gate while avoiding a serial Rust tail when formatting,
+linting, and tests can be evaluated in parallel.
+
+## Focused Local Validation
+
+Local agent/developer validation should use the focused runner before broad gates:
+
+```bash
+python3 scripts/run_focused_checks.py --list
+python3 scripts/run_focused_checks.py --profile rust-cli-bin --filter route_infers_vortex_manifest_as_native_vortex_input
+python3 scripts/run_focused_checks.py --profile rust-cli-test --target public_workflow_route --filter partitioned
+python3 scripts/run_focused_checks.py --profile python-unittest --filter python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_sql_vortex_manifest_source_binds_native_vortex_collect
+python3 scripts/run_focused_checks.py --profile current-native-vortex
+```
+
+The runner records `shardloom.focused_check_evidence.v1` with
+`fallback_attempted=false` and `external_engine_invoked=false`. It is a capillary validation
+surface, not a merge authorization gate.
+
+Rust unit-test filters must target the exact crate surface: `--bin <name>` for binary crates and
+`--lib` for library crates. Rust integration-test filters must include an explicit `--test <target>`.
+Bare package-level filters such as `cargo test -p shardloom-cli <filter>` are not focused checks in
+this repo because Cargo still enumerates every integration test target.
+
 ## Source-Aware Benchmark Policy
 
 Benchmark work is selected by source family:

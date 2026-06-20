@@ -75,6 +75,21 @@ public_release_claim_allowed=false
 public_package_claim_allowed=false
 ```
 
+## v0.2.0 Tag Verification Requirement
+
+The next release train should start at `v0.2.0`. The GitHub tag must be a signed annotated tag when
+the maintainer signing key is available, so GitHub can render a verified tag badge:
+
+```sh
+git tag -s v0.2.0 -m "ShardLoom v0.2.0"
+git tag -v v0.2.0
+```
+
+Do not replace this with a lightweight tag. If `git tag -s` cannot sign locally, stop the release
+before publishing and fix the maintainer GPG/SSH signing configuration. The GitHub release, PyPI
+workflow, TestPyPI workflow, and Homebrew update should all reference the same signed tag and source
+revision in their checked-in channel proofs.
+
 ## Runtime Feature-Gate Packaging Note
 
 The selected GitHub, PyPI, and Homebrew channels expose the v0.1.x package/CLI posture selected by
@@ -112,6 +127,11 @@ explicit binary argument
 -> shardloom on PATH
 -> deterministic binary-resolution error
 ```
+
+After binary resolution, normal Python clients keep a private local `python-worker` transport open
+when supported so repeated public-route calls do not relaunch the CLI process. The worker is a
+package transport optimization only; execution evidence and no-fallback fields continue to come from
+the delegated ShardLoom command envelope. `SHARDLOOM_PERSISTENT_WORKER=0` disables it.
 
 Runtime binary download is rejected for this release track. Any wheel that includes a bundled CLI
 must carry checksum, SBOM/provenance, clean install/uninstall, and no-fallback smoke evidence for

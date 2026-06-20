@@ -78,7 +78,7 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   Python/DataFrame `.distinct()` and `.unique()` lower to the distinct primitive, while scoped
   `.drop_duplicates(subset=..., keep="first"|"last"|False)` lowers to retained-row row-key state.
   Non-admitted nested/list/struct or hidden-index equality variants block instead of executing
-  `sql-local-source-smoke` as the runtime middle. Scoped local-source set
+  `local-source-runtime` as the runtime middle. Scoped local-source set
   operations are admitted for already
   admitted branch `SELECT` plans through SQL `UNION`/`UNION ALL`/`INTERSECT`/`EXCEPT` and
   Python/DataFrame `.union(...)`, `.union_all(...)`, `.intersect(...)`, `.except_(...)`,
@@ -121,7 +121,7 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   only the bounded schema/quarantine/preview paths and metadata-first `profile()` routes that have
   admitted Vortex-backed route evidence. Base-source profile uses `vortex-metadata-summary` over a
   native or prepared Vortex source; transformed row-profile and residual materialization helpers
-  return deterministic blockers instead of executing `sql-local-source-smoke` inline results as
+  return deterministic blockers instead of executing `local-source-runtime` inline results as
   product runtime.
 - `decoded_materialization_interop`: bounded local-source ShardLoom results can materialize to
   Python objects, optional pandas DataFrames, optional PyArrow tables/IPC bytes, optional NumPy
@@ -225,7 +225,7 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
   `prepared_state_invalidation_reason`. Rust/CLI reports now emit the same fields for cold first
   preparation, warm prepared Vortex input, native Vortex input, in-process prepare/batch reuse, and
-  artifact-adjacent `vortex-ingest-smoke` prepared-state reuse hits/misses. The
+  artifact-adjacent `vortex-prepare` prepared-state reuse hits/misses. The
   `traditional-analytics-prepare-batch-run` CLI now also validates the same workspace manifest and
   skips compatibility preparation on valid source/artifact/policy hits. Remaining work is
   broadening front-door parity and deepening evidence, not inventing a separate direct

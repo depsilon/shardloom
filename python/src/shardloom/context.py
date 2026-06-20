@@ -6202,11 +6202,17 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Low-level client invocation and binary resolution",
         "client_only",
         "explicit_cli_invocation",
-        client_methods=("run", "binary_command"),
+        client_methods=("run", "binary_command", "close"),
         runtime_route="explicit_user_requested_cli_command",
-        promotion_criteria="low-level escape hatch stays available but is not promoted as a context workflow",
+        promotion_criteria=(
+            "low-level escape hatch and explicit local worker lifecycle control stay available "
+            "but are not promoted as context workflows"
+        ),
         evidence_refs=("ShardLoomClient.run", "command_metadata", "no_fallback_policy"),
-        claim_boundary="Client invocation is explicit CLI access only; callers own command selection.",
+        claim_boundary=(
+            "Client invocation is explicit CLI access and lifecycle control only; callers own "
+            "command selection and no runtime support is implied by close()."
+        ),
     ),
     _graduation_row(
         "metadata_capability_and_route_discovery",
@@ -6347,13 +6353,13 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "high_level_context",
         "scoped_runtime_supported",
         cli_commands=(
-            "sql-local-source-smoke",
+            "local-source-runtime",
         ),
         context_methods=("sql", "read", "read_csv", "read_json"),
         client_methods=(
-            "sql_local_source_smoke",
+            "local_source_runtime",
         ),
-        runtime_route="vortex-ingest-smoke->native_vortex_primitive_or_vortex-production-runtime-run",
+        runtime_route="vortex-prepare->native_vortex_primitive_or_vortex-production-runtime-run",
         promotion_criteria=(
             "scoped local-source routes normalize into VortexPreparedState and then lower to the "
             "native Vortex primitive/provider runtime with no fallback"
@@ -6430,7 +6436,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "high_level_context",
         "scoped_runtime_supported",
         cli_commands=(
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             "vortex-production-runtime-run",
             "session-cache-smoke",
             "traditional-analytics-vortex-run",
@@ -6454,7 +6460,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "session",
         ),
         client_methods=(
-            "vortex_ingest_smoke",
+            "vortex_prepare",
             "vortex_run",
             "vortex_count",
             "vortex_count_where",
@@ -6470,7 +6476,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "prepare_and_run_traditional_analytics_vortex_batch",
             "session_cache_smoke",
         ),
-        runtime_route="vortex-ingest-smoke|prepared_vortex|native_vortex_primitive|vortex-production-runtime-run",
+        runtime_route="vortex-prepare|prepared_vortex|native_vortex_primitive|vortex-production-runtime-run",
         promotion_criteria="routes normalize into Vortex-prepared or Vortex-native state with reuse/no-fallback evidence",
         evidence_refs=(
             "prepared_state_reuse_manifest",
@@ -7045,14 +7051,14 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         sql_surface="ctx.sql(\"SELECT ... FROM 'local.csv' WHERE ... LIMIT ...\").collect()",
         python_surface="ctx.sql(...), ctx.read(...), LazyFrame.collect(), LazyFrame.write_vortex() where provider-admitted",
         dataframe_surface="ctx.read_csv(...).filter(...).select(...).limit(...).collect(); compatibility write_* blockers unless native export exists",
-        shared_runtime_path="vortex-ingest-smoke->native_vortex_primitive_or_provider",
+        shared_runtime_path="vortex-prepare->native_vortex_primitive_or_provider",
         parity_status="equivalent_admitted_scope",
         performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
         runtime_execution=True,
         data_read=True,
         materialization_required=False,
         required_evidence=(
-            "vortex_ingest_smoke",
+            "vortex_prepare",
             "native_vortex_primitive_or_provider_route",
             "python_runtime_surface_promotion_tests",
             "execution_certificate",
@@ -7075,14 +7081,14 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         sql_surface="ctx.sql(\"SELECT ... JOIN/GROUP BY/ORDER BY/window ... FROM 'local.csv'\")",
         python_surface="ctx.sql(...), LazyFrame.join(condition=predicate)/group_by/agg/sort/window",
         dataframe_surface="ctx.read(...).join(condition=predicate).group_by(...).agg(...).sort(...).window(...)",
-        shared_runtime_path="vortex-ingest-smoke->vortex-production-runtime-run for exact admitted provider shapes",
+        shared_runtime_path="vortex-prepare->vortex-production-runtime-run for exact admitted provider shapes",
         parity_status="equivalent_admitted_scope",
         performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
         runtime_execution=True,
         data_read=True,
         materialization_required=False,
         required_evidence=(
-            "vortex_ingest_smoke",
+            "vortex_prepare",
             "native_vortex_provider_route_certificate",
             "python_query_builder_tests",
             "no_fallback_evidence",
@@ -7465,19 +7471,19 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
         dataframe_surface="ctx.read('fact.csv').where(sl.col('flag') == True).agg(sum_metric=('metric', 'sum')).collect()",
         context_surface="ctx.read('fact.csv').filter(sl.col('flag') == True).collect()",
         session_surface="session.read('fact.csv').filter(sl.col('flag') == True).collect()",
-        cli_surface="shardloom sql-local-source-smoke \"SELECT SUM(metric) FROM 'fact.csv' WHERE flag = true\" --format json",
+        cli_surface="shardloom local-source-runtime \"SELECT SUM(metric) FROM 'fact.csv' WHERE flag = true\" --format json",
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="direct_compatibility_transient_no_persistent_preparation",
         output_route=(
             "internal bounded smoke report/sink only; not admitted through public workflow "
             "route/run without Vortex preparation/native input"
         ),
-        evidence_route="sql-local-source-smoke envelope, execution certificate, Native I/O, and no-fallback evidence",
+        evidence_route="local-source-runtime envelope, execution certificate, Native I/O, and no-fallback evidence",
         materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
         route_runtime_status="internal_smoke_only",
         owner="GAR-RUNTIME-IMPL-6D-3.selective_filter",
         required_evidence=(
-            "sql_local_source_smoke_internal_only",
+            "local_source_runtime_internal_only",
             "public_workflow_direct_policy_block_tests",
             "traditional_analytics.direct_compatibility_transient.selective_filter",
             "no_fallback_evidence",
@@ -7517,19 +7523,19 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
         dataframe_surface="ctx.read('fact.csv').where(sl.col('metric') >= 10).select('id', 'metric').limit(100).collect()",
         context_surface="ctx.read('fact.csv').select('id', 'metric').limit(100).collect()",
         session_surface="session.read('fact.csv').select('id', 'metric').limit(100).collect()",
-        cli_surface="shardloom sql-local-source-smoke \"SELECT id, metric FROM 'fact.csv' WHERE metric >= 10 LIMIT 100\" --format json",
+        cli_surface="shardloom local-source-runtime \"SELECT id, metric FROM 'fact.csv' WHERE metric >= 10 LIMIT 100\" --format json",
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="direct_compatibility_transient_no_persistent_preparation",
         output_route=(
             "internal bounded smoke report/sink only; not admitted through public workflow "
             "route/run without Vortex preparation/native input"
         ),
-        evidence_route="sql-local-source-smoke envelope, execution certificate, Native I/O, and no-fallback evidence",
+        evidence_route="local-source-runtime envelope, execution certificate, Native I/O, and no-fallback evidence",
         materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
         route_runtime_status="internal_smoke_only",
         owner="GAR-RUNTIME-IMPL-6D-3.filter_projection_limit",
         required_evidence=(
-            "sql_local_source_smoke_internal_only",
+            "local_source_runtime_internal_only",
             "public_workflow_direct_policy_block_tests",
             "traditional_analytics.direct_compatibility_transient.filter_projection_limit",
             "no_fallback_evidence",
@@ -8062,7 +8068,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "local_compat_output",
             "feature_gated_local_vortex_output",
         ),
-        recommended_user_surface="internal: shardloom sql-local-source-smoke; public ctx.read(path) routes require Vortex preparation/native input",
+        recommended_user_surface="internal: shardloom local-source-runtime; public ctx.read(path) routes require Vortex preparation/native input",
         start_state="raw_compat_source",
         vortex_normalization_point=(
             "local compatibility source -> SourceState -> transient Vortex-preparable arrays; "
@@ -8071,16 +8077,16 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="direct_compatibility_transient_no_persistent_preparation",
         execution_mode="direct_compatibility_transient",
-        execution_route="sql-local-source-smoke local-source ShardLoom runtime",
+        execution_route="local-source-runtime local-source ShardLoom runtime",
         output_route="internal lower-level smoke report or sink only; not admitted through public workflow route/run",
-        evidence_route="sql-local-source-smoke internal envelope plus public direct-policy block evidence",
+        evidence_route="local-source-runtime internal envelope plus public direct-policy block evidence",
         materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
         route_runtime_status="internal_smoke_only",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.local_file_direct_transient_route",
         required_evidence=(
-            "sql_local_source_smoke_internal_only",
+            "local_source_runtime_internal_only",
             "public_workflow_direct_policy_block_tests",
             "execution_certificate",
             "native_io_certificate",
@@ -12874,12 +12880,19 @@ class ShardLoomContext:
         self,
         statement: str,
         *,
+        input: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
         check: bool | None = None,
     ) -> SqlWorkflow:
         """Create a scoped SQL workflow using this context's client."""
 
         _ = check
-        return sql_workflow(statement, client=self.client)
+        return sql_workflow(
+            statement,
+            input=input,
+            input_format=input_format,
+            client=self.client,
+        )
 
     def sequence(
         self,
@@ -13445,7 +13458,7 @@ class ShardLoomContext:
         """Prepare local compatibility input through an explicit Vortex route.
 
         Passing ``source_path`` and ``target_vortex_path`` with no route arguments preserves the
-        lower-level ``vortex-ingest-smoke`` diagnostic helper. Passing ``workspace`` plus ``dim``
+        lower-level ``vortex-prepare`` diagnostic helper. Passing ``workspace`` plus ``dim``
         or a second positional dimension path returns a route handle for
         ``compatibility_import_certified -> prepared_vortex`` and prepare-once batch execution.
         """
@@ -13467,10 +13480,10 @@ class ShardLoomContext:
             if target_vortex_path is None:
                 raise ValueError(
                     "prepare_vortex requires either a target_vortex_path for the lower-level "
-                    "vortex-ingest-smoke helper or workspace plus dim/second positional input "
+                    "vortex-prepare helper or workspace plus dim/second positional input "
                     "for the compatibility prepared route"
                 )
-            return self.client.vortex_ingest_smoke(
+            return self.client.vortex_prepare(
                 source_path,
                 target_vortex_path,
                 allow_overwrite=allow_overwrite,
@@ -13491,13 +13504,13 @@ class ShardLoomContext:
             )
         if allow_overwrite:
             raise ValueError(
-                "allow_overwrite applies only to the lower-level vortex-ingest-smoke helper; "
+                "allow_overwrite applies only to the lower-level vortex-prepare helper; "
                 "prepared-route result writes use write_vortex(...)/run_batch(..., "
                 "write_result_vortex=True)"
             )
         if certification_level != "ingest_certified":
             raise ValueError(
-                "certification_level applies only to the lower-level vortex-ingest-smoke helper; "
+                "certification_level applies only to the lower-level vortex-prepare helper; "
                 "the compatibility prepared route uses the certified traditional-analytics "
                 "preparation evidence emitted by ShardLoom"
             )

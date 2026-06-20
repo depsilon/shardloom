@@ -6,7 +6,7 @@ Source: `shardloom-cli/src/command_registry.rs`
 
 Report id: `review-p1-1.command_registry`
 
-Registered command count: 213
+Registered command count: 214
 
 Support-state vocabulary: executable, feature_gated, diagnostic_only, report_only, blocked, future
 
@@ -29,7 +29,8 @@ source-free SQL writes, admitted local/generated fanout helpers, explicit native
 primitive collect/local-execution helpers, scoped native Vortex primitive JSONL/CSV row-export
 payloads, scoped local distributed fixture execution, and scoped live/hybrid local
 checkpoint/changelog fixture execution route through typed envelopes and preserve report views.
-Lower smoke/runtime/primitive commands remain executable `client_only` diagnostics and
+Lower smoke/runtime/primitive commands and the private Python worker transport remain executable
+non-user-facing diagnostics and
 benchmark/evidence surfaces, while `route`, `run`, and `prepare` are the high-level CLI context
 commands. Future helper families remain deferred until their owning runtime items define explicit
 facade payload contracts.

@@ -31,7 +31,7 @@
     "external_engine_invoked": false
   },
   "cli": {
-    "registered_command_count": 213,
+        "registered_command_count": 214,
     "exhaustive_inventory_command": "shardloom command-metadata --format json",
     "single_command_metadata_command": "shardloom command-metadata <command> --format json",
     "single_command_help_command": "shardloom help <command> --format json",
@@ -58,8 +58,8 @@
       "shardloom generated-source-range-smoke --format json",
       "shardloom generated-source-sequence-smoke --format json",
       "shardloom generated-source-sql-smoke --format json",
-      "shardloom sql-local-source-smoke --format json",
-      "shardloom vortex-ingest-smoke --format json",
+      "shardloom local-source-runtime --format json",
+      "shardloom vortex-prepare --format json",
       "shardloom vortex-production-runtime-run <scenario> <fact.vortex> <dim.vortex> --format json",
       "shardloom sqlite-local-import-export-smoke --format json"
     ]
@@ -75,6 +75,14 @@
       "SHARDLOOM_TIMEOUT_SECONDS",
       "shardloom on PATH"
     ],
+    "client_transport": {
+      "default": "persistent_local_python_worker_when_supported",
+      "command": "python-worker",
+      "scope": "transport_only_not_execution_route",
+      "opt_out": "SHARDLOOM_PERSISTENT_WORKER=0",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
     "context_readers": [
       "ctx.read",
       "ctx.read_csv",
@@ -96,7 +104,9 @@
       ".feather",
       ".avro",
       ".orc",
-      ".vortex"
+      ".vortex",
+      ".vortex-manifest",
+      "local_vortex_partition_directory"
     ],
     "source_free_helpers": [
       "ctx.from_rows",
@@ -305,13 +315,15 @@
   "sql": {
     "entrypoints": [
       "ctx.sql",
+      "ctx.sql(..., input=...)",
       "sl.sql",
-      "ShardLoomClient.sql_local_source_smoke",
-      "shardloom sql-local-source-smoke --format json",
+      "ShardLoomClient.local_source_runtime",
+      "shardloom local-source-runtime --format json",
       "shardloom generated-source-sql-smoke --format json"
     ],
     "admitted_shapes": [
       "scoped local-source SELECT over local file references",
+      "declared Vortex input bound to a logical SQL table name",
       "projection, filter, group-by, having, order, limit",
       "scoped joins and set operations",
       "bounded source subquery predicates",

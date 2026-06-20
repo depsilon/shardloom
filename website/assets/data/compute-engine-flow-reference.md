@@ -110,7 +110,7 @@ flowchart LR
     REQUEST["Typed request<br/>source + workload + output intent"]
     ADMISSION["Admission<br/>policy + capability + semantics"]
     SOURCE["Source route<br/>UniversalIngress / SourceState"]
-    PREPARE["Preparation<br/>vortex_ingest / VortexPreparedState"]
+    PREPARE["Preparation<br/>vortex-prepare / VortexPreparedState"]
     EXECUTE["Execution route<br/>compatibility / prepared / native / direct"]
     OUTPUT["Output route<br/>OutputPlan / SinkArtifact"]
     TIMING["Timing surface<br/>hot_runtime / replay / publication"]
@@ -126,7 +126,7 @@ flowchart LR
 | No fallback execution | Unsupported work returns deterministic diagnostics with `fallback_attempted=false` and `external_engine_invoked=false`; Spark, DataFusion, DuckDB, Polars, pandas, Dask, Ray, Velox, Trino, databases, and warehouses do not execute ShardLoom work as fallback. |
 | Vortex is native | Vortex is the preferred input/output persistence target; compatibility formats are translation or import/export boundaries, not fallback execution engines. |
 | Front door is not route | CLI, Python, SQL, notebooks, adapters, and planned REST/event APIs express work; route evidence names the actual source/preparation/execution/output path. |
-| Preparation is visible | Non-Vortex inputs reach `prepared_vortex` only through `UniversalIngress`, `SourceState`, `vortex_ingest`, and `VortexPreparedState`. |
+| Preparation is visible | Non-Vortex inputs reach `prepared_vortex` only through `UniversalIngress`, `SourceState`, Vortex preparation, and `VortexPreparedState`. |
 | Claims are gated | Runtime support, claim-grade evidence, production support, package readiness, performance claims, and Spark-replacement claims are separate fields. |
 | Timing surface is explicit | `hot_runtime`, `full_replay_proof`, and `publication_proof` rows must never silently replace each other. |
 
@@ -135,8 +135,8 @@ flowchart LR
 | Group | Owns | Primary evidence |
 | --- | --- | --- |
 | Access and front doors | CLI, Python, SQL, adapters, planned API surfaces | typed request envelope, typed output envelope |
-| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex_ingest`, `VortexPreparedState` | source fingerprints, prepared-state IDs/digests, import certificates |
-| Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, `auto` | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
+| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | source fingerprints, prepared-state IDs/digests, import certificates |
+| Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, internal `direct_compatibility_transient`, `auto` | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
 | Engine fabric | batch, live, hybrid, auto engine mode | `requested_engine_mode`, `selected_engine_mode`, effect and state boundaries |
 | Output and materialization | `OutputPlan`, `SinkArtifact`, Vortex output, compatibility exports | decode/materialization status, result-sink replay, metadata preservation/loss |
 | Timing and benchmarks | route lanes, timing surfaces, stage attribution | `timing_surface`, `route_total_formula`, stage milliseconds, claim gate status |
@@ -146,10 +146,10 @@ flowchart LR
 
 | Route | Starts from | Includes | Does not imply |
 | --- | --- | --- | --- |
-| `compatibility_import_certified` | A recognized compatibility source admitted through `UniversalIngress` | source read, parse/decode where required, `vortex_ingest`, Vortex write/reopen, scan/query, output/replay, certificates, claim-gate evidence | pure query-speed timing, broad SQL/DataFrame support, object-store/table production I/O |
+| `compatibility_import_certified` | A recognized compatibility source admitted through `UniversalIngress` | source read, parse/decode where required, Vortex preparation, Vortex write/reopen, scan/query, output/replay, certificates, claim-gate evidence | pure query-speed timing, broad SQL/DataFrame support, object-store/table production I/O |
 | `prepared_vortex` | Existing `VortexPreparedState` | warm prepared query work, provider admission, output route, evidence | direct CSV/JSONL/Parquet/database/object-store reads |
 | `native_vortex` | Existing Vortex artifact or native Vortex state | native Vortex scan/source path, provider admission, output route, evidence | compatibility import or external engine evaluation |
-| `direct_compatibility_transient` | Scoped local compatibility source | one-shot transient local path with explicit materialization/decode status | prepared-state reuse or claim-grade production runtime |
+| `direct_compatibility_transient` | Scoped local compatibility source | internal diagnostic one-shot local path with explicit materialization/decode status | public workflow runtime, prepared-state reuse, native Vortex claim, or claim-grade production runtime |
 | `auto` | User request with selection allowed | selector evidence with `selected_execution_mode` and `mode_selection_reason` | hidden fallback or invisible mode substitution |
 | `external_baseline_only` | Explicit benchmark baseline row | comparison-only timing or correctness reference | ShardLoom runtime support or fallback execution |
 
@@ -159,7 +159,7 @@ Common local prepared route:
 local non-Vortex input
 -> UniversalIngress / InputAdapter
 -> SourceState
--> vortex_ingest
+-> vortex-prepare
 -> VortexPreparedState
 -> prepared_vortex
 -> ExecutionPlan
@@ -431,7 +431,7 @@ source_state_date_null_metric_*
 | --- | --- | --- |
 | CLI and Python local smokes | Scoped local technical-preview paths exist. | Not package-readiness, production, or broad DataFrame/SQL support. |
 | Local compatibility inputs | CSV/JSONL/flat JSON and selected feature-gated local formats enter through `UniversalIngress`. | Compatibility import/export is not fallback execution. |
-| Vortex preparation | Feature-gated local `vortex_ingest` creates `VortexPreparedState` evidence. | Scoped local flat-schema evidence only. |
+| Vortex preparation | Feature-gated local `vortex-prepare` creates `VortexPreparedState` evidence. | Scoped local flat-schema evidence only. |
 | Prepared/native benchmark routes | Promoted artifacts separate cold, prepare-once, warm prepared, native, direct, and baseline lanes. | Claims depend on `timing_surface`, evidence tier, and claim gate. |
 | SQL/DataFrame front doors | Scoped fixture/local-source rows exist for selected expressions and outputs. | Not broad PySpark, pandas, Polars, SQL-standard/ANSI-style, or production parity. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked. | No production platform claim. |
@@ -486,7 +486,7 @@ flowchart LR
     COMPAT["compatibility_import_certified<br/>cold certified lane"]
     PREPARED["prepared_vortex<br/>prepared-state lane"]
     NATIVE["native_vortex<br/>native Vortex lane"]
-    DIRECT["direct_compatibility_transient<br/>one-shot lane"]
+    DIRECT["direct_compatibility_transient<br/>internal diagnostic lane"]
     BASELINE["external_baseline_only<br/>comparison only"]
     RESULT["Result envelope<br/>route + evidence + claim status"]
 
@@ -494,12 +494,14 @@ flowchart LR
     SELECT --> COMPAT --> RESULT
     SELECT --> PREPARED --> RESULT
     SELECT --> NATIVE --> RESULT
-    SELECT --> DIRECT --> RESULT
+    SELECT -. internal diagnostics only .-> DIRECT --> RESULT
     SELECT -. baseline only .-> BASELINE --> RESULT
 ```
 
 `auto` is a selector, not an escape hatch. It must record the requested mode, selected mode,
-selection reason, and unsupported alternatives when relevant.
+selection reason, and unsupported alternatives when relevant. Public local-file `auto` selects
+Vortex preparation/prepared/native routes or fails closed; it must not select
+`direct_compatibility_transient` as the product runtime middle.
 
 ## Engine Fabric
 

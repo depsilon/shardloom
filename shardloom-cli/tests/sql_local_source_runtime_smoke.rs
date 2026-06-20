@@ -62,11 +62,11 @@ fn escaped_field(key: &str, value: &str) -> String {
     field(key, &value.replace('\\', "\\\\"))
 }
 
-fn run_sql_local_source_smoke_json(statement: &str) -> String {
+fn run_local_source_runtime_json(statement: &str) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", statement, "--format", "json"])
+        .args(["local-source-runtime", statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -163,7 +163,7 @@ fn assert_zero_column_reader_projection_count_star<F>(
     write_source(&source_path);
 
     let statement = format!("SELECT count(*) FROM '{}' LIMIT 1", source_path.display());
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field("source_format", source_format)));
     assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
@@ -193,21 +193,21 @@ fn assert_zero_column_reader_projection_count_star<F>(
 
 #[cfg(not(feature = "vortex-write"))]
 #[test]
-fn vortex_ingest_smoke_blocks_without_vortex_write_feature() {
+fn vortex_prepare_blocks_without_vortex_write_feature() {
     let source_path = unique_path("vortex-ingest-source", "csv");
     let target_path = unique_path("vortex-ingest-target", "vortex");
     fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--format",
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         !output.status.success(),
@@ -222,9 +222,9 @@ fn vortex_ingest_smoke_blocks_without_vortex_write_feature() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"unsupported\""));
-    assert!(stdout.contains(&field("schema_version", "shardloom.vortex_ingest_smoke.v1")));
+    assert!(stdout.contains(&field("schema_version", "shardloom.vortex_prepare.v1")));
     assert!(stdout.contains(&field("command_family", "prepared_source_backed_execution")));
     assert!(stdout.contains(&field("execution_mode", "prepared_vortex")));
     assert!(stdout.contains(&field("runtime_execution", "false")));
@@ -291,7 +291,7 @@ fn vortex_ingest_smoke_blocks_without_vortex_write_feature() {
 #[cfg(feature = "vortex-write")]
 #[test]
 #[allow(clippy::too_many_lines)]
-fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
+fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     let source_path = unique_path("vortex-ingest-source", "csv");
     let target_path = unique_path("vortex-ingest-target", "vortex");
     fs::write(
@@ -302,7 +302,7 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--allow-overwrite",
@@ -310,7 +310,7 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         output.status.success(),
@@ -325,9 +325,9 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("schema_version", "shardloom.vortex_ingest_smoke.v1")));
+    assert!(stdout.contains(&field("schema_version", "shardloom.vortex_prepare.v1")));
     assert!(stdout.contains(&field("command_family", "prepared_source_backed_execution")));
     assert!(stdout.contains(&field("execution_mode", "prepared_vortex")));
     assert!(stdout.contains(&field("runtime_execution", "true")));
@@ -510,11 +510,44 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_copy_budget_status",
-        "reported_copy_budget_with_unmeasured_segments"
+        "admitted_scoped_buffer_reuse_with_unmeasured_segments"
     )));
     assert!(stdout.contains(&field(
         "vortex_copy_budget_buffer_reuse_status",
-        "blocked_until_correctness_parity"
+        "admitted_read_once_source_buffer_carry_with_digest_and_row_count_proof"
+    )));
+    assert!(stdout.contains(&field("vortex_copy_budget_buffer_reuse_count", "1")));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_state_reuse_index_schema_version",
+        "shardloom.vortex_prepared_state_reuse_index.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_state_reuse_index_lookup_status",
+        "artifact_adjacent_manifest_created_after_miss"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_state_reuse_index_cache_scope",
+        "artifact_adjacent_manifest_read_through_cache"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_state_reuse_index_repair_status",
+        "manifest_written_after_prepare"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_state_reuse_role_scoped_repair_status",
+        "not_required_local_single_artifact"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_write_timing_split_schema_version",
+        "shardloom.vortex_write_timing_split.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_writer_context_reuse_status",
+        "thread_local_write_context_opened_for_first_artifact"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_reopen_hot_path_status",
+        "performed_for_ingest_certification"
     )));
     assert!(stdout.contains(&field(
         "vortex_copy_budget_unsafe_lifetime_shortcut_status",
@@ -550,7 +583,7 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_blocks_nested_jsonl_with_scout_quarantine_plan() {
+fn vortex_prepare_blocks_nested_jsonl_with_scout_quarantine_plan() {
     let source_path = unique_path("vortex-ingest-nested-source", "jsonl");
     let target_path = unique_path("vortex-ingest-nested-target", "vortex");
     fs::write(&source_path, "{\"id\":1,\"payload\":{\"nested\":true}}\n")
@@ -558,7 +591,7 @@ fn vortex_ingest_smoke_blocks_nested_jsonl_with_scout_quarantine_plan() {
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--allow-overwrite",
@@ -566,7 +599,7 @@ fn vortex_ingest_smoke_blocks_nested_jsonl_with_scout_quarantine_plan() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         !output.status.success(),
@@ -581,7 +614,7 @@ fn vortex_ingest_smoke_blocks_nested_jsonl_with_scout_quarantine_plan() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains(&field("vortex_ingest_status", "blocked_scout_ingress")));
     assert!(stdout.contains(&field(
@@ -632,7 +665,7 @@ fn vortex_ingest_smoke_blocks_nested_jsonl_with_scout_quarantine_plan() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_applies_append_only_differential_overlay() {
+fn vortex_prepare_applies_append_only_differential_overlay() {
     let source_path = unique_path("vortex-ingest-delta-base", "csv");
     let delta_source_path = unique_path("vortex-ingest-delta-change", "csv");
     let target_path = unique_path("vortex-ingest-delta-base-target", "vortex");
@@ -643,7 +676,7 @@ fn vortex_ingest_smoke_applies_append_only_differential_overlay() {
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--delta-source",
@@ -654,7 +687,7 @@ fn vortex_ingest_smoke_applies_append_only_differential_overlay() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         output.status.success(),
@@ -669,7 +702,7 @@ fn vortex_ingest_smoke_applies_append_only_differential_overlay() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "vortex_differential_preparation_schema_version",
@@ -734,7 +767,7 @@ fn vortex_ingest_smoke_applies_append_only_differential_overlay() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_preserves_declared_input_format_for_extensionless_delta() {
+fn vortex_prepare_preserves_declared_input_format_for_extensionless_delta() {
     let source_path = unique_extensionless_path("vortex-ingest-delta-extensionless-base");
     let delta_source_path = unique_extensionless_path("vortex-ingest-delta-extensionless-change");
     let target_path = unique_path("vortex-ingest-delta-extensionless-base-target", "vortex");
@@ -747,7 +780,7 @@ fn vortex_ingest_smoke_preserves_declared_input_format_for_extensionless_delta()
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--input-format",
@@ -760,7 +793,7 @@ fn vortex_ingest_smoke_preserves_declared_input_format_for_extensionless_delta()
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         output.status.success(),
@@ -775,7 +808,7 @@ fn vortex_ingest_smoke_preserves_declared_input_format_for_extensionless_delta()
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("source_format", "csv")));
     assert!(stdout.contains(&field("source_format_inferred", "false")));
@@ -814,7 +847,7 @@ fn vortex_ingest_smoke_preserves_declared_input_format_for_extensionless_delta()
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_automatically_refines_append_only_source_drift() {
+fn vortex_prepare_automatically_refines_append_only_source_drift() {
     let root = unique_dir("vortex-ingest-auto-refinement");
     let source_path = root.join("input.csv");
     let target_path = root.join("prepared.vortex");
@@ -823,14 +856,14 @@ fn vortex_ingest_smoke_automatically_refines_append_only_source_drift() {
 
     let first = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--format",
             "json",
         ])
         .output()
-        .expect("first vortex-ingest-smoke command runs");
+        .expect("first vortex-prepare command runs");
     assert!(
         first.status.success(),
         "stdout={} stderr={}",
@@ -846,14 +879,14 @@ fn vortex_ingest_smoke_automatically_refines_append_only_source_drift() {
     .expect("append source csv");
     let second = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--format",
             "json",
         ])
         .output()
-        .expect("second vortex-ingest-smoke command runs");
+        .expect("second vortex-prepare command runs");
 
     assert!(
         second.status.success(),
@@ -873,7 +906,7 @@ fn vortex_ingest_smoke_automatically_refines_append_only_source_drift() {
     );
 
     let stdout = String::from_utf8(second.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "vortex_ingest_status",
@@ -924,7 +957,7 @@ fn vortex_ingest_smoke_automatically_refines_append_only_source_drift() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_blocks_update_mode_differential_overlay() {
+fn vortex_prepare_blocks_update_mode_differential_overlay() {
     let source_path = unique_path("vortex-ingest-delta-update-base", "csv");
     let delta_source_path = unique_path("vortex-ingest-delta-update-change", "csv");
     let target_path = unique_path("vortex-ingest-delta-update-base-target", "vortex");
@@ -935,7 +968,7 @@ fn vortex_ingest_smoke_blocks_update_mode_differential_overlay() {
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--delta-source",
@@ -948,7 +981,7 @@ fn vortex_ingest_smoke_blocks_update_mode_differential_overlay() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         !output.status.success(),
@@ -963,7 +996,7 @@ fn vortex_ingest_smoke_blocks_update_mode_differential_overlay() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains(&field(
         "vortex_differential_preparation_status",
@@ -998,7 +1031,7 @@ fn vortex_ingest_smoke_blocks_update_mode_differential_overlay() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_rejects_differential_minimal_certification_before_writes() {
+fn vortex_prepare_rejects_differential_minimal_certification_before_writes() {
     let source_path = unique_path("vortex-ingest-delta-minimal-base", "csv");
     let delta_source_path = unique_path("vortex-ingest-delta-minimal-change", "csv");
     let target_path = unique_path("vortex-ingest-delta-minimal-base-target", "vortex");
@@ -1008,7 +1041,7 @@ fn vortex_ingest_smoke_rejects_differential_minimal_certification_before_writes(
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--delta-source",
@@ -1021,7 +1054,7 @@ fn vortex_ingest_smoke_rejects_differential_minimal_certification_before_writes(
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         !output.status.success(),
@@ -1036,7 +1069,7 @@ fn vortex_ingest_smoke_rejects_differential_minimal_certification_before_writes(
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains(
         "vortex_ingest differential preparation requires ingest_certified replay evidence before any base or delta write"
@@ -1059,7 +1092,7 @@ fn vortex_ingest_smoke_rejects_differential_minimal_certification_before_writes(
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_rejects_shared_differential_target_before_writes() {
+fn vortex_prepare_rejects_shared_differential_target_before_writes() {
     let source_path = unique_path("vortex-ingest-delta-shared-target-base", "csv");
     let delta_source_path = unique_path("vortex-ingest-delta-shared-target-change", "csv");
     let target_path = unique_path("vortex-ingest-delta-shared-target", "vortex");
@@ -1068,7 +1101,7 @@ fn vortex_ingest_smoke_rejects_shared_differential_target_before_writes() {
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--delta-source",
@@ -1079,7 +1112,7 @@ fn vortex_ingest_smoke_rejects_shared_differential_target_before_writes() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         !output.status.success(),
@@ -1094,7 +1127,7 @@ fn vortex_ingest_smoke_rejects_shared_differential_target_before_writes() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains(
         "vortex_ingest differential preparation requires distinct base and delta targets"
@@ -1112,7 +1145,7 @@ fn vortex_ingest_smoke_rejects_shared_differential_target_before_writes() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_reports_delta_source_for_differential_scout_blocker() {
+fn vortex_prepare_reports_delta_source_for_differential_scout_blocker() {
     let source_path = unique_path("vortex-ingest-delta-scout-base", "csv");
     let delta_source_path = unique_path("vortex-ingest-delta-scout-change", "jsonl");
     let target_path = unique_path("vortex-ingest-delta-scout-base-target", "vortex");
@@ -1126,7 +1159,7 @@ fn vortex_ingest_smoke_reports_delta_source_for_differential_scout_blocker() {
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--delta-source",
@@ -1137,7 +1170,7 @@ fn vortex_ingest_smoke_reports_delta_source_for_differential_scout_blocker() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         !output.status.success(),
@@ -1152,7 +1185,7 @@ fn vortex_ingest_smoke_reports_delta_source_for_differential_scout_blocker() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains("differential delta source"));
     assert!(stdout.contains(&escaped_field(
@@ -1189,7 +1222,7 @@ fn vortex_ingest_smoke_reports_delta_source_for_differential_scout_blocker() {
 #[cfg(feature = "vortex-write")]
 #[test]
 #[allow(clippy::too_many_lines)]
-fn vortex_ingest_smoke_prepares_json_jsonl_and_ndjson_through_text_adapter_registry() {
+fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry() {
     let cases = [
         (
             "json",
@@ -1226,7 +1259,7 @@ fn vortex_ingest_smoke_prepares_json_jsonl_and_ndjson_through_text_adapter_regis
 
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
             .args([
-                "vortex-ingest-smoke",
+                "vortex-prepare",
                 &source_path.display().to_string(),
                 &target_path.display().to_string(),
                 "--allow-overwrite",
@@ -1234,7 +1267,7 @@ fn vortex_ingest_smoke_prepares_json_jsonl_and_ndjson_through_text_adapter_regis
                 "json",
             ])
             .output()
-            .expect("vortex-ingest-smoke command runs");
+            .expect("vortex-prepare command runs");
 
         assert!(
             output.status.success(),
@@ -1249,7 +1282,7 @@ fn vortex_ingest_smoke_prepares_json_jsonl_and_ndjson_through_text_adapter_regis
         );
 
         let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-        assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+        assert!(stdout.contains("\"command\":\"vortex-prepare\""));
         assert!(stdout.contains("\"status\":\"success\""));
         assert_inferred_adapter_evidence(
             &stdout,
@@ -1294,14 +1327,14 @@ fn vortex_ingest_smoke_prepares_json_jsonl_and_ndjson_through_text_adapter_regis
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_minimal_certification_skips_reopen_scan() {
+fn vortex_prepare_minimal_certification_skips_reopen_scan() {
     let source_path = unique_path("vortex-ingest-minimal-source", "csv");
     let target_path = unique_path("vortex-ingest-minimal-target", "vortex");
     fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--allow-overwrite",
@@ -1311,7 +1344,7 @@ fn vortex_ingest_smoke_minimal_certification_skips_reopen_scan() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         output.status.success(),
@@ -1326,7 +1359,7 @@ fn vortex_ingest_smoke_minimal_certification_skips_reopen_scan() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("certification_level", "ingest_minimal")));
     assert!(stdout.contains(&field(
@@ -1383,14 +1416,14 @@ fn vortex_ingest_smoke_minimal_certification_skips_reopen_scan() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_ingest_smoke_full_replay_requires_output_replay_evidence() {
+fn vortex_prepare_full_replay_requires_output_replay_evidence() {
     let source_path = unique_path("vortex-ingest-full-replay-source", "csv");
     let target_path = unique_path("vortex-ingest-full-replay-target", "vortex");
     fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--certification-level",
@@ -1399,7 +1432,7 @@ fn vortex_ingest_smoke_full_replay_requires_output_replay_evidence() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         !output.status.success(),
@@ -1414,7 +1447,7 @@ fn vortex_ingest_smoke_full_replay_requires_output_replay_evidence() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(
         stdout.contains("ingest_full_replay requires downstream result replay/output evidence")
@@ -1432,14 +1465,14 @@ fn vortex_ingest_smoke_full_replay_requires_output_replay_evidence() {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 #[allow(clippy::too_many_lines)]
-fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
+fn vortex_prepare_preserves_columnar_source_state_for_parquet() {
     let source_path = unique_path("vortex-ingest-columnar-source", "parquet");
     let target_path = unique_path("vortex-ingest-columnar-target", "vortex");
     write_parquet_vortex_ingest_source(&source_path);
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--allow-overwrite",
@@ -1447,7 +1480,7 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
             "json",
         ])
         .output()
-        .expect("vortex-ingest-smoke command runs");
+        .expect("vortex-prepare command runs");
 
     assert!(
         output.status.success(),
@@ -1462,7 +1495,7 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("source_format", "parquet")));
     assert!(stdout.contains(&field("source_state_read_plan", "full_columns")));
@@ -1566,7 +1599,7 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 #[allow(clippy::too_many_lines)]
-fn vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_formats() {
+fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
     let cases: [StructuredVortexIngestCase; 4] = [
         (
             "parquet",
@@ -1622,7 +1655,7 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_format
 
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
             .args([
-                "vortex-ingest-smoke",
+                "vortex-prepare",
                 &source_path.display().to_string(),
                 &target_path.display().to_string(),
                 "--allow-overwrite",
@@ -1630,7 +1663,7 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_format
                 "json",
             ])
             .output()
-            .expect("vortex-ingest-smoke command runs");
+            .expect("vortex-prepare command runs");
 
         assert!(
             output.status.success(),
@@ -1645,7 +1678,7 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_format
         );
 
         let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-        assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+        assert!(stdout.contains("\"command\":\"vortex-prepare\""));
         assert!(stdout.contains("\"status\":\"success\""));
         assert_inferred_adapter_evidence(
             &stdout,
@@ -1975,7 +2008,7 @@ fn write_orc_smoke_source(path: &std::path::Path) {
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback() {
+fn local_source_runtime_executes_csv_projection_filter_limit_without_fallback() {
     let source_path = unique_path("sql-local-source", "csv");
     fs::write(
         &source_path,
@@ -1988,9 +2021,9 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2005,11 +2038,11 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "schema_version",
-        "shardloom.sql_local_source_smoke.v1"
+        "shardloom.local_source_runtime.v1"
     )));
     assert!(stdout.contains(&field("command_family", "workflow_planning")));
     assert!(stdout.contains(&field("execution_mode", "direct_compatibility_transient")));
@@ -2092,7 +2125,7 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_executes_parquet_projection_filter_limit_with_source_state_evidence() {
+fn local_source_runtime_executes_parquet_projection_filter_limit_with_source_state_evidence() {
     let source_path = unique_path("sql-local-source", "parquet");
     write_parquet_smoke_source(&source_path);
 
@@ -2101,9 +2134,9 @@ fn sql_local_source_smoke_executes_parquet_projection_filter_limit_with_source_s
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2118,7 +2151,7 @@ fn sql_local_source_smoke_executes_parquet_projection_filter_limit_with_source_s
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert_inferred_adapter_evidence(
         &stdout,
@@ -2170,7 +2203,7 @@ fn sql_local_source_smoke_executes_parquet_projection_filter_limit_with_source_s
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_executes_arrow_ipc_projection_filter_limit_with_source_state_evidence() {
+fn local_source_runtime_executes_arrow_ipc_projection_filter_limit_with_source_state_evidence() {
     let source_path = unique_path("sql-local-source", "arrow");
     write_arrow_ipc_smoke_source(&source_path);
 
@@ -2179,9 +2212,9 @@ fn sql_local_source_smoke_executes_arrow_ipc_projection_filter_limit_with_source
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2196,7 +2229,7 @@ fn sql_local_source_smoke_executes_arrow_ipc_projection_filter_limit_with_source
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("source_format", "arrow_ipc")));
     assert!(stdout.contains(&field("source_adapter_id", "local_arrow_ipc_input_adapter")));
@@ -2238,7 +2271,7 @@ fn sql_local_source_smoke_executes_arrow_ipc_projection_filter_limit_with_source
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_decodes_arrow_ipc_nested_source_to_jsonl_csv_boundary_without_fallback() {
+fn local_source_runtime_decodes_arrow_ipc_nested_source_to_jsonl_csv_boundary_without_fallback() {
     let source_path = unique_path("sql-local-source-nested", "arrow");
     let csv_output_path = unique_path("sql-local-source-nested", "csv");
     write_nested_arrow_ipc_smoke_source(&source_path);
@@ -2250,7 +2283,7 @@ fn sql_local_source_smoke_decodes_arrow_ipc_nested_source_to_jsonl_csv_boundary_
     let csv_target = format!("csv={}", csv_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &csv_target,
@@ -2258,7 +2291,7 @@ fn sql_local_source_smoke_decodes_arrow_ipc_nested_source_to_jsonl_csv_boundary_
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2273,7 +2306,7 @@ fn sql_local_source_smoke_decodes_arrow_ipc_nested_source_to_jsonl_csv_boundary_
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("source_format", "arrow_ipc")));
     assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
@@ -2318,7 +2351,7 @@ fn sql_local_source_smoke_decodes_arrow_ipc_nested_source_to_jsonl_csv_boundary_
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_writes_arrow_ipc_nested_source_to_typed_parquet_without_fallback() {
+fn local_source_runtime_writes_arrow_ipc_nested_source_to_typed_parquet_without_fallback() {
     let source_path = unique_path("sql-local-source-nested-parquet", "arrow");
     let output_path = unique_path("sql-local-source-nested-parquet", "parquet");
     write_nested_arrow_ipc_smoke_source(&source_path);
@@ -2329,7 +2362,7 @@ fn sql_local_source_smoke_writes_arrow_ipc_nested_source_to_typed_parquet_withou
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output-format",
             "parquet",
@@ -2339,7 +2372,7 @@ fn sql_local_source_smoke_writes_arrow_ipc_nested_source_to_typed_parquet_withou
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2354,7 +2387,7 @@ fn sql_local_source_smoke_writes_arrow_ipc_nested_source_to_typed_parquet_withou
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"success\""), "{stdout}");
     assert!(stdout.contains(&field("output_format", "parquet")));
     assert!(stdout.contains(&field(
@@ -2409,8 +2442,8 @@ fn sql_local_source_smoke_writes_arrow_ipc_nested_source_to_typed_parquet_withou
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_structured_sinks_without_fallback()
- {
+fn local_source_runtime_writes_all_null_nested_source_schema_to_structured_sinks_without_fallback()
+{
     let source_path = unique_path("sql-local-source-nested-all-null-schema", "arrow");
     write_nested_arrow_ipc_smoke_source(&source_path);
 
@@ -2429,7 +2462,7 @@ fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_structured_sin
         );
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
             .args([
-                "sql-local-source-smoke",
+                "local-source-runtime",
                 &statement,
                 "--output-format",
                 format,
@@ -2439,7 +2472,7 @@ fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_structured_sin
                 "json",
             ])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
 
         assert!(
             output.status.success(),
@@ -2454,7 +2487,7 @@ fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_structured_sin
         );
 
         let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-        assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+        assert!(stdout.contains("\"command\":\"local-source-runtime\""));
         assert!(stdout.contains("\"status\":\"success\""), "{stdout}");
         assert!(stdout.contains(&field("output_format", format)), "{stdout}");
         assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
@@ -2495,7 +2528,7 @@ fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_structured_sin
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_vortex_without_fallback() {
+fn local_source_runtime_writes_all_null_nested_source_schema_to_vortex_without_fallback() {
     let source_path = unique_path("sql-local-source-nested-all-null-schema-vortex", "arrow");
     let output_path = unique_path("sql-local-source-nested-all-null-schema-vortex", "vortex");
     write_nested_arrow_ipc_smoke_source(&source_path);
@@ -2506,7 +2539,7 @@ fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_vortex_without
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output-format",
             "vortex",
@@ -2516,7 +2549,7 @@ fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_vortex_without
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2531,7 +2564,7 @@ fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_vortex_without
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"success\""), "{stdout}");
     assert!(
         stdout.contains(&field("output_format", "vortex")),
@@ -2559,7 +2592,7 @@ fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_vortex_without
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_executes_avro_projection_filter_limit_with_source_state_evidence() {
+fn local_source_runtime_executes_avro_projection_filter_limit_with_source_state_evidence() {
     let source_path = unique_path("sql-local-source", "avro");
     write_avro_smoke_source(&source_path);
 
@@ -2568,9 +2601,9 @@ fn sql_local_source_smoke_executes_avro_projection_filter_limit_with_source_stat
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2585,7 +2618,7 @@ fn sql_local_source_smoke_executes_avro_projection_filter_limit_with_source_stat
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("source_format", "avro")));
     assert!(stdout.contains(&field("source_adapter_id", "local_avro_input_adapter")));
@@ -2627,7 +2660,7 @@ fn sql_local_source_smoke_executes_avro_projection_filter_limit_with_source_stat
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_executes_orc_projection_filter_limit_with_source_state_evidence() {
+fn local_source_runtime_executes_orc_projection_filter_limit_with_source_state_evidence() {
     let source_path = unique_path("sql-local-source", "orc");
     write_orc_smoke_source(&source_path);
 
@@ -2636,9 +2669,9 @@ fn sql_local_source_smoke_executes_orc_projection_filter_limit_with_source_state
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2653,7 +2686,7 @@ fn sql_local_source_smoke_executes_orc_projection_filter_limit_with_source_state
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("source_format", "orc")));
     assert!(stdout.contains(&field("source_adapter_id", "local_orc_input_adapter")));
@@ -2695,7 +2728,7 @@ fn sql_local_source_smoke_executes_orc_projection_filter_limit_with_source_state
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_uses_zero_column_reader_projection_for_count_star() {
+fn local_source_runtime_uses_zero_column_reader_projection_for_count_star() {
     assert_zero_column_reader_projection_count_star(
         "parquet",
         "parquet",
@@ -2728,15 +2761,15 @@ fn sql_local_source_smoke_uses_zero_column_reader_projection_for_count_star() {
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_parquet_without_universal_format_feature() {
+fn local_source_runtime_blocks_parquet_without_universal_format_feature() {
     let source_path = unique_path("sql-local-source-blocked", "parquet");
     fs::write(&source_path, b"not a real parquet file").expect("write source parquet placeholder");
 
     let statement = format!("SELECT id FROM '{}' LIMIT 1", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -2754,16 +2787,16 @@ fn sql_local_source_smoke_blocks_parquet_without_universal_format_feature() {
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_arrow_ipc_without_universal_format_feature() {
+fn local_source_runtime_blocks_arrow_ipc_without_universal_format_feature() {
     let source_path = unique_path("sql-local-source-blocked", "arrow");
     fs::write(&source_path, b"not a real arrow ipc file")
         .expect("write source arrow ipc placeholder");
 
     let statement = format!("SELECT id FROM '{}' LIMIT 1", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -2781,15 +2814,15 @@ fn sql_local_source_smoke_blocks_arrow_ipc_without_universal_format_feature() {
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_avro_without_universal_format_feature() {
+fn local_source_runtime_blocks_avro_without_universal_format_feature() {
     let source_path = unique_path("sql-local-source-blocked", "avro");
     fs::write(&source_path, b"not a real avro file").expect("write source avro placeholder");
 
     let statement = format!("SELECT id FROM '{}' LIMIT 1", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -2807,15 +2840,15 @@ fn sql_local_source_smoke_blocks_avro_without_universal_format_feature() {
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_orc_without_universal_format_feature() {
+fn local_source_runtime_blocks_orc_without_universal_format_feature() {
     let source_path = unique_path("sql-local-source-blocked", "orc");
     fs::write(&source_path, b"not a real orc file").expect("write source orc placeholder");
 
     let statement = format!("SELECT id FROM '{}' LIMIT 1", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -2832,7 +2865,7 @@ fn sql_local_source_smoke_blocks_orc_without_universal_format_feature() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_literal_projection_without_fallback() {
+fn local_source_runtime_executes_literal_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-literal-projection", "csv");
     fs::write(
         &source_path,
@@ -2845,9 +2878,9 @@ fn sql_local_source_smoke_executes_literal_projection_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2881,7 +2914,7 @@ fn sql_local_source_smoke_executes_literal_projection_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallback() {
+fn local_source_runtime_executes_numeric_arithmetic_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-arithmetic-projection", "csv");
     fs::write(
         &source_path,
@@ -2894,9 +2927,9 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -2943,13 +2976,13 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -2966,7 +2999,7 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
 }
 
 #[test]
-fn sql_local_source_smoke_executes_decimal_arithmetic_projection_without_fallback() {
+fn local_source_runtime_executes_decimal_arithmetic_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-decimal-arithmetic", "csv");
     fs::write(&source_path, "id,amount\n1,12.34\n2,15.50\n3,21.25\n").expect("write source csv");
 
@@ -2975,9 +3008,9 @@ fn sql_local_source_smoke_executes_decimal_arithmetic_projection_without_fallbac
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3027,13 +3060,13 @@ fn sql_local_source_smoke_executes_decimal_arithmetic_projection_without_fallbac
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -3047,7 +3080,7 @@ fn sql_local_source_smoke_executes_decimal_arithmetic_projection_without_fallbac
 }
 
 #[test]
-fn sql_local_source_smoke_executes_star_plus_computed_projection_without_fallback() {
+fn local_source_runtime_executes_star_plus_computed_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-star-computed-projection", "csv");
     fs::write(
         &source_path,
@@ -3060,9 +3093,9 @@ fn sql_local_source_smoke_executes_star_plus_computed_projection_without_fallbac
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3098,7 +3131,7 @@ fn sql_local_source_smoke_executes_star_plus_computed_projection_without_fallbac
 }
 
 #[test]
-fn sql_local_source_smoke_executes_computed_projection_order_by_alias_topn_without_fallback() {
+fn local_source_runtime_executes_computed_projection_order_by_alias_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-computed-projection-topn", "csv");
     fs::write(
         &source_path,
@@ -3111,9 +3144,9 @@ fn sql_local_source_smoke_executes_computed_projection_order_by_alias_topn_witho
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3159,7 +3192,7 @@ fn sql_local_source_smoke_executes_computed_projection_order_by_alias_topn_witho
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_executes_computed_projection_source_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_computed_projection_source_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-computed-projection-source-topn", "csv");
     fs::write(
         &source_path,
@@ -3172,9 +3205,9 @@ fn sql_local_source_smoke_executes_computed_projection_source_order_by_topn_with
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3204,7 +3237,7 @@ fn sql_local_source_smoke_executes_computed_projection_source_order_by_topn_with
 }
 
 #[test]
-fn sql_local_source_smoke_executes_generic_expression_projection_without_fallback() {
+fn local_source_runtime_executes_generic_expression_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-generic-expression-projection", "csv");
     fs::write(
         &source_path,
@@ -3217,9 +3250,9 @@ fn sql_local_source_smoke_executes_generic_expression_projection_without_fallbac
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3266,13 +3299,13 @@ fn sql_local_source_smoke_executes_generic_expression_projection_without_fallbac
     );
     let division_by_zero = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &division_by_zero_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!division_by_zero.status.success());
     let division_by_zero_output = format!(
         "{}{}",
@@ -3291,13 +3324,13 @@ fn sql_local_source_smoke_executes_generic_expression_projection_without_fallbac
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -3313,7 +3346,7 @@ fn sql_local_source_smoke_executes_generic_expression_projection_without_fallbac
 }
 
 #[test]
-fn sql_local_source_smoke_executes_numeric_abs_projection_without_fallback() {
+fn local_source_runtime_executes_numeric_abs_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-abs-projection", "csv");
     fs::write(&source_path, "id,amount\n1,-5\n2,3\n3,-4\n4,\n").expect("write source csv");
 
@@ -3322,9 +3355,9 @@ fn sql_local_source_smoke_executes_numeric_abs_projection_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3358,13 +3391,13 @@ fn sql_local_source_smoke_executes_numeric_abs_projection_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -3381,7 +3414,7 @@ fn sql_local_source_smoke_executes_numeric_abs_projection_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_numeric_rounding_projection_without_fallback() {
+fn local_source_runtime_executes_numeric_rounding_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-rounding-projection", "csv");
     fs::write(
         &source_path,
@@ -3394,9 +3427,9 @@ fn sql_local_source_smoke_executes_numeric_rounding_projection_without_fallback(
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3441,13 +3474,13 @@ fn sql_local_source_smoke_executes_numeric_rounding_projection_without_fallback(
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -3464,7 +3497,7 @@ fn sql_local_source_smoke_executes_numeric_rounding_projection_without_fallback(
 }
 
 #[test]
-fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
+fn local_source_runtime_executes_cast_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-cast-projection", "csv");
     fs::write(
         &source_path,
@@ -3479,9 +3512,9 @@ fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3527,13 +3560,13 @@ fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -3547,7 +3580,7 @@ fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_try_cast_projection_and_predicate_without_fallback() {
+fn local_source_runtime_executes_try_cast_projection_and_predicate_without_fallback() {
     let source_path = unique_path("sql-local-source-try-cast", "csv");
     fs::write(
         &source_path,
@@ -3564,13 +3597,13 @@ fn sql_local_source_smoke_executes_try_cast_projection_and_predicate_without_fal
     );
     let projection_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &projection_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         projection_output.status.success(),
@@ -3600,13 +3633,13 @@ fn sql_local_source_smoke_executes_try_cast_projection_and_predicate_without_fal
     );
     let predicate_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &predicate_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         predicate_output.status.success(),
@@ -3632,7 +3665,7 @@ fn sql_local_source_smoke_executes_try_cast_projection_and_predicate_without_fal
 }
 
 #[test]
-fn sql_local_source_smoke_executes_string_transform_projection_without_fallback() {
+fn local_source_runtime_executes_string_transform_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-string-transform-projection", "csv");
     fs::write(&source_path, "id,label\n1, Alpha \n2,BETA\n3,gamma\n").expect("write source csv");
 
@@ -3641,9 +3674,9 @@ fn sql_local_source_smoke_executes_string_transform_projection_without_fallback(
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3688,13 +3721,13 @@ fn sql_local_source_smoke_executes_string_transform_projection_without_fallback(
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -3710,7 +3743,7 @@ fn sql_local_source_smoke_executes_string_transform_projection_without_fallback(
 }
 
 #[test]
-fn sql_local_source_smoke_executes_string_length_projection_without_fallback() {
+fn local_source_runtime_executes_string_length_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-string-length-projection", "csv");
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n3,écho\n").expect("write source csv");
 
@@ -3719,9 +3752,9 @@ fn sql_local_source_smoke_executes_string_length_projection_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3757,13 +3790,13 @@ fn sql_local_source_smoke_executes_string_length_projection_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -3780,7 +3813,7 @@ fn sql_local_source_smoke_executes_string_length_projection_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_string_function_projection_without_fallback() {
+fn local_source_runtime_executes_string_function_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-string-function-projection", "csv");
     fs::write(
         &source_path,
@@ -3793,9 +3826,9 @@ fn sql_local_source_smoke_executes_string_function_projection_without_fallback()
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3849,7 +3882,7 @@ fn sql_local_source_smoke_executes_string_function_projection_without_fallback()
 }
 
 #[test]
-fn sql_local_source_smoke_executes_composed_string_expressions_without_fallback() {
+fn local_source_runtime_executes_composed_string_expressions_without_fallback() {
     let source_path = unique_path("sql-local-source-composed-string-expressions", "csv");
     fs::write(
         &source_path,
@@ -3862,9 +3895,9 @@ fn sql_local_source_smoke_executes_composed_string_expressions_without_fallback(
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3913,7 +3946,7 @@ fn sql_local_source_smoke_executes_composed_string_expressions_without_fallback(
 }
 
 #[test]
-fn sql_local_source_smoke_executes_temporal_extract_projection_without_fallback() {
+fn local_source_runtime_executes_temporal_extract_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-temporal-extract-projection", "csv");
     fs::write(
         &source_path,
@@ -3928,9 +3961,9 @@ fn sql_local_source_smoke_executes_temporal_extract_projection_without_fallback(
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -3986,7 +4019,7 @@ fn sql_local_source_smoke_executes_temporal_extract_projection_without_fallback(
 }
 
 #[test]
-fn sql_local_source_smoke_executes_date_arithmetic_projection_without_fallback() {
+fn local_source_runtime_executes_date_arithmetic_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-date-arithmetic-projection", "csv");
     fs::write(
         &source_path,
@@ -4001,9 +4034,9 @@ fn sql_local_source_smoke_executes_date_arithmetic_projection_without_fallback()
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4046,13 +4079,13 @@ fn sql_local_source_smoke_executes_date_arithmetic_projection_without_fallback()
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -4066,7 +4099,7 @@ fn sql_local_source_smoke_executes_date_arithmetic_projection_without_fallback()
 }
 
 #[test]
-fn sql_local_source_smoke_executes_timestamp_arithmetic_projection_without_fallback() {
+fn local_source_runtime_executes_timestamp_arithmetic_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-timestamp-arithmetic-projection", "csv");
     fs::write(
         &source_path,
@@ -4083,9 +4116,9 @@ fn sql_local_source_smoke_executes_timestamp_arithmetic_projection_without_fallb
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4138,13 +4171,13 @@ fn sql_local_source_smoke_executes_timestamp_arithmetic_projection_without_fallb
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -4162,7 +4195,7 @@ fn sql_local_source_smoke_executes_timestamp_arithmetic_projection_without_fallb
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_executes_temporal_difference_generic_expressions_without_fallback() {
+fn local_source_runtime_executes_temporal_difference_generic_expressions_without_fallback() {
     let source_path = unique_path("sql-local-source-temporal-difference", "csv");
     fs::write(
         &source_path,
@@ -4179,9 +4212,9 @@ fn sql_local_source_smoke_executes_temporal_difference_generic_expressions_witho
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4249,13 +4282,13 @@ fn sql_local_source_smoke_executes_temporal_difference_generic_expressions_witho
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -4271,7 +4304,7 @@ fn sql_local_source_smoke_executes_temporal_difference_generic_expressions_witho
 }
 
 #[test]
-fn sql_local_source_smoke_executes_null_coalesce_projection_without_fallback() {
+fn local_source_runtime_executes_null_coalesce_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-null-coalesce-projection", "csv");
     fs::write(
         &source_path,
@@ -4287,9 +4320,9 @@ fn sql_local_source_smoke_executes_null_coalesce_projection_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4331,13 +4364,13 @@ fn sql_local_source_smoke_executes_null_coalesce_projection_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -4354,7 +4387,7 @@ fn sql_local_source_smoke_executes_null_coalesce_projection_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_nullif_projection_without_fallback() {
+fn local_source_runtime_executes_nullif_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-nullif-projection", "csv");
     fs::write(
         &source_path,
@@ -4370,9 +4403,9 @@ fn sql_local_source_smoke_executes_nullif_projection_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4414,13 +4447,13 @@ fn sql_local_source_smoke_executes_nullif_projection_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -4437,11 +4470,11 @@ fn sql_local_source_smoke_executes_nullif_projection_without_fallback() {
     fs::remove_file(source_path).expect("remove source csv");
 }
 
-fn assert_sql_local_source_smoke_rejects(statement: &str, expected_fragments: &[&str]) {
+fn assert_local_source_runtime_rejects(statement: &str, expected_fragments: &[&str]) {
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", statement, "--format", "json"])
+        .args(["local-source-runtime", statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -4455,7 +4488,7 @@ fn assert_sql_local_source_smoke_rejects(statement: &str, expected_fragments: &[
 }
 
 #[test]
-fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
+fn local_source_runtime_executes_conditional_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-conditional-projection", "csv");
     fs::write(
         &source_path,
@@ -4471,9 +4504,9 @@ fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4521,7 +4554,7 @@ fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
         "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 0 END AS size_band FROM '{}' LIMIT 10",
         source_path.display()
     );
-    assert_sql_local_source_smoke_rejects(
+    assert_local_source_runtime_rejects(
         &blocked_statement,
         &["CASE projection THEN/ELSE branches must have matching dtypes"],
     );
@@ -4530,7 +4563,7 @@ fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
         "SELECT id,CASE WHEN amount >= 10 THEN amount ELSE fallback_label END AS mixed_case FROM '{}' LIMIT 10",
         source_path.display()
     );
-    assert_sql_local_source_smoke_rejects(
+    assert_local_source_runtime_rejects(
         &mixed_source_statement,
         &["THEN/ELSE branches must have matching dtypes after source-column binding"],
     );
@@ -4539,7 +4572,7 @@ fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
         "SELECT id,CASE WHEN amount >= 10 THEN empty_label ELSE fallback_label END AS label_or_empty FROM '{}' LIMIT 10",
         source_path.display()
     );
-    assert_sql_local_source_smoke_rejects(
+    assert_local_source_runtime_rejects(
         &all_null_source_statement,
         &["empty_label", "has no non-NULL values"],
     );
@@ -4548,7 +4581,7 @@ fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_predicate_projection_without_fallback() {
+fn local_source_runtime_executes_predicate_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-predicate-projection", "csv");
     fs::write(
         &source_path,
@@ -4564,9 +4597,9 @@ fn sql_local_source_smoke_executes_predicate_projection_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4612,13 +4645,13 @@ fn sql_local_source_smoke_executes_predicate_projection_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -4632,7 +4665,7 @@ fn sql_local_source_smoke_executes_predicate_projection_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_correlated_subquery_projection_without_fallback() {
+fn local_source_runtime_executes_correlated_subquery_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-correlated-projection-source", "csv");
     let allowed_path = unique_path("sql-local-source-correlated-projection-allowed", "csv");
     fs::write(
@@ -4652,9 +4685,9 @@ fn sql_local_source_smoke_executes_correlated_subquery_projection_without_fallba
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4688,7 +4721,7 @@ fn sql_local_source_smoke_executes_correlated_subquery_projection_without_fallba
 }
 
 #[test]
-fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
+fn local_source_runtime_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(
         &source_path,
@@ -4698,9 +4731,9 @@ fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
 
     let statement = format!("SELECT id,label FROM '{}' LIMIT 2", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4739,7 +4772,7 @@ fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_select_distinct_before_limit_without_fallback() {
+fn local_source_runtime_executes_select_distinct_before_limit_without_fallback() {
     let source_path = unique_path("sql-local-source-select-distinct", "csv");
     fs::write(
         &source_path,
@@ -4756,7 +4789,7 @@ fn sql_local_source_smoke_executes_select_distinct_before_limit_without_fallback
         "SELECT DISTINCT region,label FROM '{}' WHERE amount >= 8 ORDER BY region,label LIMIT 2",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -4785,7 +4818,7 @@ fn sql_local_source_smoke_executes_select_distinct_before_limit_without_fallback
 }
 
 #[test]
-fn sql_local_source_smoke_executes_select_distinct_aggregate_having_without_fallback() {
+fn local_source_runtime_executes_select_distinct_aggregate_having_without_fallback() {
     let source_path = unique_path("sql-local-source-select-distinct-aggregate", "csv");
     fs::write(
         &source_path,
@@ -4797,7 +4830,7 @@ fn sql_local_source_smoke_executes_select_distinct_aggregate_having_without_fall
         "SELECT DISTINCT region,count(*) AS rows FROM '{}' GROUP BY region HAVING count(*) >= 2 LIMIT 5",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -4817,7 +4850,7 @@ fn sql_local_source_smoke_executes_select_distinct_aggregate_having_without_fall
 }
 
 #[test]
-fn sql_local_source_smoke_executes_select_distinct_join_output_before_limit_without_fallback() {
+fn local_source_runtime_executes_select_distinct_join_output_before_limit_without_fallback() {
     let fact_path = unique_path("sql-local-source-select-distinct-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-select-distinct-join-dim", "csv");
     fs::write(
@@ -4832,7 +4865,7 @@ fn sql_local_source_smoke_executes_select_distinct_join_output_before_limit_with
         fact_path.display(),
         dim_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -4857,7 +4890,7 @@ fn sql_local_source_smoke_executes_select_distinct_join_output_before_limit_with
 }
 
 #[test]
-fn sql_local_source_smoke_executes_select_distinct_window_output_before_limit_without_fallback() {
+fn local_source_runtime_executes_select_distinct_window_output_before_limit_without_fallback() {
     let source_path = unique_path("sql-local-source-select-distinct-window", "csv");
     fs::write(
         &source_path,
@@ -4869,7 +4902,7 @@ fn sql_local_source_smoke_executes_select_distinct_window_output_before_limit_wi
         "SELECT DISTINCT region,RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r FROM '{}' LIMIT 2",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -4891,7 +4924,7 @@ fn sql_local_source_smoke_executes_select_distinct_window_output_before_limit_wi
 }
 
 #[test]
-fn sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields() {
+fn local_source_runtime_writes_local_jsonl_output_with_certificate_fields() {
     let source_path = unique_path("sql-local-source-output", "csv");
     let output_path = unique_path("sql-local-source-output", "jsonl");
     fs::write(
@@ -4906,7 +4939,7 @@ fn sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields() {
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -4914,7 +4947,7 @@ fn sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -4978,7 +5011,7 @@ fn sql_local_source_output_capillary_skips_small_local_csv_output() {
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -4988,7 +5021,7 @@ fn sql_local_source_output_capillary_skips_small_local_csv_output() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -5162,7 +5195,7 @@ fn sql_local_source_output_capillary_writes_local_jsonl_csv_fanout_with_evidence
     let csv_target = format!("csv={}", csv_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &jsonl_target,
@@ -5172,7 +5205,7 @@ fn sql_local_source_output_capillary_writes_local_jsonl_csv_fanout_with_evidence
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -5326,7 +5359,7 @@ fn sql_local_source_output_capillary_writes_local_jsonl_csv_fanout_with_evidence
 }
 
 #[test]
-fn sql_local_source_smoke_writes_complex_jsonl_csv_fanout_without_fallback() {
+fn local_source_runtime_writes_complex_jsonl_csv_fanout_without_fallback() {
     let source_path = unique_path("sql-local-source-complex-fanout", "csv");
     let jsonl_output_path = unique_path("sql-local-source-complex-fanout", "jsonl");
     let csv_output_path = unique_path("sql-local-source-complex-fanout", "csv");
@@ -5340,7 +5373,7 @@ fn sql_local_source_smoke_writes_complex_jsonl_csv_fanout_without_fallback() {
     let csv_target = format!("csv={}", csv_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &jsonl_target,
@@ -5350,7 +5383,7 @@ fn sql_local_source_smoke_writes_complex_jsonl_csv_fanout_without_fallback() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -5399,7 +5432,7 @@ fn sql_local_source_smoke_writes_complex_jsonl_csv_fanout_without_fallback() {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_writes_local_parquet_output_with_certificate_fields() {
+fn local_source_runtime_writes_local_parquet_output_with_certificate_fields() {
     let source_path = unique_path("sql-local-source-parquet-output", "csv");
     let output_path = unique_path("sql-local-source-parquet-output", "parquet");
     fs::write(
@@ -5414,7 +5447,7 @@ fn sql_local_source_smoke_writes_local_parquet_output_with_certificate_fields() 
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -5424,7 +5457,7 @@ fn sql_local_source_smoke_writes_local_parquet_output_with_certificate_fields() 
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -5495,7 +5528,7 @@ fn assert_sql_local_source_writes_feature_gated_output(
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -5505,7 +5538,7 @@ fn assert_sql_local_source_writes_feature_gated_output(
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -5547,7 +5580,7 @@ fn assert_sql_local_source_writes_feature_gated_output(
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_writes_local_arrow_ipc_output_with_certificate_fields() {
+fn local_source_runtime_writes_local_arrow_ipc_output_with_certificate_fields() {
     assert_sql_local_source_writes_feature_gated_output(
         "sql-local-source-arrow-ipc-output",
         "arrow",
@@ -5561,7 +5594,7 @@ fn sql_local_source_smoke_writes_local_arrow_ipc_output_with_certificate_fields(
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_writes_local_avro_output_with_certificate_fields() {
+fn local_source_runtime_writes_local_avro_output_with_certificate_fields() {
     assert_sql_local_source_writes_feature_gated_output(
         "sql-local-source-avro-output",
         "avro",
@@ -5575,7 +5608,7 @@ fn sql_local_source_smoke_writes_local_avro_output_with_certificate_fields() {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_writes_local_orc_output_with_certificate_fields() {
+fn local_source_runtime_writes_local_orc_output_with_certificate_fields() {
     assert_sql_local_source_writes_feature_gated_output(
         "sql-local-source-orc-output",
         "orc",
@@ -5589,7 +5622,7 @@ fn sql_local_source_smoke_writes_local_orc_output_with_certificate_fields() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
+fn local_source_runtime_writes_local_vortex_output_with_certificate_fields() {
     let source_path = unique_path("sql-local-source-vortex-output", "csv");
     let output_path = unique_path("sql-local-source-vortex-output", "vortex");
     fs::write(
@@ -5604,7 +5637,7 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -5614,7 +5647,7 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -5688,7 +5721,7 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn sql_local_source_smoke_writes_non_null_binary_vortex_output() {
+fn local_source_runtime_writes_non_null_binary_vortex_output() {
     let source_path = unique_path("sql-local-source-vortex-binary-output", "csv");
     let output_path = unique_path("sql-local-source-vortex-binary-output", "vortex");
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
@@ -5699,7 +5732,7 @@ fn sql_local_source_smoke_writes_non_null_binary_vortex_output() {
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -5709,7 +5742,7 @@ fn sql_local_source_smoke_writes_non_null_binary_vortex_output() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -5743,7 +5776,7 @@ fn sql_local_source_smoke_writes_non_null_binary_vortex_output() {
 #[cfg(feature = "vortex-write")]
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
+fn local_source_runtime_writes_local_vortex_fanout_with_evidence() {
     let source_path = unique_path("sql-local-source-vortex-fanout", "csv");
     let csv_output_path = unique_path("sql-local-source-vortex-fanout", "csv");
     let vortex_output_path = unique_path("sql-local-source-vortex-fanout", "vortex");
@@ -5761,7 +5794,7 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
     let vortex_target = format!("vortex={}", vortex_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &csv_target,
@@ -5771,7 +5804,7 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -5855,7 +5888,7 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
 
 #[cfg(not(feature = "vortex-write"))]
 #[test]
-fn sql_local_source_smoke_blocks_vortex_output_without_vortex_write_feature() {
+fn local_source_runtime_blocks_vortex_output_without_vortex_write_feature() {
     let source_path = unique_path("sql-local-source-vortex-output-blocked", "csv");
     let output_path = unique_path("sql-local-source-vortex-output-blocked", "vortex");
     fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
@@ -5863,7 +5896,7 @@ fn sql_local_source_smoke_blocks_vortex_output_without_vortex_write_feature() {
     let statement = format!("SELECT id,label FROM '{}' LIMIT 1", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -5873,7 +5906,7 @@ fn sql_local_source_smoke_blocks_vortex_output_without_vortex_write_feature() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -5893,7 +5926,7 @@ fn sql_local_source_smoke_blocks_vortex_output_without_vortex_write_feature() {
 
 #[cfg(not(feature = "vortex-write"))]
 #[test]
-fn sql_local_source_smoke_blocks_vortex_fanout_without_partial_writes() {
+fn local_source_runtime_blocks_vortex_fanout_without_partial_writes() {
     let source_path = unique_path("sql-local-source-vortex-fanout-blocked", "csv");
     let csv_output_path = unique_path("sql-local-source-vortex-fanout-blocked", "csv");
     let vortex_output_path = unique_path("sql-local-source-vortex-fanout-blocked", "vortex");
@@ -5904,7 +5937,7 @@ fn sql_local_source_smoke_blocks_vortex_fanout_without_partial_writes() {
     let vortex_target = format!("vortex={}", vortex_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &csv_target,
@@ -5914,7 +5947,7 @@ fn sql_local_source_smoke_blocks_vortex_fanout_without_partial_writes() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -6007,7 +6040,7 @@ fn assert_structured_fanout_stdout(stdout: &str) {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
+fn local_source_runtime_writes_feature_gated_structured_fanout_outputs() {
     let source_path = unique_path("sql-local-source-structured-fanout", "csv");
     let parquet_output_path = unique_path("sql-local-source-structured-fanout", "parquet");
     let arrow_output_path = unique_path("sql-local-source-structured-fanout", "arrow");
@@ -6025,7 +6058,7 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
     let arrow_target = format!("arrow-ipc={}", arrow_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &parquet_target,
@@ -6035,7 +6068,7 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6055,7 +6088,7 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_preserves_binary_structured_sinks() {
+fn local_source_runtime_preserves_binary_structured_sinks() {
     let source_path = unique_path("sql-local-source-binary-sink-source", "arrow");
     let parquet_output_path = unique_path("sql-local-source-binary-sink", "parquet");
     let arrow_output_path = unique_path("sql-local-source-binary-sink", "arrow");
@@ -6073,7 +6106,7 @@ fn sql_local_source_smoke_preserves_binary_structured_sinks() {
     let orc_target = format!("orc={}", orc_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &parquet_target,
@@ -6087,7 +6120,7 @@ fn sql_local_source_smoke_preserves_binary_structured_sinks() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6147,7 +6180,7 @@ fn sql_local_source_smoke_preserves_binary_structured_sinks() {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
+fn local_source_runtime_preserves_all_null_binary_source_schema_sinks() {
     use arrow_schema::DataType;
     use std::io::BufReader;
 
@@ -6165,7 +6198,7 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
     let orc_target = format!("orc={}", orc_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &parquet_target,
@@ -6179,7 +6212,7 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6249,7 +6282,7 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_writes_all_null_binary_vortex_output_with_source_schema() {
+fn local_source_runtime_writes_all_null_binary_vortex_output_with_source_schema() {
     let source_path = unique_path("sql-local-source-all-null-binary-vortex-source", "arrow");
     let output_path = unique_path("sql-local-source-all-null-binary-vortex-output", "vortex");
     write_all_null_binary_arrow_ipc_smoke_source(&source_path);
@@ -6257,7 +6290,7 @@ fn sql_local_source_smoke_writes_all_null_binary_vortex_output_with_source_schem
     let statement = format!("SELECT payload FROM '{}' LIMIT 3", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -6267,7 +6300,7 @@ fn sql_local_source_smoke_writes_all_null_binary_vortex_output_with_source_schem
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6293,7 +6326,7 @@ fn sql_local_source_smoke_writes_all_null_binary_vortex_output_with_source_schem
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_parquet_output_without_universal_format_feature() {
+fn local_source_runtime_blocks_parquet_output_without_universal_format_feature() {
     let source_path = unique_path("sql-local-source-parquet-output-blocked", "csv");
     let output_path = unique_path("sql-local-source-parquet-output-blocked", "parquet");
     fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
@@ -6301,7 +6334,7 @@ fn sql_local_source_smoke_blocks_parquet_output_without_universal_format_feature
     let statement = format!("SELECT id,label FROM '{}' LIMIT 1", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -6311,7 +6344,7 @@ fn sql_local_source_smoke_blocks_parquet_output_without_universal_format_feature
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -6342,7 +6375,7 @@ fn assert_sql_local_source_blocks_feature_gated_output(
     let statement = format!("SELECT id,label FROM '{}' LIMIT 1", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -6352,7 +6385,7 @@ fn assert_sql_local_source_blocks_feature_gated_output(
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -6373,7 +6406,7 @@ fn assert_sql_local_source_blocks_feature_gated_output(
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_arrow_ipc_output_without_universal_format_feature() {
+fn local_source_runtime_blocks_arrow_ipc_output_without_universal_format_feature() {
     assert_sql_local_source_blocks_feature_gated_output(
         "sql-local-source-arrow-ipc-output-blocked",
         "arrow",
@@ -6384,7 +6417,7 @@ fn sql_local_source_smoke_blocks_arrow_ipc_output_without_universal_format_featu
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_avro_output_without_universal_format_feature() {
+fn local_source_runtime_blocks_avro_output_without_universal_format_feature() {
     assert_sql_local_source_blocks_feature_gated_output(
         "sql-local-source-avro-output-blocked",
         "avro",
@@ -6395,7 +6428,7 @@ fn sql_local_source_smoke_blocks_avro_output_without_universal_format_feature() 
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_orc_output_without_universal_format_feature() {
+fn local_source_runtime_blocks_orc_output_without_universal_format_feature() {
     assert_sql_local_source_blocks_feature_gated_output(
         "sql-local-source-orc-output-blocked",
         "orc",
@@ -6406,7 +6439,7 @@ fn sql_local_source_smoke_blocks_orc_output_without_universal_format_feature() {
 
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_feature_gated_fanout_without_partial_writes() {
+fn local_source_runtime_blocks_feature_gated_fanout_without_partial_writes() {
     let source_path = unique_path("sql-local-source-fanout-output-blocked", "csv");
     let csv_output_path = unique_path("sql-local-source-fanout-output-blocked", "csv");
     let parquet_output_path = unique_path("sql-local-source-fanout-output-blocked", "parquet");
@@ -6417,7 +6450,7 @@ fn sql_local_source_smoke_blocks_feature_gated_fanout_without_partial_writes() {
     let parquet_target = format!("parquet={}", parquet_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--fanout-output",
             &csv_target,
@@ -6427,7 +6460,7 @@ fn sql_local_source_smoke_blocks_feature_gated_fanout_without_partial_writes() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -6451,7 +6484,7 @@ fn sql_local_source_smoke_blocks_feature_gated_fanout_without_partial_writes() {
 }
 
 #[test]
-fn sql_local_source_smoke_writes_literal_projection_csv_header() {
+fn local_source_runtime_writes_literal_projection_csv_header() {
     let source_path = unique_path("sql-local-source-literal-csv-output", "csv");
     let output_path = unique_path("sql-local-source-literal-csv-output", "csv");
     fs::write(
@@ -6466,7 +6499,7 @@ fn sql_local_source_smoke_writes_literal_projection_csv_header() {
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -6476,7 +6509,7 @@ fn sql_local_source_smoke_writes_literal_projection_csv_header() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6504,7 +6537,7 @@ fn sql_local_source_smoke_writes_literal_projection_csv_header() {
 }
 
 #[test]
-fn sql_local_source_smoke_writes_csv_header_for_empty_output() {
+fn local_source_runtime_writes_csv_header_for_empty_output() {
     let source_path = unique_path("sql-local-source-empty-csv-output", "csv");
     let output_path = unique_path("sql-local-source-empty-csv-output", "csv");
     fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
@@ -6515,7 +6548,7 @@ fn sql_local_source_smoke_writes_csv_header_for_empty_output() {
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output",
             output_path.to_str().expect("utf8 output path"),
@@ -6525,7 +6558,7 @@ fn sql_local_source_smoke_writes_csv_header_for_empty_output() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6553,14 +6586,14 @@ fn sql_local_source_smoke_writes_csv_header_for_empty_output() {
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_csv_output_without_local_output_path() {
+fn local_source_runtime_blocks_csv_output_without_local_output_path() {
     let source_path = unique_path("sql-local-source-csv-output-blocked", "csv");
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
 
     let statement = format!("SELECT id,label FROM '{}' LIMIT 2", source_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &statement,
             "--output-format",
             "csv",
@@ -6568,7 +6601,7 @@ fn sql_local_source_smoke_blocks_csv_output_without_local_output_path() {
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -6588,7 +6621,7 @@ fn sql_local_source_smoke_blocks_csv_output_without_local_output_path() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_numeric_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_numeric_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-order-by", "csv");
     fs::write(
         &source_path,
@@ -6601,9 +6634,9 @@ fn sql_local_source_smoke_executes_numeric_order_by_topn_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6650,7 +6683,7 @@ fn sql_local_source_smoke_executes_numeric_order_by_topn_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_explicit_null_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_explicit_null_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-order-by-null-ordering", "csv");
     fs::write(
         &source_path,
@@ -6662,7 +6695,7 @@ fn sql_local_source_smoke_executes_explicit_null_order_by_topn_without_fallback(
         "SELECT id,label FROM '{}' ORDER BY amount ASC NULLS FIRST LIMIT 4",
         source_path.display()
     );
-    let nulls_first_stdout = run_sql_local_source_smoke_json(&nulls_first_statement);
+    let nulls_first_stdout = run_local_source_runtime_json(&nulls_first_statement);
 
     assert!(nulls_first_stdout.contains("\"status\":\"success\""));
     assert!(nulls_first_stdout.contains(&field("order_by_runtime_execution", "true")));
@@ -6682,7 +6715,7 @@ fn sql_local_source_smoke_executes_explicit_null_order_by_topn_without_fallback(
         "SELECT id,label FROM '{}' ORDER BY amount DESC NULLS LAST LIMIT 5",
         source_path.display()
     );
-    let nulls_last_stdout = run_sql_local_source_smoke_json(&nulls_last_statement);
+    let nulls_last_stdout = run_local_source_runtime_json(&nulls_last_statement);
 
     assert!(nulls_last_stdout.contains("\"status\":\"success\""));
     assert!(nulls_last_stdout.contains(&field("sort_direction", "desc")));
@@ -6697,7 +6730,7 @@ fn sql_local_source_smoke_executes_explicit_null_order_by_topn_without_fallback(
 }
 
 #[test]
-fn sql_local_source_smoke_executes_window_row_number_without_fallback() {
+fn local_source_runtime_executes_window_row_number_without_fallback() {
     let source_path = unique_path("sql-local-source-window-row-number", "csv");
     fs::write(
         &source_path,
@@ -6710,9 +6743,9 @@ fn sql_local_source_smoke_executes_window_row_number_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6758,7 +6791,7 @@ fn sql_local_source_smoke_executes_window_row_number_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_window_rank_dense_rank_without_fallback() {
+fn local_source_runtime_executes_window_rank_dense_rank_without_fallback() {
     let source_path = unique_path("sql-local-source-window-rank-dense-rank", "csv");
     fs::write(
         &source_path,
@@ -6771,9 +6804,9 @@ fn sql_local_source_smoke_executes_window_rank_dense_rank_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6814,7 +6847,7 @@ fn sql_local_source_smoke_executes_window_rank_dense_rank_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_window_lag_lead_without_fallback() {
+fn local_source_runtime_executes_window_lag_lead_without_fallback() {
     let source_path = unique_path("sql-local-source-window-lag-lead", "csv");
     fs::write(
         &source_path,
@@ -6833,9 +6866,9 @@ fn sql_local_source_smoke_executes_window_lag_lead_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6888,13 +6921,13 @@ fn sql_local_source_smoke_executes_window_lag_lead_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -6908,7 +6941,7 @@ fn sql_local_source_smoke_executes_window_lag_lead_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_window_distribution_without_fallback() {
+fn local_source_runtime_executes_window_distribution_without_fallback() {
     let source_path = unique_path("sql-local-source-window-distribution", "csv");
     fs::write(
         &source_path,
@@ -6927,9 +6960,9 @@ fn sql_local_source_smoke_executes_window_distribution_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -6984,13 +7017,13 @@ fn sql_local_source_smoke_executes_window_distribution_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -7004,7 +7037,7 @@ fn sql_local_source_smoke_executes_window_distribution_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_utf8_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_utf8_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-utf8-order-by", "csv");
     fs::write(
         &source_path,
@@ -7017,9 +7050,9 @@ fn sql_local_source_smoke_executes_utf8_order_by_topn_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7057,7 +7090,7 @@ fn sql_local_source_smoke_executes_utf8_order_by_topn_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_multi_key_scalar_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_multi_key_scalar_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-multi-key-order-by", "csv");
     fs::write(
         &source_path,
@@ -7070,9 +7103,9 @@ fn sql_local_source_smoke_executes_multi_key_scalar_order_by_topn_without_fallba
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7111,7 +7144,7 @@ fn sql_local_source_smoke_executes_multi_key_scalar_order_by_topn_without_fallba
 }
 
 #[test]
-fn sql_local_source_smoke_executes_scalar_aggregates_without_fallback() {
+fn local_source_runtime_executes_scalar_aggregates_without_fallback() {
     let source_path = unique_path("sql-local-source-aggregate", "csv");
     fs::write(
         &source_path,
@@ -7124,9 +7157,9 @@ fn sql_local_source_smoke_executes_scalar_aggregates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7172,7 +7205,7 @@ fn sql_local_source_smoke_executes_scalar_aggregates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_aggregate_aliases_without_fallback() {
+fn local_source_runtime_executes_aggregate_aliases_without_fallback() {
     let source_path = unique_path("sql-local-source-aggregate-alias", "csv");
     fs::write(
         &source_path,
@@ -7185,9 +7218,9 @@ fn sql_local_source_smoke_executes_aggregate_aliases_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7231,7 +7264,7 @@ fn sql_local_source_smoke_executes_aggregate_aliases_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_scalar_aggregate_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_scalar_aggregate_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-aggregate-order-by", "csv");
     fs::write(
         &source_path,
@@ -7244,9 +7277,9 @@ fn sql_local_source_smoke_executes_scalar_aggregate_order_by_topn_without_fallba
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7297,7 +7330,7 @@ fn sql_local_source_smoke_executes_scalar_aggregate_order_by_topn_without_fallba
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_executes_count_distinct_aggregates_without_fallback() {
+fn local_source_runtime_executes_count_distinct_aggregates_without_fallback() {
     let source_path = unique_path("sql-local-source-count-distinct", "csv");
     fs::write(
         &source_path,
@@ -7317,9 +7350,9 @@ fn sql_local_source_smoke_executes_count_distinct_aggregates_without_fallback() 
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7367,13 +7400,13 @@ fn sql_local_source_smoke_executes_count_distinct_aggregates_without_fallback() 
     );
     let scalar = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &scalar_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         scalar.status.success(),
         "stdout={} stderr={}",
@@ -7399,13 +7432,13 @@ fn sql_local_source_smoke_executes_count_distinct_aggregates_without_fallback() 
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -7419,7 +7452,7 @@ fn sql_local_source_smoke_executes_count_distinct_aggregates_without_fallback() 
 }
 
 #[test]
-fn sql_local_source_smoke_executes_group_by_aggregates_without_fallback() {
+fn local_source_runtime_executes_group_by_aggregates_without_fallback() {
     let source_path = unique_path("sql-local-source-group-by", "csv");
     fs::write(
         &source_path,
@@ -7432,9 +7465,9 @@ fn sql_local_source_smoke_executes_group_by_aggregates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7475,7 +7508,7 @@ fn sql_local_source_smoke_executes_group_by_aggregates_without_fallback() {
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
+fn local_source_runtime_executes_aggregate_having_without_fallback() {
     let source_path = unique_path("sql-local-source-aggregate-having", "csv");
     fs::write(
         &source_path,
@@ -7488,9 +7521,9 @@ fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7531,13 +7564,13 @@ fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
     );
     let scalar = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &scalar_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         scalar.status.success(),
         "stdout={} stderr={}",
@@ -7566,13 +7599,13 @@ fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
     );
     let unprojected = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &unprojected_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         unprojected.status.success(),
         "stdout={} stderr={}",
@@ -7608,13 +7641,13 @@ fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked.status.success());
     let blocked_output = format!(
         "{}{}",
@@ -7630,13 +7663,13 @@ fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
     );
     let blocked_distinct = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &blocked_distinct_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!blocked_distinct.status.success());
     let blocked_distinct_output = format!(
         "{}{}",
@@ -7650,7 +7683,7 @@ fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_group_by_aggregate_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_group_by_aggregate_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-group-by-order-by", "csv");
     fs::write(
         &source_path,
@@ -7663,9 +7696,9 @@ fn sql_local_source_smoke_executes_group_by_aggregate_order_by_topn_without_fall
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7710,7 +7743,7 @@ fn sql_local_source_smoke_executes_group_by_aggregate_order_by_topn_without_fall
 }
 
 #[test]
-fn sql_local_source_smoke_executes_group_by_aggregate_utf8_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_group_by_aggregate_utf8_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-group-by-utf8-order-by", "csv");
     fs::write(
         &source_path,
@@ -7723,9 +7756,9 @@ fn sql_local_source_smoke_executes_group_by_aggregate_utf8_order_by_topn_without
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7765,7 +7798,7 @@ fn sql_local_source_smoke_executes_group_by_aggregate_utf8_order_by_topn_without
 }
 
 #[test]
-fn sql_local_source_smoke_executes_multi_key_group_by_aggregates_without_fallback() {
+fn local_source_runtime_executes_multi_key_group_by_aggregates_without_fallback() {
     let source_path = unique_path("sql-local-source-multi-key-group-by", "csv");
     fs::write(
         &source_path,
@@ -7786,9 +7819,9 @@ id,region,segment,amount
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7832,7 +7865,7 @@ id,region,segment,amount
 }
 
 #[test]
-fn sql_local_source_smoke_executes_group_by_aggregate_aliases_without_fallback() {
+fn local_source_runtime_executes_group_by_aggregate_aliases_without_fallback() {
     let source_path = unique_path("sql-local-source-group-by-aggregate-alias", "csv");
     fs::write(
         &source_path,
@@ -7853,9 +7886,9 @@ id,region,segment,amount
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -7901,7 +7934,7 @@ id,region,segment,amount
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_duplicate_aggregate_output_names_without_fallback() {
+fn local_source_runtime_blocks_duplicate_aggregate_output_names_without_fallback() {
     let source_path = unique_path("sql-local-source-aggregate-duplicate-output", "csv");
     fs::write(&source_path, "id,region,amount\n1,east,10\n2,west,5\n").expect("write source csv");
 
@@ -7911,13 +7944,13 @@ fn sql_local_source_smoke_blocks_duplicate_aggregate_output_names_without_fallba
     );
     let duplicate_alias_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &duplicate_alias_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !duplicate_alias_output.status.success(),
@@ -7939,13 +7972,13 @@ fn sql_local_source_smoke_blocks_duplicate_aggregate_output_names_without_fallba
     );
     let group_column_alias_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &group_column_alias_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !group_column_alias_output.status.success(),
@@ -7966,7 +7999,7 @@ fn sql_local_source_smoke_blocks_duplicate_aggregate_output_names_without_fallba
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
+fn local_source_runtime_executes_string_like_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-string-like", "csv");
     fs::write(
         &source_path,
@@ -7980,13 +8013,13 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     );
     let prefix_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &prefix_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         prefix_output.status.success(),
@@ -8013,13 +8046,13 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     );
     let contains_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &contains_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         contains_output.status.success(),
@@ -8044,13 +8077,13 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     );
     let suffix_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &suffix_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         suffix_output.status.success(),
@@ -8075,13 +8108,13 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     );
     let mixed_wildcard_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &mixed_wildcard_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         mixed_wildcard_output.status.success(),
@@ -8109,13 +8142,13 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     );
     let underscore_wildcard_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &underscore_wildcard_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         underscore_wildcard_output.status.success(),
@@ -8139,13 +8172,13 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     );
     let negated_wildcard_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &negated_wildcard_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         negated_wildcard_output.status.success(),
@@ -8167,7 +8200,7 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_regex_predicates_without_fallback() {
+fn local_source_runtime_executes_regex_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-regex", "csv");
     fs::write(
         &source_path,
@@ -8180,14 +8213,9 @@ fn sql_local_source_smoke_executes_regex_predicates_without_fallback() {
         source_path.display()
     );
     let regex_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args([
-            "sql-local-source-smoke",
-            &regex_statement,
-            "--format",
-            "json",
-        ])
+        .args(["local-source-runtime", &regex_statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         regex_output.status.success(),
@@ -8214,13 +8242,13 @@ fn sql_local_source_smoke_executes_regex_predicates_without_fallback() {
     );
     let invalid_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &invalid_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         !invalid_output.status.success(),
         "stdout={} stderr={}",
@@ -8239,7 +8267,7 @@ fn sql_local_source_smoke_executes_regex_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_string_transform_predicates_without_fallback() {
+fn local_source_runtime_executes_string_transform_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-string-transform", "csv");
     fs::write(
         &source_path,
@@ -8252,14 +8280,9 @@ fn sql_local_source_smoke_executes_string_transform_predicates_without_fallback(
         source_path.display()
     );
     let lower_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args([
-            "sql-local-source-smoke",
-            &lower_statement,
-            "--format",
-            "json",
-        ])
+        .args(["local-source-runtime", &lower_statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         lower_output.status.success(),
@@ -8288,14 +8311,9 @@ fn sql_local_source_smoke_executes_string_transform_predicates_without_fallback(
         source_path.display()
     );
     let upper_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args([
-            "sql-local-source-smoke",
-            &upper_statement,
-            "--format",
-            "json",
-        ])
+        .args(["local-source-runtime", &upper_statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         upper_output.status.success(),
@@ -8316,14 +8334,9 @@ fn sql_local_source_smoke_executes_string_transform_predicates_without_fallback(
         source_path.display()
     );
     let trim_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args([
-            "sql-local-source-smoke",
-            &trim_statement,
-            "--format",
-            "json",
-        ])
+        .args(["local-source-runtime", &trim_statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         trim_output.status.success(),
@@ -8341,7 +8354,7 @@ fn sql_local_source_smoke_executes_string_transform_predicates_without_fallback(
 }
 
 #[test]
-fn sql_local_source_smoke_executes_string_function_predicates_without_fallback() {
+fn local_source_runtime_executes_string_function_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-string-function", "csv");
     fs::write(
         &source_path,
@@ -8353,7 +8366,7 @@ fn sql_local_source_smoke_executes_string_function_predicates_without_fallback()
         "SELECT id,label FROM '{}' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 10",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&concat_statement);
+    let stdout = run_local_source_runtime_json(&concat_statement);
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("predicate_operator_family", "string_function")));
     assert!(stdout.contains(&field("string_function_runtime_execution", "true")));
@@ -8374,7 +8387,7 @@ fn sql_local_source_smoke_executes_string_function_predicates_without_fallback()
         "SELECT id,label FROM '{}' WHERE SUBSTR(label, 2, 2) = 'et' LIMIT 10",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&substr_statement);
+    let stdout = run_local_source_runtime_json(&substr_statement);
     assert!(stdout.contains(&field("string_function_operator", "substr")));
     assert!(stdout.contains(&field("string_function_source_column", "label")));
     assert!(stdout.contains(&field("string_function_literal_count", "3")));
@@ -8390,7 +8403,7 @@ fn sql_local_source_smoke_executes_string_function_predicates_without_fallback()
         "SELECT id,label FROM '{}' WHERE LEFT(label, 2) = 'al' LIMIT 10",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&left_statement);
+    let stdout = run_local_source_runtime_json(&left_statement);
     assert!(stdout.contains(&field("string_function_operator", "left")));
     assert!(stdout.contains(&field("string_function_source_column", "label")));
     assert!(stdout.contains(&field("string_function_literal_count", "2")));
@@ -8407,7 +8420,7 @@ fn sql_local_source_smoke_executes_string_function_predicates_without_fallback()
         "SELECT id,label FROM '{}' WHERE RIGHT(label, 2) = 'ta' LIMIT 10",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&right_statement);
+    let stdout = run_local_source_runtime_json(&right_statement);
     assert!(stdout.contains(&field("string_function_operator", "right")));
     assert!(stdout.contains(&field("string_function_source_column", "label")));
     assert!(stdout.contains(&field("string_function_literal_count", "2")));
@@ -8423,7 +8436,7 @@ fn sql_local_source_smoke_executes_string_function_predicates_without_fallback()
         "SELECT id,label FROM '{}' WHERE REPLACE(label, 'a', '') = 'lph' LIMIT 10",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&replace_statement);
+    let stdout = run_local_source_runtime_json(&replace_statement);
     assert!(stdout.contains(&field("string_function_operator", "replace")));
     assert!(stdout.contains(&field("string_function_source_column", "label")));
     assert!(stdout.contains(&field("string_function_literal_count", "3")));
@@ -8439,7 +8452,7 @@ fn sql_local_source_smoke_executes_string_function_predicates_without_fallback()
 }
 
 #[test]
-fn sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallback() {
+fn local_source_runtime_executes_numeric_arithmetic_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-arithmetic", "csv");
     fs::write(
         &source_path,
@@ -8452,9 +8465,9 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallbac
         source_path.display()
     );
     let add_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &add_statement, "--format", "json"])
+        .args(["local-source-runtime", &add_statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         add_output.status.success(),
@@ -8482,14 +8495,9 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallbac
         source_path.display()
     );
     let float_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args([
-            "sql-local-source-smoke",
-            &float_statement,
-            "--format",
-            "json",
-        ])
+        .args(["local-source-runtime", &float_statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         float_output.status.success(),
@@ -8511,13 +8519,13 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallbac
     );
     let divide_by_zero_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &divide_by_zero_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!divide_by_zero_output.status.success());
     let output = format!(
         "{}{}",
@@ -8530,7 +8538,7 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallbac
 }
 
 #[test]
-fn sql_local_source_smoke_executes_mixed_numeric_arithmetic_predicate_without_fallback() {
+fn local_source_runtime_executes_mixed_numeric_arithmetic_predicate_without_fallback() {
     let source_path = unique_path("sql-local-source-mixed-numeric-arithmetic", "csv");
     fs::write(&source_path, "id,amount\n1,8\n2,15\n3,21\n4,\n").expect("write source csv");
 
@@ -8539,9 +8547,9 @@ fn sql_local_source_smoke_executes_mixed_numeric_arithmetic_predicate_without_fa
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -8563,7 +8571,7 @@ fn sql_local_source_smoke_executes_mixed_numeric_arithmetic_predicate_without_fa
 }
 
 #[test]
-fn sql_local_source_smoke_executes_generic_expression_predicates_without_fallback() {
+fn local_source_runtime_executes_generic_expression_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-generic-expression-predicate", "csv");
     fs::write(
         &source_path,
@@ -8576,9 +8584,9 @@ fn sql_local_source_smoke_executes_generic_expression_predicates_without_fallbac
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -8626,13 +8634,13 @@ fn sql_local_source_smoke_executes_generic_expression_predicates_without_fallbac
     );
     let divide_by_zero_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &divide_by_zero_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!divide_by_zero_output.status.success());
     let blocked = format!(
         "{}{}",
@@ -8648,13 +8656,13 @@ fn sql_local_source_smoke_executes_generic_expression_predicates_without_fallbac
     );
     let missing_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &missing_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!missing_output.status.success());
     let missing = format!(
         "{}{}",
@@ -8668,7 +8676,7 @@ fn sql_local_source_smoke_executes_generic_expression_predicates_without_fallbac
 }
 
 #[test]
-fn sql_local_source_smoke_executes_in_predicates_without_fallback() {
+fn local_source_runtime_executes_in_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-in-predicate", "csv");
     fs::write(
         &source_path,
@@ -8681,9 +8689,9 @@ fn sql_local_source_smoke_executes_in_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -8710,7 +8718,7 @@ fn sql_local_source_smoke_executes_in_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_null_aware_in_predicates_without_fallback() {
+fn local_source_runtime_executes_null_aware_in_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-null-aware-in-predicate", "csv");
     fs::write(
         &source_path,
@@ -8723,9 +8731,9 @@ fn sql_local_source_smoke_executes_null_aware_in_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -8757,7 +8765,7 @@ fn sql_local_source_smoke_executes_null_aware_in_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_row_value_in_predicates_without_fallback() {
+fn local_source_runtime_executes_row_value_in_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-row-value-in-predicate", "csv");
     fs::write(
         &source_path,
@@ -8770,9 +8778,9 @@ fn sql_local_source_smoke_executes_row_value_in_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -8815,7 +8823,7 @@ fn sql_local_source_smoke_executes_row_value_in_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_in_subquery_predicates_without_fallback() {
+fn local_source_runtime_executes_in_subquery_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-in-subquery-predicate", "csv");
     let allowed_path = unique_path("sql-local-source-in-subquery-allowed", "csv");
     fs::write(
@@ -8831,9 +8839,9 @@ fn sql_local_source_smoke_executes_in_subquery_predicates_without_fallback() {
         allowed_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -8873,7 +8881,7 @@ fn sql_local_source_smoke_executes_in_subquery_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_filtered_ordered_limited_in_subquery_without_fallback() {
+fn local_source_runtime_executes_filtered_ordered_limited_in_subquery_without_fallback() {
     let source_path = unique_path("sql-local-source-filtered-in-subquery-source", "csv");
     let allowed_path = unique_path("sql-local-source-filtered-in-subquery-allowed", "csv");
     fs::write(
@@ -8893,9 +8901,9 @@ fn sql_local_source_smoke_executes_filtered_ordered_limited_in_subquery_without_
         allowed_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -8928,7 +8936,7 @@ fn sql_local_source_smoke_executes_filtered_ordered_limited_in_subquery_without_
 }
 
 #[test]
-fn sql_local_source_smoke_executes_exists_subquery_predicates_without_fallback() {
+fn local_source_runtime_executes_exists_subquery_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-exists-subquery-source", "csv");
     let allowed_path = unique_path("sql-local-source-exists-subquery-allowed", "csv");
     let blocked_path = unique_path("sql-local-source-not-exists-subquery-blocked", "csv");
@@ -8944,13 +8952,13 @@ fn sql_local_source_smoke_executes_exists_subquery_predicates_without_fallback()
     );
     let exists_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &exists_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         exists_output.status.success(),
         "stdout={} stderr={}",
@@ -8988,13 +8996,13 @@ fn sql_local_source_smoke_executes_exists_subquery_predicates_without_fallback()
     );
     let not_exists_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &not_exists_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         not_exists_output.status.success(),
         "stdout={} stderr={}",
@@ -9021,7 +9029,7 @@ fn sql_local_source_smoke_executes_exists_subquery_predicates_without_fallback()
 }
 
 #[test]
-fn sql_local_source_smoke_executes_having_in_subquery_without_fallback() {
+fn local_source_runtime_executes_having_in_subquery_without_fallback() {
     let source_path = unique_path("sql-local-source-having-in-subquery-source", "csv");
     let allowed_path = unique_path("sql-local-source-having-in-subquery-allowed", "csv");
     fs::write(
@@ -9047,9 +9055,9 @@ fn sql_local_source_smoke_executes_having_in_subquery_without_fallback() {
         allowed_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9109,7 +9117,7 @@ fn write_having_subquery_csv_fixtures() -> (PathBuf, PathBuf, PathBuf) {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_having_exists_subquery_without_fallback() {
+fn local_source_runtime_executes_having_exists_subquery_without_fallback() {
     let (source_path, allowed_path, thresholds_path) = write_having_subquery_csv_fixtures();
 
     let exists_statement = format!(
@@ -9119,13 +9127,13 @@ fn sql_local_source_smoke_executes_having_exists_subquery_without_fallback() {
     );
     let exists_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &exists_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         exists_output.status.success(),
         "stdout={} stderr={}",
@@ -9161,7 +9169,7 @@ fn sql_local_source_smoke_executes_having_exists_subquery_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_having_quantified_subquery_without_fallback() {
+fn local_source_runtime_executes_having_quantified_subquery_without_fallback() {
     let (source_path, allowed_path, thresholds_path) = write_having_subquery_csv_fixtures();
 
     let quantified_statement = format!(
@@ -9171,13 +9179,13 @@ fn sql_local_source_smoke_executes_having_quantified_subquery_without_fallback()
     );
     let quantified_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             &quantified_statement,
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         quantified_output.status.success(),
         "stdout={} stderr={}",
@@ -9233,9 +9241,9 @@ fn assert_in_subquery_missing_column_blocks(source_path: &Path, allowed_path: &P
         allowed_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!output.status.success());
     let error = format!(
         "{}{}",
@@ -9263,9 +9271,9 @@ fn assert_in_subquery_oversized_blocks(source_path: &Path) -> PathBuf {
         oversized_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(!output.status.success());
     let error = format!(
         "{}{}",
@@ -9281,7 +9289,7 @@ fn assert_in_subquery_oversized_blocks(source_path: &Path) -> PathBuf {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_direct_not_in_and_not_like_without_fallback() {
+fn local_source_runtime_executes_direct_not_in_and_not_like_without_fallback() {
     let source_path = unique_path("sql-local-source-not-in-not-like-predicate", "csv");
     fs::write(
         &source_path,
@@ -9294,9 +9302,9 @@ fn sql_local_source_smoke_executes_direct_not_in_and_not_like_without_fallback()
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9328,7 +9336,7 @@ fn sql_local_source_smoke_executes_direct_not_in_and_not_like_without_fallback()
 }
 
 #[test]
-fn sql_local_source_smoke_preserves_not_in_sql_three_valued_null_semantics() {
+fn local_source_runtime_preserves_not_in_sql_three_valued_null_semantics() {
     let source_path = unique_path("sql-local-source-not-in-null-semantics", "csv");
     fs::write(
         &source_path,
@@ -9341,9 +9349,9 @@ fn sql_local_source_smoke_preserves_not_in_sql_three_valued_null_semantics() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9373,7 +9381,7 @@ fn sql_local_source_smoke_preserves_not_in_sql_three_valued_null_semantics() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_is_null_predicates_without_fallback() {
+fn local_source_runtime_executes_is_null_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-is-null-predicate", "csv");
     fs::write(
         &source_path,
@@ -9386,9 +9394,9 @@ fn sql_local_source_smoke_executes_is_null_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9419,7 +9427,7 @@ fn sql_local_source_smoke_executes_is_null_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_is_not_null_predicates_without_fallback() {
+fn local_source_runtime_executes_is_not_null_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-is-not-null-predicate", "jsonl");
     fs::write(
         &source_path,
@@ -9432,9 +9440,9 @@ fn sql_local_source_smoke_executes_is_not_null_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9477,7 +9485,7 @@ fn sql_local_source_smoke_executes_is_not_null_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_null_safe_comparison_predicates_without_fallback() {
+fn local_source_runtime_executes_null_safe_comparison_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-null-safe-comparison-predicate", "csv");
     fs::write(
         &source_path,
@@ -9489,7 +9497,7 @@ fn sql_local_source_smoke_executes_null_safe_comparison_predicates_without_fallb
         "SELECT id FROM '{}' WHERE label IS DISTINCT FROM peer ORDER BY id ASC LIMIT 10",
         source_path.display()
     );
-    let distinct_stdout = run_sql_local_source_smoke_json(&distinct_statement);
+    let distinct_stdout = run_local_source_runtime_json(&distinct_statement);
     assert!(distinct_stdout.contains("\"status\":\"success\""));
     assert!(distinct_stdout.contains(&field("predicate_operator_family", "logical_predicate")));
     assert!(distinct_stdout.contains(&field("logical_predicate_runtime_execution", "true")));
@@ -9505,7 +9513,7 @@ fn sql_local_source_smoke_executes_null_safe_comparison_predicates_without_fallb
         "SELECT id FROM '{}' WHERE label IS NOT DISTINCT FROM peer ORDER BY id ASC LIMIT 10",
         source_path.display()
     );
-    let not_distinct_stdout = run_sql_local_source_smoke_json(&not_distinct_statement);
+    let not_distinct_stdout = run_local_source_runtime_json(&not_distinct_statement);
     assert!(not_distinct_stdout.contains("\"status\":\"success\""));
     assert!(not_distinct_stdout.contains(&field("predicate_operator_family", "logical_predicate")));
     assert!(not_distinct_stdout.contains(&field("logical_predicate_runtime_execution", "true")));
@@ -9522,7 +9530,7 @@ fn sql_local_source_smoke_executes_null_safe_comparison_predicates_without_fallb
         "SELECT id FROM '{}' WHERE label IS NOT DISTINCT FROM NULL ORDER BY id ASC LIMIT 10",
         source_path.display()
     );
-    let null_literal_stdout = run_sql_local_source_smoke_json(&null_literal_statement);
+    let null_literal_stdout = run_local_source_runtime_json(&null_literal_statement);
     assert!(null_literal_stdout.contains("\"status\":\"success\""));
     assert!(null_literal_stdout.contains(&field("selected_row_count", "2")));
     assert!(
@@ -9536,7 +9544,7 @@ fn sql_local_source_smoke_executes_null_safe_comparison_predicates_without_fallb
         "SELECT id,label IS NOT DISTINCT FROM peer AS same_null_safe FROM '{}' WHERE label IS DISTINCT FROM peer ORDER BY id ASC LIMIT 10",
         source_path.display()
     );
-    let projection_stdout = run_sql_local_source_smoke_json(&projection_statement);
+    let projection_stdout = run_local_source_runtime_json(&projection_statement);
     assert!(projection_stdout.contains("\"status\":\"success\""));
     assert!(projection_stdout.contains(&field("predicate_projection_runtime_execution", "true")));
     assert!(projection_stdout.contains(&field(
@@ -9555,7 +9563,7 @@ fn sql_local_source_smoke_executes_null_safe_comparison_predicates_without_fallb
 }
 
 #[test]
-fn sql_local_source_smoke_executes_boolean_predicates_without_fallback() {
+fn local_source_runtime_executes_boolean_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-boolean-predicate", "csv");
     fs::write(
         &source_path,
@@ -9568,9 +9576,9 @@ fn sql_local_source_smoke_executes_boolean_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9604,9 +9612,9 @@ fn sql_local_source_smoke_executes_boolean_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9632,9 +9640,9 @@ fn sql_local_source_smoke_executes_boolean_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9661,7 +9669,7 @@ fn sql_local_source_smoke_executes_boolean_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_preserves_is_true_null_semantics_under_not_without_fallback() {
+fn local_source_runtime_preserves_is_true_null_semantics_under_not_without_fallback() {
     let source_path = unique_path("sql-local-source-boolean-is-true-null-semantics", "csv");
     fs::write(
         &source_path,
@@ -9674,9 +9682,9 @@ fn sql_local_source_smoke_preserves_is_true_null_semantics_under_not_without_fal
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9701,7 +9709,7 @@ fn sql_local_source_smoke_preserves_is_true_null_semantics_under_not_without_fal
 }
 
 #[test]
-fn sql_local_source_smoke_executes_is_not_boolean_predicates_without_fallback() {
+fn local_source_runtime_executes_is_not_boolean_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-boolean-is-not-predicate", "csv");
     fs::write(
         &source_path,
@@ -9714,9 +9722,9 @@ fn sql_local_source_smoke_executes_is_not_boolean_predicates_without_fallback() 
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         output.status.success(),
         "stdout={} stderr={}",
@@ -9747,9 +9755,9 @@ fn sql_local_source_smoke_executes_is_not_boolean_predicates_without_fallback() 
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         output.status.success(),
         "stdout={} stderr={}",
@@ -9775,7 +9783,7 @@ fn sql_local_source_smoke_executes_is_not_boolean_predicates_without_fallback() 
 }
 
 #[test]
-fn sql_local_source_smoke_executes_between_predicates_without_fallback() {
+fn local_source_runtime_executes_between_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-between-predicate", "csv");
     fs::write(
         &source_path,
@@ -9788,9 +9796,9 @@ fn sql_local_source_smoke_executes_between_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9817,7 +9825,7 @@ fn sql_local_source_smoke_executes_between_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_not_between_predicates_without_fallback() {
+fn local_source_runtime_executes_not_between_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-not-between-predicate", "csv");
     fs::write(
         &source_path,
@@ -9830,9 +9838,9 @@ fn sql_local_source_smoke_executes_not_between_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9858,7 +9866,7 @@ fn sql_local_source_smoke_executes_not_between_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_logical_and_predicates_without_fallback() {
+fn local_source_runtime_executes_logical_and_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-logical-and", "csv");
     fs::write(
         &source_path,
@@ -9871,9 +9879,9 @@ fn sql_local_source_smoke_executes_logical_and_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9903,7 +9911,7 @@ fn sql_local_source_smoke_executes_logical_and_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_logical_or_predicates_without_fallback() {
+fn local_source_runtime_executes_logical_or_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-logical-or", "csv");
     fs::write(
         &source_path,
@@ -9916,9 +9924,9 @@ fn sql_local_source_smoke_executes_logical_or_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9948,7 +9956,7 @@ fn sql_local_source_smoke_executes_logical_or_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_parenthesized_logical_predicates_without_fallback() {
+fn local_source_runtime_executes_parenthesized_logical_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-logical-parentheses", "csv");
     fs::write(
         &source_path,
@@ -9961,9 +9969,9 @@ fn sql_local_source_smoke_executes_parenthesized_logical_predicates_without_fall
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -9993,7 +10001,7 @@ fn sql_local_source_smoke_executes_parenthesized_logical_predicates_without_fall
 }
 
 #[test]
-fn sql_local_source_smoke_executes_date_literal_filters_without_fallback() {
+fn local_source_runtime_executes_date_literal_filters_without_fallback() {
     let source_path = unique_path("sql-local-source-date-literal", "csv");
     fs::write(
         &source_path,
@@ -10006,9 +10014,9 @@ fn sql_local_source_smoke_executes_date_literal_filters_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10032,7 +10040,7 @@ fn sql_local_source_smoke_executes_date_literal_filters_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_date_between_predicates_without_fallback() {
+fn local_source_runtime_executes_date_between_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-between-predicate", "csv");
     fs::write(
         &source_path,
@@ -10045,9 +10053,9 @@ fn sql_local_source_smoke_executes_date_between_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10073,7 +10081,7 @@ fn sql_local_source_smoke_executes_date_between_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_string_length_predicate_without_fallback() {
+fn local_source_runtime_executes_string_length_predicate_without_fallback() {
     let source_path = unique_path("sql-local-source-string-length", "csv");
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n3,écho\n").expect("write source csv");
 
@@ -10082,9 +10090,9 @@ fn sql_local_source_smoke_executes_string_length_predicate_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10112,7 +10120,7 @@ fn sql_local_source_smoke_executes_string_length_predicate_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_numeric_abs_predicate_without_fallback() {
+fn local_source_runtime_executes_numeric_abs_predicate_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-abs", "csv");
     fs::write(&source_path, "id,amount\n1,-5\n2,3\n3,-4\n4,\n").expect("write source csv");
 
@@ -10121,9 +10129,9 @@ fn sql_local_source_smoke_executes_numeric_abs_predicate_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10149,7 +10157,7 @@ fn sql_local_source_smoke_executes_numeric_abs_predicate_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_numeric_rounding_predicate_without_fallback() {
+fn local_source_runtime_executes_numeric_rounding_predicate_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-rounding", "csv");
     fs::write(&source_path, "id,amount\n1,3.2\n2,3.8\n3,-2.3\n4,\n").expect("write source csv");
 
@@ -10158,9 +10166,9 @@ fn sql_local_source_smoke_executes_numeric_rounding_predicate_without_fallback()
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10187,7 +10195,7 @@ fn sql_local_source_smoke_executes_numeric_rounding_predicate_without_fallback()
 }
 
 #[test]
-fn sql_local_source_smoke_executes_interval_literal_temporal_arithmetic_without_fallback() {
+fn local_source_runtime_executes_interval_literal_temporal_arithmetic_without_fallback() {
     let source_path = unique_path("sql-local-source-interval-temporal-arithmetic", "csv");
     fs::write(
         &source_path,
@@ -10203,9 +10211,9 @@ fn sql_local_source_smoke_executes_interval_literal_temporal_arithmetic_without_
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10254,7 +10262,7 @@ fn sql_local_source_smoke_executes_interval_literal_temporal_arithmetic_without_
 }
 
 #[test]
-fn sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback() {
+fn local_source_runtime_executes_date_arithmetic_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-arithmetic", "csv");
     fs::write(
         &source_path,
@@ -10267,9 +10275,9 @@ fn sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback()
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10297,7 +10305,7 @@ fn sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback()
 }
 
 #[test]
-fn sql_local_source_smoke_executes_date_extract_predicates_without_fallback() {
+fn local_source_runtime_executes_date_extract_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-extract", "csv");
     fs::write(
         &source_path,
@@ -10310,9 +10318,9 @@ fn sql_local_source_smoke_executes_date_extract_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10345,7 +10353,7 @@ fn sql_local_source_smoke_executes_date_extract_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_timestamp_literal_and_extract_predicates_without_fallback() {
+fn local_source_runtime_executes_timestamp_literal_and_extract_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-timestamp-literal", "csv");
     fs::write(
         &source_path,
@@ -10358,9 +10366,9 @@ fn sql_local_source_smoke_executes_timestamp_literal_and_extract_predicates_with
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10388,7 +10396,7 @@ fn sql_local_source_smoke_executes_timestamp_literal_and_extract_predicates_with
 }
 
 #[test]
-fn sql_local_source_smoke_executes_date_in_predicates_without_fallback() {
+fn local_source_runtime_executes_date_in_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-in-predicate", "csv");
     fs::write(
         &source_path,
@@ -10401,9 +10409,9 @@ fn sql_local_source_smoke_executes_date_in_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10429,7 +10437,7 @@ fn sql_local_source_smoke_executes_date_in_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_cast_predicates_without_fallback() {
+fn local_source_runtime_executes_cast_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-cast-predicate", "jsonl");
     fs::write(
         &source_path,
@@ -10444,9 +10452,9 @@ fn sql_local_source_smoke_executes_cast_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10474,7 +10482,7 @@ fn sql_local_source_smoke_executes_cast_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_preserves_iso_csv_strings_for_quoted_equality() {
+fn local_source_runtime_preserves_iso_csv_strings_for_quoted_equality() {
     let source_path = unique_path("sql-local-source-iso-string-equality", "csv");
     fs::write(
         &source_path,
@@ -10487,9 +10495,9 @@ fn sql_local_source_smoke_preserves_iso_csv_strings_for_quoted_equality() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10510,7 +10518,7 @@ fn sql_local_source_smoke_preserves_iso_csv_strings_for_quoted_equality() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_state_evidence() {
+fn local_source_runtime_executes_jsonl_projection_filter_limit_with_source_state_evidence() {
     let source_path = unique_path("sql-local-source-jsonl", "jsonl");
     fs::write(
         &source_path,
@@ -10525,9 +10533,9 @@ fn sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_sta
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10548,7 +10556,7 @@ fn sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_sta
     assert!(stdout.contains(&field("source_state_reuse_hit", "false")));
     assert!(stdout.contains(&field(
         "source_state_reuse_reason",
-        "not_cached_sql_local_source_smoke"
+        "not_cached_local_source_runtime_sequential_default"
     )));
     assert!(stdout.contains(&field("source_columns", "id,label,amount,event_date")));
     assert!(stdout.contains(&field(
@@ -10584,7 +10592,7 @@ fn sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_sta
 }
 
 #[test]
-fn sql_local_source_smoke_infers_ndjson_as_jsonl_adapter_without_fallback() {
+fn local_source_runtime_infers_ndjson_as_jsonl_adapter_without_fallback() {
     let source_path = unique_path("sql-local-source-ndjson", "ndjson");
     fs::write(
         &source_path,
@@ -10597,7 +10605,7 @@ fn sql_local_source_smoke_infers_ndjson_as_jsonl_adapter_without_fallback() {
         "SELECT id,label FROM '{}' WHERE amount >= 10 LIMIT 1",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert_inferred_adapter_evidence(
         &stdout,
@@ -10624,7 +10632,7 @@ fn sql_local_source_smoke_infers_ndjson_as_jsonl_adapter_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_json_projection_filter_limit_with_source_state_evidence() {
+fn local_source_runtime_executes_json_projection_filter_limit_with_source_state_evidence() {
     let source_path = unique_path("sql-local-source-json", "json");
     fs::write(
         &source_path,
@@ -10641,9 +10649,9 @@ fn sql_local_source_smoke_executes_json_projection_filter_limit_with_source_stat
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10717,14 +10725,14 @@ fn sql_local_source_smoke_executes_json_projection_filter_limit_with_source_stat
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unregistered_extension_before_reading_without_fallback() {
+fn local_source_runtime_blocks_unregistered_extension_before_reading_without_fallback() {
     let source_path = unique_path("sql-local-source-unregistered-adapter", "sqlite");
     let statement = format!("SELECT id FROM '{}' LIMIT 1", source_path.display());
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -10755,7 +10763,7 @@ fn sql_local_source_smoke_blocks_unregistered_extension_before_reading_without_f
 }
 
 #[test]
-fn sql_local_source_smoke_jsonl_scalar_aggregate_uses_jsonl_evidence_labels() {
+fn local_source_runtime_jsonl_scalar_aggregate_uses_jsonl_evidence_labels() {
     let source_path = unique_path("sql-local-source-jsonl-aggregate", "jsonl");
     fs::write(
         &source_path,
@@ -10770,9 +10778,9 @@ fn sql_local_source_smoke_jsonl_scalar_aggregate_uses_jsonl_evidence_labels() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10808,7 +10816,7 @@ fn sql_local_source_smoke_jsonl_scalar_aggregate_uses_jsonl_evidence_labels() {
 }
 
 #[test]
-fn sql_local_source_smoke_preserves_iso_jsonl_strings_for_quoted_equality() {
+fn local_source_runtime_preserves_iso_jsonl_strings_for_quoted_equality() {
     let source_path = unique_path("sql-local-source-jsonl-iso-string-equality", "jsonl");
     fs::write(
         &source_path,
@@ -10822,9 +10830,9 @@ fn sql_local_source_smoke_preserves_iso_jsonl_strings_for_quoted_equality() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10846,7 +10854,7 @@ fn sql_local_source_smoke_preserves_iso_jsonl_strings_for_quoted_equality() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
+fn local_source_runtime_executes_inner_equi_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-dim", "csv");
     fs::write(
@@ -10866,9 +10874,9 @@ fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -10924,7 +10932,7 @@ fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_left_outer_join_without_fallback() {
+fn local_source_runtime_executes_left_outer_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-left-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-left-join-dim", "csv");
     fs::write(
@@ -10943,7 +10951,7 @@ fn sql_local_source_smoke_executes_left_outer_join_without_fallback() {
         fact_path.display(),
         dim_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -10970,7 +10978,7 @@ fn sql_local_source_smoke_executes_left_outer_join_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_full_outer_join_without_fallback() {
+fn local_source_runtime_executes_full_outer_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-full-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-full-join-dim", "csv");
     fs::write(
@@ -10989,7 +10997,7 @@ fn sql_local_source_smoke_executes_full_outer_join_without_fallback() {
         fact_path.display(),
         dim_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -11015,7 +11023,7 @@ fn sql_local_source_smoke_executes_full_outer_join_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_right_outer_join_without_fallback() {
+fn local_source_runtime_executes_right_outer_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-right-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-right-join-dim", "csv");
     fs::write(
@@ -11034,7 +11042,7 @@ fn sql_local_source_smoke_executes_right_outer_join_without_fallback() {
         fact_path.display(),
         dim_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -11060,7 +11068,7 @@ fn sql_local_source_smoke_executes_right_outer_join_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_left_semi_and_anti_join_without_fallback() {
+fn local_source_runtime_executes_left_semi_and_anti_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-existence-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-existence-join-dim", "csv");
     fs::write(
@@ -11079,7 +11087,7 @@ fn sql_local_source_smoke_executes_left_semi_and_anti_join_without_fallback() {
         fact_path.display(),
         dim_path.display()
     );
-    let semi_stdout = run_sql_local_source_smoke_json(&semi_statement);
+    let semi_stdout = run_local_source_runtime_json(&semi_statement);
     assert!(semi_stdout.contains(&field(
         "sql_statement_kind",
         "local_source_left_semi_equi_join_filter_limit"
@@ -11100,7 +11108,7 @@ fn sql_local_source_smoke_executes_left_semi_and_anti_join_without_fallback() {
         fact_path.display(),
         dim_path.display()
     );
-    let anti_stdout = run_sql_local_source_smoke_json(&anti_statement);
+    let anti_stdout = run_local_source_runtime_json(&anti_statement);
     assert!(anti_stdout.contains(&field(
         "sql_statement_kind",
         "local_source_left_anti_equi_join_limit"
@@ -11122,7 +11130,7 @@ fn sql_local_source_smoke_executes_left_semi_and_anti_join_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_cross_join_without_fallback() {
+fn local_source_runtime_executes_cross_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-cross-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-cross-join-dim", "csv");
     fs::write(&fact_path, "id,amount\n1,8\n2,15\n").expect("write fact csv");
@@ -11133,7 +11141,7 @@ fn sql_local_source_smoke_executes_cross_join_without_fallback() {
         fact_path.display(),
         dim_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -11159,7 +11167,7 @@ fn sql_local_source_smoke_executes_cross_join_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_inner_expression_join_without_fallback() {
+fn local_source_runtime_executes_inner_expression_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-expression-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-expression-join-dim", "csv");
     fs::write(&fact_path, "id,amount\n1,8\n2,15\n3,21\n").expect("write fact csv");
@@ -11170,7 +11178,7 @@ fn sql_local_source_smoke_executes_inner_expression_join_without_fallback() {
         fact_path.display(),
         dim_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -11209,7 +11217,7 @@ fn sql_local_source_smoke_executes_inner_expression_join_without_fallback() {
         fact_path.display(),
         dim_path.display()
     );
-    let generic_stdout = run_sql_local_source_smoke_json(&generic_statement);
+    let generic_stdout = run_local_source_runtime_json(&generic_statement);
 
     assert!(generic_stdout.contains(&field(
         "sql_statement_kind",
@@ -11242,7 +11250,7 @@ fn sql_local_source_smoke_executes_inner_expression_join_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_left_outer_expression_join_without_fallback() {
+fn local_source_runtime_executes_left_outer_expression_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-left-expression-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-left-expression-join-dim", "csv");
     fs::write(&fact_path, "id,amount\n1,8\n2,15\n3,21\n").expect("write fact csv");
@@ -11253,7 +11261,7 @@ fn sql_local_source_smoke_executes_left_outer_expression_join_without_fallback()
         fact_path.display(),
         dim_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
 
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -11286,7 +11294,7 @@ fn sql_local_source_smoke_executes_left_outer_expression_join_without_fallback()
 }
 
 #[test]
-fn sql_local_source_smoke_executes_multi_key_inner_equi_join_without_fallback() {
+fn local_source_runtime_executes_multi_key_inner_equi_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-multi-key-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-multi-key-join-dim", "csv");
     fs::write(
@@ -11319,9 +11327,9 @@ customer_id,region,segment
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -11373,7 +11381,7 @@ customer_id,region,segment
 }
 
 #[test]
-fn sql_local_source_smoke_executes_join_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_join_order_by_topn_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-topn-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-topn-dim", "csv");
     fs::write(
@@ -11406,9 +11414,9 @@ customer_id,region,segment
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -11464,7 +11472,7 @@ customer_id,region,segment
 }
 
 #[test]
-fn sql_local_source_smoke_executes_join_utf8_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_join_utf8_order_by_topn_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-utf8-topn-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-utf8-topn-dim", "csv");
     fs::write(
@@ -11497,9 +11505,9 @@ customer_id,region,segment
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -11542,7 +11550,7 @@ customer_id,region,segment
 }
 
 #[test]
-fn sql_local_source_smoke_executes_join_computed_projection_without_fallback() {
+fn local_source_runtime_executes_join_computed_projection_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-computed-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-computed-dim", "csv");
     fs::write(
@@ -11562,9 +11570,9 @@ fn sql_local_source_smoke_executes_join_computed_projection_without_fallback() {
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         output.status.success(),
         "stdout={} stderr={}",
@@ -11620,7 +11628,7 @@ fn sql_local_source_smoke_executes_join_computed_projection_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_join_computed_projection_topn_without_fallback() {
+fn local_source_runtime_executes_join_computed_projection_topn_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-computed-topn-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-computed-topn-dim", "csv");
     fs::write(
@@ -11640,9 +11648,9 @@ fn sql_local_source_smoke_executes_join_computed_projection_topn_without_fallbac
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         output.status.success(),
         "stdout={} stderr={}",
@@ -11719,7 +11727,7 @@ fn sql_local_source_smoke_executes_join_computed_projection_topn_without_fallbac
 }
 
 #[test]
-fn sql_local_source_smoke_executes_join_scalar_aggregate_without_fallback() {
+fn local_source_runtime_executes_join_scalar_aggregate_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-scalar-aggregate-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-scalar-aggregate-dim", "csv");
     fs::write(
@@ -11751,9 +11759,9 @@ customer_id,segment
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -11807,7 +11815,7 @@ customer_id,segment
 }
 
 #[test]
-fn sql_local_source_smoke_executes_join_scalar_aggregate_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_join_scalar_aggregate_order_by_topn_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-scalar-aggregate-order-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-scalar-aggregate-order-dim", "csv");
     fs::write(
@@ -11839,9 +11847,9 @@ customer_id,segment
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -11900,7 +11908,7 @@ customer_id,segment
 }
 
 #[test]
-fn sql_local_source_smoke_executes_multi_key_join_group_by_aggregate_without_fallback() {
+fn local_source_runtime_executes_multi_key_join_group_by_aggregate_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-group-by-aggregate-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-group-by-aggregate-dim", "csv");
     fs::write(
@@ -11934,9 +11942,9 @@ customer_id,region,segment
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -11992,7 +12000,7 @@ customer_id,region,segment
 }
 
 #[test]
-fn sql_local_source_smoke_executes_join_group_by_aggregate_order_by_topn_without_fallback() {
+fn local_source_runtime_executes_join_group_by_aggregate_order_by_topn_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-aggregate-order-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-aggregate-order-dim", "csv");
     fs::write(
@@ -12026,9 +12034,9 @@ customer_id,region,segment
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -12080,7 +12088,7 @@ customer_id,region,segment
 }
 
 #[test]
-fn sql_local_source_smoke_executes_join_group_by_aggregate_having_without_fallback() {
+fn local_source_runtime_executes_join_group_by_aggregate_having_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-aggregate-having-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-aggregate-having-dim", "csv");
     fs::write(
@@ -12114,9 +12122,9 @@ customer_id,region,segment
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -12173,7 +12181,7 @@ customer_id,region,segment
 }
 
 #[test]
-fn sql_local_source_smoke_executes_jsonl_inner_equi_join_without_fallback() {
+fn local_source_runtime_executes_jsonl_inner_equi_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-jsonl-join-fact", "jsonl");
     let dim_path = unique_path("sql-local-source-jsonl-join-dim", "jsonl");
     fs::write(
@@ -12193,9 +12201,9 @@ fn sql_local_source_smoke_executes_jsonl_inner_equi_join_without_fallback() {
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         output.status.success(),
@@ -12239,7 +12247,7 @@ fn sql_local_source_smoke_executes_jsonl_inner_equi_join_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_duplicate_key_join_explosion_without_materializing() {
+fn local_source_runtime_blocks_duplicate_key_join_explosion_without_materializing() {
     let fact_path = unique_path("sql-local-source-join-explosion-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-explosion-dim", "csv");
     let mut fact = String::from("id,customer_id,amount\n");
@@ -12257,9 +12265,9 @@ fn sql_local_source_smoke_blocks_duplicate_key_join_explosion_without_materializ
         dim_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -12277,7 +12285,7 @@ fn sql_local_source_smoke_blocks_duplicate_key_join_explosion_without_materializ
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_join_shapes_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-blocked-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-blocked-dim", "csv");
     let unsupported_fact_path = unique_path("sql-local-source-join-blocked-fact", "sqlite");
@@ -12354,9 +12362,9 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
 
     for (statement, expected_reason) in cases {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .args(["local-source-runtime", &statement, "--format", "json"])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
         assert!(
             !output.status.success(),
             "statement={statement} stdout={} stderr={}",
@@ -12377,7 +12385,7 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_order_by_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-order-by-blocked", "csv");
     fs::write(
         &source_path,
@@ -12390,9 +12398,9 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
         source_path.display()
     );
     let null_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         !null_output.status.success(),
         "stdout={} stderr={}",
@@ -12410,9 +12418,9 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
         source_path.display()
     );
     let boolean_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         !boolean_output.status.success(),
         "stdout={} stderr={}",
@@ -12431,9 +12439,9 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
         source_path.display()
     );
     let mixed_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         !mixed_output.status.success(),
         "stdout={} stderr={}",
@@ -12454,9 +12462,9 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
         source_path.display()
     );
     let duplicate_key_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         !duplicate_key_output.status.success(),
         "stdout={} stderr={}",
@@ -12472,7 +12480,7 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
 }
 
 #[test]
-fn sql_local_source_smoke_executes_like_escape_clause_without_fallback() {
+fn local_source_runtime_executes_like_escape_clause_without_fallback() {
     let source_path = unique_path("sql-local-source-like-escape", "csv");
     fs::write(
         &source_path,
@@ -12484,7 +12492,7 @@ fn sql_local_source_smoke_executes_like_escape_clause_without_fallback() {
         "SELECT id,label FROM '{}' WHERE label LIKE 'al!_%' ESCAPE '!' LIMIT 10",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
     assert!(
         stdout.contains("{\\\"id\\\":2,\\\"label\\\":\\\"al_pha\\\"}\\n"),
         "statement={statement} stdout={stdout}"
@@ -12504,7 +12512,7 @@ fn sql_local_source_smoke_executes_like_escape_clause_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_string_transform_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_string_transform_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-string-transform-blocked", "csv");
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
 
@@ -12527,9 +12535,9 @@ fn sql_local_source_smoke_blocks_unsupported_string_transform_shapes_without_fal
 
     for (statement, expected_reason) in cases {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .args(["local-source-runtime", &statement, "--format", "json"])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
         assert!(
             !output.status.success(),
             "statement={statement} stdout={} stderr={}",
@@ -12549,7 +12557,7 @@ fn sql_local_source_smoke_blocks_unsupported_string_transform_shapes_without_fal
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_string_length_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_string_length_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-string-length-blocked", "csv");
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
 
@@ -12572,9 +12580,9 @@ fn sql_local_source_smoke_blocks_unsupported_string_length_shapes_without_fallba
 
     for (statement, expected_reason) in cases {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .args(["local-source-runtime", &statement, "--format", "json"])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
         assert!(
             !output.status.success(),
             "statement={statement} stdout={} stderr={}",
@@ -12594,7 +12602,7 @@ fn sql_local_source_smoke_blocks_unsupported_string_length_shapes_without_fallba
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_string_function_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_string_function_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-string-function-blocked", "csv");
     fs::write(&source_path, "id,label,amount\n1,alpha,10\n2,beta,20\n").expect("write source csv");
 
@@ -12645,9 +12653,9 @@ fn sql_local_source_smoke_blocks_unsupported_string_function_shapes_without_fall
 
     for (statement, expected_reason) in cases {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .args(["local-source-runtime", &statement, "--format", "json"])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
         assert!(
             !output.status.success(),
             "statement={statement} stdout={} stderr={}",
@@ -12673,7 +12681,7 @@ fn sql_local_source_smoke_blocks_unsupported_string_function_shapes_without_fall
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_numeric_abs_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_numeric_abs_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-abs-blocked", "csv");
     fs::write(&source_path, "id,amount\n1,-5\n2,3\n").expect("write source csv");
 
@@ -12696,9 +12704,9 @@ fn sql_local_source_smoke_blocks_unsupported_numeric_abs_shapes_without_fallback
 
     for (statement, expected_reason) in cases {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .args(["local-source-runtime", &statement, "--format", "json"])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
         assert!(
             !output.status.success(),
             "statement={statement} stdout={} stderr={}",
@@ -12718,7 +12726,7 @@ fn sql_local_source_smoke_blocks_unsupported_numeric_abs_shapes_without_fallback
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_numeric_rounding_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_numeric_rounding_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-rounding-blocked", "csv");
     fs::write(&source_path, "id,amount\n1,3.2\n2,3.8\n").expect("write source csv");
 
@@ -12741,9 +12749,9 @@ fn sql_local_source_smoke_blocks_unsupported_numeric_rounding_shapes_without_fal
 
     for (statement, expected_reason) in cases {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .args(["local-source-runtime", &statement, "--format", "json"])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
         assert!(
             !output.status.success(),
             "statement={statement} stdout={} stderr={}",
@@ -12763,7 +12771,7 @@ fn sql_local_source_smoke_blocks_unsupported_numeric_rounding_shapes_without_fal
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_in_predicate_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_in_predicate_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-in-blocked", "csv");
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
 
@@ -12826,9 +12834,9 @@ fn sql_local_source_smoke_blocks_unsupported_in_predicate_shapes_without_fallbac
 
     for (statement, expected_reason) in cases {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .args(["local-source-runtime", &statement, "--format", "json"])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
         assert!(
             !output.status.success(),
             "statement={statement} stdout={} stderr={}",
@@ -12848,7 +12856,7 @@ fn sql_local_source_smoke_blocks_unsupported_in_predicate_shapes_without_fallbac
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_between_shapes_without_fallback() {
+fn local_source_runtime_blocks_unsupported_between_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-between-blocked", "csv");
     fs::write(&source_path, "id,amount\n1,8\n2,15\n").expect("write source csv");
 
@@ -12878,9 +12886,9 @@ fn sql_local_source_smoke_blocks_unsupported_between_shapes_without_fallback() {
 
     for (statement, expected_reason) in cases {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .args(["local-source-runtime", &statement, "--format", "json"])
             .output()
-            .expect("sql-local-source-smoke command runs");
+            .expect("local-source-runtime command runs");
         assert!(
             !output.status.success(),
             "statement={statement} stdout={} stderr={}",
@@ -12900,7 +12908,7 @@ fn sql_local_source_smoke_blocks_unsupported_between_shapes_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_logical_not_predicates_without_fallback() {
+fn local_source_runtime_executes_logical_not_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-logical-not", "csv");
     fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
 
@@ -12909,9 +12917,9 @@ fn sql_local_source_smoke_executes_logical_not_predicates_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
     assert!(
         output.status.success(),
         "stdout={} stderr={}",
@@ -12934,7 +12942,7 @@ fn sql_local_source_smoke_executes_logical_not_predicates_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_invalid_date_literals_without_fallback() {
+fn local_source_runtime_blocks_invalid_date_literals_without_fallback() {
     let source_path = unique_path("sql-local-source-date-literal-blocked", "csv");
     fs::write(&source_path, "id,event_date\n1,2026-05-19\n").expect("write source csv");
 
@@ -12943,9 +12951,9 @@ fn sql_local_source_smoke_blocks_invalid_date_literals_without_fallback() {
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args(["local-source-runtime", &statement, "--format", "json"])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -12970,7 +12978,7 @@ fn jsonl_nested_values_are_pruned_or_normalized_without_fallback() {
         "SELECT id FROM '{}' WHERE id >= 1 LIMIT 10",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&statement);
+    let stdout = run_local_source_runtime_json(&statement);
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("source_format", "jsonl")));
     assert!(stdout.contains(&field("source_columns", "id,payload")));
@@ -12987,7 +12995,7 @@ fn jsonl_nested_values_are_pruned_or_normalized_without_fallback() {
         "SELECT payload FROM '{}' WHERE id >= 1 LIMIT 10",
         source_path.display()
     );
-    let stdout = run_sql_local_source_smoke_json(&selected_statement);
+    let stdout = run_local_source_runtime_json(&selected_statement);
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("source_format", "jsonl")));
     assert!(stdout.contains(&field("source_state_requested_columns", "id,payload")));
@@ -13006,16 +13014,16 @@ fn jsonl_nested_values_are_pruned_or_normalized_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_remote_sources_before_execution() {
+fn local_source_runtime_blocks_remote_sources_before_execution() {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "sql-local-source-smoke",
+            "local-source-runtime",
             "SELECT id FROM 's3://bucket/input.csv' WHERE id = 1 LIMIT 1",
             "--format",
             "json",
         ])
         .output()
-        .expect("sql-local-source-smoke command runs");
+        .expect("local-source-runtime command runs");
 
     assert!(
         !output.status.success(),
@@ -13029,7 +13037,7 @@ fn sql_local_source_smoke_blocks_remote_sources_before_execution() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"command\":\"local-source-runtime\""));
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains(
         "local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC file paths only"
