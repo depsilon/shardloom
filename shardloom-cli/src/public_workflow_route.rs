@@ -1468,7 +1468,7 @@ fn native_vortex_directory_input_binding(
     sources.dedup();
     if sources.is_empty() {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "native Vortex partitioned input directory contains no .vortex files: {}; no fallback execution was attempted",
+            "native Vortex partitioned input directory contains no .vortex or .vtx files: {}; no fallback execution was attempted",
             directory.display()
         )));
     }
@@ -1497,7 +1497,9 @@ fn collect_vortex_files(directory: &Path, sources: &mut Vec<String>) -> Result<(
         } else if path
             .extension()
             .and_then(|value| value.to_str())
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("vortex"))
+            .is_some_and(|extension| {
+                extension.eq_ignore_ascii_case("vortex") || extension.eq_ignore_ascii_case("vtx")
+            })
         {
             sources.push(path.display().to_string());
         }

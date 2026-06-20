@@ -1444,16 +1444,39 @@ def main() -> int:
                 front_door_publication_blockers.append(
                     f"front-door benchmark publication {field} must be false"
                 )
-        for field in [
-            "benchmark_run_performed",
-            "benchmark_rerun_approved",
-            "laptop_safe_sequential_controls_confirmed",
-            "measured_front_door_equivalence_artifact_present",
-        ]:
+        retired_front_door_equivalence = (
+            front_door_benchmark_publication.get(
+                "front_door_equivalence_artifact_status"
+            )
+            == "retired_from_public_website"
+            and front_door_benchmark_publication.get("public_benchmark_surface")
+            == "clickbench_handoff"
+        )
+        for field in ["laptop_safe_sequential_controls_confirmed"]:
             if front_door_benchmark_publication.get(field) is not True:
                 front_door_publication_blockers.append(
                     f"front-door benchmark publication {field} must be true"
                 )
+        if retired_front_door_equivalence:
+            for field in [
+                "benchmark_run_performed",
+                "benchmark_rerun_approved",
+                "measured_front_door_equivalence_artifact_present",
+            ]:
+                if front_door_benchmark_publication.get(field) is not False:
+                    front_door_publication_blockers.append(
+                        f"front-door benchmark publication retired {field} must be false"
+                    )
+        else:
+            for field in [
+                "benchmark_run_performed",
+                "benchmark_rerun_approved",
+                "measured_front_door_equivalence_artifact_present",
+            ]:
+                if front_door_benchmark_publication.get(field) is not True:
+                    front_door_publication_blockers.append(
+                        f"front-door benchmark publication {field} must be true"
+                    )
         if (
             int(
                 front_door_benchmark_publication.get(

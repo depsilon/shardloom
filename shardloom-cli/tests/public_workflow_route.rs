@@ -180,6 +180,44 @@ fn public_run_native_vortex_directory_count_uses_partitioned_binding() {
 
 #[cfg(feature = "vortex-local-primitives")]
 #[test]
+fn public_run_native_vortex_directory_count_accepts_vtx_parts() {
+    let dir = copy_partitioned_vortex_fixture("directory-count-vtx");
+    std::fs::rename(dir.join("part-001.vortex"), dir.join("part-001.vtx"))
+        .expect("rename partition to .vtx");
+    let (ok, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        &dir.display().to_string(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-primitive",
+        "count",
+        "--format",
+        "json",
+    ]);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    assert!(ok, "{stdout}");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "native_vortex_input_binding_mode",
+        "local_directory"
+    )));
+    assert!(stdout.contains(&field("native_vortex_input_binding_count", "2")));
+    assert!(stdout.contains(&field("local_primitive_rows_scanned", "10")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
 fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
     let dir = copy_partitioned_vortex_fixture("manifest-aggregate");
     let manifest = dir.join("parts.vortex-manifest");
