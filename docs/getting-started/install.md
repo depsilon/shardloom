@@ -2,7 +2,7 @@
 
 # Install ShardLoom
 
-ShardLoom v0.1.8 is the current proof-backed technical-preview package release. You can use either
+ShardLoom v0.1.9 is the current proof-backed technical-preview package release. You can use either
 the source checkout path or the selected published package channels: GitHub pre-release assets,
 TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula.
 
@@ -14,7 +14,7 @@ questions; it is not a production, performance, broad SQL/DataFrame, or Spark-re
 | Need | Page | Current status |
 | --- | --- | --- |
 | Build and run from a clone | [Source Checkout Install](source-checkout-install.md) | Supported local proof path |
-| Install from published packages | [Package User Install Status](package-user-install.md) | v0.1.8 selected package channels are published and proof-backed |
+| Install from published packages | [Package User Install Status](package-user-install.md) | v0.1.9 selected package channels are published and proof-backed |
 | Run first commands | [First 10 Minutes](first-10-minutes.md) | Supported local proof path |
 | Inspect support state | [V1 Supported And Unsupported Surface](v1-supported-unsupported.md) | Generated from matrices |
 | Diagnose failures | [Troubleshooting And Support Bundle](troubleshooting-support.md) | Local/redacted support only |
@@ -31,7 +31,7 @@ external_engine_invoked=false
 Python package:
 
 ```sh
-python -m pip install shardloom==0.1.8
+python -m pip install shardloom==0.1.9
 ```
 
 Homebrew CLI formula:
@@ -88,10 +88,10 @@ local proof.
 
 ## Package Boundary
 
-GitHub release assets, PyPI, TestPyPI, and Homebrew are live for v0.1.8. That package access is not
+GitHub release assets, PyPI, TestPyPI, and Homebrew are live for v0.1.9. That package access is not
 a production, performance, broad SQL/DataFrame, or Spark-replacement claim.
 
-The selected v0.1.8 package path is GitHub pre-release plus TestPyPI/PyPI and Homebrew. Scoop,
+The selected v0.1.9 package path is GitHub pre-release plus TestPyPI/PyPI and Homebrew. Scoop,
 winget, and conda-forge remain later feasible channels; GHCR and crates.io are outside v1. The
 canonical track is
 [`docs/release/v1-local-source-package-release.md`](../release/v1-local-source-package-release.md).
