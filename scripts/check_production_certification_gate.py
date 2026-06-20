@@ -148,9 +148,11 @@ CLAIM_SURFACE_REFS = {
         '"Development Status :: 2 - Pre-Alpha"',
         'name = "shardloom"',
     ),
-    "website/assets/benchmarks/latest/manifest.json": (
-        '"performance_claim_allowed": false',
-        '"benchmark_constitution_performance_claim_allowed": false',
+    "website-src/src/pages/benchmarks.astro": (
+        "https://benchmark.clickhouse.com/",
+        "stale local artifacts do not read as a",
+        "current public leaderboard",
+        "Performance claims stay explicit.",
     ),
 }
 

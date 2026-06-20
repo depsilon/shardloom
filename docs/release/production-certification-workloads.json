@@ -146,7 +146,7 @@
         "benchmark": {
           "status": "blocked_not_claim_grade",
           "evidence_refs": [
-            "website/assets/benchmarks/latest/manifest.json",
+            "website-src/src/pages/benchmarks.astro",
             "target/benchmark-artifact-completeness-report.json"
           ]
         },
@@ -815,7 +815,7 @@
           "status": "blocked_not_claim_grade",
           "evidence_refs": [
             "PROD-READY-1D distributed benchmark profile",
-            "website/assets/benchmarks/latest/manifest.json"
+            "website-src/src/pages/benchmarks.astro"
           ]
         },
         "security_governance": {
@@ -1037,7 +1037,7 @@
           "status": "blocked_not_claim_grade",
           "evidence_refs": [
             "PROD-READY-1E live/hybrid benchmark profile",
-            "website/assets/benchmarks/latest/manifest.json"
+            "website-src/src/pages/benchmarks.astro"
           ]
         },
         "security_governance": {

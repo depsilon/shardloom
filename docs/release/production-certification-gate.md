@@ -32,7 +32,7 @@ The validator checks:
   metadata-first execution, timing-surface separation, and evidence-tier controls;
 - deterministic unsupported diagnostics with `fallback_attempted=false` and
   `external_engine_invoked=false`;
-- public claim surfaces in README, status docs, package metadata, and benchmark manifest.
+- public claim surfaces in README, status docs, package metadata, and the benchmark handoff page.
 
 Run:
 

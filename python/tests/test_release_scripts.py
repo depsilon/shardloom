@@ -10462,12 +10462,12 @@ class ReleaseScriptTests(unittest.TestCase):
             'classifiers = ["Development Status :: 2 - Pre-Alpha"]\n',
             encoding="utf-8",
         )
-        write_json(
-            root / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
-            {
-                "performance_claim_allowed": False,
-                "benchmark_constitution_performance_claim_allowed": False,
-            },
+        (root / "website-src" / "src" / "pages").mkdir(parents=True, exist_ok=True)
+        (root / "website-src" / "src" / "pages" / "benchmarks.astro").write_text(
+            'const clickBenchUrl = "https://benchmark.clickhouse.com/";\n'
+            "stale local artifacts do not read as a current public leaderboard\n"
+            "Performance claims stay explicit.\n",
+            encoding="utf-8",
         )
         for name, path, schema in [
             (
