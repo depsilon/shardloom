@@ -1175,10 +1175,10 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "`/about`: concise claim-safe project overview and evidence pointers",
         "`/start`: first local proof entry point",
         "`/field-guide`: Starlight docs shell for local proof, Python route shape, benchmark methodology, limitations, and vocabulary",
-        "`/benchmarks`: committed benchmark artifact interpretation",
+        "`/benchmarks`: ClickBench handoff and claim-safe public comparison posture",
         "`/compute-engine-flow`: human-readable route translation",
         "Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the",
-        "records under `docs/use-cases/generated/`",
+        "`docs/use-cases/generated/`",
     ] {
         assert!(
             website_readme.contains(required),
@@ -1207,11 +1207,11 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "STATUS_VOCABULARY",
         "status/index.html",
         "/docs",
-        "benchmark manifest must keep performance_claim_allowed=false",
+        "benchmark page must link to the public ClickBench leaderboard",
         "check_mirrored_file",
         "compute-flow snapshot",
-        "benchmark evidence bundle",
-        "benchmark manifest bundle",
+        "missing benchmark page for ClickBench handoff validation",
+        "benchmark page must not render the retired internal dashboard",
         "canonical URL mismatch",
         "missing responsive viewport metadata",
         "image missing stable {dimension}",
@@ -1462,7 +1462,7 @@ fn release_security_gate_docs_and_known_unsupported_paths_are_present() {
         "object-store runtime",
         "global_architecture_runtime_claim_gate",
         "Foundry proof-of-use",
-        "direct transient compatibility execution as a Vortex-native claim",
+        "internal local-source smoke compatibility execution as a Vortex-native claim",
         "vortex_layout_device_managed_boundary_ref",
         "fallback_attempted=false",
         "external_engine_invoked=false",
@@ -3957,7 +3957,7 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         "compatibility import",
         "prepared Vortex",
         "native Vortex",
-        "direct transient",
+        "internal local-source smoke",
         "no fallback",
         "materialization boundary",
         "Native I/O certificate",
@@ -4001,7 +4001,8 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         "ShardLoom's website is a static interpretation layer",
         "The repository remains authoritative",
         "current site source is `website-src/`",
-        "PERF-INNOV-5 hot-runtime metadata rows and full-local publication-proof rows",
+        "public benchmark page is a ClickBench handoff",
+        "artifacts remain repository evidence",
     ] {
         assert!(
             website_plan.contains(required),
@@ -4075,8 +4076,8 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
 
     let website_readiness = read_repo_file("scripts/check_website_readiness.py");
     assert!(
-        website_readiness.contains("validate_runtime_promotion_evidence"),
-        "website readiness must include runtime promotion evidence validation"
+        website_readiness.contains("check_benchmark_clickbench_handoff"),
+        "website readiness must include ClickBench handoff validation"
     );
 
     let glossary_validator = read_repo_file("scripts/check_use_case_glossary.py");
@@ -4130,9 +4131,12 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Status: accepted current contract after the `WEB-CLEANSLATE-1` public IA cleanup",
         "static interpretation layer",
         "The current site source is `website-src/`",
-        "The benchmark page must lead with current timing semantics",
-        "`hot_runtime` rows drive the primary ShardLoom route grid",
-        "`publication_proof` rows remain visible",
+        "public benchmark page is a ClickBench handoff",
+        "Current public benchmark artifact: none rendered on shardloom.io",
+        "The old internal benchmark dashboard is retired from the website",
+        "The benchmark page must lead with the public comparison handoff",
+        "ClickBench is the public comparison surface",
+        "The page must not render the retired internal benchmark dashboard",
         "No duplicate active implementation queue",
         "website-src/scripts/sync-content.mjs",
         "no essential\nevidence may depend on client-side JavaScript",
@@ -4145,7 +4149,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let astro_config = read_repo_file("website-src/astro.config.mjs");
     let site_layout = read_repo_file("website-src/src/layouts/SiteLayout.astro");
-    let benchmark_dashboard = read_repo_file("website-src/src/components/BenchmarkDashboard.astro");
+    let benchmark_page = read_repo_file("website-src/src/pages/benchmarks.astro");
     let content_sync = read_repo_file("website-src/scripts/sync-content.mjs");
     for required in [
         "starlight(",
@@ -4184,12 +4188,14 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "Route timing dashboard",
-        "source_state_coverage_all_requested_scenarios_classified",
+        "https://benchmark.clickhouse.com/",
+        "Use ClickBench as the public comparison surface.",
+        "old internal\n      benchmark dashboard has been removed",
+        "No local leaderboard on shardloom.io.",
     ] {
         assert!(
-            benchmark_dashboard.contains(required),
-            "missing Astro benchmark dashboard field {required}"
+            benchmark_page.contains(required),
+            "missing Astro benchmark page field {required}"
         );
     }
 
@@ -4201,11 +4207,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let flow = read_repo_file("website/compute-engine-flow.html");
     for required in [
         "ShardLoom",
-        "hot_runtime separated",
-        "performance_claim_allowed",
+        "Public comparisons belong on ClickBench.",
         "Start local proof",
         "Read Field Guide",
-        "View benchmark evidence",
+        "Open benchmark comparison",
         "UniversalIngress",
         "vortex_ingest",
         "fallback_attempted",
@@ -4255,20 +4260,15 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "Benchmark Evidence, Not a Leaderboard",
-        "Route timing dashboard",
-        "Route lanes are the comparison surface.",
-        "ShardLoom Cold Certified Route",
-        "ShardLoom Prepare-Once First Query",
-        "ShardLoom Warm Prepared Query",
-        "Stage attribution",
-        "Runtime support is separate from claim readiness.",
-        "ShardLoom unsupported rows",
-        "External baseline unsupported rows",
-        "Artifact lane availability",
-        "Prepared/native source-state coverage",
-        "source_state_coverage_all_requested_scenarios_classified",
-        "Raw timing tables",
+        "Use ClickBench as the public comparison surface.",
+        "Open ClickBench",
+        "No local leaderboard on shardloom.io.",
+        "Local benchmark artifacts remain useful for engineering validation",
+        "Public comparison belongs on ClickBench",
+        "ClickBench is the comparison target.",
+        "Repo artifacts are engineering evidence.",
+        "Performance claims stay explicit.",
+        "External engines are baselines only.",
     ] {
         assert!(
             benchmarks.contains(required),
@@ -4333,7 +4333,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "website-src/src/content.config.ts",
         "website-src/scripts/sync-content.mjs",
         "website-src/scripts/postbuild-static.mjs",
-        "website-public/assets/benchmarks/latest/",
+        "website-src/src/pages/benchmarks.astro",
     ] {
         assert!(
             current_framework_decision.contains(required),
@@ -4399,7 +4399,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "canonicalLegacyRoutes",
         "copyLegacyHtml",
         "removeDuplicateSuffixedArtifacts",
-        "canonicalizeDeployableBenchmarkPaths",
+        "copyPublicPath",
+        "assertNoDuplicateSuffixedArtifacts",
         "\"about\"",
         "\"start\"",
         "\"field-guide\"",
@@ -4554,10 +4555,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "field-guide/benchmark-methodology/index.html",
         "field-guide/limitations/index.html",
         "pagefind/pagefind-entry.json",
-        "Hot route geomean",
-        "Publication-proof route geomean",
-        "benchmark-results.json",
-        "performance_claim_allowed",
+        "ClickBench",
+        "Open ClickBench",
+        "https://benchmark.clickhouse.com/",
+        "retired internal dashboard",
     ] {
         assert!(
             website_validator.contains(required),
@@ -4572,7 +4573,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "REMOVED_WEBSITE_SURFACES",
         "DUPLICATE_SUFFIX_RE",
         "duplicate_suffixed_generated_artifacts_removed",
-        "benchmark manifest must keep performance_claim_allowed=false",
+        "benchmark page must link to the public ClickBench leaderboard",
         "pagefind/pagefind-entry.json",
         "field-guide/limitations/index.html",
         "removed public website surface still exists",
