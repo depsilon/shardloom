@@ -136,10 +136,10 @@ PUBLIC_DOC_MARKERS = {
         DOC_PATH.as_posix(),
         "Scoped local CSV, JSON/JSONL/NDJSON, generated rows, local Vortex",
     ),
-    "website-src/src/components/BenchmarkDashboard.astro": (
-        DOC_PATH.as_posix(),
-        "Schema-pinned benchmark ETL reproduction",
-        "primary ShardLoom front door",
+    "website-src/src/pages/benchmarks.astro": (
+        "ClickBench",
+        "No local leaderboard",
+        "public comparison surface",
     ),
 }
 

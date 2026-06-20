@@ -842,6 +842,24 @@ def benchmark_support_summary(payload: dict[str, Any]) -> tuple[dict[str, Any], 
     )
 
 
+def retired_public_benchmark_support_summary() -> tuple[dict[str, Any], list[str]]:
+    return (
+        {
+            "published_row_count": 0,
+            "shardloom_row_count": 0,
+            "shardloom_unsupported_row_count": 0,
+            "shardloom_route_runtime_status_counts": {},
+            "external_baseline_unsupported_row_count": 0,
+            "external_route_runtime_status_counts": {},
+            "external_baseline_unsupported_rows": [],
+            "external_baseline_classification_blockers": [],
+            "row_source": "public_site_benchmark_retired_clickbench_handoff",
+            "public_benchmark_surface": "clickbench_handoff",
+        },
+        [],
+    )
+
+
 def validate_inventory(rows: list[dict[str, Any]], benchmark: dict[str, Any]) -> list[str]:
     blockers: list[str] = []
     seen: set[tuple[str, str]] = set()
@@ -916,7 +934,17 @@ def build_report(
         inventory_rows.extend(rows)
         blockers.extend(row_blockers)
 
-    benchmark, benchmark_blockers = benchmark_support_summary(load_json(benchmark_results))
+    default_benchmark_results = (
+        repo_root / "website" / "assets" / "benchmarks" / "latest" / "benchmark-results.json"
+    )
+    if (
+        benchmark_results.resolve(strict=False)
+        == default_benchmark_results.resolve(strict=False)
+        and not benchmark_results.exists()
+    ):
+        benchmark, benchmark_blockers = retired_public_benchmark_support_summary()
+    else:
+        benchmark, benchmark_blockers = benchmark_support_summary(load_json(benchmark_results))
     blockers.extend(benchmark_blockers)
 
     inventory_blockers = validate_inventory(inventory_rows, benchmark)

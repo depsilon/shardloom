@@ -52,8 +52,11 @@ class FrontDoorBenchmarkPublicationTests(unittest.TestCase):
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
         self.assertTrue(report["scoped_local_front_door_parity_supported"])
-        self.assertEqual(report["front_door_equivalence_artifact_status"], "passed")
-        self.assertEqual(report["front_door_equivalence_artifact_row_count"], 27)
+        self.assertEqual(
+            report["front_door_equivalence_artifact_status"],
+            "retired_from_public_website",
+        )
+        self.assertEqual(report["front_door_equivalence_artifact_row_count"], 0)
         self.assertEqual(
             report["front_door_equivalence_constitution_status"],
             "local_constitution_ready",

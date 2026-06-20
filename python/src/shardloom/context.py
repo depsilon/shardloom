@@ -6377,6 +6377,28 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         ),
     ),
     _graduation_row(
+        "internal_source_smoke_client_helpers",
+        "python_client_internal",
+        "Internal local-source and Vortex-ingest smoke helpers",
+        "not_user_facing",
+        "internal_smoke_only",
+        client_methods=("sql_local_source_smoke", "vortex_ingest_smoke"),
+        runtime_route="internal_source_smoke_safeguard_not_public_facade",
+        promotion_criteria=(
+            "kept only as low-level smoke safeguards; public workflows use route/run/prepare "
+            "or high-level read/SQL/DataFrame surfaces that normalize through Vortex"
+        ),
+        evidence_refs=(
+            "sql-local-source-smoke_internal_only",
+            "vortex-ingest-smoke_internal_only",
+            "public_workflow_vortex_middle_route_gate",
+        ),
+        claim_boundary=(
+            "These helpers are not public workflow routes and must not be presented as "
+            "runtime/product support surfaces."
+        ),
+    ),
+    _graduation_row(
         "feature_gated_structured_local_inputs",
         "python_context",
         "Feature-gated Parquet, Arrow IPC, Avro, and ORC local input adapters",

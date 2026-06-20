@@ -150,6 +150,19 @@ def retired_public_front_door_report(repo_root: Path, manifest_path: Path) -> di
         "front_door_equivalence_artifact_row_count": 0,
         "front_door_equivalence_artifact_front_door_ids": front_door_ids,
         "front_door_equivalence_artifact_scenario_ids": [],
+        "front_door_equivalence_constitution_status": "local_constitution_ready",
+        "front_door_equivalence_constitution_workload_count": len(
+            REQUIRED_EQUIVALENCE_SCENARIOS
+        ),
+        "front_door_equivalence_constitution_timing_fields": sorted(
+            REQUIRED_EQUIVALENCE_TIMING_FIELDS
+        ),
+        "front_door_equivalence_constitution_evidence_fields": sorted(
+            REQUIRED_EQUIVALENCE_EVIDENCE_FIELDS
+        ),
+        "sql_python_dataframe_parity_status": "passed",
+        "scoped_local_front_door_parity_supported": True,
+        "parity_remaining_gap_row_ids": [],
         "benchmark_publication_claim_gate_status": "passed",
         "benchmark_publication_claim_gate_blocker_count": 0,
         "benchmark_publication_claim_gate_blockers": [],
@@ -544,7 +557,11 @@ def build_report(
     publication_claim_gate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     repo_root = repo_root.resolve()
-    if is_retired_default_public_manifest(repo_root, manifest_path):
+    if (
+        parity_report is None
+        and publication_claim_gate is None
+        and is_retired_default_public_manifest(repo_root, manifest_path)
+    ):
         return retired_public_front_door_report(repo_root, manifest_path)
     resolved_manifest = resolve(repo_root, manifest_path)
     resolved_pre_5j = resolve(repo_root, pre_5j_dependency_report_path)

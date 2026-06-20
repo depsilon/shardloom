@@ -58,7 +58,11 @@ class UserSurfaceRuntimeGapInventoryTests(unittest.TestCase):
         )
         self.assertEqual(
             report["benchmark_support_summary"]["external_baseline_unsupported_row_count"],
-            6,
+            0,
+        )
+        self.assertEqual(
+            report["benchmark_support_summary"]["public_benchmark_surface"],
+            "clickbench_handoff",
         )
         self.assertEqual(
             report["benchmark_support_summary"]["external_baseline_classification_blockers"],
