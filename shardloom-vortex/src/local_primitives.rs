@@ -3349,7 +3349,12 @@ fn execute_vortex_local_pivot_row_export_enabled(
     let data_rows_written = plan
         .source_order_limit
         .map_or(pre_limit_data_row_count, |limit| {
-            limit.min(pre_limit_data_row_count)
+            let limit_for_data_rows = if pivot_projection.margins {
+                limit.saturating_sub(1)
+            } else {
+                limit
+            };
+            limit_for_data_rows.min(pre_limit_data_row_count)
         });
     let output_columns = state.output_columns(pivot_projection);
     let rows = state.materialized_rows(aggregate, pivot_projection, data_rows_written)?;
@@ -6317,10 +6322,7 @@ fn row_key_values_from_vortex_array(
     }
     match array.dtype() {
         DType::List(_, _) | DType::FixedSizeList(_, _, _) => {
-            list_element_rows_from_vortex_array(column, array)?
-                .iter()
-                .map(|values| Ok(list_row_key(values)))
-                .collect()
+            list_row_key_values_from_vortex_array(column, array)
         }
         DType::Struct(_, _) => struct_row_key_values_from_vortex_array(column, array),
         other => Err(ShardLoomError::InvalidOperation(format!(
@@ -6330,17 +6332,84 @@ fn row_key_values_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn list_row_key_values_from_vortex_array(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<Vec<String>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::fixed_size_list::FixedSizeListArrayExt as _;
+    use vortex::array::arrays::listview::ListViewArrayExt as _;
+    use vortex::array::arrays::{FixedSizeListArray, ListViewArray};
+    use vortex::array::dtype::DType;
+
+    match array.dtype() {
+        DType::List(_, _) => {
+            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let list = array
+                .clone()
+                .execute::<ListViewArray>(&mut ctx)
+                .map_err(vortex_error)?;
+            let validity = list.listview_validity();
+            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut out = Vec::with_capacity(list.len());
+            for row_index in 0..list.len() {
+                if !validity
+                    .execute_is_valid(row_index, &mut validity_ctx)
+                    .map_err(vortex_error)?
+                {
+                    out.push("l:parent-null".to_string());
+                    continue;
+                }
+                let elements = list.list_elements_at(row_index).map_err(vortex_error)?;
+                let values = scalar_values_from_vortex_array(column, &elements)?;
+                out.push(list_row_key(&values));
+            }
+            Ok(out)
+        }
+        DType::FixedSizeList(_, _, _) => {
+            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let list = array
+                .clone()
+                .execute::<FixedSizeListArray>(&mut ctx)
+                .map_err(vortex_error)?;
+            let validity = list.fixed_size_list_validity();
+            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut out = Vec::with_capacity(list.len());
+            for row_index in 0..list.len() {
+                if !validity
+                    .execute_is_valid(row_index, &mut validity_ctx)
+                    .map_err(vortex_error)?
+                {
+                    out.push("l:parent-null".to_string());
+                    continue;
+                }
+                let elements = list
+                    .fixed_size_list_elements_at(row_index)
+                    .map_err(vortex_error)?;
+                let values = scalar_values_from_vortex_array(column, &elements)?;
+                out.push(list_row_key(&values));
+            }
+            Ok(out)
+        }
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex row-key column '{column}' requires a list or fixed-size-list dtype, got {other:?}; no fallback execution was attempted"
+        ))),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn struct_row_key_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
 ) -> Result<Vec<String>> {
+    use vortex::array::VortexSessionExecute as _;
+
     let children = array
         .named_children()
         .into_iter()
         .collect::<std::collections::BTreeMap<_, _>>();
-    if children.is_empty() {
-        return Ok(vec![format!("r:0:"); array.len()]);
-    }
+    let validity = array.validity().map_err(vortex_error)?;
+    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
     let mut field_values = Vec::with_capacity(children.len());
     for (field_name, field_array) in children {
         field_values.push((
@@ -6360,6 +6429,13 @@ fn struct_row_key_values_from_vortex_array(
     }
     let mut out = Vec::with_capacity(row_count);
     for row_index in 0..row_count {
+        if !validity
+            .execute_is_valid(row_index, &mut validity_ctx)
+            .map_err(vortex_error)?
+        {
+            out.push("r:parent-null".to_string());
+            continue;
+        }
         let mut key = format!("r:{}:", field_values.len());
         for (field_name, values) in &field_values {
             let _ = write!(key, "{}:{}=", field_name.len(), field_name);
@@ -13229,6 +13305,55 @@ mod tests {
         write_array(path, &array.into_array())
     }
 
+    fn write_nullable_parent_nested_row_key_struct_fixture(path: &std::path::Path) -> Result<()> {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{ListViewArray, PrimitiveArray, StructArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        let nullable_elements = PrimitiveArray::new(
+            vec![0_i64, 0, 0],
+            Validity::from_iter([false, false, false]),
+        )
+        .into_array();
+        let offsets = [0_u32, 1, 2]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let sizes = [1_u32, 1, 1]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let items = ListViewArray::new(
+            nullable_elements,
+            offsets,
+            sizes,
+            Validity::from_iter([true, false, true]),
+        )
+        .into_array();
+        let payload = StructArray::try_new(
+            FieldNames::from(["code"]),
+            vec![
+                [9_u32, 9, 9]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+            ],
+            3,
+            Validity::from_iter([true, false, true]),
+        )
+        .map_err(vortex_error)?
+        .into_array();
+        let array = StructArray::try_new(
+            FieldNames::from(["items", "payload"]),
+            vec![items, payload],
+            3,
+            Validity::NonNullable,
+        )
+        .map_err(vortex_error)?;
+        write_array(path, &array.into_array())
+    }
+
     fn write_duplicate_struct_fixture(path: &std::path::Path) -> Result<()> {
         use vortex::array::IntoArray as _;
         use vortex::array::arrays::{PrimitiveArray, StructArray};
@@ -15773,6 +15898,76 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_mask_row_export_preserves_list_parent_null_key_identity() {
+        let path = unique_vortex_path("duplicate-mask-nullable-list-parent-key-row-export");
+        let output_path =
+            unique_vortex_path("duplicate-mask-nullable-list-parent-key-row-export-output")
+                .with_extension("jsonl");
+        write_nullable_parent_nested_row_key_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::duplicate_mask_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("items").expect("column")]),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            rows,
+            "{\"duplicated\":false}\n{\"duplicated\":false}\n{\"duplicated\":true}\n"
+        );
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+    }
+
+    #[test]
+    fn duplicate_mask_row_export_preserves_struct_parent_null_key_identity() {
+        let path = unique_vortex_path("duplicate-mask-nullable-struct-parent-key-row-export");
+        let output_path =
+            unique_vortex_path("duplicate-mask-nullable-struct-parent-key-row-export-output")
+                .with_extension("jsonl");
+        write_nullable_parent_nested_row_key_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::duplicate_mask_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("payload").expect("column")]),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            rows,
+            "{\"duplicated\":false}\n{\"duplicated\":false}\n{\"duplicated\":true}\n"
+        );
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+    }
+
+    #[test]
     fn duplicate_mask_row_export_writes_keep_last_mask_without_fallback() {
         let path = unique_vortex_path("duplicate-mask-row-export-last");
         let output_path =
@@ -16909,6 +17104,52 @@ mod tests {
         assert!(report.evidence.side_effects.data_materialized);
         assert!(!report.evidence.side_effects.external_effects_executed);
         assert!(!report.evidence.side_effects.fallback_attempted);
+
+        let limited_path = unique_vortex_path("pivot-fill-margins-limited-row-export");
+        let limited_output_path =
+            unique_vortex_path("pivot-fill-margins-limited-row-export-output")
+                .with_extension("jsonl");
+        write_pivot_struct_fixture(&limited_path).expect("fixture");
+        let limited_request = VortexQueryPrimitiveRequest::pivot_rows(
+            DatasetUri::new(limited_path.display().to_string()).expect("uri"),
+            VortexPivotProjectionRequest::new(
+                ColumnRef::new("id").expect("column"),
+                ColumnRef::new("label").expect("column"),
+                ColumnRef::new("amount").expect("column"),
+                "sum",
+            )
+            .with_output_policy(Some(StatValue::Int64(0)), false, true, "total"),
+        )
+        .with_source_order_limit(2);
+
+        let limited_report = execute_vortex_local_primitive_row_export_with_policy(
+            &limited_request,
+            &limited_output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("limited report");
+        let limited_rows = std::fs::read_to_string(&limited_output_path).expect("limited output");
+        let limited_parsed_rows = limited_rows
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("json row"))
+            .collect::<Vec<_>>();
+        let _ = std::fs::remove_file(&limited_path);
+        let _ = std::fs::remove_file(&limited_output_path);
+
+        assert_eq!(
+            limited_report.status,
+            VortexLocalPrimitiveExecutionStatus::Executed
+        );
+        assert_eq!(limited_report.rows_written, 2);
+        assert_eq!(limited_report.pre_limit_result_row_count, 3);
+        assert_eq!(limited_report.source_order_limit_requested, Some(2));
+        assert_eq!(limited_parsed_rows.len(), 2);
+        assert_eq!(limited_parsed_rows[0]["id"], serde_json::json!(1));
+        assert_eq!(limited_parsed_rows[1]["id"], serde_json::json!("total"));
+        assert!(limited_report.evidence.pushdown.source_order_limit_applied);
+        assert!(!limited_report.evidence.side_effects.fallback_attempted);
     }
 
     #[test]

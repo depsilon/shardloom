@@ -249,38 +249,26 @@ The v1 Vortex runtime scope is separately defined in
 [`docs/architecture/v1-vortex-runtime-scope.md`](docs/architecture/v1-vortex-runtime-scope.md):
 it admits feature-gated local Vortex primitives, prepared Vortex state, prepared compatibility
 artifacts, and generated local Vortex artifacts without claiming broad Vortex support.
-For direct `.vortex` inputs, exact benchmark-family Python and SQL shapes for grouped aggregation,
-hash join, global top-N, cast/try-cast, substring contains, no-argument row-level distinct, scoped
-bounded source-order tail, deterministic row-count
-`sample(n=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)` or fractional `sample(frac|fraction=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)`, scoped typed scalar/null
-`mask(predicate, scalar-or-null)` / full-cell `replace(old, scalar-or-null)` / in-place UTF-8
-`with_column("col", sl.col("col").replace(...))` expression-project rewrites,
-`eval("col = col + scalar")` and `transform({"col": sl.col("col") + scalar})`
-numeric scalar assignment, `map(sl.column_transform(...))` / `applymap(sl.column_transform(...))`
-declarative column rewrites, `map_rows(sl.row_transform(...))` declarative row-shaped rewrites, scoped
-`drop_duplicates(subset=..., keep="first"|"last"|False)` retained-row deduplication, scoped
-`duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, scoped
-`fillna(method="ffill", limit=<optional positive int>)`/`fill_null(...)` forward-fill rewrites, explicit
-`melt(id_vars=..., value_vars=...)` flat scalar row expansion, scoped single-column and same-length
-multi-column `explode(...)` over declared list/fixed-size-list columns with scalar, nullable, list,
-or struct element values plus single-level `explode("items.field")` list-of-struct projections, scoped
-`pivot(index=..., columns=..., values=...)` and
-`pivot_table(values=..., index=..., columns=..., aggfunc=sum|count|mean|min|max)` over one index/pivot/value
-column, scoped
-`rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)`, and
-explicit `apply(sl.plan_transform(...))` / `pipe(sl.plan_transform(...))` lazy plan composition, native
-`write_vortex` sinks, scoped structured Vortex/Parquet/Arrow IPC/Avro expression-project exports, and
-provider-backed bounded
-`write_jsonl`/`write_csv` result exports are listed by
-`ctx.native_vortex_provider_route_certificate_report()`; broader arbitrary Vortex SQL/DataFrame
-planning remains outside the v1 support claim and returns deterministic route diagnostics until it
-has its own route certificate. The released `route()` and `run()` facades infer the real admitted
-native Vortex primitive/provider payloads for these shapes, so normal
-`ctx.read_vortex(...).select(...).limit(...).route()`, equivalent SQL/Python paths, and admitted
-local SQL paths with declared input format can prepare into Vortex without manual
+For direct `.vortex` inputs, ShardLoom admits documented benchmark-family Python and SQL shapes for
+filters/projections, grouped aggregation, hash join, global top-N, cast/try-cast, substring
+contains, scoped distinct/deduplication, deterministic sampling, scalar/null expression rewrites,
+forward fill, melt/explode/pivot, rolling windows, explicit plan transforms, native `write_vortex`
+sinks, scoped structured exports, and bounded provider-backed JSONL/CSV exports. The released
+`route()` and `run()` facades infer the real native Vortex primitive/provider payloads for admitted
+shapes; normal `ctx.read_vortex(...).select(...).limit(...).route()`, equivalent SQL/Python paths,
+and admitted local SQL paths with declared input format can prepare into Vortex without manual
 `--vortex-primitive` or `--native-vortex-provider-scenario` wiring.
-Scoped `describe(...)` lowers to the same metadata-first profile route as `profile(...)`;
-pandas-style percentile/options summaries remain outside the scoped claim.
+
+The detailed surface is intentionally kept in canonical reference files instead of this README:
+
+- Human/runtime scope: [docs/architecture/v1-vortex-runtime-scope.md](docs/architecture/v1-vortex-runtime-scope.md)
+- Agent command/API index: [docs/reference/shardloom-user-surface-index.md](docs/reference/shardloom-user-surface-index.md)
+- Machine-readable index: [docs/reference/shardloom-user-surface-index.json](docs/reference/shardloom-user-surface-index.json)
+- Route certificates: `ctx.native_vortex_provider_route_certificate_report()`
+
+Broader arbitrary Vortex SQL/DataFrame planning and pandas-style percentile/options summaries remain
+outside the v1 support claim and return deterministic route diagnostics until they have route
+certificates.
 The v1 SourceState and prepared-state reuse boundary is defined in
 [`docs/architecture/v1-source-prepared-state-scope.md`](docs/architecture/v1-source-prepared-state-scope.md):
 it owns the scoped `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState`

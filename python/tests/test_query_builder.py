@@ -12964,6 +12964,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsNone(
             _vortex_expression_scalar_payload(None, target_dtype="list<int64>")
         )
+        self.assertIsNone(
+            _vortex_expression_scalar_payload(None, target_dtype="int64", allow_null=False)
+        )
         self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
         self.assertEqual(
             report.preparation_envelope.field("vortex_ingest_performed"), "true"
@@ -13059,7 +13062,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         binary = self.fake_cli(
             textwrap.dedent(
                 """
+                import json
                 import sys
+
+                if sys.argv[1] == "workflow-unsupported-plan":
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "workflow-unsupported-plan",
+                        "status": "unsupported",
+                        "summary": "unsupported",
+                        "human_text": "unsupported",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "workflow_operation", "value": sys.argv[2]},
+                            {"key": "target_ref", "value": sys.argv[4]},
+                            {"key": "blocker_id", "value": f"cg21.workflow.{sys.argv[2].replace('-', '_')}.unsupported"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"},
+                        ],
+                    }))
+                    sys.exit(1)
 
                 raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
                 """
@@ -13192,6 +13215,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }
             ],
         )
+        null_match_mapping = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .replace({"label": None}, "ok", regex=False, inplace=False)
+        )
+        self.assertIsInstance(null_match_mapping, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(null_match_mapping.operation, "replace")
+        nested_null_match_mapping = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .replace({"label": {None: "ok"}}, regex=False, inplace=False)
+        )
+        self.assertIsInstance(nested_null_match_mapping, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(nested_null_match_mapping.operation, "replace")
         regex_workflow = (
             ctx.read_csv(
                 "target/input.csv",
@@ -13766,7 +13809,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         binary = self.fake_cli(
             textwrap.dedent(
                 """
+                import json
                 import sys
+
+                if sys.argv[1] == "workflow-unsupported-plan":
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "workflow-unsupported-plan",
+                        "status": "unsupported",
+                        "summary": "unsupported",
+                        "human_text": "unsupported",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "workflow_operation", "value": sys.argv[2]},
+                            {"key": "target_ref", "value": sys.argv[4]},
+                            {"key": "blocker_id", "value": "cg21.workflow.melt.nested_or_broad_index_contract_missing"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"},
+                        ],
+                    }))
+                    sys.exit(1)
 
                 raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
                 """
@@ -13871,18 +13934,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 value_name="value",
                 ignore_index=False,
             )
-            .limit(4)
         )
-        self.assertIsInstance(indexed, sl.LazyFrame)
-        self.assertEqual(indexed.operations[-3].kind, "expression_project")
-        self.assertEqual(indexed.operations[-2].kind, "melt")
-        row_number_payload = json.loads(indexed.operations[-3].values[0])
-        self.assertEqual(row_number_payload["rewrites"][0]["kind"], "row_number")
-        indexed_payload = json.loads(indexed.operations[-2].values[0])
-        self.assertEqual(indexed_payload["id_columns"], ["index", "id"])
-        self.assertEqual(indexed_payload["value_columns"], ["amount_a", "label"])
-        self.assertEqual(indexed_payload["variable_column"], "field")
-        self.assertEqual(indexed_payload["value_column"], "value")
+        self.assertIsInstance(indexed, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(indexed.operation, "melt")
 
     def test_local_csv_query_builder_explode_routes_through_prepared_vortex_explode(
         self,
@@ -18512,7 +18566,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         reset_explicit_index = indexed.reset_index()
         reset_drop_explicit_index = indexed.reset_index(drop=True)
 
-        self.assertIs(reset_materialized, workflow)
+        self.assertIsInstance(reset_materialized, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(reset_materialized.operation, "reset-index")
         self.assertIsInstance(descending_sort, sl.UnsupportedWorkflowOperationReport)
         self.assertEqual(descending_sort.operation, "sort-index")
         self.assertFalse(descending_sort.fallback_attempted)
