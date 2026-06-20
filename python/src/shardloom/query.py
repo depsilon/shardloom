@@ -7976,11 +7976,10 @@ class LazyFrame:
             inferred_format = _source_format_for_local_source_ref(right_uri)
             if inferred_format is None:
                 return None
+            right_source = WorkflowSource(inferred_format, right_uri)
             right_source_uri = right_uri
-            right_source_format = inferred_format
-            right_target = _auto_prepared_vortex_target_path(
-                WorkflowSource(inferred_format, right_uri)
-            )
+            right_source_format = _public_workflow_input_format(right_source)
+            right_target = _auto_prepared_vortex_target_path(right_source)
             operations[index] = WorkflowOperation(
                 "join",
                 (str(right_target), *operation.values[1:]),
@@ -8024,7 +8023,8 @@ class LazyFrame:
         return self.client.vortex_ingest_smoke(
             self.source.uri,
             candidate.left_target,
-            input_format=self.source.source_format,
+            input_format=_public_workflow_input_format(self.source),
+            schema=self.source.schema or None,
             allow_overwrite=True,
             certification_level="ingest_certified",
             check=check,

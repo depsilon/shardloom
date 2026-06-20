@@ -6052,11 +6052,9 @@ fn scalar_column_families(
                 .map(|dtype| scalar_family_from_dtype_hint(column, dtype))
                 .transpose()?
                 .flatten();
-            let mut saw_null = false;
             for row in rows {
                 let value = &row[column_index].1;
                 if matches!(value, ScalarValue::Null) {
-                    saw_null = true;
                     continue;
                 }
                 let Some(candidate) = scalar_family(value) else {
@@ -6066,7 +6064,9 @@ fn scalar_column_families(
                     )));
                 };
                 if let Some(existing) = family {
-                    if existing != candidate {
+                    if let Some(merged) = existing.merge(candidate) {
+                        family = Some(merged);
+                    } else {
                         let existing = existing.label();
                         let candidate = candidate.label();
                         return Err(ShardLoomError::InvalidOperation(format!(
@@ -6076,11 +6076,6 @@ fn scalar_column_families(
                 } else {
                     family = Some(candidate);
                 }
-            }
-            if saw_null && family.is_none() {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "local vortex_ingest column '{column}' contains NULL values without dtype or non-null family evidence; scoped Vortex ingest admits all-null columns only when the column family is known; no fallback execution was attempted"
-                )));
             }
             Ok((
                 column.clone(),
@@ -6159,6 +6154,61 @@ impl ScalarFamily {
             Self::List => "list".to_string(),
             #[cfg(feature = "universal-format-io")]
             Self::Struct => "struct".to_string(),
+        }
+    }
+
+    fn merge(self, candidate: Self) -> Option<Self> {
+        if matches!(
+            (self, candidate),
+            (Self::Float64, Self::Int64 | Self::UInt64)
+                | (Self::Int64 | Self::UInt64, Self::Float64)
+                | (Self::Int64, Self::UInt64)
+                | (Self::UInt64, Self::Int64)
+        ) {
+            return Some(Self::Float64);
+        }
+        if self.label_eq(candidate) {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn label_eq(self, candidate: Self) -> bool {
+        matches!(
+            (self, candidate),
+            (Self::Boolean, Self::Boolean)
+                | (Self::Int64, Self::Int64)
+                | (Self::UInt64, Self::UInt64)
+                | (Self::Float64, Self::Float64)
+                | (Self::Utf8, Self::Utf8)
+                | (Self::Binary, Self::Binary)
+                | (Self::Date32, Self::Date32)
+                | (Self::TimestampMicros, Self::TimestampMicros)
+        ) || matches!(
+            (self, candidate),
+            (
+                Self::Decimal128 {
+                    precision: left_precision,
+                    scale: left_scale,
+                },
+                Self::Decimal128 {
+                    precision: right_precision,
+                    scale: right_scale,
+                },
+            ) if left_precision == right_precision && left_scale == right_scale
+        ) || {
+            #[cfg(feature = "universal-format-io")]
+            {
+                matches!(
+                    (self, candidate),
+                    (Self::List, Self::List) | (Self::Struct, Self::Struct)
+                )
+            }
+            #[cfg(not(feature = "universal-format-io"))]
+            {
+                false
+            }
         }
     }
 }
@@ -6925,6 +6975,8 @@ fn column_to_vortex_array(
         }),
         "float64" => scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
             ScalarValue::Float64(value) if value.is_finite() => Ok(*value),
+            ScalarValue::Int64(value) => Ok(int64_to_float64_for_ingest(*value)),
+            ScalarValue::UInt64(value) => Ok(uint64_to_float64_for_ingest(*value)),
             value => Err(unexpected_vortex_ingest_value(column, family, value)),
         }),
         "utf8" => scalar_utf8_to_vortex_array(column, column_index, family, rows),
@@ -6946,6 +6998,18 @@ fn column_to_vortex_array(
             "local vortex_ingest column '{column}' has unsupported scalar family {other}; no fallback execution was attempted"
         ))),
     }
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::cast_precision_loss)]
+fn int64_to_float64_for_ingest(value: i64) -> f64 {
+    value as f64
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::cast_precision_loss)]
+fn uint64_to_float64_for_ingest(value: u64) -> f64 {
+    value as f64
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7685,9 +7749,9 @@ mod tests {
     }
 
     #[test]
-    fn local_flat_scalar_all_null_rows_without_dtype_remain_blocked() {
+    fn local_flat_scalar_all_null_rows_without_dtype_default_to_nullable_utf8() {
         let path = std::env::temp_dir().join(format!(
-            "shardloom-vortex-ingest-unknown-null-{}-{}.vortex",
+            "shardloom-vortex-ingest-default-null-utf8-{}-{}.vortex",
             std::process::id(),
             1
         ));
@@ -7698,20 +7762,40 @@ mod tests {
             vec![vec![("value".to_string(), ScalarValue::Null)]],
         );
 
-        let error = write_flat_scalar_vortex_prepared_state(request)
-            .expect_err("all-null unknown family should block");
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
 
-        assert!(
-            error
-                .to_string()
-                .contains("NULL values without dtype or non-null family evidence"),
-            "{error}"
+        assert_eq!(report.row_count, 1);
+        assert_eq!(report.reopen_row_count, 1);
+        assert_eq!(report.column_family_summary(), "value:utf8");
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_mixed_integer_and_float_rows_promote_to_float64() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-mixed-numeric-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["metric".to_string()],
+            vec![
+                vec![("metric".to_string(), ScalarValue::Int64(1))],
+                vec![("metric".to_string(), ScalarValue::Float64(2.5))],
+                vec![("metric".to_string(), ScalarValue::UInt64(3))],
+            ],
         );
-        assert!(
-            !path.exists(),
-            "blocked all-null unknown-family write must not create {}",
-            path.display()
-        );
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 3);
+        assert_eq!(report.reopen_row_count, 3);
+        assert_eq!(report.column_family_summary(), "metric:float64");
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
     }
 
     #[cfg(feature = "universal-format-io")]

@@ -11824,6 +11824,7 @@ class ShardLoomClient:
         target_vortex_path: str | os.PathLike[str],
         *,
         input_format: str | None = None,
+        schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         delta_source_path: str | os.PathLike[str] | None = None,
@@ -11840,6 +11841,9 @@ class ShardLoomClient:
         ]
         if input_format is not None:
             command.extend(["--input-format", input_format])
+        schema_arg = _schema_command_arg(schema)
+        if schema_arg is not None:
+            command.extend(["--schema", schema_arg])
         if allow_overwrite:
             command.append("--allow-overwrite")
         if certification_level != "ingest_certified":
@@ -13604,6 +13608,25 @@ def _iter_fanout_outputs(
         fanout_format, fanout_path = item
         normalized.append((str(fanout_format), str(fanout_path)))
     return tuple(normalized)
+
+
+def _schema_command_arg(
+    schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None,
+) -> str | None:
+    if schema is None:
+        return None
+    if isinstance(schema, str):
+        value = schema.strip()
+        return value or None
+    items = schema.items() if isinstance(schema, Mapping) else schema
+    parts: list[str] = []
+    for name, dtype in items:
+        name_text = str(name).strip()
+        dtype_text = str(dtype).strip()
+        if not name_text or not dtype_text:
+            raise ValueError("schema entries must have non-empty column names and dtype values")
+        parts.append(f"{name_text}:{dtype_text}")
+    return ",".join(parts) if parts else None
 
 
 def _jsonl_object_rows(value: str, *, field_name: str) -> tuple[Mapping[str, Any], ...]:

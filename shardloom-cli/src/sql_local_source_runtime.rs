@@ -4188,6 +4188,99 @@ fn parse_sql_local_source_request(
     })
 }
 
+fn parse_vortex_ingest_schema_hints(
+    raw: &str,
+) -> Result<Vec<(String, LogicalDType)>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut seen = BTreeSet::new();
+    let mut hints = Vec::new();
+    for item in trimmed.split(',') {
+        let item = item.trim();
+        if item.is_empty() {
+            continue;
+        }
+        let (name_raw, dtype_raw) = item.split_once(':').ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "vortex_ingest schema item {item:?} must use name:dtype; no fallback execution was attempted"
+            ))
+        })?;
+        let name = name_raw.trim().to_string();
+        validate_sql_identifier(&name)?;
+        if !seen.insert(name.clone()) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "vortex_ingest schema declares duplicate column {name:?}; no fallback execution was attempted"
+            )));
+        }
+        hints.push((name, parse_cast_target_dtype(dtype_raw)?));
+    }
+    Ok(hints)
+}
+
+fn apply_vortex_ingest_schema_hints(
+    source: &mut CsvSourceData,
+    hints: &[(String, LogicalDType)],
+) -> Result<(), ShardLoomError> {
+    if hints.is_empty() {
+        return Ok(());
+    }
+    if source.column_dtypes.len() != source.header.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "vortex_ingest source schema has {} dtype slots for {} columns; no fallback execution was attempted",
+            source.column_dtypes.len(),
+            source.header.len()
+        )));
+    }
+    for (name, dtype) in hints {
+        let Some(index) = source.header.iter().position(|column| column == name) else {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "vortex_ingest schema column {name:?} is not present in source header {}; no fallback execution was attempted",
+                source.header.join(",")
+            )));
+        };
+        source.column_dtypes[index] = Some(dtype.clone());
+    }
+    Ok(())
+}
+
+fn schema_hints_digest(hints: &[(String, LogicalDType)]) -> String {
+    if hints.is_empty() {
+        "no_declared_schema_hints".to_string()
+    } else {
+        fnv64_digest(
+            &hints
+                .iter()
+                .map(|(name, dtype)| format!("{name}:{}", dtype.as_str()))
+                .collect::<Vec<_>>()
+                .join("|"),
+        )
+    }
+}
+
+fn vortex_ingest_source_schema_digest(source: &CsvSourceData) -> String {
+    if source.column_dtypes.iter().all(Option::is_none) {
+        return fnv64_digest(&source.header.join(","));
+    }
+    fnv64_digest(
+        &source
+            .header
+            .iter()
+            .enumerate()
+            .map(|(index, name)| {
+                let dtype = source
+                    .column_dtypes
+                    .get(index)
+                    .and_then(Option::as_ref)
+                    .map_or("inferred", LogicalDType::as_str);
+                format!("{name}:{dtype}")
+            })
+            .collect::<Vec<_>>()
+            .join("|"),
+    )
+}
+
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_vortex_ingest_smoke(
     args: impl Iterator<Item = String>,
@@ -4205,18 +4298,19 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
 ) -> ExitCode {
     let Some(source_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--schema name:dtype,...] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let Some(target_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--schema name:dtype,...] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let mut allow_overwrite = false;
     let mut source_format_override = None;
+    let mut source_schema_hints = Vec::new();
     let mut certification_level = shardloom_vortex::VortexIngestCertificationLevel::IngestCertified;
     let mut delta_source_path = None;
     let mut delta_target_path = None;
@@ -4272,6 +4366,29 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                             );
                         }
                     };
+            }
+            "--schema" | "--source-schema" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        emit_command,
+                        format,
+                        "vortex_ingest smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--schema requires comma-separated name:dtype pairs".to_string(),
+                        ),
+                    );
+                };
+                source_schema_hints = match parse_vortex_ingest_schema_hints(&value) {
+                    Ok(schema) => schema,
+                    Err(error) => {
+                        return emit_error(
+                            emit_command,
+                            format,
+                            "vortex_ingest smoke failed",
+                            &error,
+                        );
+                    }
+                };
             }
             "--delta-source" => {
                 let Some(value) = args.next() else {
@@ -4405,7 +4522,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
         return ExitCode::from(1);
     }
 
-    let outcome = match run_vortex_ingest_smoke(request.clone()) {
+    let outcome = match run_vortex_ingest_smoke_with_schema(request.clone(), &source_schema_hints) {
         Ok(outcome) => outcome,
         Err(error) => {
             if let Some(fields) = vortex_ingest_scout_blocked_fields(&request, &error) {
@@ -4657,21 +4774,34 @@ fn canonical_output_path_key(path: &Path) -> Result<String, ShardLoomError> {
 fn run_vortex_ingest_smoke(
     request: VortexIngestRequest,
 ) -> Result<VortexIngestOutcome, ShardLoomError> {
+    run_vortex_ingest_smoke_with_schema(request, &[])
+}
+
+fn run_vortex_ingest_smoke_with_schema(
+    request: VortexIngestRequest,
+    source_schema_hints: &[(String, LogicalDType)],
+) -> Result<VortexIngestOutcome, ShardLoomError> {
     let delta = request.delta.clone();
     if let Some(delta) = delta {
         preflight_vortex_ingest_differential_request(&request, &delta)?;
-        let mut base_report = run_vortex_ingest_prepare_once_without_reuse(VortexIngestRequest {
-            delta: None,
-            ..request
-        })?;
-        let delta_report = run_vortex_ingest_prepare_once_without_reuse(VortexIngestRequest {
-            source_path: delta.source_path.clone(),
-            source_format_override: base_report.request.source_format_override,
-            target_path: delta.target_path.clone(),
-            allow_overwrite: base_report.request.allow_overwrite,
-            certification_level: base_report.request.certification_level,
-            delta: None,
-        })
+        let mut base_report = run_vortex_ingest_prepare_once_without_reuse_with_schema(
+            VortexIngestRequest {
+                delta: None,
+                ..request
+            },
+            source_schema_hints,
+        )?;
+        let delta_report = run_vortex_ingest_prepare_once_without_reuse_with_schema(
+            VortexIngestRequest {
+                source_path: delta.source_path.clone(),
+                source_format_override: base_report.request.source_format_override,
+                target_path: delta.target_path.clone(),
+                allow_overwrite: base_report.request.allow_overwrite,
+                certification_level: base_report.request.certification_level,
+                delta: None,
+            },
+            source_schema_hints,
+        )
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "vortex_ingest differential delta source '{}' failed preparation: {error}; no fallback execution was attempted",
@@ -4685,7 +4815,7 @@ fn run_vortex_ingest_smoke(
         ));
         return Ok(VortexIngestOutcome::Prepared(Box::new(base_report)));
     }
-    run_vortex_ingest_prepare_once(request)
+    run_vortex_ingest_prepare_once_with_schema(request, source_schema_hints)
 }
 
 fn preflight_vortex_ingest_differential_request(
@@ -4711,13 +4841,15 @@ fn preflight_vortex_ingest_differential_request(
     Ok(())
 }
 
-fn run_vortex_ingest_prepare_once(
+fn run_vortex_ingest_prepare_once_with_schema(
     request: VortexIngestRequest,
+    source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestOutcome, ShardLoomError> {
     let source_adapter =
         LocalInputAdapterSelection::select(&request.source_path, request.source_format_override)?;
     let reuse_start = Instant::now();
-    let reuse_request = vortex_ingest_prepared_state_reuse_request(&request, &source_adapter)?;
+    let reuse_request =
+        vortex_ingest_prepared_state_reuse_request(&request, &source_adapter, source_schema_hints)?;
     let reuse_decision = shardloom_vortex::evaluate_vortex_prepared_state_reuse(&reuse_request)?;
     let evaluation_millis = reuse_start.elapsed().as_millis();
     if reuse_decision.hit {
@@ -4737,11 +4869,13 @@ fn run_vortex_ingest_prepare_once(
         &reuse_request,
         &reuse_decision,
         evaluation_millis,
+        source_schema_hints,
     )? {
         return Ok(VortexIngestOutcome::Refined(Box::new(refined)));
     }
 
-    let mut report = run_vortex_ingest_prepare_once_with_adapter(request, source_adapter)?;
+    let mut report =
+        run_vortex_ingest_prepare_once_with_adapter(request, source_adapter, source_schema_hints)?;
     let certificate_refs = format!(
         "source_state={};prepared_state={};artifact={};native_io={}",
         report.source_state_id,
@@ -4780,6 +4914,7 @@ fn run_vortex_ingest_append_only_refinement(
     reuse_request: &shardloom_vortex::VortexPreparedStateReuseRequest,
     reuse_decision: &shardloom_vortex::VortexPreparedStateReuseReport,
     evaluation_millis: u128,
+    source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<Option<VortexPreparedStateRefinementCliReport>, ShardLoomError> {
     if !matches!(
         reuse_decision.reason.as_str(),
@@ -4808,14 +4943,17 @@ fn run_vortex_ingest_append_only_refinement(
         &request.target_path,
         &refinement_decision.current_source_content_digest,
     )?;
-    let delta_report = run_vortex_ingest_prepare_once_without_reuse(VortexIngestRequest {
-        source_path: delta_source_path,
-        source_format_override: request.source_format_override,
-        target_path: delta_target_path,
-        allow_overwrite: true,
-        certification_level: request.certification_level,
-        delta: None,
-    })
+    let delta_report = run_vortex_ingest_prepare_once_without_reuse_with_schema(
+        VortexIngestRequest {
+            source_path: delta_source_path,
+            source_format_override: request.source_format_override,
+            target_path: delta_target_path,
+            allow_overwrite: true,
+            certification_level: request.certification_level,
+            delta: None,
+        },
+        source_schema_hints,
+    )
     .map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "vortex_ingest automatic append-only delta refinement failed while preparing delta source for '{}': {error}; no fallback execution was attempted",
@@ -4894,18 +5032,20 @@ fn ensure_automatic_append_only_refinement_admitted(
     )))
 }
 
-fn run_vortex_ingest_prepare_once_without_reuse(
+fn run_vortex_ingest_prepare_once_without_reuse_with_schema(
     request: VortexIngestRequest,
+    source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
     let source_adapter =
         LocalInputAdapterSelection::select(&request.source_path, request.source_format_override)?;
-    run_vortex_ingest_prepare_once_with_adapter(request, source_adapter)
+    run_vortex_ingest_prepare_once_with_adapter(request, source_adapter, source_schema_hints)
 }
 
 #[allow(clippy::needless_pass_by_value)]
 fn run_vortex_ingest_prepare_once_with_adapter(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
+    source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     let _ = &source_adapter;
@@ -4915,26 +5055,28 @@ fn run_vortex_ingest_prepare_once_with_adapter(
             .source_format
             .preserves_columnar_vortex_ingest_source_state()
         {
-            return run_columnar_vortex_ingest_smoke(request, source_adapter);
+            return run_columnar_vortex_ingest_smoke(request, source_adapter, source_schema_hints);
         }
     }
-    run_scalar_vortex_ingest_smoke(request, source_adapter)
+    run_scalar_vortex_ingest_smoke(request, source_adapter, source_schema_hints)
 }
 
 fn vortex_ingest_prepared_state_reuse_request(
     request: &VortexIngestRequest,
     source_adapter: &LocalInputAdapterSelection,
+    source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<shardloom_vortex::VortexPreparedStateReuseRequest, ShardLoomError> {
     let manifest_path =
         shardloom_vortex::vortex_prepared_state_reuse_manifest_path(&request.target_path)?;
     let parse_decode_plan_digest = fnv64_digest(&format!(
-        "vortex_ingest_prepare_once|{}|{}|{}|{}|{}|{}",
+        "vortex_ingest_prepare_once|{}|{}|{}|{}|{}|{}|{}",
         source_adapter.source_format.as_str(),
         source_adapter.source_format.adapter_id(),
         source_adapter.source_format.adapter_boundary(),
         request.certification_level.as_str(),
         LOCAL_INPUT_ADAPTER_REGISTRY_VERSION,
-        VORTEX_INGEST_SCHEMA_VERSION
+        VORTEX_INGEST_SCHEMA_VERSION,
+        schema_hints_digest(source_schema_hints)
     ));
     let feature_gates = if source_adapter.source_format.feature_gate() == "default" {
         "vortex-write".to_string()
@@ -5666,16 +5808,18 @@ fn copy_buffer_family(source: &VortexIngestSourceData) -> &'static str {
 fn run_scalar_vortex_ingest_smoke(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
+    source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
     let prepare_start = Instant::now();
-    let source = read_local_source_with_plan_and_adapter(
+    let mut source = read_local_source_with_plan_and_adapter(
         &request.source_path,
         &LocalSourceReadPlan::full("full_vortex_ingest_source_state"),
         source_adapter,
         SqlLocalSourceRuntimeProfile::Smoke.read_limits(),
     )?;
+    apply_vortex_ingest_schema_hints(&mut source, source_schema_hints)?;
     let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
-    let source_schema_digest = fnv64_digest(&source_evidence.header.join(","));
+    let source_schema_digest = vortex_ingest_source_schema_digest(&source);
     let source_state_id = source_state_id_for_source(&source_evidence);
     let source_state_digest =
         source_state_digest_for_source(&source_evidence, &source_schema_digest);
@@ -5706,6 +5850,7 @@ fn run_scalar_vortex_ingest_smoke(
         source.header.clone(),
         rows,
     )
+    .column_dtypes(source.column_dtypes.clone())
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -5771,24 +5916,40 @@ fn run_scalar_vortex_ingest_smoke(
 fn run_columnar_vortex_ingest_smoke(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
+    source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    if !source_schema_hints.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "vortex_ingest --schema applies to local text SourceState adapters; columnar Parquet/Arrow IPC/Avro/ORC sources use their embedded schema evidence; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
     reject_remote_source_path(&request.source_path)?;
     let source_format = source_adapter.source_format;
     let prepare_start = Instant::now();
     let read_start = Instant::now();
-    let bytes = read_local_source_bytes_with_budget(
-        &request.source_path,
-        source_format.row_label(),
-        Some(MAX_LOCAL_SOURCE_BYTES),
-    )?;
+    let (source_bytes, source_digest) = if request.source_path.is_dir() {
+        let partitions = read_local_source_partition_files_with_budget(
+            &request.source_path,
+            source_format,
+            Some(MAX_LOCAL_SOURCE_BYTES),
+        )?;
+        (partitions.source_bytes, partitions.source_digest)
+    } else {
+        let bytes = read_local_source_bytes_with_budget(
+            &request.source_path,
+            source_format.row_label(),
+            Some(MAX_LOCAL_SOURCE_BYTES),
+        )?;
+        let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "{} source length does not fit in u64",
+                source_format.row_label()
+            ))
+        })?;
+        (source_bytes, fnv64_digest_bytes(&bytes))
+    };
     let read_millis = read_start.elapsed().as_millis();
-    let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
-        ShardLoomError::InvalidOperation(format!(
-            "{} source length does not fit in u64",
-            source_format.row_label()
-        ))
-    })?;
-    let source_digest = fnv64_digest_bytes(&bytes);
     let source_to_columnar_start = Instant::now();
     let columnar_source =
         read_columnar_vortex_ingest_source(source_format, &request.source_path, MAX_INPUT_ROWS)?;
@@ -5899,6 +6060,9 @@ fn read_columnar_vortex_ingest_source(
     path: &Path,
     max_rows: usize,
 ) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError> {
+    if path.is_dir() {
+        return read_columnar_vortex_ingest_partition_source(source_format, path, max_rows);
+    }
     match source_format {
         LocalSourceFormat::Parquet => {
             shardloom_vortex::read_flat_parquet_columnar_source(path, max_rows)
@@ -5915,6 +6079,88 @@ fn read_columnar_vortex_ingest_source(
             )))
         }
     }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn read_columnar_vortex_ingest_partition_source(
+    source_format: LocalSourceFormat,
+    path: &Path,
+    max_rows: usize,
+) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError> {
+    let partition_files = read_local_source_partition_files_with_budget(
+        path,
+        source_format,
+        Some(MAX_LOCAL_SOURCE_BYTES),
+    )?;
+    let mut combined: Option<shardloom_vortex::FlatLocalColumnarSource> = None;
+    let mut remaining_rows = max_rows;
+    for file in partition_files.files {
+        if remaining_rows == 0 {
+            break;
+        }
+        let source = match source_format {
+            LocalSourceFormat::Parquet => {
+                shardloom_vortex::read_flat_parquet_columnar_source(&file.path, remaining_rows)?
+            }
+            LocalSourceFormat::ArrowIpc => {
+                shardloom_vortex::read_flat_arrow_ipc_columnar_source(&file.path, remaining_rows)?
+            }
+            LocalSourceFormat::Avro => {
+                shardloom_vortex::read_flat_avro_columnar_source(&file.path, remaining_rows)?
+            }
+            LocalSourceFormat::Orc => {
+                shardloom_vortex::read_flat_orc_columnar_source(&file.path, remaining_rows)?
+            }
+            LocalSourceFormat::Csv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local {} partition source is not a columnar universal-format SourceState; no fallback execution was attempted",
+                    source_format.row_label()
+                )));
+            }
+        };
+        remaining_rows = remaining_rows.saturating_sub(source.row_count);
+        if let Some(combined_source) = &mut combined {
+            validate_columnar_partition_schema(
+                combined_source,
+                &source,
+                &file.path,
+                source_format,
+            )?;
+            combined_source.row_count += source.row_count;
+            combined_source.batches.extend(source.batches);
+        } else {
+            combined = Some(source);
+        }
+    }
+    combined.ok_or_else(|| {
+        unsupported_sql_error(&format!(
+            "local {} partition source {} did not produce any RecordBatch SourceState rows",
+            source_format.row_label(),
+            path.display()
+        ))
+    })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn validate_columnar_partition_schema(
+    expected: &shardloom_vortex::FlatLocalColumnarSource,
+    candidate: &shardloom_vortex::FlatLocalColumnarSource,
+    path: &Path,
+    source_format: LocalSourceFormat,
+) -> Result<(), ShardLoomError> {
+    if expected.header != candidate.header
+        || expected.column_dtypes != candidate.column_dtypes
+        || expected.column_arrow_dtypes != candidate.column_arrow_dtypes
+        || expected.materialized_columns != candidate.materialized_columns
+        || expected.reader_projection_columns != candidate.reader_projection_columns
+    {
+        return Err(unsupported_sql_error(&format!(
+            "local {} partition file {} has a schema/projection mismatch with earlier partitions; no fallback execution was attempted",
+            source_format.row_label(),
+            path.display()
+        )));
+    }
+    Ok(())
 }
 
 fn output_column_names(parsed: &ParsedSqlLocalSource, source: &CsvSourceData) -> Vec<String> {
@@ -29972,6 +30218,14 @@ fn read_local_source_with_plan_and_adapter(
     read_limits: LocalSourceReadLimits,
 ) -> Result<CsvSourceData, ShardLoomError> {
     reject_remote_source_path(path)?;
+    if path.is_dir() {
+        return read_local_source_directory_with_plan_and_adapter(
+            path,
+            read_plan,
+            source_adapter,
+            read_limits,
+        );
+    }
     let source_format = source_adapter.source_format;
     let read_start = Instant::now();
     let bytes = read_local_source_bytes_with_budget(
@@ -30046,6 +30300,97 @@ fn read_local_source_with_plan_and_adapter(
         materialized_columns,
         reader_projection_columns,
         projection_pushdown_status,
+        source_bytes,
+        source_digest,
+        read_millis,
+        parse_millis: parse_start.elapsed().as_millis(),
+        source_to_columnar_millis,
+        record_batch_count,
+        materialization_layout,
+        parse_normalization,
+        columnar_source_preserved,
+    })
+}
+
+fn read_local_source_directory_with_plan_and_adapter(
+    path: &Path,
+    read_plan: &LocalSourceReadPlan,
+    source_adapter: LocalInputAdapterSelection,
+    read_limits: LocalSourceReadLimits,
+) -> Result<CsvSourceData, ShardLoomError> {
+    let source_format = source_adapter.source_format;
+    let read_start = Instant::now();
+    let partition_files = read_local_source_partition_files_with_budget(
+        path,
+        source_format,
+        read_limits.source_bytes,
+    )?;
+    let read_millis = read_start.elapsed().as_millis();
+    let source_bytes = partition_files.source_bytes;
+    let source_digest = partition_files.source_digest;
+    let parse_start = Instant::now();
+    let content = match source_format {
+        LocalSourceFormat::Csv => {
+            let (header, rows) = parse_csv_partition_files_with_plan(
+                &partition_files.files,
+                read_plan,
+                read_limits.input_rows,
+            )?;
+            LocalSourceReadContent::text(source_format, header, rows)
+        }
+        LocalSourceFormat::JsonLines => {
+            let (header, rows) = parse_jsonl_partition_files_with_plan(
+                &partition_files.files,
+                read_plan,
+                read_limits.input_rows,
+            )?;
+            LocalSourceReadContent::text(source_format, header, rows)
+        }
+        LocalSourceFormat::Json => {
+            let (header, rows) = parse_json_partition_files_with_plan(
+                &partition_files.files,
+                read_plan,
+                read_limits.input_rows,
+            )?;
+            LocalSourceReadContent::text(source_format, header, rows)
+        }
+        LocalSourceFormat::Parquet
+        | LocalSourceFormat::ArrowIpc
+        | LocalSourceFormat::Avro
+        | LocalSourceFormat::Orc => {
+            return Err(unsupported_sql_error(&format!(
+                "local {} partition directories are admitted through the universal-format Vortex preparation path, not the scalar SQL smoke reader",
+                source_format.row_label()
+            )));
+        }
+    };
+    let LocalSourceReadContent {
+        header,
+        column_dtypes,
+        column_arrow_dtypes,
+        mut rows,
+        reader_projection_columns,
+        source_to_columnar_millis,
+        record_batch_count,
+        materialization_layout,
+        parse_normalization,
+        columnar_source_preserved,
+    } = content;
+    prune_rows_to_read_plan(&mut rows, read_plan);
+    let materialized_columns = read_plan.materialized_columns(&header);
+    let reader_projection_columns =
+        reader_projection_columns.unwrap_or_else(|| materialized_columns.clone());
+    Ok(CsvSourceData {
+        source_adapter,
+        source_format,
+        header,
+        column_dtypes,
+        column_arrow_dtypes,
+        rows,
+        read_plan: read_plan.clone(),
+        materialized_columns,
+        reader_projection_columns,
+        projection_pushdown_status: source_format.projection_pushdown_status(read_plan),
         source_bytes,
         source_digest,
         read_millis,
@@ -30281,6 +30626,129 @@ fn parse_csv_source_content_with_plan(
         rows.push(row);
     }
     Ok((header, rows))
+}
+
+fn parse_csv_partition_files_with_plan(
+    files: &[LocalSourcePartitionFile],
+    read_plan: &LocalSourceReadPlan,
+    max_input_rows: Option<usize>,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let mut header: Option<Vec<String>> = None;
+    let mut rows = Vec::new();
+    for file in files {
+        let content =
+            decode_local_text_source(&file.path, LocalSourceFormat::Csv, file.bytes.clone())?;
+        let (file_header, mut file_rows) =
+            parse_csv_source_content_with_plan(&content, read_plan, None)?;
+        if let Some(header) = &header {
+            if header != &file_header {
+                return Err(unsupported_sql_error(&format!(
+                    "CSV partition file {} has header {}, expected {}; no fallback execution was attempted",
+                    file.path.display(),
+                    file_header.join(","),
+                    header.join(",")
+                )));
+            }
+        } else {
+            header = Some(file_header);
+        }
+        rows.append(&mut file_rows);
+        enforce_partition_row_budget(rows.len(), max_input_rows, "CSV")?;
+    }
+    Ok((header.unwrap_or_default(), rows))
+}
+
+fn parse_jsonl_partition_files_with_plan(
+    files: &[LocalSourcePartitionFile],
+    read_plan: &LocalSourceReadPlan,
+    max_input_rows: Option<usize>,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let mut raw_rows = Vec::new();
+    for file in files {
+        let content =
+            decode_local_text_source(&file.path, LocalSourceFormat::JsonLines, file.bytes.clone())?;
+        for (line_index, line) in content
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .enumerate()
+        {
+            let line = if line_index == 0 {
+                line.strip_prefix('\u{feff}').unwrap_or(line)
+            } else {
+                line
+            };
+            let fields = parse_flat_json_object_with_plan(line, read_plan).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "JSONL partition file {} row {} is not admitted by this scoped source runtime: {error}",
+                    file.path.display(),
+                    line_index + 1
+                ))
+            })?;
+            raw_rows.push(fields);
+            enforce_partition_row_budget(raw_rows.len(), max_input_rows, "JSONL")?;
+        }
+    }
+    materialize_flat_json_rows(
+        "JSONL partition directory",
+        raw_rows,
+        read_plan,
+        max_input_rows,
+    )
+}
+
+fn parse_json_partition_files_with_plan(
+    files: &[LocalSourcePartitionFile],
+    read_plan: &LocalSourceReadPlan,
+    max_input_rows: Option<usize>,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let mut header = Vec::new();
+    let mut rows = Vec::new();
+    for file in files {
+        let content =
+            decode_local_text_source(&file.path, LocalSourceFormat::Json, file.bytes.clone())?;
+        let (file_header, file_rows) =
+            parse_json_source_content_with_plan(&content, read_plan, None)?;
+        append_partition_rows_with_header_union(&mut header, &mut rows, &file_header, file_rows);
+        enforce_partition_row_budget(rows.len(), max_input_rows, "JSON")?;
+    }
+    Ok((header, rows))
+}
+
+fn append_partition_rows_with_header_union(
+    header: &mut Vec<String>,
+    rows: &mut Vec<ExpressionInputRow>,
+    file_header: &[String],
+    file_rows: Vec<ExpressionInputRow>,
+) {
+    for column in file_header {
+        if !header.contains(column) {
+            header.push(column.clone());
+            for row in rows.iter_mut() {
+                row.insert(column.clone(), ScalarValue::Null);
+            }
+        }
+    }
+    for mut row in file_rows {
+        for column in header.iter() {
+            row.entry(column.clone()).or_insert(ScalarValue::Null);
+        }
+        rows.push(row);
+    }
+}
+
+fn enforce_partition_row_budget(
+    row_count: usize,
+    max_input_rows: Option<usize>,
+    source_label: &str,
+) -> Result<(), ShardLoomError> {
+    if let Some(max_input_rows) = max_input_rows
+        && row_count > max_input_rows
+    {
+        return Err(unsupported_sql_error(&format!(
+            "local partition source runtime profile supports at most {max_input_rows} {source_label} data rows"
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -30526,9 +30994,21 @@ fn parse_json_value(
             let (value, next_index) = parse_json_string(chars, index)?;
             Ok((ScalarValue::Utf8(value), next_index))
         }
-        Some('{' | '[') => Err(unsupported_sql_error(
-            "JSON source runtime admits scalar values only; nested objects and arrays remain blocked",
-        )),
+        Some('{' | '[') => {
+            let next_index = skip_json_value(chars, index)?;
+            let raw = chars[index..next_index].iter().collect::<String>();
+            let value = serde_json::from_str::<serde_json::Value>(&raw).map_err(|error| {
+                unsupported_sql_error(&format!(
+                    "JSON nested object/array value is not valid JSON: {error}"
+                ))
+            })?;
+            let canonical = serde_json::to_string(&value).map_err(|error| {
+                unsupported_sql_error(&format!(
+                    "JSON nested object/array value could not be normalized as UTF-8 JSON payload: {error}"
+                ))
+            })?;
+            Ok((ScalarValue::Utf8(canonical), next_index))
+        }
         Some(_) => {
             let start = index;
             while let Some(ch) = chars.get(index) {
@@ -30714,48 +31194,20 @@ fn parse_json_bare_scalar(token: &str) -> Result<ScalarValue, ShardLoomError> {
     }
 }
 
-fn parse_json_string(chars: &[char], mut index: usize) -> Result<(String, usize), ShardLoomError> {
+fn parse_json_string(chars: &[char], index: usize) -> Result<(String, usize), ShardLoomError> {
     if chars.get(index) != Some(&'"') {
         return Err(unsupported_sql_error(
             "JSON object keys and string values must be quoted strings",
         ));
     }
-    index += 1;
-    let mut value = String::new();
-    while let Some(ch) = chars.get(index).copied() {
-        index += 1;
-        match ch {
-            '"' => return Ok((value, index)),
-            '\\' => {
-                let Some(escaped) = chars.get(index).copied() else {
-                    return Err(unsupported_sql_error("JSONL string escape is incomplete"));
-                };
-                index += 1;
-                match escaped {
-                    '"' => value.push('"'),
-                    '\\' => value.push('\\'),
-                    '/' => value.push('/'),
-                    'b' => value.push('\u{0008}'),
-                    'f' => value.push('\u{000c}'),
-                    'n' => value.push('\n'),
-                    'r' => value.push('\r'),
-                    't' => value.push('\t'),
-                    'u' => {
-                        return Err(unsupported_sql_error(
-                            "JSON unicode escape decoding is not admitted in this scoped runtime slice",
-                        ));
-                    }
-                    _ => {
-                        return Err(unsupported_sql_error(
-                            "JSON string contains an unsupported escape sequence",
-                        ));
-                    }
-                }
-            }
-            value_char => value.push(value_char),
-        }
-    }
-    Err(unsupported_sql_error("JSON string is not closed"))
+    let next_index = skip_json_string_value(chars, index)?;
+    let raw = chars[index..next_index].iter().collect::<String>();
+    let value = serde_json::from_str::<String>(&raw).map_err(|error| {
+        unsupported_sql_error(&format!(
+            "JSON string value is not valid JSON text: {error}"
+        ))
+    })?;
+    Ok((value, next_index))
 }
 
 fn skip_json_ws(chars: &[char], mut index: usize) -> usize {
@@ -30822,6 +31274,19 @@ fn validate_sql_vortex_output_plan(path: &Path) -> Result<(), ShardLoomError> {
         ));
     }
     Ok(())
+}
+
+#[derive(Debug)]
+struct LocalSourcePartitionFile {
+    path: PathBuf,
+    bytes: Vec<u8>,
+}
+
+#[derive(Debug)]
+struct LocalSourcePartitionFiles {
+    files: Vec<LocalSourcePartitionFile>,
+    source_bytes: u64,
+    source_digest: String,
 }
 
 fn strip_utf8_bom_from_first_header_cell(header: &mut [String]) {
@@ -30920,6 +31385,120 @@ fn read_local_source_bytes_with_budget(
         )));
     }
     Ok(bytes)
+}
+
+fn read_local_source_partition_files_with_budget(
+    path: &Path,
+    source_format: LocalSourceFormat,
+    max_source_bytes: Option<u64>,
+) -> Result<LocalSourcePartitionFiles, ShardLoomError> {
+    reject_remote_source_path(path)?;
+    let metadata = fs::metadata(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to inspect local {} partition source {} before read: {error}",
+            source_format.row_label(),
+            path.display()
+        ))
+    })?;
+    if !metadata.is_dir() {
+        return Err(unsupported_sql_error(&format!(
+            "local {} partition source {} must be a directory",
+            source_format.row_label(),
+            path.display()
+        )));
+    }
+    let mut entries = fs::read_dir(path)
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to list local {} partition source {}: {error}",
+                source_format.row_label(),
+                path.display()
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read local {} partition directory entry under {}: {error}",
+                source_format.row_label(),
+                path.display()
+            ))
+        })?;
+    entries.sort_by_key(std::fs::DirEntry::path);
+
+    let mut files = Vec::new();
+    let mut digest_parts = Vec::new();
+    let mut total_bytes = 0_u64;
+    for entry in entries {
+        let file_path = entry.path();
+        let metadata = entry.metadata().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to inspect local partition file {}: {error}",
+                file_path.display()
+            ))
+        })?;
+        if !metadata.is_file() || !partition_file_matches_source_format(&file_path, source_format) {
+            continue;
+        }
+        total_bytes = total_bytes.checked_add(metadata.len()).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local partition source byte count overflowed u64; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        if max_source_bytes.is_some_and(|limit| total_bytes > limit) {
+            let limit = max_source_bytes.expect("checked source byte limit");
+            return Err(unsupported_sql_error(&format!(
+                "local {} partition source {} is {total_bytes} bytes; scoped local-source evidence reads admit at most {limit} bytes",
+                source_format.row_label(),
+                path.display()
+            )));
+        }
+        let bytes = fs::read(&file_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read local partition file {}: {error}",
+                file_path.display()
+            ))
+        })?;
+        let file_digest = fnv64_digest_bytes(&bytes);
+        digest_parts.push(format!(
+            "{}:{}:{}",
+            file_path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("<invalid-name>"),
+            bytes.len(),
+            file_digest
+        ));
+        files.push(LocalSourcePartitionFile {
+            path: file_path,
+            bytes,
+        });
+    }
+    if files.is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "local {} partition source {} did not contain any admitted {} files",
+            source_format.row_label(),
+            path.display(),
+            source_format.admitted_extensions()
+        )));
+    }
+    Ok(LocalSourcePartitionFiles {
+        files,
+        source_bytes: total_bytes,
+        source_digest: fnv64_digest(&format!(
+            "partition_dir|{}|{}|{}",
+            source_format.as_str(),
+            path.display(),
+            digest_parts.join(";")
+        )),
+    })
+}
+
+fn partition_file_matches_source_format(path: &Path, source_format: LocalSourceFormat) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .and_then(LocalSourceFormat::from_extension)
+        .is_some_and(|candidate| candidate == source_format)
 }
 
 fn earliest_clause_index_after(start: usize, indexes: &[Option<usize>]) -> usize {
@@ -52231,20 +52810,25 @@ mod tests {
     }
 
     #[test]
-    fn jsonl_source_read_plan_blocks_selected_nested_values() {
+    fn jsonl_source_read_plan_normalizes_selected_nested_values_as_utf8_json_payload() {
         let plan = LocalSourceReadPlan::required(
             BTreeSet::from(["id".to_string(), "payload".to_string()]),
             "test_selected_jsonl_nested_column",
         );
 
-        let error = parse_jsonl_source_content_with_plan(
+        let (header, rows) = parse_jsonl_source_content_with_plan(
             "{\"id\":1,\"payload\":{\"nested\":[1,2]}}\n",
             &plan,
             Some(MAX_INPUT_ROWS),
         )
-        .expect_err("selected nested JSONL value remains blocked");
+        .expect("selected nested JSONL value is normalized as UTF-8 JSON payload");
 
-        assert!(error.to_string().contains("scalar values only"));
+        assert_eq!(header, vec!["id", "payload"]);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0].get("payload"),
+            Some(&ScalarValue::Utf8("{\"nested\":[1,2]}".to_string()))
+        );
     }
 
     #[test]
@@ -52276,16 +52860,30 @@ mod tests {
     }
 
     #[test]
-    fn jsonl_parser_blocks_nested_values() {
-        let error = parse_jsonl_source_content("{\"id\":1,\"payload\":{\"x\":1}}\n")
-            .expect_err("nested object is blocked");
-        assert!(error.to_string().contains("scalar values only"));
+    fn jsonl_parser_normalizes_nested_values_as_utf8_json_payloads() {
+        let (header, rows) = parse_jsonl_source_content(
+            "{\"id\":1,\"payload\":{\"x\":1},\"items\":[\"a\",\"b\"]}\n",
+        )
+        .expect("nested JSONL values normalize");
+        assert_eq!(header, vec!["id", "payload", "items"]);
+        assert_eq!(
+            rows[0].get("payload"),
+            Some(&ScalarValue::Utf8("{\"x\":1}".to_string()))
+        );
+        assert_eq!(
+            rows[0].get("items"),
+            Some(&ScalarValue::Utf8("[\"a\",\"b\"]".to_string()))
+        );
     }
 
     #[test]
-    fn json_parser_blocks_nested_values() {
-        let error = parse_json_source_content("[{\"id\":1,\"payload\":{\"x\":1}}]")
-            .expect_err("nested object is blocked");
-        assert!(error.to_string().contains("scalar values only"));
+    fn json_parser_normalizes_nested_values_as_utf8_json_payloads() {
+        let (header, rows) = parse_json_source_content("[{\"id\":1,\"payload\":{\"x\":1}}]")
+            .expect("nested JSON values normalize");
+        assert_eq!(header, vec!["id", "payload"]);
+        assert_eq!(
+            rows[0].get("payload"),
+            Some(&ScalarValue::Utf8("{\"x\":1}".to_string()))
+        );
     }
 }

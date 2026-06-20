@@ -3206,6 +3206,63 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.external_engine_invoked)
         self.assertEqual(result.claim_gate_status, "fixture_smoke_only")
 
+    def test_vortex_ingest_smoke_helper_passes_declared_schema(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "vortex-ingest-smoke",
+                    "target/source.csv",
+                    "target/source.vortex",
+                    "--input-format",
+                    "csv",
+                    "--schema",
+                    "id:int64,label:utf8",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "vortex-ingest-smoke",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "source_path", "value": "target/source.csv"},
+                        {"key": "target_vortex_path", "value": "target/source.vortex"},
+                        {"key": "source_format", "value": "csv"},
+                        {"key": "vortex_ingest_status", "value": "prepared_state_created"},
+                        {"key": "prepared_state_id", "value": "vortex-prepared-state-fnv64-schema"},
+                        {"key": "prepared_state_digest", "value": "fnv64:schema"},
+                        {"key": "vortex_artifact_digest", "value": "fnv64:artifact"},
+                        {"key": "input_row_count", "value": "1"},
+                        {"key": "writer_row_count", "value": "1"},
+                        {"key": "reopen_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).vortex_ingest_smoke(
+            "target/source.csv",
+            "target/source.vortex",
+            input_format="csv",
+            schema={"id": "int64", "label": "utf8"},
+            allow_overwrite=True,
+        )
+
+        self.assertIsInstance(result, VortexIngestSmokeReport)
+        self.assertEqual(result.prepared_state_id, "vortex-prepared-state-fnv64-schema")
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.external_engine_invoked)
+
     def test_vortex_ingest_smoke_helper_dispatches_delta_overlay_route(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
