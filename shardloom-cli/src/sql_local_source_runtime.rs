@@ -20,6 +20,9 @@ use std::{
     time::Instant,
 };
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use std::{io::Read, time::UNIX_EPOCH};
+
 use arrow_schema::DataType;
 use regex::Regex;
 use shardloom_core::{
@@ -303,6 +306,25 @@ impl SqlLocalSourceRuntimeProfile {
     const fn product_local_workflow_admitted(self) -> bool {
         matches!(self, Self::ProductLocalWorkflow)
     }
+}
+
+fn vortex_prepare_usage() -> String {
+    format!(
+        "usage: shardloom {VORTEX_PREPARE_COMMAND} <local-source-path> <target.vortex> \
+         [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] \
+         [--schema name:dtype,...] [--allow-overwrite] \
+         [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] \
+         [--delta-source <local-source-path> --delta-target <delta.vortex> \
+         [--delta-update-mode append-only|update|delete|upsert]] \
+         [--internal-smoke-local-source] [--format text|json]"
+    )
+}
+
+fn vortex_prepare_usage_error(missing: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "{}; missing {missing}; no fallback execution was attempted",
+        vortex_prepare_usage()
+    ))
 }
 
 impl SqlLocalSourceRequest {
@@ -3463,11 +3485,7 @@ impl VortexIngestSourceData {
     fn from_columnar_source(
         source_adapter: LocalInputAdapterSelection,
         columnar_source: &shardloom_vortex::FlatLocalColumnarSource,
-        source_bytes: u64,
-        source_digest: String,
-        source_metadata_scout_millis: u128,
-        source_byte_acquisition_millis: u128,
-        source_full_body_millis: u128,
+        scout: ColumnarSourceScoutEvidence,
         read_millis: u128,
         source_to_columnar_millis: u128,
     ) -> Self {
@@ -3480,13 +3498,13 @@ impl VortexIngestSourceData {
             materialized_columns: columnar_source.materialized_columns.clone(),
             reader_projection_columns: columnar_source.reader_projection_columns.clone(),
             projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
-            source_bytes,
-            source_digest,
+            source_bytes: scout.bytes,
+            source_digest: scout.digest,
             row_count: columnar_source.row_count,
             source_split_row_ranges,
-            source_metadata_scout_millis,
-            source_byte_acquisition_millis,
-            source_full_body_millis,
+            source_metadata_scout_millis: scout.metadata_scout_millis,
+            source_byte_acquisition_millis: scout.byte_acquisition_millis,
+            source_full_body_millis: scout.full_body_millis,
             read_millis,
             compatibility_parse_millis: 0,
             source_to_columnar_millis,
@@ -3525,7 +3543,7 @@ impl VortexIngestSourceData {
 
     fn source_read_buffer_carry_status(&self) -> &'static str {
         if self.columnar_source_preserved {
-            "digest_bytes_recorded_reader_reopens_columnar_source"
+            "streamed_source_fingerprint_reader_reopens_columnar_source"
         } else {
             "read_once_buffer_carried_to_text_parser"
         }
@@ -4345,16 +4363,20 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     extra_fields: &[(String, String)],
 ) -> ExitCode {
     let Some(source_path_raw) = args.next() else {
-        eprintln!(
-            "usage: shardloom {VORTEX_PREPARE_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--schema name:dtype,...] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
+        return emit_error(
+            emit_command,
+            format,
+            "vortex prepare failed",
+            &vortex_prepare_usage_error("local source path"),
         );
-        return ExitCode::from(2);
     };
     let Some(target_path_raw) = args.next() else {
-        eprintln!(
-            "usage: shardloom {VORTEX_PREPARE_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--schema name:dtype,...] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
+        return emit_error(
+            emit_command,
+            format,
+            "vortex prepare failed",
+            &vortex_prepare_usage_error("target .vortex path"),
         );
-        return ExitCode::from(2);
     };
     let mut allow_overwrite = false;
     let mut source_format_override = None;
@@ -4363,9 +4385,13 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     let mut delta_source_path = None;
     let mut delta_target_path = None;
     let mut delta_update_mode = shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly;
+    let mut runtime_profile = SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--allow-overwrite" => allow_overwrite = true,
+            "--internal-smoke-local-source" => {
+                runtime_profile = SqlLocalSourceRuntimeProfile::Smoke;
+            }
             "--input-format" | "--source-format" => {
                 let Some(value) = args.next() else {
                     return emit_error(
@@ -4543,7 +4569,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         target_path,
         allow_overwrite,
         certification_level,
-        runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
+        runtime_profile,
         delta,
     };
 
@@ -5148,11 +5174,16 @@ fn vortex_ingest_prepared_state_reuse_request(
     let manifest_path =
         shardloom_vortex::vortex_prepared_state_reuse_manifest_path(&request.target_path)?;
     let parse_decode_plan_digest = fnv64_digest(&format!(
-        "vortex_ingest_prepare_once|{}|{}|{}|{}|{}|{}|{}",
+        "vortex_ingest_prepare_once|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
         source_adapter.source_format.as_str(),
         source_adapter.source_format.adapter_id(),
         source_adapter.source_format.adapter_boundary(),
         request.certification_level.as_str(),
+        request.runtime_profile.route_id(),
+        request.runtime_profile.input_row_cap_label(),
+        request.runtime_profile.source_byte_cap_label(),
+        request.runtime_profile.output_row_cap_label(),
+        request.runtime_profile.join_candidate_cap_label(),
         LOCAL_INPUT_ADAPTER_REGISTRY_VERSION,
         VORTEX_PREPARE_SCHEMA_VERSION,
         schema_hints_digest(source_schema_hints)
@@ -6035,48 +6066,19 @@ fn run_columnar_vortex_prepare(
     let read_limits = request.runtime_profile.read_limits();
     let prepare_start = Instant::now();
     let read_start = Instant::now();
-    let (
-        source_bytes,
-        source_digest,
-        source_metadata_scout_millis,
-        source_byte_acquisition_millis,
-        source_full_body_millis,
-    ) = if request.source_path.is_dir() {
-        let partitions = read_local_source_partition_files_with_budget(
+    let scout = if request.source_path.is_dir() {
+        let partitions = scout_local_source_partition_files_with_budget(
             &request.source_path,
             source_format,
             read_limits.source_bytes,
         )?;
-        (
-            partitions.source_bytes,
-            partitions.source_digest,
-            partitions.source_metadata_scout_millis,
-            partitions.source_byte_acquisition_millis,
-            partitions.source_full_body_millis,
-        )
+        partitions.evidence
     } else {
-        let byte_read = read_local_source_bytes_with_budget_report(
+        fingerprint_local_source_file_with_budget_report(
             &request.source_path,
             source_format.row_label(),
             read_limits.source_bytes,
-        )?;
-        let source_metadata_scout_millis = byte_read.source_metadata_scout_millis;
-        let source_byte_acquisition_millis = byte_read.source_byte_acquisition_millis;
-        let source_full_body_millis = byte_read.source_full_body_millis;
-        let bytes = byte_read.bytes;
-        let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
-            ShardLoomError::InvalidOperation(format!(
-                "{} source length does not fit in u64",
-                source_format.row_label()
-            ))
-        })?;
-        (
-            source_bytes,
-            fnv64_digest_bytes(&bytes),
-            source_metadata_scout_millis,
-            source_byte_acquisition_millis,
-            source_full_body_millis,
-        )
+        )?
     };
     let read_millis = read_start.elapsed().as_millis();
     let source_to_columnar_start = Instant::now();
@@ -6095,11 +6097,7 @@ fn run_columnar_vortex_prepare(
     let source = VortexIngestSourceData::from_columnar_source(
         source_adapter,
         &columnar_source,
-        source_bytes,
-        source_digest,
-        source_metadata_scout_millis,
-        source_byte_acquisition_millis,
-        source_full_body_millis,
+        scout,
         read_millis,
         source_to_columnar_millis,
     );
@@ -6232,25 +6230,25 @@ fn read_columnar_vortex_ingest_partition_source(
     source_byte_budget: Option<u64>,
 ) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError> {
     let partition_files =
-        read_local_source_partition_files_with_budget(path, source_format, source_byte_budget)?;
+        scout_local_source_partition_files_with_budget(path, source_format, source_byte_budget)?;
     let mut combined: Option<shardloom_vortex::FlatLocalColumnarSource> = None;
     let mut remaining_rows = max_rows;
-    for file in partition_files.files {
+    for file_path in partition_files.files {
         if remaining_rows == 0 {
             break;
         }
         let source = match source_format {
             LocalSourceFormat::Parquet => {
-                shardloom_vortex::read_flat_parquet_columnar_source(&file.path, remaining_rows)?
+                shardloom_vortex::read_flat_parquet_columnar_source(&file_path, remaining_rows)?
             }
             LocalSourceFormat::ArrowIpc => {
-                shardloom_vortex::read_flat_arrow_ipc_columnar_source(&file.path, remaining_rows)?
+                shardloom_vortex::read_flat_arrow_ipc_columnar_source(&file_path, remaining_rows)?
             }
             LocalSourceFormat::Avro => {
-                shardloom_vortex::read_flat_avro_columnar_source(&file.path, remaining_rows)?
+                shardloom_vortex::read_flat_avro_columnar_source(&file_path, remaining_rows)?
             }
             LocalSourceFormat::Orc => {
-                shardloom_vortex::read_flat_orc_columnar_source(&file.path, remaining_rows)?
+                shardloom_vortex::read_flat_orc_columnar_source(&file_path, remaining_rows)?
             }
             LocalSourceFormat::Csv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
                 return Err(ShardLoomError::InvalidOperation(format!(
@@ -6264,7 +6262,7 @@ fn read_columnar_vortex_ingest_partition_source(
             validate_columnar_partition_schema(
                 combined_source,
                 &source,
-                &file.path,
+                &file_path,
                 source_format,
             )?;
             combined_source.row_count += source.row_count;
@@ -26107,7 +26105,7 @@ impl SqlLocalSourceUnionReport {
             ("schema_version".to_string(), SCHEMA_VERSION.to_string()),
             (
                 "execution_mode".to_string(),
-                "direct_compatibility_transient".to_string(),
+                "internal_local_source_smoke".to_string(),
             ),
             ("engine_mode".to_string(), "batch".to_string()),
             ("runtime_execution".to_string(), "true".to_string()),
@@ -26264,7 +26262,7 @@ impl SqlLocalSourceUnionReport {
             ),
             (
                 "selected_execution_mode".to_string(),
-                "direct_compatibility_transient".to_string(),
+                "internal_local_source_smoke".to_string(),
             ),
             (
                 "execution_route_label".to_string(),
@@ -27078,7 +27076,7 @@ impl SqlLocalSourceReport {
             ("schema_version".to_string(), SCHEMA_VERSION.to_string()),
             (
                 "execution_mode".to_string(),
-                "direct_compatibility_transient".to_string(),
+                "internal_local_source_smoke".to_string(),
             ),
             ("engine_mode".to_string(), "batch".to_string()),
             ("runtime_execution".to_string(), "true".to_string()),
@@ -27286,7 +27284,7 @@ impl SqlLocalSourceReport {
             ("prepared_state_reuse_hit".to_string(), "false".to_string()),
             (
                 "selected_execution_mode".to_string(),
-                "direct_compatibility_transient".to_string(),
+                "internal_local_source_smoke".to_string(),
             ),
             (
                 "execution_route_label".to_string(),
@@ -31744,6 +31742,13 @@ struct LocalSourcePartitionFiles {
 }
 
 #[derive(Debug)]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct LocalSourcePartitionScout {
+    files: Vec<PathBuf>,
+    evidence: ColumnarSourceScoutEvidence,
+}
+
+#[derive(Debug)]
 struct LocalSourceByteRead {
     bytes: Vec<u8>,
     source_metadata_scout_millis: u128,
@@ -31756,6 +31761,16 @@ impl LocalSourceByteRead {
         self.source_metadata_scout_millis
             .saturating_add(self.source_byte_acquisition_millis)
     }
+}
+
+#[derive(Debug)]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct ColumnarSourceScoutEvidence {
+    bytes: u64,
+    digest: String,
+    metadata_scout_millis: u128,
+    byte_acquisition_millis: u128,
+    full_body_millis: u128,
 }
 
 fn strip_utf8_bom_from_first_header_cell(header: &mut [String]) {
@@ -31871,6 +31886,118 @@ fn read_local_source_bytes_with_budget_report(
         source_byte_acquisition_millis,
         source_full_body_millis: source_byte_acquisition_millis,
     })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn fingerprint_local_source_file_with_budget_report(
+    path: &Path,
+    source_label: &str,
+    max_source_bytes: Option<u64>,
+) -> Result<ColumnarSourceScoutEvidence, ShardLoomError> {
+    reject_remote_source_path(path)?;
+    let scout_start = Instant::now();
+    let metadata = fs::metadata(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to inspect local {source_label} source {} before fingerprint: {error}",
+            path.display()
+        ))
+    })?;
+    if !metadata.is_file() {
+        return Err(unsupported_sql_error(&format!(
+            "local {source_label} source {} must be a regular file",
+            path.display()
+        )));
+    }
+    if max_source_bytes.is_some_and(|limit| metadata.len() > limit) {
+        let limit = max_source_bytes.expect("checked source byte limit");
+        return Err(unsupported_sql_error(&format!(
+            "local {source_label} source {} is {} bytes; scoped local-source evidence reads admit at most {limit} bytes",
+            path.display(),
+            metadata.len()
+        )));
+    }
+    let source_metadata_scout_millis = scout_start.elapsed().as_millis();
+    if max_source_bytes.is_none() {
+        return Ok(ColumnarSourceScoutEvidence {
+            bytes: metadata.len(),
+            digest: local_source_metadata_fingerprint(path, source_label, &metadata),
+            metadata_scout_millis: source_metadata_scout_millis,
+            byte_acquisition_millis: 0,
+            full_body_millis: 0,
+        });
+    }
+    let read_start = Instant::now();
+    let mut file = fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open local {source_label} source {} for streaming fingerprint: {error}",
+            path.display()
+        ))
+    })?;
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let mut total = 0_u64;
+    let mut buffer = vec![0_u8; 1024 * 1024].into_boxed_slice();
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to fingerprint local {source_label} source {}: {error}",
+                path.display()
+            ))
+        })?;
+        if read == 0 {
+            break;
+        }
+        total = total
+            .checked_add(u64::try_from(read).map_err(|_| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local {source_label} source {} read length does not fit in u64",
+                    path.display()
+                ))
+            })?)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local {source_label} source {} byte count overflowed u64; no fallback execution was attempted",
+                    path.display()
+                ))
+            })?;
+        if max_source_bytes.is_some_and(|limit| total > limit) {
+            return Err(unsupported_sql_error(&format!(
+                "local {source_label} source {} exceeded the scoped local-source evidence byte budget during streaming fingerprint",
+                path.display()
+            )));
+        }
+        hash = update_fnv64_hash(hash, &buffer[..read]);
+    }
+    let source_byte_acquisition_millis = read_start.elapsed().as_millis();
+    Ok(ColumnarSourceScoutEvidence {
+        bytes: total,
+        digest: format!("fnv64:{hash:016x}"),
+        metadata_scout_millis: source_metadata_scout_millis,
+        byte_acquisition_millis: source_byte_acquisition_millis,
+        full_body_millis: 0,
+    })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn local_source_metadata_fingerprint(
+    path: &Path,
+    source_label: &str,
+    metadata: &fs::Metadata,
+) -> String {
+    let modified_nanos = metadata
+        .modified()
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map_or_else(
+            || "modified_time_unavailable".to_string(),
+            |duration| duration.as_nanos().to_string(),
+        );
+    fnv64_digest(&format!(
+        "local_source_metadata_fingerprint.v1|{}|{}|{}|{}",
+        source_label,
+        path.display(),
+        metadata.len(),
+        modified_nanos
+    ))
 }
 
 fn sorted_local_source_partition_entries(
@@ -31994,6 +32121,94 @@ fn read_local_source_partition_files_with_budget(
         source_metadata_scout_millis: total_millis.saturating_sub(source_byte_acquisition_millis),
         source_byte_acquisition_millis,
         source_full_body_millis: source_byte_acquisition_millis,
+    })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn scout_local_source_partition_files_with_budget(
+    path: &Path,
+    source_format: LocalSourceFormat,
+    max_source_bytes: Option<u64>,
+) -> Result<LocalSourcePartitionScout, ShardLoomError> {
+    reject_remote_source_path(path)?;
+    let total_start = Instant::now();
+    let metadata = fs::metadata(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to inspect local {} partition source {} before scout: {error}",
+            source_format.row_label(),
+            path.display()
+        ))
+    })?;
+    if !metadata.is_dir() {
+        return Err(unsupported_sql_error(&format!(
+            "local {} partition source {} must be a directory",
+            source_format.row_label(),
+            path.display()
+        )));
+    }
+    let entries = sorted_local_source_partition_entries(path, source_format)?;
+
+    let mut files = Vec::new();
+    let mut digest_parts = Vec::new();
+    let mut total_bytes = 0_u64;
+    for entry in entries {
+        let file_path = entry.path();
+        let metadata = entry.metadata().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to inspect local partition file {}: {error}",
+                file_path.display()
+            ))
+        })?;
+        if !metadata.is_file() || !partition_file_matches_source_format(&file_path, source_format) {
+            continue;
+        }
+        total_bytes = total_bytes.checked_add(metadata.len()).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local partition source byte count overflowed u64; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        if max_source_bytes.is_some_and(|limit| total_bytes > limit) {
+            let limit = max_source_bytes.expect("checked source byte limit");
+            return Err(unsupported_sql_error(&format!(
+                "local {} partition source {} is {total_bytes} bytes; scoped local-source evidence reads admit at most {limit} bytes",
+                source_format.row_label(),
+                path.display()
+            )));
+        }
+        digest_parts.push(format!(
+            "{}:{}:{}",
+            file_path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("<invalid-name>"),
+            metadata.len(),
+            local_source_metadata_fingerprint(&file_path, source_format.row_label(), &metadata)
+        ));
+        files.push(file_path);
+    }
+    if files.is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "local {} partition source {} did not contain any admitted {} files",
+            source_format.row_label(),
+            path.display(),
+            source_format.admitted_extensions()
+        )));
+    }
+    Ok(LocalSourcePartitionScout {
+        files,
+        evidence: ColumnarSourceScoutEvidence {
+            bytes: total_bytes,
+            digest: fnv64_digest(&format!(
+                "partition_dir_metadata_fingerprint.v1|{}|{}|{}",
+                source_format.as_str(),
+                path.display(),
+                digest_parts.join(";")
+            )),
+            metadata_scout_millis: total_start.elapsed().as_millis(),
+            byte_acquisition_millis: 0,
+            full_body_millis: 0,
+        },
     })
 }
 
@@ -41244,12 +41459,16 @@ fn fnv64_digest(value: &str) -> String {
 }
 
 fn fnv64_digest_bytes(value: &[u8]) -> String {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let hash = update_fnv64_hash(0xcbf2_9ce4_8422_2325_u64, value);
+    format!("fnv64:{hash:016x}")
+}
+
+fn update_fnv64_hash(mut hash: u64, value: &[u8]) -> u64 {
     for byte in value {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
-    format!("fnv64:{hash:016x}")
+    hash
 }
 
 fn digest_algorithm(value: &str) -> &'static str {
@@ -41383,6 +41602,23 @@ mod tests {
         );
 
         fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn product_columnar_source_fingerprint_uses_metadata_without_full_body_read() {
+        let path = sql_local_source_test_path("parquet");
+        fs::write(&path, b"not a real parquet file; scout only").expect("write source");
+
+        let fingerprint = fingerprint_local_source_file_with_budget_report(&path, "Parquet", None)
+            .expect("fingerprint source");
+
+        assert_eq!(fingerprint.bytes, 35);
+        assert!(fingerprint.digest.starts_with("fnv64:"));
+        assert_eq!(fingerprint.byte_acquisition_millis, 0);
+        assert_eq!(fingerprint.full_body_millis, 0);
+
+        fs::remove_file(&path).expect("remove source");
     }
 
     #[test]

@@ -6813,6 +6813,7 @@ fn execute_vortex_local_primitive_enabled(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
 fn execute_vortex_local_partitioned_primitive_enabled(
     request: &VortexQueryPrimitiveRequest,
     source_uris: &[DatasetUri],
@@ -13368,7 +13369,7 @@ impl SimpleAggregateState {
         }
         for value in values.iter().take(rows) {
             let transformed_value = self.value_transform.apply(value)?;
-            self.update_transformed_value(transformed_value)?;
+            self.update_transformed_value(&transformed_value)?;
         }
         Ok(())
     }
@@ -13395,10 +13396,10 @@ impl SimpleAggregateState {
             )
         })?;
         let transformed_value = self.value_transform.apply(value)?;
-        self.update_transformed_value(transformed_value)
+        self.update_transformed_value(&transformed_value)
     }
 
-    fn update_transformed_value(&mut self, transformed_value: StatValue) -> Result<()> {
+    fn update_transformed_value(&mut self, transformed_value: &StatValue) -> Result<()> {
         if matches!(transformed_value, StatValue::Null) {
             return Ok(());
         }
@@ -13411,10 +13412,10 @@ impl SimpleAggregateState {
             SimpleAggregateFunction::Count => {}
             SimpleAggregateFunction::CountDistinct => {
                 self.distinct_values
-                    .insert(stat_value_group_key(&transformed_value));
+                    .insert(stat_value_group_key(transformed_value));
             }
             SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
-                let numeric = self.aggregate_numeric_value(&transformed_value)?;
+                let numeric = self.aggregate_numeric_value(transformed_value)?;
                 if !numeric.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate encountered non-finite numeric value; no fallback execution was attempted"
@@ -13426,13 +13427,13 @@ impl SimpleAggregateState {
             SimpleAggregateFunction::Min => {
                 self.min = Some(simple_aggregate_min_value(
                     self.min.take(),
-                    &transformed_value,
+                    transformed_value,
                 )?);
             }
             SimpleAggregateFunction::Max => {
                 self.max = Some(simple_aggregate_max_value(
                     self.max.take(),
-                    &transformed_value,
+                    transformed_value,
                 )?);
             }
         }

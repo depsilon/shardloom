@@ -65,7 +65,7 @@ REQUIRED_LOCAL_FILE_BENCHMARK_SCENARIO_IDS = {
 }
 
 REQUIRED_ROUTE_IDS = {
-    "local_file_direct_transient_route",
+    "local_file_internal_source_smoke_route",
     "local_file_cold_certified_route",
     "local_file_prepare_once_first_query",
     "local_file_prepare_once_batch",
@@ -83,7 +83,7 @@ REQUIRED_ROUTE_IDS = {
 }
 
 REQUIRED_LOCAL_BENCHMARK_ROUTE_IDS = {
-    "local_file_direct_transient_route",
+    "local_file_internal_source_smoke_route",
     "local_file_cold_certified_route",
     "local_file_prepare_once_first_query",
     "local_file_prepare_once_batch",
@@ -99,7 +99,7 @@ REQUIRED_LOCAL_BENCHMARK_ROUTE_IDS = {
 }
 
 REQUIRED_PUBLIC_FRONT_DOOR_ROUTE_IDS = {
-    "local_source_auto_prepare_vortex_front_door",
+    "local_source_vortex_middle_front_door",
     "generated_source_prepare_vortex_front_door",
 }
 
@@ -1185,7 +1185,7 @@ def validate_public_front_door_routes(
             )
 
         surface = str(row.get("public_user_surface") or "")
-        if front_door_id == "local_source_auto_prepare_vortex_front_door":
+        if front_door_id == "local_source_vortex_middle_front_door":
             if owning_route_id != "local_file_prepare_once_first_query":
                 blockers.append(
                     f"{front_door_id}: must own local_file_prepare_once_first_query"
@@ -1349,7 +1349,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         str(row["front_door_id"]): row for row in public_front_door_rows
     }
     local_auto_front_door = public_front_door_by_id.get(
-        "local_source_auto_prepare_vortex_front_door"
+        "local_source_vortex_middle_front_door"
     )
     generated_front_door = public_front_door_by_id.get(
         "generated_source_prepare_vortex_front_door"

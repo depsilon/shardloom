@@ -33,8 +33,8 @@ but it must not appear in one route and silently disappear from the other.
 | --- | --- | --- |
 | Access surface | How does the user express the work? | CLI, Python, SQL, future DataFrame/API. |
 | Source route | What kind of source is being admitted? | Local file, existing Vortex, generated source, object-store/table/platform source. |
-| Ingress route | How is the source admitted or prepared? | `vortex_ingest`, `certified_vortex_ingest`, `native_vortex_existing`, `generated_source`, `direct_transient`. |
-| Execution mode | What compute route executes? | `prepared_vortex`, `native_vortex`, `compatibility_import_certified`, `auto`; `direct_compatibility_transient` is internal smoke-only. |
+| Ingress route | How is the source admitted or prepared? | `vortex_ingest`, `certified_vortex_ingest`, `native_vortex_existing`, `generated_source`, internal local-source smoke. |
+| Execution mode | What compute route executes? | `prepared_vortex`, `native_vortex`, `compatibility_import_certified`; `internal_local_source_smoke` is internal smoke-only. |
 | Output route | Where does the result go? | Local JSONL/CSV/Parquet/Vortex, output fanout, future object-store/table/Foundry sinks. |
 | Evidence policy | How much proof is required? | `minimal_runtime`, `certified`, `full_replay`. |
 
@@ -46,7 +46,7 @@ but it must not appear in one route and silently disappear from the other.
 | Prepared Vortex route | `prepared_vortex` | Executes from `VortexPreparedState`; it does not read source files or rows directly. |
 | Certified import/stage route | `compatibility_import_certified` | Cold end-to-end certified route over `UniversalIngress` and `vortex_ingest`. |
 | Native Vortex route | `native_vortex` | Executes from existing Vortex input or admitted native Vortex state. |
-| Direct one-shot smoke route | `direct_compatibility_transient` | Internal lower-level smoke safeguard only; public local-file workflows block unless they prepare into Vortex or use native Vortex input. |
+| Internal local-source smoke route | `internal_local_source_smoke` | Internal lower-level safeguard only; public local-file workflows use `vortex_middle` policy and prepare into Vortex or use native Vortex input. |
 | Source-free generated route | generated-source route | Creates rows without source I/O and emits generated-source/output evidence. |
 | Output fanout route | output route | Reuses admitted source/prepared/result state for one or more sink artifacts. |
 
@@ -139,7 +139,7 @@ Benchmark pages and docs should compare routes, not front doors:
 | Certified cold route | `compatibility_import_certified` cold end-to-end ingest/stage/certification timing. |
 | Prepared warm route | `prepared_vortex` query/runtime timing after `VortexPreparedState` exists. |
 | Native Vortex route | `native_vortex` query/runtime timing from existing Vortex input. |
-| Direct one-shot smoke route | `direct_compatibility_transient` internal smoke timing only; not Vortex-native and not a public workflow route. |
+| Internal local-source smoke route | `internal_local_source_smoke` internal smoke timing only; not Vortex-native and not a public workflow route. |
 | Source-free generated route | generated rows plus output/evidence, no source read. |
 
 Prepared rows must warn when preparation is excluded from timing. They are not evidence that CSV,

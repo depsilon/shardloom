@@ -33,7 +33,7 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "none_local_csv_adapter_read_runtime_supported",
       "required_future_evidence": "native_vortex_derived_csv_export_contract,object_store_table_production_claim_evidence",
-      "claim_boundary": "Local CSV SourceState and vortex_ingest normalization for admitted flat schemas only; direct transient and decoded CSV output are internal smoke-only and not public workflow routes; no object-store/table or production claim.",
+      "claim_boundary": "Local CSV SourceState and vortex_ingest normalization for admitted flat schemas only; internal source smoke and decoded CSV output are internal smoke-only and not public workflow routes; no object-store/table or production claim.",
       "source_aliases": [
         "local_csv"
       ],
@@ -75,7 +75,7 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "none_local_jsonl_adapter_read_runtime_supported",
       "required_future_evidence": "native_vortex_derived_jsonl_export_contract,nested_json_jsonpath_object_store_table_production_evidence",
-      "claim_boundary": "Local flat JSONL/NDJSON SourceState and vortex_ingest normalization only; direct transient and decoded JSONL output are internal smoke-only and not public workflow routes; no nested JSON, JSONPath, object-store/table, or production claim.",
+      "claim_boundary": "Local flat JSONL/NDJSON SourceState and vortex_ingest normalization only; internal source smoke and decoded JSONL output are internal smoke-only and not public workflow routes; no nested JSON, JSONPath, object-store/table, or production claim.",
       "source_aliases": [
         "local_jsonl",
         "local_ndjson"

@@ -42,15 +42,15 @@ The canonical non-Vortex local compatibility route is:
 UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex
 ```
 
-The direct transient compatibility route boundary is internal smoke-only:
+The internal local-source smoke compatibility route boundary is internal smoke-only:
 
 ```text
-UniversalIngress -> SourceState -> direct_compatibility_transient
+UniversalIngress -> SourceState -> internal_local_source_smoke
 ```
 
-The direct transient path is not an admitted public workflow runtime route. Public local-file
+The internal local-source smoke path is not an admitted public workflow runtime route. Public local-file
 `auto` workflows must prepare into Vortex or run from native Vortex input; explicit `direct` public
-workflow requests fail closed. Direct transient rows remain only as lower-level smoke safeguards and
+workflow requests fail closed. Internal local-source smoke rows remain only as lower-level smoke safeguards and
 must report:
 
 ```text
@@ -92,11 +92,11 @@ The source-free generated route id in this scope is:
 | --- | --- | --- |
 | `generated_rows_local_output` | Generate local rows and write a local Vortex-preparable artifact. | `artifact_adjacent_manifest_local_vortex_artifacts` |
 
-The direct transient route id in this scope is:
+The internal local-source smoke route id in this scope is:
 
 | Route id | Route meaning | Required reuse scope |
 | --- | --- | --- |
-| `local_file_direct_transient_route` | Run a scoped local compatibility route without persistent `VortexPreparedState`. | `not_applicable_no_prepared_state` |
+| `local_file_internal_source_smoke_route` | Run a scoped local compatibility route without persistent `VortexPreparedState`. | `not_applicable_no_prepared_state` |
 
 ## Required Runtime Evidence Fields
 
@@ -167,7 +167,7 @@ Vortex-first provider check:
   materialization/decode boundary fields.
 - Residual handling: supported residuals are ShardLoom-native or not required; unsupported
   residuals are blocked with deterministic diagnostics.
-- Materialization/decode boundary: scoped local preparation, direct transient scalar runtime, or
+- Materialization/decode boundary: scoped local preparation, internal local-source smoke scalar runtime, or
   bounded result/publication evidence boundary only.
 - Evidence added: `scripts/check_v1_source_prepared_state_scope.py` validates route ids, fixture
   refs, invalidation cases, benchmark artifact required fields, docs linkage, and no-fallback

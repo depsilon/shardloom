@@ -24,6 +24,7 @@ const SUPPORT_STATE_VOCABULARY: &[&str] = &[
 ];
 const USER_SURFACE_GRADUATION_POSTURE_VOCABULARY: &[&str] = &[
     "high_level_context",
+    "public_runtime",
     "client_only",
     "diagnostic_only",
     "feature_gated",
@@ -758,6 +759,10 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
             user_surface_graduation_posture_count(&descriptors, "high_level_context").to_string(),
         ),
         (
+            "command_registry_public_runtime_count".to_string(),
+            user_surface_graduation_posture_count(&descriptors, "public_runtime").to_string(),
+        ),
+        (
             "command_registry_client_only_count".to_string(),
             user_surface_graduation_posture_count(&descriptors, "client_only").to_string(),
         ),
@@ -1124,6 +1129,9 @@ fn command_user_surface_graduation_posture(command: &str) -> &'static str {
     }
     if command == "local-source-runtime" {
         return "diagnostic_only";
+    }
+    if command == "vortex-prepare" {
+        return "public_runtime";
     }
     if is_high_level_context_command(command) {
         return "high_level_context";

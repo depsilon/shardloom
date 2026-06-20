@@ -27,7 +27,7 @@ use crate::{
     vortex_primitive_execution::local_encoded_count_correctness_fixture_for_target,
 };
 
-const TRADITIONAL_ANALYTICS_RUN_USAGE: &str = "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--preserve-all-text-columns-for-reuse] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]";
+const TRADITIONAL_ANALYTICS_RUN_USAGE: &str = "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--preserve-all-text-columns-for-reuse] [--execution-mode compatibility_import_certified] [--memory-gb <cap>] [--max-parallelism <cap>]";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativeVortexResultExportFormat {
@@ -309,16 +309,12 @@ pub(crate) fn handle_traditional_analytics_run(
             "--execution-mode" => {
                 let Some(value) = args.next() else {
                     eprintln!(
-                        "usage: shardloom traditional-analytics-run ... --execution-mode auto|compatibility_import_certified|direct_compatibility_transient"
+                        "usage: shardloom traditional-analytics-run ... --execution-mode compatibility_import_certified"
                     );
                     return ExitCode::from(2);
                 };
                 let parsed_mode = match ShardLoomExecutionMode::parse(&value) {
-                    Ok(
-                        mode @ (ShardLoomExecutionMode::Auto
-                        | ShardLoomExecutionMode::CompatibilityImportCertified
-                        | ShardLoomExecutionMode::DirectCompatibilityTransient),
-                    ) => mode,
+                    Ok(mode @ ShardLoomExecutionMode::CompatibilityImportCertified) => mode,
                     Ok(mode) => {
                         return emit_error(
                             "traditional-analytics-run",
@@ -423,10 +419,10 @@ pub(crate) fn handle_traditional_analytics_run(
             write_result_vortex,
         });
 
-    if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient
+    if requested_execution_mode == ShardLoomExecutionMode::InternalLocalSourceSmoke
         && let Some(reason) = direct_transient_unsupported
     {
-        return emit_direct_compatibility_transient_unsupported(
+        return emit_internal_local_source_smoke_unsupported(
             format,
             input_format,
             verify_native_vortex_replay,
@@ -453,7 +449,7 @@ pub(crate) fn handle_traditional_analytics_run(
             max_parallelism,
         ),
     );
-    if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient {
+    if requested_execution_mode == ShardLoomExecutionMode::InternalLocalSourceSmoke {
         let report =
             match shardloom_vortex::run_traditional_direct_transient_local_input_smoke(request) {
                 Ok(report) => report,
@@ -461,7 +457,7 @@ pub(crate) fn handle_traditional_analytics_run(
                     return emit_error(
                         "traditional-analytics-run",
                         format,
-                        "traditional analytics direct transient smoke failed",
+                        "traditional analytics internal local-source smoke failed",
                         &error,
                     );
                 }
@@ -533,22 +529,26 @@ fn direct_transient_unsupported_reason(
             | shardloom_vortex::TraditionalAnalyticsScenario::FilterProjectionLimit
     ) {
         return Some(
-            "direct transient smoke currently supports only selective filter or filter + projection + limit",
+            "internal local-source smoke smoke currently supports only selective filter or filter + projection + limit",
         );
     }
     if facts.cdc_delta_requested {
-        return Some("direct transient smoke does not support CDC delta input");
+        return Some("internal local-source smoke smoke does not support CDC delta input");
     }
     if facts.compatibility_output_requested {
-        return Some("direct transient smoke does not support compatibility output writers");
+        return Some(
+            "internal local-source smoke smoke does not support compatibility output writers",
+        );
     }
     if facts.verify_native_vortex_replay || facts.write_result_vortex {
-        return Some("direct transient smoke does not support Vortex replay or result-sink writes");
+        return Some(
+            "internal local-source smoke smoke does not support Vortex replay or result-sink writes",
+        );
     }
     None
 }
 
-fn emit_direct_compatibility_transient_unsupported(
+fn emit_internal_local_source_smoke_unsupported(
     format: OutputFormat,
     input_format: shardloom_vortex::TraditionalAnalyticsInputFormat,
     certification_requested: bool,
@@ -557,7 +557,7 @@ fn emit_direct_compatibility_transient_unsupported(
 ) -> ExitCode {
     let report = ShardLoomExecutionModeSelectionReport::from_request(
         ShardLoomExecutionModeSelectionRequest::new(
-            ShardLoomExecutionMode::DirectCompatibilityTransient,
+            ShardLoomExecutionMode::InternalLocalSourceSmoke,
         )
         .with_source_format(input_format.as_str())
         .with_workload_constitution("local_vortex_analytics_v1")
@@ -569,7 +569,7 @@ fn emit_direct_compatibility_transient_unsupported(
     fields.extend([
         (
             "admission_surface".to_string(),
-            "traditional_analytics_direct_transient".to_string(),
+            "traditional_analytics_internal_local_source_smoke".to_string(),
         ),
         (
             "unsupported_detail".to_string(),
@@ -588,14 +588,14 @@ fn emit_direct_compatibility_transient_unsupported(
         "traditional-analytics-run",
         format,
         CommandStatus::Unsupported,
-        "direct compatibility transient admission".to_string(),
+        "internal local-source smoke admission".to_string(),
         format!("{unsupported_detail}; no runtime execution was attempted"),
         vec![Diagnostic::unsupported(
             DiagnosticCode::NotImplemented,
-            "direct_compatibility_transient",
+            "internal_local_source_smoke",
             format!("{unsupported_detail}; no runtime execution was attempted"),
             Some(
-                "Use compatibility_import_certified for certified ingest/stage evidence, or restrict direct transient mode to admitted local-input selective-filter or filter + projection + limit smoke paths."
+                "Use compatibility_import_certified for certified ingest/stage evidence. Internal local-source smoke is not a public execution mode."
                     .to_string(),
             ),
         )],
@@ -638,7 +638,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
     extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let usage = format!(
-        "usage: shardloom {emit_command} <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--result-output <path>] [--result-output-format jsonl|csv] [--allow-overwrite] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+        "usage: shardloom {emit_command} <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--result-output <path>] [--result-output-format jsonl|csv] [--allow-overwrite] [--execution-mode native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
     );
     let Some(scenario_text) = args.next() else {
         eprintln!("{usage}");
@@ -734,8 +734,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
                 };
                 match ShardLoomExecutionMode::parse(&value) {
                     Ok(
-                        ShardLoomExecutionMode::Auto
-                        | ShardLoomExecutionMode::NativeVortex
+                        ShardLoomExecutionMode::NativeVortex
                         | ShardLoomExecutionMode::PreparedVortex,
                     ) => {
                         requested_execution_mode = ShardLoomExecutionMode::parse(&value)
@@ -961,7 +960,7 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
-    const USAGE: &str = "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--evidence-level minimal_runtime|certified|full_replay] [--evidence-tier runtime_minimal|metadata_sink|full_vortex_replay|publication_full] [--memory-gb <cap>] [--max-parallelism <cap>]";
+    const USAGE: &str = "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode native_vortex|prepared_vortex] [--evidence-level minimal_runtime|certified|full_replay] [--evidence-tier runtime_minimal|metadata_sink|full_vortex_replay|publication_full] [--memory-gb <cap>] [--max-parallelism <cap>]";
     let Some(scenario_list) = args.next() else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
@@ -1012,8 +1011,7 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
                 };
                 match ShardLoomExecutionMode::parse(&value) {
                     Ok(
-                        ShardLoomExecutionMode::Auto
-                        | ShardLoomExecutionMode::NativeVortex
+                        ShardLoomExecutionMode::NativeVortex
                         | ShardLoomExecutionMode::PreparedVortex,
                     ) => {
                         requested_execution_mode = ShardLoomExecutionMode::parse(&value)

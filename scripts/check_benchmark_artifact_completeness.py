@@ -298,7 +298,7 @@ PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS = (
     "not_timing_row_route_identity_only"
 )
 REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
-    "local_source_auto_prepare_vortex_front_door",
+    "local_source_vortex_middle_front_door",
     "generated_source_prepare_vortex_front_door",
 }
 FAST_PATH_REQUIRED_FIELDS = {
@@ -2051,7 +2051,7 @@ def validate_public_front_door_rows(
             blockers.append(f"{front_door_id}: missing public front-door publication source")
         if row.get("route_runtime_status") != "scoped_runtime_supported":
             blockers.append(f"{front_door_id}: route_runtime_status must be scoped_runtime_supported")
-        if front_door_id == "local_source_auto_prepare_vortex_front_door":
+        if front_door_id == "local_source_vortex_middle_front_door":
             if row.get("front_door_end_state") != "result_sink":
                 blockers.append(f"{front_door_id}: front door must end at result_sink")
             if row.get("includes_query") is not True:

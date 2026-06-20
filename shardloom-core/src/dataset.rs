@@ -111,7 +111,14 @@ impl DatasetUri {
     #[must_use]
     pub fn looks_like_vortex(&self) -> bool {
         let s = self.path_without_query_or_fragment();
-        s.ends_with(".vortex") || s.contains(".vortex/")
+        s.split('/').any(|segment| {
+            std::path::Path::new(segment)
+                .extension()
+                .is_some_and(|extension| {
+                    extension.eq_ignore_ascii_case("vortex")
+                        || extension.eq_ignore_ascii_case("vtx")
+                })
+        })
     }
 }
 
@@ -363,6 +370,7 @@ mod tests {
     #[test]
     fn dataset_uri_detects_vortex_extension() {
         assert!(DatasetUri::new("x.vortex").unwrap().looks_like_vortex());
+        assert!(DatasetUri::new("x.vtx").unwrap().looks_like_vortex());
     }
     #[test]
     fn dataset_uri_detects_vortex_directory() {

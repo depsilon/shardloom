@@ -105,7 +105,7 @@ fn rest_api_contract_plan_json_exposes_execution_mode_parity_report() {
 
     assert!(output.contains(&field(
         "execution_mode_vocabulary",
-        "auto,compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient"
+        "compatibility_import_certified,prepared_vortex,native_vortex"
     )));
     assert!(output.contains(&field(
         "execution_mode_selection_schema_version",

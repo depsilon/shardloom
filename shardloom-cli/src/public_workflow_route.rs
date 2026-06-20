@@ -1531,6 +1531,7 @@ fn native_vortex_manifest_input_binding(
         })?;
     let base_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
     let mut sources = Vec::with_capacity(array.len());
+    let mut seen_sources = BTreeSet::new();
     for value in array {
         let Some(path) = value.as_str() else {
             return Err(ShardLoomError::InvalidOperation(
@@ -1553,20 +1554,26 @@ fn native_vortex_manifest_input_binding(
         if !resolved
             .extension()
             .and_then(|value| value.to_str())
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("vortex"))
+            .is_some_and(|extension| {
+                extension.eq_ignore_ascii_case("vortex") || extension.eq_ignore_ascii_case("vtx")
+            })
         {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "native Vortex input manifest entry is not a .vortex file: {}; no fallback execution was attempted",
+                "native Vortex input manifest entry is not a .vortex or .vtx file: {}; no fallback execution was attempted",
                 resolved.display()
             )));
         }
-        sources.push(resolved.display().to_string());
+        let resolved = resolved.display().to_string();
+        if !seen_sources.insert(resolved.clone()) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "native Vortex input manifest contains duplicate entry: {resolved}; no fallback execution was attempted"
+            )));
+        }
+        sources.push(resolved);
     }
-    sources.sort();
-    sources.dedup();
     if sources.is_empty() {
         return Err(ShardLoomError::InvalidOperation(
-            "native Vortex input manifest contains no .vortex files; no fallback execution was attempted"
+            "native Vortex input manifest contains no .vortex or .vtx files; no fallback execution was attempted"
                 .to_string(),
         ));
     }
@@ -2772,7 +2779,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <vortex_middle|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
                     .to_string(),
             ));
         };
@@ -2796,7 +2803,7 @@ impl PublicWorkflowRouteRequest {
             plan_summary: None,
             requested_output: "collect".to_string(),
             output_ref: None,
-            execution_policy: "auto".to_string(),
+            execution_policy: "vortex_middle".to_string(),
             materialization_policy: "bounded".to_string(),
             evidence_level: "runtime_smoke".to_string(),
             bounded: false,
@@ -7763,7 +7770,10 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
             true,
             true,
         )
-    } else if matches!(request.execution_policy.as_str(), "auto" | "prepare_once") {
+    } else if matches!(
+        request.execution_policy.as_str(),
+        "vortex_middle" | "prepare_once"
+    ) {
         let prepared_run = match prepared_local_workflow_native_request(request) {
             Ok(prepared_run) => prepared_run,
             Err(blocked) => return *blocked,
@@ -10280,7 +10290,10 @@ fn normalize_requested_output(value: &str) -> Result<String, ShardLoomError> {
 fn normalize_execution_policy(value: &str) -> Result<String, ShardLoomError> {
     let normalized = value.trim().to_ascii_lowercase().replace('-', "_");
     match normalized.as_str() {
-        "auto" | "direct" | "native_vortex" | "prepare_once" => Ok(normalized),
+        "auto" | "vortex_middle" | "vortex_prepared" | "prepare_or_native" => {
+            Ok("vortex_middle".to_string())
+        }
+        "direct" | "native_vortex" | "prepare_once" => Ok(normalized),
         _ => Err(ShardLoomError::InvalidOperation(format!(
             "unsupported route execution policy: {value}"
         ))),

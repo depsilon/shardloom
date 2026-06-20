@@ -1774,12 +1774,12 @@ def main() -> int:
             )
         if (
             v1_source_prepared_state_scope.get(
-                "all_direct_transient_routes_are_labeled_non_persistent"
+                "all_internal_source_smoke_routes_are_labeled_non_persistent"
             )
             is not True
         ):
             v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state direct transient routes must be non-persistent"
+                "v1 SourceState/prepared-state internal source smoke routes must be non-persistent"
             )
         if len(v1_source_prepared_state_scope.get("supported_input_formats", [])) != 6:
             v1_source_prepared_blockers.append(

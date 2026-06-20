@@ -932,11 +932,11 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             ],
             fragments: &[
                 "\"artifact_kind\":\"compute_capability_matrix_report\"",
-                "direct_compatibility_transient",
+                "internal_local_source_smoke",
             ],
         },
         EnvelopeCase {
-            name: "traditional analytics direct transient admission unsupported",
+            name: "traditional analytics internal local-source smoke admission unsupported",
             args: &[
                 "traditional-analytics-run",
                 "hash join",
@@ -945,7 +945,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 "--input-format",
                 "csv",
                 "--execution-mode",
-                "direct_compatibility_transient",
+                "internal_local_source_smoke",
                 "--format",
                 "json",
             ],
@@ -955,14 +955,14 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             success: false,
             allow_stderr: false,
             fields: &[
-                ("requested_execution_mode", "direct_compatibility_transient"),
-                ("selected_execution_mode", "direct_compatibility_transient"),
+                ("requested_execution_mode", "internal_local_source_smoke"),
+                ("selected_execution_mode", "internal_local_source_smoke"),
                 ("execution_mode_family", "compatibility"),
                 ("mode_supported", "false"),
                 ("support_status", "unsupported"),
                 (
                     "unsupported_diagnostic_code",
-                    "direct_compatibility_transient_not_implemented",
+                    "internal_local_source_smoke_not_implemented",
                 ),
                 ("blocker_id", "P7.5.4"),
                 ("runtime_execution", "false"),
@@ -980,7 +980,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ("no_effects", "true"),
                 (
                     "unsupported_detail",
-                    "direct transient smoke currently supports only selective filter or filter + projection + limit",
+                    "internal local-source smoke smoke currently supports only selective filter or filter + projection + limit",
                 ),
             ],
             fragments: &[
@@ -1231,7 +1231,7 @@ fn traditional_analytics_direct_transient_csv_success_keeps_typed_envelope() {
             "--input-format",
             "csv",
             "--execution-mode",
-            "direct_compatibility_transient",
+            "internal_local_source_smoke",
             "--format",
             "json",
         ])
@@ -1240,7 +1240,7 @@ fn traditional_analytics_direct_transient_csv_success_keeps_typed_envelope() {
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     let stderr = String::from_utf8(output.stderr).expect("stderr is utf8");
     let case = EnvelopeCase {
-        name: "traditional analytics direct transient CSV success",
+        name: "traditional analytics internal local-source smoke CSV success",
         args: &[],
         command: "traditional-analytics-run",
         status: "success",
@@ -1259,8 +1259,8 @@ fn traditional_analytics_direct_transient_csv_success_keeps_typed_envelope() {
     assert!(stderr.is_empty(), "{}: stderr={stderr}", case.name);
     assert_common_typed_slots(&stdout, &case);
     for (key, value) in [
-        ("requested_execution_mode", "direct_compatibility_transient"),
-        ("selected_execution_mode", "direct_compatibility_transient"),
+        ("requested_execution_mode", "internal_local_source_smoke"),
+        ("selected_execution_mode", "internal_local_source_smoke"),
         ("execution_mode_family", "compatibility"),
         ("mode_supported", "true"),
         ("support_status", "supported"),
@@ -1321,7 +1321,7 @@ fn traditional_analytics_direct_transient_filter_projection_limit_keeps_typed_en
             "--input-format",
             "csv",
             "--execution-mode",
-            "direct_compatibility_transient",
+            "internal_local_source_smoke",
             "--format",
             "json",
         ])
@@ -1330,7 +1330,7 @@ fn traditional_analytics_direct_transient_filter_projection_limit_keeps_typed_en
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     let stderr = String::from_utf8(output.stderr).expect("stderr is utf8");
     let case = EnvelopeCase {
-        name: "traditional analytics direct transient filter projection limit success",
+        name: "traditional analytics internal local-source smoke filter projection limit success",
         args: &[],
         command: "traditional-analytics-run",
         status: "success",
@@ -1350,8 +1350,8 @@ fn traditional_analytics_direct_transient_filter_projection_limit_keeps_typed_en
     assert_common_typed_slots(&stdout, &case);
     for (key, value) in [
         ("scenario", "filter + projection + limit"),
-        ("requested_execution_mode", "direct_compatibility_transient"),
-        ("selected_execution_mode", "direct_compatibility_transient"),
+        ("requested_execution_mode", "internal_local_source_smoke"),
+        ("selected_execution_mode", "internal_local_source_smoke"),
         ("execution_mode_family", "compatibility"),
         ("mode_supported", "true"),
         ("support_status", "supported"),
@@ -1374,7 +1374,7 @@ fn traditional_analytics_direct_transient_filter_projection_limit_keeps_typed_en
         ),
         (
             "coverage_row_ref",
-            "coverage.direct_compatibility_transient.local_csv_filter_projection_limit",
+            "coverage.internal_local_source_smoke.local_csv_filter_projection_limit",
         ),
         ("native_io_certificate_status", "not_vortex_native"),
         ("write_io", "false"),

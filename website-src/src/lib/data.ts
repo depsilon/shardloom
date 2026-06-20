@@ -1,14 +1,6 @@
 import fieldGuide from "../data/field-guide.json";
-import benchmarkEvidence from "../data/benchmark-evidence.json";
-import benchmarkManifest from "../data/benchmark-manifest.json";
 
 export type FieldGuideTerm = (typeof fieldGuide)[number];
-type BenchmarkRow = Record<string, unknown> & {
-  engine?: unknown;
-  claim_gate_status?: unknown;
-  route_runtime_status?: unknown;
-  status?: unknown;
-};
 
 export const siteNav = [
   ["Home", "/", "home"],
@@ -21,8 +13,6 @@ export const siteNav = [
 ] as const;
 
 export const fieldGuideTerms = fieldGuide;
-export const benchmark = benchmarkEvidence;
-export const manifest = benchmarkManifest;
 
 const REFERENCE_PROOFS: Record<string, string> = {
   "README.md": "Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.",
@@ -89,43 +79,6 @@ export function formatList(values: unknown, fallback = "not reported"): string {
 
 export function referenceProof(reference: string): string {
   return REFERENCE_PROOFS[reference] ?? "This source anchors the page claim boundary, evidence fields, and support posture.";
-}
-
-export function routeMetrics() {
-  const rows: BenchmarkRow[] = Array.isArray((benchmark as any).rows) ? (benchmark as any).rows : [];
-  const batchRows: BenchmarkRow[] = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
-  const publishedRows: BenchmarkRow[] = Array.isArray((benchmark as any).published_benchmark_rows)
-    ? (benchmark as any).published_benchmark_rows
-    : [];
-  const allRows = [...rows, ...batchRows, ...publishedRows];
-  const routeRows = (publishedRows.length ? publishedRows : allRows).filter((row) =>
-    row && row.engine && String(row.engine).includes("shardloom"),
-  );
-  const claimGrade = routeRows.filter((row) => row.claim_gate_status === "claim_grade").length;
-  const fixtureSmoke = routeRows.filter((row) => row.claim_gate_status === "fixture_smoke_only").length;
-  const scopedRuntimeSupported = routeRows.filter((row) => row.route_runtime_status === "scoped_runtime_supported").length;
-  const shardloomUnsupported = routeRows.filter(
-    (row) => row.status === "unsupported" || row.route_runtime_status === "unsupported",
-  ).length;
-  const externalUnsupported = publishedRows.filter((row) => {
-    const engine = String(row.engine ?? "");
-    return !engine.includes("shardloom") && row.status === "unsupported";
-  }).length;
-  const sourceStateRows = allRows.filter((row) =>
-    Object.keys(row).some((key) => key.includes("source_state")),
-  ).length;
-  return {
-    routeRows: routeRows.length,
-    scopedRuntimeSupported,
-    shardloomUnsupported,
-    externalUnsupported,
-    claimGrade,
-    fixtureSmoke,
-    sourceStateRows,
-    expectedLanes: Array.isArray((manifest as any).expected_lanes) ? (manifest as any).expected_lanes.length : 0,
-    availableLanes: Array.isArray((manifest as any).available_lanes) ? (manifest as any).available_lanes.length : 0,
-    missingLanes: Array.isArray((manifest as any).missing_lanes) ? (manifest as any).missing_lanes.length : 0,
-  };
 }
 
 export function repoLink(reference: string): string {

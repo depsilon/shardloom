@@ -26,7 +26,7 @@ mirrored into `docs/architecture/phased-execution-plan.md` under the Global Arch
 carry-forward block. When implementation needs a smaller slice, split the mirrored item in the phase
 plan before coding.
 
-- Runtime and execution: SQL/DataFrame execution, direct transient runtime, broad expression/kernel
+- Runtime and execution: SQL/DataFrame execution, internal local-source smoke runtime, broad expression/kernel
   execution, generalized encoded filter/project execution, live/hybrid engines, distributed
   object-store runtime, adaptive/skew/runtime-filter execution, and real SIMD dispatch.
 - I/O, output, and tables: object-store reads/writes/commits, broad Vortex read/write support,
@@ -1735,11 +1735,11 @@ plan before coding.
 - [x] `compatibility_import_certified`, `prepared_vortex`, and `native_vortex` are represented in
   current report/benchmark/evidence surfaces.
 - [x] `auto` is constrained to transparent mode selection and must report selected mode plus reason.
-- [x] `direct_compatibility_transient` now has deterministic admission diagnostics across
+- [x] `internal_local_source_smoke` now has deterministic admission diagnostics across
   capability rows, CLI JSON envelopes, Python typed accessors, and benchmark coverage rows, plus
   scoped local CSV, JSONL/NDJSON, and feature-gated Parquet/Arrow IPC/Avro/ORC smoke paths for
   `selective filter` and `filter + projection + limit`; broader operators, result sinks, and
-  SQL/DataFrame direct transient runtime remain bounded by their specific evidence rows and are not
+  SQL/DataFrame internal local-source smoke runtime remain bounded by their specific evidence rows and are not
   Vortex-native, performance, production, or package-release claims.
 - [ ] Prepared/native Vortex rows now carry a typed operator blocker matrix, explicit
   `source_backed_scan_*` evidence, and scoped batch source-metadata reuse, but still rely on
@@ -1893,7 +1893,7 @@ plan before coding.
   generated-output fanout now add local runtime sink evidence outside the benchmark matrix. The
   remaining flow is broader VortexPreparedState/session reuse, persistent OutputPlan/cache
   promotion, broad metadata fidelity, object-store/table and real Foundry sink proof, and
-  claim-grade output/replay evidence while preserving distinct direct-transient,
+  claim-grade output/replay evidence while preserving distinct internal-source-smoke,
   compatibility-import-certified, prepared-vortex, and native-vortex lanes without adding
   persistent cache, object-store/lakehouse, performance, or fallback claims ahead of their owning
   evidence. Cold-lane attribution, Vortex-native preparation, differential preparation, capillary

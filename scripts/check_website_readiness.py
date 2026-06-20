@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import shutil
@@ -13,11 +12,6 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
-
-from check_runtime_execution_envelopes import validate_repo as validate_runtime_envelopes
-from check_runtime_promotion_evidence import validate_runtime_promotion_evidence
-from check_benchmark_optimization_targets import build_report as build_optimization_target_report
-
 
 ROOT = Path(__file__).resolve().parents[1]
 CLOUDFLARE_STATIC_ASSET_MAX_BYTES = 25 * 1024 * 1024
@@ -45,11 +39,9 @@ EXPECTED_ASSETS = [
     "assets/logo/shardloom-logo-trim.png",
     "assets/site.css",
     "assets/data/compute-engine-flow-reference.md",
-    "assets/data/benchmark-evidence.json",
-    "assets/benchmarks/latest/manifest.json",
-    "assets/benchmarks/latest/benchmark-results.json",
     "pagefind/pagefind-entry.json",
 ]
+CLICKBENCH_URL = "https://benchmark.clickhouse.com/"
 EXPECTED_REDIRECTS = [
     "/architecture",
     "/architecture.html",
@@ -99,91 +91,6 @@ STATUS_VOCABULARY = {
     "stale_or_dirty",
     "stale or dirty",
 }
-REQUIRED_BENCHMARK_ROUTE_CARDS = {
-    "cold_certified_route": "ShardLoom Cold Certified Route",
-    "prepare_once_first_query": "ShardLoom Prepare-Once First Query",
-    "prepare_once_batch": "ShardLoom Prepare-Once Batch",
-    "warm_prepared_query": "ShardLoom Warm Prepared Query",
-    "native_vortex_query": "ShardLoom Native Vortex Query",
-}
-REQUIRED_BENCHMARK_TIMING_SURFACE_STRINGS = {
-    "data-route-timing-surface-dashboard",
-    "hot_runtime",
-    "publication_proof",
-    "Hot route geomean",
-    "Publication-proof route geomean",
-    "timing_surface=hot_runtime",
-    "timing_surface=publication_proof",
-    "result-sink and evidence-render work",
-    "Hot runtime rows drive the primary ShardLoom route grid.",
-    "Cold-certified route totals include raw-source ingest",
-    "Scale",
-}
-REQUIRED_BENCHMARK_STAGE_STRINGS = {
-    "Stage attribution",
-    "Included hot runtime",
-    "Included publication proof",
-    "Diagnostic only",
-    "route timing instrument readiness",
-}
-REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS = {
-    "Optimization direction",
-    "Route-share attribution",
-    "Route-share attribution ranks measured stage cost",
-    "diagnostic_absent_or_retired",
-    "target_disappearance_policy=diagnostic_absent_or_retired_not_release_blocker",
-    "retired optimization targets",
-    "shardloom.traditional_analytics.route_share_amdahl.v1",
-}
-REQUIRED_BENCHMARK_RUNTIME_STRINGS = {
-    "Runtime support is separate from claim readiness.",
-    "ShardLoom unsupported rows",
-    "External baseline unsupported rows",
-    "runtime_supported",
-    "scoped_runtime_supported",
-    "claim_grade",
-    "not_claim_grade",
-    "external_baseline_only",
-}
-PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION = (
-    "shardloom.public_front_door_benchmark_rows.v1"
-)
-REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
-    "local_source_auto_prepare_vortex_front_door",
-    "generated_source_prepare_vortex_front_door",
-}
-REQUIRED_PUBLIC_FRONT_DOOR_HTML_TOKENS = {
-    "Public front doors",
-    "Route rows name the user-facing prepared paths.",
-    "ctx.prepare_vortex(&#39;fact.csv&#39;, dim=&#39;dim.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()",
-    "ctx.from_rows([{&#39;id&#39;: 1, &#39;label&#39;: &#39;alpha&#39;}]).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)",
-    "not_timing_row_route_identity_only",
-    "SourceState",
-    "GeneratedSourceState",
-    "VortexPreparedState",
-}
-REQUIRED_BENCHMARK_ARTIFACT_STRINGS = {
-    "Promoted artifact",
-    "The website results are current to the promoted artifact.",
-    "performance_claim_allowed",
-    "Benchmark constitution gate",
-    "Route timing instrument status",
-    "Benchmark data ownership",
-    "Static mirrors have one canonical artifact.",
-    "website-public/assets/benchmarks/latest/benchmark-results.json",
-    "mirror digest checks",
-    "Artifact lane availability",
-    "Expected lanes stay visible.",
-    "Format coverage rows",
-    "Prepared/native source-state coverage",
-    "source_state_coverage_all_requested_scenarios_classified",
-    "Front-door equivalence",
-    "SQL, Python, and DataFrame rows share the same local Vortex route.",
-    "local_equivalence_evidence_present_claim_gated",
-    "metadata_sink",
-    "claim_blocked",
-    "Raw timing tables",
-}
 CLAIM_PHRASES = [
     r"\bShardLoom is faster\b",
     r"\bShardLoom is better\b",
@@ -216,12 +123,7 @@ FORBIDDEN_RUNTIME_HOSTS = {"raw.githubusercontent.com"}
 FORBIDDEN_RUNTIME_SNIPPETS = {"docs/architecture/phased-execution-plan.md"}
 URL_RE = re.compile(r"https?://[^\s\"'<>)]+")
 STATUS_CHIP_RE = re.compile(r'<span class="status-chip[^"]*">([^<]+)</span>')
-ROUTE_CARD_ID_RE = re.compile(r'data-route-card-id="([^"]+)"')
-PUBLIC_FRONT_DOOR_ID_RE = re.compile(r'data-public-front-door-id="([^"]+)"')
 DUPLICATE_SUFFIX_RE = re.compile(r" \d+(?:\.[^.]+)?$")
-ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
-    "shardloom.website.benchmark_row_admission_manifest.v1"
-)
 
 
 class HtmlRefs(HTMLParser):
@@ -553,87 +455,18 @@ def validate_html_page(
     check_claim_phrases(html, relative, blockers)
 
 
-def check_benchmark_timing_surface_dashboard(website: Path, blockers: list[str]) -> None:
+def check_benchmark_clickbench_handoff(website: Path, blockers: list[str]) -> None:
     path = resolve_html_page(website / "benchmarks.html")
     if not path.exists():
-        blockers.append("missing benchmark page for timing-surface validation")
+        blockers.append("missing benchmark page for ClickBench handoff validation")
         return
     html = path.read_text(encoding="utf-8")
-    if "data-route-timing-surface-dashboard" not in html:
-        blockers.append("benchmark page missing route timing-surface dashboard")
-    card_ids = set(ROUTE_CARD_ID_RE.findall(html))
-    missing_cards = sorted(set(REQUIRED_BENCHMARK_ROUTE_CARDS) - card_ids)
-    if missing_cards:
-        blockers.append(
-            "benchmark page missing required hot-runtime route cards: "
-            + ", ".join(missing_cards)
-        )
-    for card_id, label in REQUIRED_BENCHMARK_ROUTE_CARDS.items():
-        if label not in html:
-            blockers.append(f"benchmark route label missing for {card_id}: {label}")
-    if "External Baseline End-to-End" not in html:
-        blockers.append("benchmark page missing external baseline lane context")
-    for required in sorted(REQUIRED_BENCHMARK_TIMING_SURFACE_STRINGS):
-        if required not in html:
-            blockers.append(f"benchmark page missing timing-surface string: {required}")
-    for required in sorted(REQUIRED_BENCHMARK_STAGE_STRINGS):
-        if required not in html:
-            blockers.append(f"benchmark page missing stage-attribution string: {required}")
-    for required in sorted(REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS):
-        if required not in html:
-            blockers.append(f"benchmark page missing route-share attribution string: {required}")
-    for required in sorted(REQUIRED_BENCHMARK_RUNTIME_STRINGS):
-        if required not in html:
-            blockers.append(f"benchmark page missing runtime/claim string: {required}")
-    for required in sorted(REQUIRED_BENCHMARK_ARTIFACT_STRINGS):
-        if required not in html:
-            blockers.append(f"benchmark page missing artifact/current-state string: {required}")
-    public_front_door_ids = set(PUBLIC_FRONT_DOOR_ID_RE.findall(html))
-    missing_public_front_doors = sorted(
-        REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS - public_front_door_ids
-    )
-    if missing_public_front_doors:
-        blockers.append(
-            "benchmark page missing public front-door rows: "
-            + ", ".join(missing_public_front_doors)
-        )
-    for token in sorted(REQUIRED_PUBLIC_FRONT_DOOR_HTML_TOKENS):
-        if token not in html:
-            blockers.append(f"benchmark page missing public front-door token: {token}")
-    route_dashboard_index = html.find("data-route-timing-surface-dashboard")
-    publication_index = html.find("Publication proof")
-    optimization_index = html.find("Optimization direction")
-    stage_index = html.find("Stage attribution")
-    route_share_index = html.find("Route-share attribution")
-    runtime_index = html.find("Runtime and claims")
-    front_door_index = html.find("Public front doors")
-    lane_index = html.find("Artifact lane availability")
-    source_state_index = html.find("Prepared/native source-state coverage")
-    raw_index = html.find("Raw timing tables")
-    ordered_sections = [
-        ("route timing dashboard", route_dashboard_index),
-        ("publication proof", publication_index),
-        ("optimization direction", optimization_index),
-        ("route-share attribution", route_share_index),
-        ("stage attribution", stage_index),
-        ("runtime and claims", runtime_index),
-        ("public front doors", front_door_index),
-        ("artifact lane availability", lane_index),
-        ("prepared/native source-state coverage", source_state_index),
-        ("raw timing tables", raw_index),
-    ]
-    missing_sections = [label for label, index in ordered_sections if index == -1]
-    if missing_sections:
-        blockers.append(
-            "benchmark page missing ordered section(s): " + ", ".join(missing_sections)
-        )
-    for (left_label, left_index), (right_label, right_index) in zip(
-        ordered_sections, ordered_sections[1:]
-    ):
-        if left_index != -1 and right_index != -1 and left_index > right_index:
-            blockers.append(
-                f"benchmark page must show {right_label} after {left_label}"
-            )
+    if CLICKBENCH_URL not in html:
+        blockers.append("benchmark page must link to the public ClickBench leaderboard")
+    if "Open ClickBench" not in html or "ClickBench" not in html:
+        blockers.append("benchmark page must present ClickBench as the public comparison surface")
+    if "data-route-timing-surface-dashboard" in html:
+        blockers.append("benchmark page must not render the retired internal dashboard")
 
 
 def check_field_guide_route_pair(website: Path, blockers: list[str]) -> None:
@@ -655,120 +488,6 @@ def check_field_guide_route_pair(website: Path, blockers: list[str]) -> None:
         blockers.append("field-guide.html must link to the canonical Field Guide route")
     if "starlight__sidebar" not in canonical_html and "Starlight v" not in canonical_html:
         blockers.append("field-guide/index.html must serve the Starlight Field Guide")
-
-
-def check_public_front_door_benchmark_payload(
-    payload: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    if payload.get("public_front_door_benchmark_schema_version") != (
-        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
-    ):
-        blockers.append("benchmark results missing public front-door schema")
-    rows = payload.get("public_front_door_benchmark_rows")
-    if not isinstance(rows, list):
-        blockers.append("benchmark results missing public_front_door_benchmark_rows")
-        rows = []
-    row_ids = {
-        str(row.get("front_door_id"))
-        for row in rows
-        if isinstance(row, dict) and row.get("front_door_id")
-    }
-    missing = sorted(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS - row_ids)
-    extra = sorted(row_ids - REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
-    if missing:
-        blockers.append(
-            "benchmark results missing public front-door rows: " + ", ".join(missing)
-        )
-    if extra:
-        blockers.append(
-            "benchmark results contain extra public front-door rows: " + ", ".join(extra)
-        )
-    if payload.get("public_front_door_benchmark_row_count") != len(rows):
-        blockers.append("benchmark results public front-door row count mismatch")
-    payload_ids = {
-        str(item)
-        for item in payload.get("public_front_door_benchmark_row_ids", [])
-        if isinstance(item, str)
-    }
-    if payload_ids != row_ids:
-        blockers.append("benchmark results public front-door row ids mismatch")
-
-    for row in rows:
-        if not isinstance(row, dict):
-            blockers.append("benchmark public front-door row is not an object")
-            continue
-        front_door_id = str(row.get("front_door_id") or "missing")
-        surface = str(row.get("public_user_surface") or "")
-        if row.get("route_runtime_status") != "scoped_runtime_supported":
-            blockers.append(f"{front_door_id}: public front-door runtime status drift")
-        if front_door_id == "local_source_auto_prepare_vortex_front_door":
-            if row.get("front_door_end_state") != "result_sink":
-                blockers.append(f"{front_door_id}: public front-door end-state drift")
-            if row.get("includes_query") is not True:
-                blockers.append(f"{front_door_id}: public front-door query-inclusion drift")
-            if ".query" not in surface or ".collect" not in surface:
-                blockers.append(f"{front_door_id}: public front-door surface missing query collect")
-        else:
-            if row.get("front_door_end_state") != "VortexPreparedState":
-                blockers.append(f"{front_door_id}: public front-door end-state drift")
-            if row.get("includes_query") is not False:
-                blockers.append(f"{front_door_id}: public front-door query-inclusion drift")
-        if row.get("benchmark_timing_status") != "not_timing_row_route_identity_only":
-            blockers.append(f"{front_door_id}: public front-door timing status drift")
-        if row.get("benchmark_timing_row") is not False:
-            blockers.append(f"{front_door_id}: public front-door row must not be timing")
-        if row.get("fallback_attempted") is not False:
-            blockers.append(f"{front_door_id}: public front-door fallback drift")
-        if row.get("external_engine_invoked") is not False:
-            blockers.append(f"{front_door_id}: public front-door external-engine drift")
-        has_prepare_call = ".prepare_vortex" in surface or "ctx.prepare_vortex" in surface
-        if not has_prepare_call or "workspace=" not in surface:
-            blockers.append(f"{front_door_id}: public front-door surface missing workspace prepare")
-
-
-def check_public_front_door_benchmark_manifest(
-    manifest: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    if manifest.get("public_front_door_benchmark_schema_version") != (
-        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
-    ):
-        blockers.append("benchmark manifest missing public front-door schema")
-    manifest_ids = {
-        str(item)
-        for item in manifest.get("public_front_door_benchmark_row_ids", [])
-        if isinstance(item, str)
-    }
-    if manifest_ids != REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS:
-        blockers.append("benchmark manifest public front-door row ids mismatch")
-    if manifest.get("public_front_door_benchmark_row_count") != len(
-        REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS
-    ):
-        blockers.append("benchmark manifest public front-door row count mismatch")
-
-
-def check_row_admission_payload(payload: dict[str, Any], blockers: list[str]) -> None:
-    admission = payload.get("published_benchmark_row_admission")
-    if admission is None:
-        return
-    if not isinstance(admission, dict):
-        blockers.append("benchmark row admission payload must be an object")
-        return
-    if admission.get("schema_version") != ROW_ADMISSION_MANIFEST_SCHEMA_VERSION:
-        blockers.append("benchmark row admission payload schema mismatch")
-    if admission.get("fallback_attempted") is not False:
-        blockers.append("benchmark row admission payload fallback_attempted must be false")
-    if admission.get("external_engine_invoked") is not False:
-        blockers.append(
-            "benchmark row admission payload external_engine_invoked must be false"
-        )
-    chunks = payload.get("published_benchmark_row_chunks")
-    if isinstance(chunks, list) and admission.get("chunk_count") != len(chunks):
-        blockers.append("benchmark row admission payload chunk_count mismatch")
-    row_count = payload.get("published_benchmark_row_count")
-    if isinstance(row_count, int) and admission.get("row_count") != row_count:
-        blockers.append("benchmark row admission payload row_count mismatch")
 
 
 def main() -> int:
@@ -799,9 +518,6 @@ def main() -> int:
                 relative_override=page,
             )
 
-    for blocker in validate_runtime_promotion_evidence(repo_root=repo_root):
-        blockers.append(f"runtime promotion evidence: {blocker}")
-
     for page in website.rglob("*.html"):
         if not page.is_file() or page.name == "validate_static_assets.js":
             continue
@@ -816,7 +532,7 @@ def main() -> int:
         repo_root,
         blockers,
     )
-    check_benchmark_timing_surface_dashboard(website, blockers)
+    check_benchmark_clickbench_handoff(website, blockers)
     check_field_guide_route_pair(website, blockers)
 
     for removed in REMOVED_WEBSITE_SURFACES:
@@ -839,105 +555,6 @@ def main() -> int:
         repo_root=repo_root,
         blockers=blockers,
     )
-
-    canonical_benchmark_results = (
-        repo_root / "website-public/assets/benchmarks/latest/benchmark-results.json"
-    )
-    canonical_benchmark_manifest = (
-        repo_root / "website-public/assets/benchmarks/latest/manifest.json"
-    )
-    canonical_benchmark_data = repo_root / "website-public/assets/data/benchmark-evidence.json"
-    for mirror in (
-        website / "assets/benchmarks/latest/benchmark-results.json",
-        website / "assets/data/benchmark-evidence.json",
-        repo_root / "website-src/src/data/benchmark-evidence.json",
-    ):
-        check_mirrored_file(
-            source=canonical_benchmark_results,
-            mirror=mirror,
-            label="benchmark evidence bundle",
-            repo_root=repo_root,
-            blockers=blockers,
-        )
-    if canonical_benchmark_results.exists():
-        benchmark_payload = json.loads(canonical_benchmark_results.read_text(encoding="utf-8"))
-        optimization_report = build_optimization_target_report(canonical_benchmark_results)
-        if optimization_report.get("status") != "passed":
-            blockers.append("benchmark optimization target report must pass")
-        if optimization_report.get("release_blocking_target_count") != 0:
-            blockers.append("benchmark optimization targets must not emit release-blocking targets")
-        if (
-            optimization_report.get("target_disappearance_policy")
-            != "diagnostic_absent_or_retired_not_release_blocker"
-        ):
-            blockers.append("benchmark optimization target disappearance policy drifted")
-        check_public_front_door_benchmark_payload(benchmark_payload, blockers)
-        check_row_admission_payload(benchmark_payload, blockers)
-        if benchmark_payload.get("published_benchmark_rows_inlined") != "summary_only":
-            blockers.append("benchmark results must inline only summary rows for deployable asset safety")
-        chunks = benchmark_payload.get("published_benchmark_row_chunks")
-        if not isinstance(chunks, list) or not chunks:
-            blockers.append("benchmark results missing published_benchmark_row_chunks")
-        else:
-            for chunk in chunks:
-                if not isinstance(chunk, dict) or not chunk.get("path"):
-                    blockers.append("benchmark row chunk entry missing path")
-                    continue
-                chunk_path = repo_root / str(chunk["path"])
-                if not chunk_path.exists():
-                    blockers.append(f"missing benchmark row chunk: {rel(chunk_path, repo_root)}")
-                elif chunk_path.stat().st_size > CLOUDFLARE_STATIC_ASSET_MAX_BYTES:
-                    blockers.append(
-                        "benchmark row chunk exceeds Cloudflare asset limit: "
-                        f"{rel(chunk_path, repo_root)}"
-                    )
-                elif chunk.get("sha256"):
-                    digest = hashlib.sha256(chunk_path.read_bytes()).hexdigest()
-                    if digest != chunk.get("sha256"):
-                        blockers.append(
-                            "benchmark row chunk sha256 mismatch: "
-                            f"{rel(chunk_path, repo_root)}"
-                        )
-    check_mirrored_file(
-        source=canonical_benchmark_results,
-        mirror=canonical_benchmark_data,
-        label="benchmark public-dir data snapshot",
-        repo_root=repo_root,
-        blockers=blockers,
-    )
-    for mirror in (
-        website / "assets/benchmarks/latest/manifest.json",
-        repo_root / "website-src/src/data/benchmark-manifest.json",
-    ):
-        check_mirrored_file(
-            source=canonical_benchmark_manifest,
-            mirror=mirror,
-            label="benchmark manifest bundle",
-            repo_root=repo_root,
-            blockers=blockers,
-        )
-
-    manifest_path = website / "assets/benchmarks/latest/manifest.json"
-    if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if manifest.get("performance_claim_allowed") is not False:
-            blockers.append("benchmark manifest must keep performance_claim_allowed=false")
-        check_public_front_door_benchmark_manifest(manifest, blockers)
-        for field in ("expected_lanes", "available_lanes", "missing_lanes"):
-            if not isinstance(manifest.get(field), list):
-                blockers.append(f"benchmark manifest missing list field: {field}")
-        runtime_validation = manifest.get("runtime_envelope_validation")
-        if not isinstance(runtime_validation, dict):
-            blockers.append("benchmark manifest missing runtime_envelope_validation")
-        elif runtime_validation.get("status") != "passed":
-            blockers.append("benchmark manifest runtime envelope validation must pass")
-    else:
-        blockers.append("missing benchmark manifest")
-
-    runtime_envelope_report = validate_runtime_envelopes(repo_root)
-    if runtime_envelope_report.get("status") != "passed":
-        for blocker in runtime_envelope_report.get("blockers", []):
-            blockers.append(f"runtime execution envelope: {blocker}")
 
     redirects_path = website / "_redirects"
     if redirects_path.exists():
@@ -988,19 +605,8 @@ def main() -> int:
         "checked_assets": EXPECTED_ASSETS,
         "checked_nav_paths": sorted(EXPECTED_NAV_PATHS),
         "status_vocabulary": sorted(STATUS_VOCABULARY),
-        "benchmark_hot_runtime_route_cards_checked": sorted(REQUIRED_BENCHMARK_ROUTE_CARDS),
-        "benchmark_timing_surface_strings_checked": sorted(
-            REQUIRED_BENCHMARK_TIMING_SURFACE_STRINGS
-        ),
-        "benchmark_stage_strings_checked": sorted(REQUIRED_BENCHMARK_STAGE_STRINGS),
-        "benchmark_route_share_strings_checked": sorted(
-            REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS
-        ),
-        "benchmark_runtime_strings_checked": sorted(REQUIRED_BENCHMARK_RUNTIME_STRINGS),
-        "benchmark_artifact_strings_checked": sorted(REQUIRED_BENCHMARK_ARTIFACT_STRINGS),
-        "public_front_door_benchmark_ids_checked": sorted(
-            REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS
-        ),
+        "benchmark_public_surface": "clickbench_handoff",
+        "benchmark_public_url_checked": CLICKBENCH_URL,
         "duplicate_suffixed_generated_artifacts_removed": sorted(
             set(duplicate_cleanup_paths)
         ),

@@ -34,7 +34,7 @@ object-store, platform, or Foundry workload until those exact paths have claim-g
 - Foundry dataset source/sink execution
 - external platform execution through Spark, Snowflake, Databricks, BigQuery, Trino, Ray, Dask, or
   Velox
-- direct transient compatibility execution as a Vortex-native claim
+- internal local-source smoke compatibility execution as a Vortex-native claim
 - native Vortex operator coverage beyond the documented supported scenarios
 - layout/write, device/GPU, object-store I/O, and managed-platform comparison claims unless
   `vortex_layout_device_managed_boundary_ref` has claim-grade execution, Native I/O, benchmark, and

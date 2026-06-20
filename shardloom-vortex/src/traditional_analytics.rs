@@ -764,12 +764,12 @@ impl TraditionalAnalyticsInputFormat {
     #[must_use]
     pub const fn direct_transient_provider_surface(self) -> &'static str {
         match self {
-            Self::Csv => "direct_compatibility_transient_csv_smoke",
-            Self::JsonLines => "direct_compatibility_transient_jsonl_smoke",
-            Self::Parquet => "direct_compatibility_transient_parquet_smoke",
-            Self::ArrowIpc => "direct_compatibility_transient_arrow_ipc_smoke",
-            Self::Avro => "direct_compatibility_transient_avro_smoke",
-            Self::Orc => "direct_compatibility_transient_orc_smoke",
+            Self::Csv => "internal_local_source_smoke_csv_smoke",
+            Self::JsonLines => "internal_local_source_smoke_jsonl_smoke",
+            Self::Parquet => "internal_local_source_smoke_parquet_smoke",
+            Self::ArrowIpc => "internal_local_source_smoke_arrow_ipc_smoke",
+            Self::Avro => "internal_local_source_smoke_avro_smoke",
+            Self::Orc => "internal_local_source_smoke_orc_smoke",
         }
     }
 
@@ -5590,21 +5590,22 @@ impl TraditionalDirectTransientReport {
                 "local_input_adapter_registry_version".to_string(),
                 "shardloom.local_input_adapter_registry.v1".to_string(),
             ),
-            (
-                "source_format_inferred".to_string(),
-                "true".to_string(),
-            ),
+            ("source_format_inferred".to_string(), "true".to_string()),
             (
                 "source_format_inference_kind".to_string(),
                 "path_extension_or_explicit_input_format".to_string(),
             ),
             (
                 "source_adapter_registry_entry_id".to_string(),
-                self.input_format.local_adapter_registry_entry_id().to_string(),
+                self.input_format
+                    .local_adapter_registry_entry_id()
+                    .to_string(),
             ),
             (
                 "source_adapter_admitted_extensions".to_string(),
-                self.input_format.local_adapter_admitted_extensions().to_string(),
+                self.input_format
+                    .local_adapter_admitted_extensions()
+                    .to_string(),
             ),
             (
                 "source_adapter_feature_gate".to_string(),
@@ -5676,7 +5677,7 @@ impl TraditionalDirectTransientReport {
             (
                 "coverage_row_ref".to_string(),
                 format!(
-                    "coverage.direct_compatibility_transient.local_{input_format_slug}_{scenario_slug}"
+                    "coverage.internal_local_source_smoke.local_{input_format_slug}_{scenario_slug}"
                 ),
             ),
             (
@@ -6254,7 +6255,7 @@ impl TraditionalDirectTransientReport {
         ));
         fields.extend(evidence_render_proof_fields(
             self.scenario,
-            "direct_compatibility_transient",
+            "internal_local_source_smoke",
             self.runtime_execution_certificate.status.as_str(),
             "not_vortex_native",
             "not_requested",
@@ -6274,7 +6275,7 @@ impl TraditionalAnalyticsReport {
             "compatibility_import_certified" => "cold_certified_route",
             "prepared_vortex" => "warm_prepared_query",
             "native_vortex" => "native_vortex_query",
-            "direct_compatibility_transient" => "direct_transient_route",
+            "internal_local_source_smoke" => "direct_transient_route",
             _ => "unknown_route_lane",
         }
     }
@@ -6290,7 +6291,7 @@ impl TraditionalAnalyticsReport {
             }
             "prepared_vortex" => "vortex_prepared_state_to_prepared_query",
             "native_vortex" => "existing_vortex_input_to_native_query",
-            "direct_compatibility_transient" => "raw_compatibility_direct_transient",
+            "internal_local_source_smoke" => "raw_compatibility_direct_transient",
             _ => "unknown_route_family",
         }
     }
@@ -6301,9 +6302,7 @@ impl TraditionalAnalyticsReport {
             .selected_execution_mode
             .as_str()
         {
-            "compatibility_import_certified" | "direct_compatibility_transient" => {
-                "raw_compat_source"
-            }
+            "compatibility_import_certified" | "internal_local_source_smoke" => "raw_compat_source",
             "prepared_vortex" => "VortexPreparedState",
             "native_vortex" => "Vortex",
             _ => "unknown",
@@ -6344,7 +6343,7 @@ impl TraditionalAnalyticsReport {
             .execution_mode_selection
             .selected_execution_mode
             .as_str()
-            == "direct_compatibility_transient"
+            == "internal_local_source_smoke"
         {
             return "not_applicable_direct_transient_no_vortex_array_build";
         }
@@ -22183,8 +22182,8 @@ const fn prepared_vortex_local_scale_route(mode: ShardLoomExecutionMode) -> &'st
         ShardLoomExecutionMode::CompatibilityImportCertified => {
             "compatibility_import_certified_to_prepared_vortex_batch"
         }
-        ShardLoomExecutionMode::DirectCompatibilityTransient => {
-            "direct_compatibility_transient_to_vortex_batch"
+        ShardLoomExecutionMode::InternalLocalSourceSmoke => {
+            "internal_local_source_smoke_to_vortex_batch"
         }
     }
 }
@@ -23623,9 +23622,9 @@ impl TraditionalStreamingScanStats {
 fn run_traditional_direct_transient_local_input_smoke_enabled(
     request: TraditionalAnalyticsRequest,
 ) -> Result<TraditionalDirectTransientReport> {
-    if request.requested_execution_mode != ShardLoomExecutionMode::DirectCompatibilityTransient {
+    if request.requested_execution_mode != ShardLoomExecutionMode::InternalLocalSourceSmoke {
         return Err(ShardLoomError::InvalidOperation(
-            "direct transient local-input smoke requires --execution-mode direct_compatibility_transient; fallback execution was not attempted".to_string(),
+            "direct transient local-input smoke requires --execution-mode internal_local_source_smoke; fallback execution was not attempted".to_string(),
         ));
     }
     if !matches!(
@@ -23662,7 +23661,7 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
         .resolve_for_sources(source_bytes_read);
     let execution_mode_selection = ShardLoomExecutionModeSelectionReport::from_request(
         ShardLoomExecutionModeSelectionRequest::new(
-            ShardLoomExecutionMode::DirectCompatibilityTransient,
+            ShardLoomExecutionMode::InternalLocalSourceSmoke,
         )
         .with_source_format(request.input_format.as_str())
         .with_workload_constitution(LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID)
@@ -23848,11 +23847,10 @@ fn direct_transient_execution_certificate(
     };
     let mut certificate_input = ExecutionCertificateInput::new(
         &certificate_id,
-        "direct_compatibility_transient_local_input_smoke",
+        "internal_local_source_smoke_local_input_smoke",
     )?;
     certificate_input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
-    certificate_input.provider_scope =
-        format!("direct_compatibility_transient_local_{format_slug}");
+    certificate_input.provider_scope = format!("internal_local_source_smoke_local_{format_slug}");
     certificate_input.provider_crate = Some("shardloom-vortex".to_string());
     certificate_input.provider_version = Some(env!("CARGO_PKG_VERSION").to_string());
     certificate_input.provider_api_surface =
@@ -39958,7 +39956,7 @@ mod tests {
                 PathBuf::from("dim.csv"),
                 PathBuf::from("ws"),
             )
-            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+            .with_requested_execution_mode(ShardLoomExecutionMode::InternalLocalSourceSmoke),
         )
         .expect_err("default build should require feature gate");
         assert!(
@@ -48394,7 +48392,7 @@ mod tests {
                 workspace.clone(),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
-            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+            .with_requested_execution_mode(ShardLoomExecutionMode::InternalLocalSourceSmoke),
         )
         .unwrap();
 
@@ -48406,7 +48404,7 @@ mod tests {
         assert!(!workspace.exists());
         assert_eq!(
             report.execution_mode_selection.selected_execution_mode,
-            ShardLoomExecutionMode::DirectCompatibilityTransient
+            ShardLoomExecutionMode::InternalLocalSourceSmoke
         );
         assert!(report.execution_mode_selection.mode_supported);
         assert_eq!(report.execution_mode_selection.support_status, "supported");
@@ -48429,7 +48427,7 @@ mod tests {
         let fields = field_map(report.fields());
         assert_eq!(
             fields.get("selected_execution_mode").map(String::as_str),
-            Some("direct_compatibility_transient")
+            Some("internal_local_source_smoke")
         );
         assert_eq!(
             fields.get("support_status").map(String::as_str),
@@ -48623,7 +48621,7 @@ mod tests {
                 workspace.clone(),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
-            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+            .with_requested_execution_mode(ShardLoomExecutionMode::InternalLocalSourceSmoke),
         )
         .unwrap();
 
@@ -48638,7 +48636,7 @@ mod tests {
         assert!(!workspace.exists());
         assert_eq!(
             report.execution_mode_selection.selected_execution_mode,
-            ShardLoomExecutionMode::DirectCompatibilityTransient
+            ShardLoomExecutionMode::InternalLocalSourceSmoke
         );
         assert!(report.execution_mode_selection.mode_supported);
         assert_eq!(report.execution_mode_selection.support_status, "supported");
@@ -48663,7 +48661,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "selected_execution_mode",
-            "direct_compatibility_transient",
+            "internal_local_source_smoke",
         );
         assert_field_eq(&fields, "support_status", "supported");
         assert_field_eq(&fields, "direct_transient_execution", "true");
@@ -48691,7 +48689,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "coverage_row_ref",
-            "coverage.direct_compatibility_transient.local_csv_filter_projection_limit",
+            "coverage.internal_local_source_smoke.local_csv_filter_projection_limit",
         );
         assert_field_eq(&fields, "write_io", "false");
         assert_field_eq(&fields, "native_io_certificate_status", "not_vortex_native");
@@ -48717,7 +48715,7 @@ mod tests {
                 workspace.clone(),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::JsonLines)
-            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+            .with_requested_execution_mode(ShardLoomExecutionMode::InternalLocalSourceSmoke),
         )
         .unwrap();
 
@@ -48729,7 +48727,7 @@ mod tests {
         assert!(!workspace.exists());
         assert_eq!(
             report.execution_mode_selection.selected_execution_mode,
-            ShardLoomExecutionMode::DirectCompatibilityTransient
+            ShardLoomExecutionMode::InternalLocalSourceSmoke
         );
         assert!(report.execution_mode_selection.direct_transient_execution);
         assert!(!report.execution_mode_selection.vortex_native_claim_allowed);
@@ -48806,7 +48804,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "coverage_row_ref",
-            "coverage.direct_compatibility_transient.local_jsonl_selective_filter",
+            "coverage.internal_local_source_smoke.local_jsonl_selective_filter",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -48831,7 +48829,7 @@ mod tests {
                 workspace.clone(),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Parquet)
-            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+            .with_requested_execution_mode(ShardLoomExecutionMode::InternalLocalSourceSmoke),
         )
         .unwrap();
 
@@ -48846,7 +48844,7 @@ mod tests {
         assert!(!workspace.exists());
         assert_eq!(
             report.execution_mode_selection.selected_execution_mode,
-            ShardLoomExecutionMode::DirectCompatibilityTransient
+            ShardLoomExecutionMode::InternalLocalSourceSmoke
         );
         assert!(report.execution_mode_selection.direct_transient_execution);
         assert!(!report.execution_mode_selection.vortex_native_claim_allowed);
@@ -48952,7 +48950,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "coverage_row_ref",
-            "coverage.direct_compatibility_transient.local_parquet_filter_projection_limit",
+            "coverage.internal_local_source_smoke.local_parquet_filter_projection_limit",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -48986,9 +48984,7 @@ mod tests {
                     workspace.clone(),
                 )
                 .with_input_format(input_format)
-                .with_requested_execution_mode(
-                    ShardLoomExecutionMode::DirectCompatibilityTransient,
-                ),
+                .with_requested_execution_mode(ShardLoomExecutionMode::InternalLocalSourceSmoke),
             )
             .unwrap();
 
@@ -49000,7 +48996,7 @@ mod tests {
             assert!(!workspace.exists());
             assert_eq!(
                 report.execution_mode_selection.selected_execution_mode,
-                ShardLoomExecutionMode::DirectCompatibilityTransient
+                ShardLoomExecutionMode::InternalLocalSourceSmoke
             );
             assert!(report.execution_mode_selection.direct_transient_execution);
             assert!(!report.execution_mode_selection.vortex_native_claim_allowed);
@@ -49144,7 +49140,7 @@ mod tests {
                 &fields,
                 "coverage_row_ref",
                 &format!(
-                    "coverage.direct_compatibility_transient.local_{format_slug}_{scenario_slug}"
+                    "coverage.internal_local_source_smoke.local_{format_slug}_{scenario_slug}"
                 ),
             );
             assert_field_eq(&fields, "fallback_attempted", "false");
@@ -49168,7 +49164,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
-            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+            .with_requested_execution_mode(ShardLoomExecutionMode::InternalLocalSourceSmoke),
         )
         .expect_err("hash join is outside the direct transient smoke contract");
 

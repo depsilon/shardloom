@@ -16,7 +16,7 @@ ShardLoom v1 local resource safety is intentionally narrow and evidence-backed:
 - reservation release and cleanup after the denial fixture.
 - side-effect-free retry gate planning.
 - side-effect-free cancellation gate planning with cleanup-completed evidence.
-- prepared-state reuse boundaries that avoid hidden global caches and label direct transient routes
+- prepared-state reuse boundaries that avoid hidden global caches and label internal source smoke routes
   as non-persistent.
 - local output/sink scope evidence that reports write policy, replay, and partial-write cleanup
   boundaries.

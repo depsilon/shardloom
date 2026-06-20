@@ -342,10 +342,10 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
         script.contains("f\"direct_transient_local_{shardloom_source_format(data_format)}_smoke\"")
     );
     assert!(script.contains("\"direct_transient_no_vortex_scan\""));
-    assert!(script.contains("\"direct_compatibility_transient\""));
-    assert!(script.contains("\"direct_compatibility_transient_not_implemented\""));
+    assert!(script.contains("\"internal_local_source_smoke\""));
+    assert!(script.contains("\"internal_local_source_smoke_not_implemented\""));
     assert!(script.contains(
-        "direct transient smoke currently supports only selective filter or filter + projection + limit"
+        "internal local-source smoke smoke currently supports only selective filter or filter + projection + limit"
     ));
     assert!(script.contains("def support_status("));
     assert!(script.contains("def materialization_decode_evidence_present("));
@@ -1312,7 +1312,7 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "compatibility_import_certified",
         "prepared_vortex",
         "native_vortex",
-        "direct_compatibility_transient",
+        "internal_local_source_smoke",
         "auto",
         "SELECTED --> DIRECT",
         "SELECTED --> COMPAT",
@@ -1426,7 +1426,7 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         "G3 - Typed envelopes still carry most execution-mode evidence as flat fields",
         "G4 - Capability discovery is not execution-mode aware",
         "G5 - Native Vortex query rows still rely on temporary materialized operators",
-        "G6 - Direct transient compatibility mode is parse-level only",
+        "G6 - Internal local-source smoke compatibility mode is parse-level only",
         "G7 - Prepared/native result-sink replay proof is incomplete",
         "G8 - Stage timing attribution is useful but still partially inferred",
         "G9 - Python and future REST surfaces do not yet select modes",

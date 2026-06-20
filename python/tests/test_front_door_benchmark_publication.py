@@ -105,7 +105,7 @@ class FrontDoorBenchmarkPublicationTests(unittest.TestCase):
                 "schema_version": "shardloom.public_front_door_benchmark_rows.v1",
                 "row_count": 2,
                 "front_door_ids": [
-                    "local_source_auto_prepare_vortex_front_door",
+                    "local_source_vortex_middle_front_door",
                     "generated_source_prepare_vortex_front_door",
                 ],
                 "missing_front_door_ids": [],

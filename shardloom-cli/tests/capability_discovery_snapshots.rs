@@ -223,7 +223,7 @@ const WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS: [&str; 17] = [
     "wrapper_connector_registry_claim_gate_status",
 ];
 
-const COMMAND_REGISTRY_FIELD_KEYS: [&str; 31] = [
+const COMMAND_REGISTRY_FIELD_KEYS: [&str; 32] = [
     "command_registry_schema_version",
     "command_registry_report_id",
     "command_registry_docs_ref",
@@ -243,6 +243,7 @@ const COMMAND_REGISTRY_FIELD_KEYS: [&str; 31] = [
     "command_registry_blocked_count",
     "command_registry_future_count",
     "command_registry_high_level_context_count",
+    "command_registry_public_runtime_count",
     "command_registry_client_only_count",
     "command_registry_diagnostic_graduation_count",
     "command_registry_feature_gated_graduation_count",
@@ -3128,7 +3129,7 @@ fn assert_runs_today_evidence_refs(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "runs_today_row_input_parquet_arrow_avro_orc_evidence_refs",
-        "feature_gated_sql_local_source_tests,vortex_prepare_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_direct_transient_structured_tests,universal_ingress_route_taxonomy"
+        "feature_gated_sql_local_source_tests,vortex_prepare_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_internal_source_smoke_structured_tests,universal_ingress_route_taxonomy"
     )));
     assert!(output.contains(&string_field_pair(
         "runs_today_row_cli_pre_oom_memory_guard_smoke_evidence_refs",
@@ -3857,7 +3858,7 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_user_surface_graduation_posture_vocabulary",
-        "high_level_context,client_only,diagnostic_only,feature_gated,not_user_facing"
+        "high_level_context,public_runtime,client_only,diagnostic_only,feature_gated,not_user_facing"
     )));
     assert!(output.contains(&field_pair("command_registry_fallback_attempted", false)));
     assert!(output.contains(&field_pair(
@@ -3886,7 +3887,7 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_row_vortex_prepare_user_surface_graduation_posture",
-        "client_only"
+        "public_runtime"
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_row_vortex_prepare_output_contract",

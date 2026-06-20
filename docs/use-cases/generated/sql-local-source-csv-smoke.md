@@ -6,7 +6,7 @@
 
 - **Audience:** user who wants to try one tiny SQL query over an admitted local file from CLI or ctx.sql without fallback
 - **Status:** `smoke_supported`
-- **Execution mode:** `direct_compatibility_transient`
+- **Execution mode:** `internal_local_source_smoke`
 - **Engine mode:** `batch`
 - **Claim boundary:** Scoped CSV/flat JSON/JSONL/NDJSON plus feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC/Vortex SELECT/filter/limit, aggregate/group/top-N, admitted equi/expression/logical-OR joins, join aggregates, ctx.sql collect/write, and local sinks/fanout. Arrow IPC binary sources admit projection, predicate, and ORDER BY; Parquet/Arrow IPC/Avro/ORC preserve binary sinks; scoped local Vortex preserves known flat scalar nullable/all-null result columns when dtype/family evidence is present; Parquet/Arrow IPC/Avro preserve typed decimal sinks. Computed filters/projections admit listed helpers, exact decimal exponents, and bounded scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified, and projected subquery families. Blocks include lossy coercion/type/date/time/null mismatches, scalar-left multi-column, broad correlated subqueries, non-binary columns compared to binary literals, unknown NULL-bearing Vortex output, non-scoped binary sinks, ORC typed decimal sinks, and broad binary execution/subqueries/projection trees. No broad SQL/DataFrame, production, broad fidelity, claim-grade replay, object-store/table, generalized joins/orderings, timezone/collation, fallback, or performance claim.
 
@@ -30,7 +30,7 @@ Vortex SQL sources, broad structured type/nesting coverage beyond flat scalar an
 
 ## Internal Flow
 
-`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated, local_arrow_ipc_feature_gated, local_avro_feature_gated, local_orc_feature_gated -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, optional_local_jsonl_output, optional_local_csv_output, optional_feature_gated_local_parquet_output, optional_feature_gated_local_arrow_ipc_output, optional_feature_gated_local_avro_output, optional_feature_gated_local_orc_output, optional_feature_gated_local_vortex_output, cast_projection_result, null_coalesce_projection_result, nullif_projection_result, conditional_projection_result, numeric_arithmetic_projection_result, numeric_abs_projection_result, numeric_rounding_projection_result, date_arithmetic_projection_result, timestamp_arithmetic_projection_result, temporal_difference_projection_result, string_transform_projection_result, string_length_projection_result, string_function_projection_result, date_extract_projection_result, timestamp_extract_projection_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, sql_local_source_evidence, evidence_summary, claim_summary -> evidence -> claim gate`
+`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated, local_arrow_ipc_feature_gated, local_avro_feature_gated, local_orc_feature_gated -> internal_local_source_smoke -> batch -> inline_jsonl_result, result_rows, first_result_row, optional_local_jsonl_output, optional_local_csv_output, optional_feature_gated_local_parquet_output, optional_feature_gated_local_arrow_ipc_output, optional_feature_gated_local_avro_output, optional_feature_gated_local_orc_output, optional_feature_gated_local_vortex_output, cast_projection_result, null_coalesce_projection_result, nullif_projection_result, conditional_projection_result, numeric_arithmetic_projection_result, numeric_abs_projection_result, numeric_rounding_projection_result, date_arithmetic_projection_result, timestamp_arithmetic_projection_result, temporal_difference_projection_result, string_transform_projection_result, string_length_projection_result, string_function_projection_result, date_extract_projection_result, timestamp_extract_projection_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, sql_local_source_evidence, evidence_summary, claim_summary -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -312,4 +312,4 @@ A JSON envelope and typed Python report with inline JSONL helpers; optional JSON
 
 ## Related Field Guide Terms
 
-- [direct_compatibility_transient](https://shardloom.io/field-guide/direct-compatibility-transient) (`Execution Routes` / `internal_smoke_only`)
+- [internal_local_source_smoke](https://shardloom.io/field-guide/internal-local-source-smoke) (`Execution Routes` / `internal_smoke_only`)

@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import shardloom as sl
 from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
 from shardloom.query import (
+    _embedded_vortex_input_uri,
     _rewrite_predicate_with_computed_columns,
     _sql_native_vortex_public_workflow_kwargs,
     _vortex_expression_scalar_payload,
@@ -1004,7 +1005,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 else:
                     raise AssertionError(sys.argv)
                 assert args[args.index("--request") + 1] == "collect", sys.argv
-                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "vortex_middle", sys.argv
                 assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
                 assert args[args.index("--bounded") + 1] == "true", sys.argv
                 fields = [
@@ -1108,7 +1109,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     raise AssertionError(sys.argv)
                 assert args[args.index("--plan") + 1] == expected_plan, sys.argv
                 assert args[args.index("--request") + 1] == "collect", sys.argv
-                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", sys.argv
                 assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
                 assert args[args.index("--bounded") + 1] == "true", sys.argv
                 assert args[args.index("--native-vortex-operation-family") + 1] == expected_family, sys.argv
@@ -1218,7 +1219,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 expected_plan = f"read_vortex(orders.vortex) -> select(id,amount) -> expression_project({expression_projection}) -> limit(2)"
                 assert args[args.index("--plan") + 1] == expected_plan, sys.argv
                 assert args[args.index("--request") + 1] == "collect", sys.argv
-                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", sys.argv
                 assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
                 assert args[args.index("--bounded") + 1] == "true", sys.argv
                 assert args[args.index("--native-vortex-operation-family") + 1] == "expression_project", sys.argv
@@ -1338,7 +1339,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--request",
                     "collect",
                     "--execution-policy",
-                    "auto",
+                    "vortex_middle",
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
@@ -1409,7 +1410,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--request",
                     "collect",
                     "--execution-policy",
-                    "auto",
+                    "vortex_middle",
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
@@ -1496,7 +1497,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--request",
                     "collect",
                     "--execution-policy",
-                    "auto",
+                    "vortex_middle",
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
@@ -1627,7 +1628,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--request") + 1] == "write_jsonl", sys.argv
                 assert args[args.index("--output") + 1] == "target/sql-select.jsonl", sys.argv
                 assert args[args.index("--fanout-output") + 1] == "csv=target/sql-select.csv", sys.argv
-                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "vortex_middle", sys.argv
                 assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", sys.argv
                 assert args[args.index("--bounded") + 1] == "true", sys.argv
@@ -1871,7 +1872,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--plan") + 1] == "generated_source(user_rows) -> write(target/generated-public.jsonl)", sys.argv
                 assert args[args.index("--request") + 1] == "write_jsonl", sys.argv
                 assert args[args.index("--output") + 1] == "target/generated-public.jsonl", sys.argv
-                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "vortex_middle", sys.argv
                 assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", sys.argv
                 assert args[args.index("--bounded") + 1] == "true", sys.argv
@@ -7974,7 +7975,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--request",
                     "collect",
                     "--execution-policy",
-                    "auto",
+                    "vortex_middle",
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
@@ -14853,7 +14854,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--request",
                     "profile",
                     "--execution-policy",
-                    "auto",
+                    "vortex_middle",
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
@@ -15494,7 +15495,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--output",
                     "target/out.orc",
                     "--execution-policy",
-                    "auto",
+                    "vortex_middle",
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
@@ -15574,7 +15575,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--plan") + 1] == "read_csv(target/input.csv) -> select(id) -> with_column(adjusted,amount + 5) -> limit(2)", sys.argv
                 assert args[args.index("--request") + 1] == "write_parquet", sys.argv
                 assert args[args.index("--output") + 1] == "target/out.parquet", sys.argv
-                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "vortex_middle", sys.argv
                 assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
                 assert args[args.index("--evidence-level") + 1] == "production_admitted_local_workflow", sys.argv
                 assert args[args.index("--bounded") + 1] == "true", sys.argv
@@ -18026,7 +18027,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {{"key": "ingress_route", "value": "direct_transient"}},
                         {{"key": "vortex_ingest_performed", "value": "false"}},
                         {{"key": "prepared_state_created", "value": "false"}},
-                        {{"key": "selected_execution_mode", "value": "direct_compatibility_transient"}},
+                        {{"key": "selected_execution_mode", "value": "internal_local_source_smoke"}},
                         {{"key": "timing_scope", "value": "direct_one_shot"}},
                         {{"key": "runtime_execution", "value": "true"}},
                         {{"key": "write_io", "value": "false"}},
@@ -19622,6 +19623,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             {},
         )
 
+    def test_embedded_vortex_input_uri_requires_all_refs_to_be_one_vortex_source(self) -> None:
+        self.assertEqual(
+            _embedded_vortex_input_uri("SELECT * FROM 'fact.vortex' LIMIT 1"),
+            "fact.vortex",
+        )
+        self.assertIsNone(
+            _embedded_vortex_input_uri(
+                "SELECT * FROM 'fact.vortex' f JOIN 'dim.csv' d ON f.id = d.id"
+            )
+        )
+        self.assertIsNone(
+            _embedded_vortex_input_uri(
+                "SELECT * FROM 'fact.vortex' f JOIN 'dim.vortex' d ON f.id = d.id"
+            )
+        )
+
     def test_sql_vortex_provider_shape_rejects_filtered_group_by(self) -> None:
         filtered_group_sql = (
             "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
@@ -20483,7 +20500,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "openapi_contract_path", "value": "docs/api/shardloom-openapi-v1.yaml"},
                         {"key": "represented_resources", "value": "health,version,capabilities,governance"},
                         {"key": "discovery_endpoint_paths", "value": "/v1/health,/v1/capabilities"},
-                        {"key": "execution_mode_vocabulary", "value": "auto,compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient"},
+                        {"key": "execution_mode_vocabulary", "value": "compatibility_import_certified,prepared_vortex,native_vortex"},
                         {"key": "execution_mode_selection_schema_version", "value": "shardloom.execution_mode_selection_report.v1"},
                         {"key": "execution_mode_selection_fields", "value": "requested_execution_mode,selected_execution_mode,mode_selection_reason,support_status,fallback_attempted,external_engine_invoked"},
                         {"key": "rest_execution_mode_support_status", "value": "report_only"},
@@ -21092,7 +21109,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--input-format") + 1] == "vortex", args
                 assert args[args.index("--plan") + 1] == {expected_plan!r}, args
                 assert args[args.index("--request") + 1] == "collect", args
-                assert args[args.index("--execution-policy") + 1] == "auto", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
                 assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
                 assert args[args.index("--vortex-primitive") + 1] == "project", args
                 assert args[args.index("--vortex-columns") + 1] == "metric,value", args
@@ -21161,7 +21178,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--input-format") + 1] == "vortex", args
                 assert args[args.index("--plan") + 1] == {expected_plan!r}, args
                 assert args[args.index("--request") + 1] == "collect", args
-                assert args[args.index("--execution-policy") + 1] == "auto", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
                 assert args[args.index("--native-vortex-operation-family") + 1] == "distinct", args
                 assert args[args.index("--vortex-primitive") + 1] == "distinct", args
                 assert args[args.index("--vortex-columns") + 1] == "metric,value", args

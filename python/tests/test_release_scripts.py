@@ -998,7 +998,7 @@ class ReleaseScriptTests(unittest.TestCase):
         return [
             {
                 **shared,
-                "front_door_id": "local_source_auto_prepare_vortex_front_door",
+                "front_door_id": "local_source_vortex_middle_front_door",
                 "owning_route_id": "local_file_prepare_once_first_query",
                 "route_lane_id": "prepare_once_first_query",
                 "route_display_name": "ShardLoom Prepare-Once First Query",
@@ -2861,6 +2861,64 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn(
             "starts from Vortex/prepared state",
             published["source_read_scout_claim_boundary"],
+        )
+
+    def test_benchmark_promoter_keeps_direct_transient_source_scout_in_route(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_direct_transient_source_scout_for_test",
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "csv/file ingest",
+            "status": "success",
+            "selected_execution_mode": "internal_local_source_smoke",
+            "requested_execution_mode": "internal_local_source_smoke",
+            "timing_scope": "direct_one_shot",
+            "actual_evidence_tier": "metadata_sink",
+            "source_state_id": "source-state://direct-scout-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "not_applicable_direct_transient",
+            "prepared_state_digest": "not_applicable_direct_transient",
+            "data_decoded": True,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.direct-scout-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "metrics": {
+                "exclusive_source_read_millis": 12.0,
+                "source_read_millis": 12.0,
+                "source_read_header_scout_millis": 1.0,
+                "source_read_byte_acquisition_millis": 11.0,
+                "source_read_full_body_millis": 11.0,
+                "operator_compute_millis": 0.1,
+                "query_runtime_millis": 12.3,
+                "total_runtime_millis": 12.3,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(published["route_lane_id"], "direct_transient_route")
+        self.assertNotEqual(
+            published["source_read_scout_status"],
+            "diagnostic_only_source_read_outside_route_total",
+        )
+        self.assertNotEqual(
+            published["source_read_scout_timing_split_status"],
+            "not_applicable_diagnostic_only",
         )
 
     def test_benchmark_promoter_flags_common_run_timing_drift(self) -> None:
@@ -11862,7 +11920,7 @@ jobs:
                         ),
                         source_route="UniversalIngress -> SourceState",
                         preparation_route=(
-                            "direct_compatibility_transient_no_persistent_preparation"
+                            "internal_local_source_smoke_no_persistent_preparation"
                             if scope == "not_applicable_no_prepared_state"
                             else "vortex_ingest_prepare_once"
                         ),
@@ -11918,7 +11976,7 @@ jobs:
                     )
                     direct_user = (
                         _source_prepared_row(
-                            "local_file_direct_transient_route",
+                            "local_file_internal_source_smoke_route",
                             "not_applicable_no_prepared_state",
                         ),
                     )
@@ -11938,7 +11996,7 @@ jobs:
                     )
                     direct_local = tuple(
                         _source_prepared_row(
-                            "local_file_direct_transient_route",
+                            "local_file_internal_source_smoke_route",
                             "not_applicable_no_prepared_state",
                             scenario_id=scenario_id,
                         )
@@ -11953,11 +12011,11 @@ jobs:
                             "VortexPreparedState -> prepared_vortex"
                         ),
                         direct_transient_route=(
-                            "UniversalIngress -> SourceState -> direct_compatibility_transient"
+                            "UniversalIngress -> SourceState -> internal_local_source_smoke"
                         ),
                         supported_input_formats=("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
                         prepared_route_ids=prepared_routes,
-                        direct_transient_route_ids=("local_file_direct_transient_route",),
+                        direct_transient_route_ids=("local_file_internal_source_smoke_route",),
                         generated_route_ids=("generated_rows_local_output",),
                         invalidation_case_ids=_V1_SOURCE_PREPARED_INVALIDATION_CASES,
                         golden_fixture_paths=_V1_SOURCE_PREPARED_FIXTURES,
@@ -12018,7 +12076,7 @@ jobs:
             "fanout",
         )
         route_ids = (
-            "local_file_direct_transient_route",
+            "local_file_internal_source_smoke_route",
             "local_file_cold_certified_route",
             "local_file_prepare_once_first_query",
             "local_file_prepare_once_batch",
@@ -14274,7 +14332,7 @@ jobs:
                 <section>
                   <h2>Public front doors</h2>
                   <p>Route rows name the user-facing prepared paths.</p>
-                  <article data-public-front-door-id="local_source_auto_prepare_vortex_front_door">
+                  <article data-public-front-door-id="local_source_vortex_middle_front_door">
                     <code>ctx.prepare_vortex(&#39;fact.csv&#39;, dim=&#39;dim.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()</code>
                     <p>SourceState</p>
                     <p>result_sink</p>

@@ -1209,7 +1209,7 @@ PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS = (
     "not_timing_row_route_identity_only"
 )
 REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = (
-    "local_source_auto_prepare_vortex_front_door",
+    "local_source_vortex_middle_front_door",
     "generated_source_prepare_vortex_front_door",
 )
 PREPARED_STATE_REUSE_IN_PROCESS_SCOPE = "in_process_prepared_batch_vortex_artifacts"
@@ -2915,12 +2915,12 @@ def route_identity_for_row(row: dict[str, Any]) -> dict[str, Any]:
                 ),
             }
         )
-    elif mode == "direct_compatibility_transient":
+    elif mode == "internal_local_source_smoke":
         route.update(
             {
                 "route_lane_id": "direct_transient_route",
-                "route_display_name": "ShardLoom Direct Transient Route",
-                "route_family_display_name": "ShardLoom Direct Transient Route",
+                "route_display_name": "ShardLoom Internal Source Smoke Route",
+                "route_family_display_name": "ShardLoom Internal Source Smoke Route",
                 "start_state": "raw_compat_source",
                 "end_state": "result_sink",
                 "includes_preparation": False,
@@ -4350,7 +4350,11 @@ def source_read_scout_fields_for_row(
         ("exclusive_source_read_ms", "source_read_ms", "source_read_millis"),
     )
     route_identity = route_identity_for_row(row)
-    if source_read is not None and not bool(route_identity.get("includes_preparation")):
+    starts_after_source_preparation = route_identity.get("start_state") in {
+        "Vortex",
+        "VortexPreparedState",
+    }
+    if source_read is not None and starts_after_source_preparation:
         return {
             "source_read_scout_schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
             "source_read_scout_status": "diagnostic_only_source_read_outside_route_total",
@@ -6846,7 +6850,7 @@ def public_front_door_benchmark_rows() -> list[dict[str, Any]]:
             "front door prepares through VortexPreparedState; timing row is the "
             "owning route lane"
         )
-        if front_door.front_door_id == "local_source_auto_prepare_vortex_front_door":
+        if front_door.front_door_id == "local_source_vortex_middle_front_door":
             timing_boundary = (
                 "ctx.prepare_vortex(..., workspace=...).query(...).collect() "
                 "is the ShardLoom Prepare-Once First Query route identity: "
@@ -9588,7 +9592,7 @@ def route_diagnostic_fields_for_row(
         "prepared_state_reuse_reason": reuse_reason,
         "prepared_state_reuse_manifest_digest": reuse_digest,
         "prepared_state_invalidation_reason": invalidation_reason,
-        "nearest_runnable_route": lane_id if status == "success" else "local_file_direct_transient_route",
+        "nearest_runnable_route": lane_id if status == "success" else "local_file_internal_source_smoke_route",
         "required_feature_gate": feature_gate,
         "runtime_blocker_code": blocker,
     }

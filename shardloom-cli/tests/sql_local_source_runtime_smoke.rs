@@ -288,6 +288,31 @@ fn vortex_prepare_blocks_without_vortex_write_feature() {
     fs::remove_file(source_path).expect("remove source csv");
 }
 
+#[test]
+fn vortex_prepare_missing_args_emits_json_error_without_stderr() {
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["vortex-prepare", "--format", "json"])
+        .output()
+        .expect("vortex-prepare command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("missing local source path"));
+    assert!(stdout.contains("no fallback execution was attempted"));
+}
+
 #[cfg(feature = "vortex-write")]
 #[test]
 #[allow(clippy::too_many_lines)]
@@ -351,7 +376,10 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));
     assert!(stdout.contains(&field("timing_scope", "vortex_ingest_prepare_once")));
     assert!(stdout.contains(&field("certification_level", "ingest_certified")));
-    assert!(stdout.contains(&field("certification_status", "fixture_smoke_certified")));
+    assert!(stdout.contains(&field(
+        "certification_status",
+        "production_admitted_local_workflow_certified"
+    )));
     assert!(stdout.contains(&field("preparation_included_in_timing", "true")));
     assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
     assert!(stdout.contains("\"key\":\"vortex_digest_millis\""));
@@ -571,7 +599,34 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
-    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field(
+        "certification_status",
+        "production_admitted_local_workflow_certified"
+    )));
+    assert!(stdout.contains(&field(
+        "claim_gate_status",
+        "local_workflow_runtime_supported"
+    )));
+    assert!(stdout.contains(&field(
+        "local_workflow_input_row_cap",
+        "none_synthetic_row_cap_disabled"
+    )));
+    assert!(stdout.contains(&field(
+        "local_workflow_synthetic_input_row_cap_enabled",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "local_workflow_synthetic_output_row_cap_enabled",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "local_workflow_synthetic_source_byte_cap_enabled",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "local_workflow_synthetic_join_candidate_cap_enabled",
+        "false"
+    )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(target_path.exists());
@@ -2045,7 +2100,7 @@ fn local_source_runtime_executes_csv_projection_filter_limit_without_fallback() 
         "shardloom.local_source_runtime.v1"
     )));
     assert!(stdout.contains(&field("command_family", "workflow_planning")));
-    assert!(stdout.contains(&field("execution_mode", "direct_compatibility_transient")));
+    assert!(stdout.contains(&field("execution_mode", "internal_local_source_smoke")));
     assert!(stdout.contains(&field("engine_mode", "batch")));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field(
@@ -2173,7 +2228,7 @@ fn local_source_runtime_executes_parquet_projection_filter_limit_with_source_sta
     )));
     assert!(stdout.contains(&field(
         "selected_execution_mode",
-        "direct_compatibility_transient"
+        "internal_local_source_smoke"
     )));
     assert!(stdout.contains(&field("timing_scope", "direct_one_shot")));
     assert!(stdout.contains(&field("input_row_count", "4")));
@@ -2241,7 +2296,7 @@ fn local_source_runtime_executes_arrow_ipc_projection_filter_limit_with_source_s
     )));
     assert!(stdout.contains(&field(
         "selected_execution_mode",
-        "direct_compatibility_transient"
+        "internal_local_source_smoke"
     )));
     assert!(stdout.contains(&field("timing_scope", "direct_one_shot")));
     assert!(stdout.contains(&field("input_row_count", "4")));
@@ -2630,7 +2685,7 @@ fn local_source_runtime_executes_avro_projection_filter_limit_with_source_state_
     )));
     assert!(stdout.contains(&field(
         "selected_execution_mode",
-        "direct_compatibility_transient"
+        "internal_local_source_smoke"
     )));
     assert!(stdout.contains(&field("timing_scope", "direct_one_shot")));
     assert!(stdout.contains(&field("input_row_count", "4")));
@@ -2698,7 +2753,7 @@ fn local_source_runtime_executes_orc_projection_filter_limit_with_source_state_e
     )));
     assert!(stdout.contains(&field(
         "selected_execution_mode",
-        "direct_compatibility_transient"
+        "internal_local_source_smoke"
     )));
     assert!(stdout.contains(&field("timing_scope", "direct_one_shot")));
     assert!(stdout.contains(&field("input_row_count", "4")));
@@ -10680,7 +10735,7 @@ fn local_source_runtime_executes_json_projection_filter_limit_with_source_state_
     assert!(stdout.contains(&field("prepared_state_created", "false")));
     assert!(stdout.contains(&field(
         "selected_execution_mode",
-        "direct_compatibility_transient"
+        "internal_local_source_smoke"
     )));
     assert!(stdout.contains(&field("timing_scope", "direct_one_shot")));
     assert!(stdout.contains(&field(

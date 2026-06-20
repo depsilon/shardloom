@@ -119,7 +119,7 @@ PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS = (
     "not_timing_row_route_identity_only"
 )
 REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
-    "local_source_auto_prepare_vortex_front_door",
+    "local_source_vortex_middle_front_door",
     "generated_source_prepare_vortex_front_door",
 }
 REQUIRED_PREPARED_STATE_REUSE_FIELDS = (
@@ -442,11 +442,11 @@ def validate_public_front_door_rows(
             examples.append(f"{prefix}:route_runtime_status")
         expected_end_state = (
             "result_sink"
-            if front_door_id == "local_source_auto_prepare_vortex_front_door"
+            if front_door_id == "local_source_vortex_middle_front_door"
             else "VortexPreparedState"
         )
         expected_includes_query = (
-            front_door_id == "local_source_auto_prepare_vortex_front_door"
+            front_door_id == "local_source_vortex_middle_front_door"
         )
         if row.get("front_door_end_state") != expected_end_state:
             examples.append(f"{prefix}:front_door_end_state")
@@ -505,7 +505,7 @@ def validate_public_front_door_rows(
 
         surface = str(row.get("public_user_surface") or "")
         normalization = str(row.get("vortex_normalization_point") or "")
-        if front_door_id == "local_source_auto_prepare_vortex_front_door":
+        if front_door_id == "local_source_vortex_middle_front_door":
             if row.get("owning_route_id") != "local_file_prepare_once_first_query":
                 examples.append(f"{prefix}:owning_route_id")
             if row.get("route_lane_id") != "prepare_once_first_query":

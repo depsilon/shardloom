@@ -8738,7 +8738,7 @@ class ExecutionResultEnvelopeView:
 
     @property
     def direct_transient_execution(self) -> bool:
-        """Whether the execution used the direct transient compatibility mode."""
+        """Whether the execution used the internal local-source smoke compatibility mode."""
 
         return self._execution_mode_bool("direct_transient_execution")
 
@@ -11185,7 +11185,7 @@ class ShardLoomClient:
         plan_summary: str | None = None,
         requested_output: str = "collect",
         output_ref: str | os.PathLike[str] | None = None,
-        execution_policy: str = "auto",
+        execution_policy: str = "vortex_middle",
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
@@ -11291,7 +11291,7 @@ class ShardLoomClient:
         plan_summary: str | None = None,
         requested_output: str = "collect",
         output_ref: str | os.PathLike[str] | None = None,
-        execution_policy: str = "auto",
+        execution_policy: str = "vortex_middle",
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
@@ -11418,7 +11418,7 @@ class ShardLoomClient:
         plan_summary: str | None = None,
         requested_output: str = "collect",
         output_ref: str | os.PathLike[str] | None = None,
-        execution_policy: str = "auto",
+        execution_policy: str = "vortex_middle",
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
@@ -11834,6 +11834,29 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         return SqlLocalSourceSmokeReport(self.run(command, check=check))
 
+    def sql_local_source_smoke(
+        self,
+        statement: str,
+        *,
+        output_path: str | os.PathLike[str] | None = None,
+        output_format: str = "inline-jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
+        allow_overwrite: bool = False,
+        product_local_workflow: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport:
+        """Compatibility alias for the renamed local-source runtime helper."""
+
+        return self.local_source_runtime(
+            statement,
+            output_path=output_path,
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
+            allow_overwrite=allow_overwrite,
+            product_local_workflow=product_local_workflow,
+            check=check,
+        )
+
     def vortex_prepare(
         self,
         source_path: str | os.PathLike[str],
@@ -11871,6 +11894,35 @@ class ShardLoomClient:
         if delta_update_mode != "append-only":
             command.extend(["--delta-update-mode", delta_update_mode])
         return VortexIngestSmokeReport(self.run(command, check=check))
+
+    def vortex_ingest_smoke(
+        self,
+        source_path: str | os.PathLike[str],
+        target_vortex_path: str | os.PathLike[str],
+        *,
+        input_format: str | None = None,
+        schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
+        allow_overwrite: bool = False,
+        certification_level: str = "ingest_certified",
+        delta_source_path: str | os.PathLike[str] | None = None,
+        delta_target_vortex_path: str | os.PathLike[str] | None = None,
+        delta_update_mode: str = "append-only",
+        check: bool = True,
+    ) -> VortexIngestSmokeReport:
+        """Compatibility alias for the renamed Vortex prepare helper."""
+
+        return self.vortex_prepare(
+            source_path,
+            target_vortex_path,
+            input_format=input_format,
+            schema=schema,
+            allow_overwrite=allow_overwrite,
+            certification_level=certification_level,
+            delta_source_path=delta_source_path,
+            delta_target_vortex_path=delta_target_vortex_path,
+            delta_update_mode=delta_update_mode,
+            check=check,
+        )
 
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only execution certificate planning envelope."""
@@ -13513,7 +13565,7 @@ class ShardLoomClient:
                 text=True,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 bufsize=1,
             )
         except FileNotFoundError as exc:

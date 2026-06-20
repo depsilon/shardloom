@@ -98,7 +98,7 @@ SHARDLOOM_EXECUTION_MODE_VOCABULARY = (
     "compatibility_import_certified",
     "prepared_vortex",
     "native_vortex",
-    "direct_compatibility_transient",
+    "internal_local_source_smoke",
 )
 EXTERNAL_BASELINE_EXECUTION_MODE = "external_baseline_only"
 NATIVE_UNSUPPORTED_COVERAGE_REF = (
@@ -4485,7 +4485,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
             "--input-format",
             data_format,
             "--execution-mode",
-            "direct_compatibility_transient",
+            "internal_local_source_smoke",
             "--format",
             "json",
         ]
@@ -4610,7 +4610,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
             f"direct_transient_{format_slug}_{scenario_ref}"
         )
         expected_coverage_ref = (
-            "coverage.direct_compatibility_transient."
+            "coverage.internal_local_source_smoke."
             f"local_{format_slug}_{scenario_ref}"
         )
         if fields.get("benchmark_row_ref") != expected_benchmark_ref:
@@ -14703,7 +14703,7 @@ def materialization_policy(engine: str, data_format: str) -> str:
 
 def native_vortex_or_compatibility_import(engine: str, data_format: str) -> str:
     if engine == "shardloom-direct-transient":
-        return "direct_compatibility_transient_no_vortex_persistence"
+        return "internal_local_source_smoke_no_vortex_persistence"
     if engine == "shardloom-prepare-batch":
         return "compatibility_import_certified_to_prepared_vortex_batch"
     if engine == "shardloom-vortex":
@@ -15742,7 +15742,7 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         ):
             raise RuntimeError("VortexPreparedState evidence claim gate status was unexpected")
         if (
-            result.get("selected_execution_mode") == "direct_compatibility_transient"
+            result.get("selected_execution_mode") == "internal_local_source_smoke"
             and metrics.get("prepared_state_reuse_allowed") is True
         ):
             raise RuntimeError("direct transient rows cannot report prepared-state reuse")
@@ -16837,10 +16837,10 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "timing_row_claim_grade": False,
         "write_timing_present": False,
         "computed_result_sink_write_millis": None,
-        "execution_mode": "direct_compatibility_transient",
-        "requested_execution_mode": "direct_compatibility_transient",
-        "selected_execution_mode": "direct_compatibility_transient",
-        "mode_selection_reason": "direct_compatibility_transient_not_implemented",
+        "execution_mode": "internal_local_source_smoke",
+        "requested_execution_mode": "internal_local_source_smoke",
+        "selected_execution_mode": "internal_local_source_smoke",
+        "mode_selection_reason": "internal_local_source_smoke_not_implemented",
         "execution_mode_family": "compatibility",
         "vortex_native_claim_allowed": False,
         "compatibility_import_included": False,
@@ -16859,7 +16859,7 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "preparation_included_in_timing": False,
         "benchmark_constitution_id": constitution["constitution_id"],
         "benchmark_row_ref": None,
-        "coverage_row_ref": "coverage.direct_compatibility_transient.admission",
+        "coverage_row_ref": "coverage.internal_local_source_smoke.admission",
         "certificate_status": "unsupported",
         "execution_certificate_status": "unsupported",
         "source_native_io_certificate_status": "unsupported",
@@ -16870,7 +16870,7 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "fallback_attempted": False,
         "external_engine_invoked": False,
         "native_unsupported_coverage_ref": NATIVE_UNSUPPORTED_COVERAGE_REF,
-        "unsupported_diagnostic_code": "direct_compatibility_transient_not_implemented",
+        "unsupported_diagnostic_code": "internal_local_source_smoke_not_implemented",
         "blocker_id": "P7.5.4",
         "required_future_evidence": "shardloom_native_transient_executor,direct_mode_certificate",
         "native_io_source_sink_coverage_ref": NATIVE_IO_SOURCE_SINK_COVERAGE_REF,
@@ -19200,7 +19200,7 @@ def execution_mode_metadata(
         external_engine_invoked = False
     elif engine == "shardloom-direct-transient":
         selected = str(
-            evidence.get("selected_execution_mode") or "direct_compatibility_transient"
+            evidence.get("selected_execution_mode") or "internal_local_source_smoke"
         )
         reason = str(
             evidence.get("mode_selection_reason")
@@ -19797,7 +19797,7 @@ def route_family_for_mode(selected_mode: str) -> str:
         "compatibility_import_certified": "raw_compatibility_source_to_certified_vortex_ingest",
         "prepared_vortex": "vortex_prepared_state_to_prepared_query",
         "native_vortex": "existing_vortex_input_to_native_query",
-        "direct_compatibility_transient": "raw_compatibility_direct_transient",
+        "internal_local_source_smoke": "raw_compatibility_direct_transient",
         "external_baseline_only": "external_baseline_raw_source",
     }.get(selected_mode, "unknown_route_family")
 
@@ -19813,7 +19813,7 @@ def route_family_for_result(engine: str, selected_mode: str) -> str:
 def route_start_state_for_mode(selected_mode: str) -> str:
     return {
         "compatibility_import_certified": "raw_compat_source",
-        "direct_compatibility_transient": "raw_compat_source",
+        "internal_local_source_smoke": "raw_compat_source",
         "prepared_vortex": "VortexPreparedState",
         "native_vortex": "Vortex",
         "external_baseline_only": "raw_compat_source",
@@ -19855,7 +19855,7 @@ def source_to_vortex_array_guard_metadata(
         guard_status = "unsupported"
     elif shardloom_blocked_non_execution_status(status):
         guard_status = "blocked"
-    elif selected_mode == "direct_compatibility_transient":
+    elif selected_mode == "internal_local_source_smoke":
         guard_status = "not_applicable_direct_transient_no_vortex_array_build"
     elif selected_mode == "native_vortex":
         guard_status = "not_applicable_existing_vortex_input"
@@ -23291,7 +23291,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
                 "Measures execution over existing Vortex input with provider and "
                 "materialization/decode evidence."
             ),
-            "direct_compatibility_transient": (
+            "internal_local_source_smoke": (
                 "Measures the scoped one-shot direct compatibility path when admitted; "
                 "it is ShardLoom-native but not Vortex-native."
             ),

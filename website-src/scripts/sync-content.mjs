@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
@@ -10,9 +9,7 @@ const dataRoot = path.join(root, "src", "data");
 const docsRoot = path.join(root, "src", "content", "docs");
 const docsUseCaseGeneratedRoot = path.join(repoRoot, "docs", "use-cases", "generated");
 const legacyWebsiteDataRoot = path.join(repoRoot, "website", "assets", "data");
-const legacyWebsiteBenchmarkRoot = path.join(repoRoot, "website", "assets", "benchmarks", "latest");
 const publicDataRoot = path.join(repoRoot, "website-public", "assets", "data");
-const publicBenchmarkRoot = path.join(repoRoot, "website-public", "assets", "benchmarks", "latest");
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(path.join(dataRoot, file), "utf8"));
@@ -57,112 +54,6 @@ function pruneGenerated(directory, expectedNames) {
   }
 }
 
-function canonicalizeDeployableBenchmarkPaths(directory) {
-  if (!fs.existsSync(directory)) return;
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const child = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      canonicalizeDeployableBenchmarkPaths(child);
-      continue;
-    }
-    if (entry.name !== "benchmark-row-admission-manifest.json") continue;
-    const payload = JSON.parse(fs.readFileSync(child, "utf8"));
-    let changed = false;
-    if (Array.isArray(payload.chunks)) {
-      payload.chunks = payload.chunks.map((chunk) => {
-        if (!chunk || typeof chunk.path !== "string") return chunk;
-        const nextPath = chunk.path.replace(
-          /^website-public\/assets\/benchmarks\/latest\//,
-          "website/assets/benchmarks/latest/",
-        );
-        if (nextPath !== chunk.path) changed = true;
-        return { ...chunk, path: nextPath };
-      });
-    }
-    if (changed) {
-      fs.writeFileSync(child, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-    }
-  }
-}
-
-function publicationProofSourceDigest(chunks) {
-  const digest = crypto.createHash("sha256");
-  for (const chunk of [...(Array.isArray(chunks) ? chunks : [])].sort((left, right) =>
-    String(left?.path ?? "").localeCompare(String(right?.path ?? "")),
-  )) {
-    digest.update(String(chunk?.path ?? ""));
-    digest.update("\0");
-    digest.update(String(chunk?.row_count ?? ""));
-    digest.update("\0");
-    digest.update(String(chunk?.sha256 ?? ""));
-    digest.update("\0");
-    digest.update(String(chunk?.uncompressed_sha256 ?? ""));
-    digest.update("\0");
-  }
-  return `sha256:${digest.digest("hex")}`;
-}
-
-function syncPublicationProofSidecarDigest(benchmarkRoot) {
-  const benchmarkResultsPath = path.join(benchmarkRoot, "benchmark-results.json");
-  const sidecarPath = path.join(benchmarkRoot, "publication-proof-sidecar.json");
-  if (!fs.existsSync(benchmarkResultsPath) || !fs.existsSync(sidecarPath)) return;
-
-  const benchmarkResults = JSON.parse(fs.readFileSync(benchmarkResultsPath, "utf8"));
-  const chunks = benchmarkResults.published_benchmark_row_chunks;
-  if (!Array.isArray(chunks)) return;
-
-  const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8"));
-  const expectedDigest = publicationProofSourceDigest(chunks);
-  const expectedCount = chunks.length;
-  if (
-    sidecar.source_row_chunks_digest !== expectedDigest ||
-    sidecar.source_row_chunk_count !== expectedCount
-  ) {
-    sidecar.source_row_chunks_digest = expectedDigest;
-    sidecar.source_row_chunk_count = expectedCount;
-    fs.writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`, "utf8");
-  }
-}
-
-function syncBenchmarkRowChunks() {
-  fs.mkdirSync(legacyWebsiteBenchmarkRoot, { recursive: true });
-  for (const entry of fs.readdirSync(legacyWebsiteBenchmarkRoot, { withFileTypes: true })) {
-    if (entry.isFile() && /^published-benchmark-rows-\d+\.json(?:\.gz)?$/.test(entry.name)) {
-      fs.rmSync(path.join(legacyWebsiteBenchmarkRoot, entry.name), { force: true });
-    }
-  }
-  for (const entry of fs.readdirSync(publicBenchmarkRoot, { withFileTypes: true })) {
-    if (entry.isFile() && /^published-benchmark-rows-\d+\.json(?:\.gz)?$/.test(entry.name)) {
-      fs.copyFileSync(
-        path.join(publicBenchmarkRoot, entry.name),
-        path.join(legacyWebsiteBenchmarkRoot, entry.name),
-      );
-    }
-  }
-  const admissionManifest = "benchmark-row-admission-manifest.json";
-  const publicAdmissionManifest = path.join(publicBenchmarkRoot, admissionManifest);
-  const legacyAdmissionManifest = path.join(legacyWebsiteBenchmarkRoot, admissionManifest);
-  if (fs.existsSync(publicAdmissionManifest)) {
-    fs.copyFileSync(publicAdmissionManifest, legacyAdmissionManifest);
-  } else if (fs.existsSync(legacyAdmissionManifest)) {
-    fs.rmSync(legacyAdmissionManifest, { force: true });
-  }
-  const runDirectory = "published-row-runs";
-  const publicRunDirectory = path.join(publicBenchmarkRoot, runDirectory);
-  const legacyRunDirectory = path.join(legacyWebsiteBenchmarkRoot, runDirectory);
-  if (fs.existsSync(publicRunDirectory)) {
-    if (fs.existsSync(legacyRunDirectory)) {
-      fs.rmSync(legacyRunDirectory, { recursive: true, force: true });
-    }
-    fs.cpSync(publicRunDirectory, legacyRunDirectory, { recursive: true, force: true });
-    canonicalizeDeployableBenchmarkPaths(legacyRunDirectory);
-  } else if (fs.existsSync(legacyRunDirectory)) {
-    fs.rmSync(legacyRunDirectory, { recursive: true, force: true });
-  }
-  syncPublicationProofSidecarDigest(publicBenchmarkRoot);
-  syncPublicationProofSidecarDigest(legacyWebsiteBenchmarkRoot);
-}
-
 function syncSourceOfTruthData() {
   const canonicalFlow = fs.readFileSync(
     path.join(repoRoot, "docs", "architecture", "compute-engine-flow-reference.md"),
@@ -170,23 +61,6 @@ function syncSourceOfTruthData() {
   );
   write(path.join(legacyWebsiteDataRoot, "compute-engine-flow-reference.md"), canonicalFlow);
   write(path.join(publicDataRoot, "compute-engine-flow-reference.md"), canonicalFlow);
-
-  const benchmarkEvidence = fs.readFileSync(
-    path.join(publicBenchmarkRoot, "benchmark-results.json"),
-    "utf8",
-  );
-  write(path.join(dataRoot, "benchmark-evidence.json"), benchmarkEvidence);
-  write(path.join(legacyWebsiteDataRoot, "benchmark-evidence.json"), benchmarkEvidence);
-  write(path.join(legacyWebsiteBenchmarkRoot, "benchmark-results.json"), benchmarkEvidence);
-  write(path.join(publicDataRoot, "benchmark-evidence.json"), benchmarkEvidence);
-
-  const benchmarkManifest = fs.readFileSync(
-    path.join(publicBenchmarkRoot, "manifest.json"),
-    "utf8",
-  );
-  write(path.join(dataRoot, "benchmark-manifest.json"), benchmarkManifest);
-  write(path.join(legacyWebsiteBenchmarkRoot, "manifest.json"), benchmarkManifest);
-  syncBenchmarkRowChunks();
 }
 
 function yamlStringList(values) {

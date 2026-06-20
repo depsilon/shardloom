@@ -64,7 +64,7 @@ The important boundary is scope: this is a credible local Vortex analytics compu
 not a broad all-workloads product claim. Execution-mode selection, prepared artifact lifecycle,
 typed envelope routing, capability reporting, provider admission, result-sink replay, timing
 attribution, Python parity, and file-format preparation evidence are implemented for the current
-traditional analytics/local Vortex surfaces. Broad SQL/DataFrame runtime, direct transient runtime,
+traditional analytics/local Vortex surfaces. Broad SQL/DataFrame runtime, internal source smoke runtime,
 object-store/table/catalog runtime, live/hybrid production behavior, and public best-default claims
 remain outside this completed slice.
 
@@ -78,7 +78,7 @@ remain outside this completed slice.
 auto
 compatibility_import_certified
 prepared_vortex
-direct_compatibility_transient
+internal_local_source_smoke
 native_vortex
 ```
 
@@ -218,7 +218,7 @@ Current repo state:
   refs, execution certificate refs, Native I/O refs, unsupported diagnostic code, blocker id, future
   evidence, `fallback_attempted`, and `external_engine_invoked`.
 - Rows now include execution-mode vocabulary, mode-specific claim-gate status, and
-  `vortex_native_claim_allowed` so direct transient, compatibility, prepared, native, and auto rows
+  `vortex_native_claim_allowed` so internal source smoke, compatibility, prepared, native, and auto rows
   are distinguishable.
 
 Original gap:
@@ -229,7 +229,7 @@ Rows do not distinguish the flow-reference modes:
 compatibility_import_certified
 prepared_vortex
 native_vortex
-direct_compatibility_transient
+internal_local_source_smoke
 auto
 ```
 
@@ -268,19 +268,19 @@ Prepared/native rows are structurally better than repeated compatibility import,
 fixture/local smoke or partial native rows until provider admission moves more work onto encoded or
 source-backed paths.
 
-### G6 - Direct transient compatibility mode is parse-level only
+### G6 - Internal source smoke compatibility mode is parse-level only
 
 Current repo state:
 
-- The enum accepts `direct_compatibility_transient`.
+- The enum accepts `internal_local_source_smoke`.
 - The flow reference correctly states it must not be Vortex-native.
 - Traditional CLI commands reject unsupported mode requests deterministically.
-- The mode-aware capability matrix emits direct-transient unsupported rows with stable blockers,
+- The mode-aware capability matrix emits internal-source-smoke unsupported rows with stable blockers,
   `claim_gate_status=not_vortex_native`, and no-fallback evidence.
 
 Original gap:
 
-There is no report-only direct-transient capability surface that emits
+There is no report-only internal-source-smoke capability surface that emits
 `claim_gate_status=not_vortex_native`, `direct_transient_execution=true`, and the required blocker
 or implementation gate for each user-facing source format and operator family.
 
@@ -389,7 +389,7 @@ harder to misread.
   - `wrap_vortex_concept` for shared execution-mode selection and typed evidence routing.
   - `use_vortex_native_provider` for admitted prepared/native local Vortex provider paths with
     certificates and materialization/decode evidence.
-  - `blocked_until_vortex_or_shardloom_evidence` for direct transient execution, unfused
+  - `blocked_until_vortex_or_shardloom_evidence` for internal source smoke execution, unfused
     filter/project/limit, unsupported source-backed operators, and incomplete result-sink replay.
 - Vortex API/provider surface: current local Vortex artifact write/reopen/scan path, source-backed
   encoded execution reports, and future Scan API Source/Sink/Split alignment.
@@ -401,7 +401,7 @@ harder to misread.
 - Materialization/decode boundary: every promoted prepared/native row must say whether it stayed
   encoded/native, canonicalized, decoded, or materialized.
 - Evidence added by this review: gap mapping and phase-plan overhaul steps only.
-- Gates still blocked: direct transient runtime, broad SQL/DataFrame runtime, object-store/table
+- Gates still blocked: internal source smoke runtime, broad SQL/DataFrame runtime, object-store/table
   runtime, broad performance claims, and production/Spark-displacement claims.
 - `fallback_attempted=false`: remains mandatory for every ShardLoom mode.
 
@@ -485,16 +485,16 @@ Acceptance:
 Extend compute capability rows so support is reported by execution mode.
 
 Implementation status: complete for the report-only compute capability matrix. Rows expose
-`execution_mode`, `claim_gate_status`, and `vortex_native_claim_allowed`, and direct transient is an
+`execution_mode`, `claim_gate_status`, and `vortex_native_claim_allowed`, and internal source smoke is an
 explicit unsupported row with stable diagnostics and no-fallback evidence.
 
 Acceptance:
 
 - Capability rows distinguish `compatibility_import_certified`, `prepared_vortex`, `native_vortex`,
-  `direct_compatibility_transient`, and `auto`.
-- Direct transient has deterministic unsupported/report-only rows with `not_vortex_native` claim
+  `internal_local_source_smoke`, and `auto`.
+- Internal source smoke has deterministic unsupported/report-only rows with `not_vortex_native` claim
   status until a ShardLoom-native transient path is actually implemented.
-- No external engine can satisfy direct transient support.
+- No external engine can satisfy internal source smoke support.
 
 ### P7.5.5 - Native Provider Admission For Prepared/Native Operators
 
@@ -565,7 +565,7 @@ Acceptance:
 
 P7.5.1 through P7.5.9 are complete for the scoped local traditional analytics and Vortex workflow
 surfaces. The remaining work is not another flow-alignment category; it is future product breadth:
-broad SQL/DataFrame execution, direct transient runtime, object-store/table/catalog runtime,
+broad SQL/DataFrame execution, internal source smoke runtime, object-store/table/catalog runtime,
 live/hybrid production behavior, and wider encoded/native operator maturity.
 
 The current benchmark and release evidence support a scoped local Vortex analytics claim. They do
