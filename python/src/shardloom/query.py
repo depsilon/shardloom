@@ -5314,7 +5314,9 @@ class LazyFrame:
                         kwargs=kwargs,
                     )
                     if payload is not None:
-                        return indexed._append(WorkflowOperation("melt", (payload,)))
+                        candidate = indexed._append(WorkflowOperation("melt", (payload,)))
+                        if candidate._vortex_primitive_shape() is not None:
+                            return candidate
         if ignore_index and (
             payload := _vortex_melt_projection_payload(
                 id_vars=id_vars,
@@ -6102,8 +6104,6 @@ class LazyFrame:
                     return base._append(WorkflowOperation("expression_project", (payload,)))
             if _workflow_index_columns(self.operations):
                 return base
-            if not kwargs:
-                return self
         target_ref = _normalize_index_target("reset_index", keys=None, kwargs=kwargs)
         return self._unsupported_operation("reset-index", target_ref, check=check)
 
@@ -9428,6 +9428,7 @@ class LazyFrame:
                 to_replace = _vortex_expression_scalar_payload(
                     spec.get("to_replace"),
                     target_dtype=target_dtype,
+                    allow_null=False,
                 )
                 replacement = _vortex_expression_scalar_payload(
                     spec.get("replacement"),
@@ -9488,6 +9489,7 @@ class LazyFrame:
                 operand = _vortex_expression_scalar_payload(
                     spec.get("operand"),
                     target_dtype=target_dtype,
+                    allow_null=False,
                 )
                 if operand is None:
                     return None
@@ -13342,6 +13344,7 @@ def _vortex_expression_scalar_payload(
     value: object,
     *,
     target_dtype: str,
+    allow_null: bool = True,
 ) -> dict[str, object] | None:
     dtype = target_dtype.strip().lower().replace("-", "_")
     supported_dtype = dtype in {
@@ -13361,6 +13364,8 @@ def _vortex_expression_scalar_payload(
         "str",
     }
     if value is None:
+        if not allow_null:
+            return None
         return {"type": "null", "value": None} if supported_dtype else None
     if dtype in {"bool", "boolean"}:
         if isinstance(value, bool):
