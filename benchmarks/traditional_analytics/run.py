@@ -4474,7 +4474,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
         if scenario not in {"selective filter", "filter + projection + limit"}:
             raise BenchmarkUnsupported(
-                "direct transient smoke currently supports only selective filter or filter + projection + limit"
+                "internal local-source smoke currently supports only selective filter or filter + projection + limit"
             )
         command = [
             str(binary),
@@ -8070,7 +8070,7 @@ def direct_transient_scenario_slug(scenario: str) -> str:
     if scenario == "filter + projection + limit":
         return "filter_projection_limit"
     raise BenchmarkUnsupported(
-        "direct transient smoke currently supports only selective filter or filter + projection + limit"
+        "internal local-source smoke currently supports only selective filter or filter + projection + limit"
     )
 
 
