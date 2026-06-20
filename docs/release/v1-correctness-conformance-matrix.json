@@ -76,7 +76,7 @@
     "vortex_local_file_routes": 16,
     "source_input_formats": 6,
     "source_prepared_routes": 4,
-    "source_direct_routes": 1,
+    "source_internal_smoke_routes": 1,
     "source_generated_routes": 1,
     "source_invalidation_cases": 9,
     "output_formats": 7,

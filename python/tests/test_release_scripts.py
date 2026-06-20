@@ -8578,7 +8578,9 @@ class ReleaseScriptTests(unittest.TestCase):
                     "vortex_local_file_routes": module.EXPECTED_VORTEX_LOCAL_FILE_ROUTES,
                     "source_input_formats": module.EXPECTED_SOURCE_INPUT_FORMATS,
                     "source_prepared_routes": module.EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
-                    "source_direct_routes": module.EXPECTED_SOURCE_DIRECT_ROUTE_IDS,
+                    "source_internal_smoke_routes": (
+                        module.EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS
+                    ),
                     "source_generated_routes": module.EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
                     "source_invalidation_cases": (
                         module.EXPECTED_SOURCE_INVALIDATION_CASES
@@ -8938,9 +8940,11 @@ class ReleaseScriptTests(unittest.TestCase):
                     f"prepared-{index}"
                     for index in range(module.EXPECTED_SOURCE_PREPARED_ROUTE_IDS)
                 ],
-                "direct_transient_route_ids": [
-                    f"direct-{index}"
-                    for index in range(module.EXPECTED_SOURCE_DIRECT_ROUTE_IDS)
+                "internal_source_smoke_route_ids": [
+                    f"internal-source-smoke-{index}"
+                    for index in range(
+                        module.EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS
+                    )
                 ],
                 "generated_route_ids": [
                     f"generated-{index}"
@@ -12010,12 +12014,14 @@ jobs:
                             "UniversalIngress -> SourceState -> vortex_ingest -> "
                             "VortexPreparedState -> prepared_vortex"
                         ),
-                        direct_transient_route=(
+                        internal_source_smoke_route=(
                             "UniversalIngress -> SourceState -> internal_local_source_smoke"
                         ),
                         supported_input_formats=("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
                         prepared_route_ids=prepared_routes,
-                        direct_transient_route_ids=("local_file_internal_source_smoke_route",),
+                        internal_source_smoke_route_ids=(
+                            "local_file_internal_source_smoke_route",
+                        ),
                         generated_route_ids=("generated_rows_local_output",),
                         invalidation_case_ids=_V1_SOURCE_PREPARED_INVALIDATION_CASES,
                         golden_fixture_paths=_V1_SOURCE_PREPARED_FIXTURES,
@@ -12028,17 +12034,17 @@ jobs:
                             "broad_non_local_preparation",
                         ),
                         prepared_user_route_rows=prepared_user,
-                        direct_transient_user_route_rows=direct_user,
+                        internal_source_smoke_user_route_rows=direct_user,
                         generated_user_route_rows=generated_user,
                         prepared_local_file_rows=prepared_local,
-                        direct_transient_local_file_rows=direct_local,
+                        internal_source_smoke_local_file_rows=direct_local,
                         local_file_routes=SimpleNamespace(
                             scenario_ids=_V1_SOURCE_PREPARED_SCENARIO_IDS
                         ),
                         all_no_fallback_no_external_engine=True,
                         all_prepared_routes_expose_reuse_contract=True,
                         all_generated_routes_expose_artifact_adjacent_reuse=True,
-                        all_direct_transient_routes_are_labeled_non_persistent=True,
+                        all_internal_source_smoke_routes_are_labeled_non_persistent=True,
                         all_local_file_prepared_rows_expose_source_and_reuse_evidence=True,
                         v1_scope_ready=True,
                         claim_gate_status="not_claim_grade",

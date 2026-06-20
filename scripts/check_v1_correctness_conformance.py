@@ -43,7 +43,7 @@ EXPECTED_VORTEX_PRIMITIVE_ROUTES = 11
 EXPECTED_VORTEX_LOCAL_FILE_ROUTES = 16
 EXPECTED_SOURCE_INPUT_FORMATS = 6
 EXPECTED_SOURCE_PREPARED_ROUTE_IDS = 4
-EXPECTED_SOURCE_DIRECT_ROUTE_IDS = 1
+EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS = 1
 EXPECTED_SOURCE_GENERATED_ROUTE_IDS = 1
 EXPECTED_SOURCE_INVALIDATION_CASES = 9
 EXPECTED_OUTPUT_FORMATS = 7
@@ -425,7 +425,7 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         "vortex_local_file_routes": EXPECTED_VORTEX_LOCAL_FILE_ROUTES,
         "source_input_formats": EXPECTED_SOURCE_INPUT_FORMATS,
         "source_prepared_routes": EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
-        "source_direct_routes": EXPECTED_SOURCE_DIRECT_ROUTE_IDS,
+        "source_internal_smoke_routes": EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS,
         "source_generated_routes": EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
         "source_invalidation_cases": EXPECTED_SOURCE_INVALIDATION_CASES,
         "output_formats": EXPECTED_OUTPUT_FORMATS,
@@ -924,7 +924,7 @@ def _validate_source(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
     expected_counts = {
         "supported_input_formats": EXPECTED_SOURCE_INPUT_FORMATS,
         "prepared_route_ids": EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
-        "direct_transient_route_ids": EXPECTED_SOURCE_DIRECT_ROUTE_IDS,
+        "internal_source_smoke_route_ids": EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS,
         "generated_route_ids": EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
         "invalidation_case_ids": EXPECTED_SOURCE_INVALIDATION_CASES,
     }
