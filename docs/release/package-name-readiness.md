@@ -2,7 +2,7 @@
 
 # Package Name Readiness
 
-Status: v0.1.8 selected package identities are published and proof-backed for GitHub pre-release,
+Status: v0.1.9 selected package identities are published and proof-backed for GitHub pre-release,
 TestPyPI, PyPI, and Homebrew. Do not publish additional channels, create new tags, or add secrets
 from this document.
 
@@ -27,15 +27,15 @@ The workflow lives at `.github/workflows/pypi-publish-draft.yml`.
 It uses GitHub OIDC, the `testpypi` and `pypi` environments, and no token secrets. It is manual and
 guarded by an explicit `publish-approved` input so it does not publish accidentally.
 
-The v0.1.8 release sequence completed:
+The v0.1.9 release sequence completed:
 
-- GitHub release/tag/assets: `v0.1.8`
+- GitHub release/tag/assets: `v0.1.9`
 - TestPyPI package proof:
-  `docs/release/channel-proofs/testpypi-v0.1.8-transcript.json`
+  `docs/release/channel-proofs/testpypi-v0.1.9-transcript.json`
 - PyPI package proof:
-  `docs/release/channel-proofs/pypi-v0.1.8-transcript.json`
+  `docs/release/channel-proofs/pypi-v0.1.9-transcript.json`
 - Homebrew tap proof:
-  `docs/release/channel-proofs/homebrew-v0.1.8-transcript.json`
+  `docs/release/channel-proofs/homebrew-v0.1.9-transcript.json`
 - no runtime fallback dependencies were added
 
 ## TestPyPI Dry Run
@@ -46,7 +46,7 @@ approved ShardLoom CLI binary via `--shardloom-bin` or `SHARDLOOM_BIN`, and unin
 
 ```powershell
 gh workflow run pypi-publish-draft.yml -f channel=testpypi -f publish_approved=publish-approved
-python scripts\python_registry_package_proof.py --channel testpypi --version 0.1.8 --shardloom-bin target\release\shardloom --output target\python-registry-package-proof\testpypi-transcript.json
+python scripts\python_registry_package_proof.py --channel testpypi --version 0.1.9 --shardloom-bin target\release\shardloom --output target\python-registry-package-proof\testpypi-transcript.json
 ```
 
 PyPI publication uses the same workflow with `channel=pypi`, but it must reference the passed
@@ -126,5 +126,5 @@ python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\check_release_readiness.py
 ```
 
-The current package-channel matrix is ready for the selected v0.1.8 channels and remains blocked for
+The current package-channel matrix is ready for the selected v0.1.9 channels and remains blocked for
 future channels such as Scoop, winget, conda-forge, GHCR, and crates.io public API crates.
