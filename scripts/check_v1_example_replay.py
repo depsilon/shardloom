@@ -83,14 +83,14 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         'ctx.read("data/orders.csv")',
         "print(result.fallback_attempted, result.external_engine_invoked)",
     ),
-    "website-src/src/components/BenchmarkDashboard.astro": (
-        "import shardloom as sl",
-        "prepared = ctx.prepare_vortex(",
-        "# selective filter",
-        "clean/cast/filter/write",
-        "# malformed timestamp / dirty CSV",
-        "# nested JSON field scan",
-        "scenario_selective-filter_fallback_attempted",
+    "website-src/src/pages/benchmarks.astro": (
+        "https://benchmark.clickhouse.com/",
+        "Use ClickBench as the public comparison surface.",
+        "old internal",
+        "benchmark dashboard has been removed",
+        "not present them as current public ranking evidence",
+        "External engines are baselines only.",
+        "no-fallback execution boundary",
     ),
     "website-src/src/content/docs/field-guide/python-surface.mdx": (
         "import shardloom as sl",
