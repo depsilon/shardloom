@@ -60,7 +60,7 @@ The completed publication proof records:
 
 - release version and tag: `v0.1.9`
 - selected channels: GitHub pre-release, TestPyPI, PyPI, Homebrew
-- exact source revision: `7fad4188e9d6eaac21ca8c2634e168a683bfef15`
+- exact source revision: `8b3bf02440c642c5142327329bd86c56501e909a`
 - release notes
 - checksum, SBOM, provenance, and signing/attestation policy
 - rollback, yank, delete, or advisory plan per channel

@@ -6,7 +6,7 @@
   "post_release_verification_ready": true,
   "approval_artifact_ref": "target/final-release-approval/maintainer-approval.json",
   "approved_release_tag": "v0.1.9",
-  "approved_release_commit": "7fad4188e9d6eaac21ca8c2634e168a683bfef15",
+  "approved_release_commit": "8b3bf02440c642c5142327329bd86c56501e909a",
   "approved_package_channels": [
     "github_prerelease",
     "testpypi",
