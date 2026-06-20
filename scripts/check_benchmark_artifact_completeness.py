@@ -32,6 +32,11 @@ from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 
 REPORT_SCHEMA_VERSION = "shardloom.benchmark_artifact_completeness_report.v1"
+DEFAULT_PUBLIC_BENCHMARK_MANIFEST = (
+    ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json"
+)
+PUBLIC_BENCHMARK_SURFACE = "clickbench_handoff"
+CLICKBENCH_URL = "https://benchmark.clickhouse.com/"
 REQUIRED_MANIFEST_FIELDS = {
     "schema_version",
     "generated_at_utc",
@@ -118,6 +123,44 @@ OPERATOR_EXECUTION_MODES = {
 }
 PREPARED_ROUTE_AMORTIZATION_COUNTS = {1, 5, 10, 50, 100}
 DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS = "derived_from_prepare_once_batch_route_timing"
+
+
+def resolve_repo_path(path: Path) -> Path:
+    return path if path.is_absolute() else ROOT / path
+
+
+def default_public_benchmark_manifest_retired(path: Path) -> bool:
+    resolved = resolve_repo_path(path)
+    try:
+        is_default = resolved.resolve(strict=False) == DEFAULT_PUBLIC_BENCHMARK_MANIFEST
+    except OSError:
+        is_default = False
+    return is_default and not resolved.exists()
+
+
+def retired_public_benchmark_report(manifest_path: Path) -> dict[str, Any]:
+    return {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "status": "passed",
+        "manifest": str(manifest_path),
+        "manifest_sha256": None,
+        "artifact_json_sha256": None,
+        "benchmark_profile": "public_site_retired",
+        "artifact_status": "retired_from_public_website",
+        "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE,
+        "public_benchmark_url": CLICKBENCH_URL,
+        "available_lane_count": 0,
+        "missing_lane_count": 0,
+        "performance_claim_allowed": False,
+        "benchmark_run_performed": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "retired_static_artifact_contract": (
+            "The public website no longer publishes the internal ShardLoom benchmark "
+            "dashboard bundle; it links to ClickBench as the public comparison surface."
+        ),
+        "blockers": [],
+    }
 COLD_BOTTLENECK_SCHEMA_VERSION = "shardloom.traditional_analytics.cold_bottleneck.v1"
 COLD_BOTTLENECK_ROUTE_LANES = {
     "cold_certified_route",
@@ -2203,6 +2246,16 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
 
 def main() -> int:
     args = parse_args()
+    if default_public_benchmark_manifest_retired(args.manifest):
+        report = retired_public_benchmark_report(args.manifest)
+        if args.output is not None:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0
     blockers, manifest = validate_manifest(args.manifest, args.allow_incomplete)
     report = {
         "schema_version": REPORT_SCHEMA_VERSION,

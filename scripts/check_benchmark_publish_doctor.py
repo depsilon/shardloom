@@ -24,14 +24,19 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT))
 
 from check_benchmark_artifact_completeness import (  # noqa: E402
+    CLICKBENCH_URL,
+    PUBLIC_BENCHMARK_SURFACE,
+    default_public_benchmark_manifest_retired,
     load_json,
     repo_path,
+    retired_public_benchmark_report,
     result_rows,
     validate_manifest,
 )
 from check_benchmark_publication_claim_gate import (  # noqa: E402
     DEFAULT_MAX_AGE_DAYS,
     DEFAULT_PRE_5J_DEPENDENCY_REPORT,
+    retired_public_benchmark_publication_report,
     validate_publication_claim_gate,
 )
 
@@ -147,6 +152,32 @@ def mirror_status(repo_root: Path) -> dict[str, Any]:
                 "sha256_by_ref": digests,
             }
         )
+    return {
+        "status": "passed" if not blockers else "blocked",
+        "groups": groups,
+        "blockers": blockers,
+    }
+
+
+def retired_static_benchmark_artifact_status(repo_root: Path) -> dict[str, Any]:
+    stale_refs: list[str] = []
+    groups: list[dict[str, Any]] = []
+    for label, refs in MIRROR_GROUPS:
+        present = [ref for ref in refs if (repo_root / ref).exists()]
+        if present:
+            stale_refs.extend(present)
+        groups.append(
+            {
+                "label": label,
+                "status": "passed" if not present else "blocked",
+                "refs": list(refs),
+                "present_retired_refs": present,
+            }
+        )
+    blockers = [
+        "retired public benchmark dashboard artifacts are still present: "
+        + ",".join(sorted(stale_refs))
+    ] if stale_refs else []
     return {
         "status": "passed" if not blockers else "blocked",
         "groups": groups,
@@ -339,6 +370,86 @@ def build_report(
     allow_dirty_worktree: bool = False,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    if default_public_benchmark_manifest_retired(manifest_path):
+        completeness_report = retired_public_benchmark_report(manifest_path)
+        claim_gate = retired_public_benchmark_publication_report(manifest_path)
+        mirror = retired_static_benchmark_artifact_status(repo_root)
+        manifest = {
+            "benchmark_profile": "public_site_retired",
+            "artifact_status": "retired_from_public_website",
+            "performance_claim_allowed": False,
+        }
+        blockers = [f"retired public benchmark surface: {blocker}" for blocker in mirror["blockers"]]
+        status = "passed" if not blockers else "blocked"
+        packet = route_packet(
+            manifest=manifest,
+            payload={},
+            rows=[],
+            report_status=status,
+            repo_root=repo_root,
+        )
+        packet.update(
+            {
+                "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE,
+                "public_benchmark_url": CLICKBENCH_URL,
+                "artifact_status": "retired_from_public_website",
+                "required_validators": [
+                    "python3 scripts/check_benchmark_publish_doctor.py",
+                    "python3 scripts/check_website_readiness.py --output target/website-readiness-report.json",
+                    "node website/validate_static_assets.js",
+                    "git diff --check",
+                ],
+                "relevant_files": [
+                    "website-src/src/pages/benchmarks.astro",
+                    "scripts/check_website_readiness.py",
+                    "website-public/validate_static_assets.js",
+                    "scripts/check_benchmark_publish_doctor.py",
+                ],
+            }
+        )
+        report = {
+            "schema_version": SCHEMA_VERSION,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "status": status,
+            "manifest": str(manifest_path),
+            "benchmark_profile": "public_site_retired",
+            "artifact_status": "retired_from_public_website",
+            "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE,
+            "public_benchmark_url": CLICKBENCH_URL,
+            "artifact_generated_at_utc": None,
+            "benchmark_git_sha": None,
+            "shardloom_git_sha": None,
+            "artifact_json": None,
+            "artifact_json_sha256": None,
+            "source_command": "not_applicable_public_site_dashboard_retired",
+            "row_count": 0,
+            "shardloom_row_count": 0,
+            "external_baseline_only_row_count": 0,
+            "shardloom_unsupported_row_count": 0,
+            "external_unsupported_row_count": 0,
+            "claim_grade_row_count": 0,
+            "route_runtime_status_counts": {},
+            "operator_execution_mode_counts": {},
+            "route_timing_ledger_status_counts": {},
+            "timing_ledger_valid_row_count": 0,
+            "artifact_completeness_status": completeness_report["status"],
+            "artifact_completeness_blockers": completeness_report["blockers"],
+            "publication_claim_gate_status": claim_gate["status"],
+            "publication_claim_gate_blockers": claim_gate["blockers"],
+            "mirror_status": mirror,
+            "nearest_next_validation_command": "python3 scripts/check_website_readiness.py --output target/website-readiness-report.json",
+            "route_packet_ref": str(DEFAULT_PACKET_JSON),
+            "route_packet_markdown_ref": str(DEFAULT_PACKET_MD),
+            "benchmark_run_performed": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "retired_static_artifact_contract": (
+                "The public website no longer publishes the internal ShardLoom benchmark "
+                "dashboard bundle; it links to ClickBench as the public comparison surface."
+            ),
+            "blockers": blockers,
+        }
+        return report, packet
     completeness_blockers, manifest = validate_manifest(manifest_path, allow_incomplete)
     claim_gate = validate_publication_claim_gate(
         manifest_path,

@@ -34,7 +34,7 @@ object-store/lakehouse, Foundry, or fallback-execution claims.
 | Local wheel/sdist proof | Required before publication. | `target/release-dry-run-proof/transcript.json`, `python/dist/*` |
 | Python user-surface proof | Required local smoke and scenario proof. | `examples/local-python-smoke/run.py`, `examples/local-python-benchmark-scenarios/run.py`, `examples/local-python-benchmark-scenarios/timing_review.py` |
 | API/schema stability | Stable local v1 machine-readable contract. | `docs/release/v1-api-schema-stability.md`, `docs/release/schemas/v1/*`, `scripts/check_v1_api_schema_stability.py` |
-| Local benchmark publication | Scoped full-local evidence only. | `website/assets/benchmarks/latest/manifest.json` |
+| Benchmark/public comparison surface | ClickBench handoff publicly; local benchmark artifacts remain separate, claim-gated evidence. | `website-src/src/pages/benchmarks.astro`, `scripts/check_benchmark_publish_doctor.py` |
 | Docs/website/readme | Claim-safe public interpretation layer. | `README.md`, `docs/release/public-status-matrix.md`, `website-src/` |
 | GitHub pre-release | Published v0.1.10 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.1.10-transcript.json` |
 | TestPyPI | Published v0.1.10 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.1.10-transcript.json` |

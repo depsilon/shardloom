@@ -14283,114 +14283,27 @@ jobs:
             ],
         )
 
-    def test_website_readiness_validates_benchmark_timing_surfaces(self) -> None:
+    def test_website_readiness_validates_benchmark_clickbench_handoff(self) -> None:
         module = self._load_script_module(
-            "check_website_readiness.py", "check_website_route_cards_for_test"
+            "check_website_readiness.py", "check_website_clickbench_handoff_for_test"
         )
 
         with tempfile.TemporaryDirectory() as tempdir:
             website = Path(tempdir) / "website"
             website.mkdir()
-            timing_surface_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_TIMING_SURFACE_STRINGS
-            )
-            route_share_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS
-            )
-            stage_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_STAGE_STRINGS
-            )
-            runtime_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_RUNTIME_STRINGS
-            )
-            artifact_section_tokens = {
-                "Prepared/native source-state coverage",
-                "Raw timing tables",
-            }
-            artifact_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_ARTIFACT_STRINGS
-                if token not in artifact_section_tokens
-            )
-            cards = {
-                "cold_certified_route": "ShardLoom Cold Certified Route",
-                "prepare_once_first_query": "ShardLoom Prepare-Once First Query",
-                "prepare_once_batch": "ShardLoom Prepare-Once Batch",
-                "warm_prepared_query": "ShardLoom Warm Prepared Query",
-                "native_vortex_query": "ShardLoom Native Vortex Query",
-                "external_baseline_end_to_end": "External Baseline End-to-End",
-            }
-            card_markup = "\n".join(
-                f'<article data-route-card-id="{card_id}">{label}</article>'
-                for card_id, label in cards.items()
-            )
-            public_front_door_markup = """
-                <section>
-                  <h2>Public front doors</h2>
-                  <p>Route rows name the user-facing prepared paths.</p>
-                  <article data-public-front-door-id="local_source_vortex_middle_front_door">
-                    <code>ctx.prepare_vortex(&#39;fact.csv&#39;, dim=&#39;dim.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()</code>
-                    <p>SourceState</p>
-                    <p>result_sink</p>
-                    <p>not_timing_row_route_identity_only</p>
-                  </article>
-                  <article data-public-front-door-id="generated_source_prepare_vortex_front_door">
-                    <code>ctx.from_rows([{&#39;id&#39;: 1, &#39;label&#39;: &#39;alpha&#39;}]).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)</code>
-                    <p>GeneratedSourceState</p>
-                    <p>VortexPreparedState</p>
-                    <p>not_timing_row_route_identity_only</p>
-                  </article>
-                </section>
-            """
             (website / "benchmarks.html").write_text(
                 f"""
-                <section data-route-timing-surface-dashboard>
-                  <h2>Route timing dashboard</h2>
-                  {card_markup}
-                  <p>External Baseline End-to-End</p>
-                  {timing_surface_tokens}
-                </section>
-                <section>
-                  <h2>Publication proof</h2>
-                </section>
-                <section>
-                  <h2>Optimization direction</h2>
-                </section>
-                <section>
-                  <h2>Route-share attribution</h2>
-                  {route_share_tokens}
-                </section>
-                <section>
-                  <h2>Stage attribution</h2>
-                  {stage_tokens}
-                </section>
-                <section>
-                  <h2>Runtime and claims</h2>
-                  {runtime_tokens}
-                </section>
-                {public_front_door_markup}
-                <section>
-                  <h2>Artifact lane availability</h2>
-                  {artifact_tokens}
-                </section>
-                <section>
-                  <h2>Prepared/native source-state coverage</h2>
-                  <p>Prepared/native source-state coverage</p>
-                </section>
-                <section>
-                  <h2>Raw timing tables</h2>
-                  <p>Raw timing tables</p>
-                </section>
+                <main>
+                  <h1>Benchmarks</h1>
+                  <p>ClickBench is the public comparison surface.</p>
+                  <a href="{module.CLICKBENCH_URL}">Open ClickBench</a>
+                </main>
                 """,
                 encoding="utf-8",
             )
 
             blockers: list[str] = []
-            module.check_benchmark_timing_surface_dashboard(website, blockers)
+            module.check_benchmark_clickbench_handoff(website, blockers)
 
         self.assertEqual(blockers, [])
 

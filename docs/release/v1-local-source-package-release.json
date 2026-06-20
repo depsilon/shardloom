@@ -7,7 +7,7 @@
   "local_source_install_proof_status": "validated_by_release_dry_run",
   "python_user_surface_proof_status": "validated_by_local_smoke_and_scenarios",
   "api_schema_stability_status": "stable_v1_local_contract",
-  "benchmark_publication_scope": "full_local_evidence_only_claim_gated",
+  "benchmark_publication_scope": "clickbench_handoff_local_evidence_only_claim_gated",
   "docs_website_status": "claim_safe_current_source",
   "publication_authorization_state": "approved_channel_proof_passed",
   "selected_publication_channels": [
