@@ -1,9 +1,6 @@
 ---
 import SiteLayout from "../layouts/SiteLayout.astro";
-import { manifest, repoLink } from "../lib/data";
-
-const manifestAny = manifest as any;
-const manifestSha = String(manifestAny.benchmark_git_sha ?? manifestAny.shardloom_git_sha ?? "not reported");
+import { repoLink } from "../lib/data";
 ---
 
 <SiteLayout title="About" description="Claim-safe ShardLoom overview with current route, timing-surface, and evidence boundaries." path="/about" active="about">
@@ -15,7 +12,7 @@ const manifestSha = String(manifestAny.benchmark_git_sha ?? manifestAny.shardloo
     </p>
     <div class="actions">
       <a class="button primary" href="/compute-engine-flow">View compute flow</a>
-      <a class="button" href="/benchmarks">Inspect benchmarks</a>
+      <a class="button" href="/benchmarks">Open benchmark comparison</a>
       <a class="button ghost" href={repoLink("README.md")}>Open README</a>
     </div>
   </section>
@@ -65,10 +62,10 @@ const manifestSha = String(manifestAny.benchmark_git_sha ?? manifestAny.shardloo
 
   <section>
     <div class="strip">
-      <div class="metric"><strong>{String(manifestAny.performance_claim_allowed ?? "not reported")}</strong><span>performance_claim_allowed</span></div>
-      <div class="metric"><strong>{String(manifestAny.route_timing_instrument_status ?? "not reported")}</strong><span>route timing instrument status</span></div>
-      <div class="metric"><strong>{String(manifestAny.benchmark_constitution_claim_gate_status ?? "not reported")}</strong><span>benchmark claim gate</span></div>
-      <div class="metric"><strong>{manifestSha.slice(0, 12)}</strong><span>promoted artifact SHA</span></div>
+      <div class="metric"><strong>ClickBench</strong><span>public comparison surface</span></div>
+      <div class="metric"><strong>local</strong><span>engineering benchmark artifacts</span></div>
+      <div class="metric"><strong>explicit</strong><span>benchmark claim gate</span></div>
+      <div class="metric"><strong>named</strong><span>route and dataset required</span></div>
       <div class="metric"><strong>false</strong><span>runtime fallback delegation</span></div>
     </div>
   </section>

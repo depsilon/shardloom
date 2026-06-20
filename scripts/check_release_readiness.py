@@ -448,6 +448,22 @@ def benchmark_publication_claim_report_blockers(
     return blockers
 
 
+def public_site_benchmark_dashboard_retired(
+    completeness_report: dict[str, Any] | None,
+    publication_report: dict[str, Any] | None,
+) -> bool:
+    if not isinstance(completeness_report, dict) or not isinstance(publication_report, dict):
+        return False
+    return (
+        completeness_report.get("status") == "passed"
+        and publication_report.get("status") == "passed"
+        and completeness_report.get("artifact_status") == "retired_from_public_website"
+        and publication_report.get("artifact_status") == "retired_from_public_website"
+        and completeness_report.get("public_benchmark_surface") == "clickbench_handoff"
+        and publication_report.get("public_benchmark_surface") == "clickbench_handoff"
+    )
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -1282,7 +1298,11 @@ def main() -> int:
         if required not in read_text(benchmark_constitution_source):
             benchmark_constitution_blockers.append(f"missing benchmark constitution source marker: {required}")
     if benchmark_manifest is None:
-        benchmark_constitution_blockers.append("missing website benchmark manifest")
+        if not public_site_benchmark_dashboard_retired(
+            benchmark_completeness_report,
+            benchmark_publication_claim_report,
+        ):
+            benchmark_constitution_blockers.append("missing website benchmark manifest")
     else:
         precomputed_completeness_blockers = benchmark_completeness_report_blockers(
             benchmark_completeness_report,
@@ -1424,16 +1444,39 @@ def main() -> int:
                 front_door_publication_blockers.append(
                     f"front-door benchmark publication {field} must be false"
                 )
-        for field in [
-            "benchmark_run_performed",
-            "benchmark_rerun_approved",
-            "laptop_safe_sequential_controls_confirmed",
-            "measured_front_door_equivalence_artifact_present",
-        ]:
+        retired_front_door_equivalence = (
+            front_door_benchmark_publication.get(
+                "front_door_equivalence_artifact_status"
+            )
+            == "retired_from_public_website"
+            and front_door_benchmark_publication.get("public_benchmark_surface")
+            == "clickbench_handoff"
+        )
+        for field in ["laptop_safe_sequential_controls_confirmed"]:
             if front_door_benchmark_publication.get(field) is not True:
                 front_door_publication_blockers.append(
                     f"front-door benchmark publication {field} must be true"
                 )
+        if retired_front_door_equivalence:
+            for field in [
+                "benchmark_run_performed",
+                "benchmark_rerun_approved",
+                "measured_front_door_equivalence_artifact_present",
+            ]:
+                if front_door_benchmark_publication.get(field) is not False:
+                    front_door_publication_blockers.append(
+                        f"front-door benchmark publication retired {field} must be false"
+                    )
+        else:
+            for field in [
+                "benchmark_run_performed",
+                "benchmark_rerun_approved",
+                "measured_front_door_equivalence_artifact_present",
+            ]:
+                if front_door_benchmark_publication.get(field) is not True:
+                    front_door_publication_blockers.append(
+                        f"front-door benchmark publication {field} must be true"
+                    )
         if (
             int(
                 front_door_benchmark_publication.get(
@@ -1774,12 +1817,12 @@ def main() -> int:
             )
         if (
             v1_source_prepared_state_scope.get(
-                "all_direct_transient_routes_are_labeled_non_persistent"
+                "all_internal_source_smoke_routes_are_labeled_non_persistent"
             )
             is not True
         ):
             v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state direct transient routes must be non-persistent"
+                "v1 SourceState/prepared-state internal source smoke routes must be non-persistent"
             )
         if len(v1_source_prepared_state_scope.get("supported_input_formats", [])) != 6:
             v1_source_prepared_blockers.append(

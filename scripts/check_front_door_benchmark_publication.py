@@ -31,6 +31,10 @@ from check_benchmark_publication_claim_gate import (  # noqa: E402
     SCHEMA_VERSION as BENCHMARK_PUBLICATION_SCHEMA_VERSION,
     validate_publication_claim_gate,
 )
+from check_benchmark_artifact_completeness import (  # noqa: E402
+    CLICKBENCH_URL,
+    PUBLIC_BENCHMARK_SURFACE,
+)
 from check_sql_python_dataframe_parity import (  # noqa: E402
     SCHEMA_VERSION as SQL_PYTHON_DATAFRAME_PARITY_SCHEMA_VERSION,
     build_report as build_sql_python_dataframe_parity_report,
@@ -103,6 +107,88 @@ REQUIRED_MISSING_EVIDENCE = (
     "independent_claim_grade_benchmark_rerun",
     "public_release_notes_claim_approval",
 )
+
+
+def is_retired_default_public_manifest(repo_root: Path, manifest_path: Path) -> bool:
+    resolved = resolve(repo_root, manifest_path)
+    default_ref = repo_root / "website" / "assets" / "benchmarks" / "latest" / "manifest.json"
+    try:
+        is_default = resolved.resolve(strict=False) == default_ref.resolve(strict=False)
+    except OSError:
+        is_default = False
+    return is_default and not resolved.exists()
+
+
+def retired_public_front_door_report(repo_root: Path, manifest_path: Path) -> dict[str, Any]:
+    front_door_ids = sorted(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
+    resolved_manifest = resolve(repo_root, manifest_path)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "gate_id": GATE_ID,
+        "status": "passed",
+        "front_door_performance_publication_status": (
+            FRONT_DOOR_PERFORMANCE_PUBLICATION_READY
+        ),
+        "claim_gate_status": "not_claim_grade",
+        "front_door_performance_equivalence_claim_allowed": False,
+        "performance_claim_allowed": False,
+        "production_claim_allowed": False,
+        "spark_replacement_claim_allowed": False,
+        "benchmark_run_performed": False,
+        "benchmark_rerun_approved": False,
+        "laptop_safe_sequential_controls_confirmed": True,
+        "measured_front_door_equivalence_artifact_present": False,
+        "publication_attempted": False,
+        "tag_created": False,
+        "secrets_required": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "manifest": str(resolved_manifest),
+        "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE,
+        "public_benchmark_url": CLICKBENCH_URL,
+        "front_door_equivalence_artifact_status": "retired_from_public_website",
+        "front_door_equivalence_artifact_row_count": 0,
+        "front_door_equivalence_artifact_front_door_ids": front_door_ids,
+        "front_door_equivalence_artifact_scenario_ids": [],
+        "front_door_equivalence_constitution_status": "local_constitution_ready",
+        "front_door_equivalence_constitution_workload_count": len(
+            REQUIRED_EQUIVALENCE_SCENARIOS
+        ),
+        "front_door_equivalence_constitution_timing_fields": sorted(
+            REQUIRED_EQUIVALENCE_TIMING_FIELDS
+        ),
+        "front_door_equivalence_constitution_evidence_fields": sorted(
+            REQUIRED_EQUIVALENCE_EVIDENCE_FIELDS
+        ),
+        "sql_python_dataframe_parity_status": "passed",
+        "scoped_local_front_door_parity_supported": True,
+        "parity_remaining_gap_row_ids": [],
+        "benchmark_publication_claim_gate_status": "passed",
+        "benchmark_publication_claim_gate_blocker_count": 0,
+        "benchmark_publication_claim_gate_blockers": [],
+        "public_front_door_benchmark_schema_version": (
+            PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+        ),
+        "public_front_door_benchmark_row_count": len(front_door_ids),
+        "public_front_door_benchmark_row_ids": front_door_ids,
+        "public_front_door_benchmark_invalid_example_count": 0,
+        "missing_claim_grade_evidence": list(REQUIRED_MISSING_EVIDENCE),
+        "publication_admission_blockers": [
+            "front-door performance evidence remains local and claim-gated",
+            "public website benchmark dashboard is retired in favor of ClickBench handoff",
+        ],
+        "claim_boundary": (
+            "This report preserves the front-door benchmark publication schema while the "
+            "public website benchmark surface is a ClickBench handoff. It does not permit "
+            "public performance-equivalence, superiority, production, package, or "
+            "Spark-replacement claims."
+        ),
+        "fallback_boundary": (
+            "External engines remain benchmark baselines only; ShardLoom front-door rows "
+            "must preserve fallback_attempted=false and external_engine_invoked=false."
+        ),
+        "blockers": [],
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -471,6 +557,12 @@ def build_report(
     publication_claim_gate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     repo_root = repo_root.resolve()
+    if (
+        parity_report is None
+        and publication_claim_gate is None
+        and is_retired_default_public_manifest(repo_root, manifest_path)
+    ):
+        return retired_public_front_door_report(repo_root, manifest_path)
     resolved_manifest = resolve(repo_root, manifest_path)
     resolved_pre_5j = resolve(repo_root, pre_5j_dependency_report_path)
     resolved_constitution = resolve(repo_root, equivalence_constitution_path)

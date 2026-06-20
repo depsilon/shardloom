@@ -16,7 +16,7 @@ Public surface:
 - `/about`: concise claim-safe project overview and evidence pointers.
 - `/start`: first local proof entry point.
 - `/field-guide`: Starlight docs shell for local proof, Python route shape, benchmark methodology, limitations, and vocabulary.
-- `/benchmarks`: committed benchmark artifact interpretation.
+- `/benchmarks`: ClickBench handoff and claim-safe public comparison posture.
 - `/compute-engine-flow`: human-readable route translation.
 
 Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the repository under `docs/`.
@@ -30,8 +30,8 @@ npm run check
 ```
 
 The build must not run ShardLoom benchmarks, fetch runtime GitHub/raw content, publish packages, or
-expand support claims. Benchmark pages render committed artifacts under
-`website-public/assets/benchmarks/latest/`. `npm run sync-content` copies canonical compute-flow
-and benchmark data into Astro import data before each build, and it keeps repository use-case
-records under `docs/use-cases/generated/` for source-of-truth evidence instead of publishing a
-generated use-case browser.
+expand support claims. The benchmark page links to ClickBench instead of rendering committed local
+artifact rows as a public leaderboard. `npm run sync-content` copies canonical compute-flow content
+into Astro import data before each build, and it keeps repository use-case records under
+`docs/use-cases/generated/` for source-of-truth evidence instead of publishing a generated use-case
+browser.

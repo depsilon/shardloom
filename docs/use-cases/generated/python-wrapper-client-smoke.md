@@ -66,4 +66,4 @@ Python can import the package and invoke explicit status/capability commands thr
 
 ## Related Field Guide Terms
 
-- [direct_compatibility_transient](https://shardloom.io/field-guide/direct-compatibility-transient) (`Execution Routes` / `internal_smoke_only`)
+- [internal_local_source_smoke](https://shardloom.io/field-guide/internal-local-source-smoke) (`Execution Routes` / `internal_smoke_only`)

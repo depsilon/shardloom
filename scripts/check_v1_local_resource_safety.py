@@ -374,7 +374,7 @@ def validate_source_prepared(payload: Mapping[str, Any]) -> tuple[dict[str, Any]
         "v1_scope_ready",
         "all_no_fallback_no_external_engine",
         "all_prepared_routes_expose_reuse_contract",
-        "all_direct_transient_routes_are_labeled_non_persistent",
+        "all_internal_source_smoke_routes_are_labeled_non_persistent",
         "all_generated_routes_expose_artifact_adjacent_reuse",
     ):
         if payload.get(key) is not True:
@@ -386,8 +386,8 @@ def validate_source_prepared(payload: Mapping[str, Any]) -> tuple[dict[str, Any]
         "status": "passed" if not blockers else "failed",
         "prepared_route_count": len(payload.get("prepared_route_ids", [])),
         "unsupported_boundary_count": len(payload.get("unsupported_boundary_ids", [])),
-        "direct_transient_non_persistent": payload.get(
-            "all_direct_transient_routes_are_labeled_non_persistent"
+        "internal_source_smoke_non_persistent": payload.get(
+            "all_internal_source_smoke_routes_are_labeled_non_persistent"
         )
         is True,
     }, blockers

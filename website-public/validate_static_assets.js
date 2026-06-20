@@ -34,9 +34,6 @@ const requiredFiles = [
   "assets/logo/shardloom-logo.png",
   "assets/logo/shardloom-logo-trim.png",
   "assets/data/compute-engine-flow-reference.md",
-  "assets/data/benchmark-evidence.json",
-  "assets/benchmarks/latest/manifest.json",
-  "assets/benchmarks/latest/benchmark-results.json",
   "pagefind/pagefind-entry.json",
 ];
 
@@ -237,8 +234,8 @@ assert(
   "home page hero must use current Vortex-native route language",
 );
 assert(
-  index.includes("Hot runtime is not publication proof."),
-  "home page hero must separate hot runtime from publication proof",
+  index.includes("Route totals name their surface."),
+  "home page must preserve explicit route timing surface language",
 );
 for (const required of [
   "UniversalIngress",
@@ -249,7 +246,7 @@ for (const required of [
   "claim_gate_status",
   "Start local proof",
   "Read Field Guide",
-  "View benchmark evidence",
+  "Open benchmark comparison",
 ]) {
   assert(index.includes(required), `home page product console missing ${required}`);
 }
@@ -257,142 +254,19 @@ assert(index.includes("Open GitHub"), "home page must link to GitHub");
 
 const benchmarks = read("benchmarks.html");
 for (const required of [
-  "Benchmark Evidence, Not a Leaderboard",
-  "Route timing dashboard",
-  "Route lanes are the comparison surface.",
-  "data-route-timing-surface-dashboard",
-  "ShardLoom Prepare-Once First Query",
-  "ShardLoom Cold Certified Route",
-  "ShardLoom Prepare-Once Batch",
-  "ShardLoom Warm Prepared Query",
-  "ShardLoom Native Vortex Query",
-  "External Baseline End-to-End",
-  "hot_runtime",
-  "publication_proof",
-  "Publication-proof route geomean",
-  "Hot route geomean",
-  "result-sink and evidence-render work",
-  "timing_surface=hot_runtime",
-  "timing_surface=publication_proof",
-  "Stage attribution",
-  "Included hot runtime",
-  "Included publication proof",
-  "Diagnostic only",
-  "Optimization direction",
-  "Route-share attribution",
-  "diagnostic_absent_or_retired",
-  "target_disappearance_policy=diagnostic_absent_or_retired_not_release_blocker",
-  "retired optimization targets",
-  "Runtime support is separate from claim readiness.",
-  "ShardLoom unsupported rows",
-  "External baseline unsupported rows",
-  "Benchmark data ownership",
-  "Static mirrors have one canonical artifact.",
-  "website-public/assets/benchmarks/latest/benchmark-results.json",
-  "mirror digest checks",
-  "Artifact lane availability",
-  "full_local",
-  "Public front doors",
-  "Route rows name the user-facing prepared paths.",
-  "Schema-pinned benchmark ETL reproduction",
-  "prepared = ctx.prepare_vortex(",
-  "input_format=&quot;csv&quot;",
-  "prepared.query(&quot;sort and top-k&quot;).collect()",
-  "prepared.query(&quot;clean/cast/filter/write&quot;).collect()",
-  "prepared.query(&quot;malformed timestamp / dirty CSV&quot;).collect()",
-  "prepared.query(&quot;nested JSON field scan&quot;).collect()",
-  "scenario_selective-filter_fallback_attempted",
-  "not_timing_row_route_identity_only",
-  "SourceState",
-  "GeneratedSourceState",
-  "VortexPreparedState",
-  "Format coverage rows",
-  "Claim-grade closeout",
-  "Prepared/native source-state coverage",
-  "source_state_coverage_all_requested_scenarios_classified",
-  "Raw timing tables",
-  "Route timing surfaces",
-  "Performance claim allowed",
+  "ClickBench",
+  "Open ClickBench",
+  "https://benchmark.clickhouse.com/",
+  "Use ClickBench as the public comparison surface.",
+  "Local benchmark artifacts remain useful for engineering validation",
+  "Public comparison belongs on ClickBench",
 ]) {
   assert(benchmarks.includes(required), `benchmarks page missing ${required}`);
 }
 assert(
-  !benchmarks.includes("Current artifact profile: <strong>full_local_plus_spark</strong>"),
-  "benchmarks page must not show full_local_plus_spark as the current published profile",
+  !benchmarks.includes("data-route-timing-surface-dashboard"),
+  "benchmarks page must not render the retired internal dashboard",
 );
-const benchmarkEvidence = JSON.parse(read("assets/benchmarks/latest/benchmark-results.json"));
-assert(
-  benchmarkEvidence.published_benchmark_rows_inlined === "summary_only",
-  "benchmark-results.json must inline only summary rows for deployable asset safety",
-);
-assert(
-  Array.isArray(benchmarkEvidence.published_benchmark_row_chunks) &&
-    benchmarkEvidence.published_benchmark_row_chunks.length > 0,
-  "benchmark-results.json must reference full benchmark row chunks",
-);
-const summaryRows = Array.isArray(benchmarkEvidence.published_benchmark_rows)
-  ? benchmarkEvidence.published_benchmark_rows
-  : [];
-const shardloomSummaryRows = summaryRows.filter((row) => String(row.engine ?? "").startsWith("shardloom"));
-for (const field of [
-  "route_runtime_status",
-  "route_lane_id",
-  "route_display_name",
-  "start_state",
-  "end_state",
-  "includes_preparation",
-  "includes_query",
-  "includes_output",
-  "includes_evidence",
-  "route_comparable_to_external_end_to_end",
-  "performance_claim_allowed",
-  "production_claim_allowed",
-  "spark_replacement_claim_allowed",
-  "vortex_scan_millis",
-  "operator_compute_millis",
-  "result_sink_write_millis",
-  "fast_path_attribution_schema_version",
-  "runtime_execution_ms",
-  "output_delivery_ms",
-  "evidence_capture_ms",
-  "evidence_render_ms",
-  "certificate_link_ms",
-  "certificate_link_status",
-  "evidence_required_for_claim",
-  "evidence_render_included_in_route_total",
-  "operator_mode_inventory_schema_version",
-  "operator_execution_mode",
-  "encoded_native_operators",
-  "residual_native_operators",
-  "materialized_temporary_operators",
-  "operator_blocker_code",
-  "operator_hot_path_candidate",
-  "operator_hot_path_candidate_status",
-]) {
-  assert(
-    shardloomSummaryRows.every((row) => Object.prototype.hasOwnProperty.call(row, field)),
-    `summary ShardLoom benchmark rows must retain ${field} for detailed timing tables`,
-  );
-}
-assert(
-  shardloomSummaryRows.every((row) => row.route_runtime_status !== "external_baseline_only"),
-  "ShardLoom summary rows must not be labeled external_baseline_only",
-);
-assert(
-  shardloomSummaryRows.filter((row) => row.status === "unsupported" || row.route_runtime_status === "unsupported")
-    .length === 0,
-  "published ShardLoom summary rows must not contain unsupported route gaps",
-);
-const externalSummaryRows = summaryRows.filter((row) => !String(row.engine ?? "").startsWith("shardloom"));
-assert(
-  externalSummaryRows.every((row) => row.route_runtime_status === "external_baseline_only"),
-  "external summary rows must be labeled route_runtime_status=external_baseline_only",
-);
-for (const chunk of benchmarkEvidence.published_benchmark_row_chunks) {
-  assert(chunk.path, "benchmark row chunk missing path");
-  const chunkPath = chunk.path.replace(/^website\//, "");
-  assert(exists(chunkPath), `Missing benchmark row chunk: ${chunkPath}`);
-}
 
 const flow = read("compute-engine-flow.html");
 for (const required of [
@@ -476,11 +350,5 @@ for (const legacy of [
 ]) {
   assert(redirects.includes(legacy), `_redirects must preserve legacy route: ${legacy}`);
 }
-
-const manifest = JSON.parse(read("assets/benchmarks/latest/manifest.json"));
-assert(manifest.performance_claim_allowed === false, "benchmark manifest must block performance claims");
-assert(Array.isArray(manifest.expected_lanes), "benchmark manifest must expose expected_lanes");
-assert(Array.isArray(manifest.available_lanes), "benchmark manifest must expose available_lanes");
-assert(Array.isArray(manifest.missing_lanes), "benchmark manifest must expose missing_lanes");
 
 console.log("website static asset validation passed");

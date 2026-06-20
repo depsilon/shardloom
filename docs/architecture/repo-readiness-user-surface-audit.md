@@ -93,7 +93,7 @@ claim-boundary reclassification:
 ## Follow-Through Queue
 
 1. User-surface graduation matrix: map every command family and Python surface to one of
-   `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
+   `high_level_context`, `public_runtime`, `client_only`, `diagnostic_only`, `feature_gated`, or
    `not_user_facing`, with acceptance criteria for promotion.
 2. Runtime gap burn-down map: completed by
    `docs/architecture/runtime-gap-family-burn-down.md` and

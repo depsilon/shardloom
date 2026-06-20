@@ -1851,7 +1851,7 @@ class SqlWorkflow:
         *,
         requested_output: str = "collect",
         output_ref: str | os.PathLike[str] | None = None,
-        execution_policy: str = "auto",
+        execution_policy: str = "vortex_middle",
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
@@ -1890,7 +1890,7 @@ class SqlWorkflow:
         *,
         requested_output: str = "collect",
         output_ref: str | os.PathLike[str] | None = None,
-        execution_policy: str = "auto",
+        execution_policy: str = "vortex_middle",
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
@@ -2158,7 +2158,7 @@ class SqlWorkflow:
                 "sql",
                 sql_statement=self.statement,
                 requested_output="profile",
-                execution_policy="auto",
+                execution_policy="vortex_middle",
                 materialization_policy="bounded",
                 evidence_level="production_admitted_local_workflow",
                 bounded=True,
@@ -2705,7 +2705,7 @@ class SqlWorkflow:
             requested_output=requested_output,
             output_ref=output_ref,
             fanout_outputs=fanout_outputs,
-            execution_policy="auto",
+            execution_policy="vortex_middle",
             materialization_policy="bounded",
             evidence_level="production_admitted_local_workflow",
             bounded=True,
@@ -6372,6 +6372,11 @@ class LazyFrame:
         native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
             requested_output=requested_output,
         )
+        effective_execution_policy = (
+            _public_workflow_default_execution_policy(self.source)
+            if execution_policy is None
+            else execution_policy
+        )
         return self.client.public_workflow_route(
             "dataframe",
             input_uri=self.source.uri,
@@ -6380,7 +6385,7 @@ class LazyFrame:
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
-            execution_policy="auto" if execution_policy is None else execution_policy,
+            execution_policy=effective_execution_policy,
             materialization_policy=materialization_policy,
             evidence_level=effective_evidence_level,
             bounded=normalized_bounded,
@@ -6409,6 +6414,11 @@ class LazyFrame:
         native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
             requested_output=requested_output,
         )
+        effective_execution_policy = (
+            _public_workflow_default_execution_policy(self.source)
+            if execution_policy is None
+            else execution_policy
+        )
         return self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
@@ -6417,7 +6427,7 @@ class LazyFrame:
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
-            execution_policy="auto" if execution_policy is None else execution_policy,
+            execution_policy=effective_execution_policy,
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=normalized_bounded,
@@ -6501,7 +6511,7 @@ class LazyFrame:
             plan_summary=self.operation_summary,
             requested_output="profile",
             execution_policy=(
-                "native_vortex" if self.source.source_format == "vortex" else "auto"
+                "native_vortex" if self.source.source_format == "vortex" else "vortex_middle"
             ),
             materialization_policy=(
                 "zero_decode" if self.source.source_format == "vortex" else "bounded"
@@ -7121,7 +7131,7 @@ class LazyFrame:
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
-            execution_policy="auto",
+            execution_policy="vortex_middle",
             materialization_policy="bounded",
             evidence_level="production_admitted_local_workflow",
             bounded=True,
@@ -15167,10 +15177,13 @@ def _is_local_vortex_source_ref(value: str) -> bool:
 def _embedded_vortex_input_uri(statement: str) -> str | None:
     """Return the single embedded local Vortex SQL source ref, when unambiguous."""
 
-    refs = tuple(ref for ref in _sql_source_refs(statement) if _is_local_vortex_source_ref(ref))
-    if len(refs) != 1:
+    refs = tuple(_sql_source_refs(statement))
+    if not refs or any(not _is_local_vortex_source_ref(ref) for ref in refs):
         return None
-    return refs[0]
+    unique_refs = tuple(dict.fromkeys(refs))
+    if len(unique_refs) != 1:
+        return None
+    return unique_refs[0]
 
 
 def _vortex_sql_primitive_shape(
@@ -15757,6 +15770,12 @@ def _public_workflow_input_format(source: WorkflowSource) -> str:
         if lower.endswith(".ndjson"):
             return "ndjson"
     return source.source_format
+
+
+def _public_workflow_default_execution_policy(source: WorkflowSource) -> str:
+    """Return the public workflow policy implied by the source boundary."""
+
+    return "native_vortex" if source.source_format == "vortex" else "vortex_middle"
 
 
 def _is_local_json_source_ref(value: str) -> bool:

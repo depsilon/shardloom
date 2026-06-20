@@ -998,7 +998,7 @@ class ReleaseScriptTests(unittest.TestCase):
         return [
             {
                 **shared,
-                "front_door_id": "local_source_auto_prepare_vortex_front_door",
+                "front_door_id": "local_source_vortex_middle_front_door",
                 "owning_route_id": "local_file_prepare_once_first_query",
                 "route_lane_id": "prepare_once_first_query",
                 "route_display_name": "ShardLoom Prepare-Once First Query",
@@ -2861,6 +2861,64 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn(
             "starts from Vortex/prepared state",
             published["source_read_scout_claim_boundary"],
+        )
+
+    def test_benchmark_promoter_keeps_direct_transient_source_scout_in_route(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_direct_transient_source_scout_for_test",
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "csv/file ingest",
+            "status": "success",
+            "selected_execution_mode": "internal_local_source_smoke",
+            "requested_execution_mode": "internal_local_source_smoke",
+            "timing_scope": "direct_one_shot",
+            "actual_evidence_tier": "metadata_sink",
+            "source_state_id": "source-state://direct-scout-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "not_applicable_direct_transient",
+            "prepared_state_digest": "not_applicable_direct_transient",
+            "data_decoded": True,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.direct-scout-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "metrics": {
+                "exclusive_source_read_millis": 12.0,
+                "source_read_millis": 12.0,
+                "source_read_header_scout_millis": 1.0,
+                "source_read_byte_acquisition_millis": 11.0,
+                "source_read_full_body_millis": 11.0,
+                "operator_compute_millis": 0.1,
+                "query_runtime_millis": 12.3,
+                "total_runtime_millis": 12.3,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(published["route_lane_id"], "direct_transient_route")
+        self.assertNotEqual(
+            published["source_read_scout_status"],
+            "diagnostic_only_source_read_outside_route_total",
+        )
+        self.assertNotEqual(
+            published["source_read_scout_timing_split_status"],
+            "not_applicable_diagnostic_only",
         )
 
     def test_benchmark_promoter_flags_common_run_timing_drift(self) -> None:
@@ -8520,7 +8578,9 @@ class ReleaseScriptTests(unittest.TestCase):
                     "vortex_local_file_routes": module.EXPECTED_VORTEX_LOCAL_FILE_ROUTES,
                     "source_input_formats": module.EXPECTED_SOURCE_INPUT_FORMATS,
                     "source_prepared_routes": module.EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
-                    "source_direct_routes": module.EXPECTED_SOURCE_DIRECT_ROUTE_IDS,
+                    "source_internal_smoke_routes": (
+                        module.EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS
+                    ),
                     "source_generated_routes": module.EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
                     "source_invalidation_cases": (
                         module.EXPECTED_SOURCE_INVALIDATION_CASES
@@ -8880,9 +8940,11 @@ class ReleaseScriptTests(unittest.TestCase):
                     f"prepared-{index}"
                     for index in range(module.EXPECTED_SOURCE_PREPARED_ROUTE_IDS)
                 ],
-                "direct_transient_route_ids": [
-                    f"direct-{index}"
-                    for index in range(module.EXPECTED_SOURCE_DIRECT_ROUTE_IDS)
+                "internal_source_smoke_route_ids": [
+                    f"internal-source-smoke-{index}"
+                    for index in range(
+                        module.EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS
+                    )
                 ],
                 "generated_route_ids": [
                     f"generated-{index}"
@@ -10400,12 +10462,12 @@ class ReleaseScriptTests(unittest.TestCase):
             'classifiers = ["Development Status :: 2 - Pre-Alpha"]\n',
             encoding="utf-8",
         )
-        write_json(
-            root / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
-            {
-                "performance_claim_allowed": False,
-                "benchmark_constitution_performance_claim_allowed": False,
-            },
+        (root / "website-src" / "src" / "pages").mkdir(parents=True, exist_ok=True)
+        (root / "website-src" / "src" / "pages" / "benchmarks.astro").write_text(
+            'const clickBenchUrl = "https://benchmark.clickhouse.com/";\n'
+            "stale local artifacts do not read as a current public leaderboard\n"
+            "Performance claims stay explicit.\n",
+            encoding="utf-8",
         )
         for name, path, schema in [
             (
@@ -11862,7 +11924,7 @@ jobs:
                         ),
                         source_route="UniversalIngress -> SourceState",
                         preparation_route=(
-                            "direct_compatibility_transient_no_persistent_preparation"
+                            "internal_local_source_smoke_no_persistent_preparation"
                             if scope == "not_applicable_no_prepared_state"
                             else "vortex_ingest_prepare_once"
                         ),
@@ -11918,7 +11980,7 @@ jobs:
                     )
                     direct_user = (
                         _source_prepared_row(
-                            "local_file_direct_transient_route",
+                            "local_file_internal_source_smoke_route",
                             "not_applicable_no_prepared_state",
                         ),
                     )
@@ -11938,7 +12000,7 @@ jobs:
                     )
                     direct_local = tuple(
                         _source_prepared_row(
-                            "local_file_direct_transient_route",
+                            "local_file_internal_source_smoke_route",
                             "not_applicable_no_prepared_state",
                             scenario_id=scenario_id,
                         )
@@ -11952,12 +12014,14 @@ jobs:
                             "UniversalIngress -> SourceState -> vortex_ingest -> "
                             "VortexPreparedState -> prepared_vortex"
                         ),
-                        direct_transient_route=(
-                            "UniversalIngress -> SourceState -> direct_compatibility_transient"
+                        internal_source_smoke_route=(
+                            "UniversalIngress -> SourceState -> internal_local_source_smoke"
                         ),
                         supported_input_formats=("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
                         prepared_route_ids=prepared_routes,
-                        direct_transient_route_ids=("local_file_direct_transient_route",),
+                        internal_source_smoke_route_ids=(
+                            "local_file_internal_source_smoke_route",
+                        ),
                         generated_route_ids=("generated_rows_local_output",),
                         invalidation_case_ids=_V1_SOURCE_PREPARED_INVALIDATION_CASES,
                         golden_fixture_paths=_V1_SOURCE_PREPARED_FIXTURES,
@@ -11970,17 +12034,17 @@ jobs:
                             "broad_non_local_preparation",
                         ),
                         prepared_user_route_rows=prepared_user,
-                        direct_transient_user_route_rows=direct_user,
+                        internal_source_smoke_user_route_rows=direct_user,
                         generated_user_route_rows=generated_user,
                         prepared_local_file_rows=prepared_local,
-                        direct_transient_local_file_rows=direct_local,
+                        internal_source_smoke_local_file_rows=direct_local,
                         local_file_routes=SimpleNamespace(
                             scenario_ids=_V1_SOURCE_PREPARED_SCENARIO_IDS
                         ),
                         all_no_fallback_no_external_engine=True,
                         all_prepared_routes_expose_reuse_contract=True,
                         all_generated_routes_expose_artifact_adjacent_reuse=True,
-                        all_direct_transient_routes_are_labeled_non_persistent=True,
+                        all_internal_source_smoke_routes_are_labeled_non_persistent=True,
                         all_local_file_prepared_rows_expose_source_and_reuse_evidence=True,
                         v1_scope_ready=True,
                         claim_gate_status="not_claim_grade",
@@ -12018,7 +12082,7 @@ jobs:
             "fanout",
         )
         route_ids = (
-            "local_file_direct_transient_route",
+            "local_file_internal_source_smoke_route",
             "local_file_cold_certified_route",
             "local_file_prepare_once_first_query",
             "local_file_prepare_once_batch",
@@ -14225,114 +14289,27 @@ jobs:
             ],
         )
 
-    def test_website_readiness_validates_benchmark_timing_surfaces(self) -> None:
+    def test_website_readiness_validates_benchmark_clickbench_handoff(self) -> None:
         module = self._load_script_module(
-            "check_website_readiness.py", "check_website_route_cards_for_test"
+            "check_website_readiness.py", "check_website_clickbench_handoff_for_test"
         )
 
         with tempfile.TemporaryDirectory() as tempdir:
             website = Path(tempdir) / "website"
             website.mkdir()
-            timing_surface_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_TIMING_SURFACE_STRINGS
-            )
-            route_share_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS
-            )
-            stage_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_STAGE_STRINGS
-            )
-            runtime_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_RUNTIME_STRINGS
-            )
-            artifact_section_tokens = {
-                "Prepared/native source-state coverage",
-                "Raw timing tables",
-            }
-            artifact_tokens = "\n".join(
-                f"<p>{token}</p>"
-                for token in module.REQUIRED_BENCHMARK_ARTIFACT_STRINGS
-                if token not in artifact_section_tokens
-            )
-            cards = {
-                "cold_certified_route": "ShardLoom Cold Certified Route",
-                "prepare_once_first_query": "ShardLoom Prepare-Once First Query",
-                "prepare_once_batch": "ShardLoom Prepare-Once Batch",
-                "warm_prepared_query": "ShardLoom Warm Prepared Query",
-                "native_vortex_query": "ShardLoom Native Vortex Query",
-                "external_baseline_end_to_end": "External Baseline End-to-End",
-            }
-            card_markup = "\n".join(
-                f'<article data-route-card-id="{card_id}">{label}</article>'
-                for card_id, label in cards.items()
-            )
-            public_front_door_markup = """
-                <section>
-                  <h2>Public front doors</h2>
-                  <p>Route rows name the user-facing prepared paths.</p>
-                  <article data-public-front-door-id="local_source_auto_prepare_vortex_front_door">
-                    <code>ctx.prepare_vortex(&#39;fact.csv&#39;, dim=&#39;dim.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()</code>
-                    <p>SourceState</p>
-                    <p>result_sink</p>
-                    <p>not_timing_row_route_identity_only</p>
-                  </article>
-                  <article data-public-front-door-id="generated_source_prepare_vortex_front_door">
-                    <code>ctx.from_rows([{&#39;id&#39;: 1, &#39;label&#39;: &#39;alpha&#39;}]).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)</code>
-                    <p>GeneratedSourceState</p>
-                    <p>VortexPreparedState</p>
-                    <p>not_timing_row_route_identity_only</p>
-                  </article>
-                </section>
-            """
             (website / "benchmarks.html").write_text(
                 f"""
-                <section data-route-timing-surface-dashboard>
-                  <h2>Route timing dashboard</h2>
-                  {card_markup}
-                  <p>External Baseline End-to-End</p>
-                  {timing_surface_tokens}
-                </section>
-                <section>
-                  <h2>Publication proof</h2>
-                </section>
-                <section>
-                  <h2>Optimization direction</h2>
-                </section>
-                <section>
-                  <h2>Route-share attribution</h2>
-                  {route_share_tokens}
-                </section>
-                <section>
-                  <h2>Stage attribution</h2>
-                  {stage_tokens}
-                </section>
-                <section>
-                  <h2>Runtime and claims</h2>
-                  {runtime_tokens}
-                </section>
-                {public_front_door_markup}
-                <section>
-                  <h2>Artifact lane availability</h2>
-                  {artifact_tokens}
-                </section>
-                <section>
-                  <h2>Prepared/native source-state coverage</h2>
-                  <p>Prepared/native source-state coverage</p>
-                </section>
-                <section>
-                  <h2>Raw timing tables</h2>
-                  <p>Raw timing tables</p>
-                </section>
+                <main>
+                  <h1>Benchmarks</h1>
+                  <p>ClickBench is the public comparison surface.</p>
+                  <a href="{module.CLICKBENCH_URL}">Open ClickBench</a>
+                </main>
                 """,
                 encoding="utf-8",
             )
 
             blockers: list[str] = []
-            module.check_benchmark_timing_surface_dashboard(website, blockers)
+            module.check_benchmark_clickbench_handoff(website, blockers)
 
         self.assertEqual(blockers, [])
 

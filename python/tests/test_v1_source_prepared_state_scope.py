@@ -55,7 +55,7 @@ class V1SourcePreparedStateScopeTests(unittest.TestCase):
         self.assertTrue(report.v1_scope_ready)
         self.assertTrue(report.all_no_fallback_no_external_engine)
         self.assertTrue(report.all_prepared_routes_expose_reuse_contract)
-        self.assertTrue(report.all_direct_transient_routes_are_labeled_non_persistent)
+        self.assertTrue(report.all_internal_source_smoke_routes_are_labeled_non_persistent)
         self.assertEqual(len(report.invalidation_case_ids), 9)
         self.assertIn("global_hidden_cache", report.unsupported_boundary_ids)
         self.assertFalse(report.performance_claim_allowed)

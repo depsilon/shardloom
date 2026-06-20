@@ -45,7 +45,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(
             set(report["v1_public_front_door_ids"]),
             {
-                "local_source_auto_prepare_vortex_front_door",
+                "local_source_vortex_middle_front_door",
                 "generated_source_prepare_vortex_front_door",
             },
         )
@@ -115,7 +115,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(
             set(report["public_front_door_route_ids"]),
             {
-                "local_source_auto_prepare_vortex_front_door",
+                "local_source_vortex_middle_front_door",
                 "generated_source_prepare_vortex_front_door",
             },
         )
@@ -176,9 +176,9 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertEqual(prepare_first["runtime_blocker_code"], "none")
 
-        direct = by_id["local_file_direct_transient_route"]
+        internal_smoke = by_id["local_file_internal_source_smoke_route"]
         self.assertEqual(
-            direct["prepared_state_reuse_scope"],
+            internal_smoke["prepared_state_reuse_scope"],
             "not_applicable_no_prepared_state",
         )
 
@@ -299,7 +299,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertEqual(
             scenarios["selective_filter"]["selected_execution_mode"],
-            "direct_compatibility_transient",
+            "internal_local_source_smoke",
         )
         self.assertIn(
             "local_file_prepare_once_first_query",
@@ -342,23 +342,23 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         public_front_doors = {
             row["front_door_id"]: row for row in report["public_front_door_route_rows"]
         }
-        local_auto = public_front_doors["local_source_auto_prepare_vortex_front_door"]
-        self.assertEqual(local_auto["owning_route_id"], "local_file_prepare_once_first_query")
-        self.assertEqual(local_auto["route_lane_id"], "prepare_once_first_query")
-        self.assertIn("ctx.prepare_vortex", local_auto["public_user_surface"])
-        self.assertIn(".query", local_auto["public_user_surface"])
-        self.assertIn(".collect", local_auto["public_user_surface"])
-        self.assertIn("SourceState", local_auto["vortex_normalization_point"])
-        self.assertIn("VortexPreparedState", local_auto["vortex_normalization_point"])
+        local_vortex_middle = public_front_doors["local_source_vortex_middle_front_door"]
+        self.assertEqual(local_vortex_middle["owning_route_id"], "local_file_prepare_once_first_query")
+        self.assertEqual(local_vortex_middle["route_lane_id"], "prepare_once_first_query")
+        self.assertIn("ctx.prepare_vortex", local_vortex_middle["public_user_surface"])
+        self.assertIn(".query", local_vortex_middle["public_user_surface"])
+        self.assertIn(".collect", local_vortex_middle["public_user_surface"])
+        self.assertIn("SourceState", local_vortex_middle["vortex_normalization_point"])
+        self.assertIn("VortexPreparedState", local_vortex_middle["vortex_normalization_point"])
         self.assertEqual(
-            local_auto["prepared_state_reuse_scope"],
+            local_vortex_middle["prepared_state_reuse_scope"],
             "workspace_manifest_local_vortex_artifacts",
         )
-        self.assertEqual(local_auto["front_door_end_state"], "result_sink")
-        self.assertTrue(local_auto["includes_query"])
-        self.assertTrue(local_auto["includes_output"])
-        self.assertFalse(local_auto["fallback_attempted"])
-        self.assertFalse(local_auto["external_engine_invoked"])
+        self.assertEqual(local_vortex_middle["front_door_end_state"], "result_sink")
+        self.assertTrue(local_vortex_middle["includes_query"])
+        self.assertTrue(local_vortex_middle["includes_output"])
+        self.assertFalse(local_vortex_middle["fallback_attempted"])
+        self.assertFalse(local_vortex_middle["external_engine_invoked"])
 
         generated_front_door = public_front_doors[
             "generated_source_prepare_vortex_front_door"
@@ -418,7 +418,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(
             set(routes.public_front_door_route_ids),
             {
-                "local_source_auto_prepare_vortex_front_door",
+                "local_source_vortex_middle_front_door",
                 "generated_source_prepare_vortex_front_door",
             },
         )
@@ -547,7 +547,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             fake_report,
             rows,
             module.load_scenario_catalog(REPO_ROOT),
-            {"local_file_direct_transient_route", "local_file_prepare_once_first_query"},
+            {"local_file_internal_source_smoke_route", "local_file_prepare_once_first_query"},
         )
 
         self.assertTrue(any("missing scenarios" in blocker for blocker in blockers))

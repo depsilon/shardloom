@@ -44,16 +44,19 @@ class FrontDoorBenchmarkPublicationTests(unittest.TestCase):
         self.assertEqual(report["claim_gate_status"], "not_claim_grade")
         self.assertFalse(report["front_door_performance_equivalence_claim_allowed"])
         self.assertFalse(report["performance_claim_allowed"])
-        self.assertTrue(report["benchmark_run_performed"])
-        self.assertTrue(report["benchmark_rerun_approved"])
+        self.assertFalse(report["benchmark_run_performed"])
+        self.assertFalse(report["benchmark_rerun_approved"])
         self.assertTrue(report["laptop_safe_sequential_controls_confirmed"])
-        self.assertTrue(report["measured_front_door_equivalence_artifact_present"])
+        self.assertFalse(report["measured_front_door_equivalence_artifact_present"])
         self.assertFalse(report["publication_attempted"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
         self.assertTrue(report["scoped_local_front_door_parity_supported"])
-        self.assertEqual(report["front_door_equivalence_artifact_status"], "passed")
-        self.assertEqual(report["front_door_equivalence_artifact_row_count"], 27)
+        self.assertEqual(
+            report["front_door_equivalence_artifact_status"],
+            "retired_from_public_website",
+        )
+        self.assertEqual(report["front_door_equivalence_artifact_row_count"], 0)
         self.assertEqual(
             report["front_door_equivalence_constitution_status"],
             "local_constitution_ready",
@@ -105,7 +108,7 @@ class FrontDoorBenchmarkPublicationTests(unittest.TestCase):
                 "schema_version": "shardloom.public_front_door_benchmark_rows.v1",
                 "row_count": 2,
                 "front_door_ids": [
-                    "local_source_auto_prepare_vortex_front_door",
+                    "local_source_vortex_middle_front_door",
                     "generated_source_prepare_vortex_front_door",
                 ],
                 "missing_front_door_ids": [],

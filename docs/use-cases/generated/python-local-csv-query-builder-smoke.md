@@ -6,7 +6,7 @@
 
 - **Audience:** Python user who wants a tiny DataFrame-like local CSV, flat JSON, flat JSONL, or feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC/Vortex workflow with evidence
 - **Status:** `smoke_supported`
-- **Execution mode:** `direct_compatibility_transient`
+- **Execution mode:** `internal_local_source_smoke`
 - **Engine mode:** `batch`
 - **Claim boundary:** Scoped Python local-source smokes cover projection/filter/limit, with_column helpers, count, aggregate aliases, multi-key group_by, top-N, local-source equi joins, predicate-object condition joins including logical OR over admitted qualified scalar leaves, join aggregates, HAVING filters, and local output/fanout over local CSV, flat JSON/JSONL/NDJSON, plus feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC and Vortex writes. Filters and HAVING admit documented comparison, boolean/null, cast, numeric, date/UTC-or-fixed-offset timestamp, temporal-difference, string/LIKE/LIKE ESCAPE/regex, IN/NOT IN, row-value, source-backed IN/NOT IN, EXISTS/NOT EXISTS, and quantified subquery shapes, including grouped/HAVING projected and correlated grouped/HAVING projected source-subquery tails. No nested JSON/JSONPath, pandas/Polars backend, broad expression trees beyond admitted families, generalized joins/groups/orderings, named-timezone/collation completeness, broad ANSI subquery parity beyond admitted source-backed shapes, claim-grade fanout/replay, production SQL, object-store/table source, fallback, or performance claim.
 
@@ -30,7 +30,7 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 
 ## Internal Flow
 
-`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated, local_arrow_ipc_feature_gated, local_avro_feature_gated, local_orc_feature_gated -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, feature_gated_local_parquet_output, feature_gated_local_arrow_ipc_output, feature_gated_local_avro_output, feature_gated_local_orc_output, feature_gated_local_vortex_output, literal_projection_result, cast_projection_result, null_coalesce_projection_result, nullif_projection_result, conditional_projection_result, numeric_arithmetic_projection_result, numeric_abs_projection_result, numeric_rounding_projection_result, date_arithmetic_projection_result, timestamp_arithmetic_projection_result, temporal_difference_projection_result, string_transform_projection_result, string_length_projection_result, string_function_projection_result, date_extract_projection_result, timestamp_extract_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated, local_arrow_ipc_feature_gated, local_avro_feature_gated, local_orc_feature_gated -> internal_local_source_smoke -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, feature_gated_local_parquet_output, feature_gated_local_arrow_ipc_output, feature_gated_local_avro_output, feature_gated_local_orc_output, feature_gated_local_vortex_output, literal_projection_result, cast_projection_result, null_coalesce_projection_result, nullif_projection_result, conditional_projection_result, numeric_arithmetic_projection_result, numeric_abs_projection_result, numeric_rounding_projection_result, date_arithmetic_projection_result, timestamp_arithmetic_projection_result, temporal_difference_projection_result, string_transform_projection_result, string_length_projection_result, string_function_projection_result, date_extract_projection_result, timestamp_extract_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -313,5 +313,5 @@ A typed Python report over the SQL local-source JSON envelope with result helper
 
 ## Related Field Guide Terms
 
-- [direct_compatibility_transient](https://shardloom.io/field-guide/direct-compatibility-transient) (`Execution Routes` / `internal_smoke_only`)
+- [internal_local_source_smoke](https://shardloom.io/field-guide/internal-local-source-smoke) (`Execution Routes` / `internal_smoke_only`)
 - [Source adapter status](https://shardloom.io/field-guide/source-adapter-status) (`UniversalIngress` / `smoke_supported`)

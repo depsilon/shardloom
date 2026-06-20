@@ -31,11 +31,14 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
     expected_lanes_for_profile,
 )
 from check_benchmark_artifact_completeness import (  # noqa: E402
+    CLICKBENCH_URL,
     FAST_PATH_ATTRIBUTION_SCHEMA_VERSION,
     OPERATOR_EXECUTION_MODES,
     OPERATOR_MODE_INVENTORY_SCHEMA_VERSION,
+    PUBLIC_BENCHMARK_SURFACE,
     REQUIRED_ROUTE_FIELDS,
     ROUTE_RUNTIME_STATUSES,
+    default_public_benchmark_manifest_retired,
     load_json,
     repo_path,
     result_rows,
@@ -119,9 +122,68 @@ PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS = (
     "not_timing_row_route_identity_only"
 )
 REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
-    "local_source_auto_prepare_vortex_front_door",
+    "local_source_vortex_middle_front_door",
     "generated_source_prepare_vortex_front_door",
 }
+
+
+def retired_public_benchmark_publication_report(manifest_path: Path) -> dict[str, Any]:
+    front_door_ids = sorted(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "status": "passed",
+        "manifest": str(manifest_path),
+        "benchmark_profile": "public_site_retired",
+        "artifact_status": "retired_from_public_website",
+        "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE,
+        "public_benchmark_url": CLICKBENCH_URL,
+        "pre_5j_dependency_freshness": {
+            "status": "not_applicable_public_site_dashboard_retired"
+        },
+        "freshness": {"status": "not_applicable_public_site_dashboard_retired"},
+        "lane_version_provenance": {
+            "status": "not_applicable_public_site_dashboard_retired"
+        },
+        "required_publication_formats": [],
+        "declared_publication_formats": [],
+        "published_formats": [],
+        "missing_publication_formats": [],
+        "all_engine_counts": {},
+        "external_engine_counts": {},
+        "route_runtime_status_counts": {},
+        "operator_execution_mode_counts": {},
+        "operator_compute_route_relation_status_counts": {},
+        "external_baseline_unsupported_examples": [],
+        "shardloom_row_count": 0,
+        "shardloom_engine_counts": {},
+        "shardloom_format_counts": {},
+        "shardloom_engine_format_counts": {},
+        "missing_shardloom_engine_format_cell_count": 0,
+        "shardloom_runtime_validation_counts": {},
+        "missing_independent_claim_proof_row_count": 0,
+        "nonportable_public_ref_count": 0,
+        "shardloom_status_counts": {},
+        "shardloom_claim_gate_counts": {},
+        "missing_capillary_activation_row_count": 0,
+        "missing_prepared_state_reuse_evidence_row_count": 0,
+        "public_front_door_benchmark_rows": {
+            "schema_version": PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION,
+            "status": "retired_public_site_dashboard",
+            "row_count": len(front_door_ids),
+            "front_door_ids": front_door_ids,
+            "invalid_example_count": 0,
+        },
+        "retired_static_artifact_contract": (
+            "The public website no longer publishes the internal ShardLoom benchmark "
+            "dashboard bundle; it links to ClickBench as the public comparison surface."
+        ),
+        "blockers": [],
+        "benchmark_run_performed": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+    }
+
+
 REQUIRED_PREPARED_STATE_REUSE_FIELDS = (
     "prepared_state_reuse_scope",
     "prepared_state_reuse_manifest_path",
@@ -442,11 +504,11 @@ def validate_public_front_door_rows(
             examples.append(f"{prefix}:route_runtime_status")
         expected_end_state = (
             "result_sink"
-            if front_door_id == "local_source_auto_prepare_vortex_front_door"
+            if front_door_id == "local_source_vortex_middle_front_door"
             else "VortexPreparedState"
         )
         expected_includes_query = (
-            front_door_id == "local_source_auto_prepare_vortex_front_door"
+            front_door_id == "local_source_vortex_middle_front_door"
         )
         if row.get("front_door_end_state") != expected_end_state:
             examples.append(f"{prefix}:front_door_end_state")
@@ -505,7 +567,7 @@ def validate_public_front_door_rows(
 
         surface = str(row.get("public_user_surface") or "")
         normalization = str(row.get("vortex_normalization_point") or "")
-        if front_door_id == "local_source_auto_prepare_vortex_front_door":
+        if front_door_id == "local_source_vortex_middle_front_door":
             if row.get("owning_route_id") != "local_file_prepare_once_first_query":
                 examples.append(f"{prefix}:owning_route_id")
             if row.get("route_lane_id") != "prepare_once_first_query":
@@ -1673,6 +1735,8 @@ def validate_publication_claim_gate(
     current_git_sha: str | None = None,
     worktree_status: str | None = None,
 ) -> dict[str, Any]:
+    if default_public_benchmark_manifest_retired(manifest_path):
+        return retired_public_benchmark_publication_report(manifest_path)
     blockers, manifest = validate_manifest(manifest_path, allow_incomplete)
     blockers = [f"artifact completeness: {blocker}" for blocker in blockers]
     pre_5j_dependency = validate_pre_5j_dependency_report(

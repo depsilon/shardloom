@@ -23,6 +23,8 @@ DEFAULT_ARTIFACT = Path("website/assets/benchmarks/latest/benchmark-results.json
 DEFAULT_OUTPUT = Path("target/benchmark-optimization-targets-report.json")
 DEFAULT_TOP_N = 8
 NEXT_IMPLEMENTATION_SLICE = "none"
+PUBLIC_BENCHMARK_SURFACE = "clickbench_handoff"
+CLICKBENCH_URL = "https://benchmark.clickhouse.com/"
 ROUTE_SHARE_ADDITIVE_TOLERANCE = 1.000001
 ROUTE_STAGE_FIELD_TO_ID = {
     "source_admission_ms": "source_admission",
@@ -53,6 +55,80 @@ class OptimizationTarget:
     predicate: RowPredicate
     rationale: str
     next_slice: str
+
+
+def default_public_benchmark_artifact_retired(path: Path, repo_root: Path) -> bool:
+    resolved = resolve_path(repo_root, path)
+    try:
+        is_default = resolved.resolve(strict=False) == (
+            repo_root / DEFAULT_ARTIFACT
+        ).resolve(strict=False)
+    except OSError:
+        is_default = False
+    return is_default and not resolved.exists()
+
+
+def retired_public_benchmark_optimization_report(artifact_path: Path) -> dict[str, Any]:
+    summaries = [
+        {
+            "target_id": target.target_id,
+            "status": "diagnostic_absent_or_retired",
+            "target_evidence_class": "diagnostic_absent_or_retired",
+            "evidence_present": False,
+            "release_blocker": False,
+            "diagnostic_only": True,
+            "diagnostic_reason": "public_website_benchmark_dashboard_retired",
+            "target_disappearance_policy": "diagnostic_absent_or_retired_not_release_blocker",
+            "stage_field": target.stage_field,
+            "route_metric_field": target.route_metric_field,
+            "row_count": 0,
+            "included_additive_stage_row_count": 0,
+            "non_additive_stage_row_count": 0,
+            "excluded_stage_row_count": 0,
+            "stage_contract_status_counts": {},
+            "nonzero_stage_row_count": 0,
+            "stage_avg_ms": None,
+            "stage_p95_ms": None,
+            "stage_max_ms": None,
+            "route_metric_p95_ms": None,
+            "route_metric_max_ms": None,
+            "top_rows": [],
+            "rationale": target.rationale,
+            "next_slice": target.next_slice,
+            "claim_boundary": "diagnostic_only_no_performance_claim",
+        }
+        for target in targets()
+    ]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "status": "passed",
+        "artifact_path": artifact_path.as_posix(),
+        "benchmark_schema_version": None,
+        "benchmark_profile": "public_site_retired",
+        "artifact_status": "retired_from_public_website",
+        "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE,
+        "public_benchmark_url": CLICKBENCH_URL,
+        "published_benchmark_row_count": 0,
+        "shardloom_hot_runtime_row_count": 0,
+        "shardloom_publication_proof_row_count": 0,
+        "target_count": len(summaries),
+        "evidence_present_target_count": 0,
+        "evidence_present_targets": [],
+        "timing_contract_blocked_target_count": 0,
+        "timing_contract_blocked_targets": [],
+        "diagnostic_absent_or_retired_target_count": len(summaries),
+        "diagnostic_absent_or_retired_targets": [
+            str(summary["target_id"]) for summary in summaries
+        ],
+        "release_blocking_target_count": 0,
+        "release_blocking_targets": [],
+        "target_disappearance_policy": "diagnostic_absent_or_retired_not_release_blocker",
+        "targets": summaries,
+        "next_implementation_slice": NEXT_IMPLEMENTATION_SLICE,
+        "claim_boundary": "diagnostic_only_no_performance_claim",
+        "blockers": [],
+        **fail_closed_fields(),
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -519,7 +595,10 @@ def main() -> int:
     repo_root = args.repo_root.resolve()
     artifact = resolve_path(repo_root, args.artifact)
     output = resolve_path(repo_root, args.output)
-    report = build_report(artifact, top_n=args.top_n, repo_root=repo_root)
+    if default_public_benchmark_artifact_retired(args.artifact, repo_root):
+        report = retired_public_benchmark_optimization_report(args.artifact)
+    else:
+        report = build_report(artifact, top_n=args.top_n, repo_root=repo_root)
     write_json(output, report)
     print(output)
     return 0 if report["status"] == "passed" else 1

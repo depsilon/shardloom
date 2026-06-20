@@ -40,7 +40,7 @@ DOC_MARKERS = (
     "shardloom.v1_source_prepared_state_scope.v1",
     "ShardLoomContext.source_prepared_state_scope_report()",
     "UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
-    "UniversalIngress -> SourceState -> direct_compatibility_transient",
+    "UniversalIngress -> SourceState -> internal_local_source_smoke",
     "prepared_state_reuse_scope=not_applicable_no_prepared_state",
     "workspace_manifest_local_vortex_artifacts",
     "explicit_prepared_state_input",
@@ -88,10 +88,10 @@ PUBLIC_DOC_MARKERS = {
         "closed_source_prepared_state_scope",
         DOC_PATH.as_posix(),
     ),
-    "website-src/src/components/BenchmarkDashboard.astro": (
-        DOC_PATH.as_posix(),
-        "v1 SourceState/prepared-state scope",
-        "source_prepared_state_scope_report",
+    "website-src/src/content/docs/field-guide/python-surface.mdx": (
+        "ctx.prepare_vortex(",
+        "prepared.query",
+        "fallback_attempted",
     ),
 }
 
@@ -153,8 +153,11 @@ def _present(value: Any) -> bool:
 
 
 def route_row_payload(row: Any) -> dict[str, Any]:
+    route_id = _value(row, "route_id")
+    source_state_fingerprint = _value(row, "source_state_fingerprint")
+    prepared_state_fingerprint = _value(row, "prepared_state_fingerprint")
     return {
-        "route_id": _value(row, "route_id"),
+        "route_id": route_id,
         "route_display_name": _value(row, "route_display_name"),
         "start_state": _value(row, "start_state"),
         "vortex_normalization_point": _value(row, "vortex_normalization_point"),
@@ -167,11 +170,19 @@ def route_row_payload(row: Any) -> dict[str, Any]:
             row,
             "materialization_decode_boundary",
         ),
-        "source_state_fingerprint": _value(row, "source_state_fingerprint"),
+        "source_state_id": _value(row, "source_state_id")
+        or f"source-state://{route_id}",
+        "source_state_digest": _value(row, "source_state_digest")
+        or source_state_fingerprint,
+        "source_state_fingerprint": source_state_fingerprint,
         "source_schema_fingerprint": _value(row, "source_schema_fingerprint"),
         "source_parse_plan_id": _value(row, "source_parse_plan_id"),
         "source_split_manifest_id": _value(row, "source_split_manifest_id"),
-        "prepared_state_fingerprint": _value(row, "prepared_state_fingerprint"),
+        "prepared_state_id": _value(row, "prepared_state_id")
+        or f"prepared-state://{route_id}",
+        "prepared_state_digest": _value(row, "prepared_state_digest")
+        or prepared_state_fingerprint,
+        "prepared_state_fingerprint": prepared_state_fingerprint,
         "prepared_state_reuse_scope": _value(row, "prepared_state_reuse_scope"),
         "prepared_state_reuse_manifest_path": _value(
             row,
@@ -225,16 +236,16 @@ def validate_context_report(report: Any) -> list[str]:
         blockers.append("prepared routes must expose reuse contracts")
     if report.all_generated_routes_expose_artifact_adjacent_reuse is not True:
         blockers.append("generated routes must expose artifact-adjacent reuse")
-    if report.all_direct_transient_routes_are_labeled_non_persistent is not True:
-        blockers.append("direct transient routes must be labeled non-persistent")
+    if report.all_internal_source_smoke_routes_are_labeled_non_persistent is not True:
+        blockers.append("internal source smoke routes must be labeled non-persistent")
     if report.all_local_file_prepared_rows_expose_source_and_reuse_evidence is not True:
         blockers.append("local file prepared rows must expose source/reuse evidence")
     if len(report.supported_input_formats) != 6:
         blockers.append("supported input format coverage must contain 6 formats")
     if len(report.prepared_route_ids) != 4:
         blockers.append("prepared route coverage must contain 4 route ids")
-    if len(report.direct_transient_route_ids) != 1:
-        blockers.append("direct transient route coverage must contain 1 route id")
+    if len(report.internal_source_smoke_route_ids) != 1:
+        blockers.append("internal source smoke route coverage must contain 1 route id")
     if len(report.generated_route_ids) != 1:
         blockers.append("generated route coverage must contain 1 route id")
     if len(report.invalidation_case_ids) != 9:
@@ -256,10 +267,10 @@ def validate_context_report(report: Any) -> list[str]:
         blockers.append("claim_gate_status must remain not_claim_grade")
     for row in (
         *report.prepared_user_route_rows,
-        *report.direct_transient_user_route_rows,
+        *report.internal_source_smoke_user_route_rows,
         *report.generated_user_route_rows,
         *report.prepared_local_file_rows,
-        *report.direct_transient_local_file_rows,
+        *report.internal_source_smoke_local_file_rows,
     ):
         route_id = _value(row, "route_id")
         if not _bool_false(_value(row, "fallback_attempted")):
@@ -381,21 +392,33 @@ def validate_benchmark_rows(
 ) -> tuple[list[str], dict[str, Any]]:
     blockers: list[str] = []
     benchmark_path = resolve_path(repo_root, benchmark_artifact)
-    rows, row_source = load_benchmark_rows(repo_root, benchmark_path)
+    if benchmark_path.exists():
+        rows, row_source = load_benchmark_rows(repo_root, benchmark_path)
+    else:
+        rows = [
+            local_route_payload(row)
+            for row in (
+                list(report.prepared_local_file_rows)
+                + list(report.internal_source_smoke_local_file_rows)
+            )
+        ]
+        row_source = "context_report_prepared_local_rows_public_site_benchmark_retired"
     shardloom_rows = [
         row
         for row in rows
         if str(row.get("engine", "")).startswith("shardloom")
         or str(row.get("route_lane_id", "")).startswith("shardloom")
+        or str(row.get("route_id", "")).startswith("local_file_prepare")
     ]
     required = tuple(report.required_runtime_fields)
     missing_rows: list[dict[str, Any]] = []
     fallback_rows: list[dict[str, Any]] = []
-    scenario_ids = set()
+    scenario_ids = {
+        BENCHMARK_SCENARIO_ALIASES.get(str(row["scenario_id"]), str(row["scenario_id"]))
+        for row in rows
+        if isinstance(row, dict) and row.get("scenario_id")
+    }
     for row in shardloom_rows:
-        if row.get("scenario_id"):
-            scenario_id = str(row["scenario_id"])
-            scenario_ids.add(BENCHMARK_SCENARIO_ALIASES.get(scenario_id, scenario_id))
         missing = [field for field in required if not _present(row.get(field))]
         if missing:
             missing_rows.append(
@@ -432,6 +455,7 @@ def validate_benchmark_rows(
         )
     summary = {
         "benchmark_artifact": str(benchmark_artifact).replace("\\", "/"),
+        "benchmark_artifact_present": benchmark_path.exists(),
         "row_source": row_source,
         "total_rows": len(rows),
         "shardloom_row_count": len(shardloom_rows),
@@ -448,8 +472,8 @@ def validate_benchmark_rows(
 def build_report(repo_root: Path, *, benchmark_artifact: Path = LATEST_BENCHMARK_ARTIFACT) -> dict[str, Any]:
     scope_report = load_context_report(repo_root)
     prepared_user_rows = [route_row_payload(row) for row in scope_report.prepared_user_route_rows]
-    direct_user_rows = [
-        route_row_payload(row) for row in scope_report.direct_transient_user_route_rows
+    internal_smoke_user_rows = [
+        route_row_payload(row) for row in scope_report.internal_source_smoke_user_route_rows
     ]
     generated_user_rows = [
         route_row_payload(row) for row in scope_report.generated_user_route_rows
@@ -457,8 +481,8 @@ def build_report(repo_root: Path, *, benchmark_artifact: Path = LATEST_BENCHMARK
     prepared_local_rows = [
         local_route_payload(row) for row in scope_report.prepared_local_file_rows
     ]
-    direct_local_rows = [
-        local_route_payload(row) for row in scope_report.direct_transient_local_file_rows
+    internal_smoke_local_rows = [
+        local_route_payload(row) for row in scope_report.internal_source_smoke_local_file_rows
     ]
 
     blockers: list[str] = []
@@ -480,20 +504,20 @@ def build_report(repo_root: Path, *, benchmark_artifact: Path = LATEST_BENCHMARK
         "report_id": scope_report.report_id,
         "v1_scope_document": scope_report.scope_document,
         "canonical_route": scope_report.canonical_route,
-        "direct_transient_route": scope_report.direct_transient_route,
+        "internal_source_smoke_route": scope_report.internal_source_smoke_route,
         "supported_input_formats": list(scope_report.supported_input_formats),
         "prepared_route_ids": list(scope_report.prepared_route_ids),
-        "direct_transient_route_ids": list(scope_report.direct_transient_route_ids),
+        "internal_source_smoke_route_ids": list(scope_report.internal_source_smoke_route_ids),
         "generated_route_ids": list(scope_report.generated_route_ids),
         "invalidation_case_ids": list(scope_report.invalidation_case_ids),
         "golden_fixture_paths": list(scope_report.golden_fixture_paths),
         "required_runtime_fields": list(scope_report.required_runtime_fields),
         "unsupported_boundary_ids": list(scope_report.unsupported_boundary_ids),
         "prepared_user_route_rows": prepared_user_rows,
-        "direct_transient_user_route_rows": direct_user_rows,
+        "internal_source_smoke_user_route_rows": internal_smoke_user_rows,
         "generated_user_route_rows": generated_user_rows,
         "prepared_local_file_rows": prepared_local_rows,
-        "direct_transient_local_file_rows": direct_local_rows,
+        "internal_source_smoke_local_file_rows": internal_smoke_local_rows,
         "fixture_rows": fixtures,
         "benchmark_artifact_summary": benchmark_summary,
         "source_prepared_benchmark_rows_with_required_fields": (
@@ -514,8 +538,8 @@ def build_report(repo_root: Path, *, benchmark_artifact: Path = LATEST_BENCHMARK
         "all_generated_routes_expose_artifact_adjacent_reuse": (
             scope_report.all_generated_routes_expose_artifact_adjacent_reuse
         ),
-        "all_direct_transient_routes_are_labeled_non_persistent": (
-            scope_report.all_direct_transient_routes_are_labeled_non_persistent
+        "all_internal_source_smoke_routes_are_labeled_non_persistent": (
+            scope_report.all_internal_source_smoke_routes_are_labeled_non_persistent
         ),
         "all_local_file_prepared_rows_expose_source_and_reuse_evidence": (
             scope_report.all_local_file_prepared_rows_expose_source_and_reuse_evidence

@@ -94,7 +94,7 @@ The route ids covered by this scope are:
 
 | Route id | Output posture |
 | --- | --- |
-| `local_file_direct_transient_route` | Internal smoke-only local JSONL/CSV and feature-gated structured/Vortex sink safeguard; not a public runtime middle. |
+| `local_file_internal_source_smoke_route` | Internal smoke-only local JSONL/CSV and feature-gated structured/Vortex sink safeguard; not a public runtime middle. |
 | `local_file_cold_certified_route` | Local result sink and evidence output for cold certified local-file route rows. |
 | `local_file_prepare_once_first_query` | Prepared query result, bounded report, or local result sink. |
 | `local_file_prepare_once_batch` | Batch prepared query result, bounded report, or local result sink. |

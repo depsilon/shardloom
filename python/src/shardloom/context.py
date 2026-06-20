@@ -196,8 +196,8 @@ V1_SOURCE_PREPARED_CANONICAL_ROUTE = (
     "UniversalIngress -> SourceState -> vortex_ingest -> "
     "VortexPreparedState -> prepared_vortex"
 )
-V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE = (
-    "UniversalIngress -> SourceState -> direct_compatibility_transient "
+V1_SOURCE_PREPARED_INTERNAL_SMOKE_ROUTE = (
+    "UniversalIngress -> SourceState -> internal_local_source_smoke "
     "(internal smoke-only; blocked for public workflow execution)"
 )
 V1_SOURCE_PREPARED_SUPPORTED_INPUT_FORMATS = (
@@ -214,7 +214,7 @@ V1_SOURCE_PREPARED_ROUTE_IDS = (
     "local_file_prepare_once_batch",
     "prepared_vortex_warm_query",
 )
-V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE_IDS = ("local_file_direct_transient_route",)
+V1_SOURCE_PREPARED_INTERNAL_SMOKE_ROUTE_IDS = ("local_file_internal_source_smoke_route",)
 V1_SOURCE_PREPARED_GENERATED_ROUTE_IDS = ("generated_rows_local_output",)
 V1_SOURCE_PREPARED_INVALIDATION_CASE_IDS = (
     "cold_prepare_no_manifest",
@@ -1666,7 +1666,7 @@ class UserRouteCapabilityReport:
         generated = self.route("generated_rows_local_output")
         return (
             PublicFrontDoorRouteRow(
-                front_door_id="local_source_auto_prepare_vortex_front_door",
+                front_door_id="local_source_vortex_middle_front_door",
                 owning_route_id=local.route_id,
                 route_lane_id="prepare_once_first_query",
                 route_display_name=local.route_display_name,
@@ -2400,10 +2400,10 @@ class SourcePreparedStateScopeReport:
         return V1_SOURCE_PREPARED_CANONICAL_ROUTE
 
     @property
-    def direct_transient_route(self) -> str:
-        """Return the direct transient compatibility route boundary."""
+    def internal_source_smoke_route(self) -> str:
+        """Return the internal local-source smoke compatibility route boundary."""
 
-        return V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE
+        return V1_SOURCE_PREPARED_INTERNAL_SMOKE_ROUTE
 
     @property
     def supported_input_formats(self) -> tuple[str, ...]:
@@ -2418,10 +2418,10 @@ class SourcePreparedStateScopeReport:
         return V1_SOURCE_PREPARED_ROUTE_IDS
 
     @property
-    def direct_transient_route_ids(self) -> tuple[str, ...]:
-        """Return route ids that remain direct transient and non-persistent."""
+    def internal_source_smoke_route_ids(self) -> tuple[str, ...]:
+        """Return route ids that remain internal local-source smoke and non-persistent."""
 
-        return V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE_IDS
+        return V1_SOURCE_PREPARED_INTERNAL_SMOKE_ROUTE_IDS
 
     @property
     def generated_route_ids(self) -> tuple[str, ...]:
@@ -2460,11 +2460,11 @@ class SourcePreparedStateScopeReport:
         return tuple(self.user_routes.route(route_id) for route_id in self.prepared_route_ids)
 
     @property
-    def direct_transient_user_route_rows(self) -> tuple[UserRouteCapabilityRow, ...]:
-        """Return user route rows that stay direct transient."""
+    def internal_source_smoke_user_route_rows(self) -> tuple[UserRouteCapabilityRow, ...]:
+        """Return user route rows that stay internal local-source smoke."""
 
         return tuple(
-            self.user_routes.route(route_id) for route_id in self.direct_transient_route_ids
+            self.user_routes.route(route_id) for route_id in self.internal_source_smoke_route_ids
         )
 
     @property
@@ -2481,10 +2481,10 @@ class SourcePreparedStateScopeReport:
         return tuple(row for row in self.local_file_routes.rows if row.route_id in prepared)
 
     @property
-    def direct_transient_local_file_rows(self) -> tuple[LocalFileBenchmarkRouteRow, ...]:
-        """Return local benchmark rows that stay direct transient."""
+    def internal_source_smoke_local_file_rows(self) -> tuple[LocalFileBenchmarkRouteRow, ...]:
+        """Return local benchmark rows that stay internal local-source smoke."""
 
-        direct = set(self.direct_transient_route_ids)
+        direct = set(self.internal_source_smoke_route_ids)
         return tuple(row for row in self.local_file_routes.rows if row.route_id in direct)
 
     @property
@@ -2493,10 +2493,10 @@ class SourcePreparedStateScopeReport:
 
         rows: tuple[UserRouteCapabilityRow | LocalFileBenchmarkRouteRow, ...] = (
             *self.prepared_user_route_rows,
-            *self.direct_transient_user_route_rows,
+            *self.internal_source_smoke_user_route_rows,
             *self.generated_user_route_rows,
             *self.prepared_local_file_rows,
-            *self.direct_transient_local_file_rows,
+            *self.internal_source_smoke_local_file_rows,
         )
         return all(row.no_fallback_no_external_engine for row in rows)
 
@@ -2530,15 +2530,15 @@ class SourcePreparedStateScopeReport:
         )
 
     @property
-    def all_direct_transient_routes_are_labeled_non_persistent(self) -> bool:
-        """Whether direct transient rows are labeled internal and non-persistent."""
+    def all_internal_source_smoke_routes_are_labeled_non_persistent(self) -> bool:
+        """Whether internal local-source smoke rows are labeled internal and non-persistent."""
 
         return all(
             row.prepared_state_reuse_scope == "not_applicable_no_prepared_state"
-            and "direct_compatibility_transient" in row.preparation_route
+            and "internal_local_source_smoke" in row.preparation_route
             and row.route_runtime_status == "internal_smoke_only"
             and "internal smoke" in row.claim_boundary.lower()
-            for row in self.direct_transient_user_route_rows
+            for row in self.internal_source_smoke_user_route_rows
         )
 
     @property
@@ -2565,7 +2565,7 @@ class SourcePreparedStateScopeReport:
             self.all_no_fallback_no_external_engine
             and self.all_prepared_routes_expose_reuse_contract
             and self.all_generated_routes_expose_artifact_adjacent_reuse
-            and self.all_direct_transient_routes_are_labeled_non_persistent
+            and self.all_internal_source_smoke_routes_are_labeled_non_persistent
             and self.all_local_file_prepared_rows_expose_source_and_reuse_evidence
         )
 
@@ -6377,6 +6377,28 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         ),
     ),
     _graduation_row(
+        "internal_source_smoke_client_helpers",
+        "python_client_internal",
+        "Internal local-source and Vortex-ingest smoke helpers",
+        "not_user_facing",
+        "internal_smoke_only",
+        client_methods=("sql_local_source_smoke", "vortex_ingest_smoke"),
+        runtime_route="internal_source_smoke_safeguard_not_public_facade",
+        promotion_criteria=(
+            "kept only as low-level smoke safeguards; public workflows use route/run/prepare "
+            "or high-level read/SQL/DataFrame surfaces that normalize through Vortex"
+        ),
+        evidence_refs=(
+            "sql-local-source-smoke_internal_only",
+            "vortex-ingest-smoke_internal_only",
+            "public_workflow_vortex_middle_route_gate",
+        ),
+        claim_boundary=(
+            "These helpers are not public workflow routes and must not be presented as "
+            "runtime/product support surfaces."
+        ),
+    ),
+    _graduation_row(
         "feature_gated_structured_local_inputs",
         "python_context",
         "Feature-gated Parquet, Arrow IPC, Avro, and ORC local input adapters",
@@ -7459,13 +7481,13 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
             "well_clustered",
             "poorly_clustered",
         ),
-        route_id="local_file_direct_transient_route",
-        route_display_name="ShardLoom Direct Transient Internal Smoke Route",
+        route_id="local_file_internal_source_smoke_route",
+        route_display_name="ShardLoom Internal Source Smoke Internal Smoke Route",
         alternate_route_ids=(
             "local_file_prepare_once_first_query",
             "local_file_prepare_once_batch",
         ),
-        selected_execution_mode="direct_compatibility_transient",
+        selected_execution_mode="internal_local_source_smoke",
         sql_surface="ctx.sql(\"SELECT SUM(metric) FROM 'fact.csv' WHERE flag = true\").collect()",
         python_surface="ctx.read('fact.csv').filter(sl.col('flag') == True).agg(sum_metric=('metric', 'sum')).collect()",
         dataframe_surface="ctx.read('fact.csv').where(sl.col('flag') == True).agg(sum_metric=('metric', 'sum')).collect()",
@@ -7473,7 +7495,7 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
         session_surface="session.read('fact.csv').filter(sl.col('flag') == True).collect()",
         cli_surface="shardloom local-source-runtime \"SELECT SUM(metric) FROM 'fact.csv' WHERE flag = true\" --format json",
         source_route="UniversalIngress/InputAdapter local compatibility source",
-        preparation_route="direct_compatibility_transient_no_persistent_preparation",
+        preparation_route="internal_local_source_smoke_no_persistent_preparation",
         output_route=(
             "internal bounded smoke report/sink only; not admitted through public workflow "
             "route/run without Vortex preparation/native input"
@@ -7485,7 +7507,7 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
         required_evidence=(
             "local_source_runtime_internal_only",
             "public_workflow_direct_policy_block_tests",
-            "traditional_analytics.direct_compatibility_transient.selective_filter",
+            "traditional_analytics.internal_local_source_smoke.selective_filter",
             "no_fallback_evidence",
         ),
         next_verifier="python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json",
@@ -7511,13 +7533,13 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
             "well_clustered",
             "poorly_clustered",
         ),
-        route_id="local_file_direct_transient_route",
-        route_display_name="ShardLoom Direct Transient Internal Smoke Route",
+        route_id="local_file_internal_source_smoke_route",
+        route_display_name="ShardLoom Internal Source Smoke Internal Smoke Route",
         alternate_route_ids=(
             "local_file_prepare_once_first_query",
             "local_file_prepare_once_batch",
         ),
-        selected_execution_mode="direct_compatibility_transient",
+        selected_execution_mode="internal_local_source_smoke",
         sql_surface="ctx.sql(\"SELECT id, metric FROM 'fact.csv' WHERE metric >= 10 ORDER BY id LIMIT 100\").collect()",
         python_surface="ctx.read('fact.csv').filter(sl.col('metric') >= 10).select('id', 'metric').limit(100).collect()",
         dataframe_surface="ctx.read('fact.csv').where(sl.col('metric') >= 10).select('id', 'metric').limit(100).collect()",
@@ -7525,7 +7547,7 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
         session_surface="session.read('fact.csv').select('id', 'metric').limit(100).collect()",
         cli_surface="shardloom local-source-runtime \"SELECT id, metric FROM 'fact.csv' WHERE metric >= 10 LIMIT 100\" --format json",
         source_route="UniversalIngress/InputAdapter local compatibility source",
-        preparation_route="direct_compatibility_transient_no_persistent_preparation",
+        preparation_route="internal_local_source_smoke_no_persistent_preparation",
         output_route=(
             "internal bounded smoke report/sink only; not admitted through public workflow "
             "route/run without Vortex preparation/native input"
@@ -7537,7 +7559,7 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
         required_evidence=(
             "local_source_runtime_internal_only",
             "public_workflow_direct_policy_block_tests",
-            "traditional_analytics.direct_compatibility_transient.filter_projection_limit",
+            "traditional_analytics.internal_local_source_smoke.filter_projection_limit",
             "no_fallback_evidence",
         ),
         next_verifier="python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json",
@@ -8057,8 +8079,8 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
 
 USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
     _user_route(
-        "local_file_direct_transient_route",
-        "ShardLoom Direct Transient Internal Smoke Route",
+        "local_file_internal_source_smoke_route",
+        "ShardLoom Internal Source Smoke Internal Smoke Route",
         "local_compat_file",
         input_examples=("orders.csv", "events.jsonl", "flat.json", "local.parquet"),
         front_doors=_ALL_USER_FRONT_DOORS,
@@ -8075,8 +8097,8 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "internal smoke-only, no persistent VortexPreparedState is created on this route"
         ),
         source_route="UniversalIngress/InputAdapter local compatibility source",
-        preparation_route="direct_compatibility_transient_no_persistent_preparation",
-        execution_mode="direct_compatibility_transient",
+        preparation_route="internal_local_source_smoke_no_persistent_preparation",
+        execution_mode="internal_local_source_smoke",
         execution_route="local-source-runtime local-source ShardLoom runtime",
         output_route="internal lower-level smoke report or sink only; not admitted through public workflow route/run",
         evidence_route="local-source-runtime internal envelope plus public direct-policy block evidence",
@@ -8084,7 +8106,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         route_runtime_status="internal_smoke_only",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
-        owner="GAR-RUNTIME-IMPL-6D.local_file_direct_transient_route",
+        owner="GAR-RUNTIME-IMPL-6D.local_file_internal_source_smoke_route",
         required_evidence=(
             "local_source_runtime_internal_only",
             "public_workflow_direct_policy_block_tests",
@@ -12448,7 +12470,7 @@ class ShardLoomContext:
             plan_summary=plan_summary,
             requested_output=requested_output,
             output_ref=output_ref,
-            execution_policy="auto" if execution_policy is None else execution_policy,
+            execution_policy="vortex_middle" if execution_policy is None else execution_policy,
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=bounded,
@@ -12481,7 +12503,7 @@ class ShardLoomContext:
             plan_summary=plan_summary,
             requested_output=requested_output,
             output_ref=output_ref,
-            execution_policy="auto" if execution_policy is None else execution_policy,
+            execution_policy="vortex_middle" if execution_policy is None else execution_policy,
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=bounded,

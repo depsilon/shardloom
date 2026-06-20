@@ -407,7 +407,7 @@ cargo run -q -p shardloom-cli -- local-source-runtime "SELECT count(*),sum(amoun
 ```
 
 Use this for the first GAR-RUNTIME-IMPL-1E operator-family promotion. It keeps the same local CSV
-direct-transient boundary and emits `aggregate_runtime_execution=true`,
+internal-source-smoke boundary and emits `aggregate_runtime_execution=true`,
 `aggregate_operator_family=scalar_aggregate`, scalar aggregate function labels, the aggregate
 execution certificate ref, and no-fallback evidence. It is not grouped aggregation, joins, broad SQL
 runtime, performance evidence, or production SQL/DataFrame support.

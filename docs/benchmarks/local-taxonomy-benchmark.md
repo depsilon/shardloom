@@ -115,7 +115,7 @@ attribution. Public lane names are:
 | ShardLoom Prepare-Once Batch | Raw compatibility source | Once per batch | Reuse/amortization evidence for multiple prepared queries. |
 | ShardLoom Warm Prepared Query | `VortexPreparedState` | No | Warm query/runtime evidence after preparation exists. |
 | ShardLoom Native Vortex Query | Existing Vortex artifact | No | Native input and operator maturity evidence. |
-| ShardLoom Direct Transient Route | Raw compatibility source | No persistent Vortex preparation | Scoped one-shot local compatibility work. |
+| Internal Local Source Smoke Route | Raw compatibility source | No persistent Vortex preparation | Scoped one-shot local compatibility work. |
 | External Baseline End-to-End | External engine raw-source path | Not applicable | Baseline context only, never fallback evidence. |
 
 Stage pieces such as source admission, source read, parse/decode, Vortex array build, Vortex write,

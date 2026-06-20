@@ -51,7 +51,7 @@ class UserSurfaceGraduationMatrixTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertGreaterEqual(report["matrix_row_count"], 10)
         self.assertEqual(report["context_method_count"], 97)
-        self.assertEqual(report["client_method_count"], 116)
+        self.assertEqual(report["client_method_count"], 118)
         self.assertEqual(report["cli_command_count"], documented_cli_command_count())
         self.assertTrue(
             report["acceptance_summary"]["all_python_context_methods_classified"]
@@ -68,6 +68,10 @@ class UserSurfaceGraduationMatrixTests(unittest.TestCase):
         self.assertIn(
             "local-source-runtime",
             by_id["local_sql_python_dataframe_runtime"]["cli_commands"],
+        )
+        self.assertEqual(
+            by_id["internal_source_smoke_client_helpers"]["graduation_posture"],
+            "not_user_facing",
         )
         self.assertEqual(
             by_id["feature_gated_structured_local_inputs"]["graduation_posture"],

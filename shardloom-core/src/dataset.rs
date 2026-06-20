@@ -111,7 +111,14 @@ impl DatasetUri {
     #[must_use]
     pub fn looks_like_vortex(&self) -> bool {
         let s = self.path_without_query_or_fragment();
-        s.ends_with(".vortex") || s.contains(".vortex/")
+        s.split('/').any(|segment| {
+            std::path::Path::new(segment)
+                .extension()
+                .is_some_and(|extension| {
+                    extension.eq_ignore_ascii_case("vortex")
+                        || extension.eq_ignore_ascii_case("vtx")
+                })
+        })
     }
 }
 
@@ -180,7 +187,11 @@ impl DatasetFormat {
             .extension()
             .and_then(|v| v.to_str())
             .unwrap_or_default();
-        if s.ends_with(".vortex") || s.contains(".vortex/") {
+        if ext.eq_ignore_ascii_case("vortex")
+            || ext.eq_ignore_ascii_case("vtx")
+            || s.contains(".vortex/")
+            || s.contains(".vtx/")
+        {
             Self::Vortex
         } else if ext.eq_ignore_ascii_case("parquet") {
             Self::Parquet
@@ -363,6 +374,7 @@ mod tests {
     #[test]
     fn dataset_uri_detects_vortex_extension() {
         assert!(DatasetUri::new("x.vortex").unwrap().looks_like_vortex());
+        assert!(DatasetUri::new("x.vtx").unwrap().looks_like_vortex());
     }
     #[test]
     fn dataset_uri_detects_vortex_directory() {
@@ -384,6 +396,10 @@ mod tests {
     fn dataset_format_infers_vortex_from_uri() {
         assert_eq!(
             DatasetFormat::infer_from_uri(&DatasetUri::new("x.vortex").unwrap()),
+            DatasetFormat::Vortex
+        );
+        assert_eq!(
+            DatasetFormat::infer_from_uri(&DatasetUri::new("x.vtx").unwrap()),
             DatasetFormat::Vortex
         );
     }
@@ -457,6 +473,12 @@ mod tests {
     fn dataset_ref_from_uri_infers_format() {
         assert_eq!(
             DatasetRef::from_uri(DatasetUri::new("file://a.vortex").unwrap())
+                .unwrap()
+                .format,
+            DatasetFormat::Vortex
+        );
+        assert_eq!(
+            DatasetRef::from_uri(DatasetUri::new("file://a.vtx").unwrap())
                 .unwrap()
                 .format,
             DatasetFormat::Vortex

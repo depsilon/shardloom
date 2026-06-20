@@ -67,13 +67,13 @@ impl CommandStatus {
     }
 }
 
-/// User-visible `ShardLoom` execution mode.
+/// `ShardLoom` execution mode reported by runtime and benchmark evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShardLoomExecutionMode {
     Auto,
     CompatibilityImportCertified,
     PreparedVortex,
-    DirectCompatibilityTransient,
+    InternalLocalSourceSmoke,
     NativeVortex,
 }
 
@@ -84,7 +84,7 @@ impl ShardLoomExecutionMode {
             Self::Auto => "auto",
             Self::CompatibilityImportCertified => "compatibility_import_certified",
             Self::PreparedVortex => "prepared_vortex",
-            Self::DirectCompatibilityTransient => "direct_compatibility_transient",
+            Self::InternalLocalSourceSmoke => "internal_local_source_smoke",
             Self::NativeVortex => "native_vortex",
         }
     }
@@ -93,14 +93,14 @@ impl ShardLoomExecutionMode {
     pub const fn family(self) -> ShardLoomExecutionModeFamily {
         match self {
             Self::Auto => ShardLoomExecutionModeFamily::AutoSelection,
-            Self::CompatibilityImportCertified | Self::DirectCompatibilityTransient => {
+            Self::CompatibilityImportCertified | Self::InternalLocalSourceSmoke => {
                 ShardLoomExecutionModeFamily::Compatibility
             }
             Self::PreparedVortex | Self::NativeVortex => ShardLoomExecutionModeFamily::NativeVortex,
         }
     }
 
-    /// Parses a user-visible execution mode.
+    /// Parses a declared execution mode.
     ///
     /// # Errors
     ///
@@ -112,8 +112,8 @@ impl ShardLoomExecutionMode {
                 Ok(Self::CompatibilityImportCertified)
             }
             "prepared_vortex" | "prepared-vortex" => Ok(Self::PreparedVortex),
-            "direct_compatibility_transient" | "direct-compatibility-transient" => {
-                Ok(Self::DirectCompatibilityTransient)
+            "internal_local_source_smoke" | "internal-local-source-smoke" => {
+                Ok(Self::InternalLocalSourceSmoke)
             }
             "native_vortex" | "native-vortex" => Ok(Self::NativeVortex),
             _ => Err(ShardLoomError::InvalidOperation(format!(
@@ -312,19 +312,19 @@ impl ShardLoomExecutionModeSelectionReport {
                     )
                 }
             }
-            ShardLoomExecutionMode::DirectCompatibilityTransient => {
+            ShardLoomExecutionMode::InternalLocalSourceSmoke => {
                 if request.direct_transient_supported {
-                    Self::direct_compatibility_transient(
+                    Self::internal_local_source_smoke(
                         request,
-                        "direct_transient_requested_and_supported",
+                        "internal_local_source_smoke_requested_and_supported",
                     )
                 } else {
                     Self::unsupported(
                         request,
-                        ShardLoomExecutionMode::DirectCompatibilityTransient,
-                        "direct_compatibility_transient_not_implemented",
+                        ShardLoomExecutionMode::InternalLocalSourceSmoke,
+                        "internal_local_source_smoke_not_implemented",
                         "P7.5.4",
-                        "ShardLoom-native direct transient executor and direct-mode evidence",
+                        "internal local-source smoke executor and evidence",
                     )
                 }
             }
@@ -357,15 +357,9 @@ impl ShardLoomExecutionModeSelectionReport {
                 "auto_selected_certified_ingest_stage_requested",
             );
         }
-        if request.compatibility_input && request.direct_transient_supported {
-            return Self::direct_compatibility_transient(
-                request,
-                "auto_selected_direct_transient_small_compatibility_input",
-            );
-        }
         Self::compatibility_import_certified(
             request,
-            "auto_selected_compatibility_import_certified_until_direct_transient_is_admitted",
+            "auto_selected_compatibility_import_certified_for_public_vortex_middle",
         )
     }
 
@@ -406,13 +400,13 @@ impl ShardLoomExecutionModeSelectionReport {
         )
     }
 
-    fn direct_compatibility_transient(
+    fn internal_local_source_smoke(
         request: ShardLoomExecutionModeSelectionRequest,
         reason: &str,
     ) -> Self {
         Self::supported(
             request,
-            ShardLoomExecutionMode::DirectCompatibilityTransient,
+            ShardLoomExecutionMode::InternalLocalSourceSmoke,
             reason,
             SupportedExecutionModeFacts {
                 compatibility_import_included: false,
@@ -1427,7 +1421,7 @@ mod tests {
             "native_vortex"
         );
         assert_eq!(
-            ShardLoomExecutionMode::DirectCompatibilityTransient
+            ShardLoomExecutionMode::InternalLocalSourceSmoke
                 .family()
                 .as_str(),
             "compatibility"
@@ -1490,7 +1484,7 @@ mod tests {
     fn execution_mode_selection_blocks_direct_transient_until_implemented() {
         let report = ShardLoomExecutionModeSelectionReport::from_request(
             ShardLoomExecutionModeSelectionRequest::new(
-                ShardLoomExecutionMode::DirectCompatibilityTransient,
+                ShardLoomExecutionMode::InternalLocalSourceSmoke,
             )
             .with_source_format("csv")
             .with_workload_constitution("local_vortex_analytics_v1")
@@ -1501,11 +1495,11 @@ mod tests {
         assert_eq!(report.support_status, "unsupported");
         assert_eq!(
             report.selected_execution_mode,
-            ShardLoomExecutionMode::DirectCompatibilityTransient
+            ShardLoomExecutionMode::InternalLocalSourceSmoke
         );
         assert_eq!(
             report.unsupported_diagnostic_code,
-            "direct_compatibility_transient_not_implemented"
+            "internal_local_source_smoke_not_implemented"
         );
         assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert!(!report.vortex_native_claim_allowed);

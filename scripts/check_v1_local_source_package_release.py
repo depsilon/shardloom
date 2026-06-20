@@ -32,6 +32,11 @@ from release_report_utils import (
     resolve_path,
     write_json,
 )
+from check_benchmark_artifact_completeness import (  # noqa: E402
+    CLICKBENCH_URL,
+    PUBLIC_BENCHMARK_SURFACE,
+    default_public_benchmark_manifest_retired,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -99,7 +104,7 @@ def validate_contract(contract: dict[str, Any] | None) -> list[str]:
         "local_source_install_proof_status": "validated_by_release_dry_run",
         "python_user_surface_proof_status": "validated_by_local_smoke_and_scenarios",
         "api_schema_stability_status": "stable_v1_local_contract",
-        "benchmark_publication_scope": "full_local_evidence_only_claim_gated",
+        "benchmark_publication_scope": "clickbench_handoff_local_evidence_only_claim_gated",
         "docs_website_status": "claim_safe_current_source",
         "publication_authorization_state": SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
     }
@@ -198,6 +203,8 @@ def build_report(
     else:
         blockers.append("missing API/schema stability matrix")
 
+    benchmark_manifest_path = resolve_path(repo_root, benchmark_manifest_ref)
+    benchmark_public_surface = "local_artifact_manifest"
     if isinstance(benchmark_manifest, dict):
         if benchmark_manifest.get("benchmark_profile") != "full_local":
             blockers.append("benchmark manifest must be the full_local profile")
@@ -205,6 +212,8 @@ def build_report(
             blockers.append("benchmark manifest performance_claim_allowed must be false")
         if int(benchmark_manifest.get("published_benchmark_row_count") or 0) <= 0:
             blockers.append("benchmark manifest must include published rows")
+    elif default_public_benchmark_manifest_retired(benchmark_manifest_path):
+        benchmark_public_surface = PUBLIC_BENCHMARK_SURFACE
     else:
         blockers.append("missing benchmark manifest")
 
@@ -260,6 +269,10 @@ def build_report(
         "deferred_environment_gate_ids": DEFERRED_ENVIRONMENT_GATES,
         "python_package_version": python_package_version(repo_root),
         "benchmark_manifest_ref": benchmark_manifest_ref.as_posix(),
+        "benchmark_public_surface": benchmark_public_surface,
+        "public_benchmark_url": CLICKBENCH_URL
+        if benchmark_public_surface == PUBLIC_BENCHMARK_SURFACE
+        else None,
         "benchmark_git_sha": (benchmark_manifest or {}).get("benchmark_git_sha"),
         "published_benchmark_row_count": (benchmark_manifest or {}).get(
             "published_benchmark_row_count"

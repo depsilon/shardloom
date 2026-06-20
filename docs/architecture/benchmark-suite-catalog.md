@@ -134,7 +134,7 @@ Required execution modes:
 ```text
 compatibility_import_certified
 prepared_vortex
-direct_compatibility_transient
+internal_local_source_smoke
 native_vortex
 auto
 ```
@@ -178,7 +178,7 @@ performance lane once operator coverage matures. Current native rows can still u
 ShardLoom operator paths unless their representation-transition, materialization/decode,
 provider-admission, and certificate evidence prove encoded/native execution.
 
-direct_compatibility_transient rows are small one-shot local adapter compatibility rows where
+internal_local_source_smoke rows are small one-shot local adapter compatibility rows where
 explicit evidence exists and are not Vortex-native claims. Current comparative harness coverage is
 limited to scoped CSV/JSONL and feature-gated Parquet/Arrow IPC/Avro/ORC selective-filter and
 filter/projection/limit smoke rows.
@@ -226,7 +226,7 @@ ShardLoom Prepare-Once First Query
 ShardLoom Prepare-Once Batch
 ShardLoom Warm Prepared Query
 ShardLoom Native Vortex Query
-ShardLoom Direct Transient Route
+Internal Local Source Smoke Route
 External Baseline End-to-End
 ```
 
@@ -656,7 +656,7 @@ formats.
 
 Capability discovery is mode-aware: `compute-capability-matrix` rows now distinguish
 `compatibility_import_certified`, `prepared_vortex`, `native_vortex`,
-`direct_compatibility_transient`, and `auto`. Direct transient remains non-Vortex-native; only the
+`internal_local_source_smoke`, and `auto`. Internal local-source smoke remains non-Vortex-native; only the
 scoped local adapter smoke paths are executable, currently covering CSV, JSONL/NDJSON, and
 feature-gated Parquet/Arrow IPC/Avro/ORC traditional analytics rows plus the broader
 `local-source-runtime` local adapter universe.

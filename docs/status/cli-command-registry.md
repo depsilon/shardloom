@@ -10,8 +10,8 @@ Registered command count: 214
 
 Support-state vocabulary: executable, feature_gated, diagnostic_only, report_only, blocked, future
 
-User-surface graduation posture vocabulary: high_level_context, client_only, diagnostic_only,
-feature_gated, not_user_facing
+User-surface graduation posture vocabulary: high_level_context, public_runtime, client_only,
+diagnostic_only, feature_gated, not_user_facing
 
 Agent metadata command: `shardloom command-metadata [command] --format json`
 
@@ -23,16 +23,16 @@ Public workflow facade commands: `shardloom route <sql|python|dataframe|cli> --f
 `shardloom run <sql|python|dataframe|cli> --format json`, and
 `shardloom prepare <sql|python|dataframe|cli> --format json`
 
-Scoped public helper coverage: Python lazy DataFrame bounded `collect()`, general `write(...)`,
+Scoped public helper coverage: `vortex-prepare` local compatibility-source normalization,
+Python lazy DataFrame bounded `collect()`, general `write(...)`,
 `write_jsonl(...)`, `write_csv(...)`, structured write aliases, generated-source direct writes,
 source-free SQL writes, admitted local/generated fanout helpers, explicit native Vortex
 primitive collect/local-execution helpers, scoped native Vortex primitive JSONL/CSV row-export
 payloads, scoped local distributed fixture execution, and scoped live/hybrid local
 checkpoint/changelog fixture execution route through typed envelopes and preserve report views.
-Lower smoke/runtime/primitive commands and the private Python worker transport remain executable
-non-user-facing diagnostics and
-benchmark/evidence surfaces, while `route`, `run`, and `prepare` are the high-level CLI context
-commands. Future helper families remain deferred until their owning runtime items define explicit
+Lower smoke/runtime/primitive diagnostic commands and the private Python worker transport remain
+non-public diagnostics and benchmark/evidence surfaces, while `route`, `run`, and `prepare` are the
+high-level CLI context commands. Future helper families remain deferred until their owning runtime items define explicit
 facade payload contracts.
 
 Help aliases: shardloom --help; shardloom -h; shardloom <command> --help

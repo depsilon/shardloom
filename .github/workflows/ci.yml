@@ -430,6 +430,8 @@ jobs:
           test -f target/release-dry-run-proof/transcript.json
           test -f target/golden-workflow-report.json
           test -d target/golden-workflows
+      - name: Build release user-surface example binary
+        run: cargo build -q -p shardloom-cli --features release-user-surfaces,vortex-traditional-analytics-benchmark
       - name: Python user-surface completion gate
         run: python scripts/check_python_user_surface_completion.py
       - name: SQL/Python/DataFrame parity gate

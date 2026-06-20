@@ -53,7 +53,7 @@ admission, and copy-budget/buffer-lifecycle evidence to the same `vortex_ingest`
 - Support cross-format output fanout planning, where one prepared source can write multiple local
   sink artifacts without coupling to the input format.
 - Keep `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, and
-  `direct_compatibility_transient` lanes distinct.
+  `internal_local_source_smoke` lanes distinct.
 - Add benchmark vocabulary for `io_reuse_and_fanout`, `source_state_reuse`,
   `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and
   `generated_source_output`.

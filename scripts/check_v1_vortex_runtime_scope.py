@@ -88,10 +88,10 @@ PUBLIC_DOC_MARKERS = {
         "closed_vortex_runtime_scope",
         DOC_PATH.as_posix(),
     ),
-    "website-src/src/components/BenchmarkDashboard.astro": (
-        DOC_PATH.as_posix(),
-        "v1 Vortex runtime scope",
-        "local_vortex_primitive_route_report",
+    "website-src/src/pages/benchmarks.astro": (
+        "ClickBench",
+        "No local leaderboard",
+        "public comparison surface",
     ),
 }
 

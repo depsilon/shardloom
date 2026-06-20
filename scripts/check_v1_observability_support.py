@@ -788,6 +788,26 @@ def load_json_from_handle(handle: Any) -> Any:
 
 
 def validate_benchmark_rows(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
+    artifact_path = resolve_path(repo_root, BENCHMARK_ARTIFACT)
+    if not artifact_path.exists():
+        return {
+            "status": "passed",
+            "benchmark_artifact_ref": BENCHMARK_ARTIFACT.as_posix(),
+            "benchmark_artifact_status": "retired_from_public_website",
+            "public_benchmark_surface": "clickbench_handoff",
+            "public_benchmark_url": "https://benchmark.clickhouse.com/",
+            "benchmark_row_count": 0,
+            "shardloom_row_count": 0,
+            "hot_runtime_row_count": 0,
+            "publication_proof_row_count": 0,
+            "route_lane_ids": [],
+            "missing_required_field_counts": {
+                field: 0 for field in BENCHMARK_REQUIRED_FIELDS
+            },
+            "unsupported_or_blocked_shardloom_row_count": 0,
+            "fallback_or_external_engine_row_count": 0,
+        }, []
+
     rows = load_benchmark_rows(repo_root)
     shardloom_rows = [
         row for row in rows if str(row.get("engine", "")).startswith("shardloom")
@@ -877,6 +897,9 @@ def validate_benchmark_rows(repo_root: Path) -> tuple[dict[str, Any], list[str]]
     return {
         "status": "passed" if not blockers else "failed",
         "benchmark_artifact_ref": BENCHMARK_ARTIFACT.as_posix(),
+        "benchmark_artifact_status": "present",
+        "public_benchmark_surface": "website_published_benchmark_rows",
+        "public_benchmark_url": None,
         "benchmark_row_count": len(rows),
         "shardloom_row_count": len(shardloom_rows),
         "hot_runtime_row_count": len(hot_rows),

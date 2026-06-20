@@ -74,7 +74,7 @@ Public route names must be:
 | `shardloom-prepare-batch` | ShardLoom Prepare-Once Batch |
 | `shardloom-prepared-vortex` / `prepared_vortex` | ShardLoom Warm Prepared Query |
 | `shardloom-vortex` / `native_vortex` | ShardLoom Native Vortex Query |
-| `direct_compatibility_transient` | ShardLoom Direct Transient Route |
+| `internal_local_source_smoke` | Internal Local Source Smoke Route |
 | pandas/Polars/DuckDB/DataFusion/Dask | External Baseline End-to-End rows, with per-engine labels |
 
 Do not call the internal `shardloom` lane simply "ShardLoom" on public benchmark surfaces. It is

@@ -39,12 +39,12 @@ not by compiling every reader by default. Active implementation status for input
   - CSV, JSON/NDJSON, Parquet, Arrow IPC, Avro, and ORC have feature-gated local benchmark bridge
     coverage.
   - CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet, Arrow IPC, Avro, and ORC
-    have scoped direct-transient `local-source-runtime` runtime coverage for local
+    have scoped internal-source-smoke `local-source-runtime` runtime coverage for local
     projection/filter/limit style workflows. Feature-gated structured readers report local
     SourceState read-plan evidence, requested/materialized columns, reader projection columns, and
     reader-level projection status when `shardloom-cli --features universal-format-io` is enabled;
     default builds report deterministic Parquet, Arrow IPC, Avro, or ORC adapter blockers. The
-    same direct-transient SQL path now preserves the structured-reader Arrow `RecordBatch`
+    same internal-source-smoke SQL path now preserves the structured-reader Arrow `RecordBatch`
     SourceState boundary until the explicit scalar-row expression-runtime materialization boundary,
     reporting `user_surface_runtime_scope=format_neutral_sql_python_runtime`,
     `format_specific_boundary_scope=read_ingest_and_write_only`,
@@ -55,7 +55,7 @@ not by compiling every reader by default. Active implementation status for input
     generic parse time and is not misreported as per-format, Arrow, or Vortex-native query
     execution. The same gate admits scoped flat scalar local Parquet/Arrow IPC/Avro/ORC output for
     that SQL local-source smoke and reports deterministic sink blockers in default builds.
-    Normal public workflows do not use this direct transient path as the execution middle: local
+    Normal public workflows do not use this internal source smoke path as the execution middle: local
     compatibility inputs normalize through `SourceState -> vortex_ingest -> VortexPreparedState`
     before prepared/native Vortex execution, or fail closed when the required feature gate is absent.
   - When `vortex-prepare` is built with both `vortex-write` and `universal-format-io`, flat

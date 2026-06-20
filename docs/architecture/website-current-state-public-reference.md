@@ -10,22 +10,21 @@ surface. The repository remains authoritative for implementation plans, RFCs, ar
 contracts, use-case records, release gates, and benchmark artifacts.
 
 The current site source is `website-src/`. The generated deployable output is `website/`. The
-canonical public benchmark artifact is `website-public/assets/benchmarks/latest/`; `website-src`
-syncs that artifact into the build and the generated `website/` mirror.
+public benchmark page is a ClickBench handoff, not a local artifact renderer. Local benchmark
+artifacts remain repository evidence and must not be mirrored into a shardloom.io leaderboard.
 
 ## Current Public State
 
 - Site runtime: static Astro with Starlight docs and local Pagefind search.
-- Source of truth: repository docs and committed benchmark artifacts.
-- Benchmark profile: promoted public artifact, not ad hoc local reruns.
-- Current promoted benchmark SHA: the SHA recorded in
-  `website-public/assets/benchmarks/latest/manifest.json`.
+- Source of truth: repository docs and local validation artifacts.
+- Benchmark profile: ClickBench handoff for public comparison; local artifacts stay in the repo as
+  engineering evidence.
+- Current public benchmark artifact: none rendered on shardloom.io.
 - Performance claim posture: `performance_claim_allowed=false`.
 - Claim gate posture: benchmark evidence is `not_claim_grade` for public performance, production,
-  and replacement claims unless the manifest says otherwise.
-- PERF-INNOV-5 hot-runtime metadata rows and full-local publication-proof rows are represented in
-  the promoted public benchmark bundle. Future scoped optimization artifacts remain phase-plan
-  evidence until they are promoted through the benchmark publication gate.
+  and replacement claims unless a future approved public comparison artifact says otherwise.
+- The old internal benchmark dashboard is retired from the website so stale local rows cannot read
+  as a current public leaderboard.
 
 ## Public Routes
 
@@ -35,7 +34,7 @@ syncs that artifact into the build and the generated `website/` mirror.
 | `/about` | Short claim-safe overview of what ShardLoom is, is not, and where current evidence lives | `website-src/src/pages/about.astro`, README, compute-flow reference |
 | `/start` | Local proof path without package or production claims | repo getting-started docs and local scripts |
 | `/field-guide` | Starlight docs shell for start, Python surface, benchmark methodology, limitations, and vocabulary | generated docs content and exact source references |
-| `/benchmarks` | Route timing, timing surfaces, claim gates, and optimization direction | promoted benchmark artifact |
+| `/benchmarks` | ClickBench handoff and claim-safe public benchmark posture | `website-src/src/pages/benchmarks.astro` |
 | `/compute-engine-flow` | Human-readable route architecture | `docs/architecture/compute-engine-flow-reference.md` |
 
 Removed public routes are redirected intentionally: `/architecture` to `/compute-engine-flow`,
@@ -45,24 +44,22 @@ matrices remain repository evidence, not public website IA.
 
 ## Benchmark Page Contract
 
-The benchmark page must lead with current timing semantics:
+The benchmark page must lead with the public comparison handoff:
 
-1. Promoted artifact freshness and claim gate.
-2. Hot runtime route surfaces.
-3. Publication-proof route surfaces.
-4. Optimization targets from route-share attribution.
-5. Stage inclusion and attribution.
-6. Collapsed raw ledgers.
+1. ClickBench is the public comparison surface.
+2. ShardLoom does not host a local leaderboard on shardloom.io.
+3. Local benchmark artifacts remain engineering evidence, not public ranking evidence.
+4. Performance claims require named dataset, route, format, and evidence path.
+5. External engines remain comparison baselines only.
 
 Rules:
 
-- `hot_runtime` rows drive the primary ShardLoom route grid.
-- `publication_proof` rows remain visible and slower because they include proof/output work.
-- Result sink replay and human evidence render must never silently redefine hot runtime totals.
+- The page must link to `https://benchmark.clickhouse.com/`.
+- The page must not render the retired internal benchmark dashboard.
+- Local benchmark rows must not be presented as a current public leaderboard.
 - External engines are baseline context only, never ShardLoom fallback execution.
-- The page may describe optimization direction from committed artifacts, but it must not make
-  performance, production, Spark-replacement, or superiority claims while the manifest has
-  `performance_claim_allowed=false`.
+- The page may describe the comparison process, but it must not make performance, production,
+  Spark-replacement, or superiority claims while `performance_claim_allowed=false`.
 
 ## Documentation Cleanup Contract
 

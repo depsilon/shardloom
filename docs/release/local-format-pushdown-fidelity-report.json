@@ -108,7 +108,7 @@
       "materialization_cost_status": "compatibility_import_materialization_boundary_required",
       "current_evidence_refs": [
         "docs/architecture/universal-input-contract.md",
-        "traditional_direct_transient_structured_tests",
+        "traditional_internal_source_smoke_structured_tests",
         "feature_gated_universal_format_io"
       ],
       "required_next_evidence": [
@@ -133,7 +133,7 @@
       "materialization_cost_status": "compatibility_import_materialization_boundary_required",
       "current_evidence_refs": [
         "docs/architecture/universal-input-contract.md",
-        "traditional_direct_transient_structured_tests",
+        "traditional_internal_source_smoke_structured_tests",
         "feature_gated_universal_format_io"
       ],
       "required_next_evidence": [

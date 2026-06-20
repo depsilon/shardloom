@@ -1,8 +1,63 @@
 ---
 import SiteLayout from "../layouts/SiteLayout.astro";
-import BenchmarkDashboard from "../components/BenchmarkDashboard.astro";
+
+const clickBenchUrl = "https://benchmark.clickhouse.com/";
 ---
 
-<SiteLayout title="Benchmarks" description="Benchmark evidence dashboard for local route timing, claim gates, and baseline lane completeness." path="/benchmarks" active="benchmarks">
-  <BenchmarkDashboard />
+<SiteLayout
+  title="Benchmarks"
+  description="ShardLoom benchmark comparison now points readers to the public ClickBench leaderboard."
+  path="/benchmarks"
+  active="benchmarks"
+>
+  <section class="page-hero">
+    <p class="eyebrow">Benchmarks</p>
+    <h1>Use ClickBench as the public comparison surface.</h1>
+    <p class="lede">
+      ShardLoom will use the public ClickBench process for broad OLAP comparisons. The old internal
+      benchmark dashboard has been removed from the site so stale local artifacts do not read as a
+      current public leaderboard.
+    </p>
+    <div class="actions">
+      <a class="button primary" href={clickBenchUrl} target="_blank" rel="noopener noreferrer">
+        Open ClickBench
+      </a>
+      <a class="button" href="/field-guide/benchmark-methodology">Read methodology</a>
+      <a class="button ghost" href="/field-guide/limitations">Review boundaries</a>
+    </div>
+  </section>
+
+  <section class="section-grid">
+    <div>
+      <p class="eyebrow">Public posture</p>
+      <h2>No local leaderboard on shardloom.io.</h2>
+      <p class="narrow">
+        Local benchmark artifacts remain useful for engineering validation, but the website should
+        not present them as current public ranking evidence. Public comparison belongs on ClickBench
+        once ShardLoom submissions are reproducible and accepted there.
+      </p>
+    </div>
+    <div class="card-grid">
+      <article class="card">
+        <span class="badge">External</span>
+        <h3>ClickBench is the comparison target.</h3>
+        <p>Readers should use the upstream leaderboard for cross-engine OLAP comparisons.</p>
+      </article>
+      <article class="card">
+        <span class="badge">Local</span>
+        <h3>Repo artifacts are engineering evidence.</h3>
+        <p>Checked-in benchmark outputs support development and validation, not standalone public claims.</p>
+      </article>
+      <article class="card">
+        <span class="badge">Claim gate</span>
+        <h3>Performance claims stay explicit.</h3>
+        <p>ShardLoom should only claim benchmark results with a named dataset, route, format, and evidence path.</p>
+      </article>
+      <article class="card">
+        <span class="badge">No fallback</span>
+        <h3>External engines are baselines only.</h3>
+        <p>Comparison surfaces do not change ShardLoom's no-fallback execution boundary.</p>
+      </article>
+    </div>
+  </section>
 </SiteLayout>

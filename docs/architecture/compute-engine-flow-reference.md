@@ -136,7 +136,7 @@ flowchart LR
 | --- | --- | --- |
 | Access and front doors | CLI, Python, SQL, adapters, planned API surfaces | typed request envelope, typed output envelope |
 | Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | source fingerprints, prepared-state IDs/digests, import certificates |
-| Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, internal `direct_compatibility_transient`, `auto` | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
+| Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`; internal smoke is not a public lane | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
 | Engine fabric | batch, live, hybrid, auto engine mode | `requested_engine_mode`, `selected_engine_mode`, effect and state boundaries |
 | Output and materialization | `OutputPlan`, `SinkArtifact`, Vortex output, compatibility exports | decode/materialization status, result-sink replay, metadata preservation/loss |
 | Timing and benchmarks | route lanes, timing surfaces, stage attribution | `timing_surface`, `route_total_formula`, stage milliseconds, claim gate status |
@@ -149,8 +149,8 @@ flowchart LR
 | `compatibility_import_certified` | A recognized compatibility source admitted through `UniversalIngress` | source read, parse/decode where required, Vortex preparation, Vortex write/reopen, scan/query, output/replay, certificates, claim-gate evidence | pure query-speed timing, broad SQL/DataFrame support, object-store/table production I/O |
 | `prepared_vortex` | Existing `VortexPreparedState` | warm prepared query work, provider admission, output route, evidence | direct CSV/JSONL/Parquet/database/object-store reads |
 | `native_vortex` | Existing Vortex artifact or native Vortex state | native Vortex scan/source path, provider admission, output route, evidence | compatibility import or external engine evaluation |
-| `direct_compatibility_transient` | Scoped local compatibility source | internal diagnostic one-shot local path with explicit materialization/decode status | public workflow runtime, prepared-state reuse, native Vortex claim, or claim-grade production runtime |
-| `auto` | User request with selection allowed | selector evidence with `selected_execution_mode` and `mode_selection_reason` | hidden fallback or invisible mode substitution |
+| `internal_local_source_smoke` | Scoped local compatibility source | internal diagnostic one-shot local path with explicit materialization/decode status | public workflow runtime, prepared-state reuse, native Vortex claim, or claim-grade production runtime |
+| `vortex_middle` | Public local workflow policy | prepare local compatibility input into Vortex or use native Vortex input before execution | separate execution lane, hidden fallback, or direct local-source runtime |
 | `external_baseline_only` | Explicit benchmark baseline row | comparison-only timing or correctness reference | ShardLoom runtime support or fallback execution |
 
 Common local prepared route:
@@ -282,7 +282,7 @@ Public benchmark rows should use stable route lane labels:
 | `prepare_once_batch` | ShardLoom Prepare-Once Batch | Amortized preparation plus child query rows with explicit attribution. |
 | `warm_prepared_query` | ShardLoom Warm Prepared Query | Query from existing `VortexPreparedState`. |
 | `native_vortex_query` | ShardLoom Native Vortex Query | Query from existing Vortex-native state/artifact. |
-| `direct_transient_route` | ShardLoom Direct Transient Route | One-shot local transient path. |
+| `direct_transient_route` | Internal Local Source Smoke Route | One-shot local transient path. |
 | `external_baseline_end_to_end` | External Baseline End-to-End | Comparison-only external baseline. |
 
 Benchmark artifacts and website rows must expose:
@@ -481,12 +481,12 @@ CSV, JSONL, Parquet, databases, object-store objects, generated rows, or ad hoc 
 
 ```mermaid
 flowchart LR
-    REQUEST["requested_execution_mode<br/>auto or explicit"]
+    REQUEST["requested_execution_mode<br/>explicit concrete lane"]
     SELECT["selected_execution_mode<br/>with reason"]
     COMPAT["compatibility_import_certified<br/>cold certified lane"]
     PREPARED["prepared_vortex<br/>prepared-state lane"]
     NATIVE["native_vortex<br/>native Vortex lane"]
-    DIRECT["direct_compatibility_transient<br/>internal diagnostic lane"]
+    DIRECT["internal_local_source_smoke<br/>internal diagnostic lane"]
     BASELINE["external_baseline_only<br/>comparison only"]
     RESULT["Result envelope<br/>route + evidence + claim status"]
 
@@ -498,10 +498,10 @@ flowchart LR
     SELECT -. baseline only .-> BASELINE --> RESULT
 ```
 
-`auto` is a selector, not an escape hatch. It must record the requested mode, selected mode,
-selection reason, and unsupported alternatives when relevant. Public local-file `auto` selects
-Vortex preparation/prepared/native routes or fails closed; it must not select
-`direct_compatibility_transient` as the product runtime middle.
+`auto` is not a public execution lane. Legacy callers may request it as a compatibility alias, but
+facades normalize local-file workflow policy to `vortex_middle` and must report a concrete selected
+mode such as `prepared_vortex`, `native_vortex`, or `compatibility_import_certified`.
+`internal_local_source_smoke` must never appear as the product runtime middle.
 
 ## Engine Fabric
 
@@ -627,7 +627,8 @@ Not allowed:
 - Do not compare hot query runtime against publication-proof totals without saying so.
 - Do not call `prepared_vortex` a direct reader for compatibility files.
 - Do not hide source admission, preparation, materialization, decode, sink, or evidence-render costs.
-- Do not use `auto` to hide unsupported routes or mode substitution.
+- Do not use `auto` to hide unsupported routes or mode substitution; normalize to
+  `vortex_middle` or a concrete execution lane before route evidence is emitted.
 - Do not let website copy imply production support, package publication, Spark-displacement, object-store/lakehouse runtime, Foundry production, or performance superiority without claim-grade evidence.
 - Do not keep outdated legacy docs on public pages when this reference, the phase plan, or promoted benchmark artifacts have moved on.
 

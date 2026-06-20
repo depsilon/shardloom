@@ -180,6 +180,44 @@ fn public_run_native_vortex_directory_count_uses_partitioned_binding() {
 
 #[cfg(feature = "vortex-local-primitives")]
 #[test]
+fn public_run_native_vortex_directory_count_accepts_vtx_parts() {
+    let dir = copy_partitioned_vortex_fixture("directory-count-vtx");
+    std::fs::rename(dir.join("part-001.vortex"), dir.join("part-001.vtx"))
+        .expect("rename partition to .vtx");
+    let (ok, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        &dir.display().to_string(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-primitive",
+        "count",
+        "--format",
+        "json",
+    ]);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    assert!(ok, "{stdout}");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "native_vortex_input_binding_mode",
+        "local_directory"
+    )));
+    assert!(stdout.contains(&field("native_vortex_input_binding_count", "2")));
+    assert!(stdout.contains(&field("local_primitive_rows_scanned", "10")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
 fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
     let dir = copy_partitioned_vortex_fixture("manifest-aggregate");
     let manifest = dir.join("parts.vortex-manifest");
@@ -188,6 +226,11 @@ fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
         r#"{"inputs":["part-000.vortex","part-001.vortex"]}"#,
     )
     .expect("write manifest");
+    let expected_sources = format!(
+        "{},{}",
+        dir.join("part-000.vortex").display(),
+        dir.join("part-001.vortex").display()
+    );
     let aggregate = r#"{"measures":[{"function":"sum","column":"metric","alias":"sum_metric"},{"function":"count","alias":"rows"}]}"#;
     let (ok, stdout) = run_facade(&[
         "run",
@@ -220,6 +263,10 @@ fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
     assert!(stdout.contains(&field("native_vortex_input_binding_mode", "manifest")));
     assert!(stdout.contains(&field("native_vortex_input_binding_count", "2")));
     assert!(stdout.contains(&field(
+        "native_vortex_input_binding_sources",
+        &expected_sources
+    )));
+    assert!(stdout.contains(&field(
         "native_vortex_input_binding_strategy",
         "sequential_capillary_parts"
     )));
@@ -239,8 +286,44 @@ fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
+#[cfg(feature = "vortex-local-primitives")]
 #[test]
-fn public_route_blocks_local_file_auto_without_vortex_middle() {
+fn public_run_native_vortex_manifest_rejects_duplicate_entries() {
+    let dir = copy_partitioned_vortex_fixture("manifest-duplicate");
+    let manifest = dir.join("parts.vortex-manifest");
+    std::fs::write(
+        &manifest,
+        r#"{"inputs":["part-000.vortex","part-000.vortex"]}"#,
+    )
+    .expect("write manifest");
+    let (ok, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        &manifest.display().to_string(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-primitive",
+        "count",
+        "--format",
+        "json",
+    ]);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    assert!(!ok, "{stdout}");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("native Vortex input manifest contains duplicate entry"));
+    assert!(stdout.contains("no fallback execution was attempted"));
+}
+
+#[test]
+fn public_route_routes_local_file_vortex_middle_without_direct_runtime() {
     let stdout = run_route(&[
         "route",
         "dataframe",
@@ -292,6 +375,10 @@ fn public_route_blocks_local_file_auto_without_vortex_middle() {
         assert!(stdout.contains(&field("preparation_included", "true")));
         assert!(stdout.contains(&field("query_timing_starts_after_preparation", "true")));
         assert!(stdout.contains(&field("blocker_id", "none")));
+        assert!(stdout.contains(&field(
+            "local_workflow_runtime_profile",
+            "product_local_workflow"
+        )));
     } else {
         assert!(stdout.contains("\"status\":\"unsupported\""));
         assert!(stdout.contains(&field("route_id", "blocked")));
@@ -318,8 +405,8 @@ fn public_route_blocks_local_file_auto_without_vortex_middle() {
         assert!(stdout.contains(&field("execution_mode", "blocked")));
         assert!(stdout.contains(&field("preparation_included", "false")));
         assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
+        assert!(stdout.contains(&field("local_workflow_runtime_profile", "not_applicable")));
     }
-    assert!(stdout.contains(&field("local_workflow_runtime_profile", "not_applicable")));
     assert!(stdout.contains(&field("surface", "dataframe")));
     assert!(stdout.contains(&field("source_format", "csv")));
     assert!(stdout.contains(&field("runtime_execution", "false")));
@@ -1160,8 +1247,9 @@ fn public_run_native_vortex_profile_marks_projected_metadata_scope() {
 }
 
 #[test]
-fn public_run_blocks_local_sql_auto_without_vortex_middle() {
+fn public_run_routes_local_sql_vortex_middle_without_direct_runtime() {
     let workspace = std::path::Path::new("target/public-workflow-run-facade");
+    let _ = std::fs::remove_dir_all(workspace);
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n3,gamma\n").expect("write csv");
@@ -1235,6 +1323,7 @@ fn public_run_blocks_local_sql_auto_without_vortex_middle() {
 #[test]
 fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_format() {
     let workspace = std::path::Path::new("target/public-workflow-extensionless-source");
+    let _ = std::fs::remove_dir_all(workspace);
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact");
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write extensionless csv");
@@ -1287,6 +1376,7 @@ fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_forma
 #[test]
 fn public_run_executes_local_write_through_prepared_vortex_row_export() {
     let workspace = std::path::Path::new("target/public-workflow-write-facade");
+    let _ = std::fs::remove_dir_all(workspace);
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
     let output = workspace.join("out.csv");
@@ -1362,6 +1452,7 @@ fn public_run_executes_local_write_through_prepared_vortex_row_export() {
 #[test]
 fn public_run_executes_local_fanout_through_prepared_vortex_row_export() {
     let workspace = std::path::Path::new("target/public-workflow-fanout-facade");
+    let _ = std::fs::remove_dir_all(workspace);
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
     let primary = workspace.join("out.jsonl");
@@ -1452,8 +1543,9 @@ fn public_run_executes_local_fanout_through_prepared_vortex_row_export() {
 
 #[cfg(all(feature = "vortex-write", feature = "vortex-local-primitives"))]
 #[test]
-fn public_run_executes_local_file_auto_through_prepared_vortex_primitive() {
+fn public_run_executes_local_file_vortex_middle_through_prepared_vortex_primitive() {
     let workspace = std::path::Path::new("target/public-workflow-local-vortex-facade");
+    let _ = std::fs::remove_dir_all(workspace);
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
     std::fs::write(&input, "id,value,metric\n1,2,1.5\n2,4,2.5\n3,6,3.5\n").expect("write csv");
@@ -2012,10 +2104,10 @@ fn public_run_executes_native_vortex_sample_payload_with_attached_route_envelope
     assert!(stdout.contains(&field("public_workflow_vortex_sample_seed", "7")));
     assert!(stdout.contains(&field("public_workflow_vortex_sample_fraction", "none")));
     assert!(stdout.contains(&field("mode", "native_vortex_primitive")));
-    assert!(stdout.contains(&field("primitive", "sample_rows")));
+    assert!(stdout.contains(&field("primitive", "sample")));
     assert!(stdout.contains(&field(
         "execution",
-        "local_vortex_sample_rows_primitive_performed"
+        "local_vortex_sample_primitive_performed"
     )));
     assert!(stdout.contains(&field("local_primitive_source_order_limit_requested", "2")));
     assert!(stdout.contains(&field("local_primitive_source_order_limit_applied", "true")));
@@ -2077,10 +2169,10 @@ fn public_run_executes_native_vortex_sample_fraction_payload() {
     assert!(stdout.contains(&field("public_workflow_vortex_sample_fraction", "0.5")));
     assert!(stdout.contains(&field("public_workflow_vortex_sample_seed", "7")));
     assert!(stdout.contains(&field("mode", "native_vortex_primitive")));
-    assert!(stdout.contains(&field("primitive", "sample_rows")));
+    assert!(stdout.contains(&field("primitive", "sample")));
     assert!(stdout.contains(&field(
         "execution",
-        "local_vortex_sample_rows_primitive_performed"
+        "local_vortex_sample_primitive_performed"
     )));
     assert!(stdout.contains(&field("output_row_count", "2")));
     assert!(stdout.contains(&field(

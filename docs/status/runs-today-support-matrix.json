@@ -33,7 +33,6 @@
     "cli_object_store_write_recovery_smoke",
     "cli_local_table_commit_recovery_smoke",
     "cli_vortex_production_runtime_and_prepared_batch_benchmark",
-    "cli_direct_transient_local_adapter_benchmark",
     "python_status_capabilities",
     "python_local_query_builder",
     "python_native_vortex_query_builder",
@@ -49,7 +48,6 @@
     "output_inline_jsonl_csv",
     "output_vortex_local",
     "output_parquet_arrow_avro_orc",
-    "execution_direct_compatibility_transient",
     "execution_compatibility_import_certified",
     "execution_prepared_vortex",
     "execution_native_vortex_scoped",
@@ -63,29 +61,28 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 40,
+  "row_count": 38,
   "support_state_counts": {
     "executable": 24,
-    "feature_gated": 6,
-    "internal_smoke_only": 1,
+    "feature_gated": 5,
+    "internal_smoke_only": 0,
     "diagnostic_only": 3,
     "report_only": 1,
     "blocked": 4,
     "future": 1
   },
   "family_counts": {
-    "cli_command": 12,
+    "cli_command": 11,
     "python_api": 6,
     "input_format": 6,
     "output_format": 3,
-    "execution_mode": 8,
+    "execution_mode": 7,
     "claim_state": 5
   },
   "blocker_ids": [
     "feature.vortex_write_required_for_default_build",
     "feature.universal_format_io_required_for_default_build",
     "review-p0-3.object_store_runtime_and_path_safety_required",
-    "cg21.route.direct_local_file_blocked",
     "runtime.evidence_required_before_execution_admission",
     "prod-ready-1d.remote_worker_remote_shuffle_spill_benchmark_blocked",
     "prod-ready-1e.production_state_store_broker_object_store_exactly_once_blocked",
@@ -98,7 +95,7 @@
     "capability_discovery_snapshots",
     "typed_envelope_compatibility_lock",
     "release_readiness_metadata",
-    "sql_local_source_runtime_smoke",
+    "local_source_runtime",
     "sql_frontend_runtime_ladder_fields",
     "sql_parser_tests",
     "python_query_builder_tests",
@@ -127,19 +124,20 @@
     "traditional_benchmark_harness",
     "benchmark_runtime_tests",
     "prepared_vortex_batch_python_tests",
-    "traditional_direct_transient_tests",
     "python.tests.test_quickstart_proof",
     "python.tests.test_query_builder",
     "sql_python_dataframe_vortex_middle_gate",
     "public_workflow_direct_policy_block_tests",
     "vortex_count_tests",
     "vortex_filter_project_tests",
-    "vortex_ingest_smoke_text_adapter_tests",
+    "simple_aggregate_vortex_tests",
+    "vortex_prepare_text_adapter_tests",
+    "traditional_internal_source_smoke_tests",
     "prepared_vortex_batch_tests",
     "input_adapters_snapshots",
     "feature_gated_sql_local_source_tests",
-    "vortex_ingest_smoke_structured_adapter_tests",
-    "traditional_direct_transient_structured_tests",
+    "vortex_prepare_structured_adapter_tests",
+    "traditional_internal_source_smoke_structured_tests",
     "object_store_request_plan",
     "object_store_boundary_use_cases",
     "object_store_public_fixture_read_smoke",
@@ -546,14 +544,14 @@
       "support_state": "executable",
       "feature_gate": "default",
       "evidence_refs": [
-        "sql_local_source_runtime_smoke",
+        "local_source_runtime",
         "sql_frontend_runtime_ladder_fields",
         "sql_parser_tests",
         "python_query_builder_tests"
       ],
       "blocker_id": "none",
-      "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped internal local-source SQL runtime diagnostic only; not broad SQL/DataFrame, product local workflow, object-store/table SQL, external-engine, fallback, production, or performance support",
+      "claim_gate_status": "local_workflow_runtime_supported",
+      "claim_boundary": "local-source SQL runtime executes admitted product workflow shapes through ShardLoom-owned planning; broad SQL/DataFrame, object-store/table SQL, external-engine fallback, and performance claims remain bounded",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -569,7 +567,7 @@
       "support_state": "feature_gated",
       "feature_gate": "vortex-write",
       "evidence_refs": [
-        "sql_local_source_runtime_smoke",
+        "local_source_runtime",
         "vortex_ingest_evidence_fields",
         "vortex_preparation_spine_evidence_fields",
         "vortex_scout_ingress_evidence_fields",
@@ -579,8 +577,8 @@
         "vortex_capillary_preparation_evidence_fields"
       ],
       "blocker_id": "feature.vortex_write_required_for_default_build",
-      "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "local compatibility ingest to Vortex artifact plus scout ingress, layout/write advisor, copy-budget, scoped append-only differential overlay, and capillary cold-preparation evidence only when feature enabled; no standalone cold-lane side lanes, table/object-store/CDC transaction, memory-efficiency, or performance claim",
+      "claim_gate_status": "local_workflow_runtime_supported",
+      "claim_boundary": "local compatibility-source preparation writes Vortex artifacts with scout ingress, layout/write advisor, copy-budget, append-only differential overlay, and capillary cold-preparation evidence when feature enabled; table/object-store/CDC transaction and performance claims remain bounded",
       "runtime_execution": true,
       "data_read": true,
       "write_io": true,
@@ -772,27 +770,6 @@
       "external_engine_invoked": false
     },
     {
-      "id": "cli_direct_transient_local_adapter_benchmark",
-      "family": "cli_command",
-      "surface": [
-        "traditional-analytics-run --execution-mode direct_compatibility_transient"
-      ],
-      "support_state": "feature_gated",
-      "feature_gate": "vortex-traditional-analytics-benchmark",
-      "evidence_refs": [
-        "traditional_direct_transient_tests",
-        "traditional_benchmark_harness"
-      ],
-      "blocker_id": "none",
-      "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local adapter direct-transient benchmark smokes only; not Vortex-native, broad SQL/DataFrame, object-store/table, or performance evidence",
-      "runtime_execution": true,
-      "data_read": true,
-      "write_io": false,
-      "fallback_attempted": false,
-      "external_engine_invoked": false
-    },
-    {
       "id": "python_status_capabilities",
       "family": "python_api",
       "surface": [
@@ -827,7 +804,7 @@
         "read_avro",
         "read_orc",
         "sql",
-        "LazyFrame.collect/profile/write_vortex/write_jsonl/write_csv/fanout local-file auto route"
+        "LazyFrame.collect/profile/write_vortex/write_jsonl/write_csv/fanout local-file vortex-middle route"
       ],
       "support_state": "feature_gated",
       "feature_gate": "release-user-surfaces for Vortex preparation/provider execution; default builds fail closed with deterministic feature-gate diagnostics",
@@ -839,7 +816,7 @@
       ],
       "blocker_id": "none",
       "claim_gate_status": "not_claim_grade",
-      "claim_boundary": "scoped local Python/SQL/DataFrame workflows normalize through Vortex preparation or native Vortex input before admitted native primitive/provider execution where those routes exist; scoped provider JSONL/CSV result-summary exports and primitive JSONL/CSV row-stream/fanout exports are Vortex-derived with explicit decode/materialization evidence. Residual product-local operators and broad compatibility sinks block until a native/prepared Vortex route or Vortex-derived export contract exists. Direct decoded local-source smoke remains internal-only; no arbitrary SQL/DataFrame, object-store/table, fallback, or performance claim",
+      "claim_boundary": "scoped local Python/SQL/DataFrame workflows normalize through Vortex preparation or native Vortex input before admitted native primitive/provider execution where those routes exist; scoped provider JSONL/CSV result-summary exports, primitive JSONL/CSV row-stream/fanout exports, and scalar aggregate JSONL/CSV result-row exports are Vortex-derived with explicit decode/materialization evidence. Residual product-local operators and broad compatibility sinks block until a native/prepared Vortex route or Vortex-derived export contract exists. Direct decoded local-source smoke remains internal-only; no arbitrary SQL/DataFrame, object-store/table, fallback, or performance claim",
       "runtime_execution": true,
       "data_read": true,
       "write_io": true,
@@ -851,18 +828,19 @@
       "family": "python_api",
       "surface": [
         "read_vortex",
-        "LazyFrame.collect native Vortex primitives"
+        "LazyFrame.collect native Vortex primitives plus feature-gated materializing primitives"
       ],
       "support_state": "executable",
       "feature_gate": "default",
       "evidence_refs": [
         "python.tests.test_query_builder",
         "vortex_count_tests",
-        "vortex_filter_project_tests"
+        "vortex_filter_project_tests",
+        "simple_aggregate_vortex_tests"
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local Vortex count/filter/project primitives only; broader Vortex operator families require admitted native provider evidence",
+      "claim_boundary": "scoped local Vortex count/filter/project primitives are default-supported; scalar aggregate and materializing primitive families are admitted where the release build enables local Vortex primitive execution and emit explicit decode/materialization evidence; broader Vortex operator families require admitted native provider evidence",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -957,15 +935,15 @@
       "support_state": "executable",
       "feature_gate": "default",
       "evidence_refs": [
-        "sql_local_source_runtime_smoke",
-        "vortex_ingest_smoke_text_adapter_tests",
-        "traditional_direct_transient_tests",
+        "local_source_runtime",
+        "vortex_prepare_text_adapter_tests",
+        "traditional_internal_source_smoke_tests",
         "python_query_builder_tests",
         "universal_ingress_route_taxonomy"
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "flat local text SourceState, internal direct-transient smoke, and vortex_ingest fixture coverage only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
+      "claim_boundary": "flat local text SourceState, internal internal-source-smoke smoke, and vortex_ingest fixture coverage only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -1030,19 +1008,19 @@
       "feature_gate": "universal-format-io",
       "evidence_refs": [
         "feature_gated_sql_local_source_tests",
-        "vortex_ingest_smoke_structured_adapter_tests",
+        "vortex_prepare_structured_adapter_tests",
         "vortex_preparation_spine_evidence_fields",
         "vortex_scout_ingress_evidence_fields",
         "vortex_layout_write_advisor_evidence_fields",
         "vortex_copy_budget_evidence_fields",
         "vortex_differential_preparation_evidence_fields",
         "vortex_capillary_preparation_evidence_fields",
-        "traditional_direct_transient_structured_tests",
+        "traditional_internal_source_smoke_structured_tests",
         "universal_ingress_route_taxonomy"
       ],
       "blocker_id": "feature.universal_format_io_required_for_default_build",
       "claim_gate_status": "not_claim_grade",
-      "claim_boundary": "local flat-scalar feature-gated SourceState, internal direct-transient smoke, and vortex_ingest adapters only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
+      "claim_boundary": "local flat-scalar feature-gated SourceState, internal internal-source-smoke smoke, and vortex_ingest adapters only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -1111,7 +1089,7 @@
       "evidence_refs": [
         "python.tests.test_query_builder",
         "public_workflow_route_tests",
-        "sql_local_source_runtime_smoke",
+        "local_source_runtime",
         "generated_source_runtime_tests",
         "fanout_replay_tests"
       ],
@@ -1159,7 +1137,7 @@
       "feature_gate": "universal-format-io",
       "evidence_refs": [
         "generated_source_runtime_tests",
-        "sql_local_source_runtime_smoke"
+        "local_source_runtime"
       ],
       "blocker_id": "feature.universal_format_io_required_for_default_build",
       "claim_gate_status": "not_claim_grade",
@@ -1167,27 +1145,6 @@
       "runtime_execution": true,
       "data_read": false,
       "write_io": true,
-      "fallback_attempted": false,
-      "external_engine_invoked": false
-    },
-    {
-      "id": "execution_direct_compatibility_transient",
-      "family": "execution_mode",
-      "surface": [
-        "direct_compatibility_transient"
-      ],
-      "support_state": "internal_smoke_only",
-      "feature_gate": "default",
-      "evidence_refs": [
-        "sql_local_source_runtime_smoke",
-        "public_workflow_direct_policy_block_tests"
-      ],
-      "blocker_id": "cg21.route.direct_local_file_blocked",
-      "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "lower-level local smoke safeguard only; public local-file workflow routes require Vortex preparation or native Vortex input",
-      "runtime_execution": true,
-      "data_read": true,
-      "write_io": false,
       "fallback_attempted": false,
       "external_engine_invoked": false
     },

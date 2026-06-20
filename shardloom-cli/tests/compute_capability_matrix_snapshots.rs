@@ -56,7 +56,7 @@ fn assert_matrix_summary_fields(output: &str) {
     )));
     assert!(output.contains(&field("matrix_status", "report_only")));
     assert!(output.contains(&field("claim_grade_status", "evidence_incomplete")));
-    assert!(output.contains(&field("compute_row_count", "15")));
+    assert!(output.contains(&field("compute_row_count", "14")));
     assert!(output.contains(&field("operator_family_count", "14")));
     assert!(output.contains(&field(
         "operator_family_execution_summary_schema_version",
@@ -78,14 +78,14 @@ fn assert_matrix_summary_fields(output: &str) {
     )));
     assert!(output.contains(&field(
         "compute_row_order",
-        "local_vortex_count,local_vortex_filtered_count,local_vortex_projection,local_vortex_filter_project,scalar_expression_functions,prepared_encoded_filter,reader_backed_dictionary_filter,compatibility_csv_import,direct_compatibility_transient,sort_topn_limit,vortex_sink_write,grouped_aggregate,join,window_row_number,sql_frontend"
+        "local_vortex_count,local_vortex_filtered_count,local_vortex_projection,local_vortex_filter_project,scalar_expression_functions,prepared_encoded_filter,reader_backed_dictionary_filter,compatibility_csv_import,sort_topn_limit,vortex_sink_write,grouped_aggregate,join,window_row_number,sql_frontend"
     )));
     assert!(output.contains("\"artifact_kind\":\"compute_capability_matrix_report\""));
 }
 
 fn assert_matrix_claim_counts(output: &str) {
     assert!(output.contains(&field("fixture_certified_count", "8")));
-    assert!(output.contains(&field("internal_smoke_only_count", "1")));
+    assert!(output.contains(&field("internal_smoke_only_count", "0")));
     assert!(output.contains(&field("executable_uncertified_count", "5")));
     assert!(output.contains(&field("report_only_count", "0")));
     assert!(output.contains(&field("planned_count", "0")));
@@ -460,30 +460,10 @@ fn assert_local_vortex_count_row_fields(output: &str) {
     )));
 }
 
-fn assert_direct_transient_and_sql_fields(output: &str) {
+fn assert_sql_frontend_fields(output: &str) {
     assert!(output.contains(&field(
-        "compute_row_direct_compatibility_transient_support_status",
-        "internal_smoke_only"
-    )));
-    assert!(output.contains(&field(
-        "compute_row_direct_compatibility_transient_unsupported_diagnostic_code",
-        "SL_DIRECT_LOCAL_FILE_PUBLIC_ROUTE_BLOCKED"
-    )));
-    assert!(output.contains(&field(
-        "compute_row_direct_compatibility_transient_claim_gate_status",
-        "not_claim_grade"
-    )));
-    assert!(output.contains(&field(
-        "compute_row_direct_compatibility_transient_vortex_native_claim_allowed",
-        "false"
-    )));
-    assert!(output.contains(&field(
-        "compute_row_direct_compatibility_transient_fallback_attempted",
-        "false"
-    )));
-    assert!(output.contains(&field(
-        "compute_row_direct_compatibility_transient_external_engine_invoked",
-        "false"
+        "compute_row_sql_frontend_execution_mode",
+        "prepared_vortex"
     )));
     assert!(output.contains(&field(
         "compute_row_sql_frontend_unsupported_diagnostic_code",
@@ -546,7 +526,7 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
 
     assert_local_vortex_count_row_fields(&output);
     assert_local_vortex_count_admission_lane_fields(&output);
-    assert_direct_transient_and_sql_fields(&output);
+    assert_sql_frontend_fields(&output);
     assert!(output.contains(&field(
         "compute_row_vortex_sink_write_support_status",
         "fixture_certified"

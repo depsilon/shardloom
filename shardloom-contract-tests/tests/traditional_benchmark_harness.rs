@@ -342,10 +342,10 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
         script.contains("f\"direct_transient_local_{shardloom_source_format(data_format)}_smoke\"")
     );
     assert!(script.contains("\"direct_transient_no_vortex_scan\""));
-    assert!(script.contains("\"direct_compatibility_transient\""));
-    assert!(script.contains("\"direct_compatibility_transient_not_implemented\""));
+    assert!(script.contains("\"internal_local_source_smoke\""));
+    assert!(script.contains("\"internal_local_source_smoke_not_implemented\""));
     assert!(script.contains(
-        "direct transient smoke currently supports only selective filter or filter + projection + limit"
+        "internal local-source smoke currently supports only selective filter or filter + projection + limit"
     ));
     assert!(script.contains("def support_status("));
     assert!(script.contains("def materialization_decode_evidence_present("));
@@ -1312,7 +1312,7 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "compatibility_import_certified",
         "prepared_vortex",
         "native_vortex",
-        "direct_compatibility_transient",
+        "internal_local_source_smoke",
         "auto",
         "SELECTED --> DIRECT",
         "SELECTED --> COMPAT",
@@ -1426,7 +1426,7 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         "G3 - Typed envelopes still carry most execution-mode evidence as flat fields",
         "G4 - Capability discovery is not execution-mode aware",
         "G5 - Native Vortex query rows still rely on temporary materialized operators",
-        "G6 - Direct transient compatibility mode is parse-level only",
+        "G6 - Internal source smoke compatibility mode is parse-level only",
         "G7 - Prepared/native result-sink replay proof is incomplete",
         "G8 - Stage timing attribution is useful but still partially inferred",
         "G9 - Python and future REST surfaces do not yet select modes",
@@ -1624,10 +1624,6 @@ fn source_state_reuse_coverage_matrix_classifies_every_traditional_family() {
     let local_benchmark = read_workspace_file("docs/benchmarks/local-taxonomy-benchmark.md");
     let readme = read_workspace_file("benchmarks/traditional_analytics/README.md");
     let rust_source = read_workspace_file("shardloom-vortex/src/traditional_analytics.rs");
-    let website_benchmark_data =
-        read_workspace_file("website-src/src/data/benchmark-evidence.json");
-    let website_benchmark_dashboard =
-        read_workspace_file("website-src/src/components/BenchmarkDashboard.astro");
 
     for required_text in [
         "source_state_coverage_schema_version",
@@ -1702,12 +1698,10 @@ fn source_state_reuse_coverage_matrix_classifies_every_traditional_family() {
         assert!(doc.contains("emitted_scoped_in_memory_source_state_digest"));
     }
 
-    assert!(
-        website_benchmark_data.contains("source_state_coverage_all_requested_scenarios_classified")
-    );
-    assert!(website_benchmark_data.contains("source_state_coverage_reused_scenario_count"));
-    assert!(website_benchmark_data.contains("source_state_digest_status"));
-    assert!(website_benchmark_dashboard.contains("Prepared/native source-state coverage"));
+    let website_reference =
+        read_workspace_file("docs/architecture/website-current-state-public-reference.md");
+    assert!(website_reference.contains("public benchmark page is a ClickBench handoff"));
+    assert!(website_reference.contains("Local benchmark rows must not be presented"));
 }
 
 fn read_workspace_file(relative: &str) -> String {

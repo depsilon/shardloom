@@ -6557,7 +6557,7 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
       "line_count": 50,
-      "path": "website-src/src/content/docs/field-guide/direct-compatibility-transient.mdx",
+      "path": "website-src/src/content/docs/field-guide/internal-local-source-smoke.mdx",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "268e06d06c219623f0deaadb6c60cd6c13fdf9913028a875dbe3ee88e5d44ef8"
@@ -7394,7 +7394,7 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 101,
-      "path": "website/field-guide/direct-compatibility-transient/index.html",
+      "path": "website/field-guide/internal-local-source-smoke/index.html",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "261fa3eeebb0391b762c0db63949685f20314abaa99255feb4dfbcd8e24d7749"

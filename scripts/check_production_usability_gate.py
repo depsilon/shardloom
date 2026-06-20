@@ -24,7 +24,10 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from check_benchmark_artifact_completeness import (
+    CLICKBENCH_URL,
+    PUBLIC_BENCHMARK_SURFACE,
     REPORT_SCHEMA_VERSION as BENCHMARK_COMPLETENESS_REPORT_SCHEMA_VERSION,
+    default_public_benchmark_manifest_retired,
 )
 from check_benchmark_artifact_completeness import validate_manifest as validate_benchmark_manifest
 from release_channel_contract import (
@@ -524,6 +527,21 @@ def validate_benchmark(
     )
     if report_result is not None:
         return report_result
+    if default_public_benchmark_manifest_retired(manifest_path):
+        return (
+            {
+                "status": "passed",
+                "benchmark_profile": "public_site_retired",
+                "artifact_status": "retired_from_public_website",
+                "available_lane_count": 0,
+                "missing_lane_count": 0,
+                "performance_claim_allowed": False,
+                "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE,
+                "public_benchmark_url": CLICKBENCH_URL,
+                "source": "clickbench_handoff",
+            },
+            [],
+        )
     try:
         blockers, manifest = validate_benchmark_manifest(manifest_path, allow_incomplete=False)
     except (FileNotFoundError, json.JSONDecodeError) as error:
@@ -659,10 +677,13 @@ def usability_matrix(
             "claim_boundary": "website explains current runtime state without overclaiming",
         },
         {
-            "id": "benchmark_artifact_completeness",
+            "id": "benchmark_public_surface",
             "status": benchmark_summary.get("status"),
-            "evidence_ref": "website/assets/benchmarks/latest/manifest.json",
-            "claim_boundary": "workload-scoped evidence only; no performance/superiority claim",
+            "evidence_ref": "target/website-readiness-report.json",
+            "claim_boundary": (
+                "public comparison surface is ClickBench handoff; local benchmark "
+                "artifacts remain separate and claim-gated"
+            ),
         },
         {
             "id": "public_production_and_package_claims",

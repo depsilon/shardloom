@@ -1,36 +1,6 @@
 ---
 import SiteLayout from "../layouts/SiteLayout.astro";
 import RouteConsole from "../components/RouteConsole.astro";
-import { benchmark, manifest, routeMetrics } from "../lib/data";
-
-const metrics = routeMetrics();
-const dashboard = (benchmark as any).comparative_dashboard ?? {};
-const routeSurface = dashboard.route_timing_surface_comparison ?? {};
-const surfaceHeaders = Array.isArray(routeSurface.headers) ? routeSurface.headers : [];
-const surfaceRows = Array.isArray(routeSurface.rows) ? routeSurface.rows : [];
-
-function tableObject(row: unknown[]): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  surfaceHeaders.forEach((header: string, index: number) => {
-    result[header] = row[index];
-  });
-  return result;
-}
-
-function value(row: Record<string, unknown>, key: string, fallback = "not reported"): string {
-  const raw = row[key];
-  return raw === null || raw === undefined || raw === "" ? fallback : String(raw);
-}
-
-const hotShardLoomRows: Record<string, unknown>[] = surfaceRows
-  .map((row: unknown[]) => tableObject(row))
-  .filter((row: Record<string, unknown>) =>
-    value(row, "Route").startsWith("ShardLoom") && value(row, "Timing surface") === "hot_runtime"
-  );
-const firstHotRows: Record<string, unknown>[] = hotShardLoomRows
-  .filter((row: Record<string, unknown>) => ["ShardLoom Warm Prepared Query", "ShardLoom Native Vortex Query", "ShardLoom Cold Certified Route"].includes(value(row, "Route")))
-  .sort((left: Record<string, unknown>, right: Record<string, unknown>) => value(left, "Surface route geomean").localeCompare(value(right, "Surface route geomean")));
-const manifestAny = manifest as any;
 const selectedPackageReleaseTag = "v0.1.10";
 ---
 
@@ -45,10 +15,10 @@ const selectedPackageReleaseTag = "v0.1.10";
       <div class="actions">
         <a class="button primary" href="/start">Start local proof</a>
         <a class="button" href="/field-guide">Read Field Guide</a>
-        <a class="button ghost" href="/benchmarks">View benchmark evidence</a>
+        <a class="button ghost" href="/benchmarks">Open benchmark comparison</a>
       </div>
       <div class="status-chips" aria-label="Current posture">
-        <span>technical preview</span><span>no fallback</span><span>Vortex-first</span><span>hot_runtime separated</span><span>claim-gated</span><span>package track selected</span>
+        <span>technical preview</span><span>no fallback</span><span>Vortex-first</span><span>claim-gated</span><span>package track selected</span>
       </div>
     </div>
     <RouteConsole />
@@ -56,37 +26,25 @@ const selectedPackageReleaseTag = "v0.1.10";
 
   <section>
     <div class="strip">
-      <div class="metric"><strong>{metrics.routeRows}</strong><span>ShardLoom evidence rows rendered</span></div>
-      <div class="metric"><strong>{hotShardLoomRows.length}</strong><span>hot runtime route surfaces</span></div>
-      <div class="metric"><strong>{manifestAny.performance_claim_allowed === false ? "false" : String(manifestAny.performance_claim_allowed)}</strong><span>performance_claim_allowed</span></div>
-      <div class="metric"><strong>{metrics.availableLanes}/{metrics.expectedLanes}</strong><span>available benchmark lanes</span></div>
+      <div class="metric"><strong>Vortex</strong><span>native route target</span></div>
+      <div class="metric"><strong>false</strong><span>fallback execution</span></div>
+      <div class="metric"><strong>ClickBench</strong><span>public comparison target</span></div>
+      <div class="metric"><strong>{selectedPackageReleaseTag}</strong><span>latest public package train</span></div>
       <div class="metric"><strong>false</strong><span>fallback/external engine for ShardLoom rows</span></div>
     </div>
   </section>
 
   <section class="section-grid">
     <div>
-      <p class="eyebrow">Current promoted benchmark</p>
-      <h2>Hot runtime is not publication proof.</h2>
-      <p class="narrow">The public artifact separates PERF-INNOV-5 <code>hot_runtime</code> metadata rows from publication-proof rows that include result-sink and human evidence rendering. Performance claims stay disabled until claim-grade evidence supports them.</p>
+      <p class="eyebrow">Benchmark posture</p>
+      <h2>Public comparisons belong on ClickBench.</h2>
+      <p class="narrow">ShardLoom keeps local benchmark artifacts for engineering validation, but shardloom.io no longer renders them as a public leaderboard. The public comparison path points to ClickBench while ShardLoom-specific route evidence stays in the Field Guide.</p>
     </div>
-    <div class="route-card-grid compact-route-grid">
-      {firstHotRows.map((row) => (
-        <article class="route-summary-card">
-          <div class="route-card-topline">
-            <span class="badge">{value(row, "Timing surface")}</span>
-            <span class="claim-chip">{value(row, "Evidence tiers")}</span>
-          </div>
-          <h3>{value(row, "Route")}</h3>
-          <div class="route-card-metrics">
-            <div><span>Hot route geomean</span><strong>{value(row, "Surface route geomean")}</strong></div>
-            <div><span>Scale</span><strong>{value(row, "Scale context")}</strong></div>
-            <div><span>Sink included</span><strong>{value(row, "Sink included")}</strong></div>
-            <div><span>Evidence render</span><strong>{value(row, "Evidence render included")}</strong></div>
-          </div>
-          <p>{value(row, "Formula")}</p>
-        </article>
-      ))}
+    <div class="card-grid">
+      <article class="card"><span class="badge">ClickBench</span><h3>External leaderboard.</h3><p>The website links to the upstream ClickBench comparison surface rather than mirroring local artifact rankings.</p></article>
+      <article class="card"><span class="badge">Evidence</span><h3>Route proof remains local.</h3><p>ShardLoom route diagnostics still expose timing surface, evidence tier, and claim gates in CLI/Python outputs.</p></article>
+      <article class="card"><span class="badge">Boundary</span><h3>No hidden execution fallback.</h3><p>External engines stay baselines and correctness references, never execution substitutes for ShardLoom routes.</p></article>
+      <article class="card"><span class="badge">Release</span><h3>Claims require named proof.</h3><p>Any published result should state route, format, dataset, source version, and whether load time is included.</p></article>
     </div>
   </section>
 

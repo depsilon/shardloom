@@ -15,16 +15,16 @@ fallback, package publication, or new execution modes.
 ## Execution Mode Vocabulary
 
 ```text
-auto
 compatibility_import_certified
 prepared_vortex
 native_vortex
-direct_compatibility_transient
+internal_local_source_smoke
 ```
 
-`direct_compatibility_transient` is internal smoke-only for scoped local adapter safeguards. It is
-not an admitted public workflow route: public local-file `auto` requests must route through Vortex
-preparation/native input or fail closed, and explicit public `direct` requests are blocked. It must
+`internal_local_source_smoke` is internal smoke-only for scoped local adapter safeguards. It is
+not an admitted public workflow route: public local-file requests normalize to `vortex_middle`,
+then route through Vortex preparation/native input or fail closed. Explicit public `direct`
+requests are blocked. Internal smoke must
 not satisfy Vortex-native claim gates, broad SQL/DataFrame claims, object-store/table claims, or
 performance claims.
 
@@ -108,8 +108,8 @@ not be silently promoted to success.
 The Python client may request supported local modes through:
 
 ```text
-ShardLoomClient.traditional_analytics_run(..., execution_mode="auto|compatibility_import_certified")
-ShardLoomClient.traditional_analytics_vortex_run(..., execution_mode="auto|prepared_vortex|native_vortex")
+ShardLoomClient.traditional_analytics_run(..., execution_mode="compatibility_import_certified")
+ShardLoomClient.traditional_analytics_vortex_run(..., execution_mode="prepared_vortex|native_vortex")
 ```
 
 The Python result view exposes read-side parity through `ExecutionResultEnvelopeView`:
@@ -160,7 +160,7 @@ workload_constitution_id
 
 REST responses should embed `execution_mode_selection` with the same selection report and
 compute-flow evidence field names used by CLI JSON and Python. REST must not introduce a different
-enum, rename claim gates, omit the selected mode, or hide auto-mode selection reasons.
+enum, rename claim gates, omit the selected mode, or hide legacy policy normalization reasons.
 
 Unsupported REST mode requests must return deterministic diagnostics with:
 

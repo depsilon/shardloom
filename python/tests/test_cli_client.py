@@ -733,11 +733,11 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["command_registry_schema_version", "shardloom.command_registry.v1"],
                     ["registered_command_count", "4"],
                     ["command_registry_support_state_vocabulary", "executable,feature_gated,diagnostic_only,report_only,blocked,future"],
-                    ["command_registry_user_surface_graduation_posture_vocabulary", "high_level_context,client_only,diagnostic_only,feature_gated,not_user_facing"],
+                    ["command_registry_user_surface_graduation_posture_vocabulary", "high_level_context,public_runtime,client_only,diagnostic_only,feature_gated,not_user_facing"],
                     ["registered_commands", "help,command-metadata,status,vortex-prepare"],
                     ["registered_command_families", "help=status_capabilities,command-metadata=status_capabilities,status=status_capabilities,vortex-prepare=prepared_source_backed_execution"],
                     ["registered_command_support_states", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-prepare=executable"],
-                    ["registered_command_user_surface_graduation_postures", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-prepare=client_only"],
+                    ["registered_command_user_surface_graduation_postures", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-prepare=public_runtime"],
                     ["registered_command_side_effect_levels", "help=side_effect_free_metadata_or_report,command-metadata=side_effect_free_metadata_or_report,status=side_effect_free_metadata_or_report,vortex-prepare=local_runtime_or_local_artifact_effect_possible"],
                     ["registered_command_feature_gate_statuses", "help=not_required_for_metadata,command-metadata=not_required_for_metadata,status=not_required_for_metadata,vortex-prepare=not_required_for_metadata"],
                     ["registered_command_input_contracts", "help=registry_or_capability_scope_args,command-metadata=registry_or_capability_scope_args,status=registry_or_capability_scope_args,vortex-prepare=local_source_or_vortex_artifact_args"],
@@ -746,7 +746,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["selected_command", "vortex-prepare"],
                     ["selected_command_family", "prepared_source_backed_execution"],
                     ["selected_command_support_state", "executable"],
-                    ["selected_command_user_surface_graduation_posture", "client_only"],
+                    ["selected_command_user_surface_graduation_posture", "public_runtime"],
                     ["selected_command_side_effect_level", "local_runtime_or_local_artifact_effect_possible"],
                     ["selected_command_usage_fragment", "vortex-prepare <local-source-path> <target.vortex>"],
                     ["selected_command_feature_gate_status", "not_required_for_metadata"],
@@ -791,6 +791,7 @@ class ShardLoomClientTests(unittest.TestCase):
             report.user_surface_graduation_posture_vocabulary,
             (
                 "high_level_context",
+                "public_runtime",
                 "client_only",
                 "diagnostic_only",
                 "feature_gated",
@@ -815,7 +816,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(report.support_state_for("vortex-prepare"), "executable")
         self.assertEqual(
             report.user_surface_graduation_posture_for("vortex-prepare"),
-            "client_only",
+            "public_runtime",
         )
         self.assertEqual(
             report.side_effect_level_for("vortex-prepare"),
@@ -843,7 +844,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             report.selected_command_user_surface_graduation_posture,
-            "client_only",
+            "public_runtime",
         )
         self.assertEqual(
             report.selected_command_input_contract,
@@ -3263,6 +3264,78 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.prepared_state_id, "vortex-prepared-state-fnv64-schema")
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.external_engine_invoked)
+
+    def test_renamed_runtime_aliases_forward_to_current_helpers(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args[:1] == ["local-source-runtime"]:
+                    assert args == [
+                        "local-source-runtime",
+                        "SELECT id FROM 'target/source.csv' LIMIT 1",
+                        "--output-format",
+                        "inline-jsonl",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    command = "local-source-runtime"
+                    fields = [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1}\\n"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                elif args[:1] == ["vortex-prepare"]:
+                    assert args == [
+                        "vortex-prepare",
+                        "target/source.csv",
+                        "target/source.vortex",
+                        "--input-format",
+                        "csv",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    command = "vortex-prepare"
+                    fields = [
+                        {"key": "source_path", "value": "target/source.csv"},
+                        {"key": "target_vortex_path", "value": "target/source.vortex"},
+                        {"key": "vortex_ingest_status", "value": "prepared_state_created"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                else:
+                    raise AssertionError(sys.argv)
+
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        local = client.sql_local_source_smoke(
+            "SELECT id FROM 'target/source.csv' LIMIT 1"
+        )
+        prepared = client.vortex_ingest_smoke(
+            "target/source.csv",
+            "target/source.vortex",
+            input_format="csv",
+        )
+
+        self.assertEqual(local.envelope.command, "local-source-runtime")
+        self.assertEqual(prepared.envelope.command, "vortex-prepare")
+        self.assertFalse(local.fallback_attempted)
+        self.assertFalse(prepared.external_engine_invoked)
 
     def test_vortex_prepare_helper_dispatches_delta_overlay_route(self) -> None:
         binary = self.fake_cli(
@@ -9830,7 +9903,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "openapi_contract_path", "value": "docs/api/shardloom-openapi-v1.yaml"},
                         {"key": "represented_resources", "value": "health,version,capabilities,governance"},
                         {"key": "discovery_endpoint_paths", "value": "/v1/health,/v1/capabilities"},
-                        {"key": "execution_mode_vocabulary", "value": "auto,compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient"},
+                        {"key": "execution_mode_vocabulary", "value": "compatibility_import_certified,prepared_vortex,native_vortex"},
                         {"key": "execution_mode_selection_schema_version", "value": "shardloom.execution_mode_selection_report.v1"},
                         {"key": "execution_mode_selection_fields", "value": "requested_execution_mode,selected_execution_mode,mode_selection_reason,support_status,fallback_attempted,external_engine_invoked"},
                         {"key": "rest_execution_mode_support_status", "value": "report_only"},
@@ -10482,7 +10555,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "materialization_policy_row_unsupported_operator_path_runtime_execution", "value": "false"},
                         {"key": "materialization_policy_row_unsupported_operator_path_fallback_attempted", "value": "false"},
                         {"key": "materialization_policy_row_unsupported_operator_path_external_engine_invoked", "value": "false"},
-                        {"key": "compute_row_order", "value": "local_vortex_count,direct_compatibility_transient,sql_frontend"},
+                        {"key": "compute_row_order", "value": "local_vortex_count,sql_frontend"},
                         {"key": "compute_row_local_vortex_count_surface", "value": "vortex_file_scan_count"},
                         {"key": "compute_row_local_vortex_count_family", "value": "scan"},
                         {"key": "compute_row_local_vortex_count_support_status", "value": "fixture_certified"},
@@ -10503,31 +10576,11 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "compute_row_local_vortex_count_vortex_native_claim_allowed", "value": "true"},
                         {"key": "compute_row_local_vortex_count_fallback_attempted", "value": "false"},
                         {"key": "compute_row_local_vortex_count_external_engine_invoked", "value": "false"},
-                        {"key": "compute_row_direct_compatibility_transient_surface", "value": "direct_compatibility_transient_query"},
-                        {"key": "compute_row_direct_compatibility_transient_family", "value": "compatibility_transient"},
-                        {"key": "compute_row_direct_compatibility_transient_support_status", "value": "internal_smoke_only"},
-                        {"key": "compute_row_direct_compatibility_transient_engine_mode", "value": "batch"},
-                        {"key": "compute_row_direct_compatibility_transient_execution_mode", "value": "direct_compatibility_transient"},
-                        {"key": "compute_row_direct_compatibility_transient_provider_kind", "value": "shardloom_kernel"},
-                        {"key": "compute_row_direct_compatibility_transient_semantic_profile", "value": "InternalSmokeOnly"},
-                        {"key": "compute_row_direct_compatibility_transient_materialization_decode_requirement", "value": "internal_smoke_direct_local_source_state_materialization_boundary_reported_public_workflow_blocked"},
-                        {"key": "compute_row_direct_compatibility_transient_memory_spill_requirement", "value": "bounded_internal_smoke_no_public_runtime_claim"},
-                        {"key": "compute_row_direct_compatibility_transient_correctness_refs", "value": "traditional_direct_transient_tests,benchmark_harness_direct_transient,public_workflow_direct_policy_block_tests"},
-                        {"key": "compute_row_direct_compatibility_transient_benchmark_refs", "value": "direct_transient_csv_jsonl_structured_smoke_rows_not_public_workflow"},
-                        {"key": "compute_row_direct_compatibility_transient_execution_certificate_refs", "value": "traditional_analytics.direct_transient.runtime_internal_smoke_only"},
-                        {"key": "compute_row_direct_compatibility_transient_native_io_refs", "value": "not_vortex_native; local SourceState Native I/O evidence only"},
-                        {"key": "compute_row_direct_compatibility_transient_unsupported_diagnostic_code", "value": "SL_DIRECT_LOCAL_FILE_PUBLIC_ROUTE_BLOCKED"},
-                        {"key": "compute_row_direct_compatibility_transient_blocker_id", "value": "cg21.route.direct_local_file_blocked"},
-                        {"key": "compute_row_direct_compatibility_transient_required_future_evidence", "value": "vortex_middle_public_workflow_route_certificate,prepared_or_native_vortex_execution_evidence"},
-                        {"key": "compute_row_direct_compatibility_transient_claim_gate_status", "value": "not_claim_grade"},
-                        {"key": "compute_row_direct_compatibility_transient_vortex_native_claim_allowed", "value": "false"},
-                        {"key": "compute_row_direct_compatibility_transient_fallback_attempted", "value": "false"},
-                        {"key": "compute_row_direct_compatibility_transient_external_engine_invoked", "value": "false"},
                         {"key": "compute_row_sql_frontend_surface", "value": "sql_parse_bind_plan_execute"},
                         {"key": "compute_row_sql_frontend_family", "value": "sql"},
                         {"key": "compute_row_sql_frontend_support_status", "value": "unsupported"},
                         {"key": "compute_row_sql_frontend_engine_mode", "value": "batch"},
-                        {"key": "compute_row_sql_frontend_execution_mode", "value": "auto"},
+                        {"key": "compute_row_sql_frontend_execution_mode", "value": "prepared_vortex"},
                         {"key": "compute_row_sql_frontend_provider_kind", "value": "shardloom_kernel"},
                         {"key": "compute_row_sql_frontend_semantic_profile", "value": "ShardLoomNative"},
                         {"key": "compute_row_sql_frontend_materialization_decode_requirement", "value": "unsupported_no_materialization"},
@@ -10629,19 +10682,6 @@ class ShardLoomClientTests(unittest.TestCase):
             ("certificates/cg19/local-vortex-count/native-io.json",),
         )
         self.assertFalse(rows["local_vortex_count"].fallback_attempted)
-        self.assertEqual(
-            rows["direct_compatibility_transient"].execution_mode,
-            "direct_compatibility_transient",
-        )
-        self.assertEqual(
-            rows["direct_compatibility_transient"].support_status,
-            "internal_smoke_only",
-        )
-        self.assertEqual(
-            rows["direct_compatibility_transient"].unsupported_diagnostic_code,
-            "SL_DIRECT_LOCAL_FILE_PUBLIC_ROUTE_BLOCKED",
-        )
-        self.assertFalse(rows["direct_compatibility_transient"].vortex_native_claim_allowed)
         self.assertEqual(rows["sql_frontend"].unsupported_diagnostic_code, "SL_UNSUPPORTED_SQL")
         self.assertIn("parser", rows["sql_frontend"].required_future_evidence)
         native_unsupported = {

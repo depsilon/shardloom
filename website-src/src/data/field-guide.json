@@ -95,12 +95,12 @@
     ]
   },
   {
-    "slug": "direct-compatibility-transient",
-    "title": "direct_compatibility_transient",
+    "slug": "internal-local-source-smoke",
+    "title": "internal_local_source_smoke",
     "category": "Execution Routes",
     "status": "internal_smoke_only",
     "summary": "An internal smoke-only route; public local-file workflows must use Vortex preparation or native Vortex input.",
-    "route": "Direct one-shot smoke route",
+    "route": "Internal local-source smoke safeguard",
     "evidence_fields": [
       "execution_mode",
       "source_format",

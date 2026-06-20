@@ -157,7 +157,19 @@ fn handle_python_worker() -> ExitCode {
         }
         match parse_python_worker_request(&line) {
             Ok(request_args) => {
+                let emission_count_before = cli_output::output_emission_count();
                 let _ = run(request_args);
+                if cli_output::output_emission_count() == emission_count_before {
+                    let _ = emit_error(
+                        "python-worker",
+                        OutputFormat::Json,
+                        "python worker command emitted no JSON",
+                        &ShardLoomError::InvalidOperation(
+                            "python worker inner command returned without a typed JSON envelope; no fallback execution was attempted"
+                                .to_string(),
+                        ),
+                    );
+                }
             }
             Err(error) => {
                 let _ = emit_error(

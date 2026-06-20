@@ -27,34 +27,6 @@ function copyPublicPath(relativePath) {
   fs.cpSync(source, target, { recursive: true, force: true });
 }
 
-function canonicalizeDeployableBenchmarkPaths(directory) {
-  if (!fs.existsSync(directory)) return;
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const child = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      canonicalizeDeployableBenchmarkPaths(child);
-      continue;
-    }
-    if (entry.name !== "benchmark-row-admission-manifest.json") continue;
-    const payload = JSON.parse(fs.readFileSync(child, "utf8"));
-    let changed = false;
-    if (Array.isArray(payload.chunks)) {
-      payload.chunks = payload.chunks.map((chunk) => {
-        if (!chunk || typeof chunk.path !== "string") return chunk;
-        const nextPath = chunk.path.replace(
-          /^website-public\/assets\/benchmarks\/latest\//,
-          "website/assets/benchmarks/latest/",
-        );
-        if (nextPath !== chunk.path) changed = true;
-        return { ...chunk, path: nextPath };
-      });
-    }
-    if (changed) {
-      fs.writeFileSync(child, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-    }
-  }
-}
-
 const publicRootPreCopyRemoved = removeDuplicateSuffixedArtifacts(publicRoot);
 
 function copyLegacyHtml(route) {
@@ -94,12 +66,9 @@ for (const relativePath of [
   "assets/site.js",
   "assets/logo",
   "assets/data",
-  "assets/benchmarks",
 ]) {
   copyPublicPath(relativePath);
 }
-
-canonicalizeDeployableBenchmarkPaths(path.join(out, "assets", "benchmarks", "latest"));
 
 const settleOptions = duplicateSettleOptions();
 const finalRemoved = await settleDuplicateSuffixedArtifacts([out, publicRoot], settleOptions);

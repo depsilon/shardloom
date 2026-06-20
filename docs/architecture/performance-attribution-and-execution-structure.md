@@ -58,7 +58,7 @@ same as prepared/native Vortex query timing.
 Shape:
 
 ```text
-CSV/Parquet/etc -> direct transient ShardLoom-native compute -> optional result
+CSV/Parquet/etc -> internal local-source smoke ShardLoom-native compute -> optional result
 ```
 
 This path is for small local jobs and developer quick checks. It does not persist a Vortex artifact
@@ -68,7 +68,7 @@ report-only or unsupported.
 Required facts:
 
 ```text
-selected_execution_mode=direct_compatibility_transient
+selected_execution_mode=internal_local_source_smoke
 vortex_native_claim_allowed=false
 direct_transient_execution=true
 compatibility_import_included=false
@@ -167,7 +167,7 @@ The stable mode names are:
 auto
 compatibility_import_certified
 prepared_vortex
-direct_compatibility_transient
+internal_local_source_smoke
 native_vortex
 ```
 
@@ -1139,7 +1139,7 @@ The route labels used in public docs are:
 | `compatibility_import_certified` | Certified import/stage route | End-to-end certified import, Vortex stage, query, output, and evidence total. |
 | `prepared_vortex` | Prepared Vortex steady-state route | `prepare_once_millis` plus warm query, output, and evidence timing. |
 | `native_vortex` | Already-Vortex route | Native query, output, and evidence timing over existing Vortex artifacts. |
-| `direct_compatibility_transient` | Direct one-shot route | Source read/parse plus ShardLoom compute and optional output, with no Vortex-native claim. |
+| `internal_local_source_smoke` | Direct one-shot route | Source read/parse plus ShardLoom compute and optional output, with no Vortex-native claim. |
 | Generated-source reports | Source-free generated-output route | Generation plus output and evidence timing; source-read timing is zero. |
 | Fanout reports | Multi-output fanout route | Query/reuse timing plus per-output write/replay/evidence timing. |
 
