@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import contextlib
 import hashlib
 import io
@@ -38,6 +39,7 @@ from release_channel_contract import (
     SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
 )
+from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 
 CURRENT_RUST_VERSION = workspace_rust_version(REPO_ROOT)
 CURRENT_WORKSPACE_PACKAGE_VERSION = workspace_package_version(REPO_ROOT)
@@ -2718,6 +2720,31 @@ class ReleaseScriptTests(unittest.TestCase):
             route_share["rows"][0][8],
             "continue_workspace_safe_writer_metadata_coalescing",
         )
+        publication_row = {
+            **row,
+            "actual_evidence_tier": "publication_full",
+            "requested_evidence_tier": "publication_full",
+            "selected_evidence_tier": "publication_full",
+        }
+        [publication_published] = module.published_rows([publication_row])
+        projected_rows = module.rows_with_hot_runtime_surface_projections(
+            [publication_published]
+        )
+        [hot_projection] = [
+            projected
+            for projected in projected_rows
+            if projected.get("timing_surface") == "hot_runtime"
+        ]
+        self.assertEqual(
+            hot_projection["source_read_scout_timing_split_status"], "complete"
+        )
+        self.assertEqual(hot_projection["source_read_header_scout_ms"], 1.0)
+        self.assertEqual(hot_projection["source_read_byte_acquisition_ms"], 4.0)
+        self.assertEqual(hot_projection["source_read_full_body_ms"], 7.0)
+        self.assertEqual(hot_projection["source_read_typed_decode_ms"], 6.0)
+        self.assertEqual(hot_projection["source_read_row_assembly_ms"], 0.0)
+        self.assertEqual(hot_projection["source_read_anomaly_quarantine_ms"], 0.0)
+        self.assertEqual(hot_projection["source_read_columnar_handoff_ms"], 2.0)
 
     def test_benchmark_promoter_blocks_complete_source_scout_when_diagnostic_pieces_missing(
         self,
@@ -2774,6 +2801,67 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIsNone(published["source_read_typed_decode_ms"])
         self.assertIsNone(published["source_read_columnar_handoff_ms"])
         self.assertEqual(published["source_read_scout_residual_ms"], 0.0)
+
+    def test_benchmark_promoter_keeps_native_vortex_source_scout_diagnostic_only(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_native_vortex_source_scout_diagnostic_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-vortex",
+            "storage_format": "csv",
+            "scenario_name": "csv/file ingest",
+            "status": "success",
+            "selected_execution_mode": "native_vortex",
+            "requested_execution_mode": "native_vortex",
+            "timing_scope": "native_vortex_query_only",
+            "actual_evidence_tier": "metadata_sink",
+            "source_state_id": "source-state://native-scout-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "prepared-state://native-scout-row",
+            "prepared_state_digest": "sha256:prepared",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.native-scout-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "metrics": {
+                "exclusive_source_read_millis": 12.0,
+                "source_read_millis": 12.0,
+                "vortex_scan_millis": 0.2,
+                "operator_compute_millis": 0.1,
+                "query_runtime_millis": 0.3,
+                "total_runtime_millis": 0.3,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(published["route_lane_id"], "native_vortex_query")
+        self.assertEqual(published["timing_surface"], "hot_runtime")
+        self.assertEqual(
+            published["source_read_scout_timing_split_status"],
+            "not_applicable_diagnostic_only",
+        )
+        self.assertEqual(
+            published["source_read_scout_status"],
+            "diagnostic_only_source_read_outside_route_total",
+        )
+        self.assertIn(
+            "starts from Vortex/prepared state",
+            published["source_read_scout_claim_boundary"],
+        )
 
     def test_benchmark_promoter_flags_common_run_timing_drift(self) -> None:
         module = self._load_script_module(
@@ -3635,6 +3723,11 @@ class ReleaseScriptTests(unittest.TestCase):
                 "operator_temporary_materialization_used": False,
                 "operator_blocker_matrix_ref": "operator-blocker://selective-filter",
                 "encoded_predicate_provider_status": "selection_vectors_admitted",
+                "encoded_predicate_provider_selected_metric_selection_vector_consumed": True,
+                "encoded_predicate_provider_selected_metric_data_decoded": False,
+                "encoded_predicate_provider_selected_metric_aggregation_status": (
+                    "selection_vector_metric_aggregation_used"
+                ),
                 "fused_pipeline_blocker_id": (
                     "gar-perf-1c.selection_vector_metric_aggregation_not_admitted"
                 ),
@@ -3656,7 +3749,7 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(
             published["operator_hot_path_candidate_status"],
-            "blocked_selection_vector_metric_aggregation_not_admitted",
+            "admitted_selection_vector_metric_aggregation_residual_native",
         )
 
         inventory = module.operator_mode_inventory_table([row])
@@ -3668,6 +3761,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             candidates["rows"][0][0],
             "selective_filter_selection_vector_metric_aggregation",
+        )
+        self.assertEqual(
+            candidates["rows"][0][1],
+            "admitted_selection_vector_metric_aggregation_residual_native",
         )
 
     def test_benchmark_promoter_emits_partial_encoded_kernel_promotion(self) -> None:
@@ -10754,6 +10851,103 @@ jobs:
         self.assertIn("python_compatibility_matrix", lane_ids)
         self.assertIn("rust_msrv_validation", lane_ids)
 
+    def test_focused_check_runner_scopes_rust_filters_to_exact_targets(self) -> None:
+        module = self._load_script_module(
+            "run_focused_checks.py", "run_focused_checks_for_test"
+        )
+
+        cli_unit_args = argparse.Namespace(
+            repo_root=REPO_ROOT,
+            profile="rust-cli-bin",
+            filter="route_infers_vortex_manifest_as_native_vortex_input",
+            target=None,
+            nocapture=True,
+        )
+        cli_unit = module.commands_for_profile(cli_unit_args)[0].command
+
+        self.assertEqual(
+            cli_unit,
+            (
+                "cargo",
+                "test",
+                "-p",
+                "shardloom-cli",
+                "--features",
+                "release-user-surfaces",
+                "--bin",
+                "shardloom",
+                "route_infers_vortex_manifest_as_native_vortex_input",
+                "--",
+                "--nocapture",
+            ),
+        )
+
+        cli_integration_args = argparse.Namespace(
+            repo_root=REPO_ROOT,
+            profile="rust-cli-test",
+            filter="partitioned",
+            target="public_workflow_route",
+            nocapture=True,
+        )
+        cli_integration = module.commands_for_profile(cli_integration_args)[0].command
+
+        self.assertEqual(
+            cli_integration,
+            (
+                "cargo",
+                "test",
+                "-p",
+                "shardloom-cli",
+                "--features",
+                "release-user-surfaces",
+                "--test",
+                "public_workflow_route",
+                "partitioned",
+                "--",
+                "--nocapture",
+            ),
+        )
+
+        current_args = argparse.Namespace(
+            repo_root=REPO_ROOT,
+            profile="current-native-vortex",
+            filter=None,
+            target=None,
+            nocapture=True,
+        )
+        current_commands = [
+            module.command_text(command.command)
+            for command in module.commands_for_profile(current_args)
+        ]
+
+        self.assertIn(
+            "cargo test -p shardloom-cli --features release-user-surfaces --bin shardloom "
+            "route_infers_vortex_manifest_as_native_vortex_input -- --nocapture",
+            current_commands,
+        )
+        self.assertIn(
+            "cargo test -p shardloom-vortex --features vortex-local-primitives --lib "
+            "partitioned_local_primitive -- --nocapture",
+            current_commands,
+        )
+        self.assertIn(
+            "cargo test -p shardloom-cli --features release-user-surfaces --test "
+            "public_workflow_route partitioned -- --nocapture",
+            current_commands,
+        )
+        self.assertIn(
+            f"{sys.executable} -m unittest "
+            "python.tests.test_query_builder.LazyWorkflowBuilderTests."
+            "test_context_sql_vortex_manifest_source_binds_native_vortex_collect",
+            current_commands,
+        )
+        self.assertIn(
+            f"{sys.executable} -m unittest "
+            "python.tests.test_query_builder.LazyWorkflowBuilderTests."
+            "test_context_sql_embedded_vortex_manifest_broad_query_uses_native_input_binding",
+            current_commands,
+        )
+
     def test_release_readiness_job_runs_after_failed_dependencies(self) -> None:
         workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"
@@ -12780,6 +12974,27 @@ jobs:
             self.assertEqual(report["copied_paths"], [])
             self.assertIn("artifact contains unsupported symlink", report["blockers"][0])
 
+    def test_release_example_proof_uses_benchmark_runtime_features(self) -> None:
+        example_module = self._load_script_module(
+            "check_v1_example_replay.py",
+            "check_v1_example_replay_features_for_test",
+        )
+        dry_run_module = self._load_script_module(
+            "release_dry_run_proof.py",
+            "release_dry_run_proof_features_for_test",
+        )
+
+        self.assertEqual(example_module.DEFAULT_FEATURES, RELEASE_USER_SURFACE_EXAMPLE_FEATURES)
+        self.assertEqual(
+            dry_run_module.RELEASE_USER_SURFACE_EXAMPLE_FEATURES,
+            RELEASE_USER_SURFACE_EXAMPLE_FEATURES,
+        )
+        self.assertIn("release-user-surfaces", RELEASE_USER_SURFACE_EXAMPLE_FEATURES)
+        self.assertIn(
+            "vortex-traditional-analytics-benchmark",
+            RELEASE_USER_SURFACE_EXAMPLE_FEATURES,
+        )
+
     def test_v1_local_resource_safety_normalizes_downloaded_binary_permissions(
         self,
     ) -> None:
@@ -12865,11 +13080,11 @@ jobs:
                         emit("capabilities", [{"key": "scope", "value": "deployment"}])
                     if args == ["input-adapters", "--format", "json"]:
                         emit("input-adapters", [{"key": "plan_only", "value": "true"}])
-                    if args[0] == "vortex-ingest-smoke":
+                    if args[0] == "vortex-prepare":
                         target_path = Path(args[2])
                         target_path.parent.mkdir(parents=True, exist_ok=True)
                         target_path.write_text("vortex-prepared\\n", encoding="utf-8")
-                        emit("vortex-ingest-smoke", [
+                        emit("vortex-prepare", [
                             {"key": "vortex_ingest_performed", "value": "true"},
                             {"key": "target_vortex_path", "value": str(target_path)},
                             {"key": "prepared_state_created", "value": "true"},
@@ -12932,8 +13147,8 @@ jobs:
                             "message": "local file workflow requires Vortex preparation",
                             "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                         }], returncode=1)
-                    if args[0] == "sql-local-source-smoke":
-                        raise AssertionError("public local quickstart must not use sql-local-source-smoke")
+                    if args[0] == "local-source-runtime":
+                        raise AssertionError("public local quickstart must not use local-source-runtime")
                     if args[0] == "generated-source-user-rows-smoke":
                         output_path = Path(args[1])
                         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -13233,7 +13448,7 @@ jobs:
             "README.md": (
                 "docs/getting-started/install.md\n"
                 "docs/getting-started/first-10-minutes.md\n"
-                "scripts\\release_dry_run_proof.py\n"
+                "scripts/release_dry_run_proof.py\n"
                 "selected local/source/package v1 release track\n"
             ),
             "docs/getting-started/install.md": (

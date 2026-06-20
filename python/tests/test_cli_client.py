@@ -10,6 +10,7 @@ import textwrap
 import unittest
 from unittest import mock
 from pathlib import Path
+from typing import Mapping
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -157,9 +158,9 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 index += 1
         return values
 
-    def _shardloom_emit_vortex_ingest_smoke_if_needed():
+    def _shardloom_emit_vortex_prepare_if_needed():
         args = _shardloom_sys.argv[1:]
-        if not args or args[0] != "vortex-ingest-smoke":
+        if not args or args[0] != "vortex-prepare":
             return
         source = args[1] if len(args) > 1 else "missing-source"
         target = args[2] if len(args) > 2 else "target/shardloom-prepared.vortex"
@@ -168,7 +169,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         input_format = _shardloom_take_flag(args, "--input-format") or "not_declared"
         print(_shardloom_json.dumps({
             "schema_version": "shardloom.output.v2",
-            "command": "vortex-ingest-smoke",
+            "command": "vortex-prepare",
             "status": "success",
             "summary": "fake Vortex ingest smoke",
             "human_text": "fake Vortex ingest smoke",
@@ -196,7 +197,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
     def _shardloom_strip_product_local_workflow_flag():
         args = _shardloom_sys.argv[1:]
-        if not args or args[0] != "sql-local-source-smoke":
+        if not args or args[0] != "local-source-runtime":
             return
         if "--product-local-workflow" not in args:
             return
@@ -285,7 +286,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
         if sql is not None:
             rewritten = [
-                "sql-local-source-smoke",
+                "local-source-runtime",
                 sql,
                 "--output-format",
                 output_format,
@@ -297,7 +298,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
 
-    _shardloom_emit_vortex_ingest_smoke_if_needed()
+    _shardloom_emit_vortex_prepare_if_needed()
     _shardloom_strip_product_local_workflow_flag()
 
     if not globals().get("_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE", False):
@@ -371,7 +372,7 @@ def _complete_pulseweave_runtime_fields() -> dict[str, object]:
 
 
 # These legacy unit fixtures asserted that public Python/DataFrame/SQL facades
-# rewrote local-source workflows directly into sql-local-source-smoke.
+# rewrote local-source workflows directly into local-source-runtime.
 # The public facade now requires Vortex preparation/native execution or a
 # deterministic no-fallback blocker, so these stale direct-smoke fixtures are
 # retired while lower-level internal smoke command tests remain active.
@@ -388,7 +389,7 @@ class ShardLoomClientTests(unittest.TestCase):
     def setUp(self) -> None:
         if self._testMethodName in _RETIRED_PUBLIC_LOCAL_SQL_SMOKE_TESTS:
             self.skipTest(
-                "retired public direct sql-local-source-smoke fixture; "
+                "retired public direct local-source-runtime fixture; "
                 "current public local-source routes require Vortex middle or deterministic blockers"
             )
 
@@ -583,7 +584,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["runs_today_matrix_id", "review-p0-1.current-support"],
                     ["runs_today_support_state_vocabulary", "executable,feature_gated,internal_smoke_only,diagnostic_only,report_only,blocked,future"],
                     ["runs_today_family_order", "cli_command,claim_state"],
-                    ["runs_today_row_order", "cli_sql_local_source_smoke,claim_performance_superiority"],
+                    ["runs_today_row_order", "cli_local_source_runtime,claim_performance_superiority"],
                     ["runs_today_row_count", "2"],
                     ["runs_today_executable_row_count", "1"],
                     ["runs_today_feature_gated_row_count", "0"],
@@ -629,19 +630,19 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["production_unsupported_diagnostic_row_object_store_runtime_fallback_attempted", "false"],
                     ["production_unsupported_diagnostic_row_object_store_runtime_external_engine_invoked", "false"],
                     ["production_unsupported_diagnostic_row_object_store_runtime_side_effects_performed", "false"],
-                    ["runs_today_row_cli_sql_local_source_smoke_family", "cli_command"],
-                    ["runs_today_row_cli_sql_local_source_smoke_surface", "sql-local-source-smoke"],
-                    ["runs_today_row_cli_sql_local_source_smoke_support_state", "executable"],
-                    ["runs_today_row_cli_sql_local_source_smoke_feature_gate", "default"],
-                    ["runs_today_row_cli_sql_local_source_smoke_evidence_refs", "sql_local_source_runtime_smoke,sql_frontend_runtime_ladder_fields"],
-                    ["runs_today_row_cli_sql_local_source_smoke_blocker_id", "none"],
-                    ["runs_today_row_cli_sql_local_source_smoke_claim_gate_status", "fixture_smoke_only"],
-                    ["runs_today_row_cli_sql_local_source_smoke_claim_boundary", "scoped local SQL only"],
-                    ["runs_today_row_cli_sql_local_source_smoke_runtime_execution", "true"],
-                    ["runs_today_row_cli_sql_local_source_smoke_data_read", "true"],
-                    ["runs_today_row_cli_sql_local_source_smoke_write_io", "false"],
-                    ["runs_today_row_cli_sql_local_source_smoke_fallback_attempted", "false"],
-                    ["runs_today_row_cli_sql_local_source_smoke_external_engine_invoked", "false"],
+                    ["runs_today_row_cli_local_source_runtime_family", "cli_command"],
+                    ["runs_today_row_cli_local_source_runtime_surface", "local-source-runtime"],
+                    ["runs_today_row_cli_local_source_runtime_support_state", "executable"],
+                    ["runs_today_row_cli_local_source_runtime_feature_gate", "default"],
+                    ["runs_today_row_cli_local_source_runtime_evidence_refs", "local_source_runtime,sql_frontend_runtime_ladder_fields"],
+                    ["runs_today_row_cli_local_source_runtime_blocker_id", "none"],
+                    ["runs_today_row_cli_local_source_runtime_claim_gate_status", "fixture_smoke_only"],
+                    ["runs_today_row_cli_local_source_runtime_claim_boundary", "scoped local SQL only"],
+                    ["runs_today_row_cli_local_source_runtime_runtime_execution", "true"],
+                    ["runs_today_row_cli_local_source_runtime_data_read", "true"],
+                    ["runs_today_row_cli_local_source_runtime_write_io", "false"],
+                    ["runs_today_row_cli_local_source_runtime_fallback_attempted", "false"],
+                    ["runs_today_row_cli_local_source_runtime_external_engine_invoked", "false"],
                     ["runs_today_row_claim_performance_superiority_family", "claim_state"],
                     ["runs_today_row_claim_performance_superiority_surface", "performance_superiority,spark_replacement"],
                     ["runs_today_row_claim_performance_superiority_support_state", "blocked"],
@@ -709,10 +710,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(production_sql.fallback_attempted)
         self.assertFalse(production_sql.external_engine_invoked)
         self.assertFalse(production_sql.side_effects_performed)
-        row = matrix.row("cli_sql_local_source_smoke")
+        row = matrix.row("cli_local_source_runtime")
         self.assertIsInstance(row, RunsTodaySupportRow)
         self.assertEqual(row.support_state, "executable")
-        self.assertEqual(row.surface, ("sql-local-source-smoke",))
+        self.assertEqual(row.surface, ("local-source-runtime",))
         self.assertIn("sql_frontend_runtime_ladder_fields", row.evidence_refs)
         self.assertTrue(row.runtime_execution)
         self.assertTrue(row.data_read)
@@ -727,27 +728,27 @@ class ShardLoomClientTests(unittest.TestCase):
             textwrap.dedent(
                 """
                 import json, sys
-                assert sys.argv[1:] == ["command-metadata", "vortex-ingest-smoke", "--format", "json"], sys.argv
+                assert sys.argv[1:] == ["command-metadata", "vortex-prepare", "--format", "json"], sys.argv
                 fields = [
                     ["command_registry_schema_version", "shardloom.command_registry.v1"],
                     ["registered_command_count", "4"],
                     ["command_registry_support_state_vocabulary", "executable,feature_gated,diagnostic_only,report_only,blocked,future"],
                     ["command_registry_user_surface_graduation_posture_vocabulary", "high_level_context,client_only,diagnostic_only,feature_gated,not_user_facing"],
-                    ["registered_commands", "help,command-metadata,status,vortex-ingest-smoke"],
-                    ["registered_command_families", "help=status_capabilities,command-metadata=status_capabilities,status=status_capabilities,vortex-ingest-smoke=prepared_source_backed_execution"],
-                    ["registered_command_support_states", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-ingest-smoke=executable"],
-                    ["registered_command_user_surface_graduation_postures", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-ingest-smoke=client_only"],
-                    ["registered_command_side_effect_levels", "help=side_effect_free_metadata_or_report,command-metadata=side_effect_free_metadata_or_report,status=side_effect_free_metadata_or_report,vortex-ingest-smoke=local_runtime_or_local_artifact_effect_possible"],
-                    ["registered_command_feature_gate_statuses", "help=not_required_for_metadata,command-metadata=not_required_for_metadata,status=not_required_for_metadata,vortex-ingest-smoke=not_required_for_metadata"],
-                    ["registered_command_input_contracts", "help=registry_or_capability_scope_args,command-metadata=registry_or_capability_scope_args,status=registry_or_capability_scope_args,vortex-ingest-smoke=local_source_or_vortex_artifact_args"],
-                    ["registered_command_output_contracts", "help=typed_envelope_metadata_report_only,command-metadata=typed_envelope_metadata_report_only,status=typed_envelope_metadata_report_only,vortex-ingest-smoke=typed_envelope_plus_local_runtime_or_artifact_evidence"],
-                    ["registered_command_owning_phase_items", "help=REVIEW-P1-1,command-metadata=REVIEW-P1-1,status=REVIEW-P1-1,vortex-ingest-smoke=GAR-RUNTIME-IMPL-4"],
-                    ["selected_command", "vortex-ingest-smoke"],
+                    ["registered_commands", "help,command-metadata,status,vortex-prepare"],
+                    ["registered_command_families", "help=status_capabilities,command-metadata=status_capabilities,status=status_capabilities,vortex-prepare=prepared_source_backed_execution"],
+                    ["registered_command_support_states", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-prepare=executable"],
+                    ["registered_command_user_surface_graduation_postures", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-prepare=client_only"],
+                    ["registered_command_side_effect_levels", "help=side_effect_free_metadata_or_report,command-metadata=side_effect_free_metadata_or_report,status=side_effect_free_metadata_or_report,vortex-prepare=local_runtime_or_local_artifact_effect_possible"],
+                    ["registered_command_feature_gate_statuses", "help=not_required_for_metadata,command-metadata=not_required_for_metadata,status=not_required_for_metadata,vortex-prepare=not_required_for_metadata"],
+                    ["registered_command_input_contracts", "help=registry_or_capability_scope_args,command-metadata=registry_or_capability_scope_args,status=registry_or_capability_scope_args,vortex-prepare=local_source_or_vortex_artifact_args"],
+                    ["registered_command_output_contracts", "help=typed_envelope_metadata_report_only,command-metadata=typed_envelope_metadata_report_only,status=typed_envelope_metadata_report_only,vortex-prepare=typed_envelope_plus_local_runtime_or_artifact_evidence"],
+                    ["registered_command_owning_phase_items", "help=REVIEW-P1-1,command-metadata=REVIEW-P1-1,status=REVIEW-P1-1,vortex-prepare=GAR-RUNTIME-IMPL-4"],
+                    ["selected_command", "vortex-prepare"],
                     ["selected_command_family", "prepared_source_backed_execution"],
                     ["selected_command_support_state", "executable"],
                     ["selected_command_user_surface_graduation_posture", "client_only"],
                     ["selected_command_side_effect_level", "local_runtime_or_local_artifact_effect_possible"],
-                    ["selected_command_usage_fragment", "vortex-ingest-smoke <local-source-path> <target.vortex>"],
+                    ["selected_command_usage_fragment", "vortex-prepare <local-source-path> <target.vortex>"],
                     ["selected_command_feature_gate_status", "not_required_for_metadata"],
                     ["selected_command_input_contract", "local_source_or_vortex_artifact_args"],
                     ["selected_command_output_contract", "typed_envelope_plus_local_runtime_or_artifact_evidence"],
@@ -770,7 +771,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        report = ShardLoomClient(binary=binary).command_metadata("vortex-ingest-smoke")
+        report = ShardLoomClient(binary=binary).command_metadata("vortex-prepare")
 
         self.assertIsInstance(report, CommandMetadataReport)
         self.assertEqual(report.schema_version, "shardloom.command_registry.v1")
@@ -798,9 +799,9 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             report.registered_commands,
-            ("help", "command-metadata", "status", "vortex-ingest-smoke"),
+            ("help", "command-metadata", "status", "vortex-prepare"),
         )
-        self.assertEqual(report.selected_command, "vortex-ingest-smoke")
+        self.assertEqual(report.selected_command, "vortex-prepare")
         self.assertEqual(
             report.selected_command_family,
             "prepared_source_backed_execution",
@@ -811,29 +812,29 @@ class ShardLoomClientTests(unittest.TestCase):
             report.user_surface_graduation_posture_for("command-metadata"),
             "diagnostic_only",
         )
-        self.assertEqual(report.support_state_for("vortex-ingest-smoke"), "executable")
+        self.assertEqual(report.support_state_for("vortex-prepare"), "executable")
         self.assertEqual(
-            report.user_surface_graduation_posture_for("vortex-ingest-smoke"),
+            report.user_surface_graduation_posture_for("vortex-prepare"),
             "client_only",
         )
         self.assertEqual(
-            report.side_effect_level_for("vortex-ingest-smoke"),
+            report.side_effect_level_for("vortex-prepare"),
             "local_runtime_or_local_artifact_effect_possible",
         )
         self.assertEqual(
-            report.feature_gate_status_for("vortex-ingest-smoke"),
+            report.feature_gate_status_for("vortex-prepare"),
             "not_required_for_metadata",
         )
         self.assertEqual(
-            report.input_contract_for("vortex-ingest-smoke"),
+            report.input_contract_for("vortex-prepare"),
             "local_source_or_vortex_artifact_args",
         )
         self.assertEqual(
-            report.output_contract_for("vortex-ingest-smoke"),
+            report.output_contract_for("vortex-prepare"),
             "typed_envelope_plus_local_runtime_or_artifact_evidence",
         )
         self.assertEqual(
-            report.owning_phase_item_for("vortex-ingest-smoke"),
+            report.owning_phase_item_for("vortex-prepare"),
             "GAR-RUNTIME-IMPL-4",
         )
         self.assertEqual(
@@ -1865,7 +1866,7 @@ class ShardLoomClientTests(unittest.TestCase):
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
-                "command": "sql-local-source-smoke",
+                "command": "local-source-runtime",
                 "status": "success",
                 "summary": "sql local source",
                 "human_text": "sql local source",
@@ -1902,7 +1903,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         validation = envelope.runtime_execution_validation(
-            surface_id="sql_local_source_smoke"
+            surface_id="local_source_runtime"
         )
 
         self.assertTrue(validation.passed)
@@ -1910,7 +1911,7 @@ class ShardLoomClientTests(unittest.TestCase):
             validation.schema_version,
             "shardloom.runtime_execution_envelope_validation.v1",
         )
-        self.assertEqual(validation.surface_id, "sql_local_source_smoke")
+        self.assertEqual(validation.surface_id, "local_source_runtime")
         self.assertFalse(validation.runtime_claim_allowed)
         self.assertEqual(validation.blockers, ())
 
@@ -2014,7 +2015,7 @@ class ShardLoomClientTests(unittest.TestCase):
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
-                "command": "sql-local-source-smoke",
+                "command": "local-source-runtime",
                 "status": "success",
                 "summary": "sql local source",
                 "human_text": "sql local source",
@@ -2553,7 +2554,7 @@ class ShardLoomClientTests(unittest.TestCase):
             envelope = OutputEnvelope.from_json(
                 {
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -2596,7 +2597,7 @@ class ShardLoomClientTests(unittest.TestCase):
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
-                "command": "sql-local-source-smoke",
+                "command": "local-source-runtime",
                 "status": "success",
                 "summary": "sql local source",
                 "human_text": "sql local source",
@@ -2633,7 +2634,7 @@ class ShardLoomClientTests(unittest.TestCase):
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
-                "command": "sql-local-source-smoke",
+                "command": "local-source-runtime",
                 "status": "success",
                 "summary": "sql local source",
                 "human_text": "sql local source",
@@ -2668,7 +2669,7 @@ class ShardLoomClientTests(unittest.TestCase):
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
-                "command": "sql-local-source-smoke",
+                "command": "local-source-runtime",
                 "status": "success",
                 "summary": "sql local source",
                 "human_text": "sql local source",
@@ -2711,7 +2712,7 @@ class ShardLoomClientTests(unittest.TestCase):
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
-                "command": "sql-local-source-smoke",
+                "command": "local-source-runtime",
                 "status": "success",
                 "summary": "sql local source",
                 "human_text": "sql local source",
@@ -2768,7 +2769,7 @@ class ShardLoomClientTests(unittest.TestCase):
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
-                "command": "sql-local-source-smoke",
+                "command": "local-source-runtime",
                 "status": "success",
                 "summary": "sql local source",
                 "human_text": "sql local source",
@@ -2813,13 +2814,13 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(report.window_percent_rank_runtime_execution)
         self.assertTrue(report.window_cume_dist_runtime_execution)
 
-    def test_vortex_ingest_smoke_helper_dispatches_prepare_once_route(self) -> None:
+    def test_vortex_prepare_helper_dispatches_prepare_once_route(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
                 assert sys.argv[1:] == [
-                    "vortex-ingest-smoke",
+                    "vortex-prepare",
                     "target/source.csv",
                     "target/source.vortex",
                     "--input-format",
@@ -2830,7 +2831,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-ingest-smoke",
+                    "command": "vortex-prepare",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
@@ -2937,7 +2938,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        result = ShardLoomClient(binary=binary).vortex_ingest_smoke(
+        result = ShardLoomClient(binary=binary).vortex_prepare(
             "target/source.csv",
             "target/source.vortex",
             input_format="csv",
@@ -3206,13 +3207,13 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.external_engine_invoked)
         self.assertEqual(result.claim_gate_status, "fixture_smoke_only")
 
-    def test_vortex_ingest_smoke_helper_passes_declared_schema(self) -> None:
+    def test_vortex_prepare_helper_passes_declared_schema(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
                 assert sys.argv[1:] == [
-                    "vortex-ingest-smoke",
+                    "vortex-prepare",
                     "target/source.csv",
                     "target/source.vortex",
                     "--input-format",
@@ -3225,7 +3226,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-ingest-smoke",
+                    "command": "vortex-prepare",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
@@ -3250,7 +3251,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        result = ShardLoomClient(binary=binary).vortex_ingest_smoke(
+        result = ShardLoomClient(binary=binary).vortex_prepare(
             "target/source.csv",
             "target/source.vortex",
             input_format="csv",
@@ -3263,13 +3264,13 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.external_engine_invoked)
 
-    def test_vortex_ingest_smoke_helper_dispatches_delta_overlay_route(self) -> None:
+    def test_vortex_prepare_helper_dispatches_delta_overlay_route(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
                 assert sys.argv[1:] == [
-                    "vortex-ingest-smoke",
+                    "vortex-prepare",
                     "target/base.csv",
                     "target/base.vortex",
                     "--delta-source",
@@ -3281,7 +3282,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-ingest-smoke",
+                    "command": "vortex-prepare",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
@@ -3326,7 +3327,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        result = ShardLoomClient(binary=binary).vortex_ingest_smoke(
+        result = ShardLoomClient(binary=binary).vortex_prepare(
             "target/base.csv",
             "target/base.vortex",
             delta_source_path="target/delta.csv",
@@ -3398,13 +3399,13 @@ class ShardLoomClientTests(unittest.TestCase):
             "fnv64:consumer",
         )
 
-    def test_context_prepare_vortex_dispatches_vortex_ingest_smoke(self) -> None:
+    def test_context_prepare_vortex_dispatches_vortex_prepare(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
                 assert sys.argv[1:] == [
-                    "vortex-ingest-smoke",
+                    "vortex-prepare",
                     "target/source.csv",
                     "target/source.vortex",
                     "--certification-level",
@@ -3414,7 +3415,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-ingest-smoke",
+                    "command": "vortex-prepare",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
@@ -3452,7 +3453,7 @@ class ShardLoomClientTests(unittest.TestCase):
             certification_level="ingest_minimal",
         )
 
-        self.assertEqual(result.envelope.command, "vortex-ingest-smoke")
+        self.assertEqual(result.envelope.command, "vortex-prepare")
         self.assertEqual(result.vortex_ingest_status, "prepared_state_created")
         self.assertEqual(result.reopen_verification_status, "not_performed_ingest_minimal")
         self.assertEqual(result.certification_level, "ingest_minimal")
@@ -3507,7 +3508,7 @@ class ShardLoomClientTests(unittest.TestCase):
 
                     args = sys.argv[1:]
                     assert args[0:3] == [
-                        "vortex-ingest-smoke",
+                        "vortex-prepare",
                         {str(source)!r},
                         {str(target)!r},
                     ], sys.argv
@@ -3549,7 +3550,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     count_path.write_text(json.dumps(counts), encoding="utf-8")
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
-                        "command": "vortex-ingest-smoke",
+                        "command": "vortex-prepare",
                         "status": "success",
                         "summary": "ok",
                         "human_text": "ok",
@@ -3699,9 +3700,9 @@ class ShardLoomClientTests(unittest.TestCase):
                     calls_path = Path({str(calls)!r})
                     calls = json.loads(calls_path.read_text(encoding="utf-8")) if calls_path.exists() else []
                     command = sys.argv[1]
-                    if command == "sql-local-source-smoke":
-                        raise AssertionError("public LazyFrame collect must not execute sql-local-source-smoke")
-                    if command == "vortex-ingest-smoke":
+                    if command == "local-source-runtime":
+                        raise AssertionError("public LazyFrame collect must not execute local-source-runtime")
+                    if command == "vortex-prepare":
                         source = Path(sys.argv[2])
                         target = Path(sys.argv[3])
                         assert source.name == "source.csv", sys.argv
@@ -3711,7 +3712,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         calls_path.write_text(json.dumps(calls), encoding="utf-8")
                         print(json.dumps({{
                             "schema_version": "shardloom.output.v2",
-                            "command": "vortex-ingest-smoke",
+                            "command": "vortex-prepare",
                             "status": "success",
                             "summary": "prepared",
                             "human_text": "prepared",
@@ -3799,14 +3800,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     f"""
                     import json, sys
                     from pathlib import Path
-                    if sys.argv[1] == "sql-local-source-smoke":
+                    if sys.argv[1] == "local-source-runtime":
                         assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
                         assert "--output" in sys.argv, sys.argv
                         output_path = Path(sys.argv[sys.argv.index("--output") + 1])
                         output_path.write_text(json.dumps({{"metric": 30, "value": 3}}) + "\\n", encoding="utf-8")
                         print(json.dumps({{
                             "schema_version": "shardloom.output.v2",
-                            "command": "sql-local-source-smoke",
+                            "command": "local-source-runtime",
                             "status": "success",
                             "summary": "ok",
                             "human_text": "ok",
@@ -3870,9 +3871,9 @@ class ShardLoomClientTests(unittest.TestCase):
                     calls_path = Path({str(calls)!r})
                     calls = json.loads(calls_path.read_text(encoding="utf-8")) if calls_path.exists() else []
                     command = sys.argv[1]
-                    if command == "sql-local-source-smoke":
-                        raise AssertionError("public SQL collect must not execute sql-local-source-smoke")
-                    if command == "vortex-ingest-smoke":
+                    if command == "local-source-runtime":
+                        raise AssertionError("public SQL collect must not execute local-source-runtime")
+                    if command == "vortex-prepare":
                         source = Path(sys.argv[2])
                         target = Path(sys.argv[3])
                         assert source.name == "source.csv", sys.argv
@@ -3882,7 +3883,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         calls_path.write_text(json.dumps(calls), encoding="utf-8")
                         print(json.dumps({{
                             "schema_version": "shardloom.output.v2",
-                            "command": "vortex-ingest-smoke",
+                            "command": "vortex-prepare",
                             "status": "success",
                             "summary": "prepared",
                             "human_text": "prepared",
@@ -4361,7 +4362,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             "fallback_attempted": "false",
                             "external_engine_invoked": "false",
                         }})
-                    elif command == "vortex-ingest-smoke":
+                    elif command == "vortex-prepare":
                         counts["repair"] += 1
                         count_path.write_text(json.dumps(counts), encoding="utf-8")
                         assert sys.argv[2] == {str(fact)!r}, sys.argv
@@ -4622,13 +4623,13 @@ class ShardLoomClientTests(unittest.TestCase):
                     count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
                     count += 1
                     count_path.write_text(str(count), encoding="utf-8")
-                    assert sys.argv[1] == "vortex-ingest-smoke", sys.argv
+                    assert sys.argv[1] == "vortex-prepare", sys.argv
                     assert sys.argv[2] == {str(source_path)!r}, sys.argv
                     assert sys.argv[3] == {str(target_path)!r}, sys.argv
                     Path(sys.argv[3]).write_text(f"vortex artifact {{count}}", encoding="utf-8")
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
-                        "command": "vortex-ingest-smoke",
+                        "command": "vortex-prepare",
                         "status": "success",
                         "summary": "ok",
                         "human_text": "ok",
@@ -4754,13 +4755,13 @@ class ShardLoomClientTests(unittest.TestCase):
                     count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
                     prep_count = count + 1
                     command = sys.argv[1]
-                    if command == "vortex-ingest-smoke":
+                    if command == "vortex-prepare":
                         target_path = Path(sys.argv[3])
                         target_path.parent.mkdir(parents=True, exist_ok=True)
                         target_path.write_text("vortex-prepared\\n", encoding="utf-8")
                         print(json.dumps({{
                             "schema_version": "shardloom.output.v2",
-                            "command": "vortex-ingest-smoke",
+                            "command": "vortex-prepare",
                             "status": "success",
                             "summary": "ok",
                             "human_text": "ok",
@@ -4876,7 +4877,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     from pathlib import Path
                     count_path = Path({str(count_path)!r})
                     count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
-                    if sys.argv[1] == "sql-local-source-smoke":
+                    if sys.argv[1] == "local-source-runtime":
                         assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
                         assert "--output" in sys.argv, sys.argv
                         count += 1
@@ -4885,7 +4886,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         output_path.write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
                         print(json.dumps({{
                             "schema_version": "shardloom.output.v2",
-                            "command": "sql-local-source-smoke",
+                            "command": "local-source-runtime",
                             "status": "success",
                             "summary": "ok",
                             "human_text": "ok",
@@ -4993,14 +4994,14 @@ class ShardLoomClientTests(unittest.TestCase):
                             ],
                         }}))
                         raise SystemExit(0)
-                    assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                    assert sys.argv[1] == "local-source-runtime", sys.argv
                     assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
                     assert "--output" in sys.argv, sys.argv
                     output_path = Path(sys.argv[sys.argv.index("--output") + 1])
                     output_path.write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
-                        "command": "sql-local-source-smoke",
+                        "command": "local-source-runtime",
                         "status": "success",
                         "summary": "ok",
                         "human_text": "ok",
@@ -5126,7 +5127,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         fmt, path = sys.argv[fanout_index + 1].split("=", 1)
                         outputs[fmt] = Path(path)
                     else:
-                        assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                        assert sys.argv[1] == "local-source-runtime", sys.argv
                         assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
                         fanout_args = [arg for arg in sys.argv if arg.startswith(("jsonl=", "csv="))]
                         if "--output" in sys.argv:
@@ -5142,7 +5143,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     outputs["csv"].write_text("id,count\\n1," + str(count) + "\\n", encoding="utf-8")
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
-                        "command": "sql-local-source-smoke",
+                        "command": "local-source-runtime",
                         "status": "success",
                         "summary": "ok",
                         "human_text": "ok",
@@ -7631,7 +7632,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(local.runtime_gap_status, "admitted_scope")
         self.assertEqual(
             local.shared_runtime_path,
-            "vortex-ingest-smoke->native_vortex_primitive_or_provider",
+            "vortex-prepare->native_vortex_primitive_or_provider",
         )
         self.assertIsNone(local.blocker_id)
         self.assertIn("no_benchmark_claim", local.performance_equivalence_status)
@@ -11112,6 +11113,84 @@ class ShardLoomClientTests(unittest.TestCase):
         command = client._command(["status"])
 
         self.assertEqual(command[0], sys.executable)
+
+    def test_binary_resolution_is_cached_per_client(self) -> None:
+        client = ShardLoomClient(env={"SHARDLOOM_BIN": sys.executable, "PATH": ""})
+        calls = 0
+        original = client._resolve_configured_binary
+
+        def wrapped(value: str, env: Mapping[str, str]) -> str:
+            nonlocal calls
+            calls += 1
+            return original(value, env)
+
+        client._resolve_configured_binary = wrapped  # type: ignore[method-assign]
+
+        self.assertEqual(client._command(["status"])[0], sys.executable)
+        self.assertEqual(client._command(["capabilities", "python"])[0], sys.executable)
+        self.assertEqual(calls, 1)
+
+    def test_persistent_worker_reuses_one_cli_process_for_multiple_calls(self) -> None:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        log_path = Path(tempdir.name) / "worker-starts.txt"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+                from pathlib import Path
+
+                def emit(command, fields):
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": command,
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [{{"key": key, "value": value}} for key, value in fields],
+                    }}), flush=True)
+
+                if sys.argv[1:] == ["python-worker"]:
+                    Path({str(log_path)!r}).write_text(
+                        Path({str(log_path)!r}).read_text(encoding="utf-8")
+                        if Path({str(log_path)!r}).exists()
+                        else "",
+                        encoding="utf-8",
+                    )
+                    with Path({str(log_path)!r}).open("a", encoding="utf-8") as handle:
+                        handle.write("start\\n")
+                    for line in sys.stdin:
+                        request = json.loads(line)
+                        args = request["args"]
+                        emit(args[0], [
+                            ["worker_transport", "persistent_python_worker"],
+                            ["observed_args", ",".join(args)],
+                            ["fallback_attempted", "false"],
+                            ["external_engine_invoked", "false"],
+                        ])
+                    raise SystemExit(0)
+
+                raise AssertionError(sys.argv)
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary, use_persistent_worker=True)
+        self.addCleanup(client.close)
+
+        status = client.run(["status"])
+        capabilities = client.run(["capabilities", "python"])
+        client.close()
+
+        self.assertEqual(status.command, "status")
+        self.assertEqual(capabilities.command, "capabilities")
+        self.assertEqual(status.field("worker_transport"), "persistent_python_worker")
+        self.assertEqual(
+            capabilities.field("observed_args"),
+            "capabilities,python,--format,json",
+        )
+        self.assertEqual(log_path.read_text(encoding="utf-8").count("start\n"), 1)
 
     def test_bundled_binary_is_resolved_before_path_binary(self) -> None:
         tempdir = tempfile.TemporaryDirectory()

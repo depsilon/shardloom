@@ -10,6 +10,7 @@ import platform
 import re
 import shutil
 import subprocess
+import threading
 from importlib import resources as importlib_resources
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Union
@@ -47,6 +48,7 @@ ENV_BINARY = "SHARDLOOM_BIN"
 ENV_REPO_ROOT = "SHARDLOOM_REPO_ROOT"
 ENV_PROFILE_ORDER = "SHARDLOOM_PROFILE_ORDER"
 ENV_TIMEOUT_SECONDS = "SHARDLOOM_TIMEOUT_SECONDS"
+ENV_PERSISTENT_WORKER = "SHARDLOOM_PERSISTENT_WORKER"
 BUNDLED_CLI_RESOURCE_DIR = "bin"
 DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS = (
     ("csv", "examples/local/fact.csv"),
@@ -127,6 +129,10 @@ _URI_WITH_AUTHORITY_RE = re.compile(
 )
 
 
+class _ShardLoomWorkerStartupError(RuntimeError):
+    """Private signal for falling back before a request reaches the worker."""
+
+
 def _split_field_list(value: str | None) -> tuple[str, ...]:
     """Split comma-separated evidence values while preserving parenthesized dtype args."""
 
@@ -149,6 +155,10 @@ def _split_field_list(value: str | None) -> tuple[str, ...]:
     if tail:
         parts.append(tail)
     return tuple(parts)
+
+
+def _env_truthy(value: str) -> bool:
+    return value.strip().lower() not in {"", "0", "false", "no", "off", "disabled"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -10960,6 +10970,7 @@ class ShardLoomClient:
         repo_root: str | os.PathLike[str] | None = None,
         profile_order: Sequence[str] = DEFAULT_PROFILE_ORDER,
         timeout: float | None = None,
+        use_persistent_worker: bool | None = None,
     ) -> None:
         self._binary = binary
         self._env = dict(env) if env is not None else None
@@ -10967,6 +10978,11 @@ class ShardLoomClient:
         self._repo_root = Path(repo_root) if repo_root is not None else None
         self._profile_order = tuple(profile_order)
         self._timeout = timeout
+        self._resolved_binary_cache: Binary | None = None
+        self._use_persistent_worker = use_persistent_worker
+        self._worker_process: subprocess.Popen[str] | None = None
+        self._worker_disabled = False
+        self._worker_lock = threading.Lock()
 
     @classmethod
     def from_repo(
@@ -10974,7 +10990,7 @@ class ShardLoomClient:
         repo_root: str | os.PathLike[str] | None = None,
         *,
         profile_order: Sequence[str] = DEFAULT_PROFILE_ORDER,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> "ShardLoomClient":
         """Create a client that resolves `target/<profile>/shardloom` lazily.
 
@@ -11789,7 +11805,7 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))
 
-    def sql_local_source_smoke(
+    def local_source_runtime(
         self,
         statement: str,
         *,
@@ -11800,10 +11816,10 @@ class ShardLoomClient:
         product_local_workflow: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
-        """Run the scoped local-source SQL smoke command."""
+        """Run the local-source SQL runtime command."""
 
         command: list[CommandPart] = [
-            "sql-local-source-smoke",
+            "local-source-runtime",
             statement,
             "--output-format",
             output_format,
@@ -11818,7 +11834,7 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         return SqlLocalSourceSmokeReport(self.run(command, check=check))
 
-    def vortex_ingest_smoke(
+    def vortex_prepare(
         self,
         source_path: str | os.PathLike[str],
         target_vortex_path: str | os.PathLike[str],
@@ -11832,10 +11848,10 @@ class ShardLoomClient:
         delta_update_mode: str = "append-only",
         check: bool = True,
     ) -> VortexIngestSmokeReport:
-        """Run the scoped local `vortex_ingest` prepare-once smoke command."""
+        """Prepare local compatibility input as a Vortex artifact."""
 
         command: list[CommandPart] = [
-            "vortex-ingest-smoke",
+            "vortex-prepare",
             str(source_path),
             str(target_vortex_path),
         ]
@@ -13374,6 +13390,29 @@ class ShardLoomClient:
     def run(self, args: Sequence[CommandPart], *, check: bool = True) -> OutputEnvelope:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
+        if self._worker_enabled():
+            try:
+                return self._run_worker(args, check=check)
+            except _ShardLoomWorkerStartupError:
+                self._worker_disabled = True
+                self._close_worker()
+                return self._run_subprocess(args, check=check)
+        return self._run_subprocess(args, check=check)
+
+    def close(self) -> None:
+        """Close any persistent local CLI worker owned by this client."""
+
+        self._close_worker()
+
+    def __del__(self) -> None:
+        try:
+            self._close_worker()
+        except Exception:
+            pass
+
+    def _run_subprocess(
+        self, args: Sequence[CommandPart], *, check: bool = True
+    ) -> OutputEnvelope:
         command = self._command(args)
         redacted_command = _redact_command_for_error(command)
         try:
@@ -13402,11 +13441,130 @@ class ShardLoomClient:
             )
         return envelope
 
+    def _run_worker(
+        self, args: Sequence[CommandPart], *, check: bool = True
+    ) -> OutputEnvelope:
+        command_args = self._command_args(args)
+        redacted_command = _redact_command_for_error(
+            [*self._binary_parts(), *command_args]
+        )
+        with self._worker_lock:
+            process = self._ensure_worker()
+            if process.stdin is None or process.stdout is None:
+                self._worker_disabled = True
+                raise _ShardLoomWorkerStartupError("worker pipes were not available")
+            request = json.dumps({"args": command_args}, separators=(",", ":"))
+            try:
+                process.stdin.write(request + "\n")
+                process.stdin.flush()
+            except (BrokenPipeError, OSError) as exc:
+                self._close_worker()
+                raise ShardLoomProtocolError(
+                    "ShardLoom persistent worker closed before accepting a request"
+                ) from exc
+            response_line = process.stdout.readline()
+            if not response_line:
+                stderr = self._worker_stderr_preview(process)
+                self._close_worker()
+                detail = f": {stderr}" if stderr else ""
+                raise ShardLoomProtocolError(
+                    f"ShardLoom persistent worker emitted no JSON output{detail}"
+                )
+        envelope = self._parse_stdout(response_line, redacted_command)
+        if check and envelope.is_error:
+            raise ShardLoomCommandError(
+                command=redacted_command,
+                returncode=2,
+                envelope=envelope,
+                stderr="",
+            )
+        return envelope
+
     def _command(self, args: Sequence[CommandPart]) -> list[str]:
         command = self._binary_parts()
-        command.extend(str(arg) for arg in args)
-        self._append_json_format(command)
+        command.extend(self._command_args(args))
         return command
+
+    def _command_args(self, args: Sequence[CommandPart]) -> list[str]:
+        command_args = [str(arg) for arg in args]
+        self._append_json_format(command_args)
+        return command_args
+
+    def _worker_enabled(self) -> bool:
+        if self._worker_disabled or self._timeout is not None:
+            return False
+        configured = self._effective_env().get(ENV_PERSISTENT_WORKER)
+        if configured is not None:
+            return _env_truthy(configured)
+        if self._use_persistent_worker is not None:
+            return self._use_persistent_worker
+        return self._binary is None
+
+    def _ensure_worker(self) -> subprocess.Popen[str]:
+        if self._worker_process is not None and self._worker_process.poll() is None:
+            return self._worker_process
+        command = self._binary_parts()
+        command.append("python-worker")
+        try:
+            self._worker_process = subprocess.Popen(
+                command,
+                cwd=self._cwd,
+                env=self._effective_env(),
+                text=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=1,
+            )
+        except FileNotFoundError as exc:
+            raise ShardLoomBinaryNotFoundError(
+                "ShardLoom CLI binary was not found while starting the "
+                "persistent Python worker. Install the ShardLoom CLI package, "
+                "put `shardloom` on PATH, or set SHARDLOOM_BIN to a valid binary."
+            ) from exc
+        except OSError as exc:
+            raise _ShardLoomWorkerStartupError(
+                f"ShardLoom persistent worker could not be started: {exc}"
+            ) from exc
+        return self._worker_process
+
+    def _close_worker(self) -> None:
+        process = self._worker_process
+        self._worker_process = None
+        if process is None:
+            return
+        if process.stdin is not None:
+            try:
+                process.stdin.close()
+            except OSError:
+                pass
+        if process.poll() is None:
+            try:
+                process.wait(timeout=0.2)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                try:
+                    process.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=0.5)
+        for pipe in (process.stdout, process.stderr):
+            if pipe is not None:
+                try:
+                    pipe.close()
+                except OSError:
+                    pass
+
+    @staticmethod
+    def _worker_stderr_preview(process: subprocess.Popen[str]) -> str:
+        if process.poll() is None:
+            return ""
+        if process.stderr is None:
+            return ""
+        try:
+            return process.stderr.read(2048).strip()
+        except OSError:
+            return ""
 
     def _binary_parts(self) -> list[str]:
         binary = self._resolved_binary()
@@ -13419,24 +13577,32 @@ class ShardLoomClient:
     def _resolved_binary(self) -> Binary:
         if self._binary is not None:
             return self._binary
+        if self._resolved_binary_cache is not None:
+            return self._resolved_binary_cache
 
         effective_env = self._effective_env()
         env_binary = effective_env.get(ENV_BINARY)
         if env_binary:
-            return self._resolve_configured_binary(env_binary, effective_env)
+            self._resolved_binary_cache = self._resolve_configured_binary(
+                env_binary, effective_env
+            )
+            return self._resolved_binary_cache
 
         if self._repo_root is not None:
             candidate = self._repo_binary_candidate()
             if candidate is not None:
-                return candidate
+                self._resolved_binary_cache = candidate
+                return self._resolved_binary_cache
 
         bundled_binary = self._bundled_binary_candidate()
         if bundled_binary is not None:
-            return bundled_binary
+            self._resolved_binary_cache = bundled_binary
+            return self._resolved_binary_cache
 
         path_binary = shutil.which("shardloom", path=effective_env.get("PATH"))
         if path_binary is not None:
-            return path_binary
+            self._resolved_binary_cache = path_binary
+            return self._resolved_binary_cache
 
         raise ShardLoomBinaryNotFoundError(
             "ShardLoom CLI binary could not be resolved. Install a supported "

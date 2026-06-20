@@ -1,7 +1,7 @@
-//! Scoped local-source SQL runtime smoke.
+//! Local-source SQL runtime.
 //!
-//! This module intentionally admits one small SQL shape over local
-//! CSV/JSONL/JSON and feature-gated local Parquet/Arrow IPC/Avro/ORC:
+//! This module admits ShardLoom-owned SQL shapes over local CSV/JSONL/JSON
+//! and feature-gated local Parquet/Arrow IPC/Avro/ORC:
 //! `SELECT <columns> FROM <local.csv|local.jsonl|local.json|local.parquet|local.arrow|local.ipc|local.avro|local.orc> [WHERE <scoped predicate>] [ORDER BY <column> [ASC|DESC][, ...]] LIMIT <n>`
 //! plus explicit local single- and multi-key equi-join shapes.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
@@ -38,10 +38,10 @@ use crate::{
     cli_unknown_arg_error,
 };
 
-const COMMAND: &str = "sql-local-source-smoke";
-const VORTEX_INGEST_COMMAND: &str = "vortex-ingest-smoke";
-const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
-const VORTEX_INGEST_SCHEMA_VERSION: &str = "shardloom.vortex_ingest_smoke.v1";
+const COMMAND: &str = "local-source-runtime";
+const VORTEX_PREPARE_COMMAND: &str = "vortex-prepare";
+const SCHEMA_VERSION: &str = "shardloom.local_source_runtime.v1";
+const VORTEX_PREPARE_SCHEMA_VERSION: &str = "shardloom.vortex_prepare.v1";
 const LOCAL_SOURCE_STATE_SCHEMA_VERSION: &str = "shardloom.local_source_state.v1";
 const LOCAL_INPUT_ADAPTER_REGISTRY_VERSION: &str = "shardloom.local_input_adapter_registry.v1";
 const JSONL_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
@@ -232,7 +232,7 @@ impl SqlLocalSourceRuntimeProfile {
 
     const fn route_id(self) -> &'static str {
         match self {
-            Self::Smoke => "sql-local-source-smoke",
+            Self::Smoke => "internal-local-source-runtime-diagnostic",
             Self::ProductLocalWorkflow => "local-file-product-workflow",
         }
     }
@@ -281,14 +281,14 @@ impl SqlLocalSourceRuntimeProfile {
 
     const fn source_adapter_blocker_id(self) -> &'static str {
         match self {
-            Self::Smoke => "none_scoped_sql_local_source_smoke_only",
+            Self::Smoke => "none_internal_local_source_runtime_diagnostic",
             Self::ProductLocalWorkflow => "none_product_local_workflow_route",
         }
     }
 
     const fn source_state_reuse_reason(self) -> &'static str {
         match self {
-            Self::Smoke => "not_cached_sql_local_source_smoke",
+            Self::Smoke => "not_cached_local_source_runtime_sequential_default",
             Self::ProductLocalWorkflow => "not_cached_product_local_workflow_sequential_default",
         }
     }
@@ -3290,6 +3290,9 @@ struct CsvSourceData {
     projection_pushdown_status: LocalSourceProjectionPushdownStatus,
     source_bytes: u64,
     source_digest: String,
+    source_metadata_scout_millis: u128,
+    source_byte_acquisition_millis: u128,
+    source_full_body_millis: u128,
     read_millis: u128,
     parse_millis: u128,
     source_to_columnar_millis: u128,
@@ -3346,6 +3349,22 @@ impl CsvSourceData {
         self.pruned_column_count() > 0
     }
 
+    fn source_read_buffer_carry_status(&self) -> &'static str {
+        if self.source_format.feature_gate() == "default" {
+            "read_once_buffer_carried_to_text_parser"
+        } else {
+            "digest_bytes_recorded_reader_reopens_columnar_source"
+        }
+    }
+
+    fn source_read_mmap_eligibility_status(&self) -> &'static str {
+        if self.source_format.feature_gate() == "default" {
+            "not_used_owned_text_buffer_default"
+        } else {
+            "not_used_columnar_reader_owns_buffer_lifetime"
+        }
+    }
+
     const fn materialization_layout(&self) -> &'static str {
         self.materialization_layout
     }
@@ -3400,6 +3419,9 @@ struct VortexIngestSourceData {
     source_digest: String,
     row_count: usize,
     source_split_row_ranges: Vec<(usize, usize)>,
+    source_metadata_scout_millis: u128,
+    source_byte_acquisition_millis: u128,
+    source_full_body_millis: u128,
     read_millis: u128,
     compatibility_parse_millis: u128,
     source_to_columnar_millis: u128,
@@ -3430,6 +3452,9 @@ impl VortexIngestSourceData {
             projection_pushdown_status: source.projection_pushdown_status,
             source_bytes: source.source_bytes,
             source_digest: source.source_digest,
+            source_metadata_scout_millis: source.source_metadata_scout_millis,
+            source_byte_acquisition_millis: source.source_byte_acquisition_millis,
+            source_full_body_millis: source.source_full_body_millis,
             read_millis: source.read_millis,
         }
     }
@@ -3440,6 +3465,9 @@ impl VortexIngestSourceData {
         columnar_source: &shardloom_vortex::FlatLocalColumnarSource,
         source_bytes: u64,
         source_digest: String,
+        source_metadata_scout_millis: u128,
+        source_byte_acquisition_millis: u128,
+        source_full_body_millis: u128,
         read_millis: u128,
         source_to_columnar_millis: u128,
     ) -> Self {
@@ -3456,6 +3484,9 @@ impl VortexIngestSourceData {
             source_digest,
             row_count: columnar_source.row_count,
             source_split_row_ranges,
+            source_metadata_scout_millis,
+            source_byte_acquisition_millis,
+            source_full_body_millis,
             read_millis,
             compatibility_parse_millis: 0,
             source_to_columnar_millis,
@@ -3490,6 +3521,22 @@ impl VortexIngestSourceData {
 
     fn column_pruning_applied(&self) -> bool {
         self.pruned_column_count() > 0
+    }
+
+    fn source_read_buffer_carry_status(&self) -> &'static str {
+        if self.columnar_source_preserved {
+            "digest_bytes_recorded_reader_reopens_columnar_source"
+        } else {
+            "read_once_buffer_carried_to_text_parser"
+        }
+    }
+
+    fn source_read_mmap_eligibility_status(&self) -> &'static str {
+        if self.columnar_source_preserved {
+            "not_used_columnar_reader_owns_buffer_lifetime"
+        } else {
+            "not_used_owned_text_buffer_default"
+        }
     }
 
     fn adapter_id(&self) -> &'static str {
@@ -3906,6 +3953,7 @@ struct VortexIngestRequest {
     target_path: PathBuf,
     allow_overwrite: bool,
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
+    runtime_profile: SqlLocalSourceRuntimeProfile,
     delta: Option<VortexIngestDeltaRequest>,
 }
 
@@ -3971,14 +4019,14 @@ struct VortexPreparedStateRefinementCliReport {
     evaluation_millis: u128,
 }
 
-pub(crate) fn handle_sql_local_source_smoke(
+pub(crate) fn handle_local_source_runtime(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    handle_sql_local_source_smoke_with_facade(args, format, COMMAND, Vec::new())
+    handle_local_source_runtime_with_facade(args, format, COMMAND, Vec::new())
 }
 
-pub(crate) fn handle_sql_local_source_smoke_with_facade(
+pub(crate) fn handle_local_source_runtime_with_facade(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
     emit_command: &'static str,
@@ -3997,19 +4045,19 @@ pub(crate) fn handle_sql_local_source_smoke_with_facade(
             return emit_error_with_fields(
                 emit_command,
                 format,
-                "SQL local-source smoke failed",
+                "SQL local-source runtime failed",
                 &error,
                 sql_local_source_error_fields(None, extra_fields),
             );
         }
     };
-    let report = match run_sql_local_source_smoke(&request) {
+    let report = match run_local_source_runtime(&request) {
         Ok(report) => report,
         Err(error) => {
             return emit_error_with_fields(
                 emit_command,
                 format,
-                "SQL local-source smoke failed",
+                "SQL local-source runtime failed",
                 &error,
                 sql_local_source_error_fields(Some(request.runtime_profile), extra_fields),
             );
@@ -4023,7 +4071,7 @@ pub(crate) fn handle_sql_local_source_smoke_with_facade(
         format,
         CommandStatus::Success,
         format!(
-            "SQL local-source smoke returned {} bounded row(s)",
+            "SQL local-source runtime returned {} bounded row(s)",
             report.output_row_count()
         ),
         report.to_text(),
@@ -4282,15 +4330,15 @@ fn vortex_ingest_source_schema_digest(source: &CsvSourceData) -> String {
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn handle_vortex_ingest_smoke(
+pub(crate) fn handle_vortex_prepare(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    handle_vortex_ingest_smoke_with_facade(args, format, VORTEX_INGEST_COMMAND, &[])
+    handle_vortex_prepare_with_facade(args, format, VORTEX_PREPARE_COMMAND, &[])
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn handle_vortex_ingest_smoke_with_facade(
+pub(crate) fn handle_vortex_prepare_with_facade(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
     emit_command: &'static str,
@@ -4298,13 +4346,13 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
 ) -> ExitCode {
     let Some(source_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--schema name:dtype,...] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
+            "usage: shardloom {VORTEX_PREPARE_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--schema name:dtype,...] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let Some(target_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--schema name:dtype,...] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
+            "usage: shardloom {VORTEX_PREPARE_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--schema name:dtype,...] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
         );
         return ExitCode::from(2);
     };
@@ -4323,7 +4371,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "vortex_ingest smoke failed",
+                        "vortex prepare failed",
                         &ShardLoomError::InvalidOperation(format!(
                             "{arg} requires csv, json, jsonl, parquet, arrow-ipc, avro, or orc"
                         )),
@@ -4335,7 +4383,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "vortex_ingest smoke failed",
+                            "vortex prepare failed",
                             &ShardLoomError::InvalidOperation(format!(
                                 "unsupported vortex_ingest input format: {value}; no fallback execution was attempted"
                             )),
@@ -4348,7 +4396,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "vortex_ingest smoke failed",
+                        "vortex prepare failed",
                         &ShardLoomError::InvalidOperation(
                             "--certification-level requires ingest_minimal, ingest_certified, or ingest_full_replay".to_string(),
                         ),
@@ -4361,7 +4409,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                             return emit_error(
                                 emit_command,
                                 format,
-                                "vortex_ingest smoke failed",
+                                "vortex prepare failed",
                                 &error,
                             );
                         }
@@ -4372,7 +4420,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "vortex_ingest smoke failed",
+                        "vortex prepare failed",
                         &ShardLoomError::InvalidOperation(
                             "--schema requires comma-separated name:dtype pairs".to_string(),
                         ),
@@ -4381,12 +4429,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                 source_schema_hints = match parse_vortex_ingest_schema_hints(&value) {
                     Ok(schema) => schema,
                     Err(error) => {
-                        return emit_error(
-                            emit_command,
-                            format,
-                            "vortex_ingest smoke failed",
-                            &error,
-                        );
+                        return emit_error(emit_command, format, "vortex prepare failed", &error);
                     }
                 };
             }
@@ -4395,7 +4438,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "vortex_ingest smoke failed",
+                        "vortex prepare failed",
                         &ShardLoomError::InvalidOperation(
                             "--delta-source requires a local source path".to_string(),
                         ),
@@ -4408,7 +4451,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "vortex_ingest smoke failed",
+                        "vortex prepare failed",
                         &ShardLoomError::InvalidOperation(
                             "--delta-target requires a local .vortex path".to_string(),
                         ),
@@ -4417,12 +4460,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                 match normalize_local_vortex_ingest_target_path(&value) {
                     Ok(path) => delta_target_path = Some(path),
                     Err(error) => {
-                        return emit_error(
-                            emit_command,
-                            format,
-                            "vortex_ingest smoke failed",
-                            &error,
-                        );
+                        return emit_error(emit_command, format, "vortex prepare failed", &error);
                     }
                 }
             }
@@ -4431,7 +4469,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "vortex_ingest smoke failed",
+                        "vortex prepare failed",
                         &ShardLoomError::InvalidOperation(
                             "--delta-update-mode requires append-only, update, delete, or upsert"
                                 .to_string(),
@@ -4445,7 +4483,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                             return emit_error(
                                 emit_command,
                                 format,
-                                "vortex_ingest smoke failed",
+                                "vortex prepare failed",
                                 &error,
                             );
                         }
@@ -4455,8 +4493,8 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                 return emit_error(
                     emit_command,
                     format,
-                    "vortex_ingest smoke failed",
-                    &cli_unknown_arg_error(VORTEX_INGEST_COMMAND, extra),
+                    "vortex prepare failed",
+                    &cli_unknown_arg_error(VORTEX_PREPARE_COMMAND, extra),
                 );
             }
         }
@@ -4466,7 +4504,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
     let target_path = match normalize_local_vortex_ingest_target_path(&target_path_raw) {
         Ok(path) => path,
         Err(error) => {
-            return emit_error(emit_command, format, "vortex_ingest smoke failed", &error);
+            return emit_error(emit_command, format, "vortex prepare failed", &error);
         }
     };
     let delta = match (delta_source_path, delta_target_path) {
@@ -4480,7 +4518,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
             return emit_error(
                 emit_command,
                 format,
-                "vortex_ingest smoke failed",
+                "vortex prepare failed",
                 &ShardLoomError::InvalidOperation(
                     "vortex_ingest differential preparation requires --delta-target when --delta-source is provided; no fallback execution was attempted"
                         .to_string(),
@@ -4491,7 +4529,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
             return emit_error(
                 emit_command,
                 format,
-                "vortex_ingest smoke failed",
+                "vortex prepare failed",
                 &ShardLoomError::InvalidOperation(
                     "vortex_ingest differential preparation requires --delta-source when --delta-target is provided; no fallback execution was attempted"
                         .to_string(),
@@ -4505,6 +4543,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
         target_path,
         allow_overwrite,
         certification_level,
+        runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         delta,
     };
 
@@ -4522,7 +4561,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
         return ExitCode::from(1);
     }
 
-    let outcome = match run_vortex_ingest_smoke_with_schema(request.clone(), &source_schema_hints) {
+    let outcome = match run_vortex_prepare_with_schema(request.clone(), &source_schema_hints) {
         Ok(outcome) => outcome,
         Err(error) => {
             if let Some(fields) = vortex_ingest_scout_blocked_fields(&request, &error) {
@@ -4541,7 +4580,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
                 );
                 return ExitCode::from(1);
             }
-            return emit_error(emit_command, format, "vortex_ingest smoke failed", &error);
+            return emit_error(emit_command, format, "vortex prepare failed", &error);
         }
     };
 
@@ -4646,9 +4685,10 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         target_path: target_path.clone(),
         allow_overwrite,
         certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
+        runtime_profile: SqlLocalSourceRuntimeProfile::ProductLocalWorkflow,
         delta: None,
     };
-    let raw_fields = match run_vortex_ingest_smoke(request)? {
+    let raw_fields = match run_vortex_prepare(request)? {
         VortexIngestOutcome::Prepared(report) => {
             if report.differential_preparation_blocked() {
                 return Err(ShardLoomError::InvalidOperation(format!(
@@ -4686,7 +4726,26 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "source_state_digest",
         "source_state_contract_schema_version",
         "source_state_read_plan",
+        "source_read_scout_schema_version",
+        "source_read_scout_status",
+        "source_read_scout_timing_split_status",
+        "source_read_metadata_scout_millis",
+        "source_read_byte_acquisition_millis",
+        "source_read_full_body_millis",
+        "source_read_buffer_carry_status",
+        "source_read_mmap_eligibility_status",
+        "source_read_many_small_file_batching_status",
         "source_state_projection_pushdown_status",
+        "source_state_materialization_layout",
+        "source_state_parse_normalization",
+        "source_state_columnar_preserved",
+        "source_state_record_batch_count",
+        "source_state_materialized_column_count",
+        "source_state_materialized_columns",
+        "source_state_reader_projection_column_count",
+        "source_state_reader_projection_columns",
+        "source_state_pruned_column_count",
+        "source_state_column_pruning_applied",
         "prepared_state_id",
         "prepared_state_digest",
         "prepared_state_created",
@@ -4697,8 +4756,28 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "prepared_artifact_digest",
         "prepare_once_millis",
         "vortex_write_millis",
+        "vortex_write_timing_split_schema_version",
+        "vortex_writer_context_open_millis",
+        "vortex_writer_context_reuse_status",
+        "vortex_segment_write_millis",
+        "vortex_workspace_stage_millis",
+        "vortex_digest_millis",
+        "vortex_reopen_hot_path_status",
         "vortex_reopen_verify_millis",
+        "vortex_copy_budget_status",
+        "vortex_copy_budget_buffer_reuse_status",
+        "vortex_copy_budget_buffer_reuse_count",
+        "vortex_prepared_state_reuse_index_schema_version",
+        "vortex_prepared_state_reuse_index_lookup_status",
+        "vortex_prepared_state_reuse_index_cache_scope",
+        "vortex_prepared_state_reuse_index_repair_status",
+        "vortex_prepared_state_reuse_role_scoped_repair_status",
         "query_timing_starts_after_preparation",
+        "local_workflow_input_row_cap",
+        "local_workflow_synthetic_input_row_cap_enabled",
+        "local_workflow_synthetic_output_row_cap_enabled",
+        "local_workflow_synthetic_source_byte_cap_enabled",
+        "local_workflow_synthetic_join_candidate_cap_enabled",
         "fallback_attempted",
         "external_engine_invoked",
     ];
@@ -4771,13 +4850,11 @@ fn canonical_output_path_key(path: &Path) -> Result<String, ShardLoomError> {
     Ok(normalized_output_path_key(&plan.target_path))
 }
 
-fn run_vortex_ingest_smoke(
-    request: VortexIngestRequest,
-) -> Result<VortexIngestOutcome, ShardLoomError> {
-    run_vortex_ingest_smoke_with_schema(request, &[])
+fn run_vortex_prepare(request: VortexIngestRequest) -> Result<VortexIngestOutcome, ShardLoomError> {
+    run_vortex_prepare_with_schema(request, &[])
 }
 
-fn run_vortex_ingest_smoke_with_schema(
+fn run_vortex_prepare_with_schema(
     request: VortexIngestRequest,
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestOutcome, ShardLoomError> {
@@ -4798,6 +4875,7 @@ fn run_vortex_ingest_smoke_with_schema(
                 target_path: delta.target_path.clone(),
                 allow_overwrite: base_report.request.allow_overwrite,
                 certification_level: base_report.request.certification_level,
+                runtime_profile: base_report.request.runtime_profile,
                 delta: None,
             },
             source_schema_hints,
@@ -4950,6 +5028,7 @@ fn run_vortex_ingest_append_only_refinement(
             target_path: delta_target_path,
             allow_overwrite: true,
             certification_level: request.certification_level,
+            runtime_profile: request.runtime_profile,
             delta: None,
         },
         source_schema_hints,
@@ -5055,10 +5134,10 @@ fn run_vortex_ingest_prepare_once_with_adapter(
             .source_format
             .preserves_columnar_vortex_ingest_source_state()
         {
-            return run_columnar_vortex_ingest_smoke(request, source_adapter, source_schema_hints);
+            return run_columnar_vortex_prepare(request, source_adapter, source_schema_hints);
         }
     }
-    run_scalar_vortex_ingest_smoke(request, source_adapter, source_schema_hints)
+    run_scalar_vortex_prepare(request, source_adapter, source_schema_hints)
 }
 
 fn vortex_ingest_prepared_state_reuse_request(
@@ -5075,7 +5154,7 @@ fn vortex_ingest_prepared_state_reuse_request(
         source_adapter.source_format.adapter_boundary(),
         request.certification_level.as_str(),
         LOCAL_INPUT_ADAPTER_REGISTRY_VERSION,
-        VORTEX_INGEST_SCHEMA_VERSION,
+        VORTEX_PREPARE_SCHEMA_VERSION,
         schema_hints_digest(source_schema_hints)
     ));
     let feature_gates = if source_adapter.source_format.feature_gate() == "default" {
@@ -5716,6 +5795,7 @@ fn copy_budget_report(
     let source_read_copy_bytes = source.source_bytes;
     let writer_buffer_bytes = vortex_report.bytes_written;
     let total_measured_copy_bytes = source_read_copy_bytes.saturating_add(writer_buffer_bytes);
+    let buffer_reuse_status = copy_buffer_reuse_status(source, vortex_report);
     shardloom_vortex::evaluate_vortex_copy_budget(shardloom_vortex::VortexCopyBudgetInput {
         source_state_id: source_state_id.to_string(),
         source_state_digest: source_state_digest.to_string(),
@@ -5741,8 +5821,8 @@ fn copy_budget_report(
         buffer_family: copy_buffer_family(source).to_string(),
         ownership_policy: "owned_buffers_no_borrowed_lifetime_reuse".to_string(),
         writer_buffering_status: "writer_bytes_reported_from_local_vortex_artifact".to_string(),
-        buffer_reuse_status: "blocked_until_correctness_parity".to_string(),
-        buffer_reuse_count: 0,
+        buffer_reuse_status: buffer_reuse_status.to_string(),
+        buffer_reuse_count: copy_buffer_reuse_count(buffer_reuse_status),
         unsafe_lifetime_shortcut_status: "blocked_no_unsafe_lifetime_shortcuts".to_string(),
         correctness_parity_refs:
             "source_state_digest,prepared_state_digest,writer_row_count,reopen_row_count"
@@ -5759,6 +5839,32 @@ fn copy_budget_report(
         fallback_attempted: false,
         external_engine_invoked: false,
     })
+}
+
+fn copy_buffer_reuse_status(
+    source: &VortexIngestSourceData,
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> &'static str {
+    let writer_count_verified = vortex_report.writer_row_count == vortex_report.row_count;
+    let reopen_verified = vortex_report.reopen_verification_status == "reopen_row_count_verified";
+    let minimal_digest_verified = vortex_report.reopen_verification_status
+        == "not_performed_ingest_minimal"
+        && vortex_report.artifact_digest.starts_with("sha256:");
+    if !writer_count_verified || !(reopen_verified || minimal_digest_verified) {
+        return "blocked_until_correctness_parity";
+    }
+    if source.columnar_source_preserved {
+        "admitted_columnar_source_state_reuse_with_digest_and_row_count_proof"
+    } else if source.source_read_buffer_carry_status() == "read_once_buffer_carried_to_text_parser"
+    {
+        "admitted_read_once_source_buffer_carry_with_digest_and_row_count_proof"
+    } else {
+        "reported_no_buffer_reuse"
+    }
+}
+
+fn copy_buffer_reuse_count(status: &str) -> u64 {
+    u64::from(status.starts_with("admitted"))
 }
 
 fn copy_parse_normalization_bytes(source: &VortexIngestSourceData) -> String {
@@ -5805,7 +5911,7 @@ fn copy_buffer_family(source: &VortexIngestSourceData) -> &'static str {
     }
 }
 
-fn run_scalar_vortex_ingest_smoke(
+fn run_scalar_vortex_prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
     source_schema_hints: &[(String, LogicalDType)],
@@ -5815,7 +5921,7 @@ fn run_scalar_vortex_ingest_smoke(
         &request.source_path,
         &LocalSourceReadPlan::full("full_vortex_ingest_source_state"),
         source_adapter,
-        SqlLocalSourceRuntimeProfile::Smoke.read_limits(),
+        request.runtime_profile.read_limits(),
     )?;
     apply_vortex_ingest_schema_hints(&mut source, source_schema_hints)?;
     let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
@@ -5913,7 +6019,7 @@ fn run_scalar_vortex_ingest_smoke(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_lines)]
-fn run_columnar_vortex_ingest_smoke(
+fn run_columnar_vortex_prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
     source_schema_hints: &[(String, LogicalDType)],
@@ -5926,33 +6032,61 @@ fn run_columnar_vortex_ingest_smoke(
     }
     reject_remote_source_path(&request.source_path)?;
     let source_format = source_adapter.source_format;
+    let read_limits = request.runtime_profile.read_limits();
     let prepare_start = Instant::now();
     let read_start = Instant::now();
-    let (source_bytes, source_digest) = if request.source_path.is_dir() {
+    let (
+        source_bytes,
+        source_digest,
+        source_metadata_scout_millis,
+        source_byte_acquisition_millis,
+        source_full_body_millis,
+    ) = if request.source_path.is_dir() {
         let partitions = read_local_source_partition_files_with_budget(
             &request.source_path,
             source_format,
-            Some(MAX_LOCAL_SOURCE_BYTES),
+            read_limits.source_bytes,
         )?;
-        (partitions.source_bytes, partitions.source_digest)
+        (
+            partitions.source_bytes,
+            partitions.source_digest,
+            partitions.source_metadata_scout_millis,
+            partitions.source_byte_acquisition_millis,
+            partitions.source_full_body_millis,
+        )
     } else {
-        let bytes = read_local_source_bytes_with_budget(
+        let byte_read = read_local_source_bytes_with_budget_report(
             &request.source_path,
             source_format.row_label(),
-            Some(MAX_LOCAL_SOURCE_BYTES),
+            read_limits.source_bytes,
         )?;
+        let source_metadata_scout_millis = byte_read.source_metadata_scout_millis;
+        let source_byte_acquisition_millis = byte_read.source_byte_acquisition_millis;
+        let source_full_body_millis = byte_read.source_full_body_millis;
+        let bytes = byte_read.bytes;
         let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
             ShardLoomError::InvalidOperation(format!(
                 "{} source length does not fit in u64",
                 source_format.row_label()
             ))
         })?;
-        (source_bytes, fnv64_digest_bytes(&bytes))
+        (
+            source_bytes,
+            fnv64_digest_bytes(&bytes),
+            source_metadata_scout_millis,
+            source_byte_acquisition_millis,
+            source_full_body_millis,
+        )
     };
     let read_millis = read_start.elapsed().as_millis();
     let source_to_columnar_start = Instant::now();
-    let columnar_source =
-        read_columnar_vortex_ingest_source(source_format, &request.source_path, MAX_INPUT_ROWS)?;
+    let max_rows = read_limits.input_rows.unwrap_or(usize::MAX);
+    let columnar_source = read_columnar_vortex_ingest_source(
+        source_format,
+        &request.source_path,
+        max_rows,
+        read_limits.source_bytes,
+    )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     for column in &columnar_source.header {
         validate_sql_identifier(column)?;
@@ -5963,6 +6097,9 @@ fn run_columnar_vortex_ingest_smoke(
         &columnar_source,
         source_bytes,
         source_digest,
+        source_metadata_scout_millis,
+        source_byte_acquisition_millis,
+        source_full_body_millis,
         read_millis,
         source_to_columnar_millis,
     );
@@ -6059,9 +6196,15 @@ fn read_columnar_vortex_ingest_source(
     source_format: LocalSourceFormat,
     path: &Path,
     max_rows: usize,
+    source_byte_budget: Option<u64>,
 ) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError> {
     if path.is_dir() {
-        return read_columnar_vortex_ingest_partition_source(source_format, path, max_rows);
+        return read_columnar_vortex_ingest_partition_source(
+            source_format,
+            path,
+            max_rows,
+            source_byte_budget,
+        );
     }
     match source_format {
         LocalSourceFormat::Parquet => {
@@ -6086,12 +6229,10 @@ fn read_columnar_vortex_ingest_partition_source(
     source_format: LocalSourceFormat,
     path: &Path,
     max_rows: usize,
+    source_byte_budget: Option<u64>,
 ) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError> {
-    let partition_files = read_local_source_partition_files_with_budget(
-        path,
-        source_format,
-        Some(MAX_LOCAL_SOURCE_BYTES),
-    )?;
+    let partition_files =
+        read_local_source_partition_files_with_budget(path, source_format, source_byte_budget)?;
     let mut combined: Option<shardloom_vortex::FlatLocalColumnarSource> = None;
     let mut remaining_rows = max_rows;
     for file in partition_files.files {
@@ -6330,17 +6471,17 @@ impl VortexIngestReport {
         let certified_reopen = self.request.certification_level
             == shardloom_vortex::VortexIngestCertificationLevel::IngestCertified;
         let certification_status = if certified_reopen {
-            "fixture_smoke_certified"
+            self.request.runtime_profile.certification_status()
         } else {
             "minimal_ingest_evidence_reported"
         };
         let certification_blocker_id = if certified_reopen {
-            "not_claim_grade_fixture_smoke"
+            self.request.runtime_profile.certification_blocker_id()
         } else {
             "not_claim_grade_ingest_minimal_no_reopen_or_replay"
         };
         let native_io_certificate_status = if certified_reopen {
-            "certified_local_vortex_ingest_smoke"
+            self.request.runtime_profile.certification_status()
         } else {
             "minimal_local_vortex_ingest_digest_only"
         };
@@ -6360,19 +6501,19 @@ impl VortexIngestReport {
             "not_invoked"
         };
         let claim_gate_status = if certified_reopen {
-            "fixture_smoke_only"
+            self.request.runtime_profile.claim_gate_status()
         } else {
             "not_claim_grade"
         };
         let claim_gate_reason = if certified_reopen {
-            "one_scoped_local_vortex_ingest_prepare_once_smoke"
+            self.request.runtime_profile.ingress_certification_level()
         } else {
             "ingest_minimal_records_artifact_digest_without_reopen_or_result_replay"
         };
         let mut fields = vec![
             (
                 "schema_version".to_string(),
-                VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+                VORTEX_PREPARE_SCHEMA_VERSION.to_string(),
             ),
             ("execution_mode".to_string(), "prepared_vortex".to_string()),
             (
@@ -6383,7 +6524,7 @@ impl VortexIngestReport {
             ("runtime_execution".to_string(), "true".to_string()),
             (
                 "support_status".to_string(),
-                "fixture_smoke_supported".to_string(),
+                self.request.runtime_profile.support_status().to_string(),
             ),
             ("source_io_performed".to_string(), "true".to_string()),
             (
@@ -6426,7 +6567,10 @@ impl VortexIngestReport {
             ),
             (
                 "source_adapter_status".to_string(),
-                "smoke_supported".to_string(),
+                self.request
+                    .runtime_profile
+                    .source_adapter_status()
+                    .to_string(),
             ),
             (
                 "source_adapter_admitted_extensions".to_string(),
@@ -6446,14 +6590,58 @@ impl VortexIngestReport {
             ),
             (
                 "source_adapter_blocker_id".to_string(),
-                "none_scoped_vortex_ingest_smoke_only".to_string(),
+                self.request
+                    .runtime_profile
+                    .source_adapter_blocker_id()
+                    .to_string(),
+            ),
+            (
+                "local_workflow_input_row_cap".to_string(),
+                self.request
+                    .runtime_profile
+                    .input_row_cap_label()
+                    .to_string(),
+            ),
+            (
+                "local_workflow_synthetic_input_row_cap_enabled".to_string(),
+                self.request
+                    .runtime_profile
+                    .synthetic_input_row_cap_enabled()
+                    .to_string(),
+            ),
+            (
+                "local_workflow_synthetic_output_row_cap_enabled".to_string(),
+                self.request
+                    .runtime_profile
+                    .synthetic_output_row_cap_enabled()
+                    .to_string(),
+            ),
+            (
+                "local_workflow_synthetic_source_byte_cap_enabled".to_string(),
+                self.request
+                    .runtime_profile
+                    .synthetic_source_byte_cap_enabled()
+                    .to_string(),
+            ),
+            (
+                "local_workflow_synthetic_join_candidate_cap_enabled".to_string(),
+                self.request
+                    .runtime_profile
+                    .synthetic_join_candidate_cap_enabled()
+                    .to_string(),
             ),
             ("ingress_route".to_string(), "vortex_ingest".to_string()),
             (
                 "ingress_route_label".to_string(),
                 "Vortex ingest / prepare once route".to_string(),
             ),
-            ("ingress_status".to_string(), "smoke_supported".to_string()),
+            (
+                "ingress_status".to_string(),
+                self.request
+                    .runtime_profile
+                    .source_adapter_status()
+                    .to_string(),
+            ),
             (
                 "ingress_certification_level".to_string(),
                 self.vortex_report.certification_level.clone(),
@@ -6465,7 +6653,7 @@ impl VortexIngestReport {
             ),
             (
                 "vortex_ingest_blocker_id".to_string(),
-                "none_scoped_local_vortex_ingest_smoke".to_string(),
+                "none_local_vortex_prepare".to_string(),
             ),
             (
                 "prepared_state_id".to_string(),
@@ -6504,6 +6692,49 @@ impl VortexIngestReport {
             (
                 "source_bytes".to_string(),
                 self.source.source_bytes.to_string(),
+            ),
+            (
+                "source_read_scout_schema_version".to_string(),
+                "shardloom.local_source_read_scout.v1".to_string(),
+            ),
+            (
+                "source_read_scout_status".to_string(),
+                "source_read_scout_split_recorded".to_string(),
+            ),
+            (
+                "source_read_scout_timing_split_status".to_string(),
+                "metadata_scout_and_byte_acquisition_split_recorded".to_string(),
+            ),
+            (
+                "source_read_metadata_scout_millis".to_string(),
+                self.source.source_metadata_scout_millis.to_string(),
+            ),
+            (
+                "source_read_byte_acquisition_millis".to_string(),
+                self.source.source_byte_acquisition_millis.to_string(),
+            ),
+            (
+                "source_read_full_body_millis".to_string(),
+                self.source.source_full_body_millis.to_string(),
+            ),
+            (
+                "source_read_buffer_carry_status".to_string(),
+                self.source.source_read_buffer_carry_status().to_string(),
+            ),
+            (
+                "source_read_mmap_eligibility_status".to_string(),
+                self.source
+                    .source_read_mmap_eligibility_status()
+                    .to_string(),
+            ),
+            (
+                "source_read_many_small_file_batching_status".to_string(),
+                if self.source.preparation_spine_source_split_count() > 1 {
+                    "partition_directory_sorted_sequential_batches"
+                } else {
+                    "not_applicable_single_file"
+                }
+                .to_string(),
             ),
             (
                 "source_digest".to_string(),
@@ -6589,7 +6820,7 @@ impl VortexIngestReport {
             ("source_state_reuse_hit".to_string(), "false".to_string()),
             (
                 "source_state_reuse_reason".to_string(),
-                "created_for_scoped_vortex_ingest_smoke".to_string(),
+                "created_for_vortex_prepare".to_string(),
             ),
             (
                 "source_schema_digest".to_string(),
@@ -6684,6 +6915,18 @@ impl VortexIngestReport {
                 self.source.read_millis.to_string(),
             ),
             (
+                "source_read_metadata_scout_millis".to_string(),
+                self.source.source_metadata_scout_millis.to_string(),
+            ),
+            (
+                "source_read_byte_acquisition_millis".to_string(),
+                self.source.source_byte_acquisition_millis.to_string(),
+            ),
+            (
+                "source_read_full_body_millis".to_string(),
+                self.source.source_full_body_millis.to_string(),
+            ),
+            (
                 "compatibility_parse_millis".to_string(),
                 self.source.compatibility_parse_millis.to_string(),
             ),
@@ -6733,6 +6976,35 @@ impl VortexIngestReport {
                 self.vortex_report.write_micros.div_ceil(1000).to_string(),
             ),
             (
+                "vortex_write_timing_split_schema_version".to_string(),
+                "shardloom.vortex_write_timing_split.v1".to_string(),
+            ),
+            (
+                "vortex_writer_context_open_millis".to_string(),
+                self.vortex_report
+                    .writer_context_open_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
+                "vortex_writer_context_reuse_status".to_string(),
+                self.vortex_report.writer_context_reuse_status.clone(),
+            ),
+            (
+                "vortex_segment_write_millis".to_string(),
+                self.vortex_report
+                    .vortex_segment_write_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
+                "vortex_workspace_stage_millis".to_string(),
+                self.vortex_report
+                    .workspace_stage_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
                 "vortex_digest_millis".to_string(),
                 self.vortex_report.digest_micros.div_ceil(1000).to_string(),
             ),
@@ -6756,6 +7028,15 @@ impl VortexIngestReport {
                     .reopen_scan_micros
                     .div_ceil(1000)
                     .to_string(),
+            ),
+            (
+                "vortex_reopen_hot_path_status".to_string(),
+                if self.vortex_report.upstream_vortex_scan_called {
+                    "performed_for_ingest_certification"
+                } else {
+                    "skipped_minimal_ingest_digest_path"
+                }
+                .to_string(),
             ),
             ("warm_query_millis".to_string(), "0".to_string()),
             (
@@ -7010,7 +7291,7 @@ impl VortexIngestReport {
 
     fn to_text(&self) -> String {
         let mut text = format!(
-            "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\ncertification level: {}\nscout ingress: {}\nlayout/write advisor: {}\nreopen verification: {}\nprepared state: {}\ncapillary preparation: {}\ncopy budget: {}\npulseweave: {}\nfallback execution: disabled",
+            "ShardLoom Vortex prepare\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\ncertification level: {}\nscout ingress: {}\nlayout/write advisor: {}\nreopen verification: {}\nprepared state: {}\ncapillary preparation: {}\ncopy budget: {}\npulseweave: {}\nfallback execution: disabled",
             self.request.source_path.display(),
             self.request.target_path.display(),
             self.source.source_format.as_str(),
@@ -7054,7 +7335,7 @@ impl VortexPreparedStateReuseCliReport {
         let mut fields = vec![
             (
                 "schema_version".to_string(),
-                VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+                VORTEX_PREPARE_SCHEMA_VERSION.to_string(),
             ),
             ("execution_mode".to_string(), "prepared_vortex".to_string()),
             (
@@ -7135,7 +7416,7 @@ impl VortexPreparedStateReuseCliReport {
             ),
             (
                 "source_adapter_blocker_id".to_string(),
-                "none_scoped_vortex_ingest_smoke_only".to_string(),
+                "none_vortex_prepare".to_string(),
             ),
             ("ingress_route".to_string(), "vortex_ingest".to_string()),
             (
@@ -7196,6 +7477,39 @@ impl VortexPreparedStateReuseCliReport {
             (
                 "source_bytes".to_string(),
                 self.reuse_report.source_size_bytes.to_string(),
+            ),
+            (
+                "source_read_scout_schema_version".to_string(),
+                "shardloom.local_source_read_scout.v1".to_string(),
+            ),
+            (
+                "source_read_scout_status".to_string(),
+                "not_applicable_manifest_reuse".to_string(),
+            ),
+            (
+                "source_read_scout_timing_split_status".to_string(),
+                "not_applicable_manifest_reuse_skips_source_body_read".to_string(),
+            ),
+            (
+                "source_read_metadata_scout_millis".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "source_read_byte_acquisition_millis".to_string(),
+                "0".to_string(),
+            ),
+            ("source_read_full_body_millis".to_string(), "0".to_string()),
+            (
+                "source_read_buffer_carry_status".to_string(),
+                "not_applicable_manifest_reuse".to_string(),
+            ),
+            (
+                "source_read_mmap_eligibility_status".to_string(),
+                "not_applicable_manifest_reuse".to_string(),
+            ),
+            (
+                "source_read_many_small_file_batching_status".to_string(),
+                "not_applicable_manifest_reuse".to_string(),
             ),
             (
                 "source_digest".to_string(),
@@ -7327,6 +7641,15 @@ impl VortexPreparedStateReuseCliReport {
                 self.evaluation_millis.to_string(),
             ),
             ("source_read_millis".to_string(), "0".to_string()),
+            (
+                "source_read_metadata_scout_millis".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "source_read_byte_acquisition_millis".to_string(),
+                "0".to_string(),
+            ),
+            ("source_read_full_body_millis".to_string(), "0".to_string()),
             ("compatibility_parse_millis".to_string(), "0".to_string()),
             ("source_to_columnar_millis".to_string(), "0".to_string()),
             ("vortex_array_build_millis".to_string(), "0".to_string()),
@@ -7447,7 +7770,7 @@ impl VortexPreparedStateRefinementCliReport {
         let mut fields = vec![
             (
                 "schema_version".to_string(),
-                VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+                VORTEX_PREPARE_SCHEMA_VERSION.to_string(),
             ),
             ("execution_mode".to_string(), "prepared_vortex".to_string()),
             (
@@ -7528,7 +7851,7 @@ impl VortexPreparedStateRefinementCliReport {
             ),
             (
                 "source_adapter_blocker_id".to_string(),
-                "none_scoped_vortex_ingest_smoke_only".to_string(),
+                "none_vortex_prepare".to_string(),
             ),
             ("ingress_route".to_string(), "vortex_ingest".to_string()),
             (
@@ -7991,7 +8314,7 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
     let mut fields = vec![
         (
             "schema_version".to_string(),
-            VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+            VORTEX_PREPARE_SCHEMA_VERSION.to_string(),
         ),
         ("execution_mode".to_string(), "prepared_vortex".to_string()),
         (
@@ -8181,7 +8504,7 @@ fn vortex_ingest_scout_blocked_fields(
     let mut fields = vec![
         (
             "schema_version".to_string(),
-            VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+            VORTEX_PREPARE_SCHEMA_VERSION.to_string(),
         ),
         ("execution_mode".to_string(), "prepared_vortex".to_string()),
         (
@@ -8313,6 +8636,7 @@ fn vortex_ingest_scout_blocked_request(
             target_path: delta.target_path.clone(),
             allow_overwrite: request.allow_overwrite,
             certification_level: request.certification_level,
+            runtime_profile: request.runtime_profile,
             delta: None,
         };
     }
@@ -8864,7 +9188,7 @@ fn push_window_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut BTr
     }
 }
 
-fn run_sql_local_source_smoke(
+fn run_local_source_runtime(
     request: &SqlLocalSourceRequest,
 ) -> Result<SqlLocalSourceRunReport, ShardLoomError> {
     let statement = normalize_sql_statement(&request.statement)?;
@@ -8873,12 +9197,12 @@ fn run_sql_local_source_smoke(
             .map(Box::new)
             .map(SqlLocalSourceRunReport::Union);
     }
-    run_sql_local_source_smoke_single(request)
+    run_local_source_runtime_single(request)
         .map(Box::new)
         .map(SqlLocalSourceRunReport::Single)
 }
 
-fn run_sql_local_source_smoke_single(
+fn run_local_source_runtime_single(
     request: &SqlLocalSourceRequest,
 ) -> Result<SqlLocalSourceReport, ShardLoomError> {
     let total_start = Instant::now();
@@ -9044,7 +9368,7 @@ fn validate_sql_local_source_output_limit(
         && parsed.limit > max_output_rows
     {
         return Err(unsupported_sql_error(&format!(
-            "scoped SQL local-source smoke supports LIMIT <= {max_output_rows}"
+            "scoped SQL local-source runtime supports LIMIT <= {max_output_rows}"
         )));
     }
     Ok(())
@@ -9198,7 +9522,7 @@ fn run_sql_union_branch_reports(
                 allow_overwrite: false,
                 runtime_profile,
             };
-            run_sql_local_source_smoke_single(&branch_request)
+            run_local_source_runtime_single(&branch_request)
         })
         .collect()
 }
@@ -27000,6 +27324,49 @@ impl SqlLocalSourceReport {
                 self.source.source_bytes.to_string(),
             ),
             (
+                "source_read_scout_schema_version".to_string(),
+                "shardloom.local_source_read_scout.v1".to_string(),
+            ),
+            (
+                "source_read_scout_status".to_string(),
+                "source_read_scout_split_recorded".to_string(),
+            ),
+            (
+                "source_read_scout_timing_split_status".to_string(),
+                "metadata_scout_and_byte_acquisition_split_recorded".to_string(),
+            ),
+            (
+                "source_read_metadata_scout_millis".to_string(),
+                self.source.source_metadata_scout_millis.to_string(),
+            ),
+            (
+                "source_read_byte_acquisition_millis".to_string(),
+                self.source.source_byte_acquisition_millis.to_string(),
+            ),
+            (
+                "source_read_full_body_millis".to_string(),
+                self.source.source_full_body_millis.to_string(),
+            ),
+            (
+                "source_read_buffer_carry_status".to_string(),
+                self.source.source_read_buffer_carry_status().to_string(),
+            ),
+            (
+                "source_read_mmap_eligibility_status".to_string(),
+                self.source
+                    .source_read_mmap_eligibility_status()
+                    .to_string(),
+            ),
+            (
+                "source_read_many_small_file_batching_status".to_string(),
+                if self.parsed.source_path.is_dir() {
+                    "partition_directory_sorted_sequential_batches"
+                } else {
+                    "not_applicable_single_file"
+                }
+                .to_string(),
+            ),
+            (
                 "source_digest".to_string(),
                 self.source.source_digest.clone(),
             ),
@@ -29334,6 +29701,18 @@ impl SqlLocalSourceReport {
                 self.source.read_millis.to_string(),
             ),
             (
+                "source_read_metadata_scout_millis".to_string(),
+                self.source.source_metadata_scout_millis.to_string(),
+            ),
+            (
+                "source_read_byte_acquisition_millis".to_string(),
+                self.source.source_byte_acquisition_millis.to_string(),
+            ),
+            (
+                "source_read_full_body_millis".to_string(),
+                self.source.source_full_body_millis.to_string(),
+            ),
+            (
                 "compatibility_parse_millis".to_string(),
                 self.source.parse_millis.to_string(),
             ),
@@ -30227,13 +30606,16 @@ fn read_local_source_with_plan_and_adapter(
         );
     }
     let source_format = source_adapter.source_format;
-    let read_start = Instant::now();
-    let bytes = read_local_source_bytes_with_budget(
+    let byte_read = read_local_source_bytes_with_budget_report(
         path,
         source_format.row_label(),
         read_limits.source_bytes,
     )?;
-    let read_millis = read_start.elapsed().as_millis();
+    let read_millis = byte_read.total_read_millis();
+    let source_metadata_scout_millis = byte_read.source_metadata_scout_millis;
+    let source_byte_acquisition_millis = byte_read.source_byte_acquisition_millis;
+    let source_full_body_millis = byte_read.source_full_body_millis;
+    let bytes = byte_read.bytes;
     let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
         ShardLoomError::InvalidOperation(format!(
             "{} source length does not fit in u64",
@@ -30302,6 +30684,9 @@ fn read_local_source_with_plan_and_adapter(
         projection_pushdown_status,
         source_bytes,
         source_digest,
+        source_metadata_scout_millis,
+        source_byte_acquisition_millis,
+        source_full_body_millis,
         read_millis,
         parse_millis: parse_start.elapsed().as_millis(),
         source_to_columnar_millis,
@@ -30325,9 +30710,12 @@ fn read_local_source_directory_with_plan_and_adapter(
         source_format,
         read_limits.source_bytes,
     )?;
-    let read_millis = read_start.elapsed().as_millis();
     let source_bytes = partition_files.source_bytes;
     let source_digest = partition_files.source_digest;
+    let source_metadata_scout_millis = partition_files.source_metadata_scout_millis;
+    let source_byte_acquisition_millis = partition_files.source_byte_acquisition_millis;
+    let source_full_body_millis = partition_files.source_full_body_millis;
+    let read_millis = read_start.elapsed().as_millis();
     let parse_start = Instant::now();
     let content = match source_format {
         LocalSourceFormat::Csv => {
@@ -30359,7 +30747,7 @@ fn read_local_source_directory_with_plan_and_adapter(
         | LocalSourceFormat::Avro
         | LocalSourceFormat::Orc => {
             return Err(unsupported_sql_error(&format!(
-                "local {} partition directories are admitted through the universal-format Vortex preparation path, not the scalar SQL smoke reader",
+                "local {} partition directories are admitted through the universal-format Vortex preparation path, not the scalar local-source runtime reader",
                 source_format.row_label()
             )));
         }
@@ -30393,6 +30781,9 @@ fn read_local_source_directory_with_plan_and_adapter(
         projection_pushdown_status: source_format.projection_pushdown_status(read_plan),
         source_bytes,
         source_digest,
+        source_metadata_scout_millis,
+        source_byte_acquisition_millis,
+        source_full_body_millis,
         read_millis,
         parse_millis: parse_start.elapsed().as_millis(),
         source_to_columnar_millis,
@@ -30588,14 +30979,13 @@ fn parse_csv_source_content_with_plan(
     let mut records = content
         .lines()
         .filter(|line| !line.trim().is_empty())
-        .map(split_csv_record)
-        .collect::<Result<Vec<_>, _>>()?;
-    if records.is_empty() {
+        .map(split_csv_record);
+    let Some(header_record) = records.next() else {
         return Err(unsupported_sql_error(
             "CSV source must include a header row",
         ));
-    }
-    let mut header = records.remove(0);
+    };
+    let mut header = header_record?;
     strip_utf8_bom_from_first_header_cell(&mut header);
     if header.is_empty() {
         return Err(unsupported_sql_error("CSV source header must not be empty"));
@@ -30603,18 +30993,13 @@ fn parse_csv_source_content_with_plan(
     for column in &header {
         validate_sql_identifier(column)?;
     }
-    if let Some(max_input_rows) = max_input_rows
-        && records.len() > max_input_rows
-    {
-        return Err(unsupported_sql_error(&format!(
-            "local source runtime profile supports at most {max_input_rows} CSV data rows"
-        )));
-    }
-    let mut rows = Vec::with_capacity(records.len());
+    let mut rows = Vec::new();
     for record in records {
+        let record = record?;
+        enforce_local_source_row_budget(rows.len() + 1, max_input_rows, "CSV")?;
         if record.len() != header.len() {
             return Err(unsupported_sql_error(
-                "CSV row width must match the header width for this scoped SQL smoke",
+                "CSV row width must match the header width for this scoped SQL local-source runtime",
             ));
         }
         let mut row = ExpressionInputRow::new();
@@ -30663,7 +31048,8 @@ fn parse_jsonl_partition_files_with_plan(
     read_plan: &LocalSourceReadPlan,
     max_input_rows: Option<usize>,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
-    let mut raw_rows = Vec::new();
+    let mut header = Vec::new();
+    let mut rows = Vec::new();
     for file in files {
         let content =
             decode_local_text_source(&file.path, LocalSourceFormat::JsonLines, file.bytes.clone())?;
@@ -30684,16 +31070,17 @@ fn parse_jsonl_partition_files_with_plan(
                     line_index + 1
                 ))
             })?;
-            raw_rows.push(fields);
-            enforce_partition_row_budget(raw_rows.len(), max_input_rows, "JSONL")?;
+            append_flat_json_fields_to_materialized_rows(
+                &mut header,
+                &mut rows,
+                fields,
+                read_plan,
+            )?;
+            enforce_partition_row_budget(rows.len(), max_input_rows, "JSONL")?;
         }
     }
-    materialize_flat_json_rows(
-        "JSONL partition directory",
-        raw_rows,
-        read_plan,
-        max_input_rows,
-    )
+    ensure_flat_json_rows_present("JSONL partition directory", &rows)?;
+    Ok((header, rows))
 }
 
 fn parse_json_partition_files_with_plan(
@@ -30751,6 +31138,21 @@ fn enforce_partition_row_budget(
     Ok(())
 }
 
+fn enforce_local_source_row_budget(
+    row_count: usize,
+    max_input_rows: Option<usize>,
+    source_label: &str,
+) -> Result<(), ShardLoomError> {
+    if let Some(max_input_rows) = max_input_rows
+        && row_count > max_input_rows
+    {
+        return Err(unsupported_sql_error(&format!(
+            "local source runtime profile supports at most {max_input_rows} {source_label} data rows"
+        )));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 fn parse_jsonl_source_content(
     content: &str,
@@ -30767,7 +31169,8 @@ fn parse_jsonl_source_content_with_plan(
     read_plan: &LocalSourceReadPlan,
     max_input_rows: Option<usize>,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
-    let mut raw_rows = Vec::new();
+    let mut header = Vec::new();
+    let mut rows = Vec::new();
     for (line_index, line) in content
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -30784,9 +31187,11 @@ fn parse_jsonl_source_content_with_plan(
                 line_index + 1
             ))
         })?;
-        raw_rows.push(fields);
+        append_flat_json_fields_to_materialized_rows(&mut header, &mut rows, fields, read_plan)?;
+        enforce_local_source_row_budget(rows.len(), max_input_rows, "JSONL")?;
     }
-    materialize_flat_json_rows("JSONL", raw_rows, read_plan, max_input_rows)
+    ensure_flat_json_rows_present("JSONL", &rows)?;
+    Ok((header, rows))
 }
 
 #[cfg(test)]
@@ -30909,6 +31314,52 @@ fn materialize_flat_json_rows(
         rows.push(row);
     }
     Ok((header, rows))
+}
+
+fn ensure_flat_json_rows_present(
+    source_label: &str,
+    rows: &[ExpressionInputRow],
+) -> Result<(), ShardLoomError> {
+    if rows.is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "{source_label} source must include at least one object row"
+        )));
+    }
+    Ok(())
+}
+
+fn append_flat_json_fields_to_materialized_rows(
+    header: &mut Vec<String>,
+    rows: &mut Vec<ExpressionInputRow>,
+    fields: Vec<(String, ScalarValue)>,
+    read_plan: &LocalSourceReadPlan,
+) -> Result<(), ShardLoomError> {
+    for (name, _value) in &fields {
+        if !header.contains(name) {
+            validate_sql_identifier(name)?;
+            let materialized = read_plan.should_materialize(name);
+            header.push(name.clone());
+            if materialized {
+                for row in rows.iter_mut() {
+                    row.insert(name.clone(), ScalarValue::Null);
+                }
+            }
+        }
+    }
+
+    let mut row = ExpressionInputRow::new();
+    for column in header.iter() {
+        if read_plan.should_materialize(column) {
+            row.insert(column.clone(), ScalarValue::Null);
+        }
+    }
+    for (column, value) in fields {
+        if read_plan.should_materialize(&column) {
+            row.insert(column, value);
+        }
+    }
+    rows.push(row);
+    Ok(())
 }
 
 fn parse_flat_json_object_with_plan(
@@ -31226,7 +31677,7 @@ fn normalize_local_output_path(value: &str) -> Result<PathBuf, ShardLoomError> {
     }
     if trimmed.contains("://") && !trimmed.starts_with("file://") {
         return Err(ShardLoomError::InvalidOperation(
-            "scoped SQL local-source smokes support local file output only; object-store and remote URI writes remain blocked".to_string(),
+            "scoped SQL local-source runtime supports local file output only; object-store and remote URI writes remain blocked".to_string(),
         ));
     }
     let local = if let Some(rest) = trimmed.strip_prefix("file://") {
@@ -31250,7 +31701,7 @@ fn normalize_local_vortex_ingest_target_path(value: &str) -> Result<PathBuf, Sha
         .unwrap_or_default();
     if !extension.eq_ignore_ascii_case("vortex") {
         return Err(ShardLoomError::InvalidOperation(
-            "vortex_ingest smoke writes local .vortex targets only; object-store, table, and non-Vortex sinks remain blocked"
+            "vortex prepare writes local .vortex targets only; object-store, table, and non-Vortex sinks remain blocked"
                 .to_string(),
         ));
     }
@@ -31287,6 +31738,24 @@ struct LocalSourcePartitionFiles {
     files: Vec<LocalSourcePartitionFile>,
     source_bytes: u64,
     source_digest: String,
+    source_metadata_scout_millis: u128,
+    source_byte_acquisition_millis: u128,
+    source_full_body_millis: u128,
+}
+
+#[derive(Debug)]
+struct LocalSourceByteRead {
+    bytes: Vec<u8>,
+    source_metadata_scout_millis: u128,
+    source_byte_acquisition_millis: u128,
+    source_full_body_millis: u128,
+}
+
+impl LocalSourceByteRead {
+    fn total_read_millis(&self) -> u128 {
+        self.source_metadata_scout_millis
+            .saturating_add(self.source_byte_acquisition_millis)
+    }
 }
 
 fn strip_utf8_bom_from_first_header_cell(header: &mut [String]) {
@@ -31334,7 +31803,7 @@ fn reject_remote_source_path(path: &Path) -> Result<(), ShardLoomError> {
     let value = path.to_string_lossy();
     if value.contains("://") || value.starts_with("s3:") || value.starts_with("gs:") {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke supports local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC file paths only; object-store and remote URI reads remain blocked",
+            "SQL local-source runtime supports local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC file paths only; object-store and remote URI reads remain blocked",
         ));
     }
     Ok(())
@@ -31345,7 +31814,16 @@ fn read_local_source_bytes_with_budget(
     source_label: &str,
     max_source_bytes: Option<u64>,
 ) -> Result<Vec<u8>, ShardLoomError> {
+    Ok(read_local_source_bytes_with_budget_report(path, source_label, max_source_bytes)?.bytes)
+}
+
+fn read_local_source_bytes_with_budget_report(
+    path: &Path,
+    source_label: &str,
+    max_source_bytes: Option<u64>,
+) -> Result<LocalSourceByteRead, ShardLoomError> {
     reject_remote_source_path(path)?;
+    let scout_start = Instant::now();
     let metadata = fs::metadata(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to inspect local {source_label} source {} before read: {error}",
@@ -31366,12 +31844,15 @@ fn read_local_source_bytes_with_budget(
             metadata.len()
         )));
     }
+    let source_metadata_scout_millis = scout_start.elapsed().as_millis();
+    let read_start = Instant::now();
     let bytes = fs::read(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read local {source_label} source {}: {error}",
             path.display()
         ))
     })?;
+    let source_byte_acquisition_millis = read_start.elapsed().as_millis();
     let read_len = u64::try_from(bytes.len()).map_err(|_| {
         ShardLoomError::InvalidOperation(format!(
             "local {source_label} source {} length does not fit in u64",
@@ -31384,29 +31865,18 @@ fn read_local_source_bytes_with_budget(
             path.display()
         )));
     }
-    Ok(bytes)
+    Ok(LocalSourceByteRead {
+        bytes,
+        source_metadata_scout_millis,
+        source_byte_acquisition_millis,
+        source_full_body_millis: source_byte_acquisition_millis,
+    })
 }
 
-fn read_local_source_partition_files_with_budget(
+fn sorted_local_source_partition_entries(
     path: &Path,
     source_format: LocalSourceFormat,
-    max_source_bytes: Option<u64>,
-) -> Result<LocalSourcePartitionFiles, ShardLoomError> {
-    reject_remote_source_path(path)?;
-    let metadata = fs::metadata(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to inspect local {} partition source {} before read: {error}",
-            source_format.row_label(),
-            path.display()
-        ))
-    })?;
-    if !metadata.is_dir() {
-        return Err(unsupported_sql_error(&format!(
-            "local {} partition source {} must be a directory",
-            source_format.row_label(),
-            path.display()
-        )));
-    }
+) -> Result<Vec<std::fs::DirEntry>, ShardLoomError> {
     let mut entries = fs::read_dir(path)
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -31424,6 +31894,32 @@ fn read_local_source_partition_files_with_budget(
             ))
         })?;
     entries.sort_by_key(std::fs::DirEntry::path);
+    Ok(entries)
+}
+
+fn read_local_source_partition_files_with_budget(
+    path: &Path,
+    source_format: LocalSourceFormat,
+    max_source_bytes: Option<u64>,
+) -> Result<LocalSourcePartitionFiles, ShardLoomError> {
+    reject_remote_source_path(path)?;
+    let total_start = Instant::now();
+    let mut source_byte_acquisition_millis = 0_u128;
+    let metadata = fs::metadata(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to inspect local {} partition source {} before read: {error}",
+            source_format.row_label(),
+            path.display()
+        ))
+    })?;
+    if !metadata.is_dir() {
+        return Err(unsupported_sql_error(&format!(
+            "local {} partition source {} must be a directory",
+            source_format.row_label(),
+            path.display()
+        )));
+    }
+    let entries = sorted_local_source_partition_entries(path, source_format)?;
 
     let mut files = Vec::new();
     let mut digest_parts = Vec::new();
@@ -31453,12 +31949,15 @@ fn read_local_source_partition_files_with_budget(
                 path.display()
             )));
         }
+        let file_read_start = Instant::now();
         let bytes = fs::read(&file_path).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to read local partition file {}: {error}",
                 file_path.display()
             ))
         })?;
+        source_byte_acquisition_millis =
+            source_byte_acquisition_millis.saturating_add(file_read_start.elapsed().as_millis());
         let file_digest = fnv64_digest_bytes(&bytes);
         digest_parts.push(format!(
             "{}:{}:{}",
@@ -31482,6 +31981,7 @@ fn read_local_source_partition_files_with_budget(
             source_format.admitted_extensions()
         )));
     }
+    let total_millis = total_start.elapsed().as_millis();
     Ok(LocalSourcePartitionFiles {
         files,
         source_bytes: total_bytes,
@@ -31491,6 +31991,9 @@ fn read_local_source_partition_files_with_budget(
             path.display(),
             digest_parts.join(";")
         )),
+        source_metadata_scout_millis: total_millis.saturating_sub(source_byte_acquisition_millis),
+        source_byte_acquisition_millis,
+        source_full_body_millis: source_byte_acquisition_millis,
     })
 }
 
@@ -31515,11 +32018,11 @@ fn sql_local_source_clause_indexes(
     statement: &str,
 ) -> Result<SqlLocalSourceClauseIndexes, ShardLoomError> {
     let from_clause = find_sql_source_from_clause(statement)?.ok_or_else(|| {
-        unsupported_sql_error("SQL local-source smoke requires a FROM <local.csv> clause")
+        unsupported_sql_error("SQL local-source runtime requires a FROM <local.csv> clause")
     })?;
     let limit_clause = find_keyword_outside_quotes_and_parentheses(statement, "limit")?
         .ok_or_else(|| {
-            unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
+            unsupported_sql_error("SQL local-source runtime requires a LIMIT <n> clause")
         })?;
     let indexes = SqlLocalSourceClauseIndexes {
         from: from_clause,
@@ -31661,7 +32164,7 @@ fn validate_sql_local_source_clause_order(
             .is_some_and(|(having, order_by)| having > order_by)
     {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke requires SELECT ... FROM ... [WHERE ...] [GROUP BY ...] [HAVING ...] [ORDER BY ...] LIMIT ... order",
+            "SQL local-source runtime requires SELECT ... FROM ... [WHERE ...] [GROUP BY ...] [HAVING ...] [ORDER BY ...] LIMIT ... order",
         ));
     }
     Ok(())
@@ -31813,7 +32316,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("select"))
     {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke admits SELECT statements only",
+            "SQL local-source runtime admits SELECT statements only",
         ));
     }
     let indexes = sql_local_source_clause_indexes(&statement)?;
@@ -31870,7 +32373,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     }
     if limit_clause_contains_sql_clause_keyword(limit_raw) {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke admits one flat SELECT without subqueries",
+            "SQL local-source runtime admits one flat SELECT without subqueries",
         ));
     }
 
@@ -32008,7 +32511,7 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
     }
     if trimmed.matches(';').count() > 1 {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke admits a single statement only",
+            "SQL local-source runtime admits a single statement only",
         ));
     }
     let statement = trimmed.strip_suffix(';').unwrap_or(trimmed).trim();
@@ -40835,6 +41338,54 @@ mod tests {
     }
 
     #[test]
+    fn local_source_runtime_reports_source_read_split_fields() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!("SELECT id FROM '{}' LIMIT 1", path.display()),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+            runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
+        };
+        let report = run_local_source_runtime_single(&request).expect("run local source");
+        let fields = field_map(report.fields());
+
+        assert_field_eq(
+            &fields,
+            "source_read_scout_schema_version",
+            "shardloom.local_source_read_scout.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_scout_timing_split_status",
+            "metadata_scout_and_byte_acquisition_split_recorded",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_buffer_carry_status",
+            "read_once_buffer_carried_to_text_parser",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_mmap_eligibility_status",
+            "not_used_owned_text_buffer_default",
+        );
+        assert!(fields.contains_key("source_read_metadata_scout_millis"));
+        assert!(fields.contains_key("source_read_byte_acquisition_millis"));
+        assert!(fields.contains_key("source_read_full_body_millis"));
+        assert_eq!(
+            report.source.source_byte_acquisition_millis,
+            report.source.source_full_body_millis
+        );
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
     fn product_local_workflow_profile_disables_synthetic_caps() {
         let plan = LocalSourceReadPlan::required(
             BTreeSet::from(["id".to_string()]),
@@ -40933,7 +41484,7 @@ mod tests {
         assert!(
             smoke_error
                 .to_string()
-                .contains("scoped SQL local-source smoke supports LIMIT <="),
+                .contains("scoped SQL local-source runtime supports LIMIT <="),
             "{smoke_error}"
         );
         validate_sql_local_source_output_limit(
@@ -41026,6 +41577,9 @@ mod tests {
             source_digest: "fnv64:test".to_string(),
             row_count: 0,
             source_split_row_ranges: vec![(0, 0)],
+            source_metadata_scout_millis: 0,
+            source_byte_acquisition_millis: 0,
+            source_full_body_millis: 0,
             read_millis: 0,
             compatibility_parse_millis: 0,
             source_to_columnar_millis: 0,
@@ -41100,6 +41654,7 @@ mod tests {
             target_path,
             allow_overwrite,
             certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
+            runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
             delta: None,
         }
     }
@@ -41112,7 +41667,7 @@ mod tests {
         let target = root.join("prepared.vortex");
         fs::write(&source, "id,label,amount\n1,alpha,10\n2,beta,20\n").expect("write reuse source");
 
-        let first = run_vortex_ingest_smoke(vortex_ingest_reuse_request(
+        let first = run_vortex_prepare(vortex_ingest_reuse_request(
             source.clone(),
             target.clone(),
             false,
@@ -41144,7 +41699,7 @@ mod tests {
             .expect("artifact digest")
             .clone();
 
-        let second = run_vortex_ingest_smoke(vortex_ingest_reuse_request(
+        let second = run_vortex_prepare(vortex_ingest_reuse_request(
             source.clone(),
             target.clone(),
             false,
@@ -41195,7 +41750,7 @@ mod tests {
         let target = target_dir.join("prepared.vortex");
         fs::write(&source, "id,label,amount\n1,alpha,10\n").expect("write initial source");
 
-        let first = run_vortex_ingest_smoke(vortex_ingest_reuse_request(
+        let first = run_vortex_prepare(vortex_ingest_reuse_request(
             source.clone(),
             target.clone(),
             false,
@@ -41205,7 +41760,7 @@ mod tests {
         let base_artifact = fs::read(&target).expect("read base artifact");
 
         fs::write(&source, "id,label,amount\n1,alpha,10\n2,beta,99\n").expect("mutate source");
-        let second = run_vortex_ingest_smoke(vortex_ingest_reuse_request(
+        let second = run_vortex_prepare(vortex_ingest_reuse_request(
             source.clone(),
             target.clone(),
             true,
@@ -41350,7 +41905,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request).expect("run sql smoke");
+        let report = run_local_source_runtime_single(&request).expect("run sql smoke");
         let fields = field_map(report.fields());
 
         assert_field_eq(&fields, "source_format", "arrow_ipc");
@@ -41443,7 +41998,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request).expect("run sql smoke");
+        let report = run_local_source_runtime_single(&request).expect("run sql smoke");
         let fields = field_map(report.fields());
 
         assert_field_eq(&fields, "source_format", "arrow_ipc");
@@ -41541,7 +42096,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run binary source predicate smoke");
+            run_local_source_runtime_single(&request).expect("run binary source predicate smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -43973,8 +44528,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report =
-            run_sql_local_source_smoke_single(&request).expect("run multi-key top-N smoke");
+        let report = run_local_source_runtime_single(&request).expect("run multi-key top-N smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -44003,7 +44557,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let comma_report =
-            run_sql_local_source_smoke_single(&comma_request).expect("run comma ESCAPE smoke");
+            run_local_source_runtime_single(&comma_request).expect("run comma ESCAPE smoke");
         let comma_fields = field_map(comma_report.fields());
 
         assert_eq!(
@@ -44038,7 +44592,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run binary hex literal projection smoke");
         let fields = field_map(report.fields());
 
@@ -44083,7 +44637,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run complex projection smoke");
+            run_local_source_runtime_single(&request).expect("run complex projection smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -44139,8 +44693,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report =
-            run_sql_local_source_smoke_single(&request).expect("run complex ordering smoke");
+        let report = run_local_source_runtime_single(&request).expect("run complex ordering smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -44192,7 +44745,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request).expect("write complex csv output");
+        let report = run_local_source_runtime_single(&request).expect("write complex csv output");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -44258,7 +44811,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("write complex vortex output");
+            run_local_source_runtime_single(&request).expect("write complex vortex output");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -44326,7 +44879,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("write zero-row complex csv output");
+            run_local_source_runtime_single(&request).expect("write zero-row complex csv output");
         let fields = field_map(report.fields());
 
         assert_eq!(report.result_jsonl, "");
@@ -44372,7 +44925,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("write jsonl plus csv fanout");
+            run_local_source_runtime_single(&request).expect("write jsonl plus csv fanout");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -44624,7 +45177,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request).expect("run decimal cast smoke");
+        let report = run_local_source_runtime_single(&request).expect("run decimal cast smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -44707,7 +45260,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run exact decimal predicate smoke");
+            run_local_source_runtime_single(&request).expect("run exact decimal predicate smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(report.result_jsonl, "{\"id\":1}\n");
@@ -44741,7 +45294,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run exact exponent decimal smoke");
+            run_local_source_runtime_single(&request).expect("run exact exponent decimal smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -44793,7 +45346,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run exact decimal exponent cast smoke");
         let fields = field_map(report.fields());
 
@@ -44838,7 +45391,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let error = run_sql_local_source_smoke_single(&request)
+        let error = run_local_source_runtime_single(&request)
             .expect_err("inexact decimal exponent scale blocks");
 
         assert!(
@@ -44872,7 +45425,7 @@ mod tests {
             &parquet_output,
         );
         let parquet_report =
-            run_sql_local_source_smoke_single(&parquet_request).expect("write parquet decimal");
+            run_local_source_runtime_single(&parquet_request).expect("write parquet decimal");
         let parquet_fields = field_map(parquet_report.fields());
 
         let arrow_request = decimal_cast_structured_sink_request(
@@ -44881,7 +45434,7 @@ mod tests {
             &arrow_output,
         );
         let arrow_report =
-            run_sql_local_source_smoke_single(&arrow_request).expect("write arrow decimal");
+            run_local_source_runtime_single(&arrow_request).expect("write arrow decimal");
         let arrow_fields = field_map(arrow_report.fields());
 
         let avro_request = decimal_cast_structured_sink_request(
@@ -44890,7 +45443,7 @@ mod tests {
             &avro_output,
         );
         let avro_report =
-            run_sql_local_source_smoke_single(&avro_request).expect("write avro decimal");
+            run_local_source_runtime_single(&avro_request).expect("write avro decimal");
         let avro_fields = field_map(avro_report.fields());
 
         let orc_request = decimal_cast_structured_sink_request(
@@ -44898,7 +45451,7 @@ mod tests {
             SqlLocalSourceOutputFormat::Orc,
             &orc_output,
         );
-        let orc_error = run_sql_local_source_smoke_single(&orc_request)
+        let orc_error = run_local_source_runtime_single(&orc_request)
             .expect_err("ORC typed decimal remains blocked");
 
         assert_field_eq(
@@ -44982,7 +45535,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        run_sql_local_source_smoke_single(&parquet_request)
+        run_local_source_runtime_single(&parquet_request)
             .expect("write parquet all-null computed decimal");
 
         let arrow_request = SqlLocalSourceRequest {
@@ -44994,7 +45547,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        run_sql_local_source_smoke_single(&arrow_request)
+        run_local_source_runtime_single(&arrow_request)
             .expect("write arrow all-null computed decimal");
 
         let avro_request = SqlLocalSourceRequest {
@@ -45006,7 +45559,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        run_sql_local_source_smoke_single(&avro_request)
+        run_local_source_runtime_single(&avro_request)
             .expect("write avro all-null computed decimal");
 
         assert_parquet_decimal_column(&parquet_output, "adjusted", 11, 2, &[None, None]);
@@ -45264,8 +45817,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report =
-            run_sql_local_source_smoke_single(&request).expect("write vortex typed decimal");
+        let report = run_local_source_runtime_single(&request).expect("write vortex typed decimal");
         let fields = field_map(report.fields());
 
         assert_field_eq(
@@ -45320,7 +45872,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("write all-null vortex decimal");
+            run_local_source_runtime_single(&request).expect("write all-null vortex decimal");
         let fields = field_map(report.fields());
 
         assert_field_eq(&fields, "output_format", "vortex");
@@ -45360,8 +45912,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report =
-            run_sql_local_source_smoke_single(&request).expect("write empty vortex decimal");
+        let report = run_local_source_runtime_single(&request).expect("write empty vortex decimal");
         let fields = field_map(report.fields());
 
         assert_eq!(report.output_rows.len(), 0);
@@ -45462,7 +46013,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("write all-null vortex binary");
+            run_local_source_runtime_single(&request).expect("write all-null vortex binary");
         let fields = field_map(report.fields());
 
         assert_field_eq(&fields, "output_format", "vortex");
@@ -45505,7 +46056,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("write all-null scalar vortex");
+            run_local_source_runtime_single(&request).expect("write all-null scalar vortex");
         let fields = field_map(report.fields());
 
         assert_field_eq(&fields, "output_format", "vortex");
@@ -45559,7 +46110,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("write all-null computed decimal output to vortex");
         let fields = field_map(report.fields());
 
@@ -45597,7 +46148,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let error =
-            run_sql_local_source_smoke_single(&request).expect_err("strict decimal cast blocks");
+            run_local_source_runtime_single(&request).expect_err("strict decimal cast blocks");
 
         assert!(
             error
@@ -45637,7 +46188,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run binary cast and text literal smoke");
         let fields = field_map(report.fields());
 
@@ -45708,7 +46259,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run binary cast ordering smoke");
+            run_local_source_runtime_single(&request).expect("run binary cast ordering smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -45752,8 +46303,8 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
-            .expect("run binary helper projection smoke");
+        let report =
+            run_local_source_runtime_single(&request).expect("run binary helper projection smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -45817,7 +46368,7 @@ mod tests {
                 allow_overwrite: false,
                 runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
             };
-            let error = run_sql_local_source_smoke_single(&request)
+            let error = run_local_source_runtime_single(&request)
                 .expect_err("invalid binary helper input remains deterministic");
 
             assert!(
@@ -45851,7 +46402,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run binary helper predicate smoke");
+            run_local_source_runtime_single(&request).expect("run binary helper predicate smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(report.result_jsonl, "{\"id\":1}\n{\"id\":2}\n");
@@ -45911,7 +46462,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run nested binary helper smoke");
+            run_local_source_runtime_single(&request).expect("run nested binary helper smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -45962,7 +46513,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run binary byte length smoke");
+            run_local_source_runtime_single(&request).expect("run binary byte length smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -46050,7 +46601,7 @@ mod tests {
                 allow_overwrite: false,
                 runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
             };
-            let error = run_sql_local_source_smoke_single(&request)
+            let error = run_local_source_runtime_single(&request)
                 .expect_err("non-binary byte length argument remains blocked");
 
             assert!(
@@ -46082,7 +46633,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let error = run_sql_local_source_smoke_single(&request)
+        let error = run_local_source_runtime_single(&request)
             .expect_err("invalid binary helper predicate input remains deterministic");
 
         assert!(
@@ -46117,7 +46668,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request).expect("run LIKE ESCAPE smoke");
+        let report = run_local_source_runtime_single(&request).expect("run LIKE ESCAPE smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(report.result_jsonl, "{\"id\":2,\"label\":\"al_pha\"}\n");
@@ -46882,7 +47433,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run row-value IN subquery smoke");
+            run_local_source_runtime_single(&request).expect("run row-value IN subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -46964,8 +47515,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report =
-            run_sql_local_source_smoke_single(&request).expect("run NOT IN subquery smoke");
+        let report = run_local_source_runtime_single(&request).expect("run NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -47026,8 +47576,8 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
-            .expect("run row-value NOT IN subquery smoke");
+        let report =
+            run_local_source_runtime_single(&request).expect("run row-value NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -47112,7 +47662,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let any_report =
-            run_sql_local_source_smoke_single(&any_request).expect("run ANY subquery smoke");
+            run_local_source_runtime_single(&any_request).expect("run ANY subquery smoke");
         let any_fields = field_map(any_report.fields());
 
         assert_eq!(
@@ -47201,7 +47751,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let all_report =
-            run_sql_local_source_smoke_single(&all_request).expect("run ALL subquery smoke");
+            run_local_source_runtime_single(&all_request).expect("run ALL subquery smoke");
         let all_fields = field_map(all_report.fields());
 
         assert_eq!(
@@ -47269,7 +47819,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run date ANY subquery smoke");
+            run_local_source_runtime_single(&request).expect("run date ANY subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -47325,7 +47875,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run timestamp ALL subquery smoke");
+            run_local_source_runtime_single(&request).expect("run timestamp ALL subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -47422,7 +47972,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run nested IN subquery smoke");
+            run_local_source_runtime_single(&request).expect("run nested IN subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -47492,7 +48042,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run nested date IN subquery smoke");
+            run_local_source_runtime_single(&request).expect("run nested date IN subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -47550,7 +48100,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run nested timestamp IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -47603,7 +48153,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run joined projected IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -47664,7 +48214,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run grouped HAVING projected IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -47733,7 +48283,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run HAVING NOT IN subquery smoke");
+            run_local_source_runtime_single(&request).expect("run HAVING NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -47812,7 +48362,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run HAVING NOT EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -47904,7 +48454,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run HAVING row-value IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -47981,7 +48531,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run HAVING row-value NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48067,7 +48617,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run HAVING correlated quantified subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48175,7 +48725,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run joined projected row-value IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48245,7 +48795,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run joined projected quantified subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48306,7 +48856,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run joined projected EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48364,7 +48914,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run projected EXISTS subquery");
+            run_local_source_runtime_single(&request).expect("run projected EXISTS subquery");
         let fields = field_map(report.fields());
 
         assert_field_eq(&fields, "exists_subquery_input_row_count", "3");
@@ -48402,7 +48952,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run grouped HAVING projected EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48504,7 +49054,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run joined projected NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48558,7 +49108,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run grouped HAVING projected NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48617,7 +49167,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run joined projected row-value NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48668,7 +49218,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run grouped HAVING projected row-value NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48724,7 +49274,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run joined projected NOT EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48779,7 +49329,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run grouped HAVING projected NOT EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48885,7 +49435,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated joined projected IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -48960,7 +49510,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated joined projected row-value IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49037,7 +49587,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated joined projected quantified subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49113,7 +49663,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated joined projected EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49176,7 +49726,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated joined projected NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49236,7 +49786,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated joined projected row-value NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49293,7 +49843,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated joined projected NOT EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49390,7 +49940,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated grouped HAVING projected IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49453,7 +50003,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated grouped HAVING projected row-value IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49518,7 +50068,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated grouped HAVING projected quantified subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49582,7 +50132,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated grouped HAVING projected EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49646,7 +50196,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated grouped HAVING projected NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49713,7 +50263,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated grouped HAVING projected row-value NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49777,7 +50327,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated grouped HAVING projected NOT EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49855,7 +50405,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run correlated IN subquery smoke");
+            run_local_source_runtime_single(&request).expect("run correlated IN subquery smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -49914,7 +50464,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run source-qualified correlated IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -49966,7 +50516,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run source-qualified row-value IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50039,7 +50589,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run source-qualified NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50109,7 +50659,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run source-qualified row-value NOT IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50180,7 +50730,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run source-qualified EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50246,7 +50796,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run source-qualified NOT EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50311,7 +50861,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run source-qualified quantified subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50381,7 +50931,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run uncorrelated predicate projection IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50442,7 +50992,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run declared-format projected subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50497,7 +51047,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated predicate and CASE projection subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50607,7 +51157,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50662,7 +51212,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated NOT EXISTS subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50731,7 +51281,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated row-value IN subquery smoke");
         let fields = field_map(report.fields());
 
@@ -50791,7 +51341,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run correlated quantified subquery smoke");
         let fields = field_map(report.fields());
 
@@ -51567,7 +52117,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request)
+        let report = run_local_source_runtime_single(&request)
             .expect("run distinct complex projection smoke");
         let fields = field_map(report.fields());
 
@@ -51783,7 +52333,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let error = run_sql_local_source_smoke(&request)
+        let error = run_local_source_runtime(&request)
             .expect_err("missing UNION ORDER BY output column remains blocked");
 
         assert!(
@@ -51821,7 +52371,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let error = run_sql_local_source_smoke(&request)
+        let error = run_local_source_runtime(&request)
             .expect_err("empty UNION branch without dtype evidence remains blocked");
 
         assert!(
@@ -51859,8 +52409,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report =
-            run_sql_local_source_smoke(&request).expect("run union complex distinct smoke");
+        let report = run_local_source_runtime(&request).expect("run union complex distinct smoke");
         let SqlLocalSourceRunReport::Union(report) = report else {
             panic!("expected union report");
         };
@@ -51913,8 +52462,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let error =
-            run_sql_local_source_smoke(&request).expect_err("mismatched struct shapes block");
+        let error = run_local_source_runtime(&request).expect_err("mismatched struct shapes block");
 
         assert!(
             error
@@ -51959,7 +52507,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke(&request).expect("run union smoke");
+        let report = run_local_source_runtime(&request).expect("run union smoke");
         let SqlLocalSourceRunReport::Union(report) = report else {
             panic!("expected union report");
         };
@@ -52008,7 +52556,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke(&request).expect("run union all smoke");
+        let report = run_local_source_runtime(&request).expect("run union all smoke");
         let SqlLocalSourceRunReport::Union(report) = report else {
             panic!("expected union report");
         };
@@ -52053,7 +52601,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke(&request).expect("run declared-format union smoke");
+        let report = run_local_source_runtime(&request).expect("run declared-format union smoke");
         let SqlLocalSourceRunReport::Union(report) = report else {
             panic!("expected union report");
         };
@@ -52098,7 +52646,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke(&request).expect("run intersect smoke");
+        let report = run_local_source_runtime(&request).expect("run intersect smoke");
         let SqlLocalSourceRunReport::Union(report) = report else {
             panic!("expected set-operation report");
         };
@@ -52151,7 +52699,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke(&request).expect("run except smoke");
+        let report = run_local_source_runtime(&request).expect("run except smoke");
         let SqlLocalSourceRunReport::Union(report) = report else {
             panic!("expected set-operation report");
         };
@@ -52202,8 +52750,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report =
-            run_sql_local_source_smoke_single(&request).expect("run timestamp offset smoke");
+        let report = run_local_source_runtime_single(&request).expect("run timestamp offset smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -52386,7 +52933,7 @@ mod tests {
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
         let report =
-            run_sql_local_source_smoke_single(&request).expect("run declared-format join smoke");
+            run_local_source_runtime_single(&request).expect("run declared-format join smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -52436,8 +52983,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report =
-            run_sql_local_source_smoke_single(&request).expect("run expression join smoke");
+        let report = run_local_source_runtime_single(&request).expect("run expression join smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -52566,7 +53112,7 @@ mod tests {
             allow_overwrite: false,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
         };
-        let report = run_sql_local_source_smoke_single(&request).expect("run OR join smoke");
+        let report = run_local_source_runtime_single(&request).expect("run OR join smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(

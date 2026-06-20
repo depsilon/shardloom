@@ -65,7 +65,7 @@ def parse_bool(value: Any) -> bool | None:
 def envelope(
     fields: list[dict[str, str]],
     *,
-    command: str = "sql-local-source-smoke",
+    command: str = "local-source-runtime",
     policy_fields: list[dict[str, str]] | None = None,
 ) -> OutputEnvelope:
     return OutputEnvelope.from_json(

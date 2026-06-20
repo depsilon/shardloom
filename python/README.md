@@ -261,7 +261,7 @@ feature-gated CLI/Python surface. Build the CLI with `--features vortex-write`, 
 `ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect()` for the public
 Prepare-Once First Query route,
 `ctx.from_rows(...).prepare_vortex(workspace=...)`,
-`ShardLoomClient.vortex_ingest_smoke(...)`, or `ctx.prepare_vortex(...)` when you intentionally need
+`ShardLoomClient.vortex_prepare(...)`, or `ctx.prepare_vortex(...)` when you intentionally need
 to inspect the `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState` boundary:
 
 ```powershell
@@ -272,7 +272,7 @@ id,label,amount
 "@ | Set-Content -Encoding utf8 target\vortex-ingest-source.csv
 
 cargo run -q -p shardloom-cli --features vortex-write -- `
-  vortex-ingest-smoke target\vortex-ingest-source.csv target\vortex-ingest-source.vortex `
+  vortex-prepare target\vortex-ingest-source.csv target\vortex-ingest-source.vortex `
   --allow-overwrite --format json
 
 $env:PYTHONPATH = "python\src"
@@ -285,7 +285,7 @@ path is a local fixture smoke; it is not the primary user API, broad Vortex writ
 object-store/table output support, production SQL/DataFrame support, or a performance claim.
 `LazyFrame.prepare_vortex(...)` is the higher-level local `auto` source front door: it derives
 `<workspace>/<source-stem>.vortex` when a workspace is supplied, calls the real Rust
-`vortex-ingest-smoke` route, and exposes `prepared_state_reuse_hit`,
+`vortex-prepare` route, and exposes `prepared_state_reuse_hit`,
 `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
 `prepared_state_invalidation_reason` through typed properties. It prepares the raw local source
 before query operators; use `.write_vortex(...)` when the desired artifact is a query-result sink.
@@ -661,8 +661,8 @@ Parquet, Arrow, Avro, ORC, SQL, or DataFrame execution stacks.
 
 For local compatibility inputs, admitted public workflows now normalize through a caller-local
 Vortex prepared artifact under `.shardloom/prepared/*.vortex`, then execute the admitted native
-Vortex primitive/provider route. Direct decoded `sql-local-source-smoke` remains available only as
-an internal/dev smoke safeguard. Public `collect()`, `count()`, `preview()`, `head()`, `take()`, and
+Vortex primitive/provider route. Direct decoded `local-source-runtime` remains available only as
+an internal diagnostic smoke safeguard. Public `collect()`, `count()`, `preview()`, `head()`, `take()`, and
 admitted `ctx.sql(...)` local-source reads must either enter the Vortex-prepared/native path or
 return a deterministic unsupported report. They must not silently decode or materialize local
 compatibility files as the runtime middle.

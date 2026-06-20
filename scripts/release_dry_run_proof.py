@@ -23,6 +23,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MIN_PACKAGE_PYTHON = (3, 10)
@@ -704,7 +706,7 @@ def main() -> int:
                 "--bin",
                 "shardloom",
                 "--features",
-                "release-user-surfaces",
+                RELEASE_USER_SURFACE_EXAMPLE_FEATURES,
             ],
             cwd=repo_root,
         )

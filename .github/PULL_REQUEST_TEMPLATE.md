@@ -47,6 +47,7 @@
 
 <!-- List exact commands, or explain why a check was not applicable. -->
 
+- [ ] Focused checks, for example `python3 scripts/run_focused_checks.py --profile <profile> ...`
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo test --workspace --all-targets`
 - [ ] `python scripts/check_contribution_governance.py`

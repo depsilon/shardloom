@@ -8,7 +8,10 @@
 //! documents the current public posture while shared rendering and envelope
 //! routing move into focused modules.
 
-use std::process::ExitCode;
+use std::{
+    io::{self, BufRead, Write},
+    process::ExitCode,
+};
 
 mod benchmark_planning;
 mod benchmark_runtime;
@@ -129,6 +132,98 @@ fn handle_version(format: OutputFormat) -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+fn handle_python_worker() -> ExitCode {
+    let stdin = io::stdin();
+    for line_result in stdin.lock().lines() {
+        let line = match line_result {
+            Ok(line) => line,
+            Err(error) => {
+                let _ = emit_error(
+                    "python-worker",
+                    OutputFormat::Json,
+                    "python worker request read failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "failed to read python worker request: {error}"
+                    )),
+                );
+                let _ = io::stdout().flush();
+                continue;
+            }
+        };
+        if line.trim().is_empty() {
+            continue;
+        }
+        match parse_python_worker_request(&line) {
+            Ok(request_args) => {
+                let _ = run(request_args);
+            }
+            Err(error) => {
+                let _ = emit_error(
+                    "python-worker",
+                    OutputFormat::Json,
+                    "python worker request rejected",
+                    &error,
+                );
+            }
+        }
+        let _ = io::stdout().flush();
+    }
+    ExitCode::SUCCESS
+}
+
+fn parse_python_worker_request(line: &str) -> Result<Vec<String>, ShardLoomError> {
+    let payload: serde_json::Value = serde_json::from_str(line).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("invalid python worker request JSON: {error}"))
+    })?;
+    let args = payload
+        .get("args")
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation("python worker request missing args".to_string())
+        })?
+        .as_array()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "python worker request args must be an array".to_string(),
+            )
+        })?;
+    let mut normalized = Vec::with_capacity(args.len() + 2);
+    let mut index = 0;
+    while index < args.len() {
+        let Some(arg) = args[index].as_str() else {
+            return Err(ShardLoomError::InvalidOperation(
+                "python worker request args must contain only strings".to_string(),
+            ));
+        };
+        if arg == "--format" {
+            if index + 1 >= args.len() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "python worker request --format requires a value".to_string(),
+                ));
+            }
+            index += 2;
+            continue;
+        }
+        normalized.push(arg.to_string());
+        index += 1;
+    }
+    if normalized.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "python worker request args must include a command".to_string(),
+        ));
+    }
+    if normalized
+        .first()
+        .is_some_and(|command| command == "python-worker")
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "python worker cannot dispatch nested python-worker commands".to_string(),
+        ));
+    }
+    normalized.push("--format".to_string());
+    normalized.push("json".to_string());
+    Ok(normalized)
 }
 fn parse_vortex_output_payload_signals(
     signals_raw: &str,
@@ -899,6 +994,7 @@ fn run(args: Vec<String>) -> ExitCode {
     let mut args = args.into_iter();
 
     match args.next().as_deref() {
+        Some("python-worker") => handle_python_worker(),
         Some("spill-lifecycle") => operational_hardening::handle_spill_lifecycle(args, format),
         Some("spill-reservation-plan") => {
             operational_hardening::handle_spill_reservation_plan(args, format)
@@ -951,12 +1047,10 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("generated-source-sql-smoke") => {
             generated_source_runtime::handle_generated_source_sql_smoke(args, format)
         }
-        Some("sql-local-source-smoke") => {
-            sql_local_source_runtime::handle_sql_local_source_smoke(args, format)
+        Some("local-source-runtime") => {
+            sql_local_source_runtime::handle_local_source_runtime(args, format)
         }
-        Some("vortex-ingest-smoke") => {
-            sql_local_source_runtime::handle_vortex_ingest_smoke(args, format)
-        }
+        Some("vortex-prepare") => sql_local_source_runtime::handle_vortex_prepare(args, format),
         Some("sqlite-local-import-export-smoke") => {
             sqlite_local_runtime::handle_sqlite_local_import_export_smoke(args, format)
         }
@@ -1433,6 +1527,31 @@ mod tests {
     }
 
     #[test]
+    fn python_worker_request_forces_json_and_strips_requested_format() {
+        let args = parse_python_worker_request(
+            r#"{"args":["status","--format","text","--ignored","value"]}"#,
+        )
+        .expect("parse worker request");
+        assert_eq!(
+            args,
+            vec![
+                "status".to_string(),
+                "--ignored".to_string(),
+                "value".to_string(),
+                "--format".to_string(),
+                "json".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn python_worker_request_rejects_nested_worker() {
+        let error =
+            parse_python_worker_request(r#"{"args":["python-worker"]}"#).expect_err("reject");
+        assert!(error.to_string().contains("nested python-worker"));
+    }
+
+    #[test]
     fn evidence_schema_dispatch_returns_success() {
         let code = run(vec!["evidence-schema".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -1750,7 +1869,7 @@ mod tests {
     fn command_metadata_dispatch_returns_success() {
         let code = run(vec![
             "command-metadata".to_string(),
-            "vortex-ingest-smoke".to_string(),
+            "vortex-prepare".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
@@ -1766,7 +1885,7 @@ mod tests {
 
     #[test]
     fn command_help_dispatch_returns_success() {
-        let code = run(vec!["help".to_string(), "vortex-ingest-smoke".to_string()]);
+        let code = run(vec!["help".to_string(), "vortex-prepare".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
@@ -1778,10 +1897,7 @@ mod tests {
         let short_code = run(vec!["-h".to_string()]);
         assert_eq!(short_code, ExitCode::SUCCESS);
 
-        let command_code = run(vec![
-            "vortex-ingest-smoke".to_string(),
-            "--help".to_string(),
-        ]);
+        let command_code = run(vec!["vortex-prepare".to_string(), "--help".to_string()]);
         assert_eq!(command_code, ExitCode::SUCCESS);
     }
 

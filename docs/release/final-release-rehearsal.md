@@ -94,6 +94,10 @@ v0.1.10 GitHub/TestPyPI/PyPI/Homebrew channels are published unsigned for the te
 Future signing and artifact attestations remain separate release-channel actions, not autonomous
 Codex actions.
 
+For the `v0.2.0` release train, the rehearsal should verify that the intended GitHub release source
+is a signed annotated tag before publication. A lightweight or unsigned tag should be treated as a
+release blocker when the maintainer expects GitHub's verified tag badge.
+
 ## Current Expected State
 
 The current expected state for the local no-publication rehearsal is passed when all local

@@ -97,9 +97,9 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         })
         return ",".join(columns) if columns else "none"
 
-    def _shardloom_emit_vortex_ingest_smoke_if_needed():
+    def _shardloom_emit_vortex_prepare_if_needed():
         args = _shardloom_sys.argv[1:]
-        if not args or args[0] != "vortex-ingest-smoke":
+        if not args or args[0] != "vortex-prepare":
             return
         source = args[1] if len(args) > 1 else "missing-source"
         target = args[2] if len(args) > 2 else "target/shardloom-prepared.vortex"
@@ -108,7 +108,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         input_format = _shardloom_take_flag(args, "--input-format") or "not_declared"
         print(_shardloom_json.dumps({
             "schema_version": "shardloom.output.v2",
-            "command": "vortex-ingest-smoke",
+            "command": "vortex-prepare",
             "status": "success",
             "summary": "fake Vortex ingest smoke",
             "human_text": "fake Vortex ingest smoke",
@@ -136,7 +136,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
     def _shardloom_strip_product_local_workflow_flag():
         args = _shardloom_sys.argv[1:]
-        if not args or args[0] != "sql-local-source-smoke":
+        if not args or args[0] != "local-source-runtime":
             return
         if "--product-local-workflow" not in args:
             return
@@ -376,7 +376,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         if not globals().get("_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE", False):
             return
         args = _shardloom_sys.argv[1:]
-        if not args or args[0] != "sql-local-source-smoke":
+        if not args or args[0] != "local-source-runtime":
             return
         if "--product-local-workflow" not in args:
             return
@@ -523,7 +523,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
         if sql is not None:
             rewritten = [
-                "sql-local-source-smoke",
+                "local-source-runtime",
                 sql,
                 "--output-format",
                 output_format,
@@ -535,7 +535,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
 
-    _shardloom_emit_vortex_ingest_smoke_if_needed()
+    _shardloom_emit_vortex_prepare_if_needed()
     _shardloom_emit_legacy_disabled_public_run_fixture_if_needed()
     _shardloom_strip_product_local_workflow_flag()
     _shardloom_emit_prepared_native_vortex_probe_if_needed()
@@ -550,7 +550,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
 
 # These legacy unit fixtures asserted that public Python/DataFrame/SQL facades
-# rewrote local-source workflows directly into sql-local-source-smoke.
+# rewrote local-source workflows directly into local-source-runtime.
 # The public facade now requires Vortex preparation/native execution or a
 # deterministic no-fallback blocker, so these stale direct-smoke fixtures are
 # retired while lower-level internal smoke command tests remain active.
@@ -703,7 +703,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
     def setUp(self) -> None:
         if self._testMethodName in _RETIRED_PUBLIC_LOCAL_SQL_SMOKE_TESTS:
             self.skipTest(
-                "retired public direct sql-local-source-smoke fixture; "
+                "retired public direct local-source-runtime fixture; "
                 "current public local-source routes require Vortex middle or deterministic blockers"
             )
 
@@ -720,7 +720,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.calls: list[dict[str, object]] = []
 
-            def vortex_ingest_smoke(self, *args: object, **kwargs: object) -> object:
+            def vortex_prepare(self, *args: object, **kwargs: object) -> object:
                 self.calls.append({"args": args, "kwargs": kwargs})
 
                 class Report:
@@ -770,7 +770,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.calls: list[dict[str, object]] = []
 
-            def vortex_ingest_smoke(self, *args: object, **kwargs: object) -> object:
+            def vortex_prepare(self, *args: object, **kwargs: object) -> object:
                 self.calls.append({"args": args, "kwargs": kwargs})
 
                 class Report:
@@ -1723,7 +1723,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ["public_workflow_facade_command", "prepare"],
                     ["public_workflow_route_id", "local_file_prepare_once"],
                     ["public_workflow_route_status", "admitted"],
-                    ["public_workflow_resolved_internal_command", "vortex-ingest-smoke"],
+                    ["public_workflow_resolved_internal_command", "vortex-prepare"],
                     ["public_workflow_vortex_normalization_point", "VortexPreparedState"],
                     ["public_workflow_execution_mode", "prepared_vortex"],
                     ["public_workflow_preparation_included", "true"],
@@ -1755,7 +1755,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(execution.facade_command, "prepare")
         self.assertTrue(execution.route_attached)
         self.assertEqual(execution.route_id, "local_file_prepare_once")
-        self.assertEqual(execution.resolved_internal_command, "vortex-ingest-smoke")
+        self.assertEqual(execution.resolved_internal_command, "vortex-prepare")
         self.assertTrue(execution.preparation_included)
         self.assertFalse(execution.fallback_attempted)
         self.assertFalse(execution.external_engine_invoked)
@@ -2144,7 +2144,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -2153,7 +2153,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -2183,7 +2183,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.result_jsonl, '{"id":2,"label":"beta"}\n')
         self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
         self.assertEqual(report.first_result_row, {"id": 2, "label": "beta"})
@@ -2202,7 +2202,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -2211,7 +2211,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -2313,7 +2313,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
                 import json, sys
 
-                assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                assert sys.argv[1] == "local-source-runtime", sys.argv
                 assert sys.argv[2] == "SELECT id,label,amount FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2", sys.argv
                 assert sys.argv[3:] == [
                     "--output-format",
@@ -2323,7 +2323,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -2497,10 +2497,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
                 import json, sys
 
-                if sys.argv[1] == "sql-local-source-smoke":
+                if sys.argv[1] == "local-source-runtime":
                     print(json.dumps({
                         "schema_version": "shardloom.output.v2",
-                        "command": "sql-local-source-smoke",
+                        "command": "local-source-runtime",
                         "status": "unsupported",
                         "summary": "unsupported",
                         "human_text": "unsupported",
@@ -2552,7 +2552,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label,amount FROM 'target/input.csv' WHERE amount >= 10 LIMIT 100",
                     "--output-format",
                     "inline-jsonl",
@@ -2561,7 +2561,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -2664,7 +2664,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 f"""
                 import json, sys
 
-                assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                assert sys.argv[1] == "local-source-runtime", sys.argv
                 statement = sys.argv[2]
                 if statement == {base + " LIMIT 100"!r}:
                     assert sys.argv[3:] == [
@@ -2712,7 +2712,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ])
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -2765,7 +2765,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 f"""
                 import json, sys
 
-                assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                assert sys.argv[1] == "local-source-runtime", sys.argv
                 statement = sys.argv[2]
                 if statement == {base + " LIMIT 100"!r}:
                     assert sys.argv[3:] == [
@@ -2813,7 +2813,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ])
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -2928,7 +2928,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
                 import json, sys
 
-                assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                assert sys.argv[1] == "local-source-runtime", sys.argv
                 assert sys.argv[3:] == [
                     "--output-format",
                     "inline-jsonl",
@@ -2946,7 +2946,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     raise AssertionError(sys.argv)
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3013,7 +3013,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(profile.fallback_attempted)
         self.assertFalse(profile.external_engine_invoked)
         for preview_report in (preview, head, take):
-            self.assertEqual(preview_report.envelope.command, "sql-local-source-smoke")
+            self.assertEqual(preview_report.envelope.command, "local-source-runtime")
             self.assertEqual(preview_report.output_row_count, 2)
             self.assertFalse(preview_report.fallback_attempted)
             self.assertFalse(preview_report.external_engine_invoked)
@@ -3040,7 +3040,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id FROM 'target/input.csv' LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -3049,7 +3049,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3082,7 +3082,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.parquet' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -3091,7 +3091,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3120,7 +3120,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("source_adapter_id"), "local_parquet_input_adapter")
         self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
         self.assertFalse(report.fallback_attempted)
@@ -3134,7 +3134,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.arrow' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -3143,7 +3143,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3172,7 +3172,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("source_adapter_id"),
             "local_arrow_ipc_input_adapter",
@@ -3189,7 +3189,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.avro' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -3198,7 +3198,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3227,7 +3227,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("source_adapter_id"), "local_avro_input_adapter")
         self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
         self.assertFalse(report.fallback_attempted)
@@ -3241,7 +3241,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.orc' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -3250,7 +3250,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3279,7 +3279,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("source_adapter_id"), "local_orc_input_adapter")
         self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
         self.assertFalse(report.fallback_attempted)
@@ -3293,7 +3293,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE ((amount >= 10 AND label LIKE '%ta%') OR closed_at IS NULL) LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -3302,7 +3302,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3339,12 +3339,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
         self.assertIsInstance(report.claim_summary, sl.ClaimSummary)
-        self.assertEqual(report.evidence_summary.command, "sql-local-source-smoke")
+        self.assertEqual(report.evidence_summary.command, "local-source-runtime")
         self.assertEqual(report.evidence_summary.output_row_count, 1)
         self.assertFalse(report.claim_summary.fallback_attempted)
         self.assertFalse(report.claim_summary.external_engine_invoked)
@@ -3364,7 +3364,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id FROM 'target/input.csv' WHERE active IS TRUE LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -3373,7 +3373,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3405,7 +3405,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "boolean_predicate")
         self.assertTrue(report.boolean_predicate_runtime_execution)
         self.assertEqual(report.boolean_predicate_operator, ("is_true",))
@@ -3425,7 +3425,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id FROM 'target/input.csv' WHERE active IS NOT TRUE LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -3434,7 +3434,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -3466,7 +3466,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "boolean_predicate")
         self.assertTrue(report.boolean_predicate_runtime_execution)
         self.assertEqual(report.boolean_predicate_operator, ("is_not_true",))
@@ -4045,7 +4045,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,event_date FROM 'target/input.csv' WHERE (DATE_YEAR(event_date) = 2026 AND DATE_MONTH(event_date) = 5) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4054,7 +4054,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4108,7 +4108,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,event_ts FROM 'target/input.csv' WHERE (event_ts >= TIMESTAMP '2026-05-19T12:00:00Z' AND TIMESTAMP_HOUR(event_ts) = 12) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4117,7 +4117,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4169,7 +4169,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,event_ts FROM 'target/input.csv' WHERE TIMESTAMP_ADD_SECONDS(event_ts, 60) >= TIMESTAMP '2026-05-19T12:35:45Z' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4178,7 +4178,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4232,7 +4232,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE LOWER(label) = 'alpha' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4241,7 +4241,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4272,7 +4272,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "string_transform")
         self.assertTrue(report.string_transform_runtime_execution)
         self.assertEqual(report.string_transform_operator, ("lower",))
@@ -4289,7 +4289,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4298,7 +4298,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4331,7 +4331,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "string_function")
         self.assertTrue(report.string_function_runtime_execution)
         self.assertEqual(report.string_function_operator, ("concat",))
@@ -4350,7 +4350,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE (amount >= 10 AND amount <= 20) LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -4359,7 +4359,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4390,7 +4390,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
         self.assertEqual(report.logical_predicate_operator, "and")
         self.assertEqual(report.logical_predicate_leaf_count, 2)
@@ -4405,7 +4405,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE (label NOT IN ('alpha','gamma') AND label NOT LIKE '%lt%') LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -4414,7 +4414,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4449,7 +4449,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
         self.assertEqual(report.logical_predicate_operator, "and")
         self.assertEqual(report.logical_predicate_leaf_count, 2)
@@ -4466,7 +4466,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE label RLIKE '^(alpha|gamma)$' LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -4475,7 +4475,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4505,7 +4505,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_rows,
             ({"id": 1, "label": "alpha"}, {"id": 3, "label": "gamma"}),
@@ -4524,7 +4524,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'al!_%' ESCAPE '!' LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -4533,7 +4533,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4565,7 +4565,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.result_rows, ({"id": 2, "label": "al_pha"},))
         self.assertEqual(report.predicate_operator_family, "string_predicate")
         self.assertTrue(report.string_predicate_runtime_execution)
@@ -4583,7 +4583,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -4592,7 +4592,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4620,7 +4620,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.read_csv("target/input.csv").select("id", "label").limit(2).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("sql_statement_kind"), "local_source_projection_limit")
         self.assertFalse(report.filter_runtime_execution)
         self.assertEqual(report.predicate_operator_family, "none")
@@ -4640,7 +4640,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT * FROM 'target/input.csv' LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -4649,7 +4649,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4677,7 +4677,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         take_report = ctx.read_csv("target/input.csv").take(2)
 
         for preview_report in (report, head_report, take_report):
-            self.assertEqual(preview_report.envelope.command, "sql-local-source-smoke")
+            self.assertEqual(preview_report.envelope.command, "local-source-runtime")
             self.assertEqual(
                 preview_report.envelope.field("sql_statement_kind"),
                 "local_source_projection_limit",
@@ -4693,7 +4693,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 AND label LIKE '%ta' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4702,7 +4702,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4738,7 +4738,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "logical_predicate")
         self.assertTrue(report.logical_predicate_runtime_execution)
         self.assertEqual(report.logical_predicate_operator, "and")
@@ -4757,7 +4757,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 OR label LIKE '%ta' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4766,7 +4766,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4802,7 +4802,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "logical_predicate")
         self.assertTrue(report.logical_predicate_runtime_execution)
         self.assertEqual(report.logical_predicate_operator, "or")
@@ -4824,7 +4824,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%') LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4833,7 +4833,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4869,7 +4869,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "logical_predicate")
         self.assertTrue(report.logical_predicate_runtime_execution)
         self.assertEqual(report.logical_predicate_operator, "and")
@@ -4891,7 +4891,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE NOT label LIKE '%ta' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4900,7 +4900,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4936,7 +4936,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "logical_predicate")
         self.assertTrue(report.logical_predicate_runtime_execution)
         self.assertEqual(report.logical_predicate_operator, "not")
@@ -4955,7 +4955,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE label IN ('alpha','gamma') LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -4964,7 +4964,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -4999,7 +4999,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "in_predicate")
         self.assertTrue(report.in_predicate_runtime_execution)
         self.assertEqual(report.in_list_value_count, 2)
@@ -5020,7 +5020,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE label IN ('alpha',NULL) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -5029,7 +5029,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -5064,7 +5064,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "in_predicate")
         self.assertTrue(report.in_predicate_runtime_execution)
         self.assertEqual(report.in_list_value_count, 2)
@@ -5084,7 +5084,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE (id,label) IN ((1,'alpha'),(3,'gamma'),(5,NULL)) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -5093,7 +5093,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -5135,7 +5135,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "row_value_in_predicate")
         self.assertTrue(report.in_predicate_runtime_execution)
         self.assertEqual(report.in_list_value_count, 3)
@@ -5168,7 +5168,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -5177,7 +5177,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -5233,7 +5233,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "in_subquery")
         self.assertTrue(report.in_predicate_runtime_execution)
         self.assertEqual(report.in_list_value_count, 2)
@@ -5267,7 +5267,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -5276,7 +5276,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -5329,7 +5329,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "exists_subquery")
         self.assertTrue(report.exists_subquery_runtime_execution)
         self.assertEqual(report.exists_subquery_projection_kind, ("wildcard",))
@@ -5364,7 +5364,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -5373,7 +5373,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -5430,7 +5430,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "quantified_subquery")
         self.assertTrue(report.quantified_subquery_runtime_execution)
         self.assertEqual(report.quantified_subquery_quantifiers, ("all",))
@@ -5467,7 +5467,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT allowed_id FROM 'target/allowed.csv' WHERE allowed_id = outer.id ORDER BY score DESC LIMIT 2) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -5476,7 +5476,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -5537,7 +5537,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.predicate_operator_family,
             "in_subquery,correlated_subquery",
@@ -5576,7 +5576,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -5585,7 +5585,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source source-qualified exists",
                     "human_text": "sql local source source-qualified exists",
@@ -5652,7 +5652,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE outer.amount > 10) LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -5661,7 +5661,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "unsupported",
                     "summary": "sql local source unsupported",
                     "human_text": {reason!r},
@@ -5720,7 +5720,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/grouped.csv' GROUP BY id HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -5729,7 +5729,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -5794,7 +5794,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.predicate_operator_family,
             "in_subquery,correlated_subquery",
@@ -5845,7 +5845,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE (id,label) IN (SELECT allowed_id,allowed_label FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 3) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -5854,7 +5854,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -5918,7 +5918,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "row_value_in_subquery")
         self.assertTrue(report.in_predicate_runtime_execution)
         self.assertEqual(report.in_list_value_count, 3)
@@ -5960,7 +5960,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/input.csv' WHERE amount >= 10 LIMIT 1",
                     "--output-format",
                     "inline-jsonl",
@@ -5969,7 +5969,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6005,7 +6005,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(aggregate_workflow, sl.LazyFrame)
         report = aggregate_workflow.limit(1).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"count_all":2,"sum_amount":36,"avg_amount":18.0,"min_amount":15,"max_amount":21}\n',
@@ -6029,7 +6029,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 LIMIT 1",
                     "--output-format",
                     "inline-jsonl",
@@ -6038,7 +6038,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6073,7 +6073,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(aggregate_workflow, sl.LazyFrame)
         report = aggregate_workflow.limit(1).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.result_jsonl, '{"rows":2,"total_amount":36}\n')
         self.assertTrue(report.aggregate_runtime_execution)
         self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
@@ -6094,7 +6094,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 ORDER BY total_amount DESC,rows DESC LIMIT 1",
                     "--output-format",
                     "inline-jsonl",
@@ -6103,7 +6103,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6150,7 +6150,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.result_jsonl, '{"rows":2,"total_amount":36}\n')
         self.assertTrue(report.aggregate_runtime_execution)
         self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
@@ -6172,7 +6172,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT count(*) FROM 'target/input.csv' WHERE amount >= 10 LIMIT 1",
                     "--output-format",
                     "inline-jsonl",
@@ -6181,7 +6181,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source count",
                     "human_text": "sql local source count",
@@ -6208,7 +6208,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.read_csv("target/input.csv").filter(sl.col("amount") >= 10).count()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.result_jsonl, '{"count_all":2}\n')
         self.assertEqual(report.first_result_row, {"count_all": 2})
         self.assertTrue(report.aggregate_runtime_execution)
@@ -6225,7 +6225,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(*),sum(amount) FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -6234,7 +6234,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6276,7 +6276,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(grouped_workflow, sl.LazyFrame)
         report = grouped_workflow.limit(10).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"region":"east","count_all":2,"sum_amount":36}\n',
@@ -6302,7 +6302,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region ORDER BY total_amount DESC,rows DESC LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -6311,7 +6311,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6363,7 +6363,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(sorted_workflow, sl.LazyFrame)
         report = sorted_workflow.limit(2).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"region":"east","rows":2,"total_amount":36}\n'
@@ -6391,7 +6391,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region HAVING (total_amount >= 10 AND rows >= 2) ORDER BY total_amount DESC LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -6400,7 +6400,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6453,7 +6453,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         report = having_workflow.sort("total_amount", descending=True).limit(10).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"region":"east","rows":2,"total_amount":22}\n'
@@ -6480,7 +6480,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(*) AS rows,sum(amount) AS total FROM 'target/input.csv' GROUP BY region HAVING EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1) ORDER BY total DESC LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -6489,7 +6489,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6573,7 +6573,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(*) AS rows,sum(amount) AS total FROM 'target/input.csv' GROUP BY region HAVING total > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) ORDER BY total DESC LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -6582,7 +6582,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6680,7 +6680,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(*) AS rows FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region HAVING sum(amount) >= 10 ORDER BY rows DESC LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -6689,7 +6689,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6876,7 +6876,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region ORDER BY region ASC,total_amount ASC LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -6885,7 +6885,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -6937,7 +6937,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(sorted_workflow, sl.LazyFrame)
         report = sorted_workflow.limit(2).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"region":"east","rows":2,"total_amount":36}\n'
@@ -6964,7 +6964,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(DISTINCT customer_id) AS unique_customers,count(*) AS rows FROM 'target/input.csv' WHERE amount >= 8 GROUP BY region LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -6973,7 +6973,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source count distinct",
                     "human_text": "sql local source count distinct",
@@ -7016,7 +7016,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(grouped_workflow, sl.LazyFrame)
         report = grouped_workflow.limit(10).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"region":"east","unique_customers":2,"rows":4}\n',
@@ -7053,7 +7053,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT count(DISTINCT customer_id) AS unique_count FROM 'target/input.csv' WHERE amount >= 8 LIMIT 1",
                     "--output-format",
                     "inline-jsonl",
@@ -7062,7 +7062,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source nunique",
                     "human_text": "sql local source nunique",
@@ -7098,7 +7098,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(nunique, LazyFrame)
         report = nunique.collect(limit=1)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("nunique_runtime_execution"), "true")
         self.assertEqual(report.aggregate_functions, ("count(DISTINCT customer_id)",))
         self.assertEqual(report.aggregate_output_columns, ("unique_count",))
@@ -7115,7 +7115,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT DISTINCT region,label FROM 'target/input.csv' WHERE amount >= 8 ORDER BY region ASC,label ASC LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -7124,7 +7124,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source distinct projection",
                     "human_text": "sql local source distinct projection",
@@ -7162,7 +7162,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(workflow, sl.LazyFrame)
         report = workflow.limit(2).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"region":"east","label":"alpha"}\n'
@@ -7188,7 +7188,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/left.csv' UNION ALL SELECT id,label FROM 'target/right.csv' LIMIT 4",
                     "--output-format",
                     "inline-jsonl",
@@ -7197,7 +7197,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source union all",
                     "human_text": "sql local source union all",
@@ -7250,7 +7250,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/left.csv' UNION ALL SELECT id,label FROM 'target/right.csv' LIMIT 4",
                     "--output-format",
                     "inline-jsonl",
@@ -7259,7 +7259,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source concat union all",
                     "human_text": "sql local source concat union all",
@@ -7291,7 +7291,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(workflow, sl.SqlWorkflow)
         report = workflow.collect(limit=4)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("concat_runtime_execution"), "true")
         self.assertTrue(report.sql_union_runtime_execution)
         self.assertEqual(report.sql_union_mode, "all")
@@ -7305,7 +7305,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/left.csv' INTERSECT SELECT id,label FROM 'target/right.csv' LIMIT 3",
                     "--output-format",
                     "inline-jsonl",
@@ -7314,7 +7314,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source intersect",
                     "human_text": "sql local source intersect",
@@ -7372,7 +7372,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/left.csv' EXCEPT SELECT id,label FROM 'target/right.csv' LIMIT 3",
                     "--output-format",
                     "inline-jsonl",
@@ -7381,7 +7381,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source except",
                     "human_text": "sql local source except",
@@ -7441,7 +7441,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT DISTINCT region,count(*) AS rows FROM 'target/input.csv' GROUP BY region HAVING count(*) >= 2 LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -7450,7 +7450,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source distinct aggregate",
                     "human_text": "sql local source distinct aggregate",
@@ -7482,7 +7482,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(filtered, sl.LazyFrame)
         report = filtered.distinct().collect(limit=5)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.aggregate_runtime_execution)
         self.assertTrue(report.group_by_runtime_execution)
         self.assertTrue(report.having_runtime_execution)
@@ -7500,7 +7500,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT DISTINCT f.region,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -7509,7 +7509,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source distinct join",
                     "human_text": "sql local source distinct join",
@@ -7541,7 +7541,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect(limit=2)
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertTrue(report.distinct_projection_runtime_execution)
         self.assertEqual(
@@ -7562,7 +7562,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,segment,count(*),sum(amount) FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region,segment LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -7571,7 +7571,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -7613,7 +7613,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(grouped_workflow, sl.LazyFrame)
         report = grouped_workflow.limit(10).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"region":"east","segment":"retail","count_all":2,"sum_amount":36}\n'
@@ -7640,7 +7640,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,segment,count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region,segment LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -7649,7 +7649,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -7692,7 +7692,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(grouped_workflow, sl.LazyFrame)
         report = grouped_workflow.limit(10).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"region":"east","segment":"retail","rows":2,"total_amount":36}\n'
@@ -7767,7 +7767,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -7776,7 +7776,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -7816,7 +7816,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(sorted_workflow, sl.LazyFrame)
         report = sorted_workflow.limit(2).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"id":3,"label":"gamma"}\n{"id":2,"label":"beta"}\n',
@@ -7838,7 +7838,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' ORDER BY amount DESC NULLS LAST LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -7847,7 +7847,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -7880,7 +7880,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.order_by_runtime_execution)
         self.assertTrue(report.top_n_runtime_execution)
         self.assertEqual(report.sort_keys, ("amount",))
@@ -7900,7 +7900,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -7909,7 +7909,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -7943,7 +7943,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect(limit=2)
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.order_by_runtime_execution)
         self.assertTrue(report.top_n_runtime_execution)
         self.assertEqual(report.sort_keys, ("amount",))
@@ -8102,7 +8102,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,(amount + tax) * 2 AS gross,FLOOR(amount) AS bucket FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -8111,7 +8111,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection",
                     "human_text": "sql local source computed projection",
@@ -8145,7 +8145,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect(limit=2)
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.generic_expression_projection_runtime_execution)
         self.assertEqual(
             report.generic_expression_projection_output_columns,
@@ -8167,7 +8167,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,UNHEX(LOWER(TRIM(hex_payload))) AS payload_hex,FROM_BASE64(CONCAT(b64_prefix, b64_suffix)) AS payload_b64 FROM 'target/input.csv' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -8176,7 +8176,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source binary helper projection",
                     "human_text": "sql local source binary helper projection",
@@ -8215,7 +8215,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_computed_projection_limit",
@@ -8262,7 +8262,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,BYTE_LENGTH(UNHEX(LOWER(TRIM(hex_payload)))) AS payload_len,BYTE_LENGTH(CAST(CONCAT(label_prefix, label_suffix) AS binary)) AS label_len FROM 'target/input.csv' WHERE BYTE_LENGTH(FROM_BASE64(CONCAT(b64_prefix, b64_suffix))) >= 4 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -8271,7 +8271,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source binary byte length",
                     "human_text": "sql local source binary byte length",
@@ -8329,7 +8329,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.computed_projection_runtime_execution)
         self.assertTrue(report.binary_byte_length_projection_runtime_execution)
         self.assertEqual(
@@ -8381,7 +8381,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id FROM 'target/input.csv' WHERE UNHEX(hex_payload) = X'00ff10' LIMIT 5",
                     "--output-format",
                     "inline-jsonl",
@@ -8390,7 +8390,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source binary helper predicate",
                     "human_text": "sql local source binary helper predicate",
@@ -8426,7 +8426,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "binary_helper_predicate")
         self.assertTrue(report.filter_runtime_execution)
         self.assertTrue(report.binary_helper_predicate_runtime_execution)
@@ -8456,7 +8456,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT region,count(*) AS rows FROM 'target/input.csv' GROUP BY region ORDER BY rows DESC LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -8465,7 +8465,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source grouped count",
                     "human_text": "sql local source grouped count",
@@ -8497,7 +8497,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(grouped, sl.LazyFrame)
         report = grouped.sort_values("rows", descending=True).collect(limit=2)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.group_by_runtime_execution)
         self.assertEqual(report.group_by_columns, ("region",))
         self.assertTrue(report.order_by_runtime_execution)
@@ -8514,7 +8514,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT label,count(*) AS rows FROM 'target/input.csv' WHERE (amount >= 8) AND (label IS NOT NULL) GROUP BY label ORDER BY rows DESC LIMIT 3",
                     "--output-format",
                     "inline-jsonl",
@@ -8523,7 +8523,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source value counts",
                     "human_text": "sql local source value counts",
@@ -8561,7 +8561,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(value_counts, LazyFrame)
         report = value_counts.collect(limit=3)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("value_counts_runtime_execution"), "true")
         self.assertEqual(report.aggregate_functions, ("count(*)",))
         self.assertEqual(report.aggregate_output_columns, ("rows",))
@@ -8576,7 +8576,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,COALESCE(amount, 0) AS amount,COALESCE(label, 'unknown') AS label FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -8585,7 +8585,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source dataframe fillna",
                     "human_text": "sql local source dataframe fillna",
@@ -8617,7 +8617,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(workflow, LazyFrame)
         report = workflow.filter(sl.col("id") >= 1).collect(limit=2)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("fillna_runtime_execution"), "true")
         self.assertTrue(report.null_coalesce_projection_runtime_execution)
         self.assertFalse(report.fallback_attempted)
@@ -8630,7 +8630,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                assert args[0] == "sql-local-source-smoke", args
+                assert args[0] == "local-source-runtime", args
                 assert args[2:] == ["--output-format", "inline-jsonl", "--format", "json"], args
                 statement = args[1]
                 if statement == "SELECT label IS NULL AS label,closed_at IS NULL AS closed_at FROM 'target/input.csv' LIMIT 3":
@@ -8675,7 +8675,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ])
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source null mask projection",
                     "human_text": "sql local source null mask projection",
@@ -8733,7 +8733,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,CAST(amount AS int64) AS amount,CAST(label AS utf8) AS label FROM 'target/input.csv' WHERE (amount > 0) AND (label IS NOT NULL) LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -8742,7 +8742,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source dtype/null cleanup",
                     "human_text": "sql local source dtype/null cleanup",
@@ -8781,7 +8781,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(workflow, LazyFrame)
         report = workflow.collect(limit=2)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("query_alias_runtime_execution"), "true")
         self.assertEqual(report.envelope.field("dropna_runtime_execution"), "true")
         self.assertEqual(report.envelope.field("astype_runtime_execution"), "true")
@@ -8847,7 +8847,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                assert args[:1] == ["sql-local-source-smoke"], args
+                assert args[:1] == ["local-source-runtime"], args
                 statement = args[1]
                 assert args[2:] == ["--output-format", "inline-jsonl", "--format", "json"], args
                 if statement == "SELECT id,amount FROM 'target/input.csv' ORDER BY amount DESC LIMIT 5":
@@ -8877,7 +8877,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ])
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source top n",
                     "human_text": "sql local source top n",
@@ -8958,7 +8958,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 ORDER BY label ASC LIMIT 3",
                     "--output-format",
                     "inline-jsonl",
@@ -8967,7 +8967,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -9007,7 +9007,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(sorted_workflow, sl.LazyFrame)
         report = sorted_workflow.limit(3).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"id":4,"label":"alpha"}\n'
@@ -9031,7 +9031,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 ORDER BY amount DESC,id DESC LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -9040,7 +9040,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -9080,7 +9080,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(sorted_workflow, sl.LazyFrame)
         report = sorted_workflow.limit(2).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.result_jsonl,
             '{"id":4,"label":"delta"}\n{"id":3,"label":"gamma"}\n',
@@ -9102,7 +9102,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9111,7 +9111,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join",
                     "human_text": "sql local source join",
@@ -9142,7 +9142,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         client = ShardLoomClient(binary=binary)
 
-        report = client.sql_local_source_smoke(
+        report = client.local_source_runtime(
             "SELECT f.id,d.segment FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d "
             "ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10"
         )
@@ -9179,7 +9179,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9188,7 +9188,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join",
                     "human_text": "sql local source join",
@@ -9227,7 +9227,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_type, "inner_equi")
         self.assertEqual(report.join_left_key, "f.customer_id")
@@ -9249,7 +9249,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.amount > d.threshold ORDER BY f.id ASC,d.threshold ASC LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9258,7 +9258,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source expression join",
                     "human_text": "sql local source expression join",
@@ -9297,7 +9297,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_type, "inner_expression")
         self.assertTrue(report.join_on_predicate_runtime_execution)
@@ -9322,7 +9322,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON (f.customer_id = d.customer_id OR f.region = d.region) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9331,7 +9331,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source logical OR join",
                     "human_text": "sql local source logical OR join",
@@ -9370,7 +9370,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_type, "inner_expression")
         self.assertTrue(report.join_on_predicate_runtime_execution)
@@ -9404,7 +9404,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f LEFT JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id ORDER BY f.id ASC LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9413,7 +9413,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source left outer join",
                     "human_text": "sql local source left outer join",
@@ -9451,7 +9451,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_type, "left_outer_equi")
         self.assertEqual(report.join_key_arity, 1)
@@ -9470,7 +9470,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f LEFT JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9479,7 +9479,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source merge alias",
                     "human_text": "sql local source merge alias",
@@ -9515,7 +9515,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(workflow, LazyFrame)
         report = workflow.select("f.id", "d.segment").filter("f.amount >= 10").limit(10).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("merge_runtime_execution"), "true")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_type, "left_outer_equi")
@@ -9529,7 +9529,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f CROSS JOIN 'target/dim.csv' AS d WHERE f.id = 2 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9538,7 +9538,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source cross join",
                     "human_text": "sql local source cross join",
@@ -9572,7 +9572,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_type, "cross")
         self.assertEqual(report.join_key_arity, 0)
@@ -9588,7 +9588,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f RIGHT JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9597,7 +9597,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source right outer join",
                     "human_text": "sql local source right outer join",
@@ -9632,7 +9632,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_type, "right_outer_equi")
         self.assertEqual(report.join_key_arity, 1)
@@ -9664,7 +9664,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -9673,7 +9673,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join topn",
                     "human_text": "sql local source join topn",
@@ -9715,7 +9715,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_key_arity, 2)
         self.assertTrue(report.join_multi_key_runtime_execution)
@@ -9740,7 +9740,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -9749,7 +9749,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join",
                     "human_text": "sql local source join",
@@ -9788,7 +9788,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_type, "inner_equi")
         self.assertEqual(report.join_left_key, "f.customer_id,f.region")
@@ -9812,7 +9812,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment,f.amount + d.discount AS adjusted,CONCAT(d.segment, '-', f.region) AS segment_region FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 3",
                     "--output-format",
                     "inline-jsonl",
@@ -9821,7 +9821,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join computed topn",
                     "human_text": "sql local source join computed topn",
@@ -9874,7 +9874,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_key_arity, 2)
         self.assertTrue(report.join_multi_key_runtime_execution)
@@ -9914,7 +9914,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT count(*) AS rows,sum(f.amount) AS total_amount FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE d.segment = 'enterprise' LIMIT 1",
                     "--output-format",
                     "inline-jsonl",
@@ -9923,7 +9923,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join aggregate",
                     "human_text": "sql local source join aggregate",
@@ -9970,7 +9970,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertTrue(report.aggregate_runtime_execution)
         self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
@@ -9994,7 +9994,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT count(*) AS rows,sum(f.amount) AS total_amount FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE d.segment = 'enterprise' ORDER BY total_amount DESC,rows DESC LIMIT 1",
                     "--output-format",
                     "inline-jsonl",
@@ -10003,7 +10003,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join aggregate",
                     "human_text": "sql local source join aggregate",
@@ -10057,7 +10057,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertTrue(report.aggregate_runtime_execution)
         self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
@@ -10083,7 +10083,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 GROUP BY d.segment LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -10092,7 +10092,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join group aggregate",
                     "human_text": "sql local source join group aggregate",
@@ -10147,7 +10147,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.join_runtime_execution)
         self.assertEqual(report.join_left_keys, ("f.customer_id", "f.region"))
         self.assertEqual(report.join_right_keys, ("d.customer_id", "d.region"))
@@ -10176,7 +10176,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.jsonl' AS f INNER JOIN 'target/dim.jsonl' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -10185,7 +10185,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join",
                     "human_text": "sql local source join",
@@ -10222,7 +10222,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("source_format"), "jsonl")
         self.assertEqual(report.envelope.field("right_source_format"), "jsonl")
         self.assertEqual(report.envelope.field("join_source_formats"), "jsonl,jsonl")
@@ -10243,7 +10243,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
                     "--output-format",
                     "jsonl",
@@ -10255,7 +10255,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source join",
                     "human_text": "sql local source join",
@@ -10304,7 +10304,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label,'north' AS segment FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -10313,7 +10313,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source literal projection",
                     "human_text": "sql local source literal projection",
@@ -10345,7 +10345,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_literal_projection_filter_limit",
@@ -10364,7 +10364,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM 'target/input.csv' WHERE amount >= 0 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -10373,7 +10373,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source complex projection",
                     "human_text": "sql local source complex projection",
@@ -10416,7 +10416,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_complex_projection_filter_limit",
@@ -10468,7 +10468,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,amount + 5 AS adjusted FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -10477,7 +10477,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection",
                     "human_text": "sql local source computed projection",
@@ -10511,7 +10511,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_computed_projection_filter_limit",
@@ -10555,7 +10555,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -10564,7 +10564,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection",
                     "human_text": "sql local source computed projection",
@@ -10598,7 +10598,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_computed_projection_filter_limit",
@@ -10621,7 +10621,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -10630,7 +10630,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection topn",
                     "human_text": "sql local source computed projection topn",
@@ -10668,7 +10668,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_computed_projection_order_by_topn_filter_limit",
@@ -10693,7 +10693,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -10702,7 +10702,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source window row number",
                     "human_text": "sql local source window row number",
@@ -10746,7 +10746,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_window_filter_limit",
@@ -10789,7 +10789,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -10798,7 +10798,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source distinct window",
                     "human_text": "sql local source distinct window",
@@ -10838,7 +10838,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect(limit=2)
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.window_runtime_execution)
         self.assertTrue(report.window_rank_runtime_execution)
         self.assertTrue(report.distinct_projection_runtime_execution)
@@ -10856,7 +10856,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -10865,7 +10865,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source window rank",
                     "human_text": "sql local source window rank",
@@ -10915,7 +10915,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.window_operator_family, "ranking")
         self.assertEqual(report.window_function, ("rank", "dense_rank"))
         self.assertEqual(report.window_partition_columns, ("region", "region"))
@@ -10936,7 +10936,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,(amount + tax) * 2 AS gross FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -10945,7 +10945,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source generic expression projection",
                     "human_text": "sql local source generic expression projection",
@@ -10979,7 +10979,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_computed_projection_filter_limit",
@@ -11024,7 +11024,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id FROM 'target/input.csv' WHERE (amount + tax) * 2 >= 40 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11033,7 +11033,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source generic expression predicate",
                     "human_text": "sql local source generic expression predicate",
@@ -11068,7 +11068,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(
             report.envelope.field("sql_statement_kind"),
             "local_source_projection_filter_limit",
@@ -11096,7 +11096,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,ABS(amount) AS magnitude FROM 'target/input.csv' WHERE ABS(amount) >= 4 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11105,7 +11105,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source numeric abs projection",
                     "human_text": "sql local source numeric abs projection",
@@ -11141,7 +11141,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "numeric_abs")
         self.assertTrue(report.numeric_abs_runtime_execution)
         self.assertEqual(report.numeric_abs_source_columns, ("amount",))
@@ -11162,7 +11162,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,FLOOR(amount) AS bucket FROM 'target/input.csv' WHERE ROUND(amount) >= 4 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11171,7 +11171,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source numeric rounding projection",
                     "human_text": "sql local source numeric rounding projection",
@@ -11209,7 +11209,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "numeric_rounding")
         self.assertTrue(report.numeric_rounding_runtime_execution)
         self.assertEqual(report.numeric_rounding_operators, ("round",))
@@ -11230,7 +11230,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,LOWER(label) AS normalized FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11239,7 +11239,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection",
                     "human_text": "sql local source computed projection",
@@ -11272,7 +11272,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.string_transform_projection_runtime_execution)
         self.assertEqual(report.string_transform_projection_operator, ("lower",))
         self.assertEqual(report.string_transform_projection_source_columns, ("label",))
@@ -11290,7 +11290,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,LENGTH(label) AS label_len FROM 'target/input.csv' WHERE LENGTH(label) >= 4 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11299,7 +11299,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source string length projection",
                     "human_text": "sql local source string length projection",
@@ -11335,7 +11335,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "string_length")
         self.assertTrue(report.string_length_runtime_execution)
         self.assertEqual(report.string_length_source_columns, ("label",))
@@ -11354,7 +11354,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,CONCAT(LOWER(TRIM(label)), '-', UPPER(segment)) AS label_key,SUBSTR(TRIM(label), 1, 3) AS prefix,LEFT(LOWER(label), 2) AS left_edge,RIGHT(UPPER(label), 2) AS right_edge,REPLACE(TRIM(label), 'a', '') AS scrubbed FROM 'target/input.csv' WHERE CONCAT(LOWER(TRIM(label)), '-', UPPER(segment)) = 'alpha-north' LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11363,7 +11363,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source string function projection",
                     "human_text": "sql local source string function projection",
@@ -11413,7 +11413,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "string_function")
         self.assertTrue(report.string_function_runtime_execution)
         self.assertEqual(report.string_function_operator, ("concat",))
@@ -11445,7 +11445,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day,CAST(CONCAT(label_prefix, ' AS ', label_suffix) AS binary) AS label_bytes FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11454,7 +11454,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection",
                     "human_text": "sql local source computed projection",
@@ -11493,7 +11493,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.cast_projection_runtime_execution)
         self.assertEqual(
             report.cast_projection_source_columns,
@@ -11518,7 +11518,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,TRY_CAST(raw_amount AS int64) AS amount_i64 FROM 'target/input.csv' WHERE TRY_CAST(raw_amount AS int64) >= 10 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -11527,7 +11527,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source try cast",
                     "human_text": "sql local source try cast",
@@ -11566,7 +11566,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "cast")
         self.assertTrue(report.cast_runtime_execution)
         self.assertEqual(report.cast_source_columns, ("raw_amount",))
@@ -11588,7 +11588,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal128(10,2)) AS raw_decimal FROM 'target/input.csv' WHERE CAST(amount AS decimal128(10,2)) >= '10.00' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -11597,7 +11597,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source decimal cast",
                     "human_text": "sql local source decimal cast",
@@ -11645,7 +11645,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.predicate_operator_family, "cast")
         self.assertTrue(report.cast_runtime_execution)
         self.assertEqual(report.cast_target_dtypes, ("decimal128(10,2)",))
@@ -11691,7 +11691,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,CAST(amount AS decimal128(10,2)) + CAST(amount AS decimal128(10,3)) AS adjusted,CAST(amount AS decimal128(10,2)) / 2 AS half FROM 'target/input.csv' WHERE CAST(amount AS decimal128(10,2)) + 0 >= CAST(amount AS decimal128(10,3)) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -11700,7 +11700,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source decimal arithmetic",
                     "human_text": "sql local source decimal arithmetic",
@@ -11746,7 +11746,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.generic_expression_projection_runtime_execution)
         self.assertTrue(report.generic_expression_predicate_runtime_execution)
         self.assertEqual(report.generic_expression_projection_source_columns, ("amount", "amount"))
@@ -11767,7 +11767,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,DATE_YEAR(CAST(event_date AS date32)) AS event_year,TIMESTAMP_HOUR(CAST(event_ts AS timestamp_micros)) AS event_hour FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11776,7 +11776,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection",
                     "human_text": "sql local source computed projection",
@@ -11817,7 +11817,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.date_extract_projection_runtime_execution)
         self.assertEqual(report.date_extract_projection_operator, ("date_year",))
         self.assertEqual(report.date_extract_projection_source_columns, ("event_date",))
@@ -11841,7 +11841,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,DATE_ADD_DAYS(CAST(event_date AS date32), INTERVAL '7' DAY) AS next_week,DATE_SUB_DAYS(CAST(event_date AS date32), 1) AS prior_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -11850,7 +11850,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection",
                     "human_text": "sql local source computed projection",
@@ -11892,7 +11892,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.date_arithmetic_projection_runtime_execution)
         self.assertEqual(
             report.date_arithmetic_projection_operator,
@@ -11920,7 +11920,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,TIMESTAMP_ADD_SECONDS(CAST(event_ts AS timestamp_micros), INTERVAL '90' SECOND) AS shifted_ts,TIMESTAMP_SUB_SECONDS(CAST(event_ts AS timestamp_micros), 45) AS prior_ts FROM 'target/input.csv' WHERE TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' MINUTE) >= TIMESTAMP '2026-05-19T12:35:45Z' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -11929,7 +11929,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source computed projection",
                     "human_text": "sql local source computed projection",
@@ -11981,7 +11981,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.timestamp_arithmetic_runtime_execution)
         self.assertEqual(
             report.timestamp_arithmetic_operator,
@@ -12016,7 +12016,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,DATE_DIFF_DAYS(CAST(end_date AS date32), start_date) AS age_days,TIMESTAMP_DIFF_SECONDS(CAST(event_end AS timestamp_micros), CAST(event_ts AS timestamp_micros)) AS elapsed_seconds FROM 'target/input.csv' WHERE DATE_DIFF_DAYS(end_date, start_date) >= 2 LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
@@ -12025,7 +12025,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source temporal difference projection",
                     "human_text": "sql local source temporal difference projection",
@@ -12073,7 +12073,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.generic_expression_predicate_runtime_execution)
         self.assertEqual(
             report.generic_expression_predicate_source_columns,
@@ -12113,7 +12113,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,COALESCE(label, 'unknown') AS label_clean,COALESCE(amount, 0) AS amount_clean,COALESCE(CAST(event_date AS date32), DATE '2026-01-01') AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -12122,7 +12122,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source null coalesce projection",
                     "human_text": "sql local source null coalesce projection",
@@ -12160,7 +12160,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.null_coalesce_projection_runtime_execution)
         self.assertEqual(
             report.null_coalesce_projection_source_columns,
@@ -12185,7 +12185,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,NULLIF(label, 'missing') AS label_clean,NULLIF(amount, 0) AS amount_clean,NULLIF(CAST(event_date AS date32), DATE '2026-01-01') AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -12194,7 +12194,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source nullif projection",
                     "human_text": "sql local source nullif projection",
@@ -12232,7 +12232,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.nullif_projection_runtime_execution)
         self.assertEqual(
             report.nullif_projection_source_columns,
@@ -12257,7 +12257,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day,CASE WHEN amount >= 10 THEN preferred_label ELSE fallback_label END AS label_choice FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -12266,7 +12266,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source conditional projection",
                     "human_text": "sql local source conditional projection",
@@ -12317,7 +12317,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.conditional_projection_runtime_execution)
         self.assertEqual(
             report.conditional_projection_predicate_families,
@@ -12350,7 +12350,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,amount >= 10 AS is_large,label IS NULL AS missing_label,active IS NOT TRUE AS inactive_or_unknown FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
@@ -12359,7 +12359,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source predicate projection",
                     "human_text": "sql local source predicate projection",
@@ -12395,7 +12395,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertTrue(report.predicate_projection_runtime_execution)
         self.assertEqual(
             report.predicate_projection_predicate_families,
@@ -12428,7 +12428,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "jsonl",
@@ -12440,7 +12440,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -12498,7 +12498,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' LIMIT 2",
                     "--output-format",
                     "csv",
@@ -12510,7 +12510,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -15384,7 +15384,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,label FROM 'target/input.csv' LIMIT 2",
                     "--output-format",
                     "arrow-ipc",
@@ -15396,7 +15396,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -15624,7 +15624,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     "SELECT id,'north' AS segment FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
                     "csv",
@@ -15636,7 +15636,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "sql local source literal projection csv output",
                     "human_text": "sql local source literal projection csv output",
@@ -17207,7 +17207,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -17216,7 +17216,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned 2 bounded row(s)",
                     "human_text": "SQL local-source smoke",
@@ -17240,7 +17240,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.sql(statement).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.output_row_count, 2)
         self.assertEqual(report.selected_row_count, 2)
         self.assertEqual(report.predicate_operator_family, "comparison")
@@ -17256,7 +17256,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -17265,7 +17265,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned 2 bounded row(s)",
                     "human_text": "SQL local-source smoke",
@@ -17287,8 +17287,228 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.sql("SELECT id FROM 'target/input.csv' WHERE id >= 1").collect(limit=2)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.output_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_context_sql_declared_vortex_input_binds_bare_table_collect(self) -> None:
+        statement = "SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%'"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "sql",
+                    "--input",
+                    "hits.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--sql",
+                    {statement!r},
+                    "--plan",
+                    "sql(statement)",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "native Vortex aggregate primitive",
+                    "human_text": "public workflow run",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "public_workflow_route_id", "value": "native_vortex_aggregate"}},
+                        {{"key": "public_workflow_native_vortex_plan_payload_kind", "value": "primitive_operator"}},
+                        {{"key": "public_workflow_vortex_primitive", "value": "aggregate"}},
+                        {{"key": "public_workflow_vortex_predicate", "value": "contains:URL:google"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql(statement, input="hits.vortex").collect(
+            memory_gb=4,
+            max_parallelism=1,
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "native_vortex_aggregate")
+        self.assertEqual(
+            report.envelope.field("public_workflow_native_vortex_plan_payload_kind"),
+            "primitive_operator",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_context_sql_vortex_manifest_source_binds_native_vortex_collect(self) -> None:
+        statement = "SELECT COUNT(*) FROM 'hits_parts.vortex-manifest'"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "sql",
+                    "--input",
+                    "hits_parts.vortex-manifest",
+                    "--input-format",
+                    "vortex",
+                    "--sql",
+                    {statement!r},
+                    "--plan",
+                    "sql(statement)",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--native-vortex-operation-family",
+                    "count",
+                    "--vortex-primitive",
+                    "count",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "native Vortex count primitive",
+                    "human_text": "public workflow run",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "public_workflow_route_id", "value": "native_vortex_count_all"}},
+                        {{"key": "native_vortex_input_binding_mode", "value": "manifest"}},
+                        {{"key": "native_vortex_partitioned_input_binding", "value": "true"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql(statement).collect(
+            memory_gb=4,
+            max_parallelism=1,
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_count_all",
+        )
+        self.assertEqual(report.envelope.field("native_vortex_input_binding_mode"), "manifest")
+        self.assertTrue(report.envelope.field_bool("native_vortex_partitioned_input_binding"))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_context_sql_embedded_vortex_manifest_broad_query_uses_native_input_binding(self) -> None:
+        statement = (
+            "SELECT COUNT(*) FROM 'hits_parts.vortex-manifest' "
+            "WHERE AdvEngineID <> 0"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "sql",
+                    "--input",
+                    "hits_parts.vortex-manifest",
+                    "--input-format",
+                    "vortex",
+                    "--sql",
+                    {statement!r},
+                    "--plan",
+                    "sql(statement)",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "native Vortex count_where primitive",
+                    "human_text": "public workflow run",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "public_workflow_route_id", "value": "native_vortex_count_where"}},
+                        {{"key": "native_vortex_input_binding_mode", "value": "manifest"}},
+                        {{"key": "native_vortex_partitioned_input_binding", "value": "true"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql(statement).collect(
+            memory_gb=4,
+            max_parallelism=1,
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_count_where",
+        )
+        self.assertEqual(report.envelope.field("native_vortex_input_binding_mode"), "manifest")
+        self.assertTrue(report.envelope.field_bool("native_vortex_partitioned_input_binding"))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -17300,7 +17520,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -17309,7 +17529,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned bounded rows",
                     "human_text": "SQL local-source smoke",
@@ -17333,7 +17553,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         report = workflow.collect()
 
         self.assertEqual(workflow.statement, statement)
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.output_row_count, 2)
         self.assertFalse(report.fallback_attempted)
 
@@ -17397,7 +17617,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -17406,7 +17626,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned bounded rows",
                     "human_text": "SQL local-source smoke",
@@ -17428,7 +17648,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.read_csv("target/input.csv").select("id").collect(limit=2)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.output_row_count, 2)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -17441,7 +17661,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "jsonl",
@@ -17453,7 +17673,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned 2 bounded row(s)",
                     "human_text": "SQL local-source smoke",
@@ -17478,7 +17698,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.sql(statement).write("target/sql-local.jsonl", allow_overwrite=True)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.output_path, "target/sql-local.jsonl")
         self.assertTrue(report.output_io_performed)
         self.assertEqual(report.output_native_io_certificate_status, "certified_local_jsonl_sink")
@@ -17493,7 +17713,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "jsonl",
@@ -17505,7 +17725,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned 2 bounded row(s)",
                     "human_text": "SQL local-source smoke",
@@ -17540,7 +17760,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write("target/json-result.jsonl", allow_overwrite=True)
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.output_path, "target/json-result.jsonl")
         self.assertEqual(report.output_row_count, 2)
         self.assertEqual(report.selected_row_count, 2)
@@ -17564,7 +17784,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -17573,7 +17793,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned one aggregate row",
                     "human_text": "SQL local-source smoke",
@@ -17607,7 +17827,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(aggregate_workflow, sl.LazyFrame)
         report = aggregate_workflow.limit(1).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("source_format"), "jsonl")
         self.assertEqual(
             report.result_jsonl,
@@ -17635,7 +17855,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "jsonl",
@@ -17647,7 +17867,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned grouped aggregate rows",
                     "human_text": "SQL local-source smoke",
@@ -17688,7 +17908,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             allow_overwrite=True,
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.output_path, "target/json-grouped.jsonl")
         self.assertTrue(report.aggregate_runtime_execution)
         self.assertEqual(report.aggregate_operator_family, "grouped_aggregate")
@@ -17712,7 +17932,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -17721,7 +17941,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned sorted rows",
                     "human_text": "SQL local-source smoke",
@@ -17757,7 +17977,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(sorted_workflow, sl.LazyFrame)
         report = sorted_workflow.limit(2).collect()
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.envelope.field("source_format"), "jsonl")
         self.assertTrue(report.order_by_runtime_execution)
         self.assertTrue(report.top_n_runtime_execution)
@@ -17780,7 +18000,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -17789,7 +18009,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned 1 bounded row(s)",
                     "human_text": "SQL local-source smoke",
@@ -17828,7 +18048,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.command, "local-source-runtime")
         self.assertEqual(report.output_row_count, 1)
         self.assertEqual(report.selected_row_count, 1)
         self.assertEqual(report.envelope.field("source_format"), "json")
@@ -19332,8 +19552,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
-                assert "--input" not in args, args
-                assert "--input-format" not in args, args
+                assert args[args.index("--input") + 1] == "orders.vortex", args
+                assert args[args.index("--input-format") + 1] == "vortex", args
                 assert "--native-vortex-operation-family" not in args, args
                 assert "--native-vortex-provider-scenario" not in args, args
                 assert "--native-vortex-right-input" not in args, args
@@ -21505,7 +21725,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -21514,7 +21734,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned bounded rows",
                     "human_text": "SQL local-source smoke",
@@ -21546,7 +21766,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         self.assertIsInstance(workflow, sl.SessionSqlWorkflow)
         self.assertEqual(workflow.statement, statement)
-        self.assertEqual(report.report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.report.envelope.command, "local-source-runtime")
         self.assertEqual(report.report.output_row_count, 2)
         self.assertFalse(report.report.fallback_attempted)
         self.assertFalse(report.report.external_engine_invoked)
@@ -21559,7 +21779,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "local-source-runtime",
                     {statement!r},
                     "--output-format",
                     "inline-jsonl",
@@ -21568,7 +21788,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "local-source-runtime",
                     "status": "success",
                     "summary": "SQL local-source smoke returned bounded rows",
                     "human_text": "SQL local-source smoke",
@@ -21597,7 +21817,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = session.read_csv("target/input.csv").select("id").collect(limit=2)
 
-        self.assertEqual(report.report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.report.envelope.command, "local-source-runtime")
         self.assertEqual(report.report.output_row_count, 2)
         self.assertFalse(report.report.fallback_attempted)
         self.assertFalse(report.report.external_engine_invoked)

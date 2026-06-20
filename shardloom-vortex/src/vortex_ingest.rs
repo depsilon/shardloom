@@ -16,7 +16,11 @@ use std::{
 };
 
 #[cfg(feature = "vortex-write")]
-use std::{collections::BTreeSet, time::Instant};
+use std::{
+    cell::{Cell, RefCell},
+    collections::BTreeSet,
+    time::Instant,
+};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
@@ -69,6 +73,9 @@ pub const VORTEX_COPY_BUDGET_SCHEMA_VERSION: &str = "shardloom.vortex_copy_budge
 /// Evidence schema emitted by scoped local prepared-state reuse manifests.
 pub const VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION: &str =
     "shardloom.vortex_prepared_state_reuse_manifest.v1";
+/// Evidence schema emitted for the local prepared-state read-through index view.
+pub const VORTEX_PREPARED_STATE_REUSE_INDEX_SCHEMA_VERSION: &str =
+    "shardloom.vortex_prepared_state_reuse_index.v1";
 /// Admission policy for artifact-adjacent prepared-state reuse manifests.
 pub const VORTEX_PREPARED_STATE_REUSE_POLICY: &str =
     "artifact_adjacent_local_prepared_state_reuse.v1";
@@ -291,6 +298,30 @@ impl VortexPreparedStateReuseReport {
                 digest_algorithm(&self.manifest_digest).to_string(),
             ),
             (
+                "vortex_prepared_state_reuse_index_schema_version".to_string(),
+                VORTEX_PREPARED_STATE_REUSE_INDEX_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_index_key".to_string(),
+                self.index_key(),
+            ),
+            (
+                "vortex_prepared_state_reuse_index_lookup_status".to_string(),
+                self.index_lookup_status().to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_index_cache_scope".to_string(),
+                "artifact_adjacent_manifest_read_through_cache".to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_index_repair_status".to_string(),
+                self.index_repair_status().to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_role_scoped_repair_status".to_string(),
+                self.role_scoped_repair_status().to_string(),
+            ),
+            (
                 "vortex_prepared_state_reuse_invalidation_reason".to_string(),
                 self.invalidation_reason.clone(),
             ),
@@ -395,6 +426,55 @@ impl VortexPreparedStateReuseReport {
                 self.external_engine_invoked.to_string(),
             ),
         ]
+    }
+
+    fn index_key(&self) -> String {
+        let mut digest = sha2::Sha256::new();
+        for value in [
+            self.source_format.as_str(),
+            self.source_content_digest.as_str(),
+            self.source_schema_digest.as_str(),
+            self.parse_decode_plan_digest.as_str(),
+            self.selected_columns.as_str(),
+            self.output_policy.as_str(),
+            self.provider_version.as_str(),
+            self.feature_gates.as_str(),
+            self.certification_level.as_str(),
+        ] {
+            digest.update(value.as_bytes());
+            digest.update(b"\0");
+        }
+        sha256_digest_string(digest.finalize())
+    }
+
+    fn index_lookup_status(&self) -> &'static str {
+        if self.hit {
+            "artifact_adjacent_manifest_read_through_hit"
+        } else if self.manifest_written {
+            "artifact_adjacent_manifest_created_after_miss"
+        } else {
+            "artifact_adjacent_manifest_read_through_miss"
+        }
+    }
+
+    fn index_repair_status(&self) -> &'static str {
+        if self.hit {
+            "not_required_cache_hit"
+        } else if self.manifest_written {
+            "manifest_written_after_prepare"
+        } else if self.reason == "prepared_artifact_missing" {
+            "artifact_missing_recreate_required"
+        } else {
+            "not_required_fail_closed_miss"
+        }
+    }
+
+    fn role_scoped_repair_status(&self) -> &'static str {
+        if self.hit || self.manifest_written {
+            "not_required_local_single_artifact"
+        } else {
+            "not_applicable_local_single_artifact_recreate_required"
+        }
     }
 }
 
@@ -3959,6 +4039,10 @@ fn copy_budget_status(input: &VortexCopyBudgetInput) -> &'static str {
         "blocked_copy_budget"
     } else if input.unsafe_lifetime_shortcut_status != "blocked_no_unsafe_lifetime_shortcuts" {
         "blocked_unsafe_lifetime_shortcut"
+    } else if input.buffer_reuse_status.starts_with("admitted")
+        && input.measurement_status.contains("not_measured")
+    {
+        "admitted_scoped_buffer_reuse_with_unmeasured_segments"
     } else if input.buffer_reuse_status.starts_with("admitted") {
         "admitted_scoped_buffer_reuse"
     } else if input.measurement_status.contains("not_measured") {
@@ -7280,6 +7364,7 @@ struct LocalVortexWriteContext {
     runtime: vortex::io::runtime::single::SingleThreadRuntime,
     session: vortex::session::VortexSession,
     open_micros: u128,
+    writes_started: Cell<u64>,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7298,6 +7383,17 @@ impl LocalVortexWriteContext {
             runtime,
             session,
             open_micros: open_start.elapsed().as_micros(),
+            writes_started: Cell::new(0),
+        }
+    }
+
+    fn next_reuse_status(&self) -> &'static str {
+        let previous = self.writes_started.get();
+        self.writes_started.set(previous.saturating_add(1));
+        if previous == 0 {
+            "thread_local_write_context_opened_for_first_artifact"
+        } else {
+            "thread_local_write_context_reused_for_artifact"
         }
     }
 
@@ -7364,18 +7460,22 @@ impl LocalVortexWriteContext {
 }
 
 #[cfg(feature = "vortex-write")]
+thread_local! {
+    static LOCAL_VORTEX_WRITE_CONTEXT: RefCell<LocalVortexWriteContext> =
+        RefCell::new(LocalVortexWriteContext::open());
+}
+
+#[cfg(feature = "vortex-write")]
 fn write_vortex_array(
     path: &Path,
     array: &vortex::array::ArrayRef,
     allow_overwrite: bool,
 ) -> Result<LocalVortexWriteResult> {
-    let context = LocalVortexWriteContext::open();
-    context.write_array(
-        path,
-        array,
-        allow_overwrite,
-        "single_write_context_opened_for_artifact",
-    )
+    LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
+        let context = context.borrow();
+        let reuse_status = context.next_reuse_status();
+        context.write_array(path, array, allow_overwrite, reuse_status)
+    })
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7580,9 +7680,14 @@ mod tests {
             report.workspace_write_report.commit_mode,
             "atomic_rename_same_directory"
         );
-        assert_eq!(
-            report.writer_context_reuse_status,
-            "single_write_context_opened_for_artifact"
+        assert!(
+            matches!(
+                report.writer_context_reuse_status.as_str(),
+                "thread_local_write_context_opened_for_first_artifact"
+                    | "thread_local_write_context_reused_for_artifact"
+            ),
+            "unexpected writer context reuse status: {}",
+            report.writer_context_reuse_status
         );
         assert!(report.write_micros >= report.vortex_segment_write_micros);
         assert_eq!(
@@ -10038,6 +10143,16 @@ mod tests {
             "blocked_unsafe_lifetime_shortcut",
         ));
         assert_eq!(blocked.status, "blocked_unsafe_lifetime_shortcut");
+
+        let admitted = evaluate_vortex_copy_budget(copy_budget_input(
+            "reported_with_not_measured_segments",
+            "blocked_no_unsafe_lifetime_shortcuts",
+            "admitted_read_once_source_buffer_carry_with_digest_and_row_count_proof",
+        ));
+        assert_eq!(
+            admitted.status,
+            "admitted_scoped_buffer_reuse_with_unmeasured_segments"
+        );
     }
 
     #[test]

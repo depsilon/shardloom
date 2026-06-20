@@ -1,152 +1,151 @@
 {
   "artifact_paths": {
-    "front_door_performance_equivalence": "website/assets/benchmarks/latest/front-door-performance-equivalence.json",
     "html": null,
     "json": "website/assets/benchmarks/latest/benchmark-results.json",
     "markdown": null,
     "prepare_batch_role_repair_evidence": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
     "publication_proof_sidecar": "website/assets/benchmarks/latest/publication-proof-sidecar.json",
-    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/benchmark-row-admission-manifest.json",
+    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-000.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-000.json.gz",
         "row_count": 100,
-        "sha256": "ded22b7b4b7fe3680972a1a4f1b14f7b2d5cd32f65c6be7e24c7ff9426a4365a",
-        "uncompressed_sha256": "ba694d3f19691c98f5cb7dc547e7bde67f5046a8b54683405a34f419d34670f5"
+        "sha256": "bbeed047018e3071ac2e18ad7b3a70c38a14e0e3b170a9cd1cf776dcd973f7d3",
+        "uncompressed_sha256": "33cab4d8b7e772a475d78848bca472b3856adb149b518eae425c1913049a3423"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-001.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-001.json.gz",
         "row_count": 100,
-        "sha256": "30be01ca7ef88f5dc50f95dea402292038f86b02a690e74c7f6d843fb767cc96",
-        "uncompressed_sha256": "57747db76c2bf9356595dee9ca59838956190e63faf77549a8fcc1d1268f5353"
+        "sha256": "b524487f92cbcc5b5b230240558f91d37535799b6ef1711def4f579939a84f13",
+        "uncompressed_sha256": "e61b0a329c940ca4c59bd921bcc4dbbc6e38fa0cf04dc8fb383b3a5cf737e717"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-002.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-002.json.gz",
         "row_count": 100,
-        "sha256": "f73c8b93da30535ca9fd14531e8a911b4eaa62bd3479d833af8544e2c76f6d04",
-        "uncompressed_sha256": "a8c0065cfd173f4e28b366897462859790346fa4e55136f5133c437373b3b44b"
+        "sha256": "dbf88f5693438b260c023150abc92e341a1c79eb01c8ccd856b51b3bb092e90a",
+        "uncompressed_sha256": "922d4dd8bf526d0d809636a97c6f5d734d5cbee797d6f592dda006950d484a52"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-003.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-003.json.gz",
         "row_count": 100,
-        "sha256": "089a920a38912ec8c3303f8514bc4c2013b7a9ba6549eb430290336e61705720",
-        "uncompressed_sha256": "38d1207441b883c999bb86a87c62ef6188244cf28d319b224ebea39ef209a8f3"
+        "sha256": "987385cc157727e0b1bedffc3ed0814406c60ef93bb4b7db9f780b23b036ef80",
+        "uncompressed_sha256": "28276bba5985b78119f4147be2ea2c22cf1f877a4ec238ee3d1f33cd08bbc8c9"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-004.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-004.json.gz",
         "row_count": 100,
-        "sha256": "22a630ea549d73a5cca0256855593c7f3702e6712c4b20bbe8fa393302980851",
-        "uncompressed_sha256": "bae4591c4ac5aa3077d17962a7452e41a06e315cc56954d037c099094dc55145"
+        "sha256": "7bc1279637e7125304cd37263ee3fed33c034288d7cec4f65330c686e32ff22c",
+        "uncompressed_sha256": "870f92158b644e370f97327e5fcf48b04c919dc1226acac91f3c61d86a8b78e7"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-005.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-005.json.gz",
         "row_count": 100,
         "sha256": "b1cd31f2cfee0c7c53dcb02b86fca78e7d69f659fa5676ef5e9c989f63026b56",
         "uncompressed_sha256": "2109fff6c461f741dea18de5ad3524db534d60e1cc330e9797d49fb3374cc2b3"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-006.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-006.json.gz",
         "row_count": 100,
         "sha256": "e18e4a987b98cf8ebb3e337a6bcd375a2fe4dae7f2708594a4c67b9cd6d1f89b",
         "uncompressed_sha256": "85e3835c76bff22f42a2e0553487e966945c01a28be11fe45741161c9e724e9d"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-007.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-007.json.gz",
         "row_count": 100,
         "sha256": "0b0149fa7783a79dd005fda6c0795dd8315a1e28adabcc2f14d3a20e51363f82",
         "uncompressed_sha256": "9b3cc178bb76c23235f856b9ca6315b18dd455f94602b4851312a24dc2fb05bc"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-008.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-008.json.gz",
         "row_count": 100,
         "sha256": "ea33b4d6618d05d17e03808c2fdbd676ea971e90fb437262c7769e919da7ae8f",
         "uncompressed_sha256": "2c5eb0dba8fc9759461b52c6a4e223a8d2bbeb6079eb203891f8a0a6b57cb0fc"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-009.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-009.json.gz",
         "row_count": 100,
         "sha256": "96f9bb2d09797d5818a6736a6ee72cf7474b677e5b250934d2f9ee418601e36f",
         "uncompressed_sha256": "b3fe57e7dab8348990a7681eca4b0b2c8d5ebaca11d005164f7e77b68bb1328c"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-010.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-010.json.gz",
         "row_count": 100,
         "sha256": "966feb62532c37de1545bc0a0a170f363507c2d285fa8b59f3b0009c47232aa7",
         "uncompressed_sha256": "662dcc0f1785678950546006c592e3b9995329ab8947f8ef9b2b096d6a53cf45"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-011.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-011.json.gz",
         "row_count": 100,
         "sha256": "c57e7c1b5e9cdd45448054693c22543a14b8bf5d89086a0759119132f155ab70",
         "uncompressed_sha256": "2149cd2b2aa73d4fca245249343d5e1c05b971d938dc9c0485d6ab39ab3be98e"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-012.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-012.json.gz",
         "row_count": 100,
-        "sha256": "e32709058c90c374579727d30fcbb332092bfbdc4e724f9c02e792b50c2b46b5",
-        "uncompressed_sha256": "5abdb02b0536f0cd611dfc7b24cde2f2c780886f26a1690f99893f739cbd3b28"
+        "sha256": "681f40cb616b9fa0d282edc6c08298d3fd311a5da1a897d48a00507b89d7ab93",
+        "uncompressed_sha256": "a3e76bfdef7e305c213d916ea9d9935effe2c65675fc26cc1d159d69ecd2f5c1"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-013.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-013.json.gz",
         "row_count": 100,
-        "sha256": "05dfe025ee37b1525d5f77eea46aafeb51676fb0cd44389e2f0857f4ce9e0a0a",
-        "uncompressed_sha256": "f99786012b7c14deb1f1ad515b4d7ecb71133ebb7076352bebef866e34ca89bd"
+        "sha256": "6e95a895fc899d7865ae491036ebe961073e6d22c2b2ceb90b670b23ff109056",
+        "uncompressed_sha256": "63434943f5dc3c24e78da80ff72523b5d9a69a4640a3bce223cf99fcab157a41"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-014.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-014.json.gz",
         "row_count": 100,
-        "sha256": "4bdc6c16eb4644320d31f25e1568b1b4461ff3c5a80a1eca644e236df32852bd",
-        "uncompressed_sha256": "ff6f936c57d86844c5c2e2856b55a5e3eba724381ec0840cb2caecf5b05bfb85"
+        "sha256": "f85378044a5df0f916e831dd99494efafcdd9de5ce8fae3a4ee1f76272dce51e",
+        "uncompressed_sha256": "e4e38e6a1e681f7418f2fed6388cc6ef9311a9f448f6301826b4837ce4780ffa"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-015.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-015.json.gz",
         "row_count": 100,
-        "sha256": "df6e4740d86b1424751489e4f8d02e0403cef824fd1b966c7290728043a0eebb",
-        "uncompressed_sha256": "d924f8edbd562843d7fafeb81c02b57bd6a1db5975abb6cbef908175c0809e50"
+        "sha256": "3c33a9c60159f33ff5b887c769f1d12c38a790d5c9d5d7a1c5eda16f50eb1bf2",
+        "uncompressed_sha256": "9d6ded27abb13072e0537f01dc5924ba9101c8157314153aa875de54c6bcf5fa"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-016.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-016.json.gz",
         "row_count": 100,
-        "sha256": "4461da5525f0d6441de6cb60bd263f20581c94f33addb024087555c5b00c24eb",
-        "uncompressed_sha256": "a270ee270d5553ab66073fb7cc876f665b2c9608dcd7a7a46744cf874565978c"
+        "sha256": "d8c198548249ff60b9c47f8082f4d7b24442e73fbd5e501f803b647266114ab0",
+        "uncompressed_sha256": "683b44d2034271d40c1d09509ab57d7d7942f10a6c876e683b6a798bd35717f9"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-017.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-017.json.gz",
         "row_count": 100,
-        "sha256": "3498687a5c2958a5dd4d8e69d9769e3b976874fa866dd8761bf7c985e7f89c42",
-        "uncompressed_sha256": "74ca741907b5538f3ae3693d8c9f1613922f9191a9ae7638ce49b6f470420b95"
+        "sha256": "b0f4f70ee16310f6309b641a266bf4c62863ce38c63ac3812cbb4f3f77053cc8",
+        "uncompressed_sha256": "92548f04c376865ad937138c530db8eb61435f915c5d5f34af08a1eb5e1977e2"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-018.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-018.json.gz",
         "row_count": 100,
-        "sha256": "763db58b6459590915e5feba98c2123faa98a68076f923524c9304d2419253b9",
-        "uncompressed_sha256": "b123eba02a655173a8de41dc10899389241ae9eb125397d03332a09024aedb90"
+        "sha256": "e53c138ec696d25e62ecbdf6dcff2744ddbb44d9cd618bc0a07b22ed58a9248a",
+        "uncompressed_sha256": "994eeafc862ed32559f5a66fe628de45dfe661cd58c59b03b14b9cc80dedcdeb"
       },
       {
         "content_encoding": "gzip",
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/published-benchmark-rows-019.json.gz",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/published-benchmark-rows-019.json.gz",
         "row_count": 20,
-        "sha256": "3567dacae9ab1c8ff3ae69a4e08c43bd194ea1543ad66c02b0647544415b05e1",
-        "uncompressed_sha256": "e85fd46922772e970d030c3f903c5d0f8cc253aae1f966e8b7730f084b684362"
+        "sha256": "c1a108c2e654c82f82ac3628314006dd572d9f3b7b75da135f70c4d44139c319",
+        "uncompressed_sha256": "12675bc7aaae7c47db2daef27962b0f1e5fdba61fceb9018e5e308b95953eec5"
       }
     ]
   },
@@ -189,91 +188,9 @@
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
   "benchmark_git_sha": "17cf9b795e746213355bfd1dca590959cf3898d1",
   "benchmark_profile": "full_local",
-  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/benchmark-row-admission-manifest.json",
+  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-d88cdab5de88f817/benchmark-row-admission-manifest.json",
   "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
-  "clickbench_olap_runtime_readiness": {
-    "admitted_query_count": 43,
-    "admitted_runtime_rows": 43,
-    "capillary_work_unit_counts": {
-      "aggregate_state": 36,
-      "count_distinct_set": 8,
-      "group_key_state": 29,
-      "having_filter": 2,
-      "offset_drain": 5,
-      "topk_heap_state": 32,
-      "utf8_predicate_scan": 18,
-      "vortex_scan": 43,
-      "wide_aggregate_projection": 1
-    },
-    "claim_boundary": "ClickBench route readiness only; not a ClickBench performance result, leaderboard, or superiority claim.",
-    "clickbench_olap_readiness_status": "all_queries_admitted_route_readiness",
-    "coverage_artifact": "target/clickbench-olap-runtime-coverage.json",
-    "default_pr_fast_lane_tier": "small_deterministic_local",
-    "fail_closed_if_spill_required_count": 42,
-    "feature_gated_query_count": 0,
-    "implementation_required_count": 0,
-    "implementation_required_rows": 0,
-    "max_parallelism_default": 1,
-    "memory_spill_diagnostic_status": "state_budget_declared_spill_fail_closed_no_spill_io",
-    "performance_claim_allowed": false,
-    "pulseweave_pressure_signal_counts": {
-      "aggregate_input_rows": 32,
-      "aggregate_measure_count": 32,
-      "aggregate_projection_width": 1,
-      "distinct_value_cardinality": 8,
-      "group_cardinality": 29,
-      "group_state_rows": 29,
-      "having_selectivity": 2,
-      "offset_drain_rows": 5,
-      "string_scan_selectivity": 18,
-      "topk_heap_rows": 32
-    },
-    "query_count": 43,
-    "readiness_surface": "clickbench_olap_route_readiness",
-    "route_family_counts": {
-      "native_vortex_count_all": 1,
-      "native_vortex_count_where": 1,
-      "native_vortex_filter_project": 1,
-      "native_vortex_grouped_aggregate": 1,
-      "native_vortex_grouped_aggregate_topk": 28,
-      "native_vortex_scalar_aggregate": 6,
-      "native_vortex_scalar_aggregate_wide_sum_offsets": 1,
-      "native_vortex_sorted_rows_topk": 4
-    },
-    "scale_fixture_strategy_id": "clickbench_scale_fixture_strategy_v1",
-    "scale_fixture_strategy_schema_version": "shardloom.clickbench_scale_fixture_strategy.v1",
-    "scale_fixture_tiers": [
-      "small_deterministic_local",
-      "medium_sequential_uat",
-      "full_100m_artifact_runner"
-    ],
-    "schema_version": "shardloom.clickbench_olap_site_readiness.v1",
-    "site_readiness_claim_boundary": "route readiness only; not a timing, performance, production, spill-runtime, larger-than-memory, or superiority claim",
-    "spill_policy": "fail_closed_before_uncertified_spill_for_stateful_scale_shapes",
-    "spill_policy_counts": {
-      "fail_closed_before_uncertified_spill": 42,
-      "not_applicable": 1
-    },
-    "spill_required_count": 0,
-    "spill_supported_count": 0,
-    "state_budget_required_count": 42,
-    "state_budget_schema_version": "shardloom.clickbench_olap_state_budget.v1",
-    "state_family_counts": {
-      "count_distinct_state": 2,
-      "grouped_aggregate_state": 1,
-      "grouped_aggregate_state+count_distinct+topk": 6,
-      "grouped_aggregate_state+topk": 17,
-      "grouped_aggregate_state+topk+offset": 5,
-      "raw_row_topk_sort_state": 4,
-      "scalar_aggregate_state": 7,
-      "stateless_scan_or_metadata": 1
-    },
-    "status": "ready_route_readiness_not_performance",
-    "timing_surface": "route_readiness_no_timing",
-    "validation_passed": true,
-    "validator": "scripts/check_clickbench_olap_runtime_coverage.py"
-  },
   "environment": {
     "artifact_environment": {
       "cpu_count": 10,
@@ -284,8 +201,8 @@
       "total_memory_bytes": 17179869184
     },
     "cpu_count": 10,
-    "platform": "macOS-26.5.1-arm64-arm-64bit",
-    "python": "3.9.6",
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "python": "3.13.13",
     "website_promoter": "scripts/promote_benchmark_artifact.py"
   },
   "expected_lanes": [
@@ -300,11 +217,6 @@
     "datafusion",
     "dask"
   ],
-  "front_door_performance_equivalence_artifact": "website/assets/benchmarks/latest/front-door-performance-equivalence.json",
-  "front_door_performance_equivalence_claim_allowed": false,
-  "front_door_performance_equivalence_row_count": 27,
-  "front_door_performance_equivalence_schema_version": "shardloom.front_door_performance_equivalence_artifact.v1",
-  "front_door_performance_equivalence_status": "passed",
   "generated_at_utc": "2026-06-15T16:28:51.414485+00:00",
   "lane_availability_reasons": {
     "dask": "available, version 2024.8.0",
@@ -350,16 +262,16 @@
   "publication_proof_sidecar_fallback_attempted": false,
   "publication_proof_sidecar_human_render_reuse_status": "coalesced_publication_proof_records_written_or_metadata_updated",
   "publication_proof_sidecar_record_count": 600,
-  "publication_proof_sidecar_record_set_digest": "sha256:e036d059ac23741e22690eadae4642a95a3375481e2162fe18a87c31372bbadf",
+  "publication_proof_sidecar_record_set_digest": "sha256:d18a23625f2443098761e71f194461c7c218de0ac347dcca8dee670f2ecfd94d",
   "publication_proof_sidecar_reuse_scope": "row_chunk_digest_and_publication_proof_record_digest",
-  "publication_proof_sidecar_reused_record_count": 0,
+  "publication_proof_sidecar_reused_record_count": 600,
   "publication_proof_sidecar_schema_version": "shardloom.traditional_analytics.publication_proof_sidecar.v1",
   "publication_proof_sidecar_source_row_chunk_count": 20,
-  "publication_proof_sidecar_source_row_chunks_digest": "sha256:6a805f03ef4077ffb4d70f761467a3e0b96b3ecfa7a0f26a9e823fb71a83e877",
+  "publication_proof_sidecar_source_row_chunks_digest": "sha256:5967725cf3117870dee4008d28ce6fd032367c2c0e57207fff96b7f634a57b9c",
   "publication_proof_sidecar_stale_record_count": 0,
-  "publication_proof_sidecar_status": "admitted_incremental_publication_proof_sidecar",
-  "publication_proof_sidecar_write_status": "written_changed_publication_proof_sidecar",
-  "publication_proof_sidecar_written_record_count": 600,
+  "publication_proof_sidecar_status": "reused_existing_publication_proof_sidecar",
+  "publication_proof_sidecar_write_status": "updated_publication_proof_sidecar_reuse_metadata",
+  "publication_proof_sidecar_written_record_count": 0,
   "published_benchmark_row_count": 1920,
   "route_runtime_status_schema_version": "shardloom.website.route_runtime_status.v1",
   "route_runtime_status_vocabulary": [
@@ -370,10 +282,9 @@
     "unsupported"
   ],
   "route_timing_instrument_schema_version": "shardloom.route_timing_instrument.v1",
-  "route_timing_instrument_status": "not_optimization_ready",
+  "route_timing_instrument_status": "optimization_ready",
   "route_timing_instrument_status_counts": {
-    "not_optimization_ready": 240,
-    "optimization_ready": 960
+    "optimization_ready": 1200
   },
   "route_timing_instrument_threshold_ms": 10.0,
   "runtime_envelope_validation": {

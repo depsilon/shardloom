@@ -331,7 +331,7 @@ rows report `in_process_prepared_batch_vortex_artifacts` for the first prepare/b
 Repeated compatible `traditional-analytics-prepare-batch-run` calls may report
 `workspace_manifest_local_vortex_artifacts` when the workspace manifest validates and compatibility
 preparation is skipped; source or artifact drift must reprepare and record the invalidation reason.
-Feature-gated `vortex-ingest-smoke`
+Feature-gated `vortex-prepare`
 reports `artifact_adjacent_manifest_local_vortex_artifacts` when a repeated local ingest reuses an
 existing `.vortex` artifact, and it must keep source/artifact drift visible through
 `prepared_state_invalidation_reason`.

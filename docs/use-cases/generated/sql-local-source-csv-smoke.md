@@ -21,7 +21,7 @@ Scoped CSV/flat JSON/JSONL/NDJSON plus feature-gated flat scalar Parquet/Arrow I
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,region,amount`n1,10,east,8`n2,20,west,15`n3,20,east,21`n4,30,east,22`n5,30,west,23`n" | Set-Content -Encoding utf8 target\sql-local-source-join-fact.csv; "customer_id,region,segment`n20,west,enterprise`n20,east,consumer`n30,west,startup`n99,east,orphan`n" | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10" --format json; $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.read_csv('target/sql-local-source-join-fact.csv').join(ctx.read_csv('target/sql-local-source-join-dim.csv'), on=('customer_id','region')).select('f.id','d.segment').filter('f.amount >= 10').limit(10).collect(); print(r.output_row_count, r.join_runtime_execution, r.join_key_arity, r.join_multi_key_runtime_execution, r.fallback_attempted, r.external_engine_invoked)"
+New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,region,amount`n1,10,east,8`n2,20,west,15`n3,20,east,21`n4,30,east,22`n5,30,west,23`n" | Set-Content -Encoding utf8 target\sql-local-source-join-fact.csv; "customer_id,region,segment`n20,west,enterprise`n20,east,consumer`n30,west,startup`n99,east,orphan`n" | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- local-source-runtime "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10" --format json; $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.read_csv('target/sql-local-source-join-fact.csv').join(ctx.read_csv('target/sql-local-source-join-dim.csv'), on=('customer_id','region')).select('f.id','d.segment').filter('f.amount >= 10').limit(10).collect(); print(r.output_row_count, r.join_runtime_execution, r.join_key_arity, r.join_multi_key_runtime_execution, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker
@@ -34,7 +34,7 @@ Vortex SQL sources, broad structured type/nesting coverage beyond flat scalar an
 
 ## Evidence You Should See
 
-- `schema_version=shardloom.sql_local_source_smoke.v1`
+- `schema_version=shardloom.local_source_runtime.v1`
 - `sql_parser_executed=true`
 - `sql_binder_executed=true`
 - `sql_planner_executed=true`

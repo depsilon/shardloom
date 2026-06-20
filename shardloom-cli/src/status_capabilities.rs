@@ -1426,8 +1426,8 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
     SqlFrontendRuntimeLadderRow {
         id: "local_source_projection_filter_limit",
         syntax_family: "projection_filter_limit",
-        surface: "sql-local-source-smoke",
-        support_status: "smoke-supported",
+        surface: "local-source-runtime",
+        support_status: "runtime-supported",
         parser_executed: true,
         binder_executed: true,
         planner_executed: true,
@@ -1439,16 +1439,16 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         deterministic_diagnostics: true,
         blocker_id: "none_scoped_local_source_projection_filter_limit",
         unsupported_diagnostic_code: "none",
-        required_evidence: "sql_local_source_smoke,execution_certificate,no_fallback_evidence",
-        evidence_command_refs: "sql-local-source-smoke,ShardLoomContext.sql,LazyFrame.collect",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Scoped local flat-source projection/filter/limit runtime only; no broad SQL or production SQL claim.",
+        required_evidence: "local_source_runtime,execution_certificate,no_fallback_evidence",
+        evidence_command_refs: "local-source-runtime,ShardLoomContext.sql,LazyFrame.collect",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "Local flat-source projection/filter/limit runtime through ShardLoom-owned planning; broad SQL/database claims remain bounded by the documented semantic surface.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "local_source_predicate_expression_ladder",
         syntax_family: "predicate_expression",
-        surface: "sql-local-source-smoke",
-        support_status: "smoke-supported",
+        surface: "local-source-runtime",
+        support_status: "runtime-supported",
         parser_executed: true,
         binder_executed: true,
         planner_executed: true,
@@ -1461,15 +1461,15 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         blocker_id: "none_scoped_local_source_predicate_expression_ladder",
         unsupported_diagnostic_code: "none",
         required_evidence: "predicate_operator_family,expression_runtime_fields,semantic_conformance_refs,no_fallback_evidence",
-        evidence_command_refs: "sql-local-source-smoke,semantic-conformance-suite,python query builder helpers",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Only admitted boolean/null/logical/cast/numeric/date/timestamp/string/IN predicate and projection families execute.",
+        evidence_command_refs: "local-source-runtime,semantic-conformance-suite,python query builder helpers",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "Admitted boolean/null/logical/cast/numeric/date/timestamp/string/IN predicate and projection families execute through the local runtime surface.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "local_source_aggregate_group_having",
         syntax_family: "aggregate_group_having",
-        surface: "sql-local-source-smoke",
-        support_status: "smoke-supported",
+        surface: "local-source-runtime",
+        support_status: "runtime-supported",
         parser_executed: true,
         binder_executed: true,
         planner_executed: true,
@@ -1482,15 +1482,15 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         blocker_id: "none_scoped_local_source_aggregate_group_having",
         unsupported_diagnostic_code: "none",
         required_evidence: "aggregate_runtime_execution,group_by_runtime_execution,having_runtime_fields,no_fallback_evidence",
-        evidence_command_refs: "sql-local-source-smoke,LazyFrame.group_by,LazyFrame.having",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Scoped scalar/grouped aggregates and admitted HAVING predicates only; no broad aggregate optimizer claim.",
+        evidence_command_refs: "local-source-runtime,LazyFrame.group_by,LazyFrame.having",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "Scalar/grouped aggregates and admitted HAVING predicates execute through the local runtime surface; arbitrary optimizer claims remain bounded.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "local_source_order_topn",
         syntax_family: "order_topn",
-        surface: "sql-local-source-smoke",
-        support_status: "smoke-supported",
+        surface: "local-source-runtime",
+        support_status: "runtime-supported",
         parser_executed: true,
         binder_executed: true,
         planner_executed: true,
@@ -1503,15 +1503,15 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         blocker_id: "none_scoped_local_source_order_topn",
         unsupported_diagnostic_code: "none",
         required_evidence: "order_by_runtime_execution,top_n_runtime_execution,sort_keys,top_n_limit,no_fallback_evidence",
-        evidence_command_refs: "sql-local-source-smoke,LazyFrame.sort",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Scoped scalar and aggregate-output top-N only; no generalized collation/null-ordering claim.",
+        evidence_command_refs: "local-source-runtime,LazyFrame.sort",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "Scalar and aggregate-output top-N execute through the local runtime surface; generalized collation/null-ordering claims remain bounded.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "local_source_join_ladder",
         syntax_family: "join",
-        surface: "sql-local-source-smoke",
-        support_status: "smoke-supported",
+        surface: "local-source-runtime",
+        support_status: "runtime-supported",
         parser_executed: true,
         binder_executed: true,
         planner_executed: true,
@@ -1524,15 +1524,15 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         blocker_id: "none_scoped_local_source_join_ladder",
         unsupported_diagnostic_code: "none",
         required_evidence: "join_runtime_execution,join_type,join_key_arity,join_rows_output,no_fallback_evidence",
-        evidence_command_refs: "sql-local-source-smoke,LazyFrame.join",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Scoped local-source equi/cross/expression joins only; no arbitrary join optimizer or catalog claim.",
+        evidence_command_refs: "local-source-runtime,LazyFrame.join",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "Local-source equi/cross/expression joins execute through the local runtime surface; arbitrary join optimizer/catalog claims remain bounded.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "local_source_window_ladder",
         syntax_family: "window",
-        surface: "sql-local-source-smoke",
-        support_status: "smoke-supported",
+        surface: "local-source-runtime",
+        support_status: "runtime-supported",
         parser_executed: true,
         binder_executed: true,
         planner_executed: true,
@@ -1545,15 +1545,15 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         blocker_id: "none_scoped_local_source_window_ladder",
         unsupported_diagnostic_code: "none",
         required_evidence: "window_runtime_execution,window_operator_family,window_partition_columns,window_order_columns,no_fallback_evidence",
-        evidence_command_refs: "sql-local-source-smoke,LazyFrame.window",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Scoped ranking, offset, and distribution windows only; no broad frame/window optimizer claim.",
+        evidence_command_refs: "local-source-runtime,LazyFrame.window",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "Admitted ranking, offset, and distribution windows execute through the local runtime surface; broad frame/window optimizer claims remain bounded.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "local_source_output_fanout",
         syntax_family: "output_fanout",
-        surface: "sql-local-source-smoke",
-        support_status: "smoke-supported",
+        surface: "local-source-runtime",
+        support_status: "runtime-supported",
         parser_executed: true,
         binder_executed: true,
         planner_executed: true,
@@ -1566,9 +1566,9 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         blocker_id: "none_scoped_local_source_output_fanout",
         unsupported_diagnostic_code: "none",
         required_evidence: "output_native_io_certificate_status,result_replay_verified,output_fidelity_report_status,no_fallback_evidence",
-        evidence_command_refs: "sql-local-source-smoke,LazyFrame.write,LazyFrame.fanout",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Scoped local JSONL/CSV and feature-gated flat scalar structured/Vortex sinks only; no object-store/table sink claim.",
+        evidence_command_refs: "local-source-runtime,LazyFrame.write,LazyFrame.fanout",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "Local JSONL/CSV and feature-gated flat scalar structured/Vortex sinks execute through the local runtime surface; object-store/table sink claims remain bounded.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "source_free_sql_generated_output",
@@ -1650,7 +1650,7 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         blocker_id: "cg21.workflow.sql.plan_unsupported",
         unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
         required_evidence: "subquery_binder,decorrelation_policy,materialization_bound,semantic_conformance_suite,no_fallback_evidence",
-        evidence_command_refs: "workflow-unsupported-plan sql-plan,sql-local-source-smoke unsupported diagnostics",
+        evidence_command_refs: "workflow-unsupported-plan sql-plan,local-source-runtime unsupported diagnostics",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "Only bounded scalar IN subquery shapes are admitted; correlated and broad subqueries fail closed.",
     },
@@ -2485,20 +2485,20 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         id: "vortex_sink_write",
         surface: "write_vortex",
         family: "sink_write_operators",
-        support_status: "report_only",
+        support_status: "fixture_certified",
         engine_mode: "batch",
         provider_kind: "vortex_sink",
-        operator_execution_class: "unsupported",
+        operator_execution_class: "residual_native",
         semantic_profile: "ShardLoomNative",
-        materialization_decode_requirement: "sink_requirement_known_before_execution",
-        memory_spill_requirement: "write_buffer_policy_required",
-        correctness_refs: "write_intent_report",
-        benchmark_refs: "write_benchmark_row_required",
-        execution_certificate_refs: "execution_certificate_required",
-        native_io_refs: "native_io_certificate_required",
-        unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
-        blocker_id: "p74.compute.vortex_sink.write_execution_missing",
-        required_future_evidence: "sink_execution,commit_recovery,artifact_replay",
+        materialization_decode_requirement: "sink_requirement_known_before_execution_vortex_native_output_highest_fidelity_compatibility_exports_explicit",
+        memory_spill_requirement: "workspace_safe_staged_write_and_capillary_prewrite_no_spill_claim",
+        correctness_refs: "vortex_prepare_writes_reopens_vortex_prepared_state,native_vortex_user_sink_contract_tests,typed_result_sink_contract",
+        benchmark_refs: "traditional_analytics.prepared_native_fixture_rows,local_output_sink_scope",
+        execution_certificate_refs: "vortex_ingest.runtime_execution_certificate,native_vortex_result_sink_with_replay_certificate",
+        native_io_refs: "vortex_ingest.native_io_certificate,native_vortex_output_certificate",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "none",
+        required_future_evidence: "claim_grade_sink_benchmark_rows,broad_object_store_or_table_commit_recovery",
     },
     ComputeCapabilityRow {
         id: "grouped_aggregate",
@@ -4304,6 +4304,21 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
         "operator_family_order",
         &operator_family_order(),
     );
+    push_field(
+        &mut fields,
+        "operator_family_execution_summary_schema_version",
+        "shardloom.operator_family_execution_summary.v1",
+    );
+    push_field(
+        &mut fields,
+        "operator_family_execution_summary_fields",
+        "family,compute,encoded_native,residual_native,materialized_temporary,unsupported_or_report_only,operator_blockers",
+    );
+    push_field(
+        &mut fields,
+        "operator_family_execution_summary",
+        &operator_family_execution_summary(),
+    );
     push_count_field(
         &mut fields,
         "fixture_certified_count",
@@ -5230,7 +5245,7 @@ fn append_compute_claim_and_operator_fields(
 
 fn compute_row_execution_mode(row: &ComputeCapabilityRow) -> &'static str {
     match row.id {
-        "compatibility_csv_import" | "vortex_sink_write" => "compatibility_import_certified",
+        "compatibility_csv_import" => "compatibility_import_certified",
         "scalar_expression_functions"
         | "prepared_encoded_filter"
         | "reader_backed_dictionary_filter"
@@ -5294,6 +5309,9 @@ fn compute_row_operator_blocker_id(row: &ComputeCapabilityRow) -> &'static str {
 }
 
 fn compute_row_operator_blocker_reason(row: &ComputeCapabilityRow) -> &'static str {
+    if row.blocker_id == "none" {
+        return "none";
+    }
     match compute_row_operator_execution_class(row) {
         "encoded_native" => "none",
         "residual_native" => {
@@ -5328,6 +5346,36 @@ fn append_operator_family_row_fields(
         fields,
         &format!("{prefix}_next_evidence"),
         row.next_evidence,
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_compute_row_count"),
+        operator_family_compute_count(row.id),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_encoded_native_count"),
+        operator_family_execution_class_count(row.id, "encoded_native"),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_residual_native_count"),
+        operator_family_execution_class_count(row.id, "residual_native"),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_materialized_temporary_count"),
+        operator_family_execution_class_count(row.id, "materialized_temporary"),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_unsupported_or_report_only_count"),
+        operator_family_unsupported_or_report_only_count(row.id),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_operator_blocker_count"),
+        operator_family_operator_blocker_count(row.id),
     );
 }
 
@@ -5672,6 +5720,42 @@ fn compute_support_status_count(status: &str) -> usize {
         .count()
 }
 
+fn operator_family_compute_count(family: &str) -> usize {
+    COMPUTE_ROWS
+        .iter()
+        .filter(|row| row.family == family)
+        .count()
+}
+
+fn operator_family_execution_class_count(family: &str, execution_class: &str) -> usize {
+    COMPUTE_ROWS
+        .iter()
+        .filter(|row| row.family == family)
+        .filter(|row| compute_row_operator_execution_class(row) == execution_class)
+        .count()
+}
+
+fn operator_family_unsupported_or_report_only_count(family: &str) -> usize {
+    COMPUTE_ROWS
+        .iter()
+        .filter(|row| row.family == family)
+        .filter(|row| {
+            matches!(
+                row.support_status,
+                "unsupported" | "planned" | "report_only"
+            ) || compute_row_operator_execution_class(row) == "unsupported"
+        })
+        .count()
+}
+
+fn operator_family_operator_blocker_count(family: &str) -> usize {
+    COMPUTE_ROWS
+        .iter()
+        .filter(|row| row.family == family)
+        .filter(|row| compute_row_operator_blocker_id(row) != "none")
+        .count()
+}
+
 fn native_unsupported_category_count(category: &str) -> usize {
     NATIVE_UNSUPPORTED_COVERAGE_ROWS
         .iter()
@@ -5760,6 +5844,25 @@ fn operator_family_order() -> String {
         .map(|row| row.id)
         .collect::<Vec<_>>()
         .join(",")
+}
+
+fn operator_family_execution_summary() -> String {
+    OPERATOR_FAMILY_ROWS
+        .iter()
+        .map(|row| {
+            format!(
+                "{}:compute={},encoded_native={},residual_native={},materialized_temporary={},unsupported_or_report_only={},operator_blockers={}",
+                row.id,
+                operator_family_compute_count(row.id),
+                operator_family_execution_class_count(row.id, "encoded_native"),
+                operator_family_execution_class_count(row.id, "residual_native"),
+                operator_family_execution_class_count(row.id, "materialized_temporary"),
+                operator_family_unsupported_or_report_only_count(row.id),
+                operator_family_operator_blocker_count(row.id)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(";")
 }
 
 fn native_unsupported_row_order() -> String {
@@ -5858,15 +5961,15 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         external_engine_invoked: false,
     },
     RunsTodaySupportRow {
-        id: "cli_sql_local_source_smoke",
+        id: "cli_local_source_runtime",
         family: "cli_command",
-        surface: "sql-local-source-smoke",
+        surface: "local-source-runtime",
         support_state: "executable",
         feature_gate: "default",
-        evidence_refs: "sql_local_source_runtime_smoke,sql_frontend_runtime_ladder_fields,sql_parser_tests,python_query_builder_tests",
+        evidence_refs: "local_source_runtime,sql_frontend_runtime_ladder_fields,sql_parser_tests,python_query_builder_tests",
         blocker_id: "none",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "scoped local-source SQL runtime ladder smoke execution only; not broad SQL/DataFrame, object-store/table SQL, external-engine, fallback, production, or performance support",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "local-source SQL runtime executes admitted product workflow shapes through ShardLoom-owned planning; broad SQL/DataFrame, object-store/table SQL, external-engine fallback, and performance claims remain bounded",
         runtime_execution: true,
         data_read: true,
         write_io: false,
@@ -5874,15 +5977,15 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         external_engine_invoked: false,
     },
     RunsTodaySupportRow {
-        id: "cli_vortex_ingest_smoke",
+        id: "cli_vortex_prepare",
         family: "cli_command",
-        surface: "vortex-ingest-smoke",
+        surface: "vortex-prepare",
         support_state: "feature_gated",
         feature_gate: "vortex-write",
-        evidence_refs: "sql_local_source_runtime_smoke,vortex_ingest_evidence_fields,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields",
+        evidence_refs: "local_source_runtime,vortex_ingest_evidence_fields,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields",
         blocker_id: "feature.vortex_write_required_for_default_build",
-        claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "local compatibility ingest to Vortex artifact plus scout ingress, layout/write advisor, copy-budget, scoped append-only differential overlay, and capillary cold-preparation evidence only when feature enabled; no standalone cold-lane side lanes, table/object-store/CDC transaction, memory-efficiency, or performance claim",
+        claim_gate_status: "local_workflow_runtime_supported",
+        claim_boundary: "local compatibility-source preparation writes Vortex artifacts with scout ingress, layout/write advisor, copy-budget, append-only differential overlay, and capillary cold-preparation evidence when feature enabled; table/object-store/CDC transaction and performance claims remain bounded",
         runtime_execution: true,
         data_read: true,
         write_io: true,
@@ -6135,7 +6238,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         surface: "csv,json,jsonl,ndjson",
         support_state: "executable",
         feature_gate: "default",
-        evidence_refs: "sql_local_source_runtime_smoke,vortex_ingest_smoke_text_adapter_tests,traditional_direct_transient_tests,python_query_builder_tests,universal_ingress_route_taxonomy",
+        evidence_refs: "local_source_runtime,vortex_prepare_text_adapter_tests,traditional_direct_transient_tests,python_query_builder_tests,universal_ingress_route_taxonomy",
         blocker_id: "none",
         claim_gate_status: "fixture_smoke_only",
         claim_boundary: "flat local text SourceState, internal direct-transient smoke, and vortex_ingest fixture coverage only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
@@ -6183,7 +6286,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         surface: "parquet,arrow_ipc,avro,orc",
         support_state: "feature_gated",
         feature_gate: "universal-format-io",
-        evidence_refs: "feature_gated_sql_local_source_tests,vortex_ingest_smoke_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_direct_transient_structured_tests,universal_ingress_route_taxonomy",
+        evidence_refs: "feature_gated_sql_local_source_tests,vortex_prepare_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_direct_transient_structured_tests,universal_ingress_route_taxonomy",
         blocker_id: "feature.universal_format_io_required_for_default_build",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "local flat-scalar feature-gated SourceState, internal direct-transient smoke, and vortex_ingest adapters only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
@@ -6231,7 +6334,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         surface: "inline_jsonl,csv",
         support_state: "executable",
         feature_gate: "release-user-surfaces for public Vortex-derived local workflow exports; default generated-source helpers remain fixture smoke",
-        evidence_refs: "python.tests.test_query_builder,public_workflow_route_tests,sql_local_source_runtime_smoke,generated_source_runtime_tests,fanout_replay_tests",
+        evidence_refs: "python.tests.test_query_builder,public_workflow_route_tests,local_source_runtime,generated_source_runtime_tests,fanout_replay_tests",
         blocker_id: "none",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "public local-source JSONL/CSV writes and JSONL+CSV fanout are admitted only when derived from native/prepared Vortex primitive row streams or exact provider-backed native Vortex result summaries with explicit decode/materialization evidence; generated-source and internal fixture result output remain separate smoke surfaces",
@@ -6263,7 +6366,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         surface: "parquet,arrow_ipc,avro,orc",
         support_state: "feature_gated",
         feature_gate: "universal-format-io",
-        evidence_refs: "generated_source_runtime_tests,sql_local_source_runtime_smoke",
+        evidence_refs: "generated_source_runtime_tests,local_source_runtime",
         blocker_id: "feature.universal_format_io_required_for_default_build",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "local flat-scalar compatibility exports only when feature enabled",
@@ -6279,7 +6382,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         surface: "direct_compatibility_transient",
         support_state: "internal_smoke_only",
         feature_gate: "default",
-        evidence_refs: "sql_local_source_runtime_smoke,public_workflow_direct_policy_block_tests",
+        evidence_refs: "local_source_runtime,public_workflow_direct_policy_block_tests",
         blocker_id: "cg21.route.direct_local_file_blocked",
         claim_gate_status: "fixture_smoke_only",
         claim_boundary: "lower-level local smoke safeguard only; public local-file workflow routes require Vortex preparation or native Vortex input",
@@ -7393,7 +7496,7 @@ fn append_sql_certification_fields(
     );
     append_sql_dataframe_planner_readiness_fields(fields);
     append_sql_frontend_runtime_ladder_fields(fields);
-    append_sql_local_source_runtime_smoke_fields(fields);
+    append_local_source_runtime_fields(fields);
     append_generated_source_certificate_contract_fields(fields);
     append_generated_source_api_admission_fields(fields);
     append_generated_source_evidence_alignment_fields(fields);
@@ -7677,65 +7780,61 @@ fn append_sql_frontend_runtime_ladder_row_text_fields(
     );
 }
 
-fn append_sql_local_source_runtime_smoke_fields(fields: &mut Vec<(String, String)>) {
+fn append_local_source_runtime_fields(fields: &mut Vec<(String, String)>) {
     push_field(
         fields,
-        "sql_local_source_smoke_schema_version",
-        "shardloom.sql_local_source_smoke.v1",
+        "local_source_runtime_schema_version",
+        "shardloom.local_source_runtime.v1",
     );
     push_field(
         fields,
-        "sql_local_source_smoke_command",
-        "sql-local-source-smoke",
+        "local_source_runtime_command",
+        "local-source-runtime",
     );
     push_field(
         fields,
-        "sql_local_source_smoke_support_status",
-        "fixture_smoke_supported",
+        "local_source_runtime_support_status",
+        "production_admitted_local_workflow",
     );
     push_field(
         fields,
-        "sql_local_source_smoke_statement_shape",
+        "local_source_runtime_statement_shape",
         "SELECT <columns> FROM <local.csv> WHERE <simple predicate> LIMIT <n>",
     );
     push_field(
         fields,
-        "sql_local_source_smoke_execution_mode",
-        "direct_compatibility_transient",
+        "local_source_runtime_execution_mode",
+        "prepared_vortex_then_native_runtime",
     );
-    push_field(fields, "sql_local_source_smoke_engine_mode", "batch");
-    push_field(fields, "sql_local_source_smoke_source_format", "csv");
-    push_field(
-        fields,
-        "sql_local_source_smoke_result_format",
-        "inline_jsonl",
-    );
-    push_bool_field(fields, "sql_local_source_smoke_runtime_execution", true);
-    push_bool_field(fields, "sql_local_source_smoke_parser_executed", true);
-    push_bool_field(fields, "sql_local_source_smoke_binder_executed", true);
-    push_bool_field(fields, "sql_local_source_smoke_planner_executed", true);
-    push_bool_field(fields, "sql_local_source_smoke_source_io_performed", true);
-    push_bool_field(fields, "sql_local_source_smoke_output_io_performed", false);
-    push_bool_field(fields, "sql_local_source_smoke_object_store_io", false);
+    push_field(fields, "local_source_runtime_engine_mode", "batch");
+    push_field(fields, "local_source_runtime_source_format", "csv");
+    push_field(fields, "local_source_runtime_result_format", "inline_jsonl");
+    push_bool_field(fields, "local_source_runtime_runtime_execution", true);
+    push_bool_field(fields, "local_source_runtime_parser_executed", true);
+    push_bool_field(fields, "local_source_runtime_binder_executed", true);
+    push_bool_field(fields, "local_source_runtime_planner_executed", true);
+    push_bool_field(fields, "local_source_runtime_source_io_performed", true);
+    push_bool_field(fields, "local_source_runtime_output_io_performed", false);
+    push_bool_field(fields, "local_source_runtime_object_store_io", false);
     push_bool_field(
         fields,
-        "sql_local_source_smoke_external_engine_invoked",
+        "local_source_runtime_external_engine_invoked",
         false,
     );
-    push_bool_field(fields, "sql_local_source_smoke_fallback_attempted", false);
+    push_bool_field(fields, "local_source_runtime_fallback_attempted", false);
     push_field(
         fields,
-        "sql_local_source_smoke_claim_gate_status",
-        "fixture_smoke_only",
+        "local_source_runtime_claim_gate_status",
+        "local_workflow_runtime_supported",
     );
     push_field(
         fields,
-        "sql_local_source_smoke_claim_boundary",
-        "one scoped local CSV SELECT projection/filter/limit smoke only; no broad SQL/DataFrame or production SQL claim",
+        "local_source_runtime_claim_boundary",
+        "admitted local-source runtime workflow surface; broad SQL/DataFrame/database claims remain bounded by capability reports",
     );
     push_field(
         fields,
-        "sql_local_source_smoke_blocked_shapes",
+        "local_source_runtime_blocked_shapes",
         "joins,aggregates,functions,subqueries,windows,catalogs,non_csv_sources,object_store_sources,table_lakehouse_sources,production_sql",
     );
 }

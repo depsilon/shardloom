@@ -26,6 +26,7 @@ pub(crate) enum CommandFamily {
     EngineRuntimePlanning,
     OptimizerPlanning,
     ExtensionPlanning,
+    PythonTransport,
     Other,
 }
 
@@ -53,6 +54,7 @@ impl CommandFamily {
             Self::EngineRuntimePlanning => "engine_runtime_planning",
             Self::OptimizerPlanning => "optimizer_planning",
             Self::ExtensionPlanning => "extension_planning",
+            Self::PythonTransport => "python_transport",
             Self::Other => "other",
         }
     }
@@ -60,7 +62,9 @@ impl CommandFamily {
 
 #[must_use]
 pub(crate) fn classify_command(command: &str) -> CommandFamily {
-    if is_status_capabilities_command(command) {
+    if command == "python-worker" {
+        CommandFamily::PythonTransport
+    } else if is_status_capabilities_command(command) {
         CommandFamily::StatusCapabilities
     } else if is_vortex_primitive_command(command) {
         CommandFamily::VortexPrimitiveExecution
@@ -152,7 +156,7 @@ fn is_vortex_production_runtime_command(command: &str) -> bool {
 fn is_prepared_source_backed_command(command: &str) -> bool {
     matches!(
         command,
-        "vortex-ingest-smoke"
+        "vortex-prepare"
             | "vortex-encoded-read-api"
             | "vortex-encoded-read-boundary"
             | "vortex-encoded-read-metadata-probe"
@@ -343,7 +347,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "generated-source-range-smoke"
             | "generated-source-sequence-smoke"
             | "generated-source-sql-smoke"
-            | "sql-local-source-smoke"
+            | "local-source-runtime"
             | "translation-plan"
             | "plan-ir"
             | "plan-import"
@@ -453,7 +457,7 @@ mod tests {
             CommandFamily::PreparedSourceBackedExecution
         );
         assert_eq!(
-            classify_command("vortex-ingest-smoke"),
+            classify_command("vortex-prepare"),
             CommandFamily::PreparedSourceBackedExecution
         );
         assert_eq!(

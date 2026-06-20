@@ -26,6 +26,38 @@
   source state, operator semantics, materialization boundary, and evidence fields are the same.
   Because ShardLoom is pre-public-use, do not preserve awkward legacy route splits for compatibility
   alone; preserve only the boundaries that make correctness, diagnostics, or evidence clearer.
+- Public Python, SQL, DataFrame-style, and CLI surfaces are wrappers over the same admitted runtime
+  families, not separate engines. New plan items must state which shared runtime family they lower
+  into, how aliases converge, and which evidence fields prove `fallback_attempted=false` and
+  `external_engine_invoked=false`. Do not create parallel capability rows for each front door when a
+  shared planner/operator/sink contract is the real behavior.
+- Treat input and output formats as adapter boundaries around a Vortex-normalized middle. CSV,
+  JSONL/NDJSON, Parquet, Arrow IPC, Avro, ORC, Vortex, generated rows, ranges, and future sources may
+  need source-specific parse/scan/write policy, but they should not receive independent user-surface
+  execution stacks unless the semantics, materialization boundary, or safety evidence is genuinely
+  different. Future entries must check universal ingest, SourceState/prepared-state reuse, native
+  Vortex scan/provider surfaces, and declared sink contracts before adding new route names.
+- Smoke-only commands, fixture caps, and test harness shortcuts are not production routes. Keep them
+  only as internal/dev safeguards with explicit names and diagnostics. A future item that touches a
+  public workflow must either route through the product Vortex-normalized/prepared/native path or
+  implement that path; it must not raise a smoke cap, expose a smoke route as product support, or
+  count smoke success as runtime readiness.
+- Local transport optimizations, including the session-scoped Python worker, are transport layers
+  only. They must dispatch the same command handlers, return the same typed envelopes, preserve
+  route/evidence fields, and never be recorded as a separate execution provider or benchmark route.
+  Plan items involving package, Python, or managed-environment performance must distinguish
+  transport overhead from engine/runtime timing.
+- Benchmark and UAT entries must separate official engine timing from wrapper ergonomics. ClickBench
+  or other external benchmark submissions should time the ShardLoom CLI/runtime path unless a
+  separate wrapper-specific entry is intentionally declared; Python UAT proves public API parity,
+  no-fallback evidence, and wrapper overhead, not the primary engine ranking by default.
+- Focused validation entries must use exact test targets before broad gates. Rust unit filters must
+  target the exact crate surface: `cargo test -p <crate> --bin <name> <filter>` for binary crates
+  and `cargo test -p <crate> --lib <filter>` for library crates. Rust integration filters must use
+  `cargo test -p <crate> --test <target> <filter>`, and Python checks should name the concrete
+  unittest module/class/test. Prefer `python3 scripts/run_focused_checks.py` profiles for local
+  agent work. Do not use bare package-level Cargo filters as focused proof because Cargo still
+  enumerates integration test targets and creates avoidable slow-tail work.
 - When a maintainer-provided list, audit, attachment, benchmark finding, or review packet proposes
   new work, review each candidate before adding it here. Classify it as already addressed,
   accepted into a new checklist, merged into an existing checklist, v1 candidate pending
@@ -191,6 +223,451 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+- [x] `PY-RUNTIME-OVERHEAD-1` Session-scoped persistent local runtime for Python public routes.
+  - Source: live UAT showed raw CLI native Vortex Q22/Q23 routes at single-digit to low-teens
+    milliseconds while Python `ctx.sql(..., input=...)` adds visible per-call subprocess overhead.
+    `ShardLoomClient` currently resolves and launches the CLI for each operation; `ShardLoomSession`
+    reuses SourceState/VortexPreparedState/result state but explicitly does not keep a Rust runtime
+    process alive.
+  - Goal: make normal Python, DataFrame, and SQL front doors feel as simple as `sl.context()` while
+    avoiding per-operation CLI process launch when a caller keeps a context/session open.
+  - V1/v0.2 scope classification: `required_for_release_quality` for local Python performance
+    posture; not a production daemon, network service, external fallback, or separate execution
+    engine.
+  - ShardLoom technique review: use a caller-owned local worker as a capillary execution coordinator
+    over the existing public workflow route contract; preserve PulseWeave/state-budget evidence,
+    no-fallback fields, native Vortex input/output certificates, and deterministic diagnostics.
+  - Execution checklist:
+    - [x] Add the immediate low-risk Python client binary-resolution cache so repeated calls do not
+      redo env/PATH/repo/bundled binary lookup.
+    - [x] Design and implement the session-owned worker protocol: newline JSON over stdin/stdout, no
+      network listener by default, explicit close, crash diagnostics, and unchanged
+      `fallback_attempted=false` / `external_engine_invoked=false` route evidence in each delegated
+      command envelope.
+    - [x] Keep the existing compact CLI `OutputEnvelope` renderer as the in-process worker response
+      boundary instead of refactoring every handler to return envelopes first; this removes
+      per-operation process launch while preserving the same handler output contract.
+    - [x] Add `ShardLoomClient` persistent-worker mode that is automatic for context/session-owned
+      local use when supported, with an opt-out environment switch and deterministic
+      fallback-to-subprocess only as transport fallback, never execution fallback.
+    - [x] Prove representative Python ClickBench-style native Vortex routes reuse one worker, emit
+      the same route/evidence fields, and reduce per-call wrapper overhead materially. Local UAT on
+      `/Users/dylan/Desktop/shardloom-clickbench-uat/vortex/hits.vortex` with
+      `target/release/shardloom`: Q25-style `COUNT WHERE URL LIKE` warm median improved from
+      `9.028 ms` subprocess to `1.794 ms` persistent worker; Q23-style grouped top-N improved from
+      `48.767 ms` to `36.833 ms`; both reported `native_vortex_aggregate`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`. The current release binary
+      also ran the 43-query local ClickBench UAT through the Python persistent worker against that
+      local 25k-row Vortex fixture with 43/43 successes, zero diagnostics, zero fallback/external
+      invocations, route distribution `native_vortex_aggregate=36`,
+      `native_vortex_sort_rows=4`, `native_vortex_count_all=1`,
+      `native_vortex_count_where=1`, `native_vortex_filter_project=1`, median `7.616 ms`, max
+      `365.632 ms`, and transcript
+      `/Users/dylan/Desktop/shardloom-clickbench-uat/transcripts/uat_after_python_worker_43_summary.json`.
+    - [x] Update README, Python docs, user-surface index, and release readiness docs so users get the
+      fast path through the normal `sl.context()` / `with sl.session()` surfaces without knowing
+      internal worker commands.
+  - Evidence required: focused Rust route-envelope tests, Python worker lifecycle tests, UAT timing
+    comparison, no-fallback evidence, and docs updates.
+  - Verification: targeted CLI/Python tests first; full workspace gate after the worker contract is
+    complete.
+  - Non-goals: background network daemon, external query engine, Python in-process execution of
+    unsupported plans, or broad production service claim.
+  - Claim boundary: Python overhead reduction only for admitted local ShardLoom/Vortex routes.
+  - Fallback boundary: persistent worker is a transport optimization; execution remains
+    ShardLoom-native/Vortex-native with no external engine fallback.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [x] `PERF-ATTRIBUTION-POST-UAT-1` Hot/cold/proof timing attribution cleanup before the next
+  optimization pass.
+  - Source: maintainer timing review after local ClickBench/UAT and benchmark-page inspection:
+    cold source read, parse/decode, Vortex write, prepared lookup/create, evidence render, result
+    sink, operator compute, selection-vector aggregation, and columnar-source rows need clearer
+    included/excluded attribution before broad optimization claims.
+  - Current state: timing surfaces separate hot runtime from proof/publication work. The
+    benchmark optimization-target validator now confirms the promoted artifact has additive
+    hot-runtime stage evidence for source read, parse/decode, prepared lookup/create, Vortex write,
+    operator compute, and publication/proof separation. The current validation pass reported 600
+    ShardLoom hot-runtime rows, 600 publication-proof rows, six measured hotspot targets, and zero
+    timing-contract blockers in `target/benchmark-optimization-targets-report.json`.
+  - Intake review: accepted timing-attribution row as a precondition for the source, writer,
+    prepared-state, proof-lane, and encoded-operator optimization items below; this item has no
+    direct runtime-gain claim, but prevents optimizing the wrong timing number.
+  - V1/v0.2 scope classification: `required_for_release_quality` before publishing refreshed
+    performance claims.
+  - ShardLoom technique review: use route timing surface separation, evidence-tier controls,
+    capillary per-stage work units, and PulseWeave state/pressure fields so hot runtime, cold
+    ingest, prepared lookup, proof replay, and publication rendering remain distinct.
+  - Execution checklist:
+    - [x] Add stable fields for the promoted artifact stage surface where those stages execute.
+      Canonical promoted fields include `source_read_ms`,
+      `source_parse_or_columnar_decode_ms`, `source_read_byte_acquisition_millis`,
+      `vortex_write_ms`, `vortex_digest_millis`, `vortex_reopen_verify_millis`,
+      `prepared_state_lookup_or_create_ms`, `operator_compute_ms`,
+      `result_sink_write_millis`, and `evidence_render_ms`.
+    - [x] Mark each timing component as `included_hot_runtime`, `included_cold_route`,
+      `included_prepare_once`, `included_publication_proof`, or `diagnostic_only` through
+      `route_timing_stage_inclusion_classes` and the timing-surface row contract.
+    - [x] Split cold-route totals so source read, parse/decode, write/register/reopen, and
+      first-query prepared lookup are additive enough for regression triage. The validator confirms
+      additive hot-route stage evidence for `source_read_scout_timing`,
+      `jsonl_parse_decode_hot_runtime`, `prepared_state_lookup_or_create`, and
+      `vortex_write_and_reopen_verify`.
+    - [x] Add validator coverage that proof/publication components cannot silently redefine hot
+      route totals and that excluded diagnostic fields are labeled. Current evidence:
+      `python3 scripts/check_benchmark_optimization_targets.py` passed with no blockers.
+    - [x] Refresh docs/website labels only from the canonical timing-surface fields; website and
+      benchmark docs consume `timing_surface`, route-stage inclusion classes, and target reports
+      instead of substituting publication proof rows into hot runtime.
+  - Next outcome: benchmark/UAT artifacts explain which component changed before runtime claims are
+    updated.
+  - User-visible surface: benchmark JSON, website benchmark page, timing docs, phase evidence.
+  - Implementation scope: benchmark row promotion, timing attribution structs, website/static
+    generated assets, docs.
+  - Evidence required: schema/golden tests, artifact validator output, and one targeted regenerated
+    benchmark/UAT artifact.
+  - Verification: focused timing-surface tests, static benchmark validator, website readiness check,
+    and targeted UAT artifact inspection.
+  - Non-goals: claiming faster runtime solely from relabeling or changing formulas.
+  - Claim boundary: attribution clarity only until paired with measured runtime improvements.
+  - Fallback boundary: no execution-engine changes or external fallback.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [x] `PERF-SOURCE-ADAPTER-POST-UAT-1` Unified cold source-read, parse/decode, and columnar adapter
+  fast path.
+  - Source: maintainer optimization table: cold source read is about `9.49 ms` and roughly `49%` of
+    a `19.41 ms` hot cold route; parse/decode averages about `8.44 ms` with worse JSONL outliers;
+    columnar Parquet/ORC/Arrow IPC cold routes still show nontrivial totals.
+  - Current state: universal ingest and source-specific route work exist. This batch removed
+    another allocation-heavy text path by streaming CSV records after the header and materializing
+    JSONL rows incrementally through the shared read plan instead of accumulating all parsed records
+    before row assembly. The shared source adapter now emits local source-read scout evidence
+    (`source_read_scout_schema_version=shardloom.local_source_read_scout.v1`) with metadata-scout,
+    byte-acquisition, full-body, mmap/borrowed-buffer, read-buffer-carry, and many-small-file
+    batching status fields through Vortex preparation, prepared-state reuse, public-workflow
+    preparation, and the lower-level diagnostic local-source runtime.
+  - Intake review: accepted cold source read, parse/decode, JSONL outlier, and columnar-source fast
+    path rows into one source-adapter item because they share universal ingest, SourceState,
+    projection/predicate admission, and Vortex-normalized handoff contracts.
+  - V1/v0.2 scope classification: `required_for_release_quality` for local CSV/JSONL/columnar
+    runtime performance; no external object-store requirement.
+  - ShardLoom technique review: apply metadata-first source scouting, capillary source chunks,
+    dynamic projection-aware decode, PulseWeave read/parse pressure signals, source-state reuse,
+    read-once buffer carry, and native Vortex array handoff where Vortex/source APIs support it.
+  - Expected optimization envelope: target `25-45%` source-read reduction (`~2.4-4.3 ms` on the
+    observed cold route), `30-60%` parse/decode reduction (`~2.5-5.1 ms` average), larger JSONL
+    outlier wins where structural-index or projection-aware parsing avoids unused fields, and
+    `10-30%` columnar cold-row reduction depending on format/scenario.
+  - Execution checklist:
+    - [x] Split scout, byte acquisition, mmap/borrowed-buffer eligibility, full-read fallback, and
+      many-small-file batching evidence in universal ingest. Current fields include
+      `source_read_metadata_scout_millis`, `source_read_byte_acquisition_millis`,
+      `source_read_full_body_millis`, `source_read_mmap_eligibility_status`,
+      `source_read_buffer_carry_status`, and `source_read_many_small_file_batching_status`.
+    - [x] Add projection-aware CSV decode that skips unused columns, uses typed column builders, and
+      avoids row/string materialization for admitted scalar columns. The current text adapter now
+      streams CSV records after the header, applies `LocalSourceReadPlan::should_materialize` before
+      row insertion, preserves product-profile no-synthetic-cap behavior, and keeps smoke caps as
+      internal safeguards.
+    - [x] Add projection-aware JSONL/NDJSON structural indexing for admitted fields, typed builders,
+      and deterministic diagnostics for unsupported nested paths rather than row-materialized
+      parsing. The current parser skips unselected JSON values through the existing structural
+      scanner, incrementally assembles materialized rows, preserves missing-field/null semantics for
+      later-discovered columns, and retains deterministic unsupported diagnostics.
+    - [x] Add read-once buffer carry evidence where safe, with explicit lifetime/materialization
+      boundaries. Text sources report `read_once_buffer_carried_to_text_parser`; columnar sources
+      report `digest_bytes_recorded_reader_reopens_columnar_source` or
+      `not_used_columnar_reader_owns_buffer_lifetime` rather than claiming unsafe borrowed-buffer
+      reuse.
+    - [x] Add columnar-source fast paths for Parquet/ORC/Arrow IPC that preserve columnar buffers,
+      reuse schema/metadata, and hand off directly to Vortex-normalized arrays where admitted.
+      Current universal-format readers use reader-level projection helpers and report
+      `source_state_columnar_preserved`, `source_state_record_batch_count`, and reader projection
+      columns.
+    - [x] Update public Python/SQL/DataFrame local-source routes to use the shared adapter contract,
+      not source-specific parallel execution stacks. Public local files route through
+      Vortex-normalized prepare/prepared/native flow; direct local-source compatibility remains an
+      internal diagnostic safeguard only.
+    - [x] Add fixtures for CSV, JSONL, Parquet, ORC, Arrow IPC, Vortex, partitioned/many-small-file
+      inputs, and projected/nested scenarios.
+      Current coverage is split across public workflow partitioned/native Vortex fixtures,
+      text/structured universal-ingest fixtures, nested typed sink fixtures, and the traditional
+      analytics many-small-files dataset profile.
+    - [x] Refresh benchmark/site artifacts after the attribution item can prove component movement.
+      Evidence: `python3 scripts/promote_benchmark_artifact.py --input
+      target/benchmark-artifacts/traditional-full-local-final.json --profile full_local ...`,
+      `python3 scripts/check_benchmark_artifact_completeness.py --manifest
+      website/assets/benchmarks/latest/manifest.json --output
+      target/benchmark-artifact-completeness-report.json`, and
+      `python3 scripts/check_benchmark_optimization_targets.py --artifact
+      website/assets/benchmarks/latest/benchmark-results.json --output
+      target/benchmark-optimization-targets-report.json`; local full-size UAT remains tracked by
+      `CLICKBENCH-UAT-FULL-FORMAT-1` after the release train.
+  - Next outcome: cold source and parse/decode routes improve without changing the public front
+    door or introducing smoke-route execution.
+  - User-visible surface: `ctx.read(...)`, `ctx.read_csv(...)`, `ctx.read_json(...)`,
+    `ctx.read_parquet(...)`, SQL input binding, CLI prepare/run route evidence, benchmark artifacts.
+  - Implementation scope: universal ingest/source adapters, Python lowering, CLI public workflow
+    route, Vortex normalization helpers, benchmark fixtures, docs.
+  - Evidence required: correctness fixtures, no-fallback evidence, materialization/decode boundary
+    fields, timing attribution, and local UAT comparison.
+  - Verification: focused Rust/Python source-adapter tests, public workflow route tests, local
+    ClickBench/UAT subset, and benchmark artifact validator. Current focused checks:
+    `cargo test -p shardloom-cli --features release-user-surfaces --bin shardloom
+    local_source_runtime_reports_source_read_split_fields -- --nocapture`,
+    `cargo test -p shardloom-cli --features release-user-surfaces --bin shardloom source_read_plan
+    -- --nocapture`, `python3 scripts/run_focused_checks.py --profile current-native-vortex`,
+    `python3 scripts/check_benchmark_optimization_targets.py`, and
+    `python3 scripts/check_ci_gate_matrix.py`.
+  - Non-goals: object-store distributed reads, external parser engines, or increasing smoke caps.
+  - Claim boundary: source-format-specific local cold-route improvement only after measured
+    artifacts exist.
+  - Fallback boundary: no DuckDB/Polars/pandas/Spark/DataFusion/Velox parse or execution fallback.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [x] `PERF-PREPARED-WRITER-PROOF-POST-UAT-1` Prepared-state, Vortex writer, sink, and proof-lane
+  compaction.
+  - Source: maintainer optimization table: Vortex write averages about `3.49 ms`, prepared
+    lookup/create about `1.09 ms` and roughly `69%` of the Prepare-Once First Query hot route,
+    evidence render about `4-5.6 ms` in proof lanes, and result sink about `0.49-0.66 ms`.
+  - Current state: Vortex write, prepared-state lookup/create, result sinks, and evidence render are
+    now distinct and optimized enough for the local v0.2 runtime pass without changing query
+    semantics. The local Vortex writer uses a thread-local single-threaded runtime/session context
+    for repeated writes in one process, emits writer-context/segment/workspace-stage/digest/reopen
+    timing splits, and reports scoped buffer-carry reuse through the copy-budget evidence once
+    writer row-count plus digest/reopen proof exists. Artifact-adjacent prepared-state reuse
+    manifests now expose a content-addressed read-through index view with cache hit/miss/repair
+    fields. Native Vortex row exports already expose typed sink contracts and metadata-only route
+    fields, while publication-proof evidence is separated from hot runtime through the timing
+    surface/evidence-tier contract.
+  - Intake review: accepted Vortex write, prepared lookup/create, evidence render, and result sink
+    rows into one persistence/proof item because they share artifact lifecycle, cache, sidecar,
+    digest, sink, and evidence-tier contracts.
+  - V1/v0.2 scope classification: `required_for_release_quality` for prepared-route and proof-lane
+    performance; publication proof remains slower only when it is explicitly doing more work.
+  - ShardLoom technique review: use capillary artifact work units, PulseWeave state-budget and
+    spill/memory diagnostics, content-addressed prepared-state indexes, evidence-tier sidecar
+    reuse, metadata-only sink fast paths, and route timing-surface separation.
+  - Expected optimization envelope: target `25-50%` Vortex-write reduction (`~0.9-1.7 ms` average),
+    `40-70%` prepared lookup/create reduction (`~0.4-0.8 ms`), `50-80%` proof-lane evidence-render
+    reduction (`~2-4.5 ms` outside hot runtime), and `20-50%` result-sink reduction
+    (`~0.1-0.3 ms`).
+  - Execution checklist:
+    - [x] Add shared writer/runtime context with coalesced artifact writes and batch segment layout
+      evidence. Current implementation uses a thread-local single-threaded Vortex runtime/session
+      for repeated local writes, workspace-safe staged writes, capillary prewrite role gates, and
+      `vortex_writer_context_reuse_status` evidence.
+    - [x] Split Vortex write, digest, register/workspace-stage, and reopen timing; avoid reopen on
+      hot/minimal paths when the artifact digest and writer row-count proof are sufficient. Current
+      fields include `vortex_writer_context_open_millis`, `vortex_segment_write_millis`,
+      `vortex_workspace_stage_millis`, `vortex_digest_millis`, `vortex_reopen_verify_millis`, and
+      `vortex_reopen_hot_path_status`.
+    - [x] Add content-addressed prepared-state index with manifest read-through cache and explicit
+      cache hit/miss/repair fields. Current fields include
+      `vortex_prepared_state_reuse_index_key`,
+      `vortex_prepared_state_reuse_index_lookup_status`,
+      `vortex_prepared_state_reuse_index_cache_scope`, and
+      `vortex_prepared_state_reuse_index_repair_status`.
+    - [x] Add role-scoped prepared-state repair visibility for stale/missing sidecars without full
+      recreate when content digests prove reuse is safe. Local single-artifact routes report
+      `vortex_prepared_state_reuse_role_scoped_repair_status`; broader traditional prepared-batch
+      routes keep role reuse/repair evidence in the workspace manifest family.
+    - [x] Add compact evidence tiers and sidecar reuse so hot/default lanes do not render full human
+      publication evidence. Current benchmark evidence separates `hot_runtime`,
+      `full_replay_proof`, and `publication_proof`, with compact machine evidence on hot/default
+      surfaces and human publication render deferred unless requested.
+    - [x] Add metadata-only result sink fast path, compact JSON sink mode, and native sink reuse
+      where output semantics allow it. Current native Vortex result sinks expose
+      `route_metadata_only`, bounded JSONL/CSV row export, structured Vortex-derived export, and
+      typed sink contract fields without external-engine execution.
+    - [x] Refresh package/release docs, website labels, and benchmark artifacts so
+      publication-proof costs remain visible but are not conflated with hot runtime. Evidence:
+      refreshed website benchmark data, `docs/release/ci-work-shaping.md`,
+      `docs/release/ci-gate-matrix.md`, package/readiness docs in this branch, and the passed
+      artifact validators above; local full-size UAT remains tracked by
+      `CLICKBENCH-UAT-FULL-FORMAT-1` after the release train.
+  - Next outcome: prepared-first-query and proof/publication lanes get faster and more explainable
+    without weakening evidence.
+  - User-visible surface: prepared routes, write APIs, result sinks, benchmark proof lanes, website
+    evidence views.
+  - Implementation scope: Vortex writer helpers, prepared-state registry/cache, sink contracts,
+    evidence rendering, timing fields, docs/website.
+  - Evidence required: artifact lifecycle tests, cache hit/miss fixtures, sink correctness,
+    no-fallback fields, timing artifacts, and proof-lane validators.
+  - Verification: focused Rust writer/prepared-state tests, Python write/collect tests, benchmark
+    artifact validator, and targeted local UAT rerun. Current focused checks:
+    `cargo test -p shardloom-vortex --features vortex-write
+    copy_budget_reports_unmeasured_segments_and_blocks_unsafe_reuse -- --nocapture` and
+    `cargo test -p shardloom-cli --features release-user-surfaces --test
+    sql_local_source_runtime_smoke vortex_prepare_writes_reopens_vortex_prepared_state --
+    --nocapture`.
+  - Non-goals: reducing proof work by removing required evidence, external stores, or hidden
+    compatibility expansion.
+  - Claim boundary: prepared/write/proof-lane improvements only for measured local artifact paths.
+  - Fallback boundary: native ShardLoom/Vortex artifact lifecycle only; no external execution
+    engines.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [x] `PERF-ENCODED-OPERATORS-POST-UAT-1` Encoded-native operator and selection-vector metric
+  aggregation expansion.
+  - Source: maintainer optimization table: operator compute geomeans are currently low, but the
+    pre-refresh published inventory reported `0` encoded-native rows, `960` residual-native rows,
+    `240` materialized-temporary rows, and `48` blocked selection-vector metric aggregation rows.
+  - Current state: broad SQL/Python/DataFrame operator surfaces are admitted through shared runtime
+    contracts, and the normal Vortex local primitive route now exposes encoded/native rows for
+    count/filter/project/filter-project, residual-native state for scalar/grouped aggregate,
+    bounded sort/top-N, joins, rolling/window, distinct/duplicates, reshape, and typed expression
+    rewrites, plus explicit state-budget evidence. The compute capability matrix now reports
+    encoded-native, residual-native, materialized-temporary, unsupported/report-only, and blocker
+    counts by operator family, and `vortex_sink_write` is no longer mislabeled as unsupported.
+    Benchmark promotion now treats selection-vector-backed metric aggregation evidence as an
+    admitted residual-native bridge instead of a blocked hot-path candidate. Full encoded-native
+    aggregate/join/sort claims still require physical encoding proof and refreshed benchmark
+    artifacts before being stated publicly.
+  - Intake review: accepted operator compute and selection-vector metric aggregation rows into one
+    encoded-operator item because both require kernel registry/admission changes rather than source
+    adapter or writer changes.
+  - V1/v0.2 scope classification: `required_for_release_quality` for operator-heavy rows that can
+    use in-repo encoded kernels without external infrastructure.
+  - ShardLoom technique review: use encoded-columnar kernels, selection vectors, capillary operator
+    work units, dynamic admission by dtype/cardinality/selectivity, metadata-first pruning,
+    PulseWeave memory/spill diagnostics, and late materialized aggregate/join/top-N state.
+  - Expected optimization envelope: modest geomean movement on current small rows, but target
+    `20-70%` operator-heavy row reductions and possible `5-30 ms` wins on group/join/nested
+    outliers; selection-vector metric aggregation should target `20-50%` selective-filter query
+    work reduction where admitted.
+  - Execution checklist:
+    - [x] Convert the inventory from residual/materialized rows into prioritized encoded-native
+      kernel families by scenario, dtype, null profile, and route lane. The compute matrix now
+      emits `operator_family_execution_summary` plus per-family counts.
+    - [x] Add encoded-native count/filter/project/filter-project kernels where Vortex
+      encodings/statistics permit direct or no-row-materialization execution; keep sum/min/max/mean
+      broad encoded-native claims behind physical encoding evidence.
+    - [x] Add selection-vector metric aggregation admission for rows with native state-budget
+      evidence and deterministic diagnostics for missing dtype/null evidence. Benchmark promotion
+      now reports `admitted_selection_vector_metric_aggregation_residual_native` or
+      `admitted_selected_metric_aggregation_residual_native` when runtime fields prove the bridge.
+    - [x] Add late-materialized aggregate/top-N/join helpers that keep projected payload columns
+      deferred until after selection/group state is finalized. Current Vortex local primitive
+      reports expose state-budget/capillary/PulseWeave evidence for scalar/grouped aggregates,
+      bounded sort/top-N, rolling/window, row-key, reshape, and duplicate-state paths.
+    - [x] Add operator benchmark/evidence fields showing encoded-native, residual-native,
+      materialized-temporary, and blocked counts by route family.
+    - [x] Add correctness fixtures for nulls, empty/all-null groups, duplicate keys,
+      nested/string predicates, and decoded-reference parity where the current native primitive
+      route is admitted. Current focused fixtures prove `COUNT(col)`, `COUNT_DISTINCT(col)`,
+      `SUM`, and `AVG` skip null measures correctly, all-null groups return null aggregates
+      without fallback, SQL-style null comparison semantics do not select null rows, and
+      `contains` filter/project uses ShardLoom residual predicate evaluation with projection
+      pushdown and explicit decode/materialization evidence rather than blocking or calling an
+      external engine.
+    - [x] Refresh benchmark artifacts and website operator-inventory views after kernels are
+      admitted. Evidence: regenerated `website/assets/benchmarks/latest` and
+      `website-src/src/data/benchmark-evidence.json`; direct generated-row scan reports zero stale
+      `blocked_selection_vector_metric_aggregation_not_admitted` or
+      `pending_selection_vector_metric_aggregation` rows. Local full-size UAT remains tracked by
+      `CLICKBENCH-UAT-FULL-FORMAT-1` after the release train.
+  - Next outcome: operator-heavy rows use ShardLoom's encoded/runtime features by default through
+    the normal front doors.
+  - User-visible surface: Python/DataFrame/SQL groupby, joins, top-N, nested scans, metric
+    aggregations, route evidence, benchmark/site operator inventory.
+  - Implementation scope: expression/kernel registry, Vortex local primitives, operator admission,
+    route/evidence fields, tests, docs/website.
+  - Evidence required: encoded-kernel correctness tests, decoded-reference parity, no-fallback
+    certificates, state-budget evidence, and refreshed operator inventory.
+  - Verification: targeted Rust operator tests, Python parity tests, capability matrix validator,
+    local UAT subset, and benchmark artifact validator. Current focused checks:
+    `cargo test -p shardloom-cli --test compute_capability_matrix_snapshots -- --nocapture`,
+    `cargo test -p shardloom-vortex --features vortex-local-primitives --lib
+    simple_aggregate_skips_null_measures_without_fallback -- --nocapture`,
+    `cargo test -p shardloom-vortex --features vortex-local-primitives --lib
+    grouped_aggregate_skips_all_null_group_measures_without_fallback -- --nocapture`,
+    `cargo test -p shardloom-vortex --features vortex-local-primitives --lib
+    filter_and_project_contains_uses_shardloom_residual_without_fallback -- --nocapture`,
+    `python3 -m unittest
+    python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_emits_operator_mode_inventory
+    python.tests.test_compute_engine_completion_gate.ComputeEngineCompletionGateTests.test_completion_gate_classifies_optimization_statuses_separately`,
+    and `python3 -m py_compile scripts/promote_benchmark_artifact.py`.
+  - Non-goals: external query-engine residual execution, broad unsafe UDF execution, or claiming
+    encoded-native support where physical encoding evidence is absent.
+  - Claim boundary: encoded-native support only for admitted kernels/encodings/dtypes with evidence.
+  - Fallback boundary: residuals are ShardLoom-native or explicit diagnostics; no external fallback.
+  - Ledger rule: move completed detail after merge/session completion.
+
+### Post-Release UAT Runbook: `CLICKBENCH-UAT-FULL-FORMAT-1`
+
+Sequential local full-format ClickBench UAT after the v0.2 release train.
+  - Source: user request to test full dataset sizes, selected formats, and all 43 ClickBench
+    scenarios after current implementation work, PR/merge, and the v0.2.0 release train.
+  - Goal: run a local, sequential, laptop-safe UAT over the repo-managed
+    `benchmarks/clickbench/queries.sql` using the current public/native Vortex route surface and the
+    available local format preparations: CSV -> Vortex, JSONLines -> Vortex, Vortex, partitioned
+    Vortex, and Parquet/partitioned Parquet when official fixtures are present or reproducibly
+    generated through an admitted adapter.
+  - V1/v0.2 scope classification: `post_release_uat_evidence`; not a public ClickBench submission,
+    leaderboard result, performance superiority claim, or replacement for benchmark claim gates.
+  - ShardLoom technique review: use native Vortex middle, capillary/state-budget route fields,
+    PulseWeave pressure signals, max_parallelism=1 defaults, timing-surface labels, no-fallback
+    evidence, and explicit format-preparation timing.
+  - Pre-release checklist:
+    - [x] Inventory local Desktop ClickBench fixtures and record row counts, bytes, source format,
+      prepared Vortex artifacts, partition layout, and missing official-format fixtures. Current
+      `/Users/dylan/Desktop/shardloom-clickbench-uat` evidence is local-scale, not official full
+      ClickBench scale: `data/hits.csv` has 25,001 lines including header and 14.7 MB;
+      `data/hits.jsonl` has 25,000 rows and 53.5 MB; prepared Vortex artifacts include
+      `vortex/hits.vortex` at 3.0 MB, `vortex/hits_jsonl.vortex` at 3.0 MB, and four
+      EventDate-partitioned Vortex files around 3.0-3.2 MB each. The folder does not currently
+      contain official Parquet or partitioned-Parquet fixtures, so those remain preparation inputs
+      rather than completed local UAT evidence.
+    - [x] Run all 43 queries sequentially against native Vortex input and capture route id,
+      wall-clock timing, output rows, capillary/PulseWeave/state-budget fields, fallback/external
+      fields, and diagnostics. Current local-scale evidence: CSV-prepared Vortex transcript
+      `uat_after_python_worker_43_summary.json` passed 43/43 with median `7.616 ms`, max
+      `365.632 ms`; JSONL-prepared Vortex transcript
+      `uat_after_python_worker_43_jsonl_prepared_vortex.json` passed 43/43 with median `6.192 ms`,
+      max `65.932 ms`; both had zero diagnostics and zero fallback/external invocations.
+    - [x] Repeat the 43-query run for partitioned Vortex when the public route can bind the
+      partition set without falling back; otherwise add the exact implementation item instead of
+      hiding the gap. Current evidence: native Vortex manifest route binding ran all 43 queries
+      through the Python public SQL surface with 43/43 successes, zero diagnostics, zero
+      fallback/external invocations, route distribution `native_vortex_aggregate=36`,
+      `native_vortex_sort_rows=4`, `native_vortex_count_all=1`, `native_vortex_count_where=1`,
+      `native_vortex_filter_project=1`, manifest binding mode on all rows, and partitioned binding
+      evidence on all rows. Local transcripts:
+      `/Users/dylan/Desktop/shardloom-clickbench-uat/transcripts/uat_current_partitioned_manifest_declared_input_43.json`
+      and
+      `/Users/dylan/Desktop/shardloom-clickbench-uat/transcripts/uat_current_partitioned_manifest_path_literal_43_after_python_bridge.json`.
+    - [x] Add native partitioned/multi-file input binding for local Vortex manifests or partition
+      sets, with source-state reuse, additive partition timing fields, and no-fallback evidence, so
+      `shardloom-vortex-partitioned` can run as one public workflow instead of a set of manual
+      single-file probes. The current route binding accepts single `.vortex` files, local
+      directories containing `.vortex` parts, and manifest files with `inputs`/`paths`; evidence
+      fields include `native_vortex_input_binding_mode`, `native_vortex_input_binding_count`,
+      `native_vortex_partitioned_input_binding`, `native_vortex_input_binding_strategy`, and
+      `native_vortex_input_binding_sources`.
+  - Post-release run steps:
+    - Generate or refresh public-format preparations from official full ClickBench sources through
+      the public preparation flow where needed; do not expose diagnostic smoke routes as product
+      runtime.
+    - Run CSV/JSONLines/Parquet format preparation timings separately from query timings so load
+      cost is not mixed into native-query timing.
+    - Run the full 100M-row 43-query UAT sequentially for the selected released formats:
+      `shardloom-parquet`, `shardloom-parquet-partitioned`, `shardloom-vortex`,
+      `shardloom-vortex-partitioned`, `shardloom-csv`, and `shardloom-jsonlines`.
+    - Compare results to the current route-readiness classifier and record every discrepancy as a
+      fix or explicit phase-plan item.
+    - Summarize results in a local UAT artifact under `target/` or Desktop transcripts; do not
+      promote to website/benchmark claims until claim gates approve publication.
+  - Evidence required: local UAT JSON summary, per-query transcripts, route-readiness comparison,
+    and no-fallback evidence.
+  - Verification: `scripts/check_clickbench_olap_runtime_coverage.py`, sequential UAT runner output,
+    and focused fixes for any failed scenario.
+  - Non-goals: public benchmark publication, hidden external baselines, unsupported route masking, or
+    full workspace CI while runtime gaps remain.
+  - Claim boundary: local UAT only.
+  - Fallback boundary: no DuckDB/Polars/pandas/Spark/DataFusion/Velox execution.
+  - Ledger rule: move completed detail after merge/session completion.
+
 - The ClickBench route-readiness polish, Python/DataFrame runtime-surface polish, future-contract
   blocker field alignment, and native Vortex-derived structured export closeout requested on
   June 19 were completed and moved to
@@ -198,9 +675,7 @@ Current autonomous execution order:
   unification is now closed through the `native_vortex_unified_plan` contract and ledgered in
   `docs/architecture/phased-execution-completed-ledger.md`. The scalar/null rewrite closeout,
   benchmark-equivalence constitution, external-environment gate split, and `UAT-RUNTIME-9`
-  universal ingest front-door UAT hardening are also ledgered. There are no unchecked Planned items
-  in this file after the latest merge; add the next cohesive runtime, release, benchmark, or cleanup
-  item here before continuing implementation work.
+  universal ingest front-door UAT hardening are also ledgered.
 
 - [x] `RUNTIME-CLOSEOUT-3` Broad SQL/Python/DataFrame language surface burn-down and residual
   promotion.

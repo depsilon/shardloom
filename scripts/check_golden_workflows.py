@@ -26,8 +26,8 @@ VORTEX_ARTIFACT_DIGEST_PREFIX = "sha256:"
 
 
 REQUIRED_SUPPORT_ROWS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "cli_sql_local_source_smoke": ("executable", ("sql-local-source-smoke",)),
-    "cli_vortex_ingest_smoke": ("feature_gated", ("vortex-ingest-smoke",)),
+    "cli_local_source_runtime": ("executable", ("local-source-runtime",)),
+    "cli_vortex_prepare": ("feature_gated", ("vortex-prepare",)),
     "cli_generated_source_smokes": (
         "executable",
         ("generated-source-user-rows-smoke",),
@@ -570,13 +570,13 @@ def workflow_local_csv_to_prepared_and_fanout(
             stage_dir=stage_dir,
             stage_id="local_csv_vortex_ingest",
             args=[
-                "vortex-ingest-smoke",
+                "vortex-prepare",
                 str(local_source),
                 str(target_vortex),
                 "--allow-overwrite",
             ],
             expected_fields={
-                "schema_version": "shardloom.vortex_ingest_smoke.v1",
+                "schema_version": "shardloom.vortex_prepare.v1",
                 "execution_mode": "prepared_vortex",
                 "runtime_execution": "true",
                 "source_io_performed": "true",
@@ -685,10 +685,10 @@ def workflow_local_csv_to_prepared_and_fanout(
                     "not_requested_below_threshold_no_standalone_lane"
                 ),
                 "vortex_copy_budget_status": (
-                    "reported_copy_budget_with_unmeasured_segments"
+                    "admitted_scoped_buffer_reuse_with_unmeasured_segments"
                 ),
                 "vortex_copy_budget_buffer_reuse_status": (
-                    "blocked_until_correctness_parity"
+                    "admitted_read_once_source_buffer_carry_with_digest_and_row_count_proof"
                 ),
                 "vortex_copy_budget_unsafe_lifetime_shortcut_status": (
                     "blocked_no_unsafe_lifetime_shortcuts"

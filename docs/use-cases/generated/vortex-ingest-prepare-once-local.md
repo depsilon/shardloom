@@ -21,7 +21,7 @@ Feature-gated local prepare-once fixture smoke over flat scalar rows. Nullable/a
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n" | Set-Content -Encoding utf8 target\vortex-ingest-source.csv; cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke target\vortex-ingest-source.csv target\vortex-ingest-source.vortex --allow-overwrite --format json; $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.input_row_count, r.fallback_attempted, r.external_engine_invoked)"
+New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n" | Set-Content -Encoding utf8 target\vortex-ingest-source.csv; cargo run -q -p shardloom-cli --features vortex-write -- vortex-prepare target\vortex-ingest-source.csv target\vortex-ingest-source.vortex --allow-overwrite --format json; $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.input_row_count, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker

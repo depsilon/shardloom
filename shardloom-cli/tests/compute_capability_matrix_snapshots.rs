@@ -59,6 +59,16 @@ fn assert_matrix_summary_fields(output: &str) {
     assert!(output.contains(&field("compute_row_count", "15")));
     assert!(output.contains(&field("operator_family_count", "14")));
     assert!(output.contains(&field(
+        "operator_family_execution_summary_schema_version",
+        "shardloom.operator_family_execution_summary.v1"
+    )));
+    assert!(output.contains(&field(
+        "operator_family_execution_summary_fields",
+        "family,compute,encoded_native,residual_native,materialized_temporary,unsupported_or_report_only,operator_blockers"
+    )));
+    assert!(output.contains("aggregates:compute=1,encoded_native=1,residual_native=0"));
+    assert!(output.contains("sink_write_operators:compute=1,encoded_native=0,residual_native=1"));
+    assert!(output.contains(&field(
         "support_status_vocabulary",
         "unsupported,planned,report_only,internal_smoke_only,executable_uncertified,fixture_certified,workload_certified,production_certified"
     )));
@@ -74,10 +84,10 @@ fn assert_matrix_summary_fields(output: &str) {
 }
 
 fn assert_matrix_claim_counts(output: &str) {
-    assert!(output.contains(&field("fixture_certified_count", "7")));
+    assert!(output.contains(&field("fixture_certified_count", "8")));
     assert!(output.contains(&field("internal_smoke_only_count", "1")));
     assert!(output.contains(&field("executable_uncertified_count", "5")));
-    assert!(output.contains(&field("report_only_count", "1")));
+    assert!(output.contains(&field("report_only_count", "0")));
     assert!(output.contains(&field("planned_count", "0")));
     assert!(output.contains(&field("unsupported_count", "1")));
     assert!(output.contains(&field("workload_certified_count", "0")));
@@ -87,10 +97,10 @@ fn assert_matrix_claim_counts(output: &str) {
     assert!(output.contains(&field("matrix_consuming_views_status", "planned_alignment")));
     assert!(output.contains(&field("all_rows_fallback_attempted_false", "true")));
     assert!(output.contains(&field("all_rows_external_engine_invoked_false", "true")));
-    assert!(output.contains(&field("unadmitted_compute_row_count", "2")));
+    assert!(output.contains(&field("unadmitted_compute_row_count", "1")));
     assert!(output.contains(&field(
         "unadmitted_compute_rows_with_diagnostics_count",
-        "2"
+        "1"
     )));
     assert!(output.contains(&field(
         "unadmitted_compute_rows_missing_diagnostics_count",
@@ -539,7 +549,19 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
     assert_direct_transient_and_sql_fields(&output);
     assert!(output.contains(&field(
         "compute_row_vortex_sink_write_support_status",
-        "report_only"
+        "fixture_certified"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_vortex_sink_write_execution_mode",
+        "native_vortex"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_vortex_sink_write_operator_execution_class",
+        "residual_native"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_vortex_sink_write_operator_blocker_id",
+        "none"
     )));
     assert!(output.contains(&field(
         "compute_row_grouped_aggregate_memory_spill_requirement",

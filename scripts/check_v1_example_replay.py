@@ -19,12 +19,13 @@ import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 from release_report_utils import fail_closed_fields, load_json, read_text, resolve_path, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_example_replay_report.v1"
-DEFAULT_FEATURES = "release-user-surfaces"
+DEFAULT_FEATURES = RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 
 EXPECTED_GOLDEN_WORKFLOWS = {
     "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
@@ -48,16 +49,14 @@ EXPECTED_UNSUPPORTED_FAILURE_FIXTURES = 1
 
 DOC_MARKERS: dict[str, tuple[str, ...]] = {
     "README.md": (
-        "python examples\\local-python-smoke\\run.py --repo-root .",
-        "python examples\\local-python-benchmark-scenarios\\run.py --repo-root .",
-        "python examples\\local-python-benchmark-scenarios\\timing_review.py --repo-root .",
+        "python examples/local-python-smoke/run.py --repo-root .",
+        "python examples/local-python-benchmark-scenarios/run.py --repo-root .",
+        "python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .",
         "import shardloom as sl",
-        'ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))',
+        "ctx = sl.context()",
+        'ctx.read("orders.csv")',
         "prepared = ctx.prepare_vortex(",
-        "# selective filter",
         "clean/cast/filter/write",
-        "# malformed timestamp / dirty CSV",
-        "# nested JSON field scan",
         "scenario_selective-filter_fallback_attempted",
     ),
     "python/README.md": (
@@ -74,7 +73,7 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
     "docs/getting-started/examples.md": (
         "from shardloom import context",
         "import shardloom as sl",
-        'ctx.read_csv("target/sql-local-source-smoke.csv")',
+        'ctx.read_csv("target/local-source-runtime.csv")',
         "fallback_attempted",
         "external_engine_invoked",
     ),

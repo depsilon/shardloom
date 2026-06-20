@@ -1085,7 +1085,7 @@ class CompatibilityPreparedVortexRoute:
         *,
         check: bool,
     ) -> _PreparedStateRoleRepair | None:
-        """Repair changed prepared-artifact roles through `vortex-ingest-smoke`.
+        """Repair changed prepared-artifact roles through `vortex-prepare`.
 
         This is deliberately narrower than full manifest reuse. It admits only
         role-local source fingerprint drift, verifies unchanged artifacts before
@@ -1136,7 +1136,7 @@ class CompatibilityPreparedVortexRoute:
             if source_path is None:
                 return None
             target_path = str(stored["path"])
-            ingest_report = self.client.vortex_ingest_smoke(
+            ingest_report = self.client.vortex_prepare(
                 source_path,
                 target_path,
                 input_format=self.input_format,
@@ -1187,7 +1187,7 @@ class CompatibilityPreparedVortexRoute:
                 "path": repaired_fingerprint["path"],
                 "fingerprint": repaired_fingerprint,
                 "digest": repaired_digest,
-                "repair_provider": "vortex-ingest-smoke",
+                "repair_provider": "vortex-prepare",
                 "repair_source_role": input_role,
             }
             repair_evidence_parts.extend(
@@ -1335,7 +1335,7 @@ class CompatibilityPreparedVortexRoute:
             "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed": "false",
             "prepare_batch_prepared_state_partial_repair_claim_boundary": (
                 "role-scoped workspace manifest repair regenerated changed source roles "
-                "through vortex-ingest-smoke and reused only unchanged artifacts whose "
+                "through vortex-prepare and reused only unchanged artifacts whose "
                 "fingerprints still matched; no stale changed-role artifact or fallback "
                 "engine was used"
             ),

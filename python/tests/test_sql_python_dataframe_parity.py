@@ -208,7 +208,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         )
         self.assertEqual(
             local["shared_runtime_path"],
-            "vortex-ingest-smoke->native_vortex_primitive_or_provider",
+            "vortex-prepare->native_vortex_primitive_or_provider",
         )
         self.assertIn("no_benchmark_claim", local["performance_equivalence_status"])
         schema_quality = next(
@@ -284,7 +284,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
                 sql_surface="sql",
                 python_surface="python",
                 dataframe_surface="dataframe",
-                shared_runtime_path="sql-local-source-smoke",
+                shared_runtime_path="local-source-runtime",
                 parity_status="equivalent_admitted_scope",
                 performance_equivalence_status="same_runtime_path_no_benchmark_claim",
                 runtime_execution=True,

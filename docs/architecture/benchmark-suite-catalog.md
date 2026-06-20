@@ -659,7 +659,7 @@ Capability discovery is mode-aware: `compute-capability-matrix` rows now disting
 `direct_compatibility_transient`, and `auto`. Direct transient remains non-Vortex-native; only the
 scoped local adapter smoke paths are executable, currently covering CSV, JSONL/NDJSON, and
 feature-gated Parquet/Arrow IPC/Avro/ORC traditional analytics rows plus the broader
-`sql-local-source-smoke` local adapter universe.
+`local-source-runtime` local adapter universe.
 
 ## Code Surfaces
 

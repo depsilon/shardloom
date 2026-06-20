@@ -51,6 +51,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "cleanup-synthetic-payload",
     "status",
     "runs-today",
+    "python-worker",
     "release-plan",
     "package-plan",
     "ci-work-shaping-plan",
@@ -68,8 +69,8 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "generated-source-range-smoke",
     "generated-source-sequence-smoke",
     "generated-source-sql-smoke",
-    "sql-local-source-smoke",
-    "vortex-ingest-smoke",
+    "local-source-runtime",
+    "vortex-prepare",
     "sqlite-local-import-export-smoke",
     "workflow-unsupported-plan",
     "workload-certification-dossier",
@@ -863,6 +864,7 @@ fn command_usage_fragment(command: &str) -> String {
         "route" => "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl|explain|route|evidence>]".to_string(),
         "run" => "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl>] [--output <ref>]".to_string(),
         "prepare" => "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex>".to_string(),
+        "python-worker" => "python-worker".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
         "support-bundle" => format!("{command} [--note <redacted-text>] [--include-defaults]"),
         "rest-api-plan-preview" => format!("{command} [certified-local-batch|partial-hybrid-fixture|blocked-remote-object-store|invalid-input|unsupported-operator]"),
@@ -880,10 +882,10 @@ fn command_usage_fragment(command: &str) -> String {
         "generated-source-sql-smoke" => {
             format!("{command} <local-output-path> <sql-statement>")
         }
-        "sql-local-source-smoke" => {
+        "local-source-runtime" => {
             format!("{command} <sql-statement> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc]")
         }
-        "vortex-ingest-smoke" => {
+        "vortex-prepare" => {
             format!("{command} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc]")
         }
         "sqlite-local-import-export-smoke" => {
@@ -1100,6 +1102,9 @@ fn command_support_state(command: &str) -> &'static str {
             | "vortex-bounded-local-exec"
             | "vortex-run"
             | "vortex-query-trace"
+            | "vortex-prepare"
+            | "local-source-runtime"
+            | "python-worker"
             | "run"
             | "prepare"
     ) || command.ends_with("-smoke")
@@ -1114,6 +1119,12 @@ fn command_support_state(command: &str) -> &'static str {
 }
 
 fn command_user_surface_graduation_posture(command: &str) -> &'static str {
+    if command == "python-worker" {
+        return "not_user_facing";
+    }
+    if command == "local-source-runtime" {
+        return "diagnostic_only";
+    }
     if is_high_level_context_command(command) {
         return "high_level_context";
     }
@@ -1157,7 +1168,9 @@ fn command_side_effect_level(command: &str) -> &'static str {
         || command.ends_with("-run")
         || matches!(
             command,
-            "vortex-count"
+            "vortex-prepare"
+                | "python-worker"
+                | "vortex-count"
                 | "vortex-count-where"
                 | "vortex-project"
                 | "vortex-filter"
@@ -1166,6 +1179,7 @@ fn command_side_effect_level(command: &str) -> &'static str {
                 | "vortex-bounded-local-exec"
                 | "vortex-run"
                 | "vortex-query-trace"
+                | "local-source-runtime"
                 | "run"
                 | "prepare"
                 | "vortex-encoded-read-spike"
@@ -1189,6 +1203,9 @@ fn command_feature_gate_status(command: &str) -> &'static str {
 }
 
 fn command_input_contract(command: &str) -> &'static str {
+    if command == "python-worker" {
+        return "newline_delimited_json_transport_requests_with_args_array";
+    }
     if command == "iceberg-metadata-read-smoke" {
         return "local_iceberg_table_metadata_json_path_with_optional_snapshot_selector";
     }
@@ -1237,6 +1254,9 @@ fn command_input_contract(command: &str) -> &'static str {
 }
 
 fn command_output_contract(command: &str) -> &'static str {
+    if command == "python-worker" {
+        return "one_typed_json_envelope_per_request_no_runtime_route_changes";
+    }
     if command == "iceberg-metadata-read-smoke" {
         return "typed_envelope_plus_scoped_iceberg_metadata_snapshot_selection_and_no_fallback_evidence";
     }
@@ -1267,7 +1287,9 @@ fn command_output_contract(command: &str) -> &'static str {
         || command.contains("execute")
         || matches!(
             command,
-            "vortex-count"
+            "vortex-prepare"
+                | "python-worker"
+                | "vortex-count"
                 | "vortex-count-where"
                 | "vortex-project"
                 | "vortex-filter"
@@ -1276,6 +1298,7 @@ fn command_output_contract(command: &str) -> &'static str {
                 | "vortex-bounded-local-exec"
                 | "vortex-run"
                 | "vortex-query-trace"
+                | "local-source-runtime"
                 | "spill-payload-roundtrip"
                 | "cleanup-synthetic-payload"
         )
@@ -1298,6 +1321,9 @@ fn command_owning_phase_item(command: &str) -> &'static str {
     }
     if command == "evidence-schema" {
         return "REVIEW-P1-2";
+    }
+    if command == "python-worker" {
+        return "PY-RUNTIME-OVERHEAD-1";
     }
     if command == "route" {
         return "GAR-RUNTIME-IMPL-6D:public_workflow_route_facade";
@@ -1434,7 +1460,7 @@ mod tests {
         assert!(seen.contains("route"));
         assert!(seen.contains("capabilities"));
         assert!(seen.contains("support-bundle"));
-        assert!(seen.contains("vortex-ingest-smoke"));
+        assert!(seen.contains("vortex-prepare"));
         assert!(seen.contains("vortex-local-commit-execute"));
     }
 
@@ -1459,16 +1485,13 @@ mod tests {
 
     #[test]
     fn selected_metadata_fields_are_agent_visible() {
-        let descriptor = lookup("vortex-ingest-smoke").expect("registered command");
+        let descriptor = lookup("vortex-prepare").expect("registered command");
         let fields = command_metadata_fields(Some(descriptor));
         assert!(fields.contains(&(
             "command_registry_schema_version".to_string(),
             REGISTRY_SCHEMA_VERSION.to_string()
         )));
-        assert!(fields.contains(&(
-            "selected_command".to_string(),
-            "vortex-ingest-smoke".to_string()
-        )));
+        assert!(fields.contains(&("selected_command".to_string(), "vortex-prepare".to_string())));
         assert!(fields.contains(&(
             "selected_command_family".to_string(),
             "prepared_source_backed_execution".to_string()
@@ -1495,12 +1518,10 @@ mod tests {
 
     #[test]
     fn help_text_is_registry_backed_and_command_specific() {
-        let descriptor = lookup("vortex-ingest-smoke").expect("registered command");
+        let descriptor = lookup("vortex-prepare").expect("registered command");
         let help = command_help_text("shardloom", descriptor);
         assert!(
-            help.contains(
-                "usage: shardloom vortex-ingest-smoke <local-source-path> <target.vortex>"
-            )
+            help.contains("usage: shardloom vortex-prepare <local-source-path> <target.vortex>")
         );
         assert!(help.contains("support_state: executable"));
         assert!(help.contains("owning_phase_item: GAR-RUNTIME-IMPL-4"));
@@ -1540,11 +1561,11 @@ mod tests {
             REGISTERED_COMMANDS.len().to_string()
         )));
         assert!(fields.contains(&(
-            "command_registry_row_vortex_ingest_smoke_command".to_string(),
-            "vortex-ingest-smoke".to_string()
+            "command_registry_row_vortex_prepare_command".to_string(),
+            "vortex-prepare".to_string()
         )));
         assert!(fields.contains(&(
-            "command_registry_row_vortex_ingest_smoke_owning_phase_item".to_string(),
+            "command_registry_row_vortex_prepare_owning_phase_item".to_string(),
             "GAR-RUNTIME-IMPL-4".to_string()
         )));
         assert!(fields.contains(&(

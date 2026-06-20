@@ -39,7 +39,7 @@ not by compiling every reader by default. Active implementation status for input
   - CSV, JSON/NDJSON, Parquet, Arrow IPC, Avro, and ORC have feature-gated local benchmark bridge
     coverage.
   - CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet, Arrow IPC, Avro, and ORC
-    have scoped direct-transient `sql-local-source-smoke` runtime coverage for local
+    have scoped direct-transient `local-source-runtime` runtime coverage for local
     projection/filter/limit style workflows. Feature-gated structured readers report local
     SourceState read-plan evidence, requested/materialized columns, reader projection columns, and
     reader-level projection status when `shardloom-cli --features universal-format-io` is enabled;
@@ -58,7 +58,7 @@ not by compiling every reader by default. Active implementation status for input
     Normal public workflows do not use this direct transient path as the execution middle: local
     compatibility inputs normalize through `SourceState -> vortex_ingest -> VortexPreparedState`
     before prepared/native Vortex execution, or fail closed when the required feature gate is absent.
-  - When `vortex-ingest-smoke` is built with both `vortex-write` and `universal-format-io`, flat
+  - When `vortex-prepare` is built with both `vortex-write` and `universal-format-io`, flat
     scalar Parquet/Arrow IPC/Avro/ORC inputs preserve an Arrow `RecordBatch` columnar SourceState
     through the prepare-once boundary and use upstream Vortex
     `ArrayRef::from_arrow(RecordBatch)` as the admitted array-build provider for non-empty flat

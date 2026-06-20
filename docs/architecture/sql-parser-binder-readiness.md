@@ -5,7 +5,7 @@ deterministically blocked, but the scoped local/source-free SQL ladder is now ru
 important distinction is:
 
 - admitted local/source-free fixture shapes parse, bind, plan, and execute through ShardLoom-owned
-  `sql-local-source-smoke` or `generated-source-sql-smoke` paths;
+  `local-source-runtime` or `generated-source-sql-smoke` paths;
 - broad SQL parse/bind/plan/execute requests still return deterministic unsupported diagnostics and
   never fall back to Spark, DataFusion, DuckDB, SQLite, Polars, pandas, or another engine.
 
@@ -18,7 +18,7 @@ important distinction is:
 - `workflow-unsupported-plan sql-execute <workflow> <statement> --format json`
 - Python helpers: `ctx.sql_parse(...)`, `ctx.sql_bind(...)`, `ctx.sql_plan(...)`, and
   `ctx.sql_execute(...)`
-- Scoped runtime commands: `sql-local-source-smoke`, `generated-source-sql-smoke`,
+- Scoped runtime commands: `local-source-runtime`, `generated-source-sql-smoke`,
   `ctx.sql(...).collect()`, `ctx.sql(...).write(...)`, and the Python query-builder methods that
   lower into those commands.
 
