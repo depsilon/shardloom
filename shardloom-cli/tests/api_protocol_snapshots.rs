@@ -1,4 +1,7 @@
-use std::process::Command;
+use std::{
+    io::{BufRead, Write},
+    process::{Command, Stdio},
+};
 
 fn run_cli_json(args: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -47,6 +50,37 @@ fn run_rest_api_data_plane(scenario: &str) -> String {
 
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
+}
+
+#[test]
+fn python_worker_emits_json_error_when_inner_command_prints_usage_only() {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .arg("python-worker")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn python worker");
+    {
+        let stdin = child.stdin.as_mut().expect("worker stdin");
+        stdin
+            .write_all(br#"{"args":["vortex-staged-marker-write"]}"#)
+            .expect("write worker request");
+        stdin.write_all(b"\n").expect("write newline");
+        stdin.flush().expect("flush worker request");
+    }
+    let stdout = child.stdout.take().expect("worker stdout");
+    let mut reader = std::io::BufReader::new(stdout);
+    let mut line = String::new();
+    reader.read_line(&mut line).expect("read worker response");
+    let _ = child.kill();
+    let _ = child.wait();
+
+    assert!(line.contains("\"schema_version\":\"shardloom.output.v2\""));
+    assert!(line.contains("\"command\":\"python-worker\""));
+    assert!(line.contains("\"status\":\"error\""));
+    assert!(line.contains("python worker command emitted no JSON"));
+    assert!(line.contains("without a typed JSON envelope"));
 }
 
 fn openapi_component_block<'a>(openapi: &'a str, component: &str, next_component: &str) -> &'a str {
@@ -105,7 +139,7 @@ fn rest_api_contract_plan_json_exposes_execution_mode_parity_report() {
 
     assert!(output.contains(&field(
         "execution_mode_vocabulary",
-        "compatibility_import_certified,prepared_vortex,native_vortex"
+        "auto,compatibility_import_certified,prepared_vortex,native_vortex,internal_local_source_smoke"
     )));
     assert!(output.contains(&field(
         "execution_mode_selection_schema_version",

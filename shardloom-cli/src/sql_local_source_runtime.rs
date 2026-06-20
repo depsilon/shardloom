@@ -21,7 +21,7 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use std::{io::Read, time::UNIX_EPOCH};
+use std::io::Read;
 
 use arrow_schema::DataType;
 use regex::Regex;
@@ -31917,15 +31917,6 @@ fn fingerprint_local_source_file_with_budget_report(
         )));
     }
     let source_metadata_scout_millis = scout_start.elapsed().as_millis();
-    if max_source_bytes.is_none() {
-        return Ok(ColumnarSourceScoutEvidence {
-            bytes: metadata.len(),
-            digest: local_source_metadata_fingerprint(path, source_label, &metadata),
-            metadata_scout_millis: source_metadata_scout_millis,
-            byte_acquisition_millis: 0,
-            full_body_millis: 0,
-        });
-    }
     let read_start = Instant::now();
     let mut file = fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -31975,29 +31966,6 @@ fn fingerprint_local_source_file_with_budget_report(
         byte_acquisition_millis: source_byte_acquisition_millis,
         full_body_millis: 0,
     })
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn local_source_metadata_fingerprint(
-    path: &Path,
-    source_label: &str,
-    metadata: &fs::Metadata,
-) -> String {
-    let modified_nanos = metadata
-        .modified()
-        .ok()
-        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
-        .map_or_else(
-            || "modified_time_unavailable".to_string(),
-            |duration| duration.as_nanos().to_string(),
-        );
-    fnv64_digest(&format!(
-        "local_source_metadata_fingerprint.v1|{}|{}|{}|{}",
-        source_label,
-        path.display(),
-        metadata.len(),
-        modified_nanos
-    ))
 }
 
 fn sorted_local_source_partition_entries(
@@ -32151,6 +32119,7 @@ fn scout_local_source_partition_files_with_budget(
     let mut files = Vec::new();
     let mut digest_parts = Vec::new();
     let mut total_bytes = 0_u64;
+    let mut byte_acquisition_millis = 0_u128;
     for entry in entries {
         let file_path = entry.path();
         let metadata = entry.metadata().map_err(|error| {
@@ -32176,6 +32145,13 @@ fn scout_local_source_partition_files_with_budget(
                 path.display()
             )));
         }
+        let file_fingerprint = fingerprint_local_source_file_with_budget_report(
+            &file_path,
+            source_format.row_label(),
+            None,
+        )?;
+        byte_acquisition_millis =
+            byte_acquisition_millis.saturating_add(file_fingerprint.byte_acquisition_millis);
         digest_parts.push(format!(
             "{}:{}:{}",
             file_path
@@ -32183,7 +32159,7 @@ fn scout_local_source_partition_files_with_budget(
                 .and_then(|value| value.to_str())
                 .unwrap_or("<invalid-name>"),
             metadata.len(),
-            local_source_metadata_fingerprint(&file_path, source_format.row_label(), &metadata)
+            file_fingerprint.digest
         ));
         files.push(file_path);
     }
@@ -32200,13 +32176,13 @@ fn scout_local_source_partition_files_with_budget(
         evidence: ColumnarSourceScoutEvidence {
             bytes: total_bytes,
             digest: fnv64_digest(&format!(
-                "partition_dir_metadata_fingerprint.v1|{}|{}|{}",
+                "partition_dir_content_fingerprint.v1|{}|{}|{}",
                 source_format.as_str(),
                 path.display(),
                 digest_parts.join(";")
             )),
             metadata_scout_millis: total_start.elapsed().as_millis(),
-            byte_acquisition_millis: 0,
+            byte_acquisition_millis,
             full_body_millis: 0,
         },
     })
@@ -41606,17 +41582,22 @@ mod tests {
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
-    fn product_columnar_source_fingerprint_uses_metadata_without_full_body_read() {
+    fn product_columnar_source_fingerprint_uses_content_identity() {
         let path = sql_local_source_test_path("parquet");
-        fs::write(&path, b"not a real parquet file; scout only").expect("write source");
+        fs::write(&path, b"same-sized content variant one").expect("write source");
 
-        let fingerprint = fingerprint_local_source_file_with_budget_report(&path, "Parquet", None)
-            .expect("fingerprint source");
+        let first = fingerprint_local_source_file_with_budget_report(&path, "Parquet", None)
+            .expect("fingerprint first source");
+        fs::write(&path, b"same-sized content variant two").expect("rewrite source");
+        let second = fingerprint_local_source_file_with_budget_report(&path, "Parquet", None)
+            .expect("fingerprint second source");
 
-        assert_eq!(fingerprint.bytes, 35);
-        assert!(fingerprint.digest.starts_with("fnv64:"));
-        assert_eq!(fingerprint.byte_acquisition_millis, 0);
-        assert_eq!(fingerprint.full_body_millis, 0);
+        assert_eq!(first.bytes, second.bytes);
+        assert!(first.digest.starts_with("fnv64:"));
+        assert!(second.digest.starts_with("fnv64:"));
+        assert_ne!(first.digest, second.digest);
+        assert_eq!(first.full_body_millis, 0);
+        assert_eq!(second.full_body_millis, 0);
 
         fs::remove_file(&path).expect("remove source");
     }

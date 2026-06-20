@@ -8,12 +8,19 @@
 use std::{
     io::{self, ErrorKind, Write},
     process::ExitCode,
+    sync::atomic::{AtomicU64, Ordering},
     time::Instant,
 };
 
 use shardloom_core::{CommandStatus, Diagnostic, OutputEnvelope, OutputFormat, ShardLoomError};
 
 use crate::{command_family::classify_command, typed_envelope::apply_typed_envelope_fields};
+
+static OUTPUT_EMISSION_COUNT: AtomicU64 = AtomicU64::new(0);
+
+pub(crate) fn output_emission_count() -> u64 {
+    OUTPUT_EMISSION_COUNT.load(Ordering::Relaxed)
+}
 
 fn envelope_from_fields(
     command: &str,
@@ -114,4 +121,5 @@ fn write_stdout_line(rendered: &str) {
         eprintln!("failed writing ShardLoom CLI output: {error}");
         std::process::exit(1);
     }
+    OUTPUT_EMISSION_COUNT.fetch_add(1, Ordering::Relaxed);
 }

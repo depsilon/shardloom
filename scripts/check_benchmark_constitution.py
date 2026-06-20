@@ -340,6 +340,26 @@ def validate_manifest(manifest: dict[str, Any] | None) -> list[str]:
     return blockers
 
 
+def is_default_public_site_manifest(path: Path) -> bool:
+    try:
+        return (
+            path.resolve().relative_to(ROOT)
+            == Path("website/assets/benchmarks/latest/manifest.json")
+        )
+    except ValueError:
+        return False
+
+
+def is_default_public_site_artifact(path: Path) -> bool:
+    try:
+        return (
+            path.resolve().relative_to(ROOT)
+            == Path("website/assets/benchmarks/latest/benchmark-results.json")
+        )
+    except ValueError:
+        return False
+
+
 def validate_artifact(
     path: Path,
     manifest: dict[str, Any] | None,
@@ -417,10 +437,23 @@ def main() -> int:
         if args.artifact
         else [ROOT / "website/assets/benchmarks/latest/benchmark-results.json"]
     )
-    blockers = validate_manifest(manifest if isinstance(manifest, dict) else None)
+    default_public_site_retired = (
+        args.artifact is None
+        and is_default_public_site_manifest(manifest_path)
+        and all(is_default_public_site_artifact(path) for path in artifact_paths)
+        and manifest is None
+        and all(not path.exists() for path in artifact_paths)
+    )
+    blockers = (
+        []
+        if default_public_site_retired
+        else validate_manifest(manifest if isinstance(manifest, dict) else None)
+    )
     row_reports: list[dict[str, Any]] = []
     for artifact_path in artifact_paths:
         if not artifact_path.exists():
+            if default_public_site_retired and is_default_public_site_artifact(artifact_path):
+                continue
             blockers.append(f"missing artifact {artifact_path}")
             continue
         artifact_blockers, artifact_rows = validate_artifact(
@@ -442,6 +475,21 @@ def main() -> int:
         "claim_bearing_row_count": sum(1 for row in row_reports if row["claim_bearing"]),
         "fallback_attempted": False,
         "external_engine_invoked": False,
+        "artifact_status": (
+            "retired_from_public_website"
+            if default_public_site_retired
+            else "present_or_requested"
+        ),
+        "public_benchmark_surface": (
+            "clickbench_handoff"
+            if default_public_site_retired
+            else "website_published_benchmark_rows"
+        ),
+        "public_benchmark_url": (
+            "https://benchmark.clickhouse.com/"
+            if default_public_site_retired
+            else None
+        ),
         "blockers": blockers,
         "rows": row_reports,
     }

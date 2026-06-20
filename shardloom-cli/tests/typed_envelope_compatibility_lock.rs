@@ -891,7 +891,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("schema_version", "shardloom.compute_capability_matrix.v1"),
                 ("matrix_status", "report_only"),
-                ("compute_row_count", "15"),
+                ("compute_row_count", "14"),
                 ("operator_family_count", "14"),
                 (
                     "native_unsupported_coverage_status",
@@ -930,10 +930,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ("production_certified_count", "0"),
                 ("no_fallback", "true"),
             ],
-            fragments: &[
-                "\"artifact_kind\":\"compute_capability_matrix_report\"",
-                "internal_local_source_smoke",
-            ],
+            fragments: &["\"artifact_kind\":\"compute_capability_matrix_report\""],
         },
         EnvelopeCase {
             name: "traditional analytics internal local-source smoke admission unsupported",

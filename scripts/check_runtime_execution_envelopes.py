@@ -598,6 +598,10 @@ def should_validate_benchmark_row(row: dict[str, Any]) -> bool:
 def validate_benchmark_artifact(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     blockers: list[str] = []
     if not path.exists():
+        if str(path).replace("\\", "/").endswith(
+            "website/assets/benchmarks/latest/benchmark-results.json"
+        ):
+            return [], []
         return [], [f"benchmark artifact missing: {path}"]
     payload = load_json(path)
     if not isinstance(payload, dict):
@@ -759,6 +763,20 @@ def validate_repo(
         "fixture_passed_row_count": sum(1 for row in rows if row["status"] == "passed"),
         "fixture_blocked_row_count": sum(1 for row in rows if row["status"] == "blocked"),
         "benchmark_artifact": str(benchmark_path.relative_to(repo_root)),
+        "benchmark_artifact_status": (
+            "retired_from_public_website"
+            if not benchmark_path.exists()
+            and str(benchmark_path.relative_to(repo_root)).replace("\\", "/")
+            == "website/assets/benchmarks/latest/benchmark-results.json"
+            else "present"
+        ),
+        "public_benchmark_surface": (
+            "clickbench_handoff"
+            if not benchmark_path.exists()
+            and str(benchmark_path.relative_to(repo_root)).replace("\\", "/")
+            == "website/assets/benchmarks/latest/benchmark-results.json"
+            else "website_published_benchmark_rows"
+        ),
         "benchmark_row_count": benchmark_runtime_row_count,
         "benchmark_passed_row_count": sum(
             1 for row in benchmark_reports if row["status"] == "passed"

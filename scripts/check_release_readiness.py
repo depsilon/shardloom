@@ -448,6 +448,22 @@ def benchmark_publication_claim_report_blockers(
     return blockers
 
 
+def public_site_benchmark_dashboard_retired(
+    completeness_report: dict[str, Any] | None,
+    publication_report: dict[str, Any] | None,
+) -> bool:
+    if not isinstance(completeness_report, dict) or not isinstance(publication_report, dict):
+        return False
+    return (
+        completeness_report.get("status") == "passed"
+        and publication_report.get("status") == "passed"
+        and completeness_report.get("artifact_status") == "retired_from_public_website"
+        and publication_report.get("artifact_status") == "retired_from_public_website"
+        and completeness_report.get("public_benchmark_surface") == "clickbench_handoff"
+        and publication_report.get("public_benchmark_surface") == "clickbench_handoff"
+    )
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -1282,7 +1298,11 @@ def main() -> int:
         if required not in read_text(benchmark_constitution_source):
             benchmark_constitution_blockers.append(f"missing benchmark constitution source marker: {required}")
     if benchmark_manifest is None:
-        benchmark_constitution_blockers.append("missing website benchmark manifest")
+        if not public_site_benchmark_dashboard_retired(
+            benchmark_completeness_report,
+            benchmark_publication_claim_report,
+        ):
+            benchmark_constitution_blockers.append("missing website benchmark manifest")
     else:
         precomputed_completeness_blockers = benchmark_completeness_report_blockers(
             benchmark_completeness_report,

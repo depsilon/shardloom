@@ -187,7 +187,11 @@ impl DatasetFormat {
             .extension()
             .and_then(|v| v.to_str())
             .unwrap_or_default();
-        if s.ends_with(".vortex") || s.contains(".vortex/") {
+        if ext.eq_ignore_ascii_case("vortex")
+            || ext.eq_ignore_ascii_case("vtx")
+            || s.contains(".vortex/")
+            || s.contains(".vtx/")
+        {
             Self::Vortex
         } else if ext.eq_ignore_ascii_case("parquet") {
             Self::Parquet
@@ -394,6 +398,10 @@ mod tests {
             DatasetFormat::infer_from_uri(&DatasetUri::new("x.vortex").unwrap()),
             DatasetFormat::Vortex
         );
+        assert_eq!(
+            DatasetFormat::infer_from_uri(&DatasetUri::new("x.vtx").unwrap()),
+            DatasetFormat::Vortex
+        );
     }
     #[test]
     fn dataset_format_infers_parquet_from_uri() {
@@ -465,6 +473,12 @@ mod tests {
     fn dataset_ref_from_uri_infers_format() {
         assert_eq!(
             DatasetRef::from_uri(DatasetUri::new("file://a.vortex").unwrap())
+                .unwrap()
+                .format,
+            DatasetFormat::Vortex
+        );
+        assert_eq!(
+            DatasetRef::from_uri(DatasetUri::new("file://a.vtx").unwrap())
                 .unwrap()
                 .format,
             DatasetFormat::Vortex

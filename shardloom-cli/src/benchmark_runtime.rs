@@ -27,7 +27,7 @@ use crate::{
     vortex_primitive_execution::local_encoded_count_correctness_fixture_for_target,
 };
 
-const TRADITIONAL_ANALYTICS_RUN_USAGE: &str = "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--preserve-all-text-columns-for-reuse] [--execution-mode compatibility_import_certified] [--memory-gb <cap>] [--max-parallelism <cap>]";
+const TRADITIONAL_ANALYTICS_RUN_USAGE: &str = "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--preserve-all-text-columns-for-reuse] [--execution-mode compatibility_import_certified|internal_local_source_smoke] [--memory-gb <cap>] [--max-parallelism <cap>]";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativeVortexResultExportFormat {
@@ -309,12 +309,15 @@ pub(crate) fn handle_traditional_analytics_run(
             "--execution-mode" => {
                 let Some(value) = args.next() else {
                     eprintln!(
-                        "usage: shardloom traditional-analytics-run ... --execution-mode compatibility_import_certified"
+                        "usage: shardloom traditional-analytics-run ... --execution-mode compatibility_import_certified|internal_local_source_smoke"
                     );
                     return ExitCode::from(2);
                 };
                 let parsed_mode = match ShardLoomExecutionMode::parse(&value) {
-                    Ok(mode @ ShardLoomExecutionMode::CompatibilityImportCertified) => mode,
+                    Ok(
+                        mode @ (ShardLoomExecutionMode::CompatibilityImportCertified
+                        | ShardLoomExecutionMode::InternalLocalSourceSmoke),
+                    ) => mode,
                     Ok(mode) => {
                         return emit_error(
                             "traditional-analytics-run",

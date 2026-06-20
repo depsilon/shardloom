@@ -337,6 +337,10 @@ fn public_route_routes_local_file_vortex_middle_without_direct_runtime() {
         assert!(stdout.contains(&field("preparation_included", "true")));
         assert!(stdout.contains(&field("query_timing_starts_after_preparation", "true")));
         assert!(stdout.contains(&field("blocker_id", "none")));
+        assert!(stdout.contains(&field(
+            "local_workflow_runtime_profile",
+            "product_local_workflow"
+        )));
     } else {
         assert!(stdout.contains("\"status\":\"unsupported\""));
         assert!(stdout.contains(&field("route_id", "blocked")));
@@ -363,11 +367,8 @@ fn public_route_routes_local_file_vortex_middle_without_direct_runtime() {
         assert!(stdout.contains(&field("execution_mode", "blocked")));
         assert!(stdout.contains(&field("preparation_included", "false")));
         assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
+        assert!(stdout.contains(&field("local_workflow_runtime_profile", "not_applicable")));
     }
-    assert!(stdout.contains(&field(
-        "local_workflow_runtime_profile",
-        "product_local_workflow"
-    )));
     assert!(stdout.contains(&field("surface", "dataframe")));
     assert!(stdout.contains(&field("source_format", "csv")));
     assert!(stdout.contains(&field("runtime_execution", "false")));
