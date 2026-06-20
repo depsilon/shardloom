@@ -448,8 +448,8 @@ print(json.dumps({
         "writer_row_count": 3,
         "reopen_row_count": 3,
         "reopen_verification_status": "reopen_row_count_verified",
-        "certification_status": "fixture_smoke_certified",
-        "claim_gate_status": "fixture_smoke_only",
+        "certification_status": "production_admitted_local_workflow_certified",
+        "claim_gate_status": "local_workflow_runtime_supported",
         "fallback_attempted": False,
         "external_engine_invoked": False,
     }
@@ -696,7 +696,7 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "vortex_copy_budget_no_standalone_lane_status": (
                     "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
                 ),
-                "claim_gate_status": "fixture_smoke_only",
+                "claim_gate_status": "local_workflow_runtime_supported",
             },
             prefix_fields={
                 "prepared_state_digest": ROUTE_DIGEST_PREFIX,

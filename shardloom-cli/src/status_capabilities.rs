@@ -5234,8 +5234,8 @@ fn compute_row_execution_mode(row: &ComputeCapabilityRow) -> &'static str {
         | "sort_topn_limit"
         | "grouped_aggregate"
         | "join"
-        | "window_row_number" => "prepared_vortex",
-        "sql_frontend" => "prepared_vortex",
+        | "window_row_number"
+        | "sql_frontend" => "prepared_vortex",
         _ => "native_vortex",
     }
 }

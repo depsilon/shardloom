@@ -67,7 +67,7 @@ impl CommandStatus {
     }
 }
 
-/// ShardLoom execution mode reported by runtime and benchmark evidence.
+/// `ShardLoom` execution mode reported by runtime and benchmark evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShardLoomExecutionMode {
     Auto,
