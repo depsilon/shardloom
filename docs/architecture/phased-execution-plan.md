@@ -197,69 +197,10 @@ Current autonomous execution order:
   `docs/architecture/phased-execution-completed-ledger.md`. The broader native Vortex route
   unification is now closed through the `native_vortex_unified_plan` contract and ledgered in
   `docs/architecture/phased-execution-completed-ledger.md`. The scalar/null rewrite closeout,
-  benchmark-equivalence constitution, and external-environment gate split are also ledgered. Current
-  autonomous work is the first unchecked item below: `UAT-RUNTIME-9` universal ingest front-door UAT
-  hardening.
-
-- [ ] `UAT-RUNTIME-9` Universal ingest front-door UAT hardening and runtime-finding cleanup.
-  - Source: local Desktop UAT/weirdness simulation findings after v0.1.9 plus maintainer direction
-    to avoid parallel Python/SQL/DataFrame/read-input surfaces and keep Vortex in the execution
-    middle.
-  - Current state: Python/DataFrame facades already lower through public workflow and Vortex-prepared
-    routes. UAT found source-normalization gaps: all-empty CSV/all-null JSONL without dtype,
-    Python schema not reaching Vortex ingest, JSONL prepared as generic JSON, mixed int/float JSONL
-    failing family inference, nested JSON payloads blocked before Vortex preparation, and stale
-    metadata-only `SL_NOT_IMPLEMENTED` diagnostics attached to successful native Vortex primitive
-    runs.
-  - V1 scope classification: `required_for_v1` for feasible local-source front-door behavior and
-    diagnostics; no external environment proof is required.
-  - ShardLoom technique review: universal ingest applies at the SourceState/VortexPreparedState
-    boundary only. CSV, JSON, JSONL, and columnar source-specific handling must normalize source
-    metadata, schema hints, partition files, and scalar payloads into the shared Vortex preparation
-    path. It must not create format-specific compute lanes. PulseWeave/capillary controls apply only
-    through the existing Vortex preparation evidence fields; no new scheduler is needed for these
-    small UAT fixtures.
-  - Execution checklist:
-    - [x] Pass Python-declared schema through `ctx.read_csv/read_json(...).collect()` preparation
-      into `vortex-ingest-smoke --schema` without adding a separate Python-only path.
-    - [x] Preserve canonical public input format during preparation so `.jsonl`/`.ndjson` route as
-      JSONL/NDJSON, not generic JSON.
-    - [x] Admit all-null/no-dtype local text-source columns as nullable UTF-8 by default while still
-      allowing declared schemas to narrow dtype.
-    - [x] Promote mixed integer/float local JSONL numeric families to float64 during Vortex
-      preparation instead of failing family inference.
-    - [x] Normalize selected nested JSON object/array values as UTF-8 JSON payload strings for source
-      preparation and field-scan workflows; do not claim broad nested JSON execution semantics.
-    - [x] Keep partition/directory and columnar source handling as universal-ingest SourceState input
-      to Vortex preparation, not a public direct local compute route.
-    - [x] Suppress metadata-only unsupported diagnostics when a native Vortex local primitive
-      execution succeeds.
-    - [x] Preserve the existing pivot margins-with-limit regression coverage.
-    - [x] Add focused Rust/Python regressions for source normalization, schema propagation, and stale
-      diagnostic behavior.
-    - [x] Run focused validation and targeted local UAT probes with the release-user-surfaces feature
-      bundle.
-    - [ ] Update docs/ledger after PR merge.
-  - Next outcome: one cohesive UAT-finding PR that fixes the feasible production/runtime surface
-    gaps without broad benchmark reruns or full workspace suite until the runtime patch is complete.
-  - User-visible surface: Python `ctx.read_csv/read_json/read`, CLI `vortex-ingest-smoke`, public
-    workflow native Vortex primitives, and diagnostics/evidence fields.
-  - Implementation scope: `python/src/shardloom/client.py`, `python/src/shardloom/query.py`,
-    `shardloom-cli/src/sql_local_source_runtime.rs`,
-    `shardloom-cli/src/vortex_primitive_execution.rs`, `shardloom-vortex/src/vortex_ingest.rs`,
-    focused tests, and this plan/ledger.
-  - Evidence required: source-normalization tests, Python facade tests, release-user-surfaces CLI
-    probes, no-fallback/no-external-engine evidence, and diagnostic-code evidence.
-  - Verification: focused cargo tests, focused Python unit tests, `cargo build -p shardloom-cli
-    --features release-user-surfaces`, targeted `vortex-ingest-smoke` probes for CSV/JSONL cases,
-    and a native Vortex projection diagnostic probe.
-  - Non-goals: new external parsers, pandas/Polars/DuckDB execution, broad nested JSON execution,
-    full benchmark refresh, or full workspace suite before the patch is complete.
-  - Claim boundary: local UAT/runtime front-door behavior only; no performance, superiority,
-    object-store, Foundry, or broad nested-data claim.
-  - Fallback boundary: all admitted and blocked paths must report no fallback engine and no external
-    execution engine.
-  - Ledger rule: move completed detail after merge/session completion.
+  benchmark-equivalence constitution, external-environment gate split, and `UAT-RUNTIME-9`
+  universal ingest front-door UAT hardening are also ledgered. There are no unchecked Planned items
+  in this file after the latest merge; add the next cohesive runtime, release, benchmark, or cleanup
+  item here before continuing implementation work.
 
 - [x] `RUNTIME-CLOSEOUT-3` Broad SQL/Python/DataFrame language surface burn-down and residual
   promotion.

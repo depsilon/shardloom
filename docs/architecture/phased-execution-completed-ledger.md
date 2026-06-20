@@ -46836,6 +46836,29 @@ the current queue; promote any actionable unfinished work into Planned before im
       broad arbitrary SQL/Python/DataFrame language semantics, front-door performance-equivalence
       benchmark evidence, and object-store/lakehouse runtime closure; external-engine fallback
       remains disallowed.
+- [x] UAT-RUNTIME-9 universal ingest front-door UAT hardening and runtime-finding cleanup is closed
+      in PR #1325 / merge `43017025`. Python-declared schemas now pass through
+      `ctx.read_csv/read_json(...).collect()` preparation into `vortex-ingest-smoke --schema`;
+      public preparation preserves canonical source formats so `.jsonl`/`.ndjson` stay JSONL/NDJSON
+      instead of generic JSON; all-null/no-dtype local text columns default to nullable UTF-8; mixed
+      integer/float JSONL values promote to float64; selected nested JSON object/array values are
+      normalized as UTF-8 JSON payload strings; and partition/directory plus columnar source handling
+      remains a universal-ingest SourceState input to Vortex preparation rather than a public direct
+      local compute route. Native Vortex local primitive successes now suppress stale
+      metadata-only unsupported diagnostics, and the pivot margins-with-limit regression coverage is
+      preserved. Documentation updates in README, universal input contract, v1 front-door scope,
+      release inclusion scope, and the website clarify that universal ingest owns source-specific
+      normalization before the shared Vortex-prepared/native runtime and does not create separate
+      CSV/JSON/JSONL compute lanes. Validation covered `cargo fmt --all -- --check`,
+      `git diff --check`, `cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets
+      --features release-user-surfaces -- -D warnings`, `cargo build -p shardloom-cli --features
+      release-user-surfaces`, focused `shardloom-vortex` and `shardloom-cli` Rust tests, focused
+      Python query/client unit tests, targeted sequential CLI UAT probes for CSV auto route blocking,
+      JSONL schema ingest, and native Vortex projection diagnostics, website/docs validators, and
+      green PR CI with 36/36 checks passing. Claim boundary remains local UAT/runtime front-door
+      correctness and diagnostics only; no performance, superiority, object-store, Foundry, broad
+      nested-data, or external-engine claim is made. All admitted and blocked paths preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind
