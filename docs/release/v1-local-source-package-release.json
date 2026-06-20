@@ -45,7 +45,7 @@
   "external_engine_invoked": false,
   "public_package_release_claim_allowed": true,
   "selected_v0_1_0_release_tag": "v0.1.9",
-  "selected_v0_1_0_release_commit": "7fad4188e9d6eaac21ca8c2634e168a683bfef15",
+  "selected_v0_1_0_release_commit": "8b3bf02440c642c5142327329bd86c56501e909a",
   "github_prerelease_proof_ref": "docs/release/channel-proofs/github-prerelease-v0.1.9-transcript.json",
   "testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.1.9-transcript.json",
   "pypi_proof_ref": "docs/release/channel-proofs/pypi-v0.1.9-transcript.json",
