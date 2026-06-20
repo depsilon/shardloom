@@ -59,6 +59,13 @@ adapter step. Python, SQL, and DataFrame-style builders should lower to the same
 the adapter has produced an admitted source state. Output formats should be unique only in sink
 translation and metadata-preservation evidence.
 
+For local compatibility sources, universal ingest owns schema hints, format inference, and payload
+normalization before Vortex preparation. `.jsonl` and `.ndjson` stay distinct input formats; all-null
+text-source columns without explicit dtype default to nullable UTF-8; mixed integer/float text
+columns promote to float64; and selected nested JSON object/array cells may be preserved as UTF-8
+JSON payload strings. These are ingress contracts, not separate JSON/CSV compute routes or broad
+nested JSON semantics.
+
 `sql-local-source-smoke` remains a capped internal smoke safeguard. Normal user-facing local
 workflows must route through Vortex preparation/prepared execution or native Vortex input, and must
 not execute a decoded direct compatibility middle as the public route. If the required Vortex

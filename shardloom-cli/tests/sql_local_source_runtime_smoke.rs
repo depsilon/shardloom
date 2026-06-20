@@ -12962,7 +12962,7 @@ fn sql_local_source_smoke_blocks_invalid_date_literals_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_skips_unselected_nested_jsonl_values_without_fallback() {
+fn jsonl_nested_values_are_pruned_or_normalized_without_fallback() {
     let source_path = unique_path("sql-local-source-jsonl-nested-blocked", "jsonl");
     fs::write(&source_path, "{\"id\":1,\"payload\":{\"x\":1}}\n").expect("write source jsonl");
 
@@ -12987,26 +12987,20 @@ fn sql_local_source_smoke_skips_unselected_nested_jsonl_values_without_fallback(
         "SELECT payload FROM '{}' WHERE id >= 1 LIMIT 10",
         source_path.display()
     );
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args([
-            "sql-local-source-smoke",
-            &selected_statement,
-            "--format",
-            "json",
-        ])
-        .output()
-        .expect("sql-local-source-smoke command runs");
-
-    assert!(
-        !output.status.success(),
-        "stdout={} stderr={}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("JSON source runtime admits scalar values only"));
-    assert!(stdout.contains("no fallback execution was attempted"));
-    assert!(stdout.contains("external_engine_invoked=false"));
+    let stdout = run_sql_local_source_smoke_json(&selected_statement);
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "jsonl")));
+    assert!(stdout.contains(&field("source_state_requested_columns", "id,payload")));
+    assert!(stdout.contains(&field(
+        "source_state_reader_projection_columns",
+        "id,payload"
+    )));
+    assert!(stdout.contains(&field("source_state_pruned_column_count", "0")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"payload\\\":\\\"{\\\\\\\"x\\\\\\\":1}\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
     fs::remove_file(source_path).expect("remove source jsonl");
 }

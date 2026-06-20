@@ -12,7 +12,7 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     ColumnRef, CommandStatus, ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan,
-    DatasetRef, DatasetUri, ExecutionCertificate, ExpectedOutcome, NativeIoCertificate,
+    DatasetRef, DatasetUri, Diagnostic, ExecutionCertificate, ExpectedOutcome, NativeIoCertificate,
     OutputFormat, PredicateExpr, ScalarValue, ShardLoomError, StatValue,
 };
 use shardloom_exec::{
@@ -6611,14 +6611,7 @@ pub(crate) fn handle_vortex_count_where_with_facade(
         .as_ref()
         .and_then(VortexCountWhereLocalExecutionEvidence::count)
         .or(metadata_count);
-    let mut diagnostics = result.diagnostics.clone();
-    if let Some(local) = &local_execution {
-        diagnostics.extend(local.report.diagnostics.clone());
-        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
-        if let Some(certificate) = &local.execution_certificate {
-            diagnostics.extend(certificate.diagnostics.clone());
-        }
-    }
+    let diagnostics = primitive_facade_diagnostics(&result, local_execution.as_ref());
     let mut fields = vortex_count_where_fields(
         &result,
         count,
@@ -6641,6 +6634,25 @@ pub(crate) fn handle_vortex_count_where_with_facade(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn primitive_facade_diagnostics(
+    result: &VortexQueryPrimitiveResult,
+    local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = if matches!(local_execution, Some(local) if !local.has_errors()) {
+        Vec::new()
+    } else {
+        result.diagnostics.clone()
+    };
+    if let Some(local) = local_execution {
+        diagnostics.extend(local.report.diagnostics.clone());
+        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        if let Some(certificate) = &local.execution_certificate {
+            diagnostics.extend(certificate.diagnostics.clone());
+        }
+    }
+    diagnostics
 }
 
 pub(crate) fn handle_vortex_project(
@@ -6722,14 +6734,7 @@ pub(crate) fn handle_vortex_project_with_facade(
         || result.has_errors(),
         VortexLocalPrimitiveCliExecutionEvidence::has_errors,
     );
-    let mut diagnostics = result.diagnostics.clone();
-    if let Some(local) = &local_execution {
-        diagnostics.extend(local.report.diagnostics.clone());
-        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
-        if let Some(certificate) = &local.execution_certificate {
-            diagnostics.extend(certificate.diagnostics.clone());
-        }
-    }
+    let diagnostics = primitive_facade_diagnostics(&result, local_execution.as_ref());
     let mut fields = vortex_project_fields(&result, columns_arg, local_execution.as_ref());
     fields.extend(extra_fields);
     emit(
@@ -6834,7 +6839,14 @@ pub(crate) fn handle_vortex_filter_project_with_facade(
         || result.has_errors(),
         VortexLocalPrimitiveCliExecutionEvidence::has_errors,
     );
-    let mut diagnostics = result.diagnostics.clone();
+    let mut diagnostics = if local_execution
+        .as_ref()
+        .is_some_and(|local| !local.has_errors())
+    {
+        Vec::new()
+    } else {
+        result.diagnostics.clone()
+    };
     if let Some(local) = &local_execution {
         diagnostics.extend(local.report.diagnostics.clone());
         diagnostics.extend(local.native_io_certificate.diagnostics.clone());
@@ -6922,7 +6934,14 @@ pub(crate) fn handle_vortex_filter_with_facade(
         || result.has_errors(),
         VortexLocalPrimitiveCliExecutionEvidence::has_errors,
     );
-    let mut diagnostics = result.diagnostics.clone();
+    let mut diagnostics = if local_execution
+        .as_ref()
+        .is_some_and(|local| !local.has_errors())
+    {
+        Vec::new()
+    } else {
+        result.diagnostics.clone()
+    };
     if let Some(local) = &local_execution {
         diagnostics.extend(local.report.diagnostics.clone());
         diagnostics.extend(local.native_io_certificate.diagnostics.clone());

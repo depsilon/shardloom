@@ -37026,13 +37026,12 @@ enum TraditionalDictionaryEvidenceKey {
 impl TraditionalDictionaryEvidenceKey {
     fn from_stat_value(value: Option<&StatValue>) -> Self {
         match value {
-            Some(StatValue::Null) => Self::Null,
+            Some(StatValue::Null) | None => Self::Null,
             Some(StatValue::Boolean(value)) => Self::Boolean(*value),
             Some(StatValue::Int64(value)) => Self::Int64(*value),
             Some(StatValue::UInt64(value)) => Self::UInt64(*value),
             Some(StatValue::Float64(value)) => Self::Float64(value.to_bits()),
             Some(StatValue::Utf8(value)) => Self::Utf8(value.clone()),
-            None => Self::Null,
         }
     }
 
@@ -39602,7 +39601,7 @@ mod tests {
         .expect("canonical unquoted row");
         assert_eq!(selective.id, 0);
         assert_eq!(selective.value, 123);
-        assert_eq!(selective.metric, 4.5);
+        assert!((selective.metric - 4.5).abs() < f64::EPSILON);
         assert_eq!(selective.flag, 1);
         assert_eq!(selective.category, "");
         assert_eq!(selective.raw_event_time, None);

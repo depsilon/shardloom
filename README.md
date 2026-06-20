@@ -239,6 +239,9 @@ JSON/JSONL/NDJSON, generated rows, and scoped local Vortex inputs are the defaul
 Parquet, Arrow IPC/Feather, Avro, and ORC are admitted scoped local-format surfaces when the
 matching feature-gated build is present; builds without those readers return deterministic adapter
 blockers instead of invoking another engine.
+Universal ingest owns source-specific details before Vortex preparation: schema hints, JSONL/NDJSON
+format identity, all-null text-column defaults, mixed numeric promotion, and nested JSON payload
+normalization happen at the SourceState boundary, not as separate CSV/JSON compute routes.
 
 The benchmark-page ETL scenarios use the same primary ShardLoom front door from Python, but they are
 schema-pinned source-checkout reproduction snippets rather than the minimal application-start code.

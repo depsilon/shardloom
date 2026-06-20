@@ -10265,33 +10265,27 @@ mod tests {
             return;
         }
 
-        assert_eq!(sql_plan.status, CommandStatus::Unsupported);
-        assert_eq!(
-            sql_plan.blocker_id,
-            "cg21.route.local_file_vortex_middle_required"
-        );
         if cfg!(feature = "vortex-local-primitives") {
-            assert_eq!(dataframe_plan.status, CommandStatus::Success);
-            assert_eq!(
-                dataframe_plan.route_id,
-                "local_file_prepare_once_first_query"
-            );
-            assert_eq!(
-                dataframe_plan.resolved_internal_command,
-                "vortex-ingest-smoke->vortex-production-runtime-run"
-            );
-            assert_eq!(
-                dataframe_plan.vortex_normalization_point,
-                "VortexPreparedState"
-            );
-            assert_eq!(dataframe_plan.execution_mode, "prepared_vortex");
-            assert!(dataframe_plan.preparation_included);
-            assert!(dataframe_plan.query_timing_starts_after_preparation);
+            for plan in [&sql_plan, &dataframe_plan] {
+                assert_eq!(plan.status, CommandStatus::Success);
+                assert_eq!(plan.route_id, "local_file_prepare_once_first_query");
+                assert_eq!(
+                    plan.resolved_internal_command,
+                    "vortex-ingest-smoke->vortex-production-runtime-run"
+                );
+                assert_eq!(plan.vortex_normalization_point, "VortexPreparedState");
+                assert_eq!(plan.execution_mode, "prepared_vortex");
+                assert!(plan.preparation_included);
+                assert!(plan.query_timing_starts_after_preparation);
+            }
         } else {
-            assert_eq!(
-                dataframe_plan.blocker_id,
-                "cg21.route.local_file_vortex_primitive_feature_gated"
-            );
+            for plan in [&sql_plan, &dataframe_plan] {
+                assert_eq!(plan.status, CommandStatus::Unsupported);
+                assert_eq!(
+                    plan.blocker_id,
+                    "cg21.route.local_file_vortex_primitive_feature_gated"
+                );
+            }
         }
     }
 

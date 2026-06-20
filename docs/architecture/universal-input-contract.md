@@ -55,6 +55,9 @@ not by compiling every reader by default. Active implementation status for input
     generic parse time and is not misreported as per-format, Arrow, or Vortex-native query
     execution. The same gate admits scoped flat scalar local Parquet/Arrow IPC/Avro/ORC output for
     that SQL local-source smoke and reports deterministic sink blockers in default builds.
+    Normal public workflows do not use this direct transient path as the execution middle: local
+    compatibility inputs normalize through `SourceState -> vortex_ingest -> VortexPreparedState`
+    before prepared/native Vortex execution, or fail closed when the required feature gate is absent.
   - When `vortex-ingest-smoke` is built with both `vortex-write` and `universal-format-io`, flat
     scalar Parquet/Arrow IPC/Avro/ORC inputs preserve an Arrow `RecordBatch` columnar SourceState
     through the prepare-once boundary and use upstream Vortex
@@ -67,8 +70,13 @@ not by compiling every reader by default. Active implementation status for input
     `vortex_array_build_record_batch_count`, and
     `vortex_array_build_manual_scalar_copy_avoided` so ingest timing and provider attribution are
     not collapsed into generic scalar parse time.
-    CSV/JSON/JSONL and unsupported structured shapes still use the scalar or blocked adapter
-    paths; this does not create a hidden Arrow-default execution model.
+    CSV/JSON/JSONL use the text SourceState adapter boundary and may carry public schema hints into
+    Vortex preparation. JSONL/NDJSON remain distinct public input formats rather than being collapsed
+    to generic JSON. All-null local text columns without explicit dtype default to nullable UTF-8,
+    mixed integer/float text-source numeric families promote to float64, and selected nested JSON
+    object/array values normalize as UTF-8 JSON payload strings for field-scan workflows. This is
+    source normalization only: it does not claim recursive nested JSON query semantics or create a
+    hidden Arrow-default execution model.
   - Traditional benchmark compatibility-import rows now use the same SourceState vocabulary for
     structured local inputs: Parquet/Arrow IPC/Avro/ORC rows report columnar preservation, record
     batch count, source-to-columnar timing, and the remaining traditional row-normalization boundary
@@ -81,10 +89,10 @@ not by compiling every reader by default. Active implementation status for input
     materialization status, zero row assembly or zero source-row materialization where supported,
     source-to-Vortex handoff timing, correctness digest status,
     `fallback_attempted=false`, `external_engine_invoked=false`, and
-    `external_parser_engine_invoked=false`. Unsupported CSV/JSONL shapes must produce deterministic
-    source-scout blockers; the planned path does not authorize hidden row-object assembly,
-    decode-to-Arrow execution, broad JSON support, new source-format support, or external parser
-    engine fallback.
+    `external_parser_engine_invoked=false`. Unsupported CSV/JSONL shapes beyond the admitted source
+    normalization contract must produce deterministic source-scout blockers; the planned path does
+    not authorize hidden row-object assembly, decode-to-Arrow execution, broad JSON support, new
+    source-format support, or external parser engine fallback.
   - Planned `PERF-DESIGN-6R-B` work makes projection a source-admission contract rather than a
     benchmark shortcut. Required fields must be derived from predicates, outputs, joins, grouping,
     ordering, certificates, diagnostics, and proof-tier needs before decode/handoff; skipped columns

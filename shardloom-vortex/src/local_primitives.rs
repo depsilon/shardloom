@@ -2557,7 +2557,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
         }
         if let Some(rolling_window) = rolling_window
             && rolling_window.center
-            && !source_order_limit.is_some_and(|limit| rows_written >= limit)
+            && source_order_limit.is_none_or(|limit| rows_written < limit)
         {
             let Some(state) = rolling_state.as_mut() else {
                 return Err(ShardLoomError::InvalidOperation(
@@ -3160,7 +3160,9 @@ fn scalar_value_to_json_value(value: &ScalarValue) -> Result<serde_json::Value> 
     match value {
         ScalarValue::Null => Ok(serde_json::Value::Null),
         ScalarValue::Boolean(value) => Ok(serde_json::Value::Bool(*value)),
-        ScalarValue::Int64(value) => Ok(serde_json::Value::Number((*value).into())),
+        ScalarValue::Int64(value) | ScalarValue::TimestampMicros(value) => {
+            Ok(serde_json::Value::Number((*value).into()))
+        }
         ScalarValue::UInt64(value) => Ok(serde_json::Value::Number((*value).into())),
         ScalarValue::Float64(value) => serde_json::Number::from_f64(*value)
             .map(serde_json::Value::Number)
@@ -3180,7 +3182,6 @@ fn scalar_value_to_json_value(value: &ScalarValue) -> Result<serde_json::Value> 
             "decimal128({precision},{scale}):{value}"
         ))),
         ScalarValue::Date32(value) => Ok(serde_json::Value::Number((*value).into())),
-        ScalarValue::TimestampMicros(value) => Ok(serde_json::Value::Number((*value).into())),
         ScalarValue::List(values) => values
             .iter()
             .map(scalar_value_to_json_value)
@@ -4685,7 +4686,7 @@ fn struct_scalar_values_from_vortex_array(
     let mut field_values = Vec::with_capacity(children.len());
     for (field_name, field_array) in children {
         field_values.push((
-            field_name.to_string(),
+            field_name.clone(),
             scalar_values_from_vortex_array(&field_name, &field_array)?,
         ));
     }
@@ -5380,8 +5381,8 @@ fn truncate_weighted_sample_candidates_to_target(
 fn sample_weight_value(value: &StatValue) -> Result<f64> {
     let weight = match value {
         StatValue::Float64(value) => *value,
-        StatValue::Int64(value) => *value as f64,
-        StatValue::UInt64(value) => *value as f64,
+        StatValue::Int64(value) => int64_stat_to_float64(*value),
+        StatValue::UInt64(value) => uint64_stat_to_float64(*value),
         StatValue::Null | StatValue::Boolean(_) | StatValue::Utf8(_) => {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex weighted sample requires a numeric weight column; no fallback execution was attempted"
@@ -5396,6 +5397,18 @@ fn sample_weight_value(value: &StatValue) -> Result<f64> {
         ));
     }
     Ok(weight)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::cast_precision_loss)]
+fn int64_stat_to_float64(value: i64) -> f64 {
+    value as f64
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::cast_precision_loss)]
+fn uint64_stat_to_float64(value: u64) -> f64 {
+    value as f64
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -5451,6 +5464,7 @@ fn deterministic_sample_replacement_index(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::cast_precision_loss)]
 fn deterministic_sample_unit(seed: u64, row_index: usize) -> f64 {
     let numerator = deterministic_sample_score(seed, row_index) as f64 + 0.5;
     let denominator = u64::MAX as f64 + 1.0;
@@ -6074,7 +6088,6 @@ fn compare_stat_value_with_op(
 fn stat_value_cmp(left: &StatValue, right: &StatValue) -> Option<std::cmp::Ordering> {
     match (left, right) {
         (StatValue::Null, StatValue::Null) => Some(std::cmp::Ordering::Equal),
-        (StatValue::Null, _) | (_, StatValue::Null) => None,
         (StatValue::Boolean(left), StatValue::Boolean(right)) => Some(left.cmp(right)),
         (StatValue::Int64(left), StatValue::Int64(right)) => Some(left.cmp(right)),
         (StatValue::UInt64(left), StatValue::UInt64(right)) => Some(left.cmp(right)),
@@ -6413,7 +6426,7 @@ fn struct_row_key_values_from_vortex_array(
     let mut field_values = Vec::with_capacity(children.len());
     for (field_name, field_array) in children {
         field_values.push((
-            field_name.to_string(),
+            field_name.clone(),
             row_key_values_from_vortex_array(&field_name, &field_array)?,
         ));
     }
@@ -8904,12 +8917,13 @@ impl PivotRowExportState {
             row.push(Some(index_value.clone()));
             for pivot_key in &active_pivot_keys {
                 let cell_key = (index_key.clone(), pivot_key.clone());
-                row.push(
-                    self.apply_pivot_fill(self.materialized_cell(aggregate, &cell_key), projection),
-                );
+                row.push(Self::apply_pivot_fill(
+                    self.materialized_cell(aggregate, &cell_key),
+                    projection,
+                ));
             }
             if projection.margins {
-                row.push(self.apply_pivot_fill(
+                row.push(Self::apply_pivot_fill(
                     self.row_margin_value(aggregate, index_key, &active_pivot_keys)?,
                     projection,
                 ));
@@ -8920,7 +8934,7 @@ impl PivotRowExportState {
             let mut margin_row = Vec::with_capacity(1 + active_pivot_keys.len() + 1);
             margin_row.push(Some(StatValue::Utf8(projection.margins_name.clone())));
             for pivot_key in &active_pivot_keys {
-                margin_row.push(self.apply_pivot_fill(
+                margin_row.push(Self::apply_pivot_fill(
                     self.column_margin_value(
                         aggregate,
                         pivot_key,
@@ -8929,7 +8943,7 @@ impl PivotRowExportState {
                     projection,
                 ));
             }
-            margin_row.push(self.apply_pivot_fill(
+            margin_row.push(Self::apply_pivot_fill(
                 self.grand_margin_value(
                     aggregate,
                     self.index_keys.iter().take(limit),
@@ -8965,7 +8979,6 @@ impl PivotRowExportState {
     }
 
     fn apply_pivot_fill(
-        &self,
         value: Option<StatValue>,
         projection: &VortexPivotProjectionRequest,
     ) -> Option<StatValue> {
@@ -9971,7 +9984,14 @@ fn read_local_vortex_sample_scan(
         reader_splits.push(split);
         let materialized_columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
         let materialized_rows = materialized_columns.first().map_or(rows, Vec::len);
-        for local_index in 0..materialized_rows {
+        for (local_index, maybe_weight_value) in (0..materialized_rows).map(|local_index| {
+            (
+                local_index,
+                sample_weight_column_index.map(|weight_column_index| {
+                    &materialized_columns[weight_column_index][local_index]
+                }),
+            )
+        }) {
             let row_index = pre_limit_result_row_count
                 .checked_add(local_index)
                 .ok_or_else(|| {
@@ -9980,9 +10000,8 @@ fn read_local_vortex_sample_scan(
                     )
                 })?;
             let score = deterministic_sample_score(sample_seed, row_index);
-            if let Some(weight_column_index) = sample_weight_column_index {
-                let _ =
-                    sample_weight_value(&materialized_columns[weight_column_index][local_index])?;
+            if let Some(weight_value) = maybe_weight_value {
+                let _ = sample_weight_value(weight_value)?;
             } else if request.sample_with_replacement {
                 // Replacement collect only needs the admitted population count;
                 // row export performs the deterministic duplicate-row draw.
@@ -10707,7 +10726,7 @@ fn read_local_vortex_rolling_window_scan(
             break;
         }
     }
-    if rolling_window.center && !source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+    if rolling_window.center && source_order_limit.is_none_or(|limit| result_row_count < limit) {
         let output_values = rolling_state.emit_ready_centered(rolling_window, true)?;
         pre_limit_result_row_count = pre_limit_result_row_count
             .checked_add(output_values.len())
@@ -13599,7 +13618,7 @@ mod tests {
             ))
             .expect("paid aggregate cell");
         assert_eq!(paid_cell.count, 2);
-        assert_eq!(paid_cell.sum, 15.5);
+        assert!((paid_cell.sum - 15.5).abs() < f64::EPSILON);
         assert_eq!(paid_cell.min, Some(5.5));
         assert_eq!(paid_cell.max, Some(10.0));
         assert_eq!(pivot_columns.len(), 2);
