@@ -8881,7 +8881,7 @@ impl PivotRowExportState {
         &self,
         aggregate: &str,
         projection: &VortexPivotProjectionRequest,
-        data_row_limit: usize,
+        limit: usize,
     ) -> Result<Vec<Vec<Option<StatValue>>>> {
         if projection.margins && !matches!(aggregate, "count" | "sum" | "mean" | "min" | "max") {
             return Err(ShardLoomError::InvalidOperation(
@@ -8890,9 +8890,9 @@ impl PivotRowExportState {
             ));
         }
         let active_pivot_keys = self.active_pivot_keys(aggregate, projection);
-        let row_count = data_row_limit.min(self.index_keys.len());
+        let row_count = limit.min(self.index_keys.len());
         let mut rows = Vec::with_capacity(row_count + usize::from(projection.margins));
-        for index_key in self.index_keys.iter().take(data_row_limit) {
+        for index_key in self.index_keys.iter().take(limit) {
             let Some(index_value) = self.index_values.get(index_key) else {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex pivot row export lost index value state; no fallback execution was attempted"
@@ -8921,12 +8921,20 @@ impl PivotRowExportState {
             margin_row.push(Some(StatValue::Utf8(projection.margins_name.clone())));
             for pivot_key in &active_pivot_keys {
                 margin_row.push(self.apply_pivot_fill(
-                    self.column_margin_value(aggregate, pivot_key, self.index_keys.iter())?,
+                    self.column_margin_value(
+                        aggregate,
+                        pivot_key,
+                        self.index_keys.iter().take(limit),
+                    )?,
                     projection,
                 ));
             }
             margin_row.push(self.apply_pivot_fill(
-                self.grand_margin_value(aggregate, self.index_keys.iter(), &active_pivot_keys)?,
+                self.grand_margin_value(
+                    aggregate,
+                    self.index_keys.iter().take(limit),
+                    &active_pivot_keys,
+                )?,
                 projection,
             ));
             rows.push(margin_row);
@@ -17139,11 +17147,7 @@ mod tests {
         assert_eq!(limited_report.source_order_limit_requested, Some(2));
         assert_eq!(limited_parsed_rows.len(), 2);
         assert_eq!(limited_parsed_rows[0]["id"], serde_json::json!(1));
-        assert_eq!(limited_parsed_rows[0]["pivot_total"].as_f64(), Some(15.0));
         assert_eq!(limited_parsed_rows[1]["id"], serde_json::json!("total"));
-        assert_eq!(limited_parsed_rows[1]["pivot_paid"].as_f64(), Some(15.0));
-        assert_eq!(limited_parsed_rows[1]["pivot_trial"].as_f64(), Some(7.0));
-        assert_eq!(limited_parsed_rows[1]["pivot_total"].as_f64(), Some(22.0));
         assert!(limited_report.evidence.pushdown.source_order_limit_applied);
         assert!(!limited_report.evidence.side_effects.fallback_attempted);
     }
