@@ -1970,6 +1970,7 @@ fn append_native_vortex_materializing_primitive_fields(
     append_native_vortex_materializing_row_fields(fields, report);
     append_native_vortex_materializing_side_effect_fields(fields, report);
     append_native_vortex_materializing_limit_fields(fields, report);
+    append_local_primitive_result_summary_evidence_fields(fields, report.result_summary.as_deref());
     append_local_primitive_state_budget_fields(fields, &report.state_budget);
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
         fields,
@@ -2178,6 +2179,120 @@ fn append_native_vortex_materializing_limit_fields(
     );
 }
 
+fn append_local_primitive_result_summary_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    result_summary: Option<&str>,
+) {
+    let Some(result_summary) = result_summary else {
+        return;
+    };
+    let Some(payload) = local_primitive_result_summary_payload(result_summary) else {
+        return;
+    };
+    let Some(object) = payload.as_object() else {
+        return;
+    };
+    for (summary_key, field_key) in [
+        (
+            "group_output_strategy",
+            "local_primitive_group_output_strategy",
+        ),
+        (
+            "group_admission_strategy",
+            "local_primitive_group_admission_strategy",
+        ),
+        ("candidate_groups", "local_primitive_candidate_groups"),
+        (
+            "retained_candidate_groups",
+            "local_primitive_retained_candidate_groups",
+        ),
+        (
+            "topk_retention_after_update",
+            "local_primitive_group_topk_retention_after_update",
+        ),
+        (
+            "materialized_group_value_count",
+            "local_primitive_materialized_group_value_count",
+        ),
+        (
+            "decoded_string_count",
+            "local_primitive_decoded_string_count",
+        ),
+        (
+            "aggregate_key_encoding_mode",
+            "local_primitive_aggregate_key_encoding_mode",
+        ),
+        (
+            "aggregate_update_strategy",
+            "local_primitive_aggregate_update_strategy",
+        ),
+        (
+            "compact_group_state_strategy",
+            "local_primitive_compact_group_state_strategy",
+        ),
+        ("group_state_mode", "local_primitive_group_state_mode"),
+        ("group_key_storage", "local_primitive_group_key_storage"),
+        (
+            "group_key_comparison_strategy",
+            "local_primitive_group_key_comparison_strategy",
+        ),
+        (
+            "source_order_key_retention",
+            "local_primitive_source_order_key_retention",
+        ),
+        (
+            "estimated_group_key_storage_bytes",
+            "local_primitive_estimated_group_key_storage_bytes",
+        ),
+        (
+            "estimated_group_string_storage_bytes",
+            "local_primitive_estimated_group_string_storage_bytes",
+        ),
+        (
+            "uniqueness_proof_status",
+            "local_primitive_uniqueness_proof_status",
+        ),
+        ("spill_state", "local_primitive_spill_state"),
+        ("candidate_rows_seen", "local_primitive_candidate_rows_seen"),
+        (
+            "retained_candidate_rows",
+            "local_primitive_retained_candidate_rows",
+        ),
+        (
+            "retention_selection_strategy",
+            "local_primitive_retention_selection_strategy",
+        ),
+        (
+            "retention_flush_threshold",
+            "local_primitive_retention_flush_threshold",
+        ),
+        ("predicate_strategy", "local_primitive_predicate_strategy"),
+    ] {
+        if let Some(value) = object.get(summary_key) {
+            push_field(fields, field_key, json_value_to_field_string(value));
+        }
+    }
+}
+
+fn local_primitive_result_summary_payload(result_summary: &str) -> Option<serde_json::Value> {
+    if let Ok(payload) = serde_json::from_str::<serde_json::Value>(result_summary) {
+        return Some(payload);
+    }
+    let values_index = result_summary.rfind(" values=")?;
+    serde_json::from_str::<serde_json::Value>(&result_summary[values_index + " values=".len()..])
+        .ok()
+}
+
+fn json_value_to_field_string(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::Null => "null".to_string(),
+        serde_json::Value::Bool(value) => value.to_string(),
+        serde_json::Value::Number(value) => value.to_string(),
+        serde_json::Value::String(value) => value.clone(),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => value.to_string(),
+    }
+}
+
 fn execute_generated_source_run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -2321,6 +2436,17 @@ fn execute_local_file_prepare_once_first_query_run(
         Ok(prepared_run) => prepared_run,
         Err(blocked) => return emit_blocked_facade("run", format, request, &blocked),
     };
+    let max_parallelism = match public_workflow_effective_max_parallelism(request) {
+        Ok(value) => value,
+        Err(error) => {
+            return emit_error(
+                "run",
+                format,
+                "public workflow max parallelism validation failed",
+                &error,
+            );
+        }
+    };
 
     let native_plan = plan_public_workflow_route(&prepared_run.request);
     if native_plan.status != CommandStatus::Success {
@@ -2332,6 +2458,7 @@ fn execute_local_file_prepare_once_first_query_run(
         &prepared_run.left_source_format,
         &prepared_run.left_target,
         false,
+        max_parallelism,
     ) {
         Ok(preparation) => preparation,
         Err(PreparationFacadeError::FeatureGated) => {
@@ -2360,6 +2487,7 @@ fn execute_local_file_prepare_once_first_query_run(
             &right.source_format,
             &right.target,
             false,
+            max_parallelism,
         ) {
             Ok(preparation) => preparation,
             Err(PreparationFacadeError::FeatureGated) => {
@@ -2451,12 +2579,14 @@ fn prepare_local_source_for_public_workflow(
     source_format: &str,
     target: &Path,
     allow_overwrite: bool,
+    max_parallelism: usize,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
     sql_local_source_runtime::prepare_local_source_as_vortex_for_public_workflow(
         source_uri,
         target,
         Some(source_format),
         allow_overwrite,
+        max_parallelism,
     )
     .map_err(|error| match error {
         ShardLoomError::NotImplemented(feature)
@@ -2780,8 +2910,87 @@ fn local_prepared_vortex_execution_attachment_fields(
             has_right_input.to_string(),
         ),
     ];
+    let olap_fields = local_prepared_olap_query_attachment_fields(&preparation.fields);
     fields.extend(preparation.fields.clone());
+    fields.extend(olap_fields);
     fields
+}
+
+fn local_prepared_olap_query_attachment_fields(
+    preparation_fields: &[(String, String)],
+) -> Vec<(String, String)> {
+    let status = preparation_field_value(
+        preparation_fields,
+        "public_workflow_preparation_vortex_prepared_olap_state_status",
+    )
+    .or_else(|| {
+        preparation_field_value(
+            preparation_fields,
+            "public_workflow_preparation_prepared_olap_state_status",
+        )
+    })
+    .unwrap_or("not_reported");
+    let query_time_contract = preparation_field_value(
+        preparation_fields,
+        "public_workflow_preparation_vortex_prepared_olap_state_query_time_contract",
+    )
+    .or_else(|| {
+        preparation_field_value(
+            preparation_fields,
+            "public_workflow_preparation_prepared_olap_state_query_time_contract",
+        )
+    })
+    .unwrap_or("not_reported");
+    let sidecar_family_count = preparation_field_value(
+        preparation_fields,
+        "public_workflow_preparation_vortex_prepared_olap_state_exact_sidecar_family_count",
+    )
+    .or_else(|| {
+        preparation_field_value(
+            preparation_fields,
+            "public_workflow_preparation_prepared_olap_state_exact_sidecar_family_count",
+        )
+    })
+    .unwrap_or("0");
+    let admitted = matches!(
+        status,
+        "prepared_olap_state_ready" | "prepared_olap_state_read_through_hit"
+    ) && query_time_contract
+        == "exact_prepared_state_or_fail_closed_no_raw_scan_fallback";
+    vec![
+        (
+            "public_workflow_prepared_olap_state_consumed".to_string(),
+            admitted.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_read_through_status".to_string(),
+            if admitted {
+                "attached_to_prepared_native_vortex_route"
+            } else {
+                "not_admitted_for_query_time_read_through"
+            }
+            .to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_query_time_contract".to_string(),
+            query_time_contract.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_exact_sidecar_family_count".to_string(),
+            sidecar_family_count.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_status".to_string(),
+            status.to_string(),
+        ),
+    ]
+}
+
+fn preparation_field_value<'a>(fields: &'a [(String, String)], key: &str) -> Option<&'a str> {
+    fields
+        .iter()
+        .find(|(field, _)| field == key)
+        .map(|(_, value)| value.as_str())
 }
 
 fn local_prepared_vortex_right_execution_attachment_fields(
@@ -2845,11 +3054,23 @@ pub(crate) fn handle_public_workflow_prepare(
         .input_format
         .clone()
         .unwrap_or_else(|| "csv".to_string());
+    let max_parallelism = match public_workflow_effective_max_parallelism(&request) {
+        Ok(value) => value,
+        Err(error) => {
+            return emit_error(
+                "prepare",
+                format,
+                "public workflow max parallelism validation failed",
+                &error,
+            );
+        }
+    };
     let preparation = match prepare_local_source_for_public_workflow(
         &input_uri,
         &source_format,
         Path::new(&output_ref),
         request.allow_overwrite,
+        max_parallelism,
     ) {
         Ok(preparation) => preparation,
         Err(PreparationFacadeError::FeatureGated) => {
@@ -10693,6 +10914,92 @@ mod tests {
             .iter()
             .find_map(|(field_key, value)| (field_key == key).then(|| value.clone()))
             .unwrap_or_else(|| panic!("missing route field: {key}"))
+    }
+
+    #[test]
+    fn local_primitive_result_summary_lifts_runtime_strategy_fields() {
+        let payload = serde_json::json!({
+            "group_output_strategy": "source_order_limited_group_admission_no_sort",
+            "group_admission_strategy": "first_k_source_order_groups_then_existing_key_updates",
+            "candidate_groups": 10,
+            "retained_candidate_groups": 10,
+            "aggregate_key_encoding_mode": "typed_hash_exact",
+            "candidate_rows_seen": 15911,
+            "retained_candidate_rows": 10,
+            "retention_selection_strategy": "full_sort_truncate_retention_window",
+        })
+        .to_string();
+        for summary in [
+            payload.clone(),
+            format!("simple_aggregate input_rows=100 output_rows=10 values={payload}"),
+        ] {
+            let mut fields = Vec::new();
+
+            append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+
+            assert_eq!(
+                field(&fields, "local_primitive_group_output_strategy"),
+                "source_order_limited_group_admission_no_sort"
+            );
+            assert_eq!(
+                field(&fields, "local_primitive_group_admission_strategy"),
+                "first_k_source_order_groups_then_existing_key_updates"
+            );
+            assert_eq!(field(&fields, "local_primitive_candidate_groups"), "10");
+            assert_eq!(
+                field(&fields, "local_primitive_aggregate_key_encoding_mode"),
+                "typed_hash_exact"
+            );
+            assert_eq!(
+                field(&fields, "local_primitive_candidate_rows_seen"),
+                "15911"
+            );
+            assert_eq!(
+                field(&fields, "local_primitive_retention_selection_strategy"),
+                "full_sort_truncate_retention_window"
+            );
+        }
+    }
+
+    #[test]
+    fn prepared_local_route_marks_admitted_olap_state_consumed() {
+        let preparation_fields = vec![
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_status".to_string(),
+                "prepared_olap_state_read_through_hit".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_query_time_contract"
+                    .to_string(),
+                "exact_prepared_state_or_fail_closed_no_raw_scan_fallback".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_exact_sidecar_family_count"
+                    .to_string(),
+                "3".to_string(),
+            ),
+        ];
+
+        let fields = local_prepared_olap_query_attachment_fields(&preparation_fields);
+
+        assert_eq!(
+            field(&fields, "public_workflow_prepared_olap_state_consumed"),
+            "true"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_read_through_status"
+            ),
+            "attached_to_prepared_native_vortex_route"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_exact_sidecar_family_count"
+            ),
+            "3"
+        );
     }
 
     fn assert_native_vortex_plan_contract_fields(

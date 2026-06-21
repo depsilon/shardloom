@@ -11,6 +11,7 @@
 )]
 
 use crate::{Diagnostic, DiagnosticCode, ObservedField, Result, ShardLoomError};
+use sha2::{Digest as _, Sha256};
 use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::fs;
@@ -1194,11 +1195,19 @@ const WORKSPACE_SAFE_LOCAL_STAGING_BUFFER_BYTES: usize = 256 * 1024;
 /// and then the surrounding helper flushes before commit while preserving
 /// `ShardLoom`'s workspace path checks, symlink-race checks, same-directory
 /// staging, atomic commit, rollback, and no-fallback evidence.
-#[derive(Debug)]
 pub struct WorkspaceSafeLocalStagingWriter {
     file: std::io::BufWriter<fs::File>,
     bytes_written: u64,
-    digest: Fnv64Digest,
+    digest: Sha256Digest,
+}
+
+impl std::fmt::Debug for WorkspaceSafeLocalStagingWriter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WorkspaceSafeLocalStagingWriter")
+            .field("bytes_written", &self.bytes_written)
+            .field("digest_algorithm", &"sha256")
+            .finish_non_exhaustive()
+    }
 }
 
 impl WorkspaceSafeLocalStagingWriter {
@@ -1638,7 +1647,7 @@ fn create_workspace_safe_staging_writer(
                 staging_file,
             ),
             bytes_written: 0,
-            digest: Fnv64Digest::new(),
+            digest: Sha256Digest::new(),
         },
     ))
 }
@@ -1857,36 +1866,36 @@ fn unique_sidecar_path(parent: &Path, target_path: &Path, kind: &str) -> PathBuf
     ))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Fnv64Digest {
-    state: u64,
+#[derive(Clone)]
+struct Sha256Digest {
+    state: Sha256,
 }
 
-impl Fnv64Digest {
-    const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
-    const PRIME: u64 = 0x0000_0100_0000_01b3;
-
-    const fn new() -> Self {
+impl Sha256Digest {
+    fn new() -> Self {
         Self {
-            state: Self::OFFSET,
+            state: Sha256::new(),
         }
     }
 
     fn update(&mut self, value: &[u8]) {
-        for byte in value {
-            self.state ^= u64::from(*byte);
-            self.state = self.state.wrapping_mul(Self::PRIME);
-        }
+        self.state.update(value);
     }
 
-    fn output_digest(self) -> String {
-        format!("fnv64:{:016x}", self.state)
+    fn output_digest(&self) -> String {
+        let digest = self.state.clone().finalize();
+        let mut output = String::with_capacity("sha256:".len() + digest.len() * 2);
+        output.push_str("sha256:");
+        for byte in digest {
+            let _ = write!(&mut output, "{byte:02x}");
+        }
+        output
     }
 }
 
 #[cfg(test)]
-fn fnv64_digest_bytes(value: &[u8]) -> String {
-    let mut digest = Fnv64Digest::new();
+fn sha256_digest_bytes(value: &[u8]) -> String {
+    let mut digest = Sha256Digest::new();
     digest.update(value);
     digest.output_digest()
 }
@@ -3262,7 +3271,7 @@ mod tests {
         assert_eq!(chunks, 3);
         assert_eq!(std::fs::read(&output_path).unwrap(), b"alpha-beta");
         assert_eq!(report.bytes_written, 10);
-        assert_eq!(report.output_digest, fnv64_digest_bytes(b"alpha-beta"));
+        assert_eq!(report.output_digest, sha256_digest_bytes(b"alpha-beta"));
         assert_eq!(report.commit_status, "committed");
         assert_eq!(report.commit_mode, "atomic_rename_same_directory");
         assert!(!report.staging_path.exists());

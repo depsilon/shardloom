@@ -2392,6 +2392,7 @@ name = "shardloom-core"
 version = "0.2.0"
 dependencies = [
  "regex",
+ "sha2",
 ]
 
 [[package]]
