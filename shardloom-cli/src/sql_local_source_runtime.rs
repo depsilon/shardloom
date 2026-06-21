@@ -3520,6 +3520,7 @@ impl VortexIngestSourceData {
         }
     }
 
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn with_observed_streaming_write(mut self, row_count: u64, record_batch_count: usize) -> Self {
         self.row_count = usize::try_from(row_count).unwrap_or(usize::MAX);
         self.source_split_row_ranges = single_source_split_row_ranges(self.row_count);
@@ -5583,10 +5584,10 @@ fn layout_chunking_strategy(source: &VortexIngestSourceData) -> String {
 }
 
 fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved && layout_streaming_columnar_source_may_have_batches(source)
+    if source.columnar_source_preserved
+        && (layout_streaming_columnar_source_may_have_batches(source)
+            || source.record_batch_count > 0)
     {
-        "vortex_array_kernel"
-    } else if source.columnar_source_preserved && source.record_batch_count > 0 {
         "vortex_array_kernel"
     } else {
         "shardloom_kernel"
@@ -15859,9 +15860,7 @@ fn replay_sql_vortex_output(
         verified,
         status: if vortex_report_reopen_metadata_row_count_verified(report) {
             "verified_vortex_reopen_metadata_row_count"
-        } else if report.upstream_vortex_scan_called {
-            "verified_vortex_reopen_row_count"
-        } else if verified {
+        } else if report.upstream_vortex_scan_called || verified {
             "verified_vortex_reopen_row_count"
         } else {
             "blocked_missing_vortex_reopen_proof"

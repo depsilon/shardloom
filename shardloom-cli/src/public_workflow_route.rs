@@ -13129,16 +13129,8 @@ mod tests {
         let plan = plan_public_workflow_route(&effective_request);
         let fields = route_fields(&effective_request, &plan);
 
-        if cfg!(feature = "vortex-local-primitives") {
-            assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_count_where");
-        } else {
-            assert_eq!(plan.status, CommandStatus::Unsupported);
-            assert_eq!(
-                plan.blocker_id,
-                "public_workflow_route.native_vortex_primitive_feature_gated"
-            );
-        }
+        assert_eq!(plan.status, CommandStatus::Success);
+        assert_eq!(plan.route_id, "native_vortex_count_where");
         assert_eq!(field(&fields, "vortex_primitive"), "count_where");
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
         assert_eq!(field(&fields, "vortex_aggregate_present"), "false");
@@ -13223,17 +13215,9 @@ mod tests {
         let plan = plan_public_workflow_route(&effective_request);
         let fields = route_fields(&effective_request, &plan);
 
-        if cfg!(feature = "vortex-local-primitives") {
-            assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
-        } else {
-            assert_eq!(plan.status, CommandStatus::Unsupported);
-            assert_eq!(
-                plan.blocker_id,
-                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
-            );
-        }
-        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert_eq!(plan.status, CommandStatus::Success);
+        assert_eq!(plan.route_id, "native_vortex_count_where");
+        assert_eq!(field(&fields, "vortex_primitive"), "count_where");
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
@@ -13286,7 +13270,7 @@ mod tests {
         assert_eq!(prepared.request.input_format.as_deref(), Some("vortex"));
         assert_eq!(
             prepared.request.vortex_primitive.as_deref(),
-            Some("aggregate")
+            Some("count_where")
         );
         assert_eq!(
             prepared.request.vortex_predicate.as_deref(),
