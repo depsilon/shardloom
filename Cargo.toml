@@ -29,6 +29,7 @@ arrow-ipc = "58.3.0"
 arrow-schema = "58.3.0"
 parquet = "58.3.0"
 regex = "1.12.4"
+rustc-hash = "2.1.2"
 serde_json = "1.0.150"
 shardloom-core = { version = "0.1.10", path = "shardloom-core" }
 shardloom-exec = { version = "0.1.10", path = "shardloom-exec" }
