@@ -19534,6 +19534,202 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
 
+    def test_single_artifact_native_vortex_evidence_converges_across_public_surfaces(
+        self,
+    ) -> None:
+        group_sql = (
+            "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
+            "FROM 'fact.vortex' GROUP BY group_key LIMIT 100"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:2] in (["run", "sql"], ["run", "dataframe"]), args
+                assert args[args.index("--input") + 1] == "fact.vortex", args
+                assert args[args.index("--input-format") + 1] == "vortex", args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert args[args.index("--native-vortex-operation-family") + 1] == "aggregate", args
+                assert args[args.index("--native-vortex-provider-scenario") + 1] == "group-by-aggregation", args
+                assert "--vortex-primitive" not in args, args
+                if args[:2] == ["run", "sql"]:
+                    assert args[args.index("--sql") + 1] == {group_sql!r}, args
+                    surface = "sql"
+                else:
+                    assert args[args.index("--plan") + 1].startswith("read_vortex(fact.vortex)"), args
+                    surface = "dataframe"
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "native Vortex aggregate executed over prepared Vortex artifact",
+                    "human_text": "native Vortex aggregate executed over prepared Vortex artifact",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "public_workflow_route_attached", "value": "true"}},
+                        {{"key": "public_workflow_route_id", "value": "native_vortex_user_aggregate"}},
+                        {{"key": "public_workflow_resolved_internal_command", "value": "vortex-production-runtime-run"}},
+                        {{"key": "public_workflow_native_vortex_operation_family", "value": "aggregate"}},
+                        {{"key": "public_workflow_native_vortex_provider_scenario", "value": "group-by-aggregation"}},
+                        {{"key": "public_workflow_surface", "value": surface}},
+                        {{"key": "mode", "value": "vortex_scan_pushdown"}},
+                        {{"key": "execution", "value": "native_vortex_scan_pushdown_performed"}},
+                        {{"key": "data_read", "value": "true"}},
+                        {{"key": "data_decoded", "value": "true"}},
+                        {{"key": "data_materialized", "value": "true"}},
+                        {{"key": "row_read", "value": "true"}},
+                        {{"key": "runtime_required", "value": "true"}},
+                        {{"key": "local_primitive_report_present", "value": "true"}},
+                        {{"key": "local_primitive_mode", "value": "vortex_scan_pushdown"}},
+                        {{"key": "local_primitive_rows_scanned", "value": "100000000"}},
+                        {{"key": "local_primitive_rows_selected", "value": "100000000"}},
+                        {{"key": "local_primitive_rows_projected", "value": "100"}},
+                        {{"key": "local_primitive_pushdown_guarantee", "value": "exact_scalar_aggregate_from_vortex_scan_with_explicit_shardloom_aggregate_state"}},
+                        {{"key": "public_workflow_prepared_olap_state_attached", "value": "true"}},
+                        {{"key": "public_workflow_prepared_olap_state_consumed", "value": "false"}},
+                        {{"key": "public_workflow_prepared_olap_state_consumption_status", "value": "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"}},
+                        {{"key": "public_workflow_prepared_olap_state_query_answer_sidecar_consumed", "value": "false"}},
+                        {{"key": "public_workflow_prepared_olap_state_artifact_model", "value": "single_prepared_vortex_artifact"}},
+                        {{"key": "public_workflow_prepared_olap_state_evidence_persistence", "value": "embedded_in_single_prepared_vortex_artifact"}},
+                        {{"key": "public_workflow_prepared_olap_state_external_manifest_written", "value": "false"}},
+                        {{"key": "public_workflow_prepared_olap_state_query_answer_sidecar_status", "value": "disabled_rejected_for_public_default_runtime"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_inventory_status", "value": "opened_single_vortex_artifact_footer"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_inventory_digest", "value": "fnv64:layout"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_footer_row_count", "value": "100000000"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_footer_segment_count", "value": "64"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_footer_statistics_status", "value": "available"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_footer_encoding_layout_status", "value": "segment_map_available"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_footer_approx_bytes", "value": "4096"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_footer_dtype_summary", "value": "Struct"}},
+                        {{"key": "public_workflow_prepared_olap_state_layout_metadata_persisted_in_artifact", "value": "true"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                    ],
+                }}))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+        ctx = ShardLoomContext(client)
+        session = sl.ShardLoomSession(client, session_id="single-vortex-artifact")
+
+        reports = (
+            ctx.sql(group_sql).collect(memory_gb=4, max_parallelism=2),
+            sl.read_vortex("fact.vortex", client=client)
+            .group_by("group_key")
+            .agg(rows="count(*)", total_metric="sum(metric)")
+            .limit(100)
+            .collect(memory_gb=4, max_parallelism=2),
+            session.read_vortex("fact.vortex")
+            .group_by("group_key")
+            .agg(rows="count(*)", total_metric="sum(metric)")
+            .limit(100)
+            .collect(memory_gb=4, max_parallelism=2),
+        )
+
+        for report in reports:
+            self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+            self.assertEqual(report.envelope.command, "run")
+            self.assertEqual(report.command, "vortex-production-runtime-run")
+            self.assertEqual(
+                report.envelope.field("public_workflow_native_vortex_operation_family"),
+                "aggregate",
+            )
+            self.assertEqual(
+                report.envelope.field("local_primitive_mode"),
+                "vortex_scan_pushdown",
+            )
+            self.assertEqual(
+                report.envelope.field("local_primitive_rows_scanned"),
+                "100000000",
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_prepared_olap_state_attached"),
+                "true",
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_prepared_olap_state_consumed"),
+                "false",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_query_answer_sidecar_consumed"
+                ),
+                "false",
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_prepared_olap_state_consumption_status"),
+                "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed",
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_prepared_olap_state_artifact_model"),
+                "single_prepared_vortex_artifact",
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_prepared_olap_state_evidence_persistence"),
+                "embedded_in_single_prepared_vortex_artifact",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_external_manifest_written"
+                ),
+                "false",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_query_answer_sidecar_status"
+                ),
+                "disabled_rejected_for_public_default_runtime",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_layout_inventory_status"
+                ),
+                "opened_single_vortex_artifact_footer",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_layout_footer_row_count"
+                ),
+                "100000000",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_layout_footer_segment_count"
+                ),
+                "64",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_layout_footer_statistics_status"
+                ),
+                "available",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_layout_footer_encoding_layout_status"
+                ),
+                "segment_map_available",
+            )
+            self.assertEqual(
+                report.envelope.field(
+                    "public_workflow_prepared_olap_state_layout_metadata_persisted_in_artifact"
+                ),
+                "true",
+            )
+            self.assertTrue(report.data_read)
+            self.assertTrue(report.data_decoded)
+            self.assertTrue(report.data_materialized)
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.external_engine_invoked)
+
     def test_sql_vortex_literal_bait_does_not_attach_provider_payload(self) -> None:
         bait_sql = (
             "SELECT 'count(*) AS rows', 'sum(metric) AS total_metric', "

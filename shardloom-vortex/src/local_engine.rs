@@ -634,6 +634,11 @@ fn append_local_primitive_human_text(
         "local primitive scan concurrency per worker: {}",
         report.scan_concurrency_per_worker
     );
+    let _ = writeln!(
+        out,
+        "local primitive embedded layout: {}",
+        report.embedded_layout.compact_summary()
+    );
 }
 
 fn local_engine_why_blockers(
@@ -977,6 +982,10 @@ fn local_engine_value_summary(
 ) -> Option<String> {
     if query_result.value.is_known() {
         Some(query_result.value.as_str())
+    } else if let Some(report) = local_primitive_execution_report
+        && report.primitive_kind == VortexQueryPrimitiveKind::CountWhere
+    {
+        report.rows_selected.map(|rows| rows.to_string())
     } else {
         local_primitive_execution_report.and_then(|report| report.result_summary.clone())
     }

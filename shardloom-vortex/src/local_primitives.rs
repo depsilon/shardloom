@@ -199,6 +199,255 @@ impl VortexLocalPrimitiveStateBudgetReport {
     }
 }
 
+/// Embedded Vortex artifact metadata consumed by the local primitive planner.
+///
+/// This is intentionally derived from the single `.vortex` artifact footer and
+/// scan chunks. It is not a query-specific sidecar, materialized view, or result
+/// cache.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexLocalPrimitiveEmbeddedLayoutReport {
+    pub schema_version: String,
+    pub status: String,
+    pub footer_row_count: u64,
+    pub footer_segment_count: u64,
+    pub footer_statistics_available: bool,
+    pub footer_statistics_status: String,
+    pub footer_approx_bytes: Option<u64>,
+    pub footer_dtype_summary: String,
+    pub footer_layout_summary: String,
+    pub metadata_persisted_in_artifact: bool,
+    pub metadata_first_pruning_available: bool,
+    pub metadata_first_pruning_consulted: bool,
+    pub metadata_pruned_entire_input: bool,
+    pub selected_segment_count: u64,
+    pub skipped_segment_count: u64,
+    pub vortex_file_stats_reader_available: bool,
+    pub planner_consumption_status: String,
+    pub dictionary_encoding_policy: String,
+    pub late_materialization_status: String,
+    pub no_query_answer_cache: bool,
+}
+impl VortexLocalPrimitiveEmbeddedLayoutReport {
+    const SCHEMA_VERSION: &'static str = "shardloom.local_vortex_embedded_layout.v1";
+
+    #[must_use]
+    pub fn not_available() -> Self {
+        Self {
+            schema_version: Self::SCHEMA_VERSION.to_string(),
+            status: "not_available".to_string(),
+            footer_row_count: 0,
+            footer_segment_count: 0,
+            footer_statistics_available: false,
+            footer_statistics_status: "not_available".to_string(),
+            footer_approx_bytes: None,
+            footer_dtype_summary: "not_available".to_string(),
+            footer_layout_summary: "not_available".to_string(),
+            metadata_persisted_in_artifact: false,
+            metadata_first_pruning_available: false,
+            metadata_first_pruning_consulted: false,
+            metadata_pruned_entire_input: false,
+            selected_segment_count: 0,
+            skipped_segment_count: 0,
+            vortex_file_stats_reader_available: false,
+            planner_consumption_status: "not_available".to_string(),
+            dictionary_encoding_policy: "not_inspected".to_string(),
+            late_materialization_status: "not_inspected".to_string(),
+            no_query_answer_cache: true,
+        }
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn from_file(
+        file: &vortex::file::VortexFile,
+        primitive_kind: VortexQueryPrimitiveKind,
+        filter_planned: bool,
+        projection_planned: bool,
+    ) -> Self {
+        let footer = file.footer();
+        let segment_count = u64::try_from(footer.segment_map().len()).unwrap_or(u64::MAX);
+        let footer_statistics_available = footer.statistics().is_some();
+        let footer_approx_bytes = footer
+            .approx_byte_size()
+            .and_then(|value| u64::try_from(value).ok());
+        let planner_consumption_status =
+            Self::initial_planner_consumption_status(primitive_kind, filter_planned);
+        Self {
+            schema_version: Self::SCHEMA_VERSION.to_string(),
+            status: "footer_inventory_available".to_string(),
+            footer_row_count: file.row_count(),
+            footer_segment_count: segment_count,
+            footer_statistics_available,
+            footer_statistics_status: if footer_statistics_available {
+                "file_statistics_available".to_string()
+            } else {
+                "file_statistics_missing".to_string()
+            },
+            footer_approx_bytes,
+            footer_dtype_summary: file.dtype().to_string(),
+            footer_layout_summary: "vortex_footer_root_layout".to_string(),
+            metadata_persisted_in_artifact: true,
+            metadata_first_pruning_available: footer_statistics_available && filter_planned,
+            metadata_first_pruning_consulted: false,
+            metadata_pruned_entire_input: false,
+            selected_segment_count: segment_count,
+            skipped_segment_count: 0,
+            vortex_file_stats_reader_available: footer_statistics_available,
+            planner_consumption_status,
+            dictionary_encoding_policy: "preserve_vortex_dictionary_encoding_when_present"
+                .to_string(),
+            late_materialization_status: if projection_planned {
+                "projection_bound_before_materialization".to_string()
+            } else {
+                "materialize_only_at_declared_output_boundary".to_string()
+            },
+            no_query_answer_cache: true,
+        }
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn partitioned() -> Self {
+        Self {
+            schema_version: Self::SCHEMA_VERSION.to_string(),
+            status: "partitioned_footer_inventory_available".to_string(),
+            footer_row_count: 0,
+            footer_segment_count: 0,
+            footer_statistics_available: true,
+            footer_statistics_status: "all_file_statistics_available".to_string(),
+            footer_approx_bytes: Some(0),
+            footer_dtype_summary: "partitioned_vortex".to_string(),
+            footer_layout_summary: "partitioned_vortex_footer_root_layouts".to_string(),
+            metadata_persisted_in_artifact: true,
+            metadata_first_pruning_available: false,
+            metadata_first_pruning_consulted: false,
+            metadata_pruned_entire_input: false,
+            selected_segment_count: 0,
+            skipped_segment_count: 0,
+            vortex_file_stats_reader_available: true,
+            planner_consumption_status: "partitioned_footer_inventory_available".to_string(),
+            dictionary_encoding_policy: "preserve_vortex_dictionary_encoding_when_present"
+                .to_string(),
+            late_materialization_status: "materialize_only_at_declared_output_boundary".to_string(),
+            no_query_answer_cache: true,
+        }
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn initial_planner_consumption_status(
+        primitive_kind: VortexQueryPrimitiveKind,
+        filter_planned: bool,
+    ) -> String {
+        if primitive_kind == VortexQueryPrimitiveKind::CountAll {
+            "metadata_row_count_consumed".to_string()
+        } else if filter_planned {
+            "metadata_first_pruning_available_not_consulted".to_string()
+        } else {
+            "footer_inventory_available".to_string()
+        }
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn mark_pruning_consulted(&mut self, pruned_entire_input: bool) {
+        self.metadata_first_pruning_consulted = true;
+        self.metadata_pruned_entire_input = pruned_entire_input;
+        if pruned_entire_input {
+            self.status = "metadata_pruned_entire_input".to_string();
+            self.selected_segment_count = 0;
+            self.skipped_segment_count = self.footer_segment_count;
+            self.planner_consumption_status = "metadata_first_pruning_consulted_pruned".to_string();
+        } else if self.footer_statistics_available {
+            self.planner_consumption_status =
+                "metadata_first_pruning_consulted_no_prune".to_string();
+        } else {
+            self.planner_consumption_status =
+                "metadata_first_pruning_consulted_no_stats".to_string();
+        }
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn merge_partition(&mut self, child: &Self) -> Result<()> {
+        self.footer_row_count =
+            self.footer_row_count
+                .checked_add(child.footer_row_count)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "partitioned local Vortex footer row count overflowed u64; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+        self.footer_segment_count = self
+            .footer_segment_count
+            .checked_add(child.footer_segment_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex footer segment count overflowed u64; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        self.selected_segment_count = self
+            .selected_segment_count
+            .checked_add(child.selected_segment_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex selected segment count overflowed u64; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        self.skipped_segment_count = self
+            .skipped_segment_count
+            .checked_add(child.skipped_segment_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex skipped segment count overflowed u64; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        self.footer_approx_bytes = self
+            .footer_approx_bytes
+            .zip(child.footer_approx_bytes)
+            .and_then(|(left, right)| left.checked_add(right));
+        self.footer_statistics_available &=
+            child.footer_statistics_available && child.metadata_persisted_in_artifact;
+        self.vortex_file_stats_reader_available &= child.vortex_file_stats_reader_available;
+        self.metadata_first_pruning_available |= child.metadata_first_pruning_available;
+        self.metadata_first_pruning_consulted |= child.metadata_first_pruning_consulted;
+        self.metadata_pruned_entire_input =
+            self.metadata_first_pruning_consulted && self.selected_segment_count == 0;
+        self.footer_statistics_status = if self.footer_statistics_available {
+            "all_file_statistics_available".to_string()
+        } else {
+            "mixed_or_missing_file_statistics".to_string()
+        };
+        self.planner_consumption_status = if self.metadata_pruned_entire_input {
+            "partitioned_metadata_first_pruning_pruned_all".to_string()
+        } else if self.metadata_first_pruning_consulted {
+            "partitioned_metadata_first_pruning_consulted".to_string()
+        } else {
+            "partitioned_footer_inventory_available".to_string()
+        };
+        Ok(())
+    }
+
+    #[must_use]
+    pub fn compact_summary(&self) -> String {
+        format!(
+            "schema={};status={};rows={};segments={};stats={};pruning_available={};pruning_consulted={};pruned_entire_input={};selected_segments={};skipped_segments={};planner_status={};no_query_answer_cache={}",
+            self.schema_version,
+            self.status,
+            self.footer_row_count,
+            self.footer_segment_count,
+            self.footer_statistics_status,
+            self.metadata_first_pruning_available,
+            self.metadata_first_pruning_consulted,
+            self.metadata_pruned_entire_input,
+            self.selected_segment_count,
+            self.skipped_segment_count,
+            self.planner_consumption_status,
+            self.no_query_answer_cache
+        )
+    }
+}
+
 /// Report emitted by the narrow local Vortex primitive executor.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -228,6 +477,7 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub source_order_limit_input_rows: Option<u64>,
     pub source_order_limit_rows_output: Option<u64>,
     pub state_budget: VortexLocalPrimitiveStateBudgetReport,
+    pub embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport,
     pub data_read: bool,
     pub data_decoded: bool,
     pub data_materialized: bool,
@@ -270,6 +520,7 @@ impl VortexLocalPrimitiveExecutionReport {
             source_order_limit_input_rows: None,
             source_order_limit_rows_output: None,
             state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
+            embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::not_available(),
             data_read: false,
             data_decoded: false,
             data_materialized: false,
@@ -375,6 +626,11 @@ impl VortexLocalPrimitiveExecutionReport {
         );
         self.write_source_order_limit_text(&mut out);
         let _ = writeln!(out, "state budget: {}", self.state_budget.compact_summary());
+        let _ = writeln!(
+            out,
+            "embedded layout: {}",
+            self.embedded_layout.compact_summary()
+        );
         let _ = writeln!(out, "data read: {}", self.data_read);
         let _ = writeln!(out, "data decoded: {}", self.data_decoded);
         let _ = writeln!(out, "data materialized: {}", self.data_materialized);
@@ -658,7 +914,18 @@ pub fn local_primitive_execution_certificate(
     input.execution_provider_kind = ExecutionProviderKind::VortexScan;
     input.provider_crate = Some("vortex".to_string());
     input.provider_version = Some(crate::UPSTREAM_VORTEX_PROVIDER_VERSION.to_string());
-    input.provider_api_surface = Some("VortexFile::scan.into_array_iter".to_string());
+    input.provider_api_surface = Some(
+        if report.embedded_layout.metadata_pruned_entire_input {
+            "VortexFile::can_prune"
+        } else if report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingCount
+            && !report.upstream_scan_called
+        {
+            "VortexFile::row_count"
+        } else {
+            "VortexFile::scan.into_array_iter"
+        }
+        .to_string(),
+    );
     input.shardloom_admission_policy = Some("shardloom.vortex.local_scan_primitive.v1".to_string());
     input.plan_ref = Some(format!("vortex-run:{}", report.primitive_kind.as_str()));
     input.input_ref = request
@@ -670,8 +937,10 @@ pub fn local_primitive_execution_certificate(
     input.correctness_fixture_id = Some(fixture.id.as_str().to_string());
     input.expected_outcome = Some(fixture.expected.clone());
     input.actual_outcome = local_primitive_actual_outcome(report, &fixture.expected);
-    input.selected_segment_count = 0;
-    input.skipped_segment_count = 0;
+    input.selected_segment_count =
+        usize::try_from(report.embedded_layout.selected_segment_count).unwrap_or(usize::MAX);
+    input.skipped_segment_count =
+        usize::try_from(report.embedded_layout.skipped_segment_count).unwrap_or(usize::MAX);
     input.side_effects_performed = local_primitive_side_effects(report);
     input.data_read = report.data_read;
     input.data_decoded = report.data_decoded;
@@ -1010,6 +1279,18 @@ fn local_primitive_native_io_safe(
             && !report.arrow_converted
             && !report.full_stream_collected;
     }
+    if report.embedded_layout.metadata_pruned_entire_input {
+        return !report.upstream_scan_called
+            && !report.data_read
+            && !report.streaming_scan_used
+            && !report.data_decoded
+            && !report.data_materialized
+            && !report.row_read
+            && !report.arrow_converted
+            && !report.full_stream_collected
+            && report.filter_pushdown_applied
+            && report.upstream_filter_expression_used;
+    }
     report.upstream_scan_called && report.data_read && report.streaming_scan_used
 }
 
@@ -1039,8 +1320,8 @@ fn local_primitive_pushdown_evidence_is_sufficient(
         | VortexQueryPrimitiveKind::ExplodeRows
         | VortexQueryPrimitiveKind::PivotRows
         | VortexQueryPrimitiveKind::RollingWindowRows
-        | VortexQueryPrimitiveKind::SimpleAggregate
-        | VortexQueryPrimitiveKind::SortRows => {
+        | VortexQueryPrimitiveKind::SortRows
+        | VortexQueryPrimitiveKind::SimpleAggregate => {
             local_primitive_materialization_declared(report)
                 && local_primitive_row_count(report).is_some()
         }
@@ -1097,11 +1378,15 @@ fn local_primitive_source_capability_report(
         adapter_id: "shardloom.adapter.vortex.local_primitive.v1".to_string(),
         schema_discovery_status: if report.upstream_scan_called {
             "vortex_scan_schema_available".to_string()
+        } else if report.embedded_layout.metadata_persisted_in_artifact {
+            "vortex_footer_schema_available".to_string()
         } else {
             "not_available".to_string()
         },
-        statistics_availability: if report.rows_scanned > 0 {
-            "row_count_available".to_string()
+        statistics_availability: if report.embedded_layout.footer_statistics_available {
+            report.embedded_layout.footer_statistics_status.clone()
+        } else if report.rows_scanned > 0 {
+            "row_count_metadata_available".to_string()
         } else {
             "unknown".to_string()
         },
@@ -1298,6 +1583,9 @@ fn local_primitive_pushdown_guarantee(
 fn local_primitive_pushdown_proof_basis(
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> &'static str {
+    if report.embedded_layout.metadata_pruned_entire_input {
+        return "ShardLoom consulted embedded Vortex footer statistics through VortexFile::can_prune and proved the filter cannot match before opening a scan stream";
+    }
     match report.primitive_kind {
         VortexQueryPrimitiveKind::CountAll => {
             if report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingCount
@@ -1751,6 +2039,9 @@ fn local_primitive_side_effects(report: &VortexLocalPrimitiveExecutionReport) ->
     let mut effects = Vec::new();
     if report.upstream_scan_called {
         effects.push("local_vortex_scan".to_string());
+    }
+    if report.embedded_layout.metadata_first_pruning_consulted {
+        effects.push("vortex_footer_metadata_pruning".to_string());
     }
     if report.filter_pushdown_applied {
         effects.push("vortex_filter_pushdown".to_string());
@@ -7544,7 +7835,11 @@ fn execute_vortex_local_primitive_enabled(
                 }
                 Ok(plan)
             })?;
-            predicate_report(request.kind, &scan, predicate)
+            if request.kind == VortexQueryPrimitiveKind::CountWhere {
+                count_where_report(&path, request, &scan, predicate)
+            } else {
+                predicate_report(request.kind, &scan, predicate)
+            }
         }
         VortexQueryPrimitiveKind::ProjectColumns => {
             let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
@@ -7853,6 +8148,7 @@ struct LocalVortexScan {
     projection_pushdown_applied: bool,
     residual_predicate_materialization: ResidualPredicateMaterialization,
     source_order_limit: Option<usize>,
+    embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -7933,6 +8229,30 @@ impl LocalVortexScan {
 
     fn residual_predicate_materialized(&self) -> bool {
         self.residual_predicate_materialization.materialized()
+    }
+
+    fn metadata_pruned_entire_input(&self) -> bool {
+        self.embedded_layout.metadata_pruned_entire_input
+    }
+
+    fn streaming_scan_used(&self) -> bool {
+        !self.metadata_pruned_entire_input()
+    }
+
+    fn data_read(&self) -> bool {
+        self.streaming_scan_used() && self.arrays_read_count > 0
+    }
+
+    fn upstream_scan_called(&self) -> bool {
+        self.streaming_scan_used()
+    }
+
+    fn row_read(&self) -> bool {
+        self.data_read() && self.residual_predicate_materialized()
+    }
+
+    fn residual_materialization_boundary_reported(&self) -> bool {
+        self.row_read()
     }
 }
 
@@ -8259,6 +8579,42 @@ fn read_local_vortex_scan(
         .output_columns
         .clone()
         .unwrap_or_else(|| plan.projected_columns.clone());
+    let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+        &file,
+        primitive_kind,
+        filter_pushdown_applied,
+        projection_pushdown_applied,
+    );
+    if let Some(filter) = plan.filter.as_ref() {
+        let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
+        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        if metadata_pruned {
+            let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+            let reader_splits = Vec::new();
+            let reader_generated_prepared_batch_report =
+                plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
+            return Ok(LocalVortexScan {
+                source_row_count,
+                result_row_count: 0,
+                pre_limit_result_row_count: 0,
+                arrays_read_count: 0,
+                reader_splits,
+                reader_generated_prepared_batch_report,
+                max_chunk_rows: 0,
+                max_parallelism_requested: policy.max_parallelism,
+                scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+                projected_columns: output_columns,
+                filter_pushdown_applied,
+                projection_pushdown_applied,
+                residual_predicate_materialization: ResidualPredicateMaterialization::from_flags(
+                    residual_predicate.is_some(),
+                    false,
+                ),
+                source_order_limit,
+                embedded_layout,
+            });
+        }
+    }
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter.take() {
         scan = scan.with_filter(filter);
@@ -8375,6 +8731,7 @@ fn read_local_vortex_scan(
             residual_predicate_materialized,
         ),
         source_order_limit,
+        embedded_layout,
     })
 }
 
@@ -8409,6 +8766,7 @@ fn read_local_vortex_partitioned_scan(
     let mut residual_predicate_applied = false;
     let mut residual_predicate_materialized = false;
     let mut source_order_limit = None;
+    let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::partitioned();
 
     for source in sources {
         if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
@@ -8472,6 +8830,22 @@ fn read_local_vortex_partitioned_scan(
         filter_pushdown_applied |= plan.filter.is_some();
         projection_pushdown_applied |= plan.projection.is_some();
         residual_predicate_applied |= plan.residual_predicate.is_some();
+        let mut partition_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            primitive_kind,
+            plan.filter.is_some(),
+            plan.projection.is_some(),
+        );
+        if let Some(filter) = plan.filter.as_ref() {
+            let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
+            partition_layout.mark_pruning_consulted(metadata_pruned);
+            embedded_layout.merge_partition(&partition_layout)?;
+            if metadata_pruned {
+                continue;
+            }
+        } else {
+            embedded_layout.merge_partition(&partition_layout)?;
+        }
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter.take() {
             scan = scan.with_filter(filter);
@@ -8584,6 +8958,7 @@ fn read_local_vortex_partitioned_scan(
             residual_predicate_materialized,
         ),
         source_order_limit,
+        embedded_layout,
     })
 }
 
@@ -9518,6 +9893,12 @@ fn count_all_metadata_report(
             ))
         })?;
     let rows = file.row_count();
+    let embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+        &file,
+        VortexQueryPrimitiveKind::CountAll,
+        false,
+        false,
+    );
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::MetadataPreservingCount,
@@ -9544,6 +9925,7 @@ fn count_all_metadata_report(
         source_order_limit_input_rows: None,
         source_order_limit_rows_output: None,
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
+        embedded_layout,
         data_read: false,
         data_decoded: false,
         data_materialized: false,
@@ -9575,6 +9957,7 @@ fn partitioned_count_all_metadata_report(
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut rows = 0_u64;
+    let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::partitioned();
     for source in sources {
         let file = runtime
             .block_on(session.open_options().open_path(&source.path))
@@ -9589,6 +9972,13 @@ fn partitioned_count_all_metadata_report(
                     .to_string(),
             )
         })?;
+        let child_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            VortexQueryPrimitiveKind::CountAll,
+            false,
+            false,
+        );
+        embedded_layout.merge_partition(&child_layout)?;
     }
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
@@ -9616,6 +10006,7 @@ fn partitioned_count_all_metadata_report(
         source_order_limit_input_rows: None,
         source_order_limit_rows_output: None,
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
+        embedded_layout,
         data_read: false,
         data_decoded: false,
         data_materialized: false,
@@ -9630,6 +10021,74 @@ fn partitioned_count_all_metadata_report(
         materialization_boundary_reported: false,
         diagnostics: Vec::new(),
     })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn count_where_report(
+    _path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    scan: &LocalVortexScan,
+    predicate: &PredicateExpr,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let rows_selected = usize_to_u64(scan.result_row_count)?;
+    let result_summary = count_where_result_summary_json(rows_selected, predicate);
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind: request.kind,
+        result_summary: Some(format!(
+            "count_where rows_selected={} predicate={} values={result_summary}",
+            rows_selected,
+            predicate.summary()
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(rows_selected),
+        rows_projected: None,
+        projected_columns: Vec::new(),
+        arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: scan.streaming_scan_used(),
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: scan.filter_pushdown_applied,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: scan.upstream_filter_expression_used(),
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(rows_selected),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
+        data_decoded: scan.residual_predicate_materialized(),
+        data_materialized: scan.residual_predicate_materialized(),
+        upstream_scan_called: scan.upstream_scan_called(),
+        row_read: scan.row_read(),
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: scan.residual_materialization_boundary_reported(),
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn count_where_result_summary_json(rows_selected: u64, predicate: &PredicateExpr) -> String {
+    serde_json::json!({
+        "count": rows_selected,
+        "predicate": predicate.summary(),
+        "count_where_strategy": "exact_vortex_filter_count",
+    })
+    .to_string()
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -9654,7 +10113,7 @@ fn predicate_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -9667,18 +10126,19 @@ fn predicate_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: scan.residual_predicate_materialized(),
         data_materialized: scan.residual_predicate_materialized(),
-        upstream_scan_called: true,
-        row_read: scan.residual_predicate_materialized(),
+        upstream_scan_called: scan.upstream_scan_called(),
+        row_read: scan.row_read(),
         arrow_converted: false,
         object_store_io: false,
         write_io: false,
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: scan.residual_predicate_materialized(),
+        materialization_boundary_reported: scan.residual_materialization_boundary_reported(),
         diagnostics: Vec::new(),
     })
 }
@@ -9708,7 +10168,7 @@ fn projection_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -9721,18 +10181,19 @@ fn projection_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: scan.residual_predicate_materialized(),
         data_materialized: scan.residual_predicate_materialized(),
-        upstream_scan_called: true,
-        row_read: scan.residual_predicate_materialized(),
+        upstream_scan_called: scan.upstream_scan_called(),
+        row_read: scan.row_read(),
         arrow_converted: false,
         object_store_io: false,
         write_io: false,
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: scan.residual_predicate_materialized(),
+        materialization_boundary_reported: scan.residual_materialization_boundary_reported(),
         diagnostics: Vec::new(),
     })
 }
@@ -9762,7 +10223,7 @@ fn filter_and_project_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -9775,18 +10236,19 @@ fn filter_and_project_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: scan.residual_predicate_materialized(),
         data_materialized: scan.residual_predicate_materialized(),
-        upstream_scan_called: true,
-        row_read: scan.residual_predicate_materialized(),
+        upstream_scan_called: scan.upstream_scan_called(),
+        row_read: scan.row_read(),
         arrow_converted: false,
         object_store_io: false,
         write_io: false,
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: scan.residual_predicate_materialized(),
+        materialization_boundary_reported: scan.residual_materialization_boundary_reported(),
         diagnostics: Vec::new(),
     })
 }
@@ -9816,7 +10278,7 @@ fn distinct_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -9836,10 +10298,11 @@ fn distinct_rows_report(
             Some(scan.source_row_count),
             "local_vortex_distinct_collect",
         ),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -9886,7 +10349,7 @@ fn drop_duplicate_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: true,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -9911,10 +10374,11 @@ fn drop_duplicate_rows_report(
             Some(usize_to_u64(state_bound_rows)?),
             "local_vortex_drop_duplicates_collect",
         ),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -9953,7 +10417,7 @@ fn duplicate_mask_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -9973,10 +10437,11 @@ fn duplicate_mask_rows_report(
             Some(scan.source_row_count),
             "local_vortex_duplicate_mask_collect",
         ),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -10014,7 +10479,7 @@ fn tail_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: true,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -10027,10 +10492,11 @@ fn tail_rows_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -10072,7 +10538,7 @@ fn sample_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: true,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -10085,10 +10551,11 @@ fn sample_rows_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -10131,7 +10598,7 @@ fn expression_project_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -10144,10 +10611,11 @@ fn expression_project_rows_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -10194,7 +10662,7 @@ fn melt_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -10207,10 +10675,11 @@ fn melt_rows_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -10253,7 +10722,7 @@ fn explode_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -10266,10 +10735,11 @@ fn explode_rows_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -10312,7 +10782,7 @@ fn pivot_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -10325,10 +10795,11 @@ fn pivot_rows_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -10850,7 +11321,7 @@ fn rolling_window_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -10863,10 +11334,11 @@ fn rolling_window_rows_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
         state_budget: rolling_window_state_budget_report(request, scan)?,
-        data_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
-        upstream_scan_called: true,
+        upstream_scan_called: scan.upstream_scan_called(),
         row_read: true,
         arrow_converted: false,
         object_store_io: false,
@@ -10891,6 +11363,7 @@ fn simple_aggregate_report(
         .simple_aggregate
         .as_ref()
         .map_or_else(|| "none".to_string(), VortexSimpleAggregateRequest::summary);
+    let result_summary = aggregate.result_summary.clone();
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
@@ -10901,7 +11374,7 @@ fn simple_aggregate_report(
             rows,
             scan.projected_columns.join(","),
             aggregate_summary,
-            aggregate.result_summary
+            result_summary
         )),
         rows_scanned: scan.source_row_count,
         rows_selected: Some(input_rows),
@@ -10913,7 +11386,7 @@ fn simple_aggregate_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
@@ -10926,18 +11399,19 @@ fn simple_aggregate_report(
         source_order_limit_input_rows: Some(input_rows),
         source_order_limit_rows_output: Some(rows),
         state_budget: aggregate.state_budget.clone(),
-        data_read: true,
-        data_decoded: true,
-        data_materialized: true,
-        upstream_scan_called: true,
-        row_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
+        data_decoded: scan.data_read(),
+        data_materialized: scan.data_read(),
+        upstream_scan_called: scan.upstream_scan_called(),
+        row_read: scan.data_read(),
         arrow_converted: false,
         object_store_io: false,
         write_io: false,
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: true,
+        materialization_boundary_reported: scan.data_read(),
         diagnostics: Vec::new(),
     })
 }
@@ -10954,6 +11428,7 @@ fn sort_rows_report(
         .sort_rows
         .as_ref()
         .map_or_else(|| "none".to_string(), VortexSortRowsRequest::summary);
+    let result_summary = rows_scan.result_summary.clone();
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
@@ -10964,7 +11439,7 @@ fn sort_rows_report(
             rows,
             scan.projected_columns.join(","),
             sort_summary,
-            rows_scan.result_summary
+            result_summary
         )),
         rows_scanned: scan.source_row_count,
         rows_selected: Some(rows),
@@ -10976,8 +11451,8 @@ fn sort_rows_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
-        full_stream_collected: true,
+        streaming_scan_used: scan.streaming_scan_used(),
+        full_stream_collected: scan.streaming_scan_used(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -10989,18 +11464,19 @@ fn sort_rows_report(
         source_order_limit_input_rows: Some(input_rows),
         source_order_limit_rows_output: Some(rows),
         state_budget: sort_rows_state_budget_report(request, scan, input_rows)?,
-        data_read: true,
-        data_decoded: true,
-        data_materialized: true,
-        upstream_scan_called: true,
-        row_read: true,
+        embedded_layout: scan.embedded_layout.clone(),
+        data_read: scan.data_read(),
+        data_decoded: scan.data_read(),
+        data_materialized: scan.data_read(),
+        upstream_scan_called: scan.upstream_scan_called(),
+        row_read: scan.data_read(),
         arrow_converted: false,
         object_store_io: false,
         write_io: false,
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: true,
+        materialization_boundary_reported: scan.data_read(),
         diagnostics: Vec::new(),
     })
 }
@@ -11123,6 +11599,12 @@ fn read_local_vortex_distinct_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            filter_pushdown_applied,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -11268,6 +11750,12 @@ fn read_local_vortex_drop_duplicate_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            filter_pushdown_applied,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -11410,6 +11898,12 @@ fn read_local_vortex_duplicate_mask_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            false,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -11522,6 +12016,12 @@ fn read_local_vortex_tail_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit: Some(source_order_limit),
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            false,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -11705,6 +12205,12 @@ fn read_local_vortex_sample_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            filter_pushdown_applied,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -11860,6 +12366,12 @@ fn read_local_vortex_expression_project_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            false,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -11985,6 +12497,12 @@ fn read_local_vortex_melt_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            false,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -12116,6 +12634,12 @@ fn read_local_vortex_pivot_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            false,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -12241,6 +12765,12 @@ fn read_local_vortex_explode_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            false,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -12415,6 +12945,12 @@ fn read_local_vortex_rolling_window_scan(
         projection_pushdown_applied,
         residual_predicate_materialization: ResidualPredicateMaterialization::None,
         source_order_limit,
+        embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            false,
+            projection_pushdown_applied,
+        ),
     })
 }
 
@@ -12469,6 +13005,16 @@ fn read_local_vortex_simple_aggregate_scan(
     };
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
+    let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+        &file,
+        request.kind,
+        filter_pushdown_applied,
+        projection_pushdown_applied,
+    );
+    if let Some(filter) = plan.filter.as_ref() {
+        let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
+        embedded_layout.mark_pruning_consulted(metadata_pruned);
+    }
     let aggregate_has_grouping =
         !aggregate.group_by.is_empty() || !aggregate.group_expressions.is_empty();
     let mut scalar_states = if aggregate_has_grouping {
@@ -12485,14 +13031,6 @@ fn read_local_vortex_simple_aggregate_scan(
     } else {
         None
     };
-    let mut scan = file.scan().map_err(vortex_error)?;
-    if let Some(filter) = plan.filter {
-        scan = scan.with_filter(filter);
-    }
-    if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
-    }
-    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
     let residual_evaluator = residual_predicate
         .as_ref()
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
@@ -12503,128 +13041,140 @@ fn read_local_vortex_simple_aggregate_scan(
     let mut reader_splits = Vec::new();
     let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
-    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
-        let chunk = chunk.map_err(vortex_error)?;
-        let rows = chunk.len();
-        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
-            source_uri.clone(),
-            arrays_read_count,
-            rows,
-            chunk.dtype().to_string(),
-            chunk.encoding_id().to_string(),
-            chunk.nchildren(),
-            chunk.nbuffers(),
-        )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
-        reader_splits.push(split);
-        if let Some(predicate) = residual_evaluator.as_ref() {
-            let selected_rows = if let Some(row_indices) =
-                predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                && row_indices.len() < rows
-            {
-                let columns = row_export_selected_columns_from_chunk(
-                    &chunk,
-                    &declared_columns,
-                    &row_indices,
-                )?;
-                let mut selected_rows = 0usize;
-                for row_index in 0..row_indices.len() {
-                    if !predicate.matches(&columns, row_index)? {
-                        continue;
-                    }
-                    if let Some(states) = scalar_states.as_mut() {
-                        states.update_row(&columns, row_index)?;
-                    }
-                    if let Some(states) = grouped_states.as_mut()
-                        && !states
-                            .update_compact_direct_from_materialized_columns(&columns, row_index)?
-                    {
-                        states.update_row(&columns, row_index)?;
-                    }
-                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex simple aggregate selected row count overflowed usize"
-                                .to_string(),
-                        )
-                    })?;
-                }
-                selected_rows
-            } else {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                let mut selected_rows = 0usize;
-                for row_index in 0..materialized_rows {
-                    if !predicate.matches(&columns, row_index)? {
-                        continue;
-                    }
-                    if let Some(states) = scalar_states.as_mut() {
-                        states.update_row(&columns, row_index)?;
-                    }
-                    if let Some(states) = grouped_states.as_mut()
-                        && !states
-                            .update_compact_direct_from_materialized_columns(&columns, row_index)?
-                    {
-                        states.update_row(&columns, row_index)?;
-                    }
-                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex simple aggregate selected row count overflowed usize"
-                                .to_string(),
-                        )
-                    })?;
-                }
-                selected_rows
-            };
-            pre_limit_result_row_count = pre_limit_result_row_count
-                .checked_add(selected_rows)
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex simple aggregate input row count overflowed usize"
-                            .to_string(),
-                    )
-                })?;
-        } else {
-            let direct_compact_updated = if let Some(states) = grouped_states.as_mut() {
-                states.update_compact_direct_from_chunk(&chunk, &declared_columns, None)?
-            } else {
-                false
-            };
-            let materialized_rows = if direct_compact_updated {
-                rows
-            } else {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                if let Some(states) = scalar_states.as_mut() {
-                    states.update(&columns, materialized_rows)?;
-                }
-                if let Some(states) = grouped_states.as_mut() {
-                    states.update(&columns, materialized_rows)?;
-                }
-                materialized_rows
-            };
-            pre_limit_result_row_count = pre_limit_result_row_count
-                .checked_add(materialized_rows)
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex simple aggregate input row count overflowed usize"
-                            .to_string(),
-                    )
-                })?;
+    if !embedded_layout.metadata_pruned_entire_input {
+        let mut scan = file.scan().map_err(vortex_error)?;
+        if let Some(filter) = plan.filter {
+            scan = scan.with_filter(filter);
         }
-        max_chunk_rows = max_chunk_rows.max(rows);
-        arrays_read_count += 1;
+        if let Some(projection) = plan.projection {
+            scan = scan.with_projection(projection);
+        }
+        scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+            let chunk = chunk.map_err(vortex_error)?;
+            let rows = chunk.len();
+            let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+                source_uri.clone(),
+                arrays_read_count,
+                rows,
+                chunk.dtype().to_string(),
+                chunk.encoding_id().to_string(),
+                chunk.nchildren(),
+                chunk.nbuffers(),
+            )?;
+            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+                source_uri,
+                &split.split_ref,
+                &chunk,
+            )?);
+            reader_splits.push(split);
+            if let Some(predicate) = residual_evaluator.as_ref() {
+                let selected_rows = if let Some(row_indices) =
+                    predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
+                    && row_indices.len() < rows
+                {
+                    let columns = row_export_selected_columns_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &row_indices,
+                    )?;
+                    let mut selected_rows = 0usize;
+                    for row_index in 0..row_indices.len() {
+                        if !predicate.matches(&columns, row_index)? {
+                            continue;
+                        }
+                        if let Some(states) = scalar_states.as_mut() {
+                            states.update_row(&columns, row_index)?;
+                        }
+                        if let Some(states) = grouped_states.as_mut()
+                            && !states.update_compact_direct_from_materialized_columns(
+                                &columns, row_index,
+                            )?
+                        {
+                            states.update_row(&columns, row_index)?;
+                        }
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex simple aggregate selected row count overflowed usize"
+                                    .to_string(),
+                            )
+                        })?;
+                    }
+                    selected_rows
+                } else {
+                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let materialized_rows = if columns.is_empty() {
+                        rows
+                    } else {
+                        row_export_materialized_row_count(&columns, rows)?
+                    };
+                    let mut selected_rows = 0usize;
+                    for row_index in 0..materialized_rows {
+                        if !predicate.matches(&columns, row_index)? {
+                            continue;
+                        }
+                        if let Some(states) = scalar_states.as_mut() {
+                            states.update_row(&columns, row_index)?;
+                        }
+                        if let Some(states) = grouped_states.as_mut()
+                            && !states.update_compact_direct_from_materialized_columns(
+                                &columns, row_index,
+                            )?
+                        {
+                            states.update_row(&columns, row_index)?;
+                        }
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex simple aggregate selected row count overflowed usize"
+                                    .to_string(),
+                            )
+                        })?;
+                    }
+                    selected_rows
+                };
+                pre_limit_result_row_count = pre_limit_result_row_count
+                    .checked_add(selected_rows)
+                    .ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex simple aggregate input row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+            } else {
+                let direct_compact_updated = if let Some(states) = grouped_states.as_mut() {
+                    states.update_compact_direct_from_chunk(&chunk, &declared_columns, None)?
+                } else {
+                    false
+                };
+                let materialized_rows = if direct_compact_updated {
+                    rows
+                } else {
+                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let materialized_rows = if columns.is_empty() {
+                        rows
+                    } else {
+                        row_export_materialized_row_count(&columns, rows)?
+                    };
+                    if let Some(states) = scalar_states.as_mut() {
+                        states.update(&columns, materialized_rows)?;
+                    }
+                    if let Some(states) = grouped_states.as_mut() {
+                        states.update(&columns, materialized_rows)?;
+                    }
+                    materialized_rows
+                };
+                pre_limit_result_row_count = pre_limit_result_row_count
+                    .checked_add(materialized_rows)
+                    .ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex simple aggregate input row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+            }
+            max_chunk_rows = max_chunk_rows.max(rows);
+            arrays_read_count += 1;
+        }
     }
     let result_limit = request.source_order_limit;
     let (result_row_count, result_summary, state_budget) = if let Some(states) = grouped_states {
@@ -12682,9 +13232,10 @@ fn read_local_vortex_simple_aggregate_scan(
                 residual_predicate.is_some(),
             ),
             source_order_limit: result_limit,
+            embedded_layout,
         },
-        result_summary,
-        state_budget,
+        result_summary: result_summary.clone(),
+        state_budget: state_budget.clone(),
     })
 }
 
@@ -12731,6 +13282,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     let mut max_chunk_rows = 0_usize;
     let mut filter_pushdown_applied = false;
     let mut projection_pushdown_applied = false;
+    let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::partitioned();
     let (pushdown_predicate, residual_predicate) = request
         .predicate
         .as_ref()
@@ -12778,6 +13330,22 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         }
         filter_pushdown_applied |= plan.filter.is_some();
         projection_pushdown_applied |= plan.projection.is_some();
+        let mut partition_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            plan.filter.is_some(),
+            plan.projection.is_some(),
+        );
+        if let Some(filter) = plan.filter.as_ref() {
+            let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
+            partition_layout.mark_pruning_consulted(metadata_pruned);
+            embedded_layout.merge_partition(&partition_layout)?;
+            if metadata_pruned {
+                continue;
+            }
+        } else {
+            embedded_layout.merge_partition(&partition_layout)?;
+        }
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
             scan = scan.with_filter(filter);
@@ -12972,6 +13540,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                 residual_predicate.is_some(),
             ),
             source_order_limit: result_limit,
+            embedded_layout,
         },
         result_summary,
         state_budget,
@@ -13113,14 +13682,16 @@ fn read_local_vortex_sort_rows_scan(
     let declared_columns = plan.projected_columns.clone();
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
-    let mut scan = file.scan().map_err(vortex_error)?;
-    if let Some(filter) = plan.filter {
-        scan = scan.with_filter(filter);
+    let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+        &file,
+        request.kind,
+        filter_pushdown_applied,
+        projection_pushdown_applied,
+    );
+    if let Some(filter) = plan.filter.as_ref() {
+        let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
+        embedded_layout.mark_pruning_consulted(metadata_pruned);
     }
-    if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
-    }
-    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
     let output_column_indices = if wide_output_second_pass {
         None
@@ -13144,66 +13715,101 @@ fn read_local_vortex_sort_rows_scan(
     let mut reader_splits = Vec::new();
     let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
-    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
-        let chunk = chunk.map_err(vortex_error)?;
-        let rows = chunk.len();
-        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
-            source_uri.clone(),
-            arrays_read_count,
-            rows,
-            chunk.dtype().to_string(),
-            chunk.encoding_id().to_string(),
-            chunk.nchildren(),
-            chunk.nbuffers(),
-        )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
-        reader_splits.push(split);
-        if let Some(predicate) = residual_evaluator.as_ref() {
-            if let Some(row_indices) =
-                predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                && row_indices.len() < rows
-            {
-                let columns = row_export_selected_columns_from_chunk(
-                    &chunk,
-                    &declared_columns,
-                    &row_indices,
-                )?;
-                for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
-                    if !predicate.matches(&columns, compact_index)? {
-                        continue;
+    if !embedded_layout.metadata_pruned_entire_input {
+        let mut scan = file.scan().map_err(vortex_error)?;
+        if let Some(filter) = plan.filter {
+            scan = scan.with_filter(filter);
+        }
+        if let Some(projection) = plan.projection {
+            scan = scan.with_projection(projection);
+        }
+        scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+            let chunk = chunk.map_err(vortex_error)?;
+            let rows = chunk.len();
+            let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+                source_uri.clone(),
+                arrays_read_count,
+                rows,
+                chunk.dtype().to_string(),
+                chunk.encoding_id().to_string(),
+                chunk.nchildren(),
+                chunk.nbuffers(),
+            )?;
+            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+                source_uri,
+                &split.split_ref,
+                &chunk,
+            )?);
+            reader_splits.push(split);
+            if let Some(predicate) = residual_evaluator.as_ref() {
+                if let Some(row_indices) =
+                    predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
+                    && row_indices.len() < rows
+                {
+                    let columns = row_export_selected_columns_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &row_indices,
+                    )?;
+                    for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
+                        if !predicate.matches(&columns, compact_index)? {
+                            continue;
+                        }
+                        let ordinal = selected_rows;
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                        candidates.push(SortRowCandidate {
+                            ordinal,
+                            source_partition_index: 0,
+                            source_ordinal: source_rows_seen
+                                .checked_add(source_row_index)
+                                .ok_or_else(|| {
+                                    ShardLoomError::InvalidOperation(
+                                        "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
+                                            .to_string(),
+                                    )
+                                })?,
+                            values: materialized_sort_row_values(&columns, compact_index)?,
+                        });
                     }
-                    let ordinal = selected_rows;
-                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
-                                .to_string(),
-                        )
-                    })?;
-                    candidates.push(SortRowCandidate {
-                        ordinal,
-                        source_partition_index: 0,
-                        source_ordinal: source_rows_seen.checked_add(source_row_index).ok_or_else(
-                            || {
-                                ShardLoomError::InvalidOperation(
-                                    "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
-                                        .to_string(),
-                                )
-                            },
-                        )?,
-                        values: materialized_sort_row_values(&columns, compact_index)?,
-                    });
+                } else {
+                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+                    for row_index in 0..materialized_rows {
+                        if !predicate.matches(&columns, row_index)? {
+                            continue;
+                        }
+                        let ordinal = selected_rows;
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                        candidates.push(SortRowCandidate {
+                            ordinal,
+                            source_partition_index: 0,
+                            source_ordinal: source_rows_seen.checked_add(row_index).ok_or_else(
+                                || {
+                                    ShardLoomError::InvalidOperation(
+                                        "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
+                                            .to_string(),
+                                    )
+                                },
+                            )?,
+                            values: materialized_sort_row_values(&columns, row_index)?,
+                        });
+                    }
                 }
             } else {
                 let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                 for row_index in 0..materialized_rows {
-                    if !predicate.matches(&columns, row_index)? {
-                        continue;
-                    }
                     let ordinal = selected_rows;
                     selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
                         ShardLoomError::InvalidOperation(
@@ -13224,49 +13830,26 @@ fn read_local_vortex_sort_rows_scan(
                     });
                 }
             }
-        } else {
-            let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-            let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-            for row_index in 0..materialized_rows {
-                let ordinal = selected_rows;
-                selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
-                            .to_string(),
-                    )
-                })?;
-                candidates.push(SortRowCandidate {
-                    ordinal,
-                    source_partition_index: 0,
-                    source_ordinal: source_rows_seen.checked_add(row_index).ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
-                                .to_string(),
-                        )
-                    })?,
-                    values: materialized_sort_row_values(&columns, row_index)?,
-                });
+            if sort_rows.tie_policy != VortexSortTiePolicy::All
+                && candidates.len() > retention_flush_threshold
+            {
+                sort_materialized_rows(
+                    &mut candidates,
+                    &sort_rows.order_by,
+                    &order_column_indices,
+                    sort_rows.tie_policy,
+                );
+                candidates.truncate(retained_cap);
             }
+            max_chunk_rows = max_chunk_rows.max(rows);
+            source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex sort source row count overflowed usize; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            arrays_read_count += 1;
         }
-        if sort_rows.tie_policy != VortexSortTiePolicy::All
-            && candidates.len() > retention_flush_threshold
-        {
-            sort_materialized_rows(
-                &mut candidates,
-                &sort_rows.order_by,
-                &order_column_indices,
-                sort_rows.tie_policy,
-            );
-            candidates.truncate(retained_cap);
-        }
-        max_chunk_rows = max_chunk_rows.max(rows);
-        source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "local Vortex sort source row count overflowed usize; no fallback execution was attempted"
-                    .to_string(),
-            )
-        })?;
-        arrays_read_count += 1;
     }
     sort_materialized_rows(
         &mut candidates,
@@ -13365,7 +13948,7 @@ fn read_local_vortex_sort_rows_scan(
             max_chunk_rows,
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
-            projected_columns: output_columns,
+            projected_columns: output_columns.clone(),
             filter_pushdown_applied,
             projection_pushdown_applied,
             residual_predicate_materialization: ResidualPredicateMaterialization::from_flags(
@@ -13373,8 +13956,9 @@ fn read_local_vortex_sort_rows_scan(
                 residual_predicate.is_some(),
             ),
             source_order_limit: Some(limit),
+            embedded_layout,
         },
-        result_summary,
+        result_summary: result_summary.clone(),
     })
 }
 
@@ -13459,6 +14043,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let mut expected_declared_columns: Option<Vec<String>> = None;
     let mut output_column_indices = None::<Vec<usize>>;
     let mut order_column_indices = None::<Vec<usize>>;
+    let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::partitioned();
     for (source_index, source) in sources.iter().enumerate() {
         let file = runtime
             .block_on(session.open_options().open_path(&source.path))
@@ -13527,6 +14112,22 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         })?;
         filter_pushdown_applied |= plan.filter.is_some();
         projection_pushdown_applied |= plan.projection.is_some();
+        let mut partition_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+            &file,
+            request.kind,
+            plan.filter.is_some(),
+            plan.projection.is_some(),
+        );
+        if let Some(filter) = plan.filter.as_ref() {
+            let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
+            partition_layout.mark_pruning_consulted(metadata_pruned);
+            embedded_layout.merge_partition(&partition_layout)?;
+            if metadata_pruned {
+                continue;
+            }
+        } else {
+            embedded_layout.merge_partition(&partition_layout)?;
+        }
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
             scan = scan.with_filter(filter);
@@ -13788,6 +14389,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 residual_predicate.is_some(),
             ),
             source_order_limit: Some(limit),
+            embedded_layout,
         },
         result_summary,
     })
@@ -21177,6 +21779,13 @@ mod tests {
         serde_json::from_str(payload).expect("simple aggregate values json")
     }
 
+    fn count_where_values_json(summary: &str) -> serde_json::Value {
+        let (_, payload) = summary
+            .rsplit_once(" values=")
+            .expect("count_where values payload");
+        serde_json::from_str(payload).expect("count_where values json")
+    }
+
     fn prepared_metric_segment(id: &str, row_count: u64) -> EncodedSegment {
         EncodedSegment::new(
             SegmentId::new(id).expect("segment"),
@@ -21360,7 +21969,8 @@ mod tests {
         let _ = std::fs::remove_file(&path);
 
         assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
-        assert_eq!(report.result_summary.as_deref(), Some("4"));
+        let payload = count_where_values_json(report.result_summary.as_deref().expect("summary"));
+        assert_eq!(payload["count"], serde_json::json!(4));
         let prepared_report = report
             .reader_generated_prepared_batch_report
             .as_ref()
@@ -21973,7 +22583,14 @@ mod tests {
         );
         assert_eq!(report.rows_scanned, 5);
         assert_eq!(report.rows_selected, Some(3));
-        assert_eq!(report.result_summary.as_deref(), Some("3"));
+        let payload = count_where_values_json(report.result_summary.as_deref().expect("summary"));
+        assert_eq!(payload["count"], serde_json::json!(3));
+        assert_eq!(
+            payload.get("prepared_olap_query_summary_written"),
+            None,
+            "local primitive execution must not emit query-answer sidecar write evidence"
+        );
+        assert_eq!(payload.get("prepared_olap_query_summary_hit"), None);
         assert!(report.data_read);
         assert!(report.streaming_scan_used);
         assert!(!report.full_stream_collected);
@@ -22099,6 +22716,70 @@ mod tests {
     }
 
     #[test]
+    fn count_where_rerun_stays_on_single_vortex_artifact_without_query_summary_sidecar() {
+        let path = unique_vortex_path("count-where-single-vortex-artifact");
+        write_string_struct_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexQueryPrimitiveRequest::count_where(
+            uri,
+            PredicateExpr::StringContains {
+                column: ColumnRef::new("label").expect("column"),
+                needle: "bad".to_string(),
+                negated: false,
+            },
+        );
+
+        let first = execute_vortex_local_primitive(&request).expect("first report");
+        assert_eq!(
+            first.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert_eq!(first.rows_scanned, 3);
+        assert_eq!(first.rows_selected, Some(2));
+        assert!(first.upstream_scan_called);
+        assert!(first.data_read);
+        assert!(!first.data_decoded);
+        assert!(!first.data_materialized);
+        let first_payload =
+            count_where_values_json(first.result_summary.as_deref().expect("first summary"));
+        assert_eq!(first_payload["count"], serde_json::json!(2));
+        assert_eq!(
+            first_payload.get("prepared_olap_query_summary_written"),
+            None
+        );
+        assert_eq!(first_payload.get("prepared_olap_query_summary_hit"), None);
+        assert_eq!(
+            first_payload.get("prepared_olap_query_summary_consumed"),
+            None
+        );
+
+        let second = execute_vortex_local_primitive(&request).expect("second report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            second.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert_eq!(second.rows_scanned, 3);
+        assert_eq!(second.rows_selected, Some(2));
+        assert!(second.upstream_scan_called);
+        assert!(second.data_read);
+        assert!(!second.data_decoded);
+        assert!(!second.data_materialized);
+        assert!(!second.row_read);
+        assert!(!second.fallback_execution_allowed);
+        let second_payload =
+            count_where_values_json(second.result_summary.as_deref().expect("second summary"));
+        assert_eq!(second_payload["count"], serde_json::json!(2));
+        assert_eq!(second_payload.get("prepared_olap_query_summary_hit"), None);
+        assert_eq!(
+            second_payload.get("prepared_olap_query_summary_consumed"),
+            None
+        );
+        assert_eq!(second_payload.get("prepared_olap_raw_scan_avoided"), None);
+    }
+
+    #[test]
     fn count_where_string_contains_uses_native_utf8_count_without_fallback() {
         let path = unique_vortex_path("count-where-string-contains");
         write_string_struct_fixture(&path).expect("fixture");
@@ -22118,7 +22799,8 @@ mod tests {
         assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
         assert_eq!(report.rows_scanned, 3);
         assert_eq!(report.rows_selected, Some(2));
-        assert_eq!(report.result_summary.as_deref(), Some("2"));
+        let payload = count_where_values_json(report.result_summary.as_deref().expect("summary"));
+        assert_eq!(payload["count"], serde_json::json!(2));
         assert!(report.projection_pushdown_applied);
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
@@ -22155,7 +22837,8 @@ mod tests {
         assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
         assert_eq!(report.rows_scanned, 4);
         assert_eq!(report.rows_selected, Some(2));
-        assert_eq!(report.result_summary.as_deref(), Some("2"));
+        let payload = count_where_values_json(report.result_summary.as_deref().expect("summary"));
+        assert_eq!(payload["count"], serde_json::json!(2));
         assert!(report.filter_pushdown_applied);
         assert!(report.upstream_filter_expression_used);
         assert!(report.projection_pushdown_applied);
@@ -22168,27 +22851,149 @@ mod tests {
     }
 
     #[test]
-    fn count_where_metadata_predicate_avoids_decode_and_materialization() {
-        let path = unique_vortex_path("count-where-always-false");
+    fn count_where_footer_pruning_avoids_scan_decode_and_materialization() {
+        let path = unique_vortex_path("count-where-footer-pruned");
         write_struct_fixture(&path).expect("fixture");
         let uri = DatasetUri::new(path.display().to_string()).expect("uri");
-        let request = VortexQueryPrimitiveRequest::count_where(uri, PredicateExpr::AlwaysFalse);
+        let request = VortexQueryPrimitiveRequest::count_where(
+            uri,
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::Gt,
+                value: StatValue::Int64(99),
+            },
+        );
 
         let report = execute_vortex_local_primitive(&request).expect("report");
         let _ = std::fs::remove_file(&path);
 
         assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
         assert_eq!(report.rows_selected, Some(0));
-        assert_eq!(report.result_summary.as_deref(), Some("0"));
-        assert!(report.data_read);
-        assert!(report.streaming_scan_used);
+        let payload = count_where_values_json(report.result_summary.as_deref().expect("summary"));
+        assert_eq!(payload["count"], serde_json::json!(0));
+        assert!(!report.data_read);
+        assert!(!report.streaming_scan_used);
         assert!(!report.full_stream_collected);
         assert!(report.filter_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
+        assert!(!report.upstream_scan_called);
+        assert_eq!(report.arrays_read_count, 0);
+        assert_eq!(report.reader_splits.len(), 0);
+        assert!(report.embedded_layout.metadata_persisted_in_artifact);
+        assert!(report.embedded_layout.metadata_first_pruning_available);
+        assert!(report.embedded_layout.metadata_first_pruning_consulted);
+        assert!(report.embedded_layout.metadata_pruned_entire_input);
+        assert_eq!(report.embedded_layout.footer_row_count, 5);
+        assert_eq!(report.embedded_layout.selected_segment_count, 0);
+        assert!(report.embedded_layout.skipped_segment_count > 0);
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
         assert!(!report.materialization_boundary_reported);
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
+        assert!(!report.fallback_execution_allowed);
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        assert!(
+            certificate.is_certified(),
+            "metadata-pruned filter should certify as native Vortex metadata I/O without scan"
+        );
+    }
+
+    #[test]
+    fn simple_aggregate_footer_pruning_avoids_scan_decode_and_materialization() {
+        let path = unique_vortex_path("simple-aggregate-footer-pruned");
+        write_struct_fixture(&path).expect("fixture");
+        let mut request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::new(vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )]),
+        );
+        request.predicate = Some(PredicateExpr::Compare {
+            column: ColumnRef::new("value").expect("column"),
+            op: ComparisonOp::Gt,
+            value: StatValue::Int64(99),
+        });
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::SimpleAggregate
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(0));
+        let payload =
+            simple_aggregate_values_json(report.result_summary.as_deref().expect("summary"));
+        assert_eq!(payload["values"]["rows"], serde_json::json!(0));
+        assert!(!report.data_read);
+        assert!(!report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert!(report.filter_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
+        assert!(!report.upstream_scan_called);
+        assert_eq!(report.arrays_read_count, 0);
+        assert_eq!(report.reader_splits.len(), 0);
+        assert!(report.embedded_layout.metadata_first_pruning_consulted);
+        assert!(report.embedded_layout.metadata_pruned_entire_input);
+        assert_eq!(report.embedded_layout.selected_segment_count, 0);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.materialization_boundary_reported);
+        assert!(!report.row_read);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn sort_rows_footer_pruning_avoids_scan_decode_and_materialization() {
+        let path = unique_vortex_path("sort-rows-footer-pruned");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sort_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![
+                ColumnRef::new("value").expect("column"),
+                ColumnRef::new("metric").expect("column"),
+            ]),
+            Some(PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::Gt,
+                value: StatValue::Int64(99),
+            }),
+            VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new("value", true)]),
+            2,
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SortRows);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(0));
+        let payload =
+            simple_aggregate_values_json(report.result_summary.as_deref().expect("summary"));
+        assert_eq!(payload["rows"], serde_json::json!(0));
+        assert_eq!(payload["values"], serde_json::json!([]));
+        assert!(!report.data_read);
+        assert!(!report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert!(report.filter_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
+        assert!(!report.upstream_scan_called);
+        assert_eq!(report.arrays_read_count, 0);
+        assert_eq!(report.reader_splits.len(), 0);
+        assert!(report.embedded_layout.metadata_first_pruning_consulted);
+        assert!(report.embedded_layout.metadata_pruned_entire_input);
+        assert_eq!(report.embedded_layout.selected_segment_count, 0);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.materialization_boundary_reported);
+        assert!(!report.row_read);
         assert!(!report.fallback_execution_allowed);
     }
 
@@ -25882,6 +26687,73 @@ mod tests {
     }
 
     #[test]
+    fn simple_aggregate_rerun_stays_on_single_vortex_artifact_without_query_summary_sidecar() {
+        let path = unique_vortex_path("simple-aggregate-single-vortex-artifact");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("value").expect("column")],
+                vec![
+                    crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                    crate::VortexSimpleAggregateMeasure::new(
+                        "sum",
+                        Some(ColumnRef::new("metric").expect("column")),
+                        "sum_metric".to_string(),
+                    ),
+                ],
+            )
+            .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]),
+        )
+        .with_source_order_limit(2);
+
+        let first = execute_vortex_local_primitive(&request).expect("first report");
+        assert_eq!(
+            first.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert!(first.upstream_scan_called);
+        assert!(first.data_read);
+        let first_summary = first.result_summary.as_deref().expect("first summary");
+        let first_payload = simple_aggregate_values_json(first_summary);
+        assert_eq!(
+            first_payload.get("prepared_olap_query_summary_written"),
+            None
+        );
+        assert_eq!(first_payload.get("prepared_olap_query_summary_hit"), None);
+        assert_eq!(
+            first_payload.get("prepared_olap_query_summary_consumed"),
+            None
+        );
+
+        let second = execute_vortex_local_primitive(&request).expect("second report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            second.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert_eq!(second.rows_scanned, 5);
+        assert_eq!(second.rows_selected, Some(5));
+        assert_eq!(second.rows_projected, Some(2));
+        assert!(second.upstream_scan_called);
+        assert!(second.data_read);
+        assert!(second.data_decoded);
+        assert!(second.data_materialized);
+        assert!(second.row_read);
+        assert!(!second.fallback_execution_allowed);
+        let second_summary = second.result_summary.as_deref().expect("second summary");
+        let second_payload = simple_aggregate_values_json(second_summary);
+        assert_eq!(second_payload.get("prepared_olap_query_summary_hit"), None);
+        assert_eq!(
+            second_payload.get("prepared_olap_query_summary_consumed"),
+            None
+        );
+        assert_eq!(second_payload.get("prepared_olap_raw_scan_avoided"), None);
+        assert_eq!(second_payload["rows"], serde_json::json!(2));
+    }
+
+    #[test]
     fn simple_aggregate_skips_null_measures_without_fallback() {
         let path = unique_vortex_path("simple-aggregate-null-measures");
         write_all_null_aggregate_struct_fixture(&path).expect("fixture");
@@ -26057,6 +26929,22 @@ mod tests {
                 .pulseweave_pressure_signals
                 .contains(&"partition_count".to_string())
         );
+        assert!(report.embedded_layout.metadata_persisted_in_artifact);
+        assert_eq!(
+            report.embedded_layout.status,
+            "partitioned_footer_inventory_available"
+        );
+        assert_eq!(report.embedded_layout.footer_row_count, 10);
+        assert!(report.embedded_layout.footer_segment_count > 0);
+        assert_eq!(
+            report.embedded_layout.selected_segment_count,
+            report.embedded_layout.footer_segment_count
+        );
+        assert_eq!(report.embedded_layout.skipped_segment_count, 0);
+        assert_eq!(
+            report.embedded_layout.planner_consumption_status,
+            "partitioned_footer_inventory_available"
+        );
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("partitioned_vortex_sources=2"));
         assert!(summary.contains("\"rows\":10"));
@@ -26118,6 +27006,22 @@ mod tests {
                 .state_budget
                 .capillary_work_units
                 .contains(&"topk_heap_state".to_string())
+        );
+        assert!(report.embedded_layout.metadata_persisted_in_artifact);
+        assert_eq!(
+            report.embedded_layout.status,
+            "partitioned_footer_inventory_available"
+        );
+        assert_eq!(report.embedded_layout.footer_row_count, 10);
+        assert!(report.embedded_layout.footer_segment_count > 0);
+        assert_eq!(
+            report.embedded_layout.selected_segment_count,
+            report.embedded_layout.footer_segment_count
+        );
+        assert_eq!(report.embedded_layout.skipped_segment_count, 0);
+        assert_eq!(
+            report.embedded_layout.planner_consumption_status,
+            "partitioned_footer_inventory_available"
         );
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("partitioned_vortex_sources=2"));
@@ -27254,6 +28158,72 @@ mod tests {
                 .contains(&"materialized_sort_rows".to_string())
         );
         assert!(report.state_budget.fail_closed_if_spill_required);
+    }
+
+    #[test]
+    fn sort_rows_rerun_stays_on_single_vortex_artifact_without_query_summary_sidecar() {
+        let path = unique_vortex_path("sort-rows-single-vortex-artifact");
+        write_pivot_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sort_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![
+                ColumnRef::new("id").expect("column"),
+                ColumnRef::new("label").expect("column"),
+                ColumnRef::new("amount").expect("column"),
+            ]),
+            None,
+            VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new("amount", true)]),
+            2,
+        );
+
+        let first = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+        )
+        .expect("first report");
+        assert_eq!(
+            first.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert_eq!(first.rows_scanned, 3);
+        assert!(first.data_read);
+        let first_summary = first.result_summary.as_deref().expect("first summary");
+        let first_payload = simple_aggregate_values_json(first_summary);
+        assert_eq!(
+            first_payload.get("prepared_olap_query_summary_written"),
+            None
+        );
+        assert_eq!(first_payload.get("prepared_olap_query_summary_hit"), None);
+
+        let second = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+        )
+        .expect("second report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            second.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert_eq!(second.rows_scanned, 3);
+        assert_eq!(second.rows_selected, Some(2));
+        assert_eq!(second.rows_projected, Some(2));
+        assert!(second.upstream_scan_called);
+        assert!(second.data_read);
+        assert!(second.data_decoded);
+        assert!(second.data_materialized);
+        assert!(second.row_read);
+        assert!(!second.fallback_execution_allowed);
+        let second_summary = second.result_summary.as_deref().expect("second summary");
+        let second_payload = simple_aggregate_values_json(second_summary);
+        assert_eq!(second_payload.get("prepared_olap_query_summary_hit"), None);
+        assert_eq!(
+            second_payload.get("prepared_olap_query_summary_consumed"),
+            None
+        );
+        assert_eq!(second_payload.get("prepared_olap_raw_scan_avoided"), None);
+        assert_eq!(second_payload["rows"], serde_json::json!(2));
     }
 
     #[test]

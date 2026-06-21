@@ -241,6 +241,23 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
     assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
     assert!(stdout.contains(&field("vortex_output_row_count", "2")));
     assert!(stdout.contains(&field("vortex_output_column_count", "3")));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_olap_layout_inventory_status",
+        "opened_single_vortex_artifact_footer"
+    )));
+    assert!(stdout.contains(&field("vortex_prepared_olap_layout_footer_row_count", "2")));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_olap_layout_footer_statistics_status",
+        "available"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_olap_layout_footer_encoding_layout_status",
+        "segment_map_available"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_prepared_olap_layout_metadata_persisted_in_artifact",
+        "true"
+    )));
     assert!(stdout.contains(&field("prepared_state_created", "true")));
     assert!(stdout.contains(&field("prepared_state_reused", "false")));
     assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));

@@ -450,7 +450,7 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_layout_write_advisor_selected_strategy",
-        "single_local_vortex_artifact"
+        "single_vortex_artifact_embedded_olap_layout_statistics"
     )));
     assert!(stdout.contains("\"key\":\"vortex_layout_write_advisor_strategy_decision_digest\""));
     assert!(stdout.contains(&field(
@@ -1614,7 +1614,7 @@ fn vortex_prepare_preserves_columnar_source_state_for_parquet() {
     )));
     assert!(stdout.contains(&field(
         "vortex_layout_write_advisor_selected_strategy",
-        "single_local_vortex_artifact"
+        "single_vortex_artifact_embedded_olap_layout_statistics"
     )));
     assert!(stdout.contains(&field(
         "vortex_layout_write_advisor_provider_admitted",
@@ -5736,7 +5736,7 @@ fn local_source_runtime_writes_local_vortex_output_with_certificate_fields() {
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_selected_strategy",
-        "single_local_vortex_artifact"
+        "single_vortex_artifact_embedded_olap_layout_statistics"
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_runtime_decision_applied",
@@ -5915,7 +5915,7 @@ fn local_source_runtime_writes_local_vortex_fanout_with_evidence() {
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_selected_strategy",
-        "csv:advisory_only_no_runtime_write_knob_applied,vortex:single_local_vortex_artifact"
+        "csv:advisory_only_no_runtime_write_knob_applied,vortex:single_vortex_artifact_embedded_olap_layout_statistics"
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_runtime_decision_applied",
