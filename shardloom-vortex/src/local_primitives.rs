@@ -1300,7 +1300,13 @@ fn local_primitive_pushdown_proof_basis(
 ) -> &'static str {
     match report.primitive_kind {
         VortexQueryPrimitiveKind::CountAll => {
-            "local Vortex scan yielded arrays and ShardLoom counted array lengths without decoding or row materialization"
+            if report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingCount
+                && !report.upstream_scan_called
+            {
+                "ShardLoom answered from Vortex row-count metadata without scan, decode, or row materialization"
+            } else {
+                "local Vortex scan yielded arrays and ShardLoom counted array lengths without decoding or row materialization"
+            }
         }
         VortexQueryPrimitiveKind::CountWhere => {
             "local Vortex scan applied filter pushdown and ShardLoom counted selected array lengths without row reads"
@@ -14619,6 +14625,7 @@ struct CompactAggregateMeasures {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy)]
 struct NumericPairCompactMeasures {
     len: usize,
     inline: [CompactAggregateMeasureValue; 4],
@@ -14737,6 +14744,16 @@ impl GroupedAggregateState {
         }
     }
 
+    fn new_compact_measures_from_numeric_pair(
+        group_values: Option<Vec<StatValue>>,
+        measures: NumericPairCompactMeasures,
+    ) -> Self {
+        Self::CompactMeasures {
+            group_values,
+            measures: CompactAggregateMeasures::from_numeric_pair(measures),
+        }
+    }
+
     fn increment_count_star_by(&mut self, rows: u64) -> Result<()> {
         if let Self::CompactCountStar { count, .. } = self {
             *count = count.checked_add(rows).ok_or_else(|| {
@@ -14783,6 +14800,20 @@ impl GroupedAggregateState {
             ));
         };
         measures.update_from_materialized_row(specs, columns, row_index)
+    }
+
+    fn merge_numeric_pair_compact_measures(
+        &mut self,
+        specs: &[CompactAggregateMeasureSpec],
+        numeric_pair_measures: NumericPairCompactMeasures,
+    ) -> Result<()> {
+        let Self::CompactMeasures { measures, .. } = self else {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex numeric-pair aggregate demotion reached incompatible group state; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        };
+        measures.merge_numeric_pair(specs, numeric_pair_measures)
     }
 
     fn result_value_pairs(
@@ -14907,6 +14938,14 @@ impl CompactAggregateMeasures {
                 inline: [CompactAggregateMeasureValue::default(); 4],
                 overflow: Some(vec![CompactAggregateMeasureValue::default(); len]),
             }
+        }
+    }
+
+    fn from_numeric_pair(measures: NumericPairCompactMeasures) -> Self {
+        Self {
+            len: measures.len,
+            inline: measures.inline,
+            overflow: None,
         }
     }
 
@@ -15076,6 +15115,39 @@ impl CompactAggregateMeasures {
                             .to_string(),
                     ));
                 }
+            }
+        }
+        Ok(())
+    }
+
+    fn merge_numeric_pair(
+        &mut self,
+        specs: &[CompactAggregateMeasureSpec],
+        numeric_pair_measures: NumericPairCompactMeasures,
+    ) -> Result<()> {
+        if specs.len() != self.values().len() || specs.len() != numeric_pair_measures.values().len()
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex numeric-pair aggregate demotion measure width mismatch; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        for (target, source) in self
+            .values_mut()
+            .iter_mut()
+            .zip(numeric_pair_measures.values())
+        {
+            target.count = target.count.checked_add(source.count).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-pair aggregate demotion count overflowed u64".to_string(),
+                )
+            })?;
+            target.sum += source.sum;
+            if !target.sum.is_finite() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-pair aggregate demotion sum became non-finite; no fallback execution was attempted"
+                        .to_string(),
+                ));
             }
         }
         Ok(())
@@ -15700,6 +15772,9 @@ impl<'a> GroupedAggregateStates<'a> {
         row_indices: Option<&[usize]>,
     ) -> Result<bool> {
         if !self.admits_numeric_pair_compact_direct_updates(accessors, row_indices) {
+            if self.numeric_pair_compact_groups.is_some() {
+                self.demote_numeric_pair_compact_groups_to_generic()?;
+            }
             return Ok(false);
         }
         let first_group_index = self.group_key_indices[0];
@@ -15760,6 +15835,38 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
+    fn demote_numeric_pair_compact_groups_to_generic(&mut self) -> Result<()> {
+        let Some(groups) = self.numeric_pair_compact_groups.take() else {
+            return Ok(());
+        };
+        let specs = self.compact_measure_specs.as_deref().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-pair aggregate compact measure specs were missing during generic demotion; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        for (key, measures) in groups {
+            let group_key = key.aggregate_group_key();
+            match self.groups.entry(group_key) {
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    entry
+                        .get_mut()
+                        .merge_numeric_pair_compact_measures(specs, measures)?;
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    entry.insert(
+                        GroupedAggregateState::new_compact_measures_from_numeric_pair(
+                            None, measures,
+                        ),
+                    );
+                }
+            }
+        }
+        self.compact_measure_direct_updates = true;
+        self.numeric_pair_compact_direct_updates = false;
+        Ok(())
+    }
+
     fn admits_numeric_pair_compact_direct_updates(
         &self,
         accessors: &[AggregateDirectColumnAccessor],
@@ -15818,6 +15925,9 @@ impl<'a> GroupedAggregateStates<'a> {
         columns: &[Vec<StatValue>],
         row_index: usize,
     ) -> Result<bool> {
+        if self.numeric_pair_compact_groups.is_some() {
+            self.demote_numeric_pair_compact_groups_to_generic()?;
+        }
         if self.update_count_star_direct_from_materialized_columns(columns, row_index)? {
             return Ok(true);
         }
@@ -17128,6 +17238,18 @@ impl AggregateNumericPairKey {
     fn second_json_value(self) -> serde_json::Value {
         integer_key_json_value(self.second_bits, self.key_kinds & Self::SECOND_SIGNED != 0)
     }
+
+    fn aggregate_group_key(self) -> AggregateGroupKey {
+        AggregateGroupKey::Pair(self.first_distinct_value(), self.second_distinct_value())
+    }
+
+    fn first_distinct_value(self) -> AggregateDistinctValue {
+        integer_key_distinct_value(self.first_bits, self.key_kinds & Self::FIRST_SIGNED != 0)
+    }
+
+    fn second_distinct_value(self) -> AggregateDistinctValue {
+        integer_key_distinct_value(self.second_bits, self.key_kinds & Self::SECOND_SIGNED != 0)
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -17191,6 +17313,15 @@ fn integer_key_json_value(bits: u64, signed: bool) -> serde_json::Value {
         serde_json::Value::Number(signed_integer_from_bits(bits).into())
     } else {
         serde_json::Value::Number(bits.into())
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn integer_key_distinct_value(bits: u64, signed: bool) -> AggregateDistinctValue {
+    if signed {
+        AggregateDistinctValue::Int64(signed_integer_from_bits(bits))
+    } else {
+        AggregateDistinctValue::UInt64(bits)
     }
 }
 
@@ -25668,6 +25799,105 @@ mod tests {
             serde_json::json!("typed_numeric_pair_key")
         );
         assert_eq!(payload["candidate_groups"], serde_json::json!(5));
+    }
+
+    #[test]
+    fn grouped_aggregate_numeric_pair_demotes_before_generic_updates() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("watch_id").expect("column"),
+                ColumnRef::new("client_ip").expect("column"),
+            ],
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "sum",
+                    Some(ColumnRef::new("is_refresh").expect("column")),
+                    "refreshes".to_string(),
+                ),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(ColumnRef::new("width").expect("column")),
+                    "avg_width".to_string(),
+                ),
+            ],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let declared_columns = vec![
+            "watch_id".to_string(),
+            "client_ip".to_string(),
+            "is_refresh".to_string(),
+            "width".to_string(),
+        ];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(10), &declared_columns).expect("states");
+        let direct_accessors = vec![
+            AggregateDirectColumnAccessor::UInt64(vec![10, 20]),
+            AggregateDirectColumnAccessor::UInt64(vec![1, 2]),
+            AggregateDirectColumnAccessor::UInt64(vec![1, 0]),
+            AggregateDirectColumnAccessor::UInt64(vec![100, 200]),
+        ];
+
+        assert!(
+            states
+                .update_numeric_pair_compact_direct_from_accessors(&direct_accessors, None)
+                .expect("numeric pair update")
+        );
+        assert!(states.numeric_pair_compact_groups.is_some());
+        let materialized_columns = vec![
+            vec![StatValue::UInt64(10)],
+            vec![StatValue::UInt64(1)],
+            vec![StatValue::UInt64(1)],
+            vec![StatValue::UInt64(300)],
+        ];
+
+        assert!(
+            states
+                .update_compact_direct_from_materialized_columns(&materialized_columns, 0)
+                .expect("generic materialized update")
+        );
+        assert!(states.numeric_pair_compact_groups.is_none());
+        assert!(!states.numeric_pair_compact_direct_updates);
+
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(10))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(payload["candidate_groups"], serde_json::json!(2));
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "compact_count_sum_avg_group_state"
+        );
+        assert_ne!(
+            payload["group_key_storage"],
+            serde_json::json!("typed_numeric_pair_key")
+        );
+        let rows = payload["values"].as_array().expect("values");
+        let merged_row = rows
+            .iter()
+            .find(|row| row["watch_id"] == serde_json::json!(10))
+            .expect("merged numeric-pair row");
+        assert_eq!(merged_row["client_ip"], serde_json::json!(1));
+        assert_eq!(merged_row["rows"], serde_json::json!(2));
+        assert_eq!(merged_row["refreshes"], serde_json::json!(2.0));
+        assert_eq!(merged_row["avg_width"], serde_json::json!(200.0));
+    }
+
+    #[test]
+    fn count_all_metadata_proof_basis_cites_metadata_not_scan() {
+        let mut report = VortexLocalPrimitiveExecutionReport::feature_disabled(
+            VortexQueryPrimitiveKind::CountAll,
+        );
+        report.status = VortexLocalPrimitiveExecutionStatus::Executed;
+        report.mode = VortexLocalPrimitiveExecutionMode::MetadataPreservingCount;
+        report.upstream_scan_called = false;
+
+        let proof_basis = local_primitive_pushdown_proof_basis(&report);
+
+        assert!(proof_basis.contains("row-count metadata"));
+        assert!(!proof_basis.contains("scan yielded arrays"));
     }
 
     #[test]
