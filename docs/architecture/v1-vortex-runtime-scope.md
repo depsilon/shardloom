@@ -25,6 +25,7 @@ The machine-readable sources for this scope are:
 - `ShardLoomContext.user_route_capability_report()`
 - `ShardLoomContext.local_file_benchmark_route_report()`
 - `benchmarks/clickbench/queries.sql`
+- `docs/benchmarks/clickbench-100m-uat-burndown.json`
 - `scripts/check_clickbench_olap_runtime_coverage.py`
 - `scripts/check_v1_vortex_runtime_scope.py`
 - `scripts/check_user_route_capability_report.py`
@@ -116,7 +117,7 @@ families:
 | Blocked family | Stable blocker ID |
 | --- | --- |
 | Unshaped/general native Vortex query | `py-vortex-route-unify-1.native_vortex_general_route_missing` |
-| Aggregate shape outside admitted scalar aggregate primitive or provider scenarios, such as grouped aggregate, grouped top-K, count-distinct, HAVING, or broad SQL aggregate planning | `py-vortex-route-unify-1.native_vortex_aggregate_route_missing` |
+| Aggregate shape outside admitted scalar/grouped aggregate primitives or provider scenarios, such as unshaped broad SQL aggregate planning beyond the scoped `count`/`count_distinct`/`sum`/`avg`/`min`/`max`, grouped top-K/offset, HAVING, expression group, and ClickBench OLAP families | `py-vortex-route-unify-1.native_vortex_aggregate_route_missing` |
 | Join shape without admitted right-input/provider scenario | `py-vortex-route-unify-1.native_vortex_join_state_missing` |
 | Top-N shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_top_n_route_missing` |
 | Cast/try-cast shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_cast_route_missing` |
@@ -155,7 +156,9 @@ The scoped local primitive report admits these route ids:
 | `vortex_explode_collect` | Materialize scoped row expansion for one declared list/fixed-size-list column, same-length multi-column list/fixed-size-list columns, or single-level list-of-struct dotted field projection, with scalar, nullable, list, or struct element values, optional companion columns, empty-list zero-row behavior, nullable-list one-null-row behavior, and explicit decode/materialization evidence. | Yes |
 | `vortex_pivot_collect` / `vortex_pivot_row_export` | Materialize scoped wide reshape for one index column, one pivot column, and one value column through first-unique or sum/count/mean aggregate policy with explicit decode/materialization evidence; sparse JSONL emits missing pivot cells as `null`, and CSV emits missing pivot cells as empty fields. | Yes |
 | `vortex_rolling_window_collect` | Materialize scoped source-order `rolling(...).sum/mean/count/min/max(...)` over one scalar column, with numeric input required for `sum`/`mean`/`min`/`max`, bounded window state, and explicit decode/materialization evidence. | Yes |
-| `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/drop-duplicates/duplicate-mask/tail/sample/expression-project/melt/explode/rolling-window row streams and scalar aggregate result rows to JSONL/CSV, including JSONL+CSV fanout. | Yes |
+| `native_vortex_simple_aggregate` | Execute scoped scalar and grouped aggregate primitives over local `.vortex` sources, including exact `count_distinct`, grouped top-K/offset, HAVING, expression groups, source-order limited group output, single-key identity/length/URL-domain fast grouping, capillary ordered-candidate selection for bounded grouped top-K/offset finalization, deterministic offset-derived functional-dependency key pruning, mixed-predicate splitting for safe Vortex pushdown plus explicit residual work, and ClickBench OLAP aggregate families with explicit state-budget and no-fallback evidence. | Yes |
+| `native_vortex_count_where` | Execute scoped count predicates over local `.vortex` sources, including Vortex filter pushdown where supported, mixed-predicate splitting for safe conjuncts, and ShardLoom-owned UTF-8 substring count over `VarBinViewArray` bytes for admitted count-only `LIKE '%literal%'` shapes, with residual materialization evidence kept separate from residual predicate planning. | Yes |
+| `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/drop-duplicates/duplicate-mask/tail/sample/expression-project/melt/explode/rolling-window row streams and scalar/grouped aggregate result rows to JSONL/CSV, including JSONL+CSV fanout. | Yes |
 
 Each route must expose SQL, Python, DataFrame-style, context, session, and CLI surfaces. Each route
 must name output route, evidence route, materialization/decode boundary, required evidence,
@@ -190,13 +193,14 @@ This is route-readiness evidence only. It must not be satisfied through external
 or scenario-only shims, and it does not authorize a ClickBench performance or superiority claim.
 
 Local 100M ClickBench UAT timing remains separate from the route-readiness map. The current Desktop
-targeted artifact is
-`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_probe_after_optimizations/summary.json`.
-It exercises prepared Vortex input through `execution_policy=native_vortex`, sequential query
-execution, and `max_parallelism=2`. It is useful implementation evidence for runtime hot spots,
-but it is not a ClickBench submission or public performance claim. Remaining above-1s rows are
-string contains scans, bounded sort/order rows, string/domain grouped aggregates, and smaller
-date-filter top-K/offset tails.
+full-query artifact is
+`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_combined_summary.json`,
+with checked-in burndown intake at `docs/benchmarks/clickbench-100m-uat-burndown.json`. It
+exercises prepared Vortex input through `execution_policy=native_vortex`, sequential query
+execution, and observed `max_parallelism=2`. It is useful implementation evidence for runtime hot
+spots, but it is not a ClickBench submission or public performance claim. Remaining above-1s and
+timeout rows are aggregate/distinct/string/sort optimization candidates inside the native Vortex
+runtime family, not permission to create external fallback or ClickBench-only shims.
 
 ## Supported Exact Native Vortex Provider Routes
 
