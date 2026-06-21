@@ -362,6 +362,38 @@ def benchmark_gap_report(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def missing_benchmark_gap_report(path: Path) -> dict[str, Any]:
+    """Return the completion-gate report shape when benchmark publication is absent."""
+
+    return {
+        "published_row_count": 0,
+        "shardloom_row_count": 0,
+        "top_level_blocker_count": 1,
+        "top_level_blocker_examples": [
+            {
+                "row": "benchmark_artifact",
+                "field": "benchmark_results",
+                "actual": "missing",
+                "path": str(path),
+            }
+        ],
+        "external_invocation_blocker_count": 0,
+        "external_invocation_blocker_examples": [],
+        "residual_blocker_count": 0,
+        "residual_blocker_field_counts": {},
+        "residual_blocker_examples": [],
+        "optimization_claim_blocker_count": 0,
+        "optimization_claim_blocker_field_counts": {},
+        "optimization_claim_blocker_examples": [],
+        "external_baseline_unsupported_report": external_baseline_unsupported_report([]),
+        "benchmark_artifact_present": False,
+        "benchmark_artifact_missing_reason": (
+            "benchmark publication artifact is absent; completion claims remain blocked "
+            "until a current artifact or an approved no-public-benchmark policy is supplied"
+        ),
+    }
+
+
 def build_report(
     *,
     benchmark_results: Path,
@@ -370,8 +402,12 @@ def build_report(
     repo_root: Path | None = None,
     runtime_gap_family_burn_down_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    benchmark_payload = load_json(benchmark_results)
-    benchmark_report = benchmark_gap_report(benchmark_payload)
+    if benchmark_results.exists():
+        benchmark_payload = load_json(benchmark_results)
+        benchmark_report = benchmark_gap_report(benchmark_payload)
+        benchmark_report["benchmark_artifact_present"] = True
+    else:
+        benchmark_report = missing_benchmark_gap_report(benchmark_results)
     phase_unchecked = unchecked_markdown_items(read_text(phase_plan))
     review_unchecked = unchecked_markdown_items(read_text(global_review))
     runtime_gap_family_blockers: list[str] = []

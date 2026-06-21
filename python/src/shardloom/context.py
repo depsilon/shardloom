@@ -255,6 +255,29 @@ V1_SOURCE_PREPARED_UNSUPPORTED_BOUNDARY_IDS = (
     "table_catalog_prepared_state_reuse",
     "broad_non_local_preparation",
 )
+PUBLIC_ROUTE_REUSE_MATRIX_SPINE = (
+    "Universal Ingest -> SourceState -> VortexPreparedState -> "
+    "prepared_olap_state when available -> native_vortex_unified_plan -> typed result/sink"
+)
+PUBLIC_ROUTE_REUSE_MATRIX_NATIVE_SPINE = (
+    "native Vortex input/manifest -> native_vortex_unified_plan -> typed result/sink"
+)
+PUBLIC_ROUTE_REUSE_MATRIX_SCHEMA_VERSION = (
+    "shardloom.public_route_reuse_matrix.v1"
+)
+PUBLIC_ROUTE_REUSE_MATRIX_REQUIRED_ROW_IDS = (
+    "compatibility_filter_project_limit",
+    "compatibility_group_aggregate",
+    "compatibility_hash_join",
+    "compatibility_bounded_top_n",
+    "compatibility_distinct_unique",
+    "compatibility_string_contains",
+    "compatibility_cast_nulls",
+    "compatibility_declared_sinks",
+    "native_vortex_file_operator",
+    "partitioned_vortex_manifest_operator",
+    "generated_source_prepared_vortex",
+)
 V1_LOCAL_OUTPUT_SINK_SCOPE_DOCUMENT = (
     "docs/architecture/v1-local-output-sink-scope.md"
 )
@@ -1556,6 +1579,43 @@ class PublicFrontDoorRouteRow:
 
 
 @dataclass(frozen=True, slots=True)
+class PublicRouteReuseMatrixRow:
+    """Convergence proof for one public alias/source family."""
+
+    row_id: str
+    operation_family: str
+    public_surfaces: tuple[str, ...]
+    source_variants: tuple[str, ...]
+    primary_route_id: str
+    alternate_route_ids: tuple[str, ...]
+    shared_runtime_spine: str
+    native_plan_route_family: str
+    native_plan_payload_kind: str
+    source_state_required: bool
+    prepared_state_required: bool
+    prepared_olap_state_reused_when_available: bool
+    materialization_decode_boundary: str
+    typed_result_or_sink_contract: str
+    evidence_fields: tuple[str, ...]
+    route_runtime_status: str
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    claim_boundary: str
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this reuse row preserves ShardLoom's no-fallback boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+    @property
+    def uses_unified_native_plan(self) -> bool:
+        """Whether this row converges on the shared native Vortex plan family."""
+
+        return self.native_plan_route_family == "native_vortex_unified_plan"
+
+
+@dataclass(frozen=True, slots=True)
 class UserRouteCapabilityReport:
     """Side-effect-free route-selection report for users and LLM agents."""
 
@@ -1792,6 +1852,213 @@ class UserRouteCapabilityReport:
         """Return public prepared front-door ids in stable order."""
 
         return tuple(row.front_door_id for row in self.public_front_door_route_rows)
+
+    @property
+    def public_route_reuse_matrix_schema_version(self) -> str:
+        """Return the public route reuse matrix schema version."""
+
+        return PUBLIC_ROUTE_REUSE_MATRIX_SCHEMA_VERSION
+
+    @property
+    def public_route_reuse_matrix_row_ids(self) -> tuple[str, ...]:
+        """Return public route reuse matrix row ids in stable order."""
+
+        return tuple(row.row_id for row in self.public_route_reuse_matrix_rows)
+
+    @property
+    def public_route_reuse_matrix_rows(self) -> tuple[PublicRouteReuseMatrixRow, ...]:
+        """Return public alias/source families that converge into the shared Vortex spine."""
+
+        local = self.route("local_file_prepare_once_first_query")
+        native = self.route("native_vortex_query")
+        generated = self.route("generated_rows_local_output")
+
+        def local_row(
+            row_id: str,
+            operation_family: str,
+            payload_kind: str,
+            typed_contract: str,
+            *,
+            evidence_fields: Sequence[str],
+        ) -> PublicRouteReuseMatrixRow:
+            return PublicRouteReuseMatrixRow(
+                row_id=row_id,
+                operation_family=operation_family,
+                public_surfaces=_ALL_USER_FRONT_DOORS,
+                source_variants=("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
+                primary_route_id=local.route_id,
+                alternate_route_ids=("local_file_prepare_once_batch", "prepared_vortex_warm_query"),
+                shared_runtime_spine=PUBLIC_ROUTE_REUSE_MATRIX_SPINE,
+                native_plan_route_family="native_vortex_unified_plan",
+                native_plan_payload_kind=payload_kind,
+                source_state_required=True,
+                prepared_state_required=True,
+                prepared_olap_state_reused_when_available=True,
+                materialization_decode_boundary=local.materialization_decode_boundary,
+                typed_result_or_sink_contract=typed_contract,
+                evidence_fields=(
+                    "source_state_id",
+                    "source_state_digest",
+                    "prepared_state_id",
+                    "prepared_state_digest",
+                    "public_workflow_prepared_olap_state_consumed",
+                    "native_vortex_plan_route_family",
+                    "native_vortex_operation_family",
+                    "typed_result_contract",
+                    "typed_sink_contract",
+                    "decode_materialization_boundary",
+                    "fallback_attempted",
+                    "external_engine_invoked",
+                    *tuple(evidence_fields),
+                ),
+                route_runtime_status=local.route_runtime_status,
+                fallback_attempted=local.fallback_attempted,
+                external_engine_invoked=local.external_engine_invoked,
+                claim_boundary=local.claim_boundary,
+            )
+
+        def native_row(
+            row_id: str,
+            source_variants: Sequence[str],
+            *,
+            payload_kind: str,
+            evidence_fields: Sequence[str],
+        ) -> PublicRouteReuseMatrixRow:
+            return PublicRouteReuseMatrixRow(
+                row_id=row_id,
+                operation_family="native_vortex_operator",
+                public_surfaces=_ALL_USER_FRONT_DOORS,
+                source_variants=tuple(source_variants),
+                primary_route_id=native.route_id,
+                alternate_route_ids=("local_vortex_primitive_report",),
+                shared_runtime_spine=PUBLIC_ROUTE_REUSE_MATRIX_NATIVE_SPINE,
+                native_plan_route_family="native_vortex_unified_plan",
+                native_plan_payload_kind=payload_kind,
+                source_state_required=False,
+                prepared_state_required=False,
+                prepared_olap_state_reused_when_available=True,
+                materialization_decode_boundary=native.materialization_decode_boundary,
+                typed_result_or_sink_contract="native_vortex_typed_result_or_declared_sink",
+                evidence_fields=(
+                    "native_vortex_plan_route_family",
+                    "native_vortex_plan_payload_kind",
+                    "native_vortex_operation_family",
+                    "typed_result_contract",
+                    "typed_sink_contract",
+                    "decode_materialization_boundary",
+                    "fallback_attempted",
+                    "external_engine_invoked",
+                    *tuple(evidence_fields),
+                ),
+                route_runtime_status=native.route_runtime_status,
+                fallback_attempted=native.fallback_attempted,
+                external_engine_invoked=native.external_engine_invoked,
+                claim_boundary=native.claim_boundary,
+            )
+
+        return (
+            local_row(
+                "compatibility_filter_project_limit",
+                "filter_project_limit",
+                "primitive_operator",
+                "bounded_python_rows_or_declared_sink_after_prepared_vortex",
+                evidence_fields=("predicate_projection_limit_lowering",),
+            ),
+            local_row(
+                "compatibility_group_aggregate",
+                "aggregate",
+                "provider_operator",
+                "provider_backed_native_vortex_result_summary",
+                evidence_fields=("grouped_aggregate_route_certificate",),
+            ),
+            local_row(
+                "compatibility_hash_join",
+                "join",
+                "provider_operator",
+                "provider_backed_native_vortex_result_summary",
+                evidence_fields=("multi_input_binding", "build_probe_state_certificate"),
+            ),
+            local_row(
+                "compatibility_bounded_top_n",
+                "top_n",
+                "primitive_or_provider_operator",
+                "bounded_python_rows_with_late_materialization",
+                evidence_fields=("bounded_top_n_order_state",),
+            ),
+            local_row(
+                "compatibility_distinct_unique",
+                "distinct",
+                "primitive_operator",
+                "bounded_python_rows_with_distinct_state_evidence",
+                evidence_fields=("distinct_state_certificate",),
+            ),
+            local_row(
+                "compatibility_string_contains",
+                "contains",
+                "provider_operator",
+                "provider_backed_native_vortex_result_summary",
+                evidence_fields=("string_contains_kernel_certificate",),
+            ),
+            local_row(
+                "compatibility_cast_nulls",
+                "cast_nulls",
+                "provider_operator",
+                "provider_backed_native_vortex_result_summary",
+                evidence_fields=("cast_null_semantics_certificate",),
+            ),
+            local_row(
+                "compatibility_declared_sinks",
+                "declared_sinks",
+                "primitive_row_export_or_provider_sink",
+                "typed_result_sink_contract",
+                evidence_fields=("result_sink_replay", "output_fidelity_report"),
+            ),
+            native_row(
+                "native_vortex_file_operator",
+                ("vortex",),
+                payload_kind="primitive_provider_profile_or_sink",
+                evidence_fields=("native_vortex_input_boundary",),
+            ),
+            native_row(
+                "partitioned_vortex_manifest_operator",
+                ("partitioned-vortex-manifest",),
+                payload_kind="partitioned_native_vortex_operator",
+                evidence_fields=("partition_manifest_source_binding",),
+            ),
+            PublicRouteReuseMatrixRow(
+                row_id="generated_source_prepared_vortex",
+                operation_family="generated_source_output",
+                public_surfaces=("Python", "DataFrame", "context", "session", "CLI"),
+                source_variants=("from_rows", "range", "literal_table", "source_free_sql"),
+                primary_route_id=generated.route_id,
+                alternate_route_ids=(),
+                shared_runtime_spine=(
+                    "GeneratedSourceState -> VortexPreparedState -> "
+                    "native_vortex_unified_plan -> typed result/sink"
+                ),
+                native_plan_route_family="native_vortex_unified_plan",
+                native_plan_payload_kind="generated_prepared_output",
+                source_state_required=True,
+                prepared_state_required=True,
+                prepared_olap_state_reused_when_available=False,
+                materialization_decode_boundary=generated.materialization_decode_boundary,
+                typed_result_or_sink_contract="generated_source_to_vortex_prepared_output",
+                evidence_fields=(
+                    "generated_source_state_id",
+                    "prepared_state_id",
+                    "prepared_state_reuse_manifest_digest",
+                    "native_vortex_plan_route_family",
+                    "typed_sink_contract",
+                    "decode_materialization_boundary",
+                    "fallback_attempted",
+                    "external_engine_invoked",
+                ),
+                route_runtime_status=generated.route_runtime_status,
+                fallback_attempted=generated.fallback_attempted,
+                external_engine_invoked=generated.external_engine_invoked,
+                claim_boundary=generated.claim_boundary,
+            ),
+        )
 
     @property
     def v1_vortex_scope_document(self) -> str:
@@ -7481,41 +7748,30 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
             "well_clustered",
             "poorly_clustered",
         ),
-        route_id="local_file_internal_source_smoke_route",
-        route_display_name="ShardLoom Internal Source Smoke Internal Smoke Route",
-        alternate_route_ids=(
-            "local_file_prepare_once_first_query",
-            "local_file_prepare_once_batch",
-        ),
-        selected_execution_mode="internal_local_source_smoke",
-        sql_surface="ctx.sql(\"SELECT SUM(metric) FROM 'fact.csv' WHERE flag = true\").collect()",
-        python_surface="ctx.read('fact.csv').filter(sl.col('flag') == True).agg(sum_metric=('metric', 'sum')).collect()",
-        dataframe_surface="ctx.read('fact.csv').where(sl.col('flag') == True).agg(sum_metric=('metric', 'sum')).collect()",
-        context_surface="ctx.read('fact.csv').filter(sl.col('flag') == True).collect()",
-        session_surface="session.read('fact.csv').filter(sl.col('flag') == True).collect()",
-        cli_surface="shardloom local-source-runtime \"SELECT SUM(metric) FROM 'fact.csv' WHERE flag = true\" --format json",
-        source_route="UniversalIngress/InputAdapter local compatibility source",
-        preparation_route="internal_local_source_smoke_no_persistent_preparation",
-        output_route=(
-            "internal bounded smoke report/sink only; not admitted through public workflow "
-            "route/run without Vortex preparation/native input"
-        ),
-        evidence_route="local-source-runtime envelope, execution certificate, Native I/O, and no-fallback evidence",
-        materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
-        route_runtime_status="internal_smoke_only",
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query(\"SELECT SUM(metric) FROM fact WHERE flag = true\").collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('selective_filter').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().filter(sl.col('flag') == True).agg(sum_metric=('metric', 'sum')).collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('selective_filter')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('selective_filter').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run selective_filter fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared selective-filter result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, native filter/aggregate route timing, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="decode/materialization only after prepared query output is declared",
+        route_runtime_status="prepared_route_supported",
         owner="GAR-RUNTIME-IMPL-6D-3.selective_filter",
         required_evidence=(
-            "local_source_runtime_internal_only",
-            "public_workflow_direct_policy_block_tests",
-            "traditional_analytics.internal_local_source_smoke.selective_filter",
+            "traditional_analytics.prepared_native.selective_filter",
+            "VortexPreparedState",
             "no_fallback_evidence",
         ),
-        next_verifier="python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json",
-        claim_boundary=_LOCAL_FILE_DIRECT_BENCHMARK_BOUNDARY,
-        vortex_normalization_point=(
-            "local compatibility source -> SourceState -> transient Vortex-preparable arrays; "
-            "prepared routes are available when persistence/reuse is requested"
-        ),
+        next_verifier="cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
     ),
     _local_file_benchmark_route(
         "filter_projection_limit",
@@ -7533,41 +7789,30 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
             "well_clustered",
             "poorly_clustered",
         ),
-        route_id="local_file_internal_source_smoke_route",
-        route_display_name="ShardLoom Internal Source Smoke Internal Smoke Route",
-        alternate_route_ids=(
-            "local_file_prepare_once_first_query",
-            "local_file_prepare_once_batch",
-        ),
-        selected_execution_mode="internal_local_source_smoke",
-        sql_surface="ctx.sql(\"SELECT id, metric FROM 'fact.csv' WHERE metric >= 10 ORDER BY id LIMIT 100\").collect()",
-        python_surface="ctx.read('fact.csv').filter(sl.col('metric') >= 10).select('id', 'metric').limit(100).collect()",
-        dataframe_surface="ctx.read('fact.csv').where(sl.col('metric') >= 10).select('id', 'metric').limit(100).collect()",
-        context_surface="ctx.read('fact.csv').select('id', 'metric').limit(100).collect()",
-        session_surface="session.read('fact.csv').select('id', 'metric').limit(100).collect()",
-        cli_surface="shardloom local-source-runtime \"SELECT id, metric FROM 'fact.csv' WHERE metric >= 10 LIMIT 100\" --format json",
-        source_route="UniversalIngress/InputAdapter local compatibility source",
-        preparation_route="internal_local_source_smoke_no_persistent_preparation",
-        output_route=(
-            "internal bounded smoke report/sink only; not admitted through public workflow "
-            "route/run without Vortex preparation/native input"
-        ),
-        evidence_route="local-source-runtime envelope, execution certificate, Native I/O, and no-fallback evidence",
-        materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
-        route_runtime_status="internal_smoke_only",
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query(\"SELECT id, metric FROM fact WHERE metric >= 10 ORDER BY id LIMIT 100\").collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('filter_projection_limit').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().filter(sl.col('metric') >= 10).select('id', 'metric').limit(100).collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('filter_projection_limit')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('filter_projection_limit').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run filter_projection_limit fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared filter/project/limit result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, native filter/project/limit route timing, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="decode/materialization only after prepared query output is declared",
+        route_runtime_status="prepared_route_supported",
         owner="GAR-RUNTIME-IMPL-6D-3.filter_projection_limit",
         required_evidence=(
-            "local_source_runtime_internal_only",
-            "public_workflow_direct_policy_block_tests",
-            "traditional_analytics.internal_local_source_smoke.filter_projection_limit",
+            "traditional_analytics.prepared_native.filter_projection_limit",
+            "VortexPreparedState",
             "no_fallback_evidence",
         ),
-        next_verifier="python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json",
-        claim_boundary=_LOCAL_FILE_DIRECT_BENCHMARK_BOUNDARY,
-        vortex_normalization_point=(
-            "local compatibility source -> SourceState -> transient Vortex-preparable arrays; "
-            "prepared routes are available when persistence/reuse is requested"
-        ),
+        next_verifier="cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
     ),
     _local_file_benchmark_route(
         "group_by_aggregation",

@@ -253,14 +253,14 @@ Current autonomous execution order:
     and evidence-tier controls proving `fallback_attempted=false` and
     `external_engine_invoked=false`.
   - Execution checklist:
-    - [ ] Inventory all public entrypoints and aliases: Python `ctx.read`, `read_csv`,
+    - [x] Inventory all public entrypoints and aliases: Python `ctx.read`, `read_csv`,
       `read_json`, `read_parquet`, `read_vortex`, SQL/dataframe CLI route/run/prepare commands,
       DataFrame-style lazy methods, capability reports, docs snippets, and website examples.
-    - [ ] Trace each admitted operation family after preparation and record the shared runtime
+    - [x] Trace each admitted operation family after preparation and record the shared runtime
       family it lowers into: filter/project/limit, aggregate, join, top-N/sort, distinct/unique,
       string contains/length/domain, cast/try-cast/nulls, bounded collect, declared sinks, and
       fanout.
-    - [ ] Add a route/capability reuse matrix proving every admitted alias records the same shared
+    - [x] Add a route/capability reuse matrix proving every admitted alias records the same shared
       runtime spine when semantics match: `Universal Ingest -> SourceState -> VortexPreparedState
       -> prepared_olap_state when available -> native_vortex_unified_plan -> typed result/sink`.
       The matrix must identify the evidence fields for `public_workflow_prepared_olap_state_*`,
@@ -275,6 +275,17 @@ Current autonomous execution order:
     - [ ] Remove or internalize any facade-only/direct/local-source/smoke/benchmark-only
       implementation that still executes as a product route after source preparation; keep
       diagnostic safeguards only when they are explicitly named internal/dev surfaces.
+      - [x] Promoted `selective_filter` and `filter_projection_limit` local benchmark scenario
+        route guidance from primary internal smoke rows to the prepared Vortex first-query route;
+        the internal smoke route remains only as the explicit diagnostic safeguard row.
+      - [x] Added generated public-status stale-label validation so product/admitted route rows,
+        public front-door rows, primitive rows, local benchmark rows, and the route-reuse matrix
+        cannot expose `sql-local-source-smoke`, `direct_compatibility_transient`, or
+        `internal_local_source_smoke`; the one internal smoke safeguard row remains explicitly
+        allowed as `internal_smoke_only`.
+      - [ ] Audit docs examples and route execution fixtures for any
+        remaining product-looking public success path that names `sql-local-source-smoke`,
+        `direct_compatibility_transient`, or another facade-only middle.
     - [ ] Ensure compatibility inputs use Universal Ingest -> SourceState ->
       VortexPreparedState/prepared Vortex -> native/shared operator family; native Vortex inputs
       stay native without a compatibility detour.
@@ -288,8 +299,19 @@ Current autonomous execution order:
     - [ ] Add focused regression tests proving SQL, Python, DataFrame-style, and CLI spellings of
       the same admitted shape report the same prepared/native route family, no fallback, no
       external engine, and equivalent results.
+      - [x] Added `check_user_route_capability_report.py` matrix assertions for the shared spine,
+        admitted source variants, native plan family, typed result/sink boundary, prepared OLAP
+        reuse posture, and no-fallback/no-external-engine fields.
+      - [x] Added Python route-report regression coverage proving promoted local benchmark rows
+        select `local_file_prepare_once_first_query`/`prepared_vortex`, generated/product matrix
+        rows avoid stale smoke/direct labels, and the validator rejects stale public runtime labels.
+      - [ ] Add route/runtime parity fixtures that execute representative SQL, Python, DataFrame,
+        and CLI spellings through the public facade and compare route/result evidence.
     - [ ] Update docs, README, architecture, capability reports, and generated website/public status
       surfaces only from the proven shared-route evidence.
+      - [x] Updated the route capability report surface with
+        `public_route_reuse_matrix_*` fields, prepared/native Vortex runtime-spine evidence,
+        stale public runtime label blocker counts, and acceptance flags.
     - [ ] Move the completed summary to the ledger after merge/session completion.
   - Next outcome: there is no remaining public-success path whose execution layer depends on the
     spelling of the front door or input format instead of the Vortex-normalized runtime family.

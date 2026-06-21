@@ -137,6 +137,39 @@ class ComputeEngineCompletionGateTests(unittest.TestCase):
         self.assertEqual(report["benchmark_gap_report"]["top_level_blocker_count"], 0)
         self.assertEqual(report["benchmark_gap_report"]["residual_blocker_count"], 0)
 
+    def test_completion_gate_reports_missing_benchmark_artifact_without_traceback(self) -> None:
+        module = load_completion_gate_module()
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            benchmark = root / "missing-benchmark-results.json"
+            phase_plan = root / "phased-execution-plan.md"
+            global_review = root / "global-architecture-review.md"
+            phase_plan.write_text("- [x] completed item\n", encoding="utf-8")
+            global_review.write_text("- [x] completed review item\n", encoding="utf-8")
+
+            report = module.build_report(
+                benchmark_results=benchmark,
+                phase_plan=phase_plan,
+                global_review=global_review,
+            )
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertFalse(report["completion_claim_allowed"])
+        benchmark_report = report["benchmark_gap_report"]
+        self.assertFalse(benchmark_report["benchmark_artifact_present"])
+        self.assertEqual(benchmark_report["published_row_count"], 0)
+        self.assertEqual(benchmark_report["shardloom_row_count"], 0)
+        self.assertEqual(benchmark_report["top_level_blocker_count"], 1)
+        self.assertEqual(
+            benchmark_report["top_level_blocker_examples"][0]["field"],
+            "benchmark_results",
+        )
+        self.assertIn(
+            "benchmark publication artifact is absent",
+            benchmark_report["benchmark_artifact_missing_reason"],
+        )
+
     def test_completion_gate_still_requires_publication_proof_claim_grade(self) -> None:
         module = load_completion_gate_module()
 

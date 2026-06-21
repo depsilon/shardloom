@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.user_route_capability_report.v1"
 GATE_ID = "gar-runtime-impl-6d.user_route_capability_report"
 PUBLIC_FRONT_DOOR_ROUTE_SCHEMA_VERSION = "shardloom.public_front_door_route_rows.v1"
+PUBLIC_ROUTE_REUSE_MATRIX_SCHEMA_VERSION = "shardloom.public_route_reuse_matrix.v1"
 
 ROUTE_RUNTIME_STATUSES = {
     "internal_smoke_only",
@@ -101,6 +102,44 @@ REQUIRED_LOCAL_BENCHMARK_ROUTE_IDS = {
 REQUIRED_PUBLIC_FRONT_DOOR_ROUTE_IDS = {
     "local_source_vortex_middle_front_door",
     "generated_source_prepare_vortex_front_door",
+}
+
+REQUIRED_PUBLIC_ROUTE_REUSE_MATRIX_ROW_IDS = {
+    "compatibility_filter_project_limit",
+    "compatibility_group_aggregate",
+    "compatibility_hash_join",
+    "compatibility_bounded_top_n",
+    "compatibility_distinct_unique",
+    "compatibility_string_contains",
+    "compatibility_cast_nulls",
+    "compatibility_declared_sinks",
+    "native_vortex_file_operator",
+    "partitioned_vortex_manifest_operator",
+    "generated_source_prepared_vortex",
+}
+
+REQUIRED_PUBLIC_ROUTE_REUSE_OPERATION_FAMILIES = {
+    "filter_project_limit",
+    "aggregate",
+    "join",
+    "top_n",
+    "distinct",
+    "contains",
+    "cast_nulls",
+    "declared_sinks",
+    "native_vortex_operator",
+    "generated_source_output",
+}
+
+FORBIDDEN_PUBLIC_RUNTIME_LABELS = {
+    "sql-local-source-smoke",
+    "direct_compatibility_transient",
+    "direct_transient",
+    "internal_local_source_smoke",
+}
+
+INTERNAL_DIAGNOSTIC_ROUTE_IDS = {
+    "local_file_internal_source_smoke_route",
 }
 
 REQUIRED_OUTPUT_TOKENS = {
@@ -372,6 +411,32 @@ def public_front_door_row_payload(row: Any) -> dict[str, Any]:
         "performance_claim_allowed": row.performance_claim_allowed,
         "production_claim_allowed": row.production_claim_allowed,
         "spark_replacement_claim_allowed": row.spark_replacement_claim_allowed,
+        "claim_boundary": row.claim_boundary,
+    }
+
+
+def public_route_reuse_matrix_row_payload(row: Any) -> dict[str, Any]:
+    return {
+        "row_id": row.row_id,
+        "operation_family": row.operation_family,
+        "public_surfaces": list(row.public_surfaces),
+        "source_variants": list(row.source_variants),
+        "primary_route_id": row.primary_route_id,
+        "alternate_route_ids": list(row.alternate_route_ids),
+        "shared_runtime_spine": row.shared_runtime_spine,
+        "native_plan_route_family": row.native_plan_route_family,
+        "native_plan_payload_kind": row.native_plan_payload_kind,
+        "source_state_required": row.source_state_required,
+        "prepared_state_required": row.prepared_state_required,
+        "prepared_olap_state_reused_when_available": (
+            row.prepared_olap_state_reused_when_available
+        ),
+        "materialization_decode_boundary": row.materialization_decode_boundary,
+        "typed_result_or_sink_contract": row.typed_result_or_sink_contract,
+        "evidence_fields": list(row.evidence_fields),
+        "route_runtime_status": row.route_runtime_status,
+        "fallback_attempted": row.fallback_attempted,
+        "external_engine_invoked": row.external_engine_invoked,
         "claim_boundary": row.claim_boundary,
     }
 
@@ -1250,6 +1315,196 @@ def validate_public_front_door_routes(
     return blockers
 
 
+def validate_public_route_reuse_matrix(
+    rows: list[dict[str, Any]],
+    user_rows: list[dict[str, Any]],
+) -> list[str]:
+    blockers: list[str] = []
+    by_id = {str(row["row_id"]): row for row in rows}
+    user_route_ids = {str(row["route_id"]) for row in user_rows}
+
+    missing = sorted(REQUIRED_PUBLIC_ROUTE_REUSE_MATRIX_ROW_IDS - by_id.keys())
+    if missing:
+        blockers.append(
+            "public route reuse matrix missing rows: " + ",".join(missing)
+        )
+    extra = sorted(by_id.keys() - REQUIRED_PUBLIC_ROUTE_REUSE_MATRIX_ROW_IDS)
+    if extra:
+        blockers.append(
+            "public route reuse matrix has unclassified extra rows: " + ",".join(extra)
+        )
+    duplicate_count = len(rows) - len(by_id)
+    if duplicate_count:
+        blockers.append(
+            f"public route reuse matrix has duplicate ids: {duplicate_count}"
+        )
+
+    for row in rows:
+        row_id = str(row.get("row_id") or "")
+        for field in (
+            "row_id",
+            "operation_family",
+            "primary_route_id",
+            "shared_runtime_spine",
+            "native_plan_route_family",
+            "native_plan_payload_kind",
+            "materialization_decode_boundary",
+            "typed_result_or_sink_contract",
+            "route_runtime_status",
+            "claim_boundary",
+        ):
+            value = row.get(field)
+            if not isinstance(value, str) or not value.strip():
+                blockers.append(f"{row_id}: missing {field}")
+        for field in (
+            "public_surfaces",
+            "source_variants",
+            "evidence_fields",
+        ):
+            value = row.get(field)
+            if not isinstance(value, list) or not value:
+                blockers.append(f"{row_id}: missing non-empty {field}")
+
+        operation_family = str(row.get("operation_family") or "")
+        if operation_family not in REQUIRED_PUBLIC_ROUTE_REUSE_OPERATION_FAMILIES:
+            blockers.append(
+                f"{row_id}: unclassified operation_family={operation_family!r}"
+            )
+        primary_route_id = str(row.get("primary_route_id") or "")
+        if primary_route_id not in user_route_ids:
+            blockers.append(
+                f"{row_id}: primary_route_id {primary_route_id!r} is not in user route report"
+            )
+        for route_id in row.get("alternate_route_ids", []):
+            if str(route_id) not in user_route_ids:
+                blockers.append(
+                    f"{row_id}: alternate_route_id {route_id!r} is not in user route report"
+                )
+        if row.get("native_plan_route_family") != "native_vortex_unified_plan":
+            blockers.append(
+                f"{row_id}: native_plan_route_family must be native_vortex_unified_plan"
+            )
+        spine = str(row.get("shared_runtime_spine") or "")
+        if "native_vortex_unified_plan" not in spine:
+            blockers.append(f"{row_id}: shared_runtime_spine must name native_vortex_unified_plan")
+        if any(
+            forbidden in spine
+            for forbidden in ("sql-local-source-smoke", "direct_compatibility_transient")
+        ):
+            blockers.append(f"{row_id}: shared_runtime_spine exposes a forbidden runtime label")
+        if row.get("fallback_attempted") is not False:
+            blockers.append(f"{row_id}: fallback_attempted must be false")
+        if row.get("external_engine_invoked") is not False:
+            blockers.append(f"{row_id}: external_engine_invoked must be false")
+        if row.get("route_runtime_status") not in ADMITTED_ROUTE_RUNTIME_STATUSES:
+            blockers.append(
+                f"{row_id}: route_runtime_status must be an admitted runtime status"
+            )
+
+        evidence = row.get("evidence_fields")
+        if isinstance(evidence, list):
+            required_evidence = {
+                "native_vortex_plan_route_family",
+                "fallback_attempted",
+                "external_engine_invoked",
+            }
+            missing_evidence = sorted(required_evidence - {str(item) for item in evidence})
+            if missing_evidence:
+                blockers.append(
+                    f"{row_id}: missing evidence fields " + ",".join(missing_evidence)
+                )
+            if not any(
+                str(item) in {"typed_result_contract", "typed_sink_contract"}
+                for item in evidence
+            ):
+                blockers.append(
+                    f"{row_id}: evidence_fields must include a typed result or sink contract"
+                )
+            if "decode_materialization_boundary" not in {str(item) for item in evidence}:
+                blockers.append(
+                    f"{row_id}: evidence_fields must include decode_materialization_boundary"
+                )
+
+        if row_id.startswith("compatibility_"):
+            for token in ("Universal Ingest", "SourceState", "VortexPreparedState"):
+                if token not in spine:
+                    blockers.append(f"{row_id}: compatibility spine must name {token}")
+            if row.get("source_state_required") is not True:
+                blockers.append(f"{row_id}: compatibility row must require SourceState")
+            if row.get("prepared_state_required") is not True:
+                blockers.append(f"{row_id}: compatibility row must require VortexPreparedState")
+            if row.get("prepared_olap_state_reused_when_available") is not True:
+                blockers.append(
+                    f"{row_id}: compatibility row must reuse prepared OLAP state when available"
+                )
+            variants = {str(item) for item in row.get("source_variants", [])}
+            for variant in ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"):
+                if variant not in variants:
+                    blockers.append(f"{row_id}: missing source variant {variant}")
+
+        if row_id.startswith("native_vortex") or row_id.startswith("partitioned_vortex"):
+            if row.get("source_state_required") is not False:
+                blockers.append(f"{row_id}: native Vortex row must not require SourceState")
+            if row.get("prepared_state_required") is not False:
+                blockers.append(
+                    f"{row_id}: native Vortex row must not require VortexPreparedState"
+                )
+            if row.get("prepared_olap_state_reused_when_available") is not True:
+                blockers.append(
+                    f"{row_id}: native Vortex row must reuse prepared OLAP state when available"
+                )
+
+        if row_id == "generated_source_prepared_vortex":
+            if "GeneratedSourceState" not in spine or "VortexPreparedState" not in spine:
+                blockers.append(
+                    f"{row_id}: generated-source spine must name GeneratedSourceState and VortexPreparedState"
+                )
+            if row.get("source_state_required") is not True:
+                blockers.append(f"{row_id}: generated-source row must require source state")
+            if row.get("prepared_state_required") is not True:
+                blockers.append(f"{row_id}: generated-source row must require prepared state")
+
+    return blockers
+
+
+def public_row_identity(row: dict[str, Any]) -> str:
+    for key in ("route_id", "front_door_id", "row_id", "scenario_id"):
+        value = row.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return "unknown"
+
+
+def row_is_internal_diagnostic(row: dict[str, Any]) -> bool:
+    route_id = str(row.get("route_id") or "")
+    return (
+        route_id in INTERNAL_DIAGNOSTIC_ROUTE_IDS
+        and row.get("route_runtime_status") == "internal_smoke_only"
+    )
+
+
+def validate_no_stale_public_runtime_labels(
+    sections: dict[str, list[dict[str, Any]]],
+) -> list[str]:
+    blockers: list[str] = []
+    for section, rows in sections.items():
+        for row in rows:
+            if section == "user_routes" and row_is_internal_diagnostic(row):
+                continue
+            payload = json.dumps(row, sort_keys=True)
+            labels = sorted(
+                label for label in FORBIDDEN_PUBLIC_RUNTIME_LABELS if label in payload
+            )
+            if labels:
+                row_id = public_row_identity(row)
+                blockers.append(
+                    f"{section}:{row_id}: public/product status row exposes "
+                    "internal runtime label(s): "
+                    + ",".join(labels)
+                )
+    return blockers
+
+
 def front_door_row_exposes_prepared_state_reuse_contract(row: dict[str, Any]) -> bool:
     evidence = row.get("required_evidence", [])
     if not isinstance(evidence, list):
@@ -1286,6 +1541,10 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         public_front_door_row_payload(row)
         for row in route_report.public_front_door_route_rows
     ]
+    public_route_reuse_matrix_rows = [
+        public_route_reuse_matrix_row_payload(row)
+        for row in route_report.public_route_reuse_matrix_rows
+    ]
     local_vortex_primitive_rows = [
         primitive_row_payload(row) for row in local_vortex_report.rows
     ]
@@ -1296,7 +1555,16 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     user_route_ids = {str(row["route_id"]) for row in rows}
     scenario_catalog = load_scenario_catalog(repo_root)
     blockers = validate_rows(route_report, rows)
+    if (
+        route_report.public_route_reuse_matrix_schema_version
+        != PUBLIC_ROUTE_REUSE_MATRIX_SCHEMA_VERSION
+    ):
+        blockers.append(
+            "public route reuse matrix schema_version="
+            + str(route_report.public_route_reuse_matrix_schema_version)
+        )
     blockers.extend(validate_public_front_door_routes(public_front_door_rows, rows))
+    blockers.extend(validate_public_route_reuse_matrix(public_route_reuse_matrix_rows, rows))
     blockers.extend(
         validate_local_vortex_primitives(
             local_vortex_report,
@@ -1311,6 +1579,16 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             user_route_ids,
         )
     )
+    stale_public_runtime_label_blockers = validate_no_stale_public_runtime_labels(
+        {
+            "user_routes": rows,
+            "public_front_door_routes": public_front_door_rows,
+            "public_route_reuse_matrix": public_route_reuse_matrix_rows,
+            "local_vortex_primitive_routes": local_vortex_primitive_rows,
+            "local_file_benchmark_routes": local_file_benchmark_rows,
+        }
+    )
+    blockers.extend(stale_public_runtime_label_blockers)
     runtime_status_counts = dict(route_report.route_runtime_status_counts)
     local_benchmark_route_ids = [
         row["route_id"] for row in rows if row["benchmark_range"] is True
@@ -1389,6 +1667,18 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "public_front_door_route_ids": [
             str(row["front_door_id"]) for row in public_front_door_rows
         ],
+        "public_route_reuse_matrix_schema_version": (
+            route_report.public_route_reuse_matrix_schema_version
+        ),
+        "public_route_reuse_matrix_count": len(public_route_reuse_matrix_rows),
+        "public_route_reuse_matrix_row_ids": [
+            str(row["row_id"]) for row in public_route_reuse_matrix_rows
+        ],
+        "public_route_reuse_matrix_rows": public_route_reuse_matrix_rows,
+        "stale_public_runtime_label_blocker_count": len(
+            stale_public_runtime_label_blockers
+        ),
+        "stale_public_runtime_label_blockers": stale_public_runtime_label_blockers,
         "admitted_route_output_options": admitted_route_output_options,
         "admitted_local_file_benchmark_output_options": admitted_local_file_output_options,
         "unsupported_local_benchmark_route_ids": list(route_report.unsupported_local_benchmark_route_ids),
@@ -1516,6 +1806,25 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 and row.get("external_engine_invoked") is False
                 for row in public_front_door_rows
             ),
+            "public_route_reuse_matrix_complete": (
+                {str(row["row_id"]) for row in public_route_reuse_matrix_rows}
+                == REQUIRED_PUBLIC_ROUTE_REUSE_MATRIX_ROW_IDS
+            ),
+            "public_route_reuse_matrix_uses_native_vortex_unified_plan": all(
+                row.get("native_plan_route_family") == "native_vortex_unified_plan"
+                for row in public_route_reuse_matrix_rows
+            ),
+            "public_route_reuse_matrix_preserves_no_fallback": all(
+                row.get("fallback_attempted") is False
+                and row.get("external_engine_invoked") is False
+                for row in public_route_reuse_matrix_rows
+            ),
+            "public_route_reuse_matrix_covers_prepared_olap_reuse": all(
+                row.get("prepared_olap_state_reused_when_available") is True
+                for row in public_route_reuse_matrix_rows
+                if str(row.get("row_id", "")).startswith(("compatibility_", "native_vortex", "partitioned_vortex"))
+            ),
+            "no_stale_public_runtime_labels": not stale_public_runtime_label_blockers,
             "no_generic_unsupported_local_benchmark_route": not route_report.unsupported_local_benchmark_route_ids,
             "all_local_vortex_primitive_routes_supported": (
                 local_vortex_report.all_runtime_supported

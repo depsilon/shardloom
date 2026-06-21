@@ -103,6 +103,28 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             report["acceptance_summary"]["public_front_door_routes_preserve_no_fallback"]
         )
         self.assertTrue(
+            report["acceptance_summary"]["public_route_reuse_matrix_complete"]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
+                "public_route_reuse_matrix_uses_native_vortex_unified_plan"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
+                "public_route_reuse_matrix_preserves_no_fallback"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
+                "public_route_reuse_matrix_covers_prepared_olap_reuse"
+            ]
+        )
+        self.assertEqual(report["stale_public_runtime_label_blocker_count"], 0)
+        self.assertTrue(
+            report["acceptance_summary"]["no_stale_public_runtime_labels"]
+        )
+        self.assertTrue(
             report["acceptance_summary"][
                 "all_prepared_local_file_benchmark_routes_expose_workspace_manifest_reuse_contract"
             ]
@@ -295,15 +317,31 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(len(scenarios), 16)
         self.assertEqual(
             scenarios["selective_filter"]["route_runtime_status"],
-            "internal_smoke_only",
+            "prepared_route_supported",
         )
         self.assertEqual(
             scenarios["selective_filter"]["selected_execution_mode"],
-            "internal_local_source_smoke",
+            "prepared_vortex",
+        )
+        self.assertEqual(
+            scenarios["selective_filter"]["route_id"],
+            "local_file_prepare_once_first_query",
         )
         self.assertIn(
-            "local_file_prepare_once_first_query",
+            "local_file_prepare_once_batch",
             scenarios["selective_filter"]["alternate_route_ids"],
+        )
+        self.assertIn(
+            "VortexPreparedState",
+            scenarios["selective_filter"]["vortex_normalization_point"],
+        )
+        self.assertNotIn(
+            "sql-local-source-smoke",
+            scenarios["selective_filter"]["evidence_route"],
+        )
+        self.assertNotIn(
+            "direct_compatibility_transient",
+            scenarios["selective_filter"]["evidence_route"],
         )
         self.assertEqual(
             scenarios["join_aggregate"]["route_runtime_status"],
@@ -383,6 +421,63 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             generated_front_door["required_evidence"],
         )
 
+        matrix = {
+            row["row_id"]: row for row in report["public_route_reuse_matrix_rows"]
+        }
+        self.assertEqual(report["public_route_reuse_matrix_count"], 11)
+        self.assertEqual(
+            report["public_route_reuse_matrix_schema_version"],
+            "shardloom.public_route_reuse_matrix.v1",
+        )
+        for row in matrix.values():
+            self.assertEqual(row["native_plan_route_family"], "native_vortex_unified_plan")
+            self.assertIn("native_vortex_unified_plan", row["shared_runtime_spine"])
+            self.assertNotIn("sql-local-source-smoke", row["shared_runtime_spine"])
+            self.assertNotIn("direct_compatibility_transient", row["shared_runtime_spine"])
+            self.assertFalse(row["fallback_attempted"])
+            self.assertFalse(row["external_engine_invoked"])
+            self.assertTrue(
+                "typed_result_contract" in row["evidence_fields"]
+                or "typed_sink_contract" in row["evidence_fields"]
+            )
+            self.assertIn("decode_materialization_boundary", row["evidence_fields"])
+        compatibility = [
+            row
+            for row in matrix.values()
+            if row["row_id"].startswith("compatibility_")
+        ]
+        self.assertTrue(compatibility)
+        for row in compatibility:
+            self.assertTrue(row["source_state_required"])
+            self.assertTrue(row["prepared_state_required"])
+            self.assertTrue(row["prepared_olap_state_reused_when_available"])
+            self.assertEqual(
+                set(row["public_surfaces"]),
+                {"SQL", "Python", "DataFrame", "context", "session", "CLI"},
+            )
+            self.assertEqual(
+                set(row["source_variants"]),
+                {"csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"},
+            )
+            self.assertEqual(
+                row["shared_runtime_spine"],
+                "Universal Ingest -> SourceState -> VortexPreparedState -> "
+                "prepared_olap_state when available -> native_vortex_unified_plan "
+                "-> typed result/sink",
+        )
+        self.assertEqual(
+            matrix["native_vortex_file_operator"]["shared_runtime_spine"],
+            "native Vortex input/manifest -> native_vortex_unified_plan -> typed result/sink",
+        )
+        self.assertEqual(
+            matrix["partitioned_vortex_manifest_operator"]["native_plan_payload_kind"],
+            "partitioned_native_vortex_operator",
+        )
+        self.assertIn(
+            "GeneratedSourceState",
+            matrix["generated_source_prepared_vortex"]["shared_runtime_spine"],
+        )
+
     def test_context_route_selector_filters_by_input_and_output(self) -> None:
         src = REPO_ROOT / "python" / "src"
         if str(src) not in sys.path:
@@ -453,6 +548,47 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             "prepared_route_supported",
         )
         self.assertEqual(local_file_routes.unsupported_scenario_ids, ())
+
+    def test_validator_rejects_stale_public_route_reuse_matrix_labels(self) -> None:
+        module = load_route_module()
+        route_report = module.load_report(REPO_ROOT)
+        route_rows = [module.row_payload(row) for row in route_report.rows]
+        matrix_rows = [
+            module.public_route_reuse_matrix_row_payload(row)
+            for row in route_report.public_route_reuse_matrix_rows
+        ]
+        matrix_rows[0]["shared_runtime_spine"] = "sql-local-source-smoke"
+        matrix_rows[0]["native_plan_route_family"] = "facade_only_plan"
+        matrix_rows[0]["fallback_attempted"] = True
+        matrix_rows[0]["evidence_fields"] = ["fallback_attempted"]
+        matrix_rows[1]["source_variants"] = ["csv"]
+        matrix_rows[2]["prepared_olap_state_reused_when_available"] = False
+
+        blockers = module.validate_public_route_reuse_matrix(matrix_rows, route_rows)
+        stale_label_blockers = module.validate_no_stale_public_runtime_labels(
+            {
+                "user_routes": route_rows,
+                "public_route_reuse_matrix": matrix_rows,
+            }
+        )
+
+        self.assertTrue(any("native_plan_route_family" in blocker for blocker in blockers))
+        self.assertTrue(any("forbidden runtime label" in blocker for blocker in blockers))
+        self.assertTrue(any("fallback_attempted must be false" in blocker for blocker in blockers))
+        self.assertTrue(any("missing evidence fields" in blocker for blocker in blockers))
+        self.assertTrue(any("missing source variant" in blocker for blocker in blockers))
+        self.assertTrue(
+            any(
+                "must reuse prepared OLAP state when available" in blocker
+                for blocker in blockers
+            )
+        )
+        self.assertTrue(
+            any(
+                "public/product status row exposes internal runtime label" in blocker
+                for blocker in stale_label_blockers
+            )
+        )
 
     def test_validator_rejects_unsupported_or_overclaimed_route_rows(self) -> None:
         module = load_route_module()
