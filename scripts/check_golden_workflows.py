@@ -447,7 +447,7 @@ print(json.dumps({
         "input_row_count": 3,
         "writer_row_count": 3,
         "reopen_row_count": 3,
-        "reopen_verification_status": "reopen_row_count_verified",
+        "reopen_verification_status": "reopen_metadata_row_count_verified",
         "certification_status": "production_admitted_local_workflow_certified",
         "claim_gate_status": "local_workflow_runtime_supported",
         "fallback_attempted": False,
@@ -607,9 +607,9 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "input_row_count": "3",
                 "writer_row_count": "3",
                 "reopen_row_count": "3",
-                "reopen_verification_status": "reopen_row_count_verified",
+                "reopen_verification_status": "reopen_metadata_row_count_verified",
                 "upstream_vortex_write_called": "true",
-                "upstream_vortex_scan_called": "true",
+                "upstream_vortex_scan_called": "false",
                 "vortex_preparation_spine_status": "admitted_local_preparation_spine",
                 "vortex_preparation_spine_vortex_first_decision": (
                     "implement_shardloom_kernel"

@@ -189,6 +189,15 @@ evidence only; they are deliberately separate from timing surfaces and performan
 This is route-readiness evidence only. It must not be satisfied through external engine delegation
 or scenario-only shims, and it does not authorize a ClickBench performance or superiority claim.
 
+Local 100M ClickBench UAT timing remains separate from the route-readiness map. The current Desktop
+targeted artifact is
+`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_probe_after_optimizations/summary.json`.
+It exercises prepared Vortex input through `execution_policy=native_vortex`, sequential query
+execution, and `max_parallelism=2`. It is useful implementation evidence for runtime hot spots,
+but it is not a ClickBench submission or public performance claim. Remaining above-1s rows are
+string contains scans, bounded sort/order rows, string/domain grouped aggregates, and smaller
+date-filter top-K/offset tails.
+
 ## Supported Exact Native Vortex Provider Routes
 
 The following exact Python/DataFrame-style chains and equivalent SQL statements are admitted as

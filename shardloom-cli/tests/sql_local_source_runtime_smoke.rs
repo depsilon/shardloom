@@ -493,7 +493,7 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_prepared_artifact_segment_evidence_status",
-        "writer_and_reopen_row_count_verified"
+        "writer_and_reopen_metadata_row_count_verified"
     )));
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_no_standalone_lane_status",
@@ -575,7 +575,7 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_reopen_hot_path_status",
-        "performed_for_ingest_certification"
+        "performed_metadata_row_count_for_ingest_certification"
     )));
     assert!(stdout.contains(&field(
         "vortex_copy_budget_unsafe_lifetime_shortcut_status",
@@ -595,10 +595,10 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field("reopen_row_count", "2")));
     assert!(stdout.contains(&field(
         "reopen_verification_status",
-        "reopen_row_count_verified"
+        "reopen_metadata_row_count_verified"
     )));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
-    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains(&field(
         "certification_status",
         "production_admitted_local_workflow_certified"
@@ -5765,7 +5765,7 @@ fn local_source_runtime_writes_local_vortex_output_with_certificate_fields() {
         "vortex:no_broad_vortex_writer_fidelity_claim_beyond_scoped_flat_scalar_or_inferable_typed_nested"
     ));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
-    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains(&field("object_store_io", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -5820,7 +5820,7 @@ fn local_source_runtime_writes_non_null_binary_vortex_output() {
         "id:int64,payload:binary"
     )));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
-    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
@@ -5929,10 +5929,10 @@ fn local_source_runtime_writes_local_vortex_fanout_with_evidence() {
     ));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
     assert!(stdout.contains("csv:verified_local_file_digest"));
-    assert!(stdout.contains("vortex:verified_vortex_reopen_row_count"));
+    assert!(stdout.contains("vortex:verified_vortex_reopen_metadata_row_count"));
     assert!(stdout.contains("vortex:vortex_flat_scalar_or_typed_nested_reopen_verified"));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
-    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 

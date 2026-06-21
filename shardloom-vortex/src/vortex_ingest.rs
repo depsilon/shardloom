@@ -23,11 +23,17 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
     Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array,
     Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
-    LargeStringArray, StringArray, StringViewArray, TimestampMicrosecondArray, UInt8Array,
-    UInt16Array, UInt32Array, UInt64Array, cast::AsArray as _,
+    LargeStringArray, RecordBatch, StringArray, StringViewArray, TimestampMicrosecondArray,
+    UInt8Array, UInt16Array, UInt32Array, UInt64Array, cast::AsArray as _,
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_schema::DataType as ArrowDataType;
@@ -40,7 +46,7 @@ use shardloom_exec::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use crate::universal_format_io::FlatLocalColumnarSource;
+use crate::universal_format_io::{FlatLocalColumnarSource, FlatLocalColumnarStreamSource};
 
 /// Evidence schema emitted by the local Vortex preparation spine.
 pub const VORTEX_PREPARATION_SPINE_SCHEMA_VERSION: &str = "shardloom.vortex_preparation_spine.v1";
@@ -1982,11 +1988,71 @@ pub struct VortexPreparedStateColumnarWriteRequest {
     pub capillary_prewrite_input: Option<VortexCapillaryPreparationInput>,
 }
 
+/// Request to stream one flat columnar local source into a Vortex artifact.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub struct VortexPreparedStateColumnarStreamWriteRequest {
+    pub target_path: PathBuf,
+    pub source: FlatLocalColumnarStreamSource,
+    pub allow_overwrite: bool,
+    pub certification_level: VortexIngestCertificationLevel,
+    pub layout_write_advisor: Option<VortexLayoutWriteAdvisorReport>,
+    pub capillary_prewrite_input: Option<VortexCapillaryPreparationInput>,
+}
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl VortexPreparedStateColumnarWriteRequest {
     /// Create a request for a columnar local `VortexPreparedState` artifact write.
     #[must_use]
     pub fn new(target_path: impl Into<PathBuf>, source: FlatLocalColumnarSource) -> Self {
+        Self {
+            target_path: target_path.into(),
+            source,
+            allow_overwrite: false,
+            certification_level: VortexIngestCertificationLevel::IngestCertified,
+            layout_write_advisor: None,
+            capillary_prewrite_input: None,
+        }
+    }
+
+    /// Allow overwriting an existing local target artifact.
+    #[must_use]
+    pub const fn allow_overwrite(mut self, allow_overwrite: bool) -> Self {
+        self.allow_overwrite = allow_overwrite;
+        self
+    }
+
+    /// Set the requested ingest certification depth.
+    #[must_use]
+    pub const fn certification_level(
+        mut self,
+        certification_level: VortexIngestCertificationLevel,
+    ) -> Self {
+        self.certification_level = certification_level;
+        self
+    }
+
+    /// Attach pre-write capillary control input for the local cold-preparation route.
+    #[must_use]
+    pub fn capillary_prewrite_input(mut self, input: VortexCapillaryPreparationInput) -> Self {
+        self.capillary_prewrite_input = Some(input);
+        self
+    }
+
+    /// Attach the caller's layout/write advisor decision so the writer can
+    /// fail closed before applying unsupported write behavior.
+    #[must_use]
+    pub fn layout_write_advisor(mut self, report: VortexLayoutWriteAdvisorReport) -> Self {
+        self.layout_write_advisor = Some(report);
+        self
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl VortexPreparedStateColumnarStreamWriteRequest {
+    /// Create a request for a streaming columnar local `VortexPreparedState`
+    /// artifact write.
+    #[must_use]
+    pub fn new(target_path: impl Into<PathBuf>, source: FlatLocalColumnarStreamSource) -> Self {
         Self {
             target_path: target_path.into(),
             source,
@@ -2109,7 +2175,7 @@ impl VortexPreparedStateWriteRequest {
 pub enum VortexIngestCertificationLevel {
     /// Write a local artifact and report bytes/digest/writer evidence only.
     IngestMinimal,
-    /// Write and reopen/scan the artifact for row-count proof.
+    /// Write and reopen the artifact metadata for row-count proof.
     IngestCertified,
     /// Requires downstream result replay/output evidence, so this prepare-only helper blocks it.
     IngestFullReplay,
@@ -5546,7 +5612,7 @@ pub const fn vortex_ingest_write_feature_enabled() -> bool {
     cfg!(feature = "vortex-write")
 }
 
-/// Write flat scalar rows into a local Vortex artifact and reopen/scan it.
+/// Write flat scalar rows into a local Vortex artifact and reopen it for row-count proof.
 ///
 /// # Errors
 /// Returns [`ShardLoomError::InvalidOperation`] when the feature gate is not
@@ -5740,12 +5806,137 @@ pub fn write_flat_columnar_vortex_prepared_state(
     })
 }
 
+/// Stream flat columnar Arrow batches into a local Vortex artifact and
+/// reopen/scan it.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when columnar support is outside
+/// the scoped contract, the target already exists without overwrite
+/// permission, or upstream Vortex write/reopen APIs fail.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
+pub fn write_flat_columnar_vortex_prepared_state_streaming(
+    request: VortexPreparedStateColumnarStreamWriteRequest,
+) -> Result<VortexPreparedStateWriteReport> {
+    if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
+        return Err(ShardLoomError::InvalidOperation(
+            "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+
+    let source_shape = validate_flat_columnar_stream_source_shape(&request.source)?;
+    let column_families = columnar_column_families_from_schema(&source_shape)?;
+    let expected_provider_kind = "vortex_array_kernel";
+    let expected_provider_surface = "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator";
+    let layout_write_decision = admit_layout_write_runtime_decision(
+        request.layout_write_advisor.as_ref(),
+        expected_provider_kind,
+        expected_provider_surface,
+        &request.target_path,
+        request.certification_level,
+    )?;
+    prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
+    let mut capillary_prewrite_control =
+        plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
+    capillary_prewrite_control
+        .apply_task_role_gate("source_split_discovery", "source_split_discovery")?;
+    capillary_prewrite_control.apply_task_role_gate("read_chunk", "read_chunk")?;
+    capillary_prewrite_control.apply_task_role_gate("columnarize_encode", "array_build")?;
+
+    let mut reader = request.source.reader;
+    let array_build_start = Instant::now();
+    let Some(first_batch) =
+        next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")?
+    else {
+        let empty_source = FlatLocalColumnarSource {
+            header: request.source.header,
+            column_dtypes: request.source.column_dtypes,
+            column_arrow_dtypes: request.source.column_arrow_dtypes,
+            materialized_columns: request.source.materialized_columns,
+            reader_projection_columns: request.source.reader_projection_columns,
+            batches: Vec::new(),
+            row_count: 0,
+        };
+        let mut empty_request =
+            VortexPreparedStateColumnarWriteRequest::new(&request.target_path, empty_source)
+                .allow_overwrite(request.allow_overwrite)
+                .certification_level(request.certification_level);
+        if let Some(report) = request.layout_write_advisor {
+            empty_request = empty_request.layout_write_advisor(report);
+        }
+        if let Some(input) = request.capillary_prewrite_input {
+            empty_request = empty_request.capillary_prewrite_input(input);
+        }
+        return write_flat_columnar_vortex_prepared_state(empty_request);
+    };
+    validate_stream_record_batch_shape(
+        &first_batch,
+        &request.source.reader_projection_columns,
+        &source_shape,
+        1,
+    )?;
+    let first_array = record_batch_to_vortex_from_arrow_provider(&first_batch, &source_shape)?;
+    let dtype = first_array.dtype().clone();
+    let batch_count = Arc::new(AtomicUsize::new(1));
+    let stream_iter = StreamingColumnarVortexArrayIterator {
+        dtype,
+        first_array: Some(first_array),
+        reader,
+        reader_projection_columns: request.source.reader_projection_columns.clone(),
+        source_shape: source_shape.clone(),
+        batch_count: Arc::clone(&batch_count),
+        next_batch_index: 2,
+    };
+    let array_build_micros = array_build_start.elapsed().as_micros();
+    let projection_mask_status =
+        if request.source.materialized_columns.len() < request.source.header.len() {
+            "columnar_projection_mask_applied"
+        } else {
+            "full_projection"
+        };
+    finalize_vortex_prepared_state_stream_write(VortexPreparedStateStreamFinalizeInput {
+        target_path: request.target_path,
+        column_count: request.source.materialized_columns.len(),
+        column_families,
+        row_count_hint: request
+            .source
+            .row_count_hint
+            .map(usize_to_u64)
+            .transpose()?,
+        array_iterator: stream_iter,
+        emitted_record_batch_count: batch_count,
+        array_build_micros,
+        certification_level: request.certification_level,
+        allow_overwrite: request.allow_overwrite,
+        array_build_provider_kind: expected_provider_kind,
+        array_build_provider_surface: expected_provider_surface,
+        array_build_strategy: "vortex_from_arrow_record_batch_stream",
+        array_build_input_layout: "streaming_arrow_record_batch_columnar_source_state",
+        manual_scalar_copy_avoided: true,
+        capillary_prewrite_control,
+        layout_write_decision,
+        preparation_spine: VortexPreparationSpineFinalizeInput {
+            vortex_first_decision: "use_vortex_native_provider",
+            feature_gate: "vortex-write,universal-format-io",
+            source_surface: "streaming_local_columnar_source_state_arrow_record_batches",
+            split_surface: "streaming_arrow_record_batch_source_splits",
+            split_count: request.source.record_batch_count_hint.unwrap_or(0),
+            projection_mask_status,
+            filter_mask_status: "not_requested",
+            materialization_boundary_status: "streaming_columnar_source_state_preserved_to_vortex_array_provider",
+            decode_boundary_status: "no_scalar_row_decode_for_streamed_batches",
+        },
+    })
+}
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ColumnarProjectedColumn {
     column: String,
     reader_index: usize,
     dtype_hint: Option<LogicalDType>,
+    arrow_dtype_hint: Option<ArrowDataType>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -5796,10 +5987,17 @@ fn validate_flat_columnar_source_shape(
                 .position(|candidate| candidate == column)
                 .and_then(|index| source.column_dtypes.get(index))
                 .and_then(Clone::clone);
+            let arrow_dtype_hint = source
+                .header
+                .iter()
+                .position(|candidate| candidate == column)
+                .and_then(|index| source.column_arrow_dtypes.get(index))
+                .and_then(Clone::clone);
             Ok(ColumnarProjectedColumn {
                 column: column.clone(),
                 reader_index: *reader_index,
                 dtype_hint,
+                arrow_dtype_hint,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -5854,6 +6052,63 @@ fn validate_flat_columnar_source_shape(
     Ok(FlatColumnarSourceShape { projected_columns })
 }
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn validate_flat_columnar_stream_source_shape(
+    source: &FlatLocalColumnarStreamSource,
+) -> Result<FlatColumnarSourceShape> {
+    validate_flat_columns(&source.materialized_columns)?;
+    validate_flat_columns(&source.reader_projection_columns)?;
+    if source.column_dtypes.len() != source.header.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "streaming local vortex_ingest columnar SourceState dtype hint count is {}, expected {}; no fallback execution was attempted",
+            source.column_dtypes.len(),
+            source.header.len()
+        )));
+    }
+    if source.column_arrow_dtypes.len() != source.header.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "streaming local vortex_ingest columnar SourceState Arrow dtype hint count is {}, expected {}; no fallback execution was attempted",
+            source.column_arrow_dtypes.len(),
+            source.header.len()
+        )));
+    }
+
+    let reader_positions = source
+        .reader_projection_columns
+        .iter()
+        .enumerate()
+        .map(|(index, column)| (column.as_str(), index))
+        .collect::<BTreeMap<_, _>>();
+    let projected_columns = source
+        .materialized_columns
+        .iter()
+        .map(|column| {
+            let reader_index = reader_positions.get(column.as_str()).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "streaming local vortex_ingest columnar SourceState is missing projected column '{column}'; no fallback execution was attempted"
+                ))
+            })?;
+            let header_index = source
+                .header
+                .iter()
+                .position(|candidate| candidate == column)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "streaming local vortex_ingest columnar SourceState projected column '{column}' is not present in the source header; no fallback execution was attempted"
+                    ))
+                })?;
+            Ok(ColumnarProjectedColumn {
+                column: column.clone(),
+                reader_index: *reader_index,
+                dtype_hint: source.column_dtypes[header_index].clone(),
+                arrow_dtype_hint: source.column_arrow_dtypes[header_index].clone(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(FlatColumnarSourceShape { projected_columns })
+}
+
 #[cfg(feature = "vortex-write")]
 struct VortexPreparedStateFinalizeInput<'a> {
     target_path: PathBuf,
@@ -5875,6 +6130,30 @@ struct VortexPreparedStateFinalizeInput<'a> {
     preparation_spine: VortexPreparationSpineFinalizeInput,
 }
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct VortexPreparedStateStreamFinalizeInput<I>
+where
+    I: vortex::array::iter::ArrayIterator + Send + 'static,
+{
+    target_path: PathBuf,
+    column_count: usize,
+    column_families: Vec<(String, String)>,
+    row_count_hint: Option<u64>,
+    array_iterator: I,
+    emitted_record_batch_count: Arc<AtomicUsize>,
+    array_build_micros: u128,
+    certification_level: VortexIngestCertificationLevel,
+    allow_overwrite: bool,
+    array_build_provider_kind: &'static str,
+    array_build_provider_surface: &'static str,
+    array_build_strategy: &'static str,
+    array_build_input_layout: &'static str,
+    manual_scalar_copy_avoided: bool,
+    capillary_prewrite_control: VortexCapillaryPreWriteControlReport,
+    layout_write_decision: VortexLayoutWriteRuntimeDecision,
+    preparation_spine: VortexPreparationSpineFinalizeInput,
+}
+
 #[cfg(feature = "vortex-write")]
 #[derive(Debug, Clone, Copy)]
 struct VortexPreparationSpineFinalizeInput {
@@ -5887,6 +6166,146 @@ struct VortexPreparationSpineFinalizeInput {
     filter_mask_status: &'static str,
     materialization_boundary_status: &'static str,
     decode_boundary_status: &'static str,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct StreamingColumnarVortexArrayIterator {
+    dtype: vortex::array::dtype::DType,
+    first_array: Option<vortex::array::ArrayRef>,
+    reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+    reader_projection_columns: Vec<String>,
+    source_shape: FlatColumnarSourceShape,
+    batch_count: Arc<AtomicUsize>,
+    next_batch_index: usize,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl Iterator for StreamingColumnarVortexArrayIterator {
+    type Item = vortex::error::VortexResult<vortex::array::ArrayRef>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(array) = self.first_array.take() {
+            return Some(Ok(array));
+        }
+        let batch = match self.reader.next()? {
+            Ok(batch) => batch,
+            Err(error) => {
+                return Some(Err(vortex_stream_error(format!(
+                    "streaming local vortex_ingest Arrow reader failed: {error}; no fallback execution was attempted"
+                ))));
+            }
+        };
+        let batch_index = self.next_batch_index;
+        self.next_batch_index += 1;
+        match validate_stream_record_batch_shape(
+            &batch,
+            &self.reader_projection_columns,
+            &self.source_shape,
+            batch_index,
+        )
+        .and_then(|()| record_batch_to_vortex_from_arrow_provider(&batch, &self.source_shape))
+        {
+            Ok(array) => {
+                if array.dtype() != &self.dtype {
+                    return Some(Err(vortex_stream_error(format!(
+                        "streaming local vortex_ingest batch {batch_index} produced dtype {}, expected {}; no fallback execution was attempted",
+                        array.dtype(),
+                        self.dtype
+                    ))));
+                }
+                self.batch_count.fetch_add(1, Ordering::Relaxed);
+                Some(Ok(array))
+            }
+            Err(error) => Some(Err(vortex_stream_error(error))),
+        }
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl vortex::array::iter::ArrayIterator for StreamingColumnarVortexArrayIterator {
+    fn dtype(&self) -> &vortex::array::dtype::DType {
+        &self.dtype
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn vortex_stream_error(error: impl std::fmt::Display) -> vortex::error::VortexError {
+    vortex::error::vortex_err!("{error}")
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn next_streaming_record_batch(
+    reader: &mut dyn arrow_array::RecordBatchReader,
+    context: &str,
+) -> Result<Option<RecordBatch>> {
+    reader
+        .next()
+        .transpose()
+        .map_err(|error| ShardLoomError::InvalidOperation(format!("{context} failed: {error}")))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn validate_stream_record_batch_shape(
+    batch: &RecordBatch,
+    reader_projection_columns: &[String],
+    source_shape: &FlatColumnarSourceShape,
+    batch_index: usize,
+) -> Result<()> {
+    let expected_column_count = reader_projection_columns.len();
+    if batch.num_columns() != expected_column_count {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "streaming local vortex_ingest columnar SourceState batch {batch_index} has {} projected columns, expected {}; no fallback execution was attempted",
+            batch.num_columns(),
+            expected_column_count
+        )));
+    }
+    let schema = batch.schema();
+    if schema.fields().len() != expected_column_count {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "streaming local vortex_ingest columnar SourceState batch {batch_index} schema has {} projected fields, expected {}; no fallback execution was attempted",
+            schema.fields().len(),
+            expected_column_count
+        )));
+    }
+    for (column_index, expected_column) in reader_projection_columns.iter().enumerate() {
+        let actual_column = schema.field(column_index).name();
+        if actual_column != expected_column {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "streaming local vortex_ingest columnar SourceState batch {batch_index} projected field {} is '{}', expected '{}'; no fallback execution was attempted",
+                column_index + 1,
+                actual_column,
+                expected_column
+            )));
+        }
+    }
+    for projected_column in &source_shape.projected_columns {
+        let array = batch.column(projected_column.reader_index);
+        let family = arrow_column_family(&projected_column.column, array.as_ref())?;
+        if family == "float64" {
+            reject_columnar_non_finite_floats(&projected_column.column, array.as_ref())?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn record_batch_to_vortex_from_arrow_provider(
+    batch: &RecordBatch,
+    source_shape: &FlatColumnarSourceShape,
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::arrow::FromArrowArray as _;
+
+    let projection_indices = source_shape
+        .projected_columns
+        .iter()
+        .map(|column| column.reader_index)
+        .collect::<Vec<_>>();
+    let projected = batch.project(&projection_indices).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "streaming local vortex_ingest Arrow RecordBatch projection failed: {error}; no fallback execution was attempted"
+        ))
+    })?;
+    vortex::array::ArrayRef::from_arrow(projected, false).map_err(vortex_error)
 }
 
 #[cfg(feature = "vortex-write")]
@@ -5905,7 +6324,7 @@ fn finalize_vortex_prepared_state_write(
     ) = if input.certification_level == VortexIngestCertificationLevel::IngestCertified {
         capillary_prewrite_control.apply_task_role_gate("reopen_verify", "reopen")?;
         let reopen_start = Instant::now();
-        let reopen_row_count = reopen_vortex_row_count(&input.target_path)?;
+        let reopen_row_count = reopen_vortex_metadata_row_count(&input.target_path)?;
         let reopen_scan_micros = reopen_start.elapsed().as_micros();
         if write_result.writer_row_count != input.row_count || reopen_row_count != input.row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
@@ -5916,8 +6335,8 @@ fn finalize_vortex_prepared_state_write(
         (
             reopen_row_count,
             reopen_scan_micros,
-            "reopen_row_count_verified".to_string(),
-            true,
+            "reopen_metadata_row_count_verified".to_string(),
+            false,
         )
     } else {
         capillary_prewrite_control.mark_task_role_not_performed("reopen_verify", "reopen");
@@ -5973,6 +6392,110 @@ fn finalize_vortex_prepared_state_write(
     })
 }
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn finalize_vortex_prepared_state_stream_write<I>(
+    input: VortexPreparedStateStreamFinalizeInput<I>,
+) -> Result<VortexPreparedStateWriteReport>
+where
+    I: vortex::array::iter::ArrayIterator + Send + 'static,
+{
+    let mut capillary_prewrite_control = input.capillary_prewrite_control.clone();
+    capillary_prewrite_control.apply_task_role_gate("vortex_segment_write", "write")?;
+    let target_path = input.target_path.clone();
+    let certification_level = input.certification_level;
+    let row_count_hint = input.row_count_hint;
+    let array_build_provider_kind = input.array_build_provider_kind;
+    let array_build_provider_surface = input.array_build_provider_surface;
+    let mut preparation_spine_input = input.preparation_spine;
+    let write_result = write_vortex_array_iterator(
+        &target_path,
+        input.array_iterator,
+        input.allow_overwrite,
+        row_count_hint,
+    )?;
+    if let Some(expected_rows) = row_count_hint
+        && write_result.writer_row_count != expected_rows
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "streaming local vortex_ingest writer row count mismatch: metadata={expected_rows} writer={}; no fallback execution was attempted",
+            write_result.writer_row_count
+        )));
+    }
+
+    let row_count = write_result.writer_row_count;
+    let (
+        reopen_row_count,
+        reopen_scan_micros,
+        reopen_verification_status,
+        upstream_vortex_scan_called,
+    ) = if certification_level == VortexIngestCertificationLevel::IngestCertified {
+        capillary_prewrite_control.apply_task_role_gate("reopen_verify", "reopen")?;
+        let reopen_start = Instant::now();
+        let reopen_row_count = reopen_vortex_metadata_row_count(&target_path)?;
+        let reopen_scan_micros = reopen_start.elapsed().as_micros();
+        if reopen_row_count != row_count {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "streaming local vortex_ingest row-count proof mismatch: writer={row_count} reopen={reopen_row_count}; no fallback execution was attempted"
+            )));
+        }
+        (
+            reopen_row_count,
+            reopen_scan_micros,
+            "reopen_metadata_row_count_verified".to_string(),
+            false,
+        )
+    } else {
+        capillary_prewrite_control.mark_task_role_not_performed("reopen_verify", "reopen");
+        (0, 0, "not_performed_ingest_minimal".to_string(), false)
+    };
+    capillary_prewrite_control.apply_task_role_gate("sink_evidence", "sink_evidence")?;
+    let emitted_record_batch_count = input.emitted_record_batch_count.load(Ordering::Relaxed);
+    preparation_spine_input.split_count = emitted_record_batch_count;
+    let preparation_spine = preparation_spine_stream_report(
+        array_build_provider_kind,
+        array_build_provider_surface,
+        preparation_spine_input,
+        upstream_vortex_scan_called,
+        &reopen_verification_status,
+    );
+
+    Ok(VortexPreparedStateWriteReport {
+        target_path,
+        row_count,
+        column_count: input.column_count,
+        column_families: input.column_families,
+        bytes_written: write_result.bytes_written,
+        artifact_digest: write_result.artifact_digest,
+        digest_micros: write_result.digest_micros,
+        writer_row_count: write_result.writer_row_count,
+        reopen_row_count,
+        array_build_micros: input.array_build_micros,
+        write_micros: write_result.write_micros,
+        writer_context_open_micros: write_result.writer_context_open_micros,
+        writer_context_reuse_status: write_result.writer_context_reuse_status,
+        vortex_segment_write_micros: write_result.vortex_segment_write_micros,
+        workspace_stage_micros: write_result.workspace_stage_micros,
+        reopen_scan_micros,
+        reopen_verification_status,
+        timing_scope: "vortex_ingest_prepare_once".to_string(),
+        certification_level: certification_level.as_str().to_string(),
+        preparation_included: true,
+        query_timing_starts_after_preparation: false,
+        upstream_vortex_write_called: true,
+        upstream_vortex_scan_called,
+        array_build_provider_kind: array_build_provider_kind.to_string(),
+        array_build_provider_surface: array_build_provider_surface.to_string(),
+        array_build_strategy: input.array_build_strategy.to_string(),
+        array_build_input_layout: input.array_build_input_layout.to_string(),
+        array_build_record_batch_count: emitted_record_batch_count,
+        manual_scalar_copy_avoided: input.manual_scalar_copy_avoided,
+        preparation_spine,
+        layout_write_decision: input.layout_write_decision,
+        capillary_prewrite_control,
+        workspace_write_report: write_result.workspace_write_report,
+    })
+}
+
 #[cfg(feature = "vortex-write")]
 fn preparation_spine_report(
     input: &VortexPreparedStateFinalizeInput<'_>,
@@ -5994,21 +6517,27 @@ fn preparation_spine_report(
             VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION
         )
     };
-    let reopen_provider_surface = if upstream_vortex_scan_called {
+    let reopen_provider_surface = if reopen_verification_uses_metadata(reopen_verification_status) {
+        "VortexSession::open_options().open_path(...).row_count()"
+    } else if upstream_vortex_scan_called {
         "VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"
     } else {
         "not_invoked_ingest_minimal"
     };
-    let native_io_certificate_status = if upstream_vortex_scan_called {
-        "certified_local_vortex_preparation_spine"
-    } else {
-        "minimal_local_vortex_preparation_spine_digest_only"
-    };
-    let native_io_certificate_refs = if upstream_vortex_scan_called {
-        "source_split_refs,prepared_artifact_ref,reopen_row_count_scan"
-    } else {
-        "source_split_refs,prepared_artifact_ref,artifact_digest"
-    };
+    let native_io_certificate_status =
+        if reopen_verification_is_certified(reopen_verification_status) {
+            "certified_local_vortex_preparation_spine"
+        } else {
+            "minimal_local_vortex_preparation_spine_digest_only"
+        };
+    let native_io_certificate_refs =
+        if reopen_verification_uses_metadata(reopen_verification_status) {
+            "source_split_refs,prepared_artifact_ref,reopen_metadata_row_count"
+        } else if upstream_vortex_scan_called {
+            "source_split_refs,prepared_artifact_ref,reopen_row_count_scan"
+        } else {
+            "source_split_refs,prepared_artifact_ref,artifact_digest"
+        };
 
     VortexPreparationSpineReport {
         schema_version: VORTEX_PREPARATION_SPINE_SCHEMA_VERSION,
@@ -6045,6 +6574,76 @@ fn preparation_spine_report(
         claim_gate_status: "not_claim_grade".to_string(),
         claim_boundary: format!(
             "Scoped local Vortex preparation spine only: provider/admission/split/write/reopen evidence for flat local SourceState to VortexPreparedState; reopen_verification_status={reopen_verification_status}; no object-store, table, distributed, broad writer, encoded-operator, performance, production, or Spark-replacement claim"
+        ),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn preparation_spine_stream_report(
+    array_build_provider_kind: &'static str,
+    array_build_provider_surface: &'static str,
+    preparation_spine: VortexPreparationSpineFinalizeInput,
+    upstream_vortex_scan_called: bool,
+    reopen_verification_status: &str,
+) -> VortexPreparationSpineReport {
+    let reopen_provider_surface = if reopen_verification_uses_metadata(reopen_verification_status) {
+        "VortexSession::open_options().open_path(...).row_count()"
+    } else if upstream_vortex_scan_called {
+        "VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"
+    } else {
+        "not_invoked_ingest_minimal"
+    };
+    let native_io_certificate_status =
+        if reopen_verification_is_certified(reopen_verification_status) {
+            "certified_local_vortex_preparation_spine"
+        } else {
+            "minimal_local_vortex_preparation_spine_digest_only"
+        };
+    let native_io_certificate_refs =
+        if reopen_verification_uses_metadata(reopen_verification_status) {
+            "source_split_refs,prepared_artifact_ref,reopen_metadata_row_count"
+        } else if upstream_vortex_scan_called {
+            "source_split_refs,prepared_artifact_ref,reopen_row_count_scan"
+        } else {
+            "source_split_refs,prepared_artifact_ref,artifact_digest"
+        };
+
+    VortexPreparationSpineReport {
+        schema_version: VORTEX_PREPARATION_SPINE_SCHEMA_VERSION,
+        status: "admitted_local_preparation_spine".to_string(),
+        vortex_first_decision: preparation_spine.vortex_first_decision.to_string(),
+        provider_kind: array_build_provider_kind.to_string(),
+        provider_crate: "vortex".to_string(),
+        provider_version: VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION.to_string(),
+        feature_gate: preparation_spine.feature_gate.to_string(),
+        provider_api_surface: format!(
+            "{};{};{}",
+            array_build_provider_surface,
+            "VortexSession::write_options().write(ArrayStream)",
+            reopen_provider_surface
+        ),
+        shardloom_admission_policy: "scoped_local_vortex_ingest_source_sink_split_prepare_once"
+            .to_string(),
+        source_surface: preparation_spine.source_surface.to_string(),
+        sink_surface: "workspace_safe_local_vortex_file_sink".to_string(),
+        split_surface: preparation_spine.split_surface.to_string(),
+        split_ref_status: "reported_by_streaming_record_batch_boundary".to_string(),
+        split_count: preparation_spine.split_count,
+        projection_mask_status: preparation_spine.projection_mask_status.to_string(),
+        filter_mask_status: preparation_spine.filter_mask_status.to_string(),
+        write_provider_surface: "VortexSession::write_options().write(ArrayStream)".to_string(),
+        reopen_provider_surface: reopen_provider_surface.to_string(),
+        materialization_boundary_status: preparation_spine
+            .materialization_boundary_status
+            .to_string(),
+        decode_boundary_status: preparation_spine.decode_boundary_status.to_string(),
+        native_io_certificate_status: native_io_certificate_status.to_string(),
+        native_io_certificate_refs: native_io_certificate_refs.to_string(),
+        claim_gate_status: "not_claim_grade".to_string(),
+        claim_boundary: format!(
+            "Scoped local Vortex preparation spine only: streaming provider/admission/split/write/reopen evidence for flat local SourceState to VortexPreparedState; reopen_verification_status={reopen_verification_status}; no object-store, table, distributed, broad writer, encoded-operator, performance, production, or Spark-replacement claim"
         ),
         fallback_attempted: false,
         external_engine_invoked: false,
@@ -6496,6 +7095,62 @@ fn columnar_column_families(
             ))
         })
         .collect()
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_column_families_from_schema(
+    source_shape: &FlatColumnarSourceShape,
+) -> Result<Vec<(String, String)>> {
+    source_shape
+        .projected_columns
+        .iter()
+        .map(|projected_column| {
+            let family = if let Some(arrow_dtype) = projected_column.arrow_dtype_hint.as_ref() {
+                columnar_family_from_arrow_dtype_hint(&projected_column.column, arrow_dtype)?
+            } else {
+                columnar_family_from_dtype_hint(
+                    &projected_column.column,
+                    projected_column.dtype_hint.as_ref(),
+                )?
+            };
+            Ok((projected_column.column.clone(), family))
+        })
+        .collect()
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_family_from_arrow_dtype_hint(column: &str, dtype: &ArrowDataType) -> Result<String> {
+    if let Some(family) = dictionary_column_family(dtype) {
+        return Ok(family.to_string());
+    }
+    if let Some(family) = decimal128_column_family(column, dtype)? {
+        return Ok(family);
+    }
+    match dtype {
+        ArrowDataType::Boolean => Ok("boolean".to_string()),
+        ArrowDataType::Int8
+        | ArrowDataType::Int16
+        | ArrowDataType::Int32
+        | ArrowDataType::Int64 => Ok("int64".to_string()),
+        ArrowDataType::UInt8
+        | ArrowDataType::UInt16
+        | ArrowDataType::UInt32
+        | ArrowDataType::UInt64 => Ok("uint64".to_string()),
+        ArrowDataType::Float32 | ArrowDataType::Float64 => Ok("float64".to_string()),
+        ArrowDataType::Utf8 | ArrowDataType::LargeUtf8 | ArrowDataType::Utf8View => {
+            Ok("utf8".to_string())
+        }
+        ArrowDataType::Binary | ArrowDataType::LargeBinary | ArrowDataType::BinaryView => {
+            Ok("binary".to_string())
+        }
+        ArrowDataType::Date32 => Ok("date32".to_string()),
+        ArrowDataType::Timestamp(arrow_schema::TimeUnit::Microsecond, _) => {
+            Ok("timestamp_micros".to_string())
+        }
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "streaming local vortex_ingest column '{column}' has unsupported Arrow type {dtype:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8, binary, integer, and finite-float columns only; no fallback execution was attempted"
+        ))),
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -7457,6 +8112,71 @@ impl LocalVortexWriteContext {
             workspace_write_report,
         })
     }
+
+    fn write_array_iterator<I>(
+        &self,
+        path: &Path,
+        iter: I,
+        allow_overwrite: bool,
+        writer_context_reuse_status: impl Into<String>,
+        expected_rows: Option<u64>,
+    ) -> Result<LocalVortexWriteResult>
+    where
+        I: vortex::array::iter::ArrayIterator + Send + 'static,
+    {
+        use vortex::file::WriteOptionsSessionExt as _;
+
+        let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+        let write_start = Instant::now();
+        let mut vortex_segment_write_micros = 0;
+        let (summary, workspace_write_report) =
+            shardloom_core::write_workspace_safe_bytes_with_validated_producer(
+                workspace_root,
+                path,
+                allow_overwrite,
+                "streaming local vortex_ingest artifact",
+                |writer| {
+                    let segment_write_start = Instant::now();
+                    let result = self
+                        .session
+                        .write_options()
+                        .blocking(&self.runtime)
+                        .write(writer, iter)
+                        .map_err(vortex_error);
+                    vortex_segment_write_micros = segment_write_start.elapsed().as_micros();
+                    result
+                },
+                |summary| {
+                    if let Some(expected_rows) = expected_rows
+                        && summary.row_count() != expected_rows
+                    {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "streaming local vortex_ingest writer row count mismatch: wrote {}, expected {expected_rows}; staging cleanup attempted; no fallback execution was attempted",
+                            summary.row_count()
+                        )));
+                    }
+                    Ok(())
+                },
+            )?;
+        let digest_start = Instant::now();
+        let artifact_digest = sha256_file_digest(path, "streaming local vortex_ingest artifact")?;
+        let digest_micros = digest_start.elapsed().as_micros();
+        let bytes_written = workspace_write_report.bytes_written;
+        let write_micros = write_start.elapsed().as_micros();
+        let workspace_stage_micros = write_micros.saturating_sub(vortex_segment_write_micros);
+        Ok(LocalVortexWriteResult {
+            writer_row_count: summary.row_count(),
+            bytes_written,
+            artifact_digest,
+            digest_micros,
+            write_micros,
+            writer_context_open_micros: self.open_micros,
+            writer_context_reuse_status: writer_context_reuse_status.into(),
+            vortex_segment_write_micros,
+            workspace_stage_micros,
+            workspace_write_report,
+        })
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7479,39 +8199,50 @@ fn write_vortex_array(
 }
 
 #[cfg(feature = "vortex-write")]
-fn reopen_vortex_row_count(path: &Path) -> Result<u64> {
-    use std::fs;
+fn write_vortex_array_iterator<I>(
+    path: &Path,
+    iter: I,
+    allow_overwrite: bool,
+    expected_rows: Option<u64>,
+) -> Result<LocalVortexWriteResult>
+where
+    I: vortex::array::iter::ArrayIterator + Send + 'static,
+{
+    LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
+        let context = context.borrow();
+        let reuse_status = context.next_reuse_status();
+        context.write_array_iterator(path, iter, allow_overwrite, reuse_status, expected_rows)
+    })
+}
 
+#[cfg(feature = "vortex-write")]
+fn reopen_vortex_metadata_row_count(path: &Path) -> Result<u64> {
     use vortex::VortexSessionDefault as _;
-    use vortex::array::stream::ArrayStreamExt as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
     use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let bytes = fs::read(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to reopen local vortex_ingest artifact '{}': {error}",
-            path.display()
-        ))
-    })?;
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
-    let file = session
-        .open_options()
-        .open_buffer(bytes)
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
         .map_err(vortex_error)?;
-    let array = runtime
-        .block_on(
-            file.scan()
-                .map_err(vortex_error)?
-                .into_array_stream()
-                .map_err(vortex_error)?
-                .read_all(),
-        )
-        .map_err(vortex_error)?;
-    usize_to_u64(array.len())
+    Ok(file.row_count())
+}
+
+#[cfg(feature = "vortex-write")]
+fn reopen_verification_is_certified(status: &str) -> bool {
+    matches!(
+        status,
+        "reopen_row_count_verified" | "reopen_metadata_row_count_verified"
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn reopen_verification_uses_metadata(status: &str) -> bool {
+    status == "reopen_metadata_row_count_verified"
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7661,7 +8392,7 @@ mod tests {
         assert_eq!(report.reopen_row_count, 2);
         assert_eq!(
             report.reopen_verification_status,
-            "reopen_row_count_verified"
+            "reopen_metadata_row_count_verified"
         );
         assert!(report.artifact_digest.starts_with("sha256:"));
         assert!(report.digest_micros > 0);
@@ -7800,7 +8531,7 @@ mod tests {
             "shardloom_scalar_rows_to_vortex_struct"
         );
         assert!(report.upstream_vortex_write_called);
-        assert!(report.upstream_vortex_scan_called);
+        assert!(!report.upstream_vortex_scan_called);
 
         let schema = Schema::new(vec![
             Field::new("id", DataType::Int64, false),
@@ -8315,7 +9046,7 @@ mod tests {
             "shardloom_scalar_rows_to_vortex_struct"
         );
         assert!(report.upstream_vortex_write_called);
-        assert!(report.upstream_vortex_scan_called);
+        assert!(!report.upstream_vortex_scan_called);
 
         let schema = Schema::new(vec![
             Field::new("id", DataType::Int64, false),
@@ -8664,10 +9395,10 @@ mod tests {
         );
         assert_eq!(
             report.reopen_verification_status,
-            "reopen_row_count_verified"
+            "reopen_metadata_row_count_verified"
         );
         assert!(report.upstream_vortex_write_called);
-        assert!(report.upstream_vortex_scan_called);
+        assert!(!report.upstream_vortex_scan_called);
         assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
         assert_eq!(
             report.array_build_provider_surface,
@@ -8722,6 +9453,118 @@ mod tests {
             report.capillary_prewrite_control.reopen_gate_status,
             "applied_prewrite_window"
         );
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_stream_source_writes_without_buffered_batch_source() {
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        use arrow_array::{Int64Array, RecordBatch, StringArray};
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl arrow_array::RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-stream-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "label".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("label", DataType::Utf8, false),
+        ]));
+        let batch_1 = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(StringArray::from(vec!["alpha", "beta"])),
+            ],
+        )
+        .expect("first record batch");
+        let batch_2 = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![3])),
+                Arc::new(StringArray::from(vec!["gamma"])),
+            ],
+        )
+        .expect("second record batch");
+        let reader = TestRecordBatchReader {
+            schema,
+            batches: VecDeque::from([batch_1, batch_2]),
+        };
+        let source = FlatLocalColumnarStreamSource {
+            header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(DataType::Utf8)],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            row_count_hint: Some(3),
+            record_batch_count_hint: Some(2),
+            reader: Box::new(reader),
+        };
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
+            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
+
+        let report =
+            write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
+
+        assert_eq!(report.row_count, 3);
+        assert_eq!(report.reopen_row_count, 3);
+        assert_eq!(report.array_build_record_batch_count, 2);
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator"
+        );
+        assert_eq!(
+            report.array_build_strategy,
+            "vortex_from_arrow_record_batch_stream"
+        );
+        assert_eq!(
+            report.array_build_input_layout,
+            "streaming_arrow_record_batch_columnar_source_state"
+        );
+        assert_eq!(
+            report.preparation_spine.source_surface,
+            "streaming_local_columnar_source_state_arrow_record_batches"
+        );
+        assert_eq!(
+            report.preparation_spine.split_surface,
+            "streaming_arrow_record_batch_source_splits"
+        );
+        assert_eq!(report.preparation_spine.split_count, 2);
+        assert_eq!(
+            report.preparation_spine.materialization_boundary_status,
+            "streaming_columnar_source_state_preserved_to_vortex_array_provider"
+        );
+        assert_eq!(
+            report.preparation_spine.decode_boundary_status,
+            "no_scalar_row_decode_for_streamed_batches"
+        );
+        assert_eq!(report.column_family_summary(), "id:int64,label:utf8");
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -9700,6 +10543,76 @@ mod tests {
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("non-finite float should be rejected");
+
+        assert!(error.to_string().contains("non-finite float64"));
+        assert!(!path.exists());
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_stream_rejects_non_finite_float_before_provider_path() {
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        use arrow_array::{Float64Array, Int64Array, RecordBatch};
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl arrow_array::RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-stream-non-finite-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "metric".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("metric", DataType::Float64, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(Float64Array::from(vec![1.5, f64::NAN])),
+            ],
+        )
+        .expect("record batch");
+        let reader = TestRecordBatchReader {
+            schema,
+            batches: VecDeque::from([batch]),
+        };
+        let source = FlatLocalColumnarStreamSource {
+            header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![None; columns.len()],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            row_count_hint: Some(2),
+            record_batch_count_hint: Some(1),
+            reader: Box::new(reader),
+        };
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source);
+
+        let error = write_flat_columnar_vortex_prepared_state_streaming(request)
+            .expect_err("non-finite streaming float should be rejected");
 
         assert!(error.to_string().contains("non-finite float64"));
         assert!(!path.exists());

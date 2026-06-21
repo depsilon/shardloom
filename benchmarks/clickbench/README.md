@@ -53,9 +53,45 @@ collapse into the same check:
 | `medium_sequential_uat` | Optional local stress/UAT over larger generated `hits`-like data, run sequentially for device safety. | No |
 | `full_100m_artifact_runner` | Manual/offline full-scale artifact production after maintainer approval. | No |
 
-All tiers default to `max_parallelism=1` unless explicitly overridden. The coverage artifact is not
-a timing result. Full-scale performance claims require a promoted benchmark artifact and the normal
+All tiers are intended to run sequentially at the query/harness level for laptop safety. Public
+runtime evidence records requested and effective max parallelism; current local runtime may apply a
+safe effective floor of `2` for eligible scan/aggregate/prepare work. The coverage artifact is not a
+timing result. Full-scale performance claims require a promoted benchmark artifact and the normal
 claim gates.
+
+## Local 100M UAT Evidence
+
+The latest local Desktop 100M targeted UAT artifact is:
+
+`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_probe_after_optimizations/summary.json`
+
+It is implementation/UAT evidence only, not an official ClickBench submission. The run used the
+prepared 100M Vortex artifact, `execution_policy=native_vortex`, `max_parallelism=2`, and
+sequential query execution. Latest measured rows:
+
+| Query | Seconds | Route |
+| --- | ---: | --- |
+| Q02 | 0.854 | `native_vortex_count_where` |
+| Q20 | 0.138 | `native_vortex_filter_project` |
+| Q21 | 12.633 | `native_vortex_count_where` |
+| Q24 | 28.482 | `native_vortex_sort_rows` |
+| Q25 | 5.144 | `native_vortex_sort_rows` |
+| Q26 | 4.484 | `native_vortex_sort_rows` |
+| Q27 | 4.912 | `native_vortex_sort_rows` |
+| Q28 | 28.275 | `native_vortex_aggregate` |
+| Q29 | 32.864 | `native_vortex_aggregate` |
+| Q30 | 0.649 | `native_vortex_aggregate` |
+| Q37 | 0.821 | `native_vortex_aggregate` |
+| Q38 | 0.423 | `native_vortex_aggregate` |
+| Q39 | 0.146 | `native_vortex_aggregate` |
+| Q40 | 2.241 | `native_vortex_aggregate` |
+| Q41 | 3.130 | `native_vortex_aggregate` |
+| Q42 | 0.077 | `native_vortex_aggregate` |
+| Q43 | 0.169 | `native_vortex_aggregate` |
+
+Remaining above-1s rows are optimization candidates, not fallback permission. The next performance
+work should focus on encoded/provider-backed UTF-8 substring scans, source/order pruning for
+bounded sort rows, and additional string/domain grouped-aggregate reductions.
 
 ## State And Spill Fields
 

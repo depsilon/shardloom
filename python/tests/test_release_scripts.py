@@ -13059,6 +13059,26 @@ jobs:
             RELEASE_USER_SURFACE_EXAMPLE_FEATURES,
         )
 
+    def test_v1_example_replay_accepts_metadata_reopen_proof(self) -> None:
+        module = self._load_script_module(
+            "check_v1_example_replay.py",
+            "check_v1_example_replay_metadata_reopen_for_test",
+        )
+
+        workflow = {
+            "workflow_id": "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+            "stages": [
+                {
+                    "stage_id": "local_csv_vortex_ingest",
+                    "selected_fields": {
+                        "reopen_verification_status": "reopen_metadata_row_count_verified"
+                    },
+                }
+            ],
+        }
+
+        self.assertTrue(module.workflow_replay_verified(workflow))
+
     def test_v1_local_resource_safety_normalizes_downloaded_binary_permissions(
         self,
     ) -> None:

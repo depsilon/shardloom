@@ -27,7 +27,7 @@ use arrow_array::{
         TimestampMicrosecondBuilder, UInt64Builder, make_builder,
     },
 };
-use arrow_schema::{DataType, Field, Fields, Schema, TimeUnit};
+use arrow_schema::{ArrowError, DataType, Field, Fields, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
 use std::sync::Arc;
 
@@ -75,6 +75,144 @@ pub struct FlatLocalColumnarSource {
     pub row_count: usize,
 }
 
+/// Streaming columnar local compatibility source produced by a scoped local adapter.
+///
+/// This is the product-ingest shape for columnar compatibility inputs: schema
+/// metadata is available up front, while Arrow `RecordBatch` chunks are pulled
+/// by the Vortex writer without first accumulating the whole source in memory.
+pub struct FlatLocalColumnarStreamSource {
+    /// Column order from the source schema.
+    pub header: Vec<String>,
+    /// Source-schema dtype hints aligned with `header` for scoped compatibility
+    /// output preservation.
+    pub column_dtypes: Vec<Option<LogicalDType>>,
+    /// Source-schema Arrow dtype hints aligned with `header` for scoped typed
+    /// nested output preservation.
+    pub column_arrow_dtypes: Vec<Option<DataType>>,
+    /// Column order materialized for the caller.
+    pub materialized_columns: Vec<String>,
+    /// Column order requested from the underlying local reader.
+    pub reader_projection_columns: Vec<String>,
+    /// Source row count when the file format exposes it without scanning.
+    pub row_count_hint: Option<usize>,
+    /// Reader batch count when the file format exposes it without scanning.
+    pub record_batch_count_hint: Option<usize>,
+    /// Streaming Arrow batch reader consumed by the Vortex writer.
+    pub reader: Box<dyn RecordBatchReader + Send>,
+}
+
+struct RowLimitRecordBatchReader<R> {
+    inner: R,
+    schema: SchemaRef,
+    max_rows: usize,
+    row_count: usize,
+    path: String,
+    source_label: &'static str,
+    failed: bool,
+}
+
+impl<R> RowLimitRecordBatchReader<R>
+where
+    R: RecordBatchReader,
+{
+    fn new(inner: R, max_rows: usize, path: String, source_label: &'static str) -> Self {
+        let schema = inner.schema();
+        Self {
+            inner,
+            schema,
+            max_rows,
+            row_count: 0,
+            path,
+            source_label,
+            failed: false,
+        }
+    }
+}
+
+impl<R> Iterator for RowLimitRecordBatchReader<R>
+where
+    R: RecordBatchReader,
+{
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.failed {
+            return None;
+        }
+        let batch = self.inner.next()?;
+        match batch {
+            Ok(batch) => {
+                self.row_count =
+                    if let Some(row_count) = self.row_count.checked_add(batch.num_rows()) {
+                        row_count
+                    } else {
+                        self.failed = true;
+                        return Some(Err(ArrowError::InvalidArgumentError(format!(
+                            "local {} source '{}' row count overflowed usize",
+                            self.source_label, self.path
+                        ))));
+                    };
+                if self.row_count > self.max_rows {
+                    self.failed = true;
+                    return Some(Err(ArrowError::InvalidArgumentError(format!(
+                        "local {} source '{}' exceeds the scoped SQL local-source row limit of {}",
+                        self.source_label, self.path, self.max_rows
+                    ))));
+                }
+                Some(Ok(batch))
+            }
+            Err(error) => Some(Err(error)),
+        }
+    }
+}
+
+impl<R> RecordBatchReader for RowLimitRecordBatchReader<R>
+where
+    R: RecordBatchReader,
+{
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
+fn validate_known_stream_row_count(
+    path: &Path,
+    source_label: &str,
+    row_count_hint: Option<usize>,
+    max_rows: usize,
+) -> Result<()> {
+    if let Some(row_count) = row_count_hint
+        && row_count > max_rows
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local {source_label} source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn flat_columnar_stream_source_from_reader(
+    schema: &Schema,
+    header: Vec<String>,
+    materialized_columns: Vec<String>,
+    reader_projection_columns: Vec<String>,
+    row_count_hint: Option<usize>,
+    record_batch_count_hint: Option<usize>,
+    reader: Box<dyn RecordBatchReader + Send>,
+) -> FlatLocalColumnarStreamSource {
+    FlatLocalColumnarStreamSource {
+        column_dtypes: source_schema_column_dtypes(schema),
+        column_arrow_dtypes: source_schema_column_arrow_dtypes(schema),
+        header,
+        materialized_columns,
+        reader_projection_columns,
+        row_count_hint,
+        record_batch_count_hint,
+        reader,
+    }
+}
+
 /// Read a local Parquet file into flat scalar rows for scoped runtime smokes.
 ///
 /// # Errors
@@ -114,6 +252,48 @@ pub fn read_flat_parquet_columnar_source(
         })?;
 
     read_flat_record_batch_reader_columnar(&mut reader, path, "Parquet", max_rows)
+}
+
+/// Stream a local Parquet file as Arrow batches for product Vortex ingest.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Parquet reader cannot be constructed, or known file metadata exceeds
+/// `max_rows`.
+pub fn stream_flat_parquet_columnar_source(
+    path: &Path,
+    max_rows: usize,
+) -> Result<FlatLocalColumnarStreamSource> {
+    let file = open_local_source_file(path, "Parquet")?;
+    let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create streaming local Parquet source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+    let schema = Arc::clone(builder.schema());
+    let header = source_schema_header(path, "Parquet", schema.as_ref())?;
+    let row_count_hint = usize::try_from(builder.metadata().file_metadata().num_rows()).ok();
+    validate_known_stream_row_count(path, "Parquet", row_count_hint, max_rows)?;
+    let reader = builder
+        .with_batch_size(max_rows.clamp(1, 8192))
+        .build()
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to build streaming local Parquet source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+    Ok(flat_columnar_stream_source_from_reader(
+        schema.as_ref(),
+        header.clone(),
+        header.clone(),
+        header,
+        row_count_hint,
+        None,
+        Box::new(reader),
+    ))
 }
 
 /// Read selected root columns from a local Parquet file into flat scalar rows.
@@ -223,6 +403,41 @@ pub fn read_flat_arrow_ipc_columnar_source(
     read_flat_record_batch_reader_columnar(&mut reader, path, "Arrow IPC", max_rows)
 }
 
+/// Stream a local Arrow IPC file as Arrow batches for product Vortex ingest.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened
+/// or the Arrow IPC reader cannot be constructed.
+pub fn stream_flat_arrow_ipc_columnar_source(
+    path: &Path,
+    max_rows: usize,
+) -> Result<FlatLocalColumnarStreamSource> {
+    let file = open_local_source_file(path, "Arrow IPC")?;
+    let reader = arrow_ipc::reader::FileReader::try_new(file, None).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create streaming local Arrow IPC source reader for '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let schema = reader.schema();
+    let header = source_schema_header(path, "Arrow IPC", schema.as_ref())?;
+    let batch_hint = reader.num_batches();
+    Ok(flat_columnar_stream_source_from_reader(
+        schema.as_ref(),
+        header.clone(),
+        header.clone(),
+        header,
+        None,
+        Some(batch_hint),
+        Box::new(RowLimitRecordBatchReader::new(
+            reader,
+            max_rows,
+            path.display().to_string(),
+            "Arrow IPC",
+        )),
+    ))
+}
+
 /// Read selected columns from a local Arrow IPC file into flat scalar rows.
 ///
 /// The returned [`FlatLocalSourceTable::header`] remains the full source schema
@@ -325,6 +540,43 @@ pub fn read_flat_avro_columnar_source(
         })?;
 
     read_flat_record_batch_reader_columnar(&mut reader, path, "Avro", max_rows)
+}
+
+/// Stream a local Avro file as Arrow batches for product Vortex ingest.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened
+/// or the Avro reader cannot be constructed.
+pub fn stream_flat_avro_columnar_source(
+    path: &Path,
+    max_rows: usize,
+) -> Result<FlatLocalColumnarStreamSource> {
+    let file = open_local_source_file(path, "Avro")?;
+    let reader = arrow_avro::reader::ReaderBuilder::new()
+        .with_batch_size(max_rows.clamp(1, 8192))
+        .build(BufReader::new(file))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create streaming local Avro source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+    let schema = reader.schema();
+    let header = source_schema_header(path, "Avro", schema.as_ref())?;
+    Ok(flat_columnar_stream_source_from_reader(
+        schema.as_ref(),
+        header.clone(),
+        header.clone(),
+        header,
+        None,
+        None,
+        Box::new(RowLimitRecordBatchReader::new(
+            reader,
+            max_rows,
+            path.display().to_string(),
+            "Avro",
+        )),
+    ))
 }
 
 /// Read selected columns from a local Avro file into flat scalar rows.
@@ -439,6 +691,41 @@ pub fn read_flat_orc_columnar_source(
         .build();
 
     read_flat_record_batch_reader_columnar(&mut reader, path, "ORC", max_rows)
+}
+
+/// Stream a local ORC file as Arrow batches for product Vortex ingest.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened
+/// or the ORC reader cannot be constructed.
+pub fn stream_flat_orc_columnar_source(
+    path: &Path,
+    max_rows: usize,
+) -> Result<FlatLocalColumnarStreamSource> {
+    let file = open_local_source_file(path, "ORC")?;
+    let builder = orc_rust::ArrowReaderBuilder::try_new(file).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create streaming local ORC source reader for '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let schema = builder.schema();
+    let header = source_schema_header(path, "ORC", schema.as_ref())?;
+    let reader = builder.with_batch_size(max_rows.clamp(1, 8192)).build();
+    Ok(flat_columnar_stream_source_from_reader(
+        schema.as_ref(),
+        header.clone(),
+        header.clone(),
+        header,
+        None,
+        None,
+        Box::new(RowLimitRecordBatchReader::new(
+            reader,
+            max_rows,
+            path.display().to_string(),
+            "ORC",
+        )),
+    ))
 }
 
 /// Read selected root columns from a local ORC file into flat scalar rows.

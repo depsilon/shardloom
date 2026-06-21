@@ -409,8 +409,12 @@ struct VortexFilterProjectCliOptions {
     source_order_limit: Option<usize>,
 }
 impl VortexLocalPrimitiveCliExecutionEvidence {
-    pub(crate) fn has_errors(&self) -> bool {
-        self.report.has_errors() || !self.native_io_certificate.is_certified()
+    pub(crate) fn runtime_has_errors(&self) -> bool {
+        self.report.has_errors()
+            || self.report.fallback_execution_allowed
+            || self.report.external_effects_executed
+            || self.native_io_certificate.fallback_attempted
+            || self.native_io_certificate.side_effects.has_errors()
     }
 
     pub(crate) fn count(&self) -> Option<u64> {
@@ -6596,7 +6600,7 @@ pub(crate) fn handle_vortex_count_where_with_facade(
     };
     let command_has_errors = local_execution.as_ref().map_or_else(
         || result.has_errors(),
-        VortexCountWhereLocalExecutionEvidence::has_errors,
+        VortexCountWhereLocalExecutionEvidence::runtime_has_errors,
     );
     let status = if command_has_errors {
         CommandStatus::Unsupported
@@ -6640,14 +6644,16 @@ fn primitive_facade_diagnostics(
     result: &VortexQueryPrimitiveResult,
     local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
 ) -> Vec<Diagnostic> {
-    let mut diagnostics = if matches!(local_execution, Some(local) if !local.has_errors()) {
+    let mut diagnostics = if matches!(local_execution, Some(local) if !local.runtime_has_errors()) {
         Vec::new()
     } else {
         result.diagnostics.clone()
     };
     if let Some(local) = local_execution {
         diagnostics.extend(local.report.diagnostics.clone());
-        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        if local.runtime_has_errors() {
+            diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        }
         if let Some(certificate) = &local.execution_certificate {
             diagnostics.extend(certificate.diagnostics.clone());
         }
@@ -6732,7 +6738,7 @@ pub(crate) fn handle_vortex_project_with_facade(
     };
     let command_has_errors = local_execution.as_ref().map_or_else(
         || result.has_errors(),
-        VortexLocalPrimitiveCliExecutionEvidence::has_errors,
+        VortexLocalPrimitiveCliExecutionEvidence::runtime_has_errors,
     );
     let diagnostics = primitive_facade_diagnostics(&result, local_execution.as_ref());
     let mut fields = vortex_project_fields(&result, columns_arg, local_execution.as_ref());
@@ -6837,11 +6843,11 @@ pub(crate) fn handle_vortex_filter_project_with_facade(
     };
     let command_has_errors = local_execution.as_ref().map_or_else(
         || result.has_errors(),
-        VortexLocalPrimitiveCliExecutionEvidence::has_errors,
+        VortexLocalPrimitiveCliExecutionEvidence::runtime_has_errors,
     );
     let mut diagnostics = if local_execution
         .as_ref()
-        .is_some_and(|local| !local.has_errors())
+        .is_some_and(|local| !local.runtime_has_errors())
     {
         Vec::new()
     } else {
@@ -6849,7 +6855,9 @@ pub(crate) fn handle_vortex_filter_project_with_facade(
     };
     if let Some(local) = &local_execution {
         diagnostics.extend(local.report.diagnostics.clone());
-        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        if local.runtime_has_errors() {
+            diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        }
         if let Some(certificate) = &local.execution_certificate {
             diagnostics.extend(certificate.diagnostics.clone());
         }
@@ -6932,11 +6940,11 @@ pub(crate) fn handle_vortex_filter_with_facade(
     };
     let command_has_errors = local_execution.as_ref().map_or_else(
         || result.has_errors(),
-        VortexLocalPrimitiveCliExecutionEvidence::has_errors,
+        VortexLocalPrimitiveCliExecutionEvidence::runtime_has_errors,
     );
     let mut diagnostics = if local_execution
         .as_ref()
-        .is_some_and(|local| !local.has_errors())
+        .is_some_and(|local| !local.runtime_has_errors())
     {
         Vec::new()
     } else {
@@ -6944,7 +6952,9 @@ pub(crate) fn handle_vortex_filter_with_facade(
     };
     if let Some(local) = &local_execution {
         diagnostics.extend(local.report.diagnostics.clone());
-        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        if local.runtime_has_errors() {
+            diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        }
         if let Some(certificate) = &local.execution_certificate {
             diagnostics.extend(certificate.diagnostics.clone());
         }

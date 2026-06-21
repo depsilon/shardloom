@@ -341,7 +341,10 @@ def workflow_replay_verified(workflow: Mapping[str, Any]) -> bool:
             return True
         if fields.get("output_replay_status") == "verified_local_sink_artifacts":
             return True
-        if fields.get("reopen_verification_status") == "reopen_row_count_verified":
+        if fields.get("reopen_verification_status") in {
+            "reopen_row_count_verified",
+            "reopen_metadata_row_count_verified",
+        }:
             return True
         if bool_value(fields.get("vortex_output_reopen_verified")) is True:
             return True
