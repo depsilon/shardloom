@@ -1851,7 +1851,7 @@ mod tests {
         );
         assert_eq!(report.value_summary.as_deref(), Some("5"));
         assert!(report.result_known);
-        assert!(report.data_read);
+        assert!(!report.data_read);
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
         assert!(!report.fallback_execution_allowed);
@@ -1861,7 +1861,7 @@ mod tests {
             .as_ref()
             .expect("local primitive report");
         assert_eq!(local.rows_scanned, 5);
-        assert!(local.streaming_scan_used);
+        assert!(!local.streaming_scan_used);
         assert!(!local.full_stream_collected);
         assert_eq!(local.max_parallelism_requested, 2);
         assert_eq!(local.scan_concurrency_per_worker, 2);

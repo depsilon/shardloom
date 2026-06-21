@@ -61,37 +61,31 @@ claim gates.
 
 ## Local 100M UAT Evidence
 
-The latest local Desktop 100M targeted UAT artifact is:
+The current local Desktop 100M full-query UAT artifact is:
 
-`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_probe_after_optimizations/summary.json`
+`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_combined_summary.json`
 
-It is implementation/UAT evidence only, not an official ClickBench submission. The run used the
-prepared 100M Vortex artifact, `execution_policy=native_vortex`, `max_parallelism=2`, and
-sequential query execution. Latest measured rows:
+The checked-in burndown intake is:
 
-| Query | Seconds | Route |
-| --- | ---: | --- |
-| Q02 | 0.854 | `native_vortex_count_where` |
-| Q20 | 0.138 | `native_vortex_filter_project` |
-| Q21 | 12.633 | `native_vortex_count_where` |
-| Q24 | 28.482 | `native_vortex_sort_rows` |
-| Q25 | 5.144 | `native_vortex_sort_rows` |
-| Q26 | 4.484 | `native_vortex_sort_rows` |
-| Q27 | 4.912 | `native_vortex_sort_rows` |
-| Q28 | 28.275 | `native_vortex_aggregate` |
-| Q29 | 32.864 | `native_vortex_aggregate` |
-| Q30 | 0.649 | `native_vortex_aggregate` |
-| Q37 | 0.821 | `native_vortex_aggregate` |
-| Q38 | 0.423 | `native_vortex_aggregate` |
-| Q39 | 0.146 | `native_vortex_aggregate` |
-| Q40 | 2.241 | `native_vortex_aggregate` |
-| Q41 | 3.130 | `native_vortex_aggregate` |
-| Q42 | 0.077 | `native_vortex_aggregate` |
-| Q43 | 0.169 | `native_vortex_aggregate` |
+`docs/benchmarks/clickbench-100m-uat-burndown.json`
 
-Remaining above-1s rows are optimization candidates, not fallback permission. The next performance
-work should focus on encoded/provider-backed UTF-8 substring scans, source/order pruning for
-bounded sort rows, and additional string/domain grouped-aggregate reductions.
+This is implementation/UAT evidence only, not an official ClickBench submission. The run used the
+prepared 100M Vortex artifact, `execution_policy=native_vortex`, observed `max_parallelism=2`, and
+sequential query execution. It attempted all 43 rows: 34 completed successfully, 9 hit the
+180-second UAT cap, and completed rows reported no fallback or external-engine execution.
+
+Remaining above-1s and timeout rows are optimization candidates, not fallback permission. Current
+work focuses on capillary bounded-sort retention, typed exact distinct state, source-order limited
+group output, high-cardinality group keys, and string/domain grouped-aggregate reductions while
+preserving the shared native Vortex runtime family.
+
+The first burndown batch implements direct UTF-8 contains counting for count-only predicates, mixed
+predicate splitting so safe conjuncts still push into Vortex scans, typed exact distinct/group keys,
+functional-dependency pruning for deterministic offset-derived group keys, source-order no-sort
+group output, a single-key grouped aggregate fast path for identity/length/URL-domain keys,
+capillary ordered-candidate selection for grouped top-K/offset finalization, direct non-null
+encoded-layout admission guards, and bounded top-K retention evidence. The timing impact is not a
+public claim until the local 100M UAT is rerun after merge.
 
 ## State And Spill Fields
 

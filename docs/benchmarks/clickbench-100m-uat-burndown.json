@@ -1,0 +1,83 @@
+{
+  "schema_version": "shardloom.clickbench_100m_uat_burndown.v1",
+  "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
+  "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_combined_summary.json",
+  "dataset": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
+  "execution_surface": "cli_native_vortex",
+  "command_shape": "target/release/shardloom run dataframe --input <hits.vortex> --input-format vortex --execution-policy native_vortex --request collect --bounded true --format json",
+  "observed": {
+    "query_count": 43,
+    "success_count": 34,
+    "timeout_count": 9,
+    "timeout_seconds_per_query": 180,
+    "successful_elapsed_seconds_geomean": 2.977,
+    "fallback_or_external_engine_violations": 0,
+    "observed_max_parallelism": 2
+  },
+  "timeout_rows": [
+    "CB-Q16",
+    "CB-Q17",
+    "CB-Q18",
+    "CB-Q19",
+    "CB-Q23",
+    "CB-Q32",
+    "CB-Q33",
+    "CB-Q34",
+    "CB-Q35"
+  ],
+  "slow_success_rows_over_1s": [
+    { "query_id": "CB-Q03", "elapsed_seconds": 1.223, "family": "scalar_aggregate" },
+    { "query_id": "CB-Q05", "elapsed_seconds": 19.703, "family": "exact_distinct" },
+    { "query_id": "CB-Q06", "elapsed_seconds": 13.817, "family": "exact_distinct_string" },
+    { "query_id": "CB-Q09", "elapsed_seconds": 25.775, "family": "grouped_distinct" },
+    { "query_id": "CB-Q10", "elapsed_seconds": 28.558, "family": "grouped_multi_agg_distinct" },
+    { "query_id": "CB-Q11", "elapsed_seconds": 2.1, "family": "filtered_grouped_distinct" },
+    { "query_id": "CB-Q12", "elapsed_seconds": 2.812, "family": "filtered_composite_grouped_distinct" },
+    { "query_id": "CB-Q13", "elapsed_seconds": 46.917, "family": "high_cardinality_string_group" },
+    { "query_id": "CB-Q14", "elapsed_seconds": 82.166, "family": "high_cardinality_string_group_distinct" },
+    { "query_id": "CB-Q15", "elapsed_seconds": 55.932, "family": "composite_string_group" },
+    { "query_id": "CB-Q21", "elapsed_seconds": 13.599, "family": "string_contains_count" },
+    { "query_id": "CB-Q22", "elapsed_seconds": 40.599, "family": "string_contains_group_min" },
+    { "query_id": "CB-Q24", "elapsed_seconds": 38.706, "family": "string_contains_bounded_sort_wide_materialization" },
+    { "query_id": "CB-Q25", "elapsed_seconds": 5.686, "family": "bounded_sort" },
+    { "query_id": "CB-Q26", "elapsed_seconds": 5.249, "family": "bounded_sort" },
+    { "query_id": "CB-Q27", "elapsed_seconds": 5.38, "family": "bounded_sort" },
+    { "query_id": "CB-Q28", "elapsed_seconds": 38.019, "family": "length_group_having" },
+    { "query_id": "CB-Q29", "elapsed_seconds": 39.254, "family": "url_domain_group_having" },
+    { "query_id": "CB-Q31", "elapsed_seconds": 26.846, "family": "composite_integer_group" },
+    { "query_id": "CB-Q36", "elapsed_seconds": 90.142, "family": "computed_integer_group" },
+    { "query_id": "CB-Q40", "elapsed_seconds": 3.544, "family": "grouped_offset_topk" },
+    { "query_id": "CB-Q41", "elapsed_seconds": 4.954, "family": "grouped_offset_topk" }
+  ],
+  "optimization_families": [
+    {
+      "family": "bounded_sort",
+      "rows": ["CB-Q24", "CB-Q25", "CB-Q26", "CB-Q27"],
+      "strategy": "capillary retention window before top-k truncation plus late wide-row materialization",
+      "implemented_in_current_batch": ["capillary_retention_window", "mixed_predicate_partial_pushdown"]
+    },
+    {
+      "family": "aggregate_distinct",
+      "rows": ["CB-Q05", "CB-Q06", "CB-Q09", "CB-Q10", "CB-Q11", "CB-Q12", "CB-Q14"],
+      "strategy": "typed hash-backed exact distinct state; no external approximate or fallback engine",
+      "implemented_in_current_batch": ["typed_hash_exact_distinct_keys"]
+    },
+    {
+      "family": "grouped_aggregate",
+      "rows": ["CB-Q13", "CB-Q15", "CB-Q16", "CB-Q17", "CB-Q18", "CB-Q19", "CB-Q31", "CB-Q32", "CB-Q33", "CB-Q36", "CB-Q40", "CB-Q41"],
+      "strategy": "typed group keys, source-order limited output when SQL has no ORDER BY, and state-budget evidence",
+      "implemented_in_current_batch": ["typed_hash_group_keys", "single_key_group_fast_path", "source_order_no_sort", "functional_dependency_offset_key_pruning", "capillary_ordered_candidate_selection"]
+    },
+    {
+      "family": "string_predicate_expression",
+      "rows": ["CB-Q21", "CB-Q22", "CB-Q23", "CB-Q24", "CB-Q28", "CB-Q29", "CB-Q34", "CB-Q35"],
+      "strategy": "keep residual string work ShardLoom-owned; optimize materialization and aggregation around it until upstream Vortex string pushdown is certified",
+      "implemented_in_current_batch": ["direct_utf8_contains_count_for_count_where", "mixed_predicate_partial_pushdown", "native_string_expression_transform_registry", "residual_materialization_posture_evidence"]
+    }
+  ],
+  "no_fallback_policy": {
+    "fallback_attempted": false,
+    "external_engine_invoked": false,
+    "forbidden_runtime_engines": ["Spark", "DataFusion", "DuckDB", "Polars", "pandas", "Velox"]
+  }
+}

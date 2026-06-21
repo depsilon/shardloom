@@ -223,6 +223,159 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+- [ ] `CLICKBENCH-100M-RUNTIME-BURNDOWN-2` Full-scale native Vortex aggregate, string, distinct,
+  and bounded top-K runtime burndown.
+  - Source: post-merge 100M local ClickBench UAT against
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex` using the
+    merged `target/release/shardloom run dataframe ... --execution-policy native_vortex` CLI route.
+    Combined local evidence:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_combined_summary.json`.
+  - Current state: the 100M native Vortex route is functionally broad but not yet release-quality
+    for every OLAP family. The cap-only local run recorded 34/43 successful queries, 9 rows timed
+    out at the 180-second UAT cap (`CB-Q16`, `CB-Q17`, `CB-Q18`, `CB-Q19`, `CB-Q23`, `CB-Q32`,
+    `CB-Q33`, `CB-Q34`, `CB-Q35`), 22 successful rows still over 1s, zero completed runtime
+    failures, and no completed fallback/external-engine violations. Successful rows reported
+    `native_vortex` execution and observed `max_parallelism=2`.
+  - Intake review: accepted every >1s UAT row into this burndown rather than preserving them as
+    advisory notes. Rows are grouped by shared runtime family so the fix converges public SQL,
+    DataFrame, Python, and CLI wrappers into reusable native Vortex operators instead of adding
+    ClickBench-only routes.
+  - V1 scope classification: `required_for_v1` for local native Vortex OLAP readiness; not a
+    public ClickBench submission, superiority claim, or production object-store proof.
+  - ShardLoom technique review: apply dictionary/encoded execution, metadata-first pruning,
+    capillary aggregate/state units, PulseWeave memory/spill/pressure diagnostics, dynamic
+    admission by cardinality/selectivity/dtype, bounded top-K state, late materialization, and
+    evidence-tier controls. The implementation must prefer Vortex-native array/scan/provider
+    surfaces when available and otherwise implement ShardLoom kernels with explicit
+    no-fallback evidence.
+  - Execution checklist:
+    - [x] Add a checked-in 100M UAT optimization intake artifact or validator that reads the
+      combined local summary, preserves the timeout/>1s row list, and emits query-family targets
+      without making a public benchmark claim:
+      `docs/benchmarks/clickbench-100m-uat-burndown.json`.
+    - [x] Implement the first shared native Vortex runtime optimization batch without adding
+      ClickBench-only routes: typed exact distinct keys, source-order limited group output,
+      capillary bounded-sort retention, direct UTF-8 contains counts for `COUNT WHERE`, residual
+      materialization evidence, and functional-dependency group-key pruning for deterministic
+      offset-derived group expressions.
+    - [ ] Re-verify the public-route invariant for every optimized row: compatibility inputs are
+      source adapters only, `auto` and explicit native routes normalize into an admitted
+      Vortex-prepared/native middle, direct local diagnostic paths remain internal safeguards, and
+      no product route can report `sql-local-source-smoke`, `direct_compatibility_transient`,
+      `fallback_attempted=true`, or `external_engine_invoked=true`.
+    - [ ] Preserve one shared runtime family across CLI, SQL, Python, and DataFrame-style wrappers:
+      update lowering/evidence transport only when needed so aliases converge into the same
+      Vortex-native aggregate, string-predicate, bounded-sort, distinct, and sink contracts.
+    - [ ] Implement high-cardinality integer and composite-key group-by/top-K improvements for
+      `CB-Q16`, `CB-Q17`, `CB-Q18`, `CB-Q19`, `CB-Q31`, `CB-Q32`, `CB-Q33`, and `CB-Q36`: compact
+      typed tuple keys, partitioned hash state where beneficial, bounded top-K heaps, source-order
+      tie evidence, and state-budget/spill diagnostics.
+      - [x] Add functional-dependency hash-key pruning for offset-derived integer group expressions
+        such as `ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3`, while preserving full output
+        group columns and no-fallback evidence.
+      - [x] Add capillary ordered-candidate selection for grouped top-K/offset finalization so
+        ordered aggregate routes retain only the required candidate window before final sort and
+        row materialization.
+    - [ ] Implement dictionary/string-aware group-by and exact distinct improvements for `CB-Q05`,
+      `CB-Q06`, `CB-Q09`, `CB-Q10`, `CB-Q11`, `CB-Q12`, `CB-Q13`, `CB-Q14`, `CB-Q15`, `CB-Q22`,
+      `CB-Q34`, and `CB-Q35`: group by dictionary/code IDs where available, keep distinct state
+      encoded/compact where possible, and decode strings only for final output rows.
+      - [x] Replace string-prefix distinct/group keys with typed hash keys for exact distinct and
+        grouped state, preserving null/bool/int/uint/float/string type separation.
+      - [x] Avoid full result sorting for grouped aggregate output when the SQL shape has no
+        `ORDER BY`; source-order limited output now stops once the requested groups are emitted.
+      - [x] Add a single-key grouped aggregate fast path for identity, UTF-8 length, and URL-domain
+        transformed keys so common string-group profiles avoid generic row-key string formatting.
+    - [ ] Implement faster string predicate and URL expression kernels for `CB-Q21`, `CB-Q22`,
+      `CB-Q23`, `CB-Q24`, `CB-Q28`, and `CB-Q29`: byte-level contains for `LIKE '%literal%'`,
+      shared positive/negative string predicate evaluation, string length without full decode where
+      possible, and a specialized URL host extraction path for the ClickBench regex-domain shape.
+      - [x] Count-only UTF-8 substring predicates now count directly from Vortex `VarBinViewArray`
+        bytes when the column is non-null UTF-8, avoiding row export/materialization and reporting
+        `data_decoded=false` / `data_materialized=false`; nullable or unsupported shapes still use
+        deterministic ShardLoom-owned materialized evaluation.
+      - [x] Split mixed predicates into Vortex-pushable and ShardLoom residual conjuncts so safe
+        filters still execute in the native Vortex scan while UTF-8 residual work remains explicit,
+        audited, and no-fallback.
+      - [x] Keep ClickBench string expression transforms (`length`, URL-domain extraction, minute
+        extraction/truncation, and scoped CASE expression grouping) inside the shared native
+        aggregate transform registry rather than a parallel benchmark-only evaluator.
+    - [ ] Implement bounded sort/materialization improvements for `CB-Q24`, `CB-Q25`, `CB-Q26`,
+      `CB-Q27`, `CB-Q40`, and `CB-Q41`: top-N/offset heaps, projection-aware row materialization,
+      late payload decode, and deterministic ordering/tie fields.
+      - [x] Replace tiny per-chunk truncation with a capillary retention window so bounded top-K
+        sort routes reduce repeated resort/truncate work while preserving deterministic ties.
+    - [ ] Apply PulseWeave work shaping in the optimized routes: record `FlowInventory`-style
+      source/execution/writer work, `ScarcityLedger` memory/decode/sink pressure, `EndoPulse`
+      run-local feedback, and `ProofBound` evidence so adaptive behavior remains certificate-gated.
+    - [ ] Apply capillary work-unit semantics where the scan/operator can split or coalesce work:
+      record source range, projected columns, filter mask posture, target artifact/output boundary,
+      materialization posture, retry/idempotency state, sink pressure, memory pressure, and
+      no-fallback evidence for ingest/prep/execution/output units.
+      - [x] Record capillary retention and ordered-candidate work units for bounded sort and grouped
+        ordered aggregate routes, including retained candidate counts and pressure signals.
+      - [x] Preserve direct non-null Vortex dictionary/run-end kernel admission while blocking
+        nullable encoded layouts from being silently decoded into reader-generated kernel inputs.
+    - [ ] Apply dynamic work shaping without route proliferation: coalesce small units when
+      scheduling overhead dominates, split large high-cardinality/string units when state/decode
+      pressure requires it, and expose the chosen unit sizing and admission reason in evidence.
+    - [ ] Apply metadata-first and late-materialized execution before row decode: statistics/pruning
+      checks before row reads where supported, encoded/dictionary kernels before string decode,
+      and explicit bounded decode/materialization evidence at collect or compatibility-write
+      boundaries.
+    - [ ] Add evidence fields that make the optimized path auditable: aggregate key encoding mode,
+      dictionary-code grouping status, distinct-state strategy, bounded-top-k strategy,
+      materialized-row count, decoded-string count, state-byte estimate, spill status, and
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+      - [x] Add/verify evidence for `typed_hash_exact`, `typed_hash_key_functional_dependency`,
+        `source_order_no_sort`, `capillary_retention_window`, residual materialization posture, and
+        no-fallback/no-external-engine status on changed primitive paths.
+      - [x] Add/verify evidence for partial predicate pushdown with residual materialization posture
+        plus grouped ordered candidate strategy fields: `capillary_ordered_topk`,
+        `candidate_groups`, and `retained_candidate_groups`.
+      - [x] Add/verify metadata-only count evidence so local engine count routes do not report data
+        reads when the route answered from Vortex file row-count metadata.
+    - [ ] Preserve timing-surface discipline in route output and refreshed artifacts: hot runtime,
+      replay proof, and publication proof remain separate, and no evidence render/result-sink work
+      is folded into a query-runtime claim.
+    - [ ] Add focused correctness fixtures for the changed operator families: exact distinct
+      null/drop semantics, duplicate/high-cardinality keys, string predicate case behavior,
+      URL/regex replacement equivalence for the admitted profile, top-K/offset ties, empty/all-null
+      groups, and decoded-reference parity.
+      - [x] Add focused fixtures for typed distinct key separation, functional-dependency group-key
+        pruning, source-order group output, direct UTF-8 contains count, bounded-sort retention, and
+        residual materialization evidence.
+      - [x] Add mixed predicate fixtures proving Vortex filter pushdown is preserved for safe
+        conjuncts while UTF-8 residual predicates stay ShardLoom-owned and evidence-backed.
+      - [x] Add/regression-fix fixtures for nullable dictionary/run-end encoded input blocking,
+        bounded row-export observed-count semantics, and metadata-only count evidence.
+    - [ ] Rerun targeted local 100M UAT for the affected rows under the 180-second cap, then rerun
+      the full 43-query native Vortex UAT only after targeted rows no longer timeout or regress.
+    - [ ] Update README/docs/capability reports only from the admitted runtime evidence; move the
+      completed summary to the ledger after merge/session completion.
+  - Next outcome: the 100M native Vortex route no longer has timeout rows for feasible local OLAP
+    shapes, and the remaining >1s rows have evidence-backed state/materialization diagnostics plus
+    measured before/after UAT timing.
+  - User-visible surface: CLI `run dataframe`, Python `ctx.sql(...)` / DataFrame front doors,
+    native Vortex route evidence, ClickBench local UAT artifacts, README/docs capability posture.
+  - Implementation scope: `shardloom-vortex/src/local_primitives.rs`, aggregate/sort/string
+    helpers, `shardloom-cli/src/public_workflow_route.rs`, capability/benchmark validators,
+    Python wrappers only if evidence fields need transport exposure, docs, and UAT artifacts.
+  - Evidence required: local operator correctness tests, route/evidence snapshots, no-fallback
+    fields, targeted 100M UAT before/after rows, and explicit claim-boundary docs.
+  - Verification: focused Rust tests for aggregate/distinct/string/top-K primitives, public
+    workflow route tests for evidence propagation, the 100M targeted UAT harness with 180-second
+    cap, and only then broader CI/release validators when the runtime family changes are complete.
+  - Non-goals: adding external engines, creating ClickBench-only scenario shims, lowering the
+    public route through diagnostic smoke commands, increasing caps to hide slow rows, or publishing
+    official ClickBench claims from laptop-local UAT.
+  - Claim boundary: local UAT/runtime-readiness evidence only until official benchmark methodology,
+    hardware context, correctness validation, and publication gates approve a public claim.
+  - Fallback boundary: all admitted work remains ShardLoom-native/Vortex-native; unsupported
+    residuals must be deterministic diagnostics and may not call DuckDB, Polars, pandas, Spark,
+    DataFusion, Velox, or Vortex query-engine integrations.
+  - Ledger rule: move completed detail after merge/session completion.
+
 - [x] `PY-RUNTIME-OVERHEAD-1` Session-scoped persistent local runtime for Python public routes.
   - Source: live UAT showed raw CLI native Vortex Q22/Q23 routes at single-digit to low-teens
     milliseconds while Python `ctx.sql(..., input=...)` adds visible per-call subprocess overhead.

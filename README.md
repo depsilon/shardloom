@@ -213,6 +213,8 @@ and claim gates must be read together.
 - Public site: [shardloom.io/benchmarks](https://shardloom.io/benchmarks)
 - Local taxonomy: [docs/benchmarks/local-taxonomy-benchmark.md](docs/benchmarks/local-taxonomy-benchmark.md)
 - ClickBench coverage map: [benchmarks/clickbench/README.md](benchmarks/clickbench/README.md)
+- ClickBench 100M local UAT burndown:
+  [docs/benchmarks/clickbench-100m-uat-burndown.json](docs/benchmarks/clickbench-100m-uat-burndown.json)
 
 Check ClickBench OLAP route coverage locally:
 
