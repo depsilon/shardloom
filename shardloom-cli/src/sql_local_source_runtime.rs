@@ -21,9 +21,14 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use std::io::Read;
+use std::{collections::VecDeque, io::Read};
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use arrow_array::{RecordBatch, RecordBatchReader};
 
 use arrow_schema::DataType;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use arrow_schema::{ArrowError, SchemaRef};
 use regex::Regex;
 use shardloom_core::{
     BinaryOp, ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow,
@@ -3482,37 +3487,44 @@ impl VortexIngestSourceData {
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    fn from_columnar_source(
+    fn from_columnar_stream_source(
         source_adapter: LocalInputAdapterSelection,
-        columnar_source: &shardloom_vortex::FlatLocalColumnarSource,
+        columnar_source: &shardloom_vortex::FlatLocalColumnarStreamSource,
         scout: ColumnarSourceScoutEvidence,
         read_millis: u128,
         source_to_columnar_millis: u128,
     ) -> Self {
-        let source_split_row_ranges = columnar_source_split_row_ranges(columnar_source);
+        let row_count = columnar_source.row_count_hint.unwrap_or(0);
         Self {
             source_format: source_adapter.source_format,
             source_adapter,
             header: columnar_source.header.clone(),
-            read_plan: LocalSourceReadPlan::full("full_columnar_source_state_default"),
+            read_plan: LocalSourceReadPlan::full("streaming_columnar_source_state_default"),
             materialized_columns: columnar_source.materialized_columns.clone(),
             reader_projection_columns: columnar_source.reader_projection_columns.clone(),
             projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
             source_bytes: scout.bytes,
             source_digest: scout.digest,
-            row_count: columnar_source.row_count,
-            source_split_row_ranges,
+            row_count,
+            source_split_row_ranges: single_source_split_row_ranges(row_count),
             source_metadata_scout_millis: scout.metadata_scout_millis,
             source_byte_acquisition_millis: scout.byte_acquisition_millis,
             source_full_body_millis: scout.full_body_millis,
             read_millis,
             compatibility_parse_millis: 0,
             source_to_columnar_millis,
-            record_batch_count: columnar_source.batches.len(),
-            materialization_layout: "arrow_record_batch_columnar_source_state",
-            parse_normalization: "structured_reader_to_arrow_record_batches",
+            record_batch_count: columnar_source.record_batch_count_hint.unwrap_or(0),
+            materialization_layout: "streaming_arrow_record_batch_columnar_source_state",
+            parse_normalization: "structured_reader_to_streaming_arrow_record_batches",
             columnar_source_preserved: true,
         }
+    }
+
+    fn with_observed_streaming_write(mut self, row_count: u64, record_batch_count: usize) -> Self {
+        self.row_count = usize::try_from(row_count).unwrap_or(usize::MAX);
+        self.source_split_row_ranges = single_source_split_row_ranges(self.row_count);
+        self.record_batch_count = record_batch_count;
+        self
     }
 
     fn materialized_columns_field(&self) -> String {
@@ -3683,23 +3695,6 @@ fn single_source_split_row_ranges(row_count: usize) -> Vec<(usize, usize)> {
     } else {
         vec![(0, row_count)]
     }
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn columnar_source_split_row_ranges(
-    source: &shardloom_vortex::FlatLocalColumnarSource,
-) -> Vec<(usize, usize)> {
-    let mut start = 0usize;
-    source
-        .batches
-        .iter()
-        .map(|batch| {
-            let end = start + batch.num_rows();
-            let range = (start, end);
-            start = end;
-            range
-        })
-        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -5588,7 +5583,10 @@ fn layout_chunking_strategy(source: &VortexIngestSourceData) -> String {
 }
 
 fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved && source.record_batch_count > 0 {
+    if source.columnar_source_preserved && layout_streaming_columnar_source_may_have_batches(source)
+    {
+        "vortex_array_kernel"
+    } else if source.columnar_source_preserved && source.record_batch_count > 0 {
         "vortex_array_kernel"
     } else {
         "shardloom_kernel"
@@ -5596,13 +5594,21 @@ fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str 
 }
 
 fn layout_writer_provider_surface(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved && source.record_batch_count > 0 {
+    if source.columnar_source_preserved && layout_streaming_columnar_source_may_have_batches(source)
+    {
+        "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator;VortexSession::write_options().write(ArrayStream)"
+    } else if source.columnar_source_preserved && source.record_batch_count > 0 {
         "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)"
     } else if source.columnar_source_preserved {
         "shardloom_empty_columnar_struct_builder;VortexSession::write_options().write(ArrayStream)"
     } else {
         "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)"
     }
+}
+
+fn layout_streaming_columnar_source_may_have_batches(source: &VortexIngestSourceData) -> bool {
+    source.materialization_layout == "streaming_arrow_record_batch_columnar_source_state"
+        && source.row_count > 0
 }
 
 fn layout_verification_depth(
@@ -5613,7 +5619,7 @@ fn layout_verification_depth(
             "write_digest_only_no_reopen"
         }
         shardloom_vortex::VortexIngestCertificationLevel::IngestCertified => {
-            "writer_and_reopen_row_count"
+            "writer_and_reopen_metadata_row_count"
         }
         shardloom_vortex::VortexIngestCertificationLevel::IngestFullReplay => {
             "blocked_until_downstream_replay"
@@ -5849,7 +5855,7 @@ fn copy_budget_report(
         reopen_verify_copy_bytes: copy_reopen_verify_bytes(vortex_report),
         evidence_render_copy_bytes: "not_measured".to_string(),
         total_measured_copy_bytes: total_measured_copy_bytes.to_string(),
-        buffer_family: copy_buffer_family(source).to_string(),
+        buffer_family: copy_buffer_family(source, vortex_report).to_string(),
         ownership_policy: "owned_buffers_no_borrowed_lifetime_reuse".to_string(),
         writer_buffering_status: "writer_bytes_reported_from_local_vortex_artifact".to_string(),
         buffer_reuse_status: buffer_reuse_status.to_string(),
@@ -5877,7 +5883,7 @@ fn copy_buffer_reuse_status(
     vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
 ) -> &'static str {
     let writer_count_verified = vortex_report.writer_row_count == vortex_report.row_count;
-    let reopen_verified = vortex_report.reopen_verification_status == "reopen_row_count_verified";
+    let reopen_verified = vortex_report_reopen_row_count_verified(vortex_report);
     let minimal_digest_verified = vortex_report.reopen_verification_status
         == "not_performed_ingest_minimal"
         && vortex_report.artifact_digest.starts_with("sha256:");
@@ -5927,19 +5933,45 @@ fn copy_vortex_array_build_bytes(
 fn copy_reopen_verify_bytes(
     vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
 ) -> String {
-    if vortex_report.upstream_vortex_scan_called {
+    if vortex_report_reopen_metadata_row_count_verified(vortex_report) {
+        "not_measured_reopen_metadata".to_string()
+    } else if vortex_report.upstream_vortex_scan_called {
         "not_measured_reopen_scan".to_string()
     } else {
         "not_performed".to_string()
     }
 }
 
-fn copy_buffer_family(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved {
+fn copy_buffer_family(
+    source: &VortexIngestSourceData,
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> &'static str {
+    if vortex_report_reopen_metadata_row_count_verified(vortex_report)
+        && source.columnar_source_preserved
+    {
+        "source_bytes,arrow_record_batches,vortex_writer_buffer,reopen_metadata"
+    } else if vortex_report_reopen_metadata_row_count_verified(vortex_report) {
+        "source_bytes,scalar_rows,vortex_writer_buffer,reopen_metadata"
+    } else if source.columnar_source_preserved {
         "source_bytes,arrow_record_batches,vortex_writer_buffer,reopen_scan_buffer"
     } else {
         "source_bytes,scalar_rows,vortex_writer_buffer,reopen_scan_buffer"
     }
+}
+
+fn vortex_report_reopen_row_count_verified(
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> bool {
+    matches!(
+        vortex_report.reopen_verification_status.as_str(),
+        "reopen_row_count_verified" | "reopen_metadata_row_count_verified"
+    )
+}
+
+fn vortex_report_reopen_metadata_row_count_verified(
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> bool {
+    vortex_report.reopen_verification_status == "reopen_metadata_row_count_verified"
 }
 
 fn run_scalar_vortex_prepare(
@@ -6083,7 +6115,7 @@ fn run_columnar_vortex_prepare(
     let read_millis = read_start.elapsed().as_millis();
     let source_to_columnar_start = Instant::now();
     let max_rows = read_limits.input_rows.unwrap_or(usize::MAX);
-    let columnar_source = read_columnar_vortex_ingest_source(
+    let columnar_source = stream_columnar_vortex_ingest_source(
         source_format,
         &request.source_path,
         max_rows,
@@ -6094,14 +6126,44 @@ fn run_columnar_vortex_prepare(
         validate_sql_identifier(column)?;
     }
 
-    let source = VortexIngestSourceData::from_columnar_source(
+    let prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
         source_adapter,
         &columnar_source,
         scout,
         read_millis,
         source_to_columnar_millis,
     );
-    let source_schema_digest = fnv64_digest(&source.header.join(","));
+    let source_schema_digest = fnv64_digest(&prewrite_source.header.join(","));
+    let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
+    let prewrite_source_state_digest =
+        source_state_digest_for_source(&prewrite_source, &source_schema_digest);
+    let layout_write_advisor = layout_write_advisor_report(
+        &prewrite_source,
+        &prewrite_source_state_id,
+        &prewrite_source_state_digest,
+        &source_schema_digest,
+        request.certification_level,
+    );
+    let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
+        &request.target_path,
+        columnar_source,
+    )
+    .allow_overwrite(request.allow_overwrite)
+    .certification_level(request.certification_level)
+    .layout_write_advisor(layout_write_advisor.clone())
+    .capillary_prewrite_input(capillary_prewrite_input(
+        &prewrite_source,
+        &request.target_path,
+        request.certification_level,
+        &prewrite_source_state_id,
+        &prewrite_source_state_digest,
+    ));
+    let vortex_report =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
+    let source = prewrite_source.with_observed_streaming_write(
+        vortex_report.row_count,
+        vortex_report.array_build_record_batch_count,
+    );
     let source_state_id = source_state_id_for_source(&source);
     let source_state_digest = source_state_digest_for_source(&source, &source_schema_digest);
     let scout_ingress = scout_ingress_report(
@@ -6111,29 +6173,6 @@ fn run_columnar_vortex_prepare(
         &source_state_digest,
         &source_schema_digest,
     );
-    let layout_write_advisor = layout_write_advisor_report(
-        &source,
-        &source_state_id,
-        &source_state_digest,
-        &source_schema_digest,
-        request.certification_level,
-    );
-    let vortex_request = shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
-        &request.target_path,
-        columnar_source,
-    )
-    .allow_overwrite(request.allow_overwrite)
-    .certification_level(request.certification_level)
-    .layout_write_advisor(layout_write_advisor.clone())
-    .capillary_prewrite_input(capillary_prewrite_input(
-        &source,
-        &request.target_path,
-        request.certification_level,
-        &source_state_id,
-        &source_state_digest,
-    ));
-    let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state(vortex_request)?;
     let layout_write_advisor =
         layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
@@ -6190,14 +6229,14 @@ fn run_columnar_vortex_prepare(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn read_columnar_vortex_ingest_source(
+fn stream_columnar_vortex_ingest_source(
     source_format: LocalSourceFormat,
     path: &Path,
     max_rows: usize,
     source_byte_budget: Option<u64>,
-) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError> {
+) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
     if path.is_dir() {
-        return read_columnar_vortex_ingest_partition_source(
+        return stream_columnar_vortex_ingest_partition_source(
             source_format,
             path,
             max_rows,
@@ -6206,13 +6245,15 @@ fn read_columnar_vortex_ingest_source(
     }
     match source_format {
         LocalSourceFormat::Parquet => {
-            shardloom_vortex::read_flat_parquet_columnar_source(path, max_rows)
+            shardloom_vortex::stream_flat_parquet_columnar_source(path, max_rows)
         }
         LocalSourceFormat::ArrowIpc => {
-            shardloom_vortex::read_flat_arrow_ipc_columnar_source(path, max_rows)
+            shardloom_vortex::stream_flat_arrow_ipc_columnar_source(path, max_rows)
         }
-        LocalSourceFormat::Avro => shardloom_vortex::read_flat_avro_columnar_source(path, max_rows),
-        LocalSourceFormat::Orc => shardloom_vortex::read_flat_orc_columnar_source(path, max_rows),
+        LocalSourceFormat::Avro => {
+            shardloom_vortex::stream_flat_avro_columnar_source(path, max_rows)
+        }
+        LocalSourceFormat::Orc => shardloom_vortex::stream_flat_orc_columnar_source(path, max_rows),
         LocalSourceFormat::Csv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
             Err(ShardLoomError::InvalidOperation(format!(
                 "local {} source does not have a columnar vortex_ingest SourceState route; no fallback execution was attempted",
@@ -6223,75 +6264,122 @@ fn read_columnar_vortex_ingest_source(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn read_columnar_vortex_ingest_partition_source(
+struct PartitionedColumnarStreamReader {
+    schema: SchemaRef,
+    readers: VecDeque<Box<dyn RecordBatchReader + Send>>,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl Iterator for PartitionedColumnarStreamReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let reader = self.readers.front_mut()?;
+            match reader.next() {
+                Some(batch) => return Some(batch),
+                None => {
+                    self.readers.pop_front();
+                }
+            }
+        }
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl RecordBatchReader for PartitionedColumnarStreamReader {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn stream_columnar_vortex_ingest_partition_source(
     source_format: LocalSourceFormat,
     path: &Path,
     max_rows: usize,
     source_byte_budget: Option<u64>,
-) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError> {
+) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
     let partition_files =
         scout_local_source_partition_files_with_budget(path, source_format, source_byte_budget)?;
-    let mut combined: Option<shardloom_vortex::FlatLocalColumnarSource> = None;
-    let mut remaining_rows = max_rows;
-    for file_path in partition_files.files {
-        if remaining_rows == 0 {
-            break;
-        }
-        let source = match source_format {
-            LocalSourceFormat::Parquet => {
-                shardloom_vortex::read_flat_parquet_columnar_source(&file_path, remaining_rows)?
-            }
-            LocalSourceFormat::ArrowIpc => {
-                shardloom_vortex::read_flat_arrow_ipc_columnar_source(&file_path, remaining_rows)?
-            }
-            LocalSourceFormat::Avro => {
-                shardloom_vortex::read_flat_avro_columnar_source(&file_path, remaining_rows)?
-            }
-            LocalSourceFormat::Orc => {
-                shardloom_vortex::read_flat_orc_columnar_source(&file_path, remaining_rows)?
-            }
-            LocalSourceFormat::Csv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "local {} partition source is not a columnar universal-format SourceState; no fallback execution was attempted",
-                    source_format.row_label()
-                )));
-            }
-        };
-        remaining_rows = remaining_rows.saturating_sub(source.row_count);
-        if let Some(combined_source) = &mut combined {
-            validate_columnar_partition_schema(
-                combined_source,
-                &source,
-                &file_path,
-                source_format,
-            )?;
-            combined_source.row_count += source.row_count;
-            combined_source.batches.extend(source.batches);
-        } else {
-            combined = Some(source);
-        }
-    }
-    combined.ok_or_else(|| {
-        unsupported_sql_error(&format!(
-            "local {} partition source {} did not produce any RecordBatch SourceState rows",
+    let Some(first_file) = partition_files.files.first() else {
+        return Err(unsupported_sql_error(&format!(
+            "local {} partition source {} did not contain any admitted partition files",
             source_format.row_label(),
             path.display()
-        ))
+        )));
+    };
+
+    let first_source =
+        stream_columnar_vortex_ingest_source(source_format, first_file, max_rows, None)?;
+    let shardloom_vortex::FlatLocalColumnarStreamSource {
+        header,
+        column_dtypes,
+        column_arrow_dtypes,
+        materialized_columns,
+        reader_projection_columns,
+        row_count_hint,
+        record_batch_count_hint,
+        reader,
+    } = first_source;
+    let schema = reader.schema();
+    let mut readers = VecDeque::new();
+    readers.push_back(reader);
+    let mut combined_row_count_hint = row_count_hint;
+    let mut combined_record_batch_count_hint = record_batch_count_hint;
+    for file_path in partition_files.files.iter().skip(1) {
+        let source =
+            stream_columnar_vortex_ingest_source(source_format, file_path, max_rows, None)?;
+        validate_columnar_stream_partition_schema(
+            &header,
+            &column_dtypes,
+            &column_arrow_dtypes,
+            &materialized_columns,
+            &reader_projection_columns,
+            &source,
+            file_path,
+            source_format,
+        )?;
+        combined_row_count_hint = checked_sum_optional_usize(
+            combined_row_count_hint,
+            source.row_count_hint,
+            "partition row count",
+        )?;
+        combined_record_batch_count_hint = checked_sum_optional_usize(
+            combined_record_batch_count_hint,
+            source.record_batch_count_hint,
+            "partition RecordBatch count",
+        )?;
+        readers.push_back(source.reader);
+    }
+    Ok(shardloom_vortex::FlatLocalColumnarStreamSource {
+        header,
+        column_dtypes,
+        column_arrow_dtypes,
+        materialized_columns,
+        reader_projection_columns,
+        row_count_hint: combined_row_count_hint,
+        record_batch_count_hint: combined_record_batch_count_hint,
+        reader: Box::new(PartitionedColumnarStreamReader { schema, readers }),
     })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn validate_columnar_partition_schema(
-    expected: &shardloom_vortex::FlatLocalColumnarSource,
-    candidate: &shardloom_vortex::FlatLocalColumnarSource,
+fn validate_columnar_stream_partition_schema(
+    expected_header: &[String],
+    expected_column_dtypes: &[Option<LogicalDType>],
+    expected_column_arrow_dtypes: &[Option<DataType>],
+    expected_materialized_columns: &[String],
+    expected_reader_projection_columns: &[String],
+    candidate: &shardloom_vortex::FlatLocalColumnarStreamSource,
     path: &Path,
     source_format: LocalSourceFormat,
 ) -> Result<(), ShardLoomError> {
-    if expected.header != candidate.header
-        || expected.column_dtypes != candidate.column_dtypes
-        || expected.column_arrow_dtypes != candidate.column_arrow_dtypes
-        || expected.materialized_columns != candidate.materialized_columns
-        || expected.reader_projection_columns != candidate.reader_projection_columns
+    if expected_header != candidate.header
+        || expected_column_dtypes != candidate.column_dtypes
+        || expected_column_arrow_dtypes != candidate.column_arrow_dtypes
+        || expected_materialized_columns != candidate.materialized_columns
+        || expected_reader_projection_columns != candidate.reader_projection_columns
     {
         return Err(unsupported_sql_error(&format!(
             "local {} partition file {} has a schema/projection mismatch with earlier partitions; no fallback execution was attempted",
@@ -6300,6 +6388,22 @@ fn validate_columnar_partition_schema(
         )));
     }
     Ok(())
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn checked_sum_optional_usize(
+    left: Option<usize>,
+    right: Option<usize>,
+    label: &str,
+) -> Result<Option<usize>, ShardLoomError> {
+    match (left, right) {
+        (Some(left), Some(right)) => left.checked_add(right).map(Some).ok_or_else(|| {
+            unsupported_sql_error(&format!(
+                "local columnar {label} overflowed usize; no fallback execution was attempted"
+            ))
+        }),
+        _ => Ok(None),
+    }
 }
 
 fn output_column_names(parsed: &ParsedSqlLocalSource, source: &CsvSourceData) -> Vec<String> {
@@ -6483,21 +6587,30 @@ impl VortexIngestReport {
         } else {
             "minimal_local_vortex_ingest_digest_only"
         };
-        let source_backed_scan_evidence_status = if certified_reopen {
-            "scoped_reopen_row_count_scan"
-        } else {
-            "not_performed_ingest_minimal"
-        };
-        let source_backed_scan_provider_kind = if certified_reopen {
-            "vortex_scan"
-        } else {
-            "not_invoked"
-        };
-        let source_backed_scan_provider_surface = if certified_reopen {
-            "VortexFile::scan"
-        } else {
-            "not_invoked"
-        };
+        let source_backed_scan_evidence_status =
+            if vortex_report_reopen_metadata_row_count_verified(&self.vortex_report) {
+                "scoped_reopen_metadata_row_count"
+            } else if certified_reopen {
+                "scoped_reopen_row_count_scan"
+            } else {
+                "not_performed_ingest_minimal"
+            };
+        let source_backed_scan_provider_kind =
+            if vortex_report_reopen_metadata_row_count_verified(&self.vortex_report) {
+                "vortex_file_metadata"
+            } else if certified_reopen {
+                "vortex_scan"
+            } else {
+                "not_invoked"
+            };
+        let source_backed_scan_provider_surface =
+            if vortex_report_reopen_metadata_row_count_verified(&self.vortex_report) {
+                "VortexFile::row_count"
+            } else if certified_reopen {
+                "VortexFile::scan"
+            } else {
+                "not_invoked"
+            };
         let claim_gate_status = if certified_reopen {
             self.request.runtime_profile.claim_gate_status()
         } else {
@@ -7029,7 +7142,9 @@ impl VortexIngestReport {
             ),
             (
                 "vortex_reopen_hot_path_status".to_string(),
-                if self.vortex_report.upstream_vortex_scan_called {
+                if vortex_report_reopen_metadata_row_count_verified(&self.vortex_report) {
+                    "performed_metadata_row_count_for_ingest_certification"
+                } else if self.vortex_report.upstream_vortex_scan_called {
                     "performed_for_ingest_certification"
                 } else {
                     "skipped_minimal_ingest_digest_path"
@@ -7204,11 +7319,14 @@ impl VortexIngestReport {
     }
 
     fn preparation_spine_source_fields(&self, certified_reopen: bool) -> Vec<(String, String)> {
-        let prepared_artifact_segment_evidence_status = if certified_reopen {
-            "writer_and_reopen_row_count_verified"
-        } else {
-            "writer_row_count_and_digest_recorded_ingest_minimal"
-        };
+        let prepared_artifact_segment_evidence_status =
+            if vortex_report_reopen_metadata_row_count_verified(&self.vortex_report) {
+                "writer_and_reopen_metadata_row_count_verified"
+            } else if certified_reopen {
+                "writer_and_reopen_row_count_verified"
+            } else {
+                "writer_row_count_and_digest_recorded_ingest_minimal"
+            };
         let fields = vec![
             (
                 "vortex_preparation_spine_source_state_id".to_string(),
@@ -15736,9 +15854,14 @@ fn replay_sql_vortex_output(
     format: SqlLocalSourceOutputFormat,
     report: &shardloom_vortex::VortexPreparedStateWriteReport,
 ) -> SqlOutputReplayEvidence {
+    let verified = vortex_report_reopen_row_count_verified(report);
     SqlOutputReplayEvidence {
-        verified: report.upstream_vortex_scan_called,
-        status: if report.upstream_vortex_scan_called {
+        verified,
+        status: if vortex_report_reopen_metadata_row_count_verified(report) {
+            "verified_vortex_reopen_metadata_row_count"
+        } else if report.upstream_vortex_scan_called {
+            "verified_vortex_reopen_row_count"
+        } else if verified {
             "verified_vortex_reopen_row_count"
         } else {
             "blocked_missing_vortex_reopen_proof"
@@ -29679,7 +29802,14 @@ impl SqlLocalSourceReport {
             ),
             (
                 "vortex_output_certification_level".to_string(),
-                if self.vortex_output_runtime_execution() {
+                if self.vortex_written_outputs().any(|output| {
+                    output
+                        .vortex_report
+                        .as_ref()
+                        .is_some_and(vortex_report_reopen_metadata_row_count_verified)
+                }) {
+                    "local_reopen_metadata_row_count_proof"
+                } else if self.vortex_output_runtime_execution() {
                     "local_reopen_row_count_proof"
                 } else {
                     "not_applicable"
@@ -29692,7 +29822,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "upstream_vortex_scan_called".to_string(),
-                self.vortex_output_reopen_verified().to_string(),
+                self.vortex_output_upstream_scan_called().to_string(),
             ),
             (
                 "source_read_millis".to_string(),
@@ -30362,6 +30492,15 @@ impl SqlLocalSourceReport {
     }
 
     fn vortex_output_reopen_verified(&self) -> bool {
+        self.vortex_written_outputs().any(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .is_some_and(vortex_report_reopen_row_count_verified)
+        })
+    }
+
+    fn vortex_output_upstream_scan_called(&self) -> bool {
         self.vortex_written_outputs().any(|output| {
             output
                 .vortex_report
@@ -41810,6 +41949,41 @@ mod tests {
         assert_eq!(
             layout_writer_provider_surface(&source),
             "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)"
+        );
+    }
+
+    #[test]
+    fn layout_writer_provider_uses_streaming_vortex_provider_for_non_empty_columnar_source() {
+        let source_adapter = LocalInputAdapterSelection::infer_from_path(Path::new("hits.parquet"))
+            .expect("infer parquet adapter");
+        let source = VortexIngestSourceData {
+            source_format: source_adapter.source_format,
+            source_adapter,
+            header: vec!["URL".to_string()],
+            read_plan: LocalSourceReadPlan::full("test_streaming_columnar_source"),
+            materialized_columns: vec!["URL".to_string()],
+            reader_projection_columns: vec!["URL".to_string()],
+            projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
+            source_bytes: 1024,
+            source_digest: "fnv64:test".to_string(),
+            row_count: 100_000_000,
+            source_split_row_ranges: vec![(0, 100_000_000)],
+            source_metadata_scout_millis: 0,
+            source_byte_acquisition_millis: 0,
+            source_full_body_millis: 0,
+            read_millis: 0,
+            compatibility_parse_millis: 0,
+            source_to_columnar_millis: 0,
+            record_batch_count: 0,
+            materialization_layout: "streaming_arrow_record_batch_columnar_source_state",
+            parse_normalization: "structured_reader_to_streaming_arrow_record_batches",
+            columnar_source_preserved: true,
+        };
+
+        assert_eq!(layout_writer_provider_kind(&source), "vortex_array_kernel");
+        assert_eq!(
+            layout_writer_provider_surface(&source),
+            "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator;VortexSession::write_options().write(ArrayStream)"
         );
     }
 

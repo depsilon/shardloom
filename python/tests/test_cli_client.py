@@ -2855,7 +2855,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "input_row_count", "value": "2"},
                         {"key": "writer_row_count", "value": "2"},
                         {"key": "reopen_row_count", "value": "2"},
-                        {"key": "reopen_verification_status", "value": "reopen_row_count_verified"},
+                        {"key": "reopen_verification_status", "value": "reopen_metadata_row_count_verified"},
                         {"key": "certification_level", "value": "ingest_certified"},
                         {"key": "certification_status", "value": "fixture_smoke_certified"},
                         {"key": "source_state_materialization_layout", "value": "arrow_record_batch_columnar_source_state"},
@@ -2969,7 +2969,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.input_row_count, 2)
         self.assertEqual(result.writer_row_count, 2)
         self.assertEqual(result.reopen_row_count, 2)
-        self.assertEqual(result.reopen_verification_status, "reopen_row_count_verified")
+        self.assertEqual(result.reopen_verification_status, "reopen_metadata_row_count_verified")
         self.assertEqual(result.certification_level, "ingest_certified")
         self.assertEqual(result.certification_status, "fixture_smoke_certified")
         self.assertEqual(
@@ -3640,7 +3640,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "input_row_count", "value": "1"}},
                             {{"key": "writer_row_count", "value": "1"}},
                             {{"key": "reopen_row_count", "value": "1"}},
-                            {{"key": "reopen_verification_status", "value": "reopen_row_count_verified"}},
+                            {{"key": "reopen_verification_status", "value": "reopen_metadata_row_count_verified"}},
                             {{"key": "certification_level", "value": "ingest_certified"}},
                             {{"key": "certification_status", "value": "fixture_smoke_certified"}},
                             {{"key": "source_io_performed", "value": "true"}},
@@ -4465,7 +4465,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             "input_row_count": "1",
                             "writer_row_count": "1",
                             "reopen_row_count": "1",
-                            "reopen_verification_status": "reopen_row_count_verified",
+                            "reopen_verification_status": "reopen_metadata_row_count_verified",
                             "certification_level": "ingest_certified",
                             "certification_status": "fixture_smoke_certified",
                             "source_io_performed": "true",
@@ -4721,7 +4721,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "input_row_count", "value": "2"}},
                             {{"key": "writer_row_count", "value": "2"}},
                             {{"key": "reopen_row_count", "value": "2"}},
-                            {{"key": "reopen_verification_status", "value": "reopen_row_count_verified"}},
+                            {{"key": "reopen_verification_status", "value": "reopen_metadata_row_count_verified"}},
                             {{"key": "certification_level", "value": "ingest_certified"}},
                             {{"key": "certification_status", "value": "fixture_smoke_certified"}},
                             {{"key": "source_io_performed", "value": "true"}},

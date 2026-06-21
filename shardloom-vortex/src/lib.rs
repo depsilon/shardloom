@@ -546,11 +546,11 @@ pub use traditional_analytics::{
 };
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{
-    FlatLocalColumnarSource, FlatLocalSourceTable, encode_flat_arrow_ipc_rows,
-    encode_flat_arrow_ipc_rows_with_arrow_dtypes, encode_flat_arrow_ipc_rows_with_dtypes,
-    encode_flat_avro_rows, encode_flat_avro_rows_with_arrow_dtypes,
-    encode_flat_avro_rows_with_dtypes, encode_flat_orc_rows,
-    encode_flat_orc_rows_with_arrow_dtypes, encode_flat_orc_rows_with_dtypes,
+    FlatLocalColumnarSource, FlatLocalColumnarStreamSource, FlatLocalSourceTable,
+    encode_flat_arrow_ipc_rows, encode_flat_arrow_ipc_rows_with_arrow_dtypes,
+    encode_flat_arrow_ipc_rows_with_dtypes, encode_flat_avro_rows,
+    encode_flat_avro_rows_with_arrow_dtypes, encode_flat_avro_rows_with_dtypes,
+    encode_flat_orc_rows, encode_flat_orc_rows_with_arrow_dtypes, encode_flat_orc_rows_with_dtypes,
     encode_flat_parquet_rows, encode_flat_parquet_rows_with_arrow_dtypes,
     encode_flat_parquet_rows_with_dtypes, materialize_flat_columnar_source_to_scalar_table,
     read_flat_arrow_ipc_columnar_source, read_flat_arrow_ipc_columnar_source_with_projection,
@@ -560,7 +560,9 @@ pub use universal_format_io::{
     read_flat_orc_columnar_source_with_projection, read_flat_orc_source,
     read_flat_orc_source_with_projection, read_flat_parquet_columnar_source,
     read_flat_parquet_columnar_source_with_projection, read_flat_parquet_source,
-    read_flat_parquet_source_with_projection,
+    read_flat_parquet_source_with_projection, stream_flat_arrow_ipc_columnar_source,
+    stream_flat_avro_columnar_source, stream_flat_orc_columnar_source,
+    stream_flat_parquet_columnar_source,
 };
 pub use vortex_ingest::{
     VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION, VORTEX_COPY_BUDGET_SCHEMA_VERSION,
@@ -587,7 +589,8 @@ pub use vortex_ingest::{
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub use vortex_ingest::{
-    VortexPreparedStateColumnarWriteRequest, write_flat_columnar_vortex_prepared_state,
+    VortexPreparedStateColumnarStreamWriteRequest, VortexPreparedStateColumnarWriteRequest,
+    write_flat_columnar_vortex_prepared_state, write_flat_columnar_vortex_prepared_state_streaming,
 };
 
 // Runtime bridge, scheduler, bounded execution, and narrow local engine/provider exports.

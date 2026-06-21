@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: ClickBench 100M local UAT optimization burn-down
+  - Date: 2026-06-20
+  - Branch/PR: local main worktree, PR pending.
+  - Source:
+    - Phase-plan `CLICKBENCH-UAT-100M-OPT-1` and maintainer direction to optimize ClickBench
+      100M local UAT rows before review/rebuild.
+  - Scope:
+    - Kept local public/runtime routes on native Vortex paths with no external-engine fallback.
+    - Added metadata-only Vortex file row-count proof for certified prepare/output verification so
+      prepare evidence no longer pays a full-row reopen scan.
+    - Added public workflow dynamic max-parallelism evidence with a safe local floor of `2`.
+    - Fixed date/unsigned literal predicate admission so Q37-Q43 execute instead of failing before
+      runtime.
+    - Consolidated residual `COUNT(*) WHERE ...` rows onto the count-where primitive.
+    - Optimized wide sorted row routes with typed sort candidates, bounded retained candidate
+      state, and second-pass late materialization for wide selected rows.
+    - Optimized grouped aggregates with HashMap-backed state, reusable aggregate state templates,
+      and a single-group capillary fast path for identity, length, and URL-domain group keys.
+    - Fused repeated additive scalar aggregate measures for Q30-style expressions.
+    - Added a resolved materialized predicate evaluator for residual scan loops, keeping
+      deterministic no-fallback semantics while avoiding repeated row-level column lookup.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo check -q -p shardloom-vortex --features release-user-surfaces` passed.
+    - `cargo check -q -p shardloom-cli --features release-user-surfaces` passed.
+    - Focused Vortex and CLI tests passed for grouped aggregate, sort rows, aggregate fusion,
+      date/unsigned predicate coercion, Vortex metadata reopen, generated source Vortex output, and
+      public workflow dynamic parallelism.
+    - Release CLI rebuilds passed with
+      `cargo build -q -p shardloom-cli --features release-user-surfaces --release`.
+    - Sequential targeted 100M local UAT artifact:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_probe_after_optimizations/summary.json`.
+      Latest rows: Q02 `0.854s`, Q20 `0.138s`, Q21 `12.633s`, Q24 `28.482s`, Q25 `5.144s`,
+      Q26 `4.484s`, Q27 `4.912s`, Q28 `28.275s`, Q29 `32.864s`, Q30 `0.649s`, Q37 `0.821s`,
+      Q38 `0.423s`, Q39 `0.146s`, Q40 `2.241s`, Q41 `3.130s`, Q42 `0.077s`, and Q43 `0.169s`.
+  - Remaining timing candidates:
+    - Q21/Q24 require a deeper encoded/string contains scan lane or provider-backed UTF-8
+      substring kernel; the attempted direct byte/String path did not beat the existing residual
+      route.
+    - Q24-Q27 need source/order pruning or sorted-layout evidence before early-stop is safe.
+    - Q28/Q29 remain string/length/domain grouped-aggregate hot rows after the state reductions.
+    - Q40/Q41 are smaller date-filter/top-K/offset tails.
+  - Claim boundary:
+    - This is local Desktop UAT and implementation evidence only. It is not a ClickBench submission,
+      public benchmark result, superiority claim, or release-performance claim.
+  - Fallback boundary:
+    - The runtime paths remain ShardLoom/Vortex-native with `fallback_attempted=false` and
+      `external_engine_invoked=false`; external engines remain disallowed as fallback execution.
+
 - [x] Session label: RUNTIME-CLOSEOUT-4 front-door performance-equivalence artifact closeout
   - Date: 2026-06-19
   - Branch/PR: `codex/runtime-null-rewrite-closeout` / PR pending.

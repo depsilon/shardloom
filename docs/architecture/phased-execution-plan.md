@@ -607,8 +607,9 @@ Sequential local full-format ClickBench UAT after the v0.2 release train.
   - V1/v0.2 scope classification: `post_release_uat_evidence`; not a public ClickBench submission,
     leaderboard result, performance superiority claim, or replacement for benchmark claim gates.
   - ShardLoom technique review: use native Vortex middle, capillary/state-budget route fields,
-    PulseWeave pressure signals, max_parallelism=1 defaults, timing-surface labels, no-fallback
-    evidence, and explicit format-preparation timing.
+    PulseWeave pressure signals, sequential query execution for laptop safety, public-runtime
+    requested/effective max-parallelism evidence, timing-surface labels, no-fallback evidence, and
+    explicit format-preparation timing.
   - Pre-release checklist:
     - [x] Inventory local Desktop ClickBench fixtures and record row counts, bytes, source format,
       prepared Vortex artifacts, partition layout, and missing official-format fixtures. Current

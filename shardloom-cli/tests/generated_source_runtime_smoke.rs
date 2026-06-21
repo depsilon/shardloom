@@ -267,7 +267,7 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
         "ingest_certified"
     )));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
-    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"sha256:"));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -321,7 +321,7 @@ fn generated_source_vortex_output_reuses_artifact_adjacent_manifest_without_rewr
         "prepared_state_created_after_no_reuse_manifest"
     )));
     assert!(first_stdout.contains(&field("upstream_vortex_write_called", "true")));
-    assert!(first_stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(first_stdout.contains(&field("upstream_vortex_scan_called", "false")));
 
     let second = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args(args)

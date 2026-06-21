@@ -37,6 +37,8 @@ const VORTEX_PRODUCTION_RUNTIME_COMMAND: &str = "vortex-production-runtime-run";
 const FALLBACK_BOUNDARY: &str =
     "route inspection is side-effect-free and never invokes fallback or external engines";
 const CLAIM_BOUNDARY: &str = "simplified public facade over admitted ShardLoom routes only; not broad SQL/DataFrame support, production readiness, or performance superiority";
+const PUBLIC_WORKFLOW_DEFAULT_MAX_PARALLELISM: usize = 2;
+const PUBLIC_WORKFLOW_MIN_EFFECTIVE_MAX_PARALLELISM: usize = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PublicWorkflowRouteRequest {
@@ -1915,12 +1917,32 @@ fn native_vortex_bound_request_and_arg(
 fn native_vortex_materializing_policy(
     request: &PublicWorkflowRouteRequest,
 ) -> Result<shardloom_vortex::VortexLocalPrimitiveExecutionPolicy, ShardLoomError> {
-    let max_parallelism = positive_usize_arg(
-        "max_parallelism",
-        request.max_parallelism.as_deref().unwrap_or("1"),
-    )?;
+    let max_parallelism = public_workflow_effective_max_parallelism(request)?;
     positive_u64_arg("memory_gb", request.memory_gb.as_deref().unwrap_or("1"))?;
     shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new(max_parallelism)
+}
+
+fn public_workflow_requested_max_parallelism(request: &PublicWorkflowRouteRequest) -> usize {
+    request
+        .max_parallelism
+        .as_deref()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(PUBLIC_WORKFLOW_DEFAULT_MAX_PARALLELISM)
+}
+
+fn public_workflow_effective_max_parallelism(
+    request: &PublicWorkflowRouteRequest,
+) -> Result<usize, ShardLoomError> {
+    let requested = positive_usize_arg(
+        "max_parallelism",
+        request.max_parallelism.as_deref().unwrap_or("2"),
+    )?;
+    Ok(requested.max(PUBLIC_WORKFLOW_MIN_EFFECTIVE_MAX_PARALLELISM))
+}
+
+fn public_workflow_dynamic_parallelism_floor_applied(request: &PublicWorkflowRouteRequest) -> bool {
+    public_workflow_requested_max_parallelism(request)
+        < PUBLIC_WORKFLOW_MIN_EFFECTIVE_MAX_PARALLELISM
 }
 
 fn native_vortex_materializing_execution_certificate(
@@ -2299,10 +2321,6 @@ fn execute_local_file_prepare_once_first_query_run(
         Ok(prepared_run) => prepared_run,
         Err(blocked) => return emit_blocked_facade("run", format, request, &blocked),
     };
-    let native_plan = plan_public_workflow_route(&prepared_run.request);
-    if native_plan.status != CommandStatus::Success {
-        return emit_blocked_facade("run", format, &prepared_run.request, &native_plan);
-    }
 
     let left_preparation = match prepare_local_source_for_public_workflow(
         &prepared_run.left_source_uri,
@@ -2355,6 +2373,11 @@ fn execute_local_file_prepare_once_first_query_run(
         extra_fields.extend(local_prepared_vortex_right_execution_attachment_fields(
             &right_preparation,
         ));
+    }
+
+    let native_plan = plan_public_workflow_route(&prepared_run.request);
+    if native_plan.status != CommandStatus::Success {
+        return emit_blocked_facade("run", format, &prepared_run.request, &native_plan);
     }
 
     execute_prepared_local_native_route(&prepared_run.request, &native_plan, format, extra_fields)
@@ -2575,8 +2598,18 @@ fn prepared_local_workflow_sql_statement(
     let input_uri = request.input_uri.as_deref()?;
     let mut rewritten =
         replace_quoted_sql_source_ref(statement, input_uri, &left_target.display().to_string());
+    rewritten = replace_declared_sql_source_identifier(
+        &rewritten,
+        input_uri,
+        &left_target.display().to_string(),
+    );
     if let Some(right) = right_source {
         rewritten = replace_quoted_sql_source_ref(
+            &rewritten,
+            &right.source_uri,
+            &right.target.display().to_string(),
+        );
+        rewritten = replace_declared_sql_source_identifier(
             &rewritten,
             &right.source_uri,
             &right.target.display().to_string(),
@@ -2589,6 +2622,93 @@ fn replace_quoted_sql_source_ref(statement: &str, old_ref: &str, new_ref: &str) 
     let old_literal = sql_string_literal(old_ref);
     let new_literal = sql_string_literal(new_ref);
     statement.replace(&old_literal, &new_literal)
+}
+
+fn replace_declared_sql_source_identifier(statement: &str, old_ref: &str, new_ref: &str) -> String {
+    let source_refs = bare_sql_source_ref_ranges(statement);
+    if source_refs.is_empty() {
+        return statement.to_string();
+    }
+    let matching_refs = source_refs
+        .iter()
+        .copied()
+        .filter(|source_ref| declared_sql_source_identifier_matches(source_ref.value, old_ref))
+        .collect::<Vec<_>>();
+    if matching_refs.is_empty() {
+        return statement.to_string();
+    }
+
+    let replacement = sql_string_literal(new_ref);
+    let mut rewritten = statement.to_string();
+    for source_ref in matching_refs.into_iter().rev() {
+        rewritten.replace_range(source_ref.start..source_ref.end, &replacement);
+    }
+    rewritten
+}
+
+#[derive(Clone, Copy)]
+struct SqlSourceRefRange<'a> {
+    value: &'a str,
+    start: usize,
+    end: usize,
+}
+
+fn bare_sql_source_ref_ranges(statement: &str) -> Vec<SqlSourceRefRange<'_>> {
+    let mut ranges = Vec::new();
+    for keyword in ["FROM", "JOIN"] {
+        let mut search_start = 0usize;
+        while search_start < statement.len() {
+            let Some(relative_index) =
+                find_sql_keyword_outside_quotes_and_parens(&statement[search_start..], keyword)
+            else {
+                break;
+            };
+            let index = search_start + relative_index + keyword.len();
+            let tail = &statement[index..];
+            let trimmed = tail.trim_start();
+            let leading_ws = tail.len() - trimmed.len();
+            if trimmed.starts_with('\'') {
+                search_start = index;
+                continue;
+            }
+            if let Some((source_ref, _consumed)) = leading_sql_source_ref_with_consumed(tail) {
+                let start = index + leading_ws;
+                let end = start + source_ref.len();
+                ranges.push(SqlSourceRefRange {
+                    value: &statement[start..end],
+                    start,
+                    end,
+                });
+            }
+            search_start = index;
+        }
+    }
+    ranges.sort_by_key(|source_ref| source_ref.start);
+    ranges
+}
+
+fn declared_sql_source_identifier_matches(source_ref: &str, old_ref: &str) -> bool {
+    if !is_summary_identifier(source_ref) {
+        return false;
+    }
+    declared_sql_source_identifier_aliases(old_ref)
+        .into_iter()
+        .any(|alias| source_ref.eq_ignore_ascii_case(&alias))
+}
+
+fn declared_sql_source_identifier_aliases(source_ref: &str) -> Vec<String> {
+    let path = Path::new(source_ref);
+    let mut aliases = Vec::new();
+    if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
+        aliases.push(stem.to_string());
+    }
+    if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        aliases.push(name.to_string());
+    }
+    aliases
+        .into_iter()
+        .filter(|alias| is_summary_identifier(alias))
+        .collect()
 }
 
 fn sql_string_literal(value: &str) -> String {
@@ -5103,38 +5223,6 @@ fn infer_native_vortex_sql_primitive_payload(
             Some(where_clause) => Some(summary_tiny_predicate_from_sql(where_clause)?),
             None => None,
         };
-        if predicate
-            .as_deref()
-            .is_some_and(tiny_predicate_requires_materialized_eval)
-        {
-            return Some(InferredNativeVortexRoutePayload {
-                family: NativeVortexOperationFamily::Aggregate,
-                provider_scenario: None,
-                primitive: Some(PublicVortexPrimitive::Aggregate),
-                predicate,
-                columns: None,
-                source_order_limit: None,
-                sample_seed: None,
-                sample_fraction: None,
-                sample_replacement: false,
-                sample_weight_column: None,
-                duplicate_keep: None,
-
-                deduplicate_key_columns: None,
-                expression_projection: None,
-                explode_projection: None,
-                pivot_projection: None,
-                rolling_window: None,
-                aggregate: Some(
-                    serde_json::json!({
-                        "measures": [{"function": "count", "alias": "count_all_0"}]
-                    })
-                    .to_string(),
-                ),
-                sort_rows: None,
-                right_input: None,
-            });
-        }
         return Some(InferredNativeVortexRoutePayload {
             family: NativeVortexOperationFamily::Count,
             provider_scenario: None,
@@ -7552,29 +7640,6 @@ fn is_summary_compact_tiny_predicate(value: &str) -> bool {
     }
 }
 
-fn tiny_predicate_requires_materialized_eval(value: &str) -> bool {
-    if let Some(inner) = value
-        .strip_prefix("and(")
-        .and_then(|value| value.strip_suffix(')'))
-    {
-        return inner
-            .split(';')
-            .filter(|part| !part.trim().is_empty())
-            .any(|part| tiny_predicate_requires_materialized_eval(part.trim()));
-    }
-    matches!(
-        value.split(':').next(),
-        Some(
-            "contains"
-                | "string_contains"
-                | "not_contains"
-                | "not_string_contains"
-                | "in"
-                | "not_in"
-        )
-    )
-}
-
 fn parse_summary_like_predicate(value: &str) -> Option<(&str, String, bool)> {
     for (keyword, negated) in [("NOT LIKE", true), ("LIKE", false)] {
         let Some(position) = find_sql_keyword_outside_quotes_and_parens(value, keyword) else {
@@ -8561,11 +8626,24 @@ fn add_route_native_vortex_resource_fields(
     push_field(
         fields,
         "max_parallelism",
-        request
-            .max_parallelism
-            .clone()
-            .unwrap_or_else(|| "1".to_string()),
+        public_workflow_effective_max_parallelism_label(request),
     );
+    push_field(
+        fields,
+        "requested_max_parallelism",
+        public_workflow_requested_max_parallelism(request).to_string(),
+    );
+    push_field(
+        fields,
+        "dynamic_parallelism_floor_applied",
+        public_workflow_dynamic_parallelism_floor_applied(request).to_string(),
+    );
+}
+
+fn public_workflow_effective_max_parallelism_label(request: &PublicWorkflowRouteRequest) -> String {
+    public_workflow_requested_max_parallelism(request)
+        .max(PUBLIC_WORKFLOW_MIN_EFFECTIVE_MAX_PARALLELISM)
+        .to_string()
 }
 
 fn push_native_vortex_contract_fields(
@@ -9806,10 +9884,15 @@ fn execution_attachment_fields(
         ),
         (
             "public_workflow_max_parallelism".to_string(),
-            effective_request
-                .max_parallelism
-                .clone()
-                .unwrap_or_else(|| "1".to_string()),
+            public_workflow_effective_max_parallelism_label(&effective_request),
+        ),
+        (
+            "public_workflow_requested_max_parallelism".to_string(),
+            public_workflow_requested_max_parallelism(&effective_request).to_string(),
+        ),
+        (
+            "public_workflow_dynamic_parallelism_floor_applied".to_string(),
+            public_workflow_dynamic_parallelism_floor_applied(&effective_request).to_string(),
         ),
         (
             "public_workflow_blocker_id".to_string(),
@@ -9991,10 +10074,7 @@ fn native_vortex_primitive_runtime_args(
         )
     })?;
     let memory_gb = positive_u64_arg("memory_gb", request.memory_gb.as_deref().unwrap_or("1"))?;
-    let max_parallelism = positive_usize_arg(
-        "max_parallelism",
-        request.max_parallelism.as_deref().unwrap_or("1"),
-    )?;
+    let max_parallelism = public_workflow_effective_max_parallelism(request)?;
     let mut args = match primitive {
         PublicVortexPrimitive::Count => vec![
             input_uri,
@@ -11104,6 +11184,59 @@ mod tests {
         assert_eq!(
             field(&attachments, "public_workflow_source_format"),
             "vortex"
+        );
+    }
+
+    #[test]
+    fn route_planner_applies_public_runtime_parallelism_floor_with_evidence() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "target/input.vortex",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+                "--vortex-primitive",
+                "filter_project",
+                "--vortex-predicate",
+                "metric >= 10",
+                "--vortex-columns",
+                "id,metric",
+                "--vortex-source-order-limit",
+                "100",
+                "--max-parallelism",
+                "1",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native primitive route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+        let attachments = execution_attachment_fields("run", &request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Success);
+        assert_eq!(field(&fields, "requested_max_parallelism"), "1");
+        assert_eq!(field(&fields, "max_parallelism"), "2");
+        assert_eq!(field(&fields, "dynamic_parallelism_floor_applied"), "true");
+        assert_eq!(
+            field(&attachments, "public_workflow_requested_max_parallelism"),
+            "1"
+        );
+        assert_eq!(field(&attachments, "public_workflow_max_parallelism"), "2");
+        assert_eq!(
+            field(
+                &attachments,
+                "public_workflow_dynamic_parallelism_floor_applied"
+            ),
+            "true"
         );
     }
 
@@ -12973,7 +13106,7 @@ mod tests {
     }
 
     #[test]
-    fn route_planner_infers_native_vortex_sql_like_count_as_residual_aggregate_route() {
+    fn route_planner_infers_native_vortex_sql_like_count_as_count_where_route() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -12998,17 +13131,17 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(plan.route_id, "native_vortex_count_where");
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
                 plan.blocker_id,
-                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+                "public_workflow_route.native_vortex_primitive_feature_gated"
             );
         }
-        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert_eq!(field(&fields, "vortex_primitive"), "count_where");
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
-        assert_eq!(field(&fields, "vortex_aggregate_present"), "true");
+        assert_eq!(field(&fields, "vortex_aggregate_present"), "false");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
@@ -13104,6 +13237,92 @@ mod tests {
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn local_file_prepare_once_rewrites_bare_declared_sql_source_to_prepared_vortex() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--input",
+                "target/hits.parquet",
+                "--input-format",
+                "parquet",
+                "--sql",
+                "SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%'",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "vortex_middle",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("local SQL ClickBench route request");
+        let plan = plan_public_workflow_route(&request);
+
+        if cfg!(feature = "vortex-write") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "local_file_prepare_once_first_query");
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(
+                plan.blocker_id,
+                "cg21.route.local_file_vortex_ingest_feature_gated"
+            );
+        }
+
+        let prepared =
+            prepared_local_workflow_native_request(&request).expect("prepared native request");
+        let rewritten = prepared
+            .request
+            .sql_statement
+            .as_deref()
+            .expect("rewritten SQL statement");
+        assert!(rewritten.contains("FROM 'target/.shardloom/prepared/hits-"));
+        assert!(!rewritten.contains("FROM hits"));
+        assert_eq!(prepared.request.input_format.as_deref(), Some("vortex"));
+        assert_eq!(
+            prepared.request.vortex_primitive.as_deref(),
+            Some("aggregate")
+        );
+        assert_eq!(
+            prepared.request.vortex_predicate.as_deref(),
+            Some("contains:URL:google")
+        );
+    }
+
+    #[test]
+    fn local_file_prepare_once_does_not_rewrite_unmatched_bare_sql_source() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--input",
+                "target/hits.parquet",
+                "--input-format",
+                "parquet",
+                "--sql",
+                "SELECT COUNT(*) FROM visits WHERE URL LIKE '%google%'",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "vortex_middle",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("local SQL unmatched table route request");
+
+        let blocked =
+            prepared_local_workflow_native_request(&request).expect_err("unmatched source blocks");
+        assert_eq!(
+            blocked.blocker_id,
+            "cg21.route.local_file_vortex_middle_required"
+        );
     }
 
     #[test]
