@@ -2371,6 +2371,7 @@ dependencies = [
  "regex",
  "rusqlite",
  "serde_json",
+ "sha2",
  "shardloom-core",
  "shardloom-exec",
  "shardloom-plan",
@@ -2392,6 +2393,7 @@ name = "shardloom-core"
 version = "0.2.0"
 dependencies = [
  "regex",
+ "sha2",
 ]
 
 [[package]]

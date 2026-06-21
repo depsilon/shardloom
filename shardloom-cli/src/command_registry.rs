@@ -868,7 +868,7 @@ fn command_usage_fragment(command: &str) -> String {
         "evidence-schema" => "evidence-schema [surface]".to_string(),
         "route" => "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl|explain|route|evidence>]".to_string(),
         "run" => "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl>] [--output <ref>]".to_string(),
-        "prepare" => "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex>".to_string(),
+        "prepare" => "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex> [--max-parallelism <n>]".to_string(),
         "python-worker" => "python-worker".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
         "support-bundle" => format!("{command} [--note <redacted-text>] [--include-defaults]"),

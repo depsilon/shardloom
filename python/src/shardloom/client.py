@@ -11866,6 +11866,7 @@ class ShardLoomClient:
         schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
+        max_parallelism: int | None = None,
         delta_source_path: str | os.PathLike[str] | None = None,
         delta_target_vortex_path: str | os.PathLike[str] | None = None,
         delta_update_mode: str = "append-only",
@@ -11887,6 +11888,8 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         if certification_level != "ingest_certified":
             command.extend(["--certification-level", certification_level])
+        if max_parallelism is not None:
+            command.extend(["--max-parallelism", str(max_parallelism)])
         if delta_source_path is not None:
             command.extend(["--delta-source", str(delta_source_path)])
         if delta_target_vortex_path is not None:

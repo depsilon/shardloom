@@ -13,6 +13,11 @@ use std::{
     io::{BufReader, Write},
     path::Path,
     rc::Rc,
+    sync::{
+        Arc,
+        mpsc::{self, Receiver},
+    },
+    thread::{self, JoinHandle},
 };
 
 use arrow_array::{
@@ -29,8 +34,6 @@ use arrow_array::{
 };
 use arrow_schema::{ArrowError, DataType, Field, Fields, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
-use std::sync::Arc;
-
 /// Materialized scalar rows produced by a scoped local compatibility adapter.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlatLocalSourceTable {
@@ -97,8 +100,64 @@ pub struct FlatLocalColumnarStreamSource {
     pub row_count_hint: Option<usize>,
     /// Reader batch count when the file format exposes it without scanning.
     pub record_batch_count_hint: Option<usize>,
+    /// Source-to-writer executor status for product ingest evidence.
+    pub ingest_executor_status: String,
+    /// Source-to-writer executor kind for product ingest evidence.
+    pub ingest_executor_kind: String,
+    /// Publicly requested source-to-writer parallelism.
+    pub ingest_executor_requested_parallelism: usize,
+    /// Parallelism actually applied by the admitted source adapter.
+    pub ingest_executor_applied_parallelism: usize,
+    /// Unit count when known before streaming.
+    pub ingest_executor_unit_count_hint: Option<usize>,
     /// Streaming Arrow batch reader consumed by the Vortex writer.
     pub reader: Box<dyn RecordBatchReader + Send>,
+}
+
+struct CapillaryPrefetchRecordBatchReader {
+    schema: SchemaRef,
+    receiver: Receiver<std::result::Result<RecordBatch, ArrowError>>,
+    worker: Option<JoinHandle<()>>,
+}
+
+impl CapillaryPrefetchRecordBatchReader {
+    fn new(inner: Box<dyn RecordBatchReader + Send>, max_in_flight_batches: usize) -> Self {
+        let schema = inner.schema();
+        let (sender, receiver) = mpsc::sync_channel(max_in_flight_batches.max(1));
+        let worker = thread::spawn(move || {
+            for batch in inner {
+                if sender.send(batch).is_err() {
+                    break;
+                }
+            }
+        });
+        Self {
+            schema,
+            receiver,
+            worker: Some(worker),
+        }
+    }
+}
+
+impl Iterator for CapillaryPrefetchRecordBatchReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Ok(batch) = self.receiver.recv() {
+            Some(batch)
+        } else {
+            if let Some(worker) = self.worker.take() {
+                let _ = worker.join();
+            }
+            None
+        }
+    }
+}
+
+impl RecordBatchReader for CapillaryPrefetchRecordBatchReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
 }
 
 struct RowLimitRecordBatchReader<R> {
@@ -209,7 +268,77 @@ fn flat_columnar_stream_source_from_reader(
         reader_projection_columns,
         row_count_hint,
         record_batch_count_hint,
+        ingest_executor_status: "serial_pull_reader".to_string(),
+        ingest_executor_kind: "single_source_record_batch_reader".to_string(),
+        ingest_executor_requested_parallelism: 1,
+        ingest_executor_applied_parallelism: 1,
+        ingest_executor_unit_count_hint: record_batch_count_hint,
         reader,
+    }
+}
+
+/// Wrap a product columnar ingest source in a bounded Capillary prefetch
+/// pipeline when safe.
+///
+/// This does not introduce a new execution engine. It only overlaps the
+/// admitted source adapter's `RecordBatch` production with the Vortex writer's
+/// consumption and preserves source order through a bounded channel.
+#[must_use]
+pub fn with_capillary_prefetch_columnar_stream_source(
+    source: FlatLocalColumnarStreamSource,
+    requested_max_parallelism: usize,
+) -> FlatLocalColumnarStreamSource {
+    let requested_max_parallelism = requested_max_parallelism.max(1);
+    let FlatLocalColumnarStreamSource {
+        header,
+        column_dtypes,
+        column_arrow_dtypes,
+        materialized_columns,
+        reader_projection_columns,
+        row_count_hint,
+        record_batch_count_hint,
+        ingest_executor_unit_count_hint,
+        reader,
+        ..
+    } = source;
+    if requested_max_parallelism == 1 {
+        return FlatLocalColumnarStreamSource {
+            header,
+            column_dtypes,
+            column_arrow_dtypes,
+            materialized_columns,
+            reader_projection_columns,
+            row_count_hint,
+            record_batch_count_hint,
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "single_source_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: requested_max_parallelism,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint,
+            reader,
+        };
+    }
+    let unit_hint = ingest_executor_unit_count_hint.or(record_batch_count_hint);
+    let applied_parallelism = unit_hint.map_or(requested_max_parallelism, |unit_count| {
+        requested_max_parallelism.min(unit_count.max(1))
+    });
+    FlatLocalColumnarStreamSource {
+        header,
+        column_dtypes,
+        column_arrow_dtypes,
+        materialized_columns,
+        reader_projection_columns,
+        row_count_hint,
+        record_batch_count_hint,
+        ingest_executor_status: "bounded_capillary_prefetch_active".to_string(),
+        ingest_executor_kind: "source_reader_to_vortex_writer_prefetch_pipeline".to_string(),
+        ingest_executor_requested_parallelism: requested_max_parallelism,
+        ingest_executor_applied_parallelism: applied_parallelism,
+        ingest_executor_unit_count_hint: unit_hint,
+        reader: Box::new(CapillaryPrefetchRecordBatchReader::new(
+            reader,
+            applied_parallelism,
+        )),
     }
 }
 
@@ -2697,6 +2826,85 @@ mod tests {
             table.rows[2].get(column),
             Some(&ScalarValue::Binary(b"raw".to_vec()))
         );
+    }
+
+    struct TestRecordBatchReader {
+        schema: SchemaRef,
+        batches: std::collections::VecDeque<RecordBatch>,
+    }
+
+    impl Iterator for TestRecordBatchReader {
+        type Item = std::result::Result<RecordBatch, ArrowError>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.batches.pop_front().map(Ok)
+        }
+    }
+
+    impl RecordBatchReader for TestRecordBatchReader {
+        fn schema(&self) -> SchemaRef {
+            Arc::clone(&self.schema)
+        }
+    }
+
+    #[test]
+    fn capillary_prefetch_stream_source_preserves_order_and_records_executor() {
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+        let batch_1 = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int64Array::from(vec![1, 2]))],
+        )
+        .expect("first batch");
+        let batch_2 = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int64Array::from(vec![3]))],
+        )
+        .expect("second batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: vec!["id".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Int64)],
+            column_arrow_dtypes: vec![Some(DataType::Int64)],
+            materialized_columns: vec!["id".to_string()],
+            reader_projection_columns: vec!["id".to_string()],
+            row_count_hint: Some(3),
+            record_batch_count_hint: Some(2),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(2),
+            reader: Box::new(TestRecordBatchReader {
+                schema,
+                batches: std::collections::VecDeque::from([batch_1, batch_2]),
+            }),
+        };
+
+        let mut source = with_capillary_prefetch_columnar_stream_source(source, 4);
+
+        assert_eq!(
+            source.ingest_executor_status,
+            "bounded_capillary_prefetch_active"
+        );
+        assert_eq!(
+            source.ingest_executor_kind,
+            "source_reader_to_vortex_writer_prefetch_pipeline"
+        );
+        assert_eq!(source.ingest_executor_requested_parallelism, 4);
+        assert_eq!(source.ingest_executor_applied_parallelism, 2);
+        assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
+        let first = source
+            .reader
+            .next()
+            .expect("first batch")
+            .expect("first batch ok");
+        let second = source
+            .reader
+            .next()
+            .expect("second batch")
+            .expect("second batch ok");
+        assert_eq!(first.num_rows(), 2);
+        assert_eq!(second.num_rows(), 1);
+        assert!(source.reader.next().is_none());
     }
 
     #[test]
