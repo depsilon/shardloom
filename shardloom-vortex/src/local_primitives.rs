@@ -15699,7 +15699,7 @@ impl<'a> GroupedAggregateStates<'a> {
         accessors: &[AggregateDirectColumnAccessor],
         row_indices: Option<&[usize]>,
     ) -> Result<bool> {
-        if !self.admits_numeric_pair_compact_direct_updates(accessors) {
+        if !self.admits_numeric_pair_compact_direct_updates(accessors, row_indices) {
             return Ok(false);
         }
         let first_group_index = self.group_key_indices[0];
@@ -15763,6 +15763,7 @@ impl<'a> GroupedAggregateStates<'a> {
     fn admits_numeric_pair_compact_direct_updates(
         &self,
         accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
     ) -> bool {
         self.numeric_pair_count_order_alias().is_ok()
             && self.result_limit.is_some()
@@ -15776,14 +15777,9 @@ impl<'a> GroupedAggregateStates<'a> {
                 self.group_columns.get(*group_index).is_some_and(|column| {
                     column.extra_column_indices.is_empty()
                         && matches!(column.transform, AggregateValueTransform::Identity)
-                        && matches!(
-                            accessors.get(column.column_index),
-                            Some(
-                                AggregateDirectColumnAccessor::UInt64(_)
-                                    | AggregateDirectColumnAccessor::Int64(_)
-                                    | AggregateDirectColumnAccessor::Materialized(_)
-                            )
-                        )
+                        && accessors.get(column.column_index).is_some_and(|accessor| {
+                            aggregate_numeric_pair_key_accessor_admitted(accessor, row_indices)
+                        })
                 })
             })
     }
@@ -17540,6 +17536,31 @@ fn aggregate_direct_integer_key_part(
                 "local Vortex numeric-pair aggregate {label} key requires integer input; no fallback execution was attempted"
             )),
         ),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_numeric_pair_key_accessor_admitted(
+    accessor: &AggregateDirectColumnAccessor,
+    row_indices: Option<&[usize]>,
+) -> bool {
+    match accessor {
+        AggregateDirectColumnAccessor::UInt64(_) | AggregateDirectColumnAccessor::Int64(_) => true,
+        AggregateDirectColumnAccessor::Materialized(values) => {
+            if let Some(row_indices) = row_indices {
+                row_indices.iter().all(|row_index| {
+                    values.get(*row_index).is_some_and(|value| {
+                        matches!(value, StatValue::UInt64(_) | StatValue::Int64(_))
+                    })
+                })
+            } else {
+                values
+                    .iter()
+                    .all(|value| matches!(value, StatValue::UInt64(_) | StatValue::Int64(_)))
+            }
+        }
+        AggregateDirectColumnAccessor::Float64(_)
+        | AggregateDirectColumnAccessor::Utf8Dictionary { .. } => false,
     }
 }
 
@@ -25595,6 +25616,58 @@ mod tests {
         assert_eq!(payload["values"][0]["rows"], serde_json::json!(2));
         assert_eq!(payload["values"][0]["refreshes"], serde_json::json!(1.0));
         assert_eq!(payload["values"][0]["avg_width"], serde_json::json!(150.0));
+    }
+
+    #[test]
+    fn grouped_aggregate_numeric_pair_rejects_nullable_materialized_keys_to_generic_state() {
+        let path = unique_vortex_path("grouped-aggregate-nullable-numeric-pair");
+        write_nullable_duplicate_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::grouped(
+                vec![
+                    ColumnRef::new("value").expect("column"),
+                    ColumnRef::new("metric").expect("column"),
+                ],
+                vec![
+                    crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                    crate::VortexSimpleAggregateMeasure::new(
+                        "sum",
+                        Some(ColumnRef::new("metric").expect("column")),
+                        "total_metric".to_string(),
+                    ),
+                ],
+            )
+            .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]),
+        )
+        .with_source_order_limit(2);
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert_eq!(
+            report.state_budget.state_family,
+            "grouped_aggregate_state+topk+compact_numeric_measures"
+        );
+        let summary = report.result_summary.expect("summary");
+        let payload = simple_aggregate_values_json(&summary);
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "compact_count_sum_avg_group_state"
+        );
+        assert_eq!(payload["group_state_mode"], "all_hot_hash_map");
+        assert_ne!(
+            payload["group_key_storage"],
+            serde_json::json!("typed_numeric_pair_key")
+        );
+        assert_eq!(payload["candidate_groups"], serde_json::json!(5));
     }
 
     #[test]
