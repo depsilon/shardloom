@@ -5814,6 +5814,7 @@ pub fn write_flat_columnar_vortex_prepared_state(
 /// the scoped contract, the target already exists without overwrite
 /// permission, or upstream Vortex write/reopen APIs fail.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
 pub fn write_flat_columnar_vortex_prepared_state_streaming(
     request: VortexPreparedStateColumnarStreamWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
@@ -6279,7 +6280,10 @@ fn validate_stream_record_batch_shape(
     }
     for projected_column in &source_shape.projected_columns {
         let array = batch.column(projected_column.reader_index);
-        let _family = arrow_column_family(&projected_column.column, array.as_ref())?;
+        let family = arrow_column_family(&projected_column.column, array.as_ref())?;
+        if family == "float64" {
+            reject_columnar_non_finite_floats(&projected_column.column, array.as_ref())?;
+        }
     }
     Ok(())
 }
@@ -6409,13 +6413,13 @@ where
         input.allow_overwrite,
         row_count_hint,
     )?;
-    if let Some(expected_rows) = row_count_hint {
-        if write_result.writer_row_count != expected_rows {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "streaming local vortex_ingest writer row count mismatch: metadata={} writer={}; no fallback execution was attempted",
-                expected_rows, write_result.writer_row_count
-            )));
-        }
+    if let Some(expected_rows) = row_count_hint
+        && write_result.writer_row_count != expected_rows
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "streaming local vortex_ingest writer row count mismatch: metadata={expected_rows} writer={}; no fallback execution was attempted",
+            write_result.writer_row_count
+        )));
     }
 
     let row_count = write_result.writer_row_count;
@@ -6431,8 +6435,7 @@ where
         let reopen_scan_micros = reopen_start.elapsed().as_micros();
         if reopen_row_count != row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "streaming local vortex_ingest row-count proof mismatch: writer={} reopen={reopen_row_count}; no fallback execution was attempted",
-                row_count
+                "streaming local vortex_ingest row-count proof mismatch: writer={row_count} reopen={reopen_row_count}; no fallback execution was attempted"
             )));
         }
         (
@@ -8144,14 +8147,13 @@ impl LocalVortexWriteContext {
                     result
                 },
                 |summary| {
-                    if let Some(expected_rows) = expected_rows {
-                        if summary.row_count() != expected_rows {
-                            return Err(ShardLoomError::InvalidOperation(format!(
-                                "streaming local vortex_ingest writer row count mismatch: wrote {}, expected {}; staging cleanup attempted; no fallback execution was attempted",
-                                summary.row_count(),
-                                expected_rows
-                            )));
-                        }
+                    if let Some(expected_rows) = expected_rows
+                        && summary.row_count() != expected_rows
+                    {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "streaming local vortex_ingest writer row count mismatch: wrote {}, expected {expected_rows}; staging cleanup attempted; no fallback execution was attempted",
+                            summary.row_count()
+                        )));
                     }
                     Ok(())
                 },
@@ -10541,6 +10543,76 @@ mod tests {
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("non-finite float should be rejected");
+
+        assert!(error.to_string().contains("non-finite float64"));
+        assert!(!path.exists());
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_stream_rejects_non_finite_float_before_provider_path() {
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        use arrow_array::{Float64Array, Int64Array, RecordBatch};
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl arrow_array::RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-stream-non-finite-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "metric".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("metric", DataType::Float64, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(Float64Array::from(vec![1.5, f64::NAN])),
+            ],
+        )
+        .expect("record batch");
+        let reader = TestRecordBatchReader {
+            schema,
+            batches: VecDeque::from([batch]),
+        };
+        let source = FlatLocalColumnarStreamSource {
+            header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![None; columns.len()],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            row_count_hint: Some(2),
+            record_batch_count_hint: Some(1),
+            reader: Box::new(reader),
+        };
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source);
+
+        let error = write_flat_columnar_vortex_prepared_state_streaming(request)
+            .expect_err("non-finite streaming float should be rejected");
 
         assert!(error.to_string().contains("non-finite float64"));
         assert!(!path.exists());

@@ -12574,6 +12574,7 @@ fn local_vortex_sort_rows_output_columns(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
 fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     path: &std::path::Path,
     request: &VortexQueryPrimitiveRequest,
@@ -14343,6 +14344,8 @@ fn project_count_where_predicate_columns(
     predicate: &PredicateExpr,
     dtype: &vortex::array::dtype::DType,
 ) {
+    use vortex::array::expr::{root, select};
+
     if dtype.is_primitive()
         || plan.residual_predicate.is_some()
         || plan.projection.is_some()
@@ -14350,7 +14353,6 @@ fn project_count_where_predicate_columns(
     {
         return;
     }
-    use vortex::array::expr::{root, select};
 
     let mut projected_columns = Vec::new();
     append_predicate_columns(predicate, &mut projected_columns);
@@ -14954,7 +14956,7 @@ mod tests {
             &column_values,
             0
         )?);
-        assert!(!coerce_rewrite_value(&StatValue::UInt64(6), &StatValue::Int64(-1)).is_ok());
+        assert!(coerce_rewrite_value(&StatValue::UInt64(6), &StatValue::Int64(-1)).is_err());
 
         Ok(())
     }

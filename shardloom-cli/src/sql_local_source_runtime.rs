@@ -3445,6 +3445,7 @@ struct VortexIngestSourceData {
     source_bytes: u64,
     source_digest: String,
     row_count: usize,
+    row_count_known: bool,
     source_split_row_ranges: Vec<(usize, usize)>,
     source_metadata_scout_millis: u128,
     source_byte_acquisition_millis: u128,
@@ -3464,6 +3465,7 @@ impl VortexIngestSourceData {
         Self {
             source_adapter: source.source_adapter.clone(),
             row_count,
+            row_count_known: true,
             source_split_row_ranges: single_source_split_row_ranges(row_count),
             compatibility_parse_millis: source.parse_millis,
             source_to_columnar_millis: source.source_to_columnar_millis,
@@ -3506,6 +3508,7 @@ impl VortexIngestSourceData {
             source_bytes: scout.bytes,
             source_digest: scout.digest,
             row_count,
+            row_count_known: columnar_source.row_count_hint.is_some(),
             source_split_row_ranges: single_source_split_row_ranges(row_count),
             source_metadata_scout_millis: scout.metadata_scout_millis,
             source_byte_acquisition_millis: scout.byte_acquisition_millis,
@@ -3523,6 +3526,7 @@ impl VortexIngestSourceData {
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn with_observed_streaming_write(mut self, row_count: u64, record_batch_count: usize) -> Self {
         self.row_count = usize::try_from(row_count).unwrap_or(usize::MAX);
+        self.row_count_known = true;
         self.source_split_row_ranges = single_source_split_row_ranges(self.row_count);
         self.record_batch_count = record_batch_count;
         self
@@ -3600,13 +3604,14 @@ impl VortexIngestSourceData {
 
     fn source_state_digest(&self, source_schema_digest: &str) -> String {
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
             self.source_adapter.source_extension,
             self.source_adapter.inference_kind(),
             self.source_digest,
             source_schema_digest,
             self.row_count,
+            self.row_count_known,
             self.source_bytes,
             self.read_plan.requested_columns(),
             self.materialized_columns_field(),
@@ -5609,7 +5614,7 @@ fn layout_writer_provider_surface(source: &VortexIngestSourceData) -> &'static s
 
 fn layout_streaming_columnar_source_may_have_batches(source: &VortexIngestSourceData) -> bool {
     source.materialization_layout == "streaming_arrow_record_batch_columnar_source_state"
-        && source.row_count > 0
+        && (!source.row_count_known || source.row_count > 0 || source.record_batch_count > 0)
 }
 
 fn layout_verification_depth(
@@ -6268,6 +6273,11 @@ fn stream_columnar_vortex_ingest_source(
 struct PartitionedColumnarStreamReader {
     schema: SchemaRef,
     readers: VecDeque<Box<dyn RecordBatchReader + Send>>,
+    max_rows: usize,
+    row_count: usize,
+    source_label: &'static str,
+    path: String,
+    failed: bool,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -6275,10 +6285,33 @@ impl Iterator for PartitionedColumnarStreamReader {
     type Item = std::result::Result<RecordBatch, ArrowError>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.failed {
+            return None;
+        }
         loop {
             let reader = self.readers.front_mut()?;
             match reader.next() {
-                Some(batch) => return Some(batch),
+                Some(Ok(batch)) => {
+                    self.row_count =
+                        if let Some(row_count) = self.row_count.checked_add(batch.num_rows()) {
+                            row_count
+                        } else {
+                            self.failed = true;
+                            return Some(Err(ArrowError::InvalidArgumentError(format!(
+                                "local {} partition source '{}' row count overflowed usize",
+                                self.source_label, self.path
+                            ))));
+                        };
+                    if self.row_count > self.max_rows {
+                        self.failed = true;
+                        return Some(Err(ArrowError::InvalidArgumentError(format!(
+                            "local {} partition source '{}' exceeds the scoped SQL local-source row limit of {} across partition files",
+                            self.source_label, self.path, self.max_rows
+                        ))));
+                    }
+                    return Some(Ok(batch));
+                }
+                Some(Err(error)) => return Some(Err(error)),
                 None => {
                     self.readers.pop_front();
                 }
@@ -6353,6 +6386,16 @@ fn stream_columnar_vortex_ingest_partition_source(
         )?;
         readers.push_back(source.reader);
     }
+    if let Some(row_count_hint) = combined_row_count_hint
+        && row_count_hint > max_rows
+    {
+        return Err(unsupported_sql_error(&format!(
+            "local {} partition source {} exceeds the scoped SQL local-source row limit of {} across partition files",
+            source_format.row_label(),
+            path.display(),
+            max_rows
+        )));
+    }
     Ok(shardloom_vortex::FlatLocalColumnarStreamSource {
         header,
         column_dtypes,
@@ -6361,11 +6404,20 @@ fn stream_columnar_vortex_ingest_partition_source(
         reader_projection_columns,
         row_count_hint: combined_row_count_hint,
         record_batch_count_hint: combined_record_batch_count_hint,
-        reader: Box::new(PartitionedColumnarStreamReader { schema, readers }),
+        reader: Box::new(PartitionedColumnarStreamReader {
+            schema,
+            readers,
+            max_rows,
+            row_count: 0,
+            source_label: source_format.row_label(),
+            path: path.display().to_string(),
+            failed: false,
+        }),
     })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_arguments)]
 fn validate_columnar_stream_partition_schema(
     expected_header: &[String],
     expected_column_dtypes: &[Option<LogicalDType>],
@@ -41931,6 +41983,7 @@ mod tests {
             source_bytes: 128,
             source_digest: "fnv64:test".to_string(),
             row_count: 0,
+            row_count_known: true,
             source_split_row_ranges: vec![(0, 0)],
             source_metadata_scout_millis: 0,
             source_byte_acquisition_millis: 0,
@@ -41966,6 +42019,7 @@ mod tests {
             source_bytes: 1024,
             source_digest: "fnv64:test".to_string(),
             row_count: 100_000_000,
+            row_count_known: true,
             source_split_row_ranges: vec![(0, 100_000_000)],
             source_metadata_scout_millis: 0,
             source_byte_acquisition_millis: 0,
@@ -41984,6 +42038,117 @@ mod tests {
             layout_writer_provider_surface(&source),
             "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator;VortexSession::write_options().write(ArrayStream)"
         );
+    }
+
+    #[test]
+    fn layout_writer_provider_preserves_unknown_streaming_row_count_as_vortex_provider() {
+        let source_adapter = LocalInputAdapterSelection::infer_from_path(Path::new("hits.orc"))
+            .expect("infer ORC adapter");
+        let source = VortexIngestSourceData {
+            source_format: source_adapter.source_format,
+            source_adapter,
+            header: vec!["URL".to_string()],
+            read_plan: LocalSourceReadPlan::full("test_unknown_streaming_columnar_source"),
+            materialized_columns: vec!["URL".to_string()],
+            reader_projection_columns: vec!["URL".to_string()],
+            projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
+            source_bytes: 1024,
+            source_digest: "fnv64:test".to_string(),
+            row_count: 0,
+            row_count_known: false,
+            source_split_row_ranges: vec![(0, 0)],
+            source_metadata_scout_millis: 0,
+            source_byte_acquisition_millis: 0,
+            source_full_body_millis: 0,
+            read_millis: 0,
+            compatibility_parse_millis: 0,
+            source_to_columnar_millis: 0,
+            record_batch_count: 0,
+            materialization_layout: "streaming_arrow_record_batch_columnar_source_state",
+            parse_normalization: "structured_reader_to_streaming_arrow_record_batches",
+            columnar_source_preserved: true,
+        };
+
+        assert_eq!(layout_writer_provider_kind(&source), "vortex_array_kernel");
+        assert_eq!(
+            layout_writer_provider_surface(&source),
+            "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator;VortexSession::write_options().write(ArrayStream)"
+        );
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn partitioned_columnar_stream_reader_enforces_global_row_budget() {
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        use arrow_array::{Int64Array, RecordBatch};
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+        let first_batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int64Array::from(vec![1, 2]))],
+        )
+        .expect("first batch");
+        let second_batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int64Array::from(vec![3, 4]))],
+        )
+        .expect("second batch");
+        let mut readers: VecDeque<Box<dyn RecordBatchReader + Send>> = VecDeque::new();
+        readers.push_back(Box::new(TestRecordBatchReader {
+            schema: Arc::clone(&schema),
+            batches: VecDeque::from([first_batch]),
+        }));
+        readers.push_back(Box::new(TestRecordBatchReader {
+            schema: Arc::clone(&schema),
+            batches: VecDeque::from([second_batch]),
+        }));
+        let mut reader = PartitionedColumnarStreamReader {
+            schema,
+            readers,
+            max_rows: 3,
+            row_count: 0,
+            source_label: "Parquet",
+            path: "target/parts".to_string(),
+            failed: false,
+        };
+
+        let first = reader
+            .next()
+            .expect("first partition batch")
+            .expect("batch");
+        assert_eq!(first.num_rows(), 2);
+        let error = reader
+            .next()
+            .expect("global row budget error")
+            .expect_err("second partition exceeds aggregate budget");
+        assert!(
+            error.to_string().contains(
+                "exceeds the scoped SQL local-source row limit of 3 across partition files"
+            )
+        );
+        assert!(reader.next().is_none());
     }
 
     #[test]

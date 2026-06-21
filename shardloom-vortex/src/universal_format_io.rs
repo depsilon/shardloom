@@ -142,16 +142,16 @@ where
         let batch = self.inner.next()?;
         match batch {
             Ok(batch) => {
-                self.row_count = match self.row_count.checked_add(batch.num_rows()) {
-                    Some(row_count) => row_count,
-                    None => {
+                self.row_count =
+                    if let Some(row_count) = self.row_count.checked_add(batch.num_rows()) {
+                        row_count
+                    } else {
                         self.failed = true;
                         return Some(Err(ArrowError::InvalidArgumentError(format!(
                             "local {} source '{}' row count overflowed usize",
                             self.source_label, self.path
                         ))));
-                    }
-                };
+                    };
                 if self.row_count > self.max_rows {
                     self.failed = true;
                     return Some(Err(ArrowError::InvalidArgumentError(format!(
@@ -181,13 +181,13 @@ fn validate_known_stream_row_count(
     row_count_hint: Option<usize>,
     max_rows: usize,
 ) -> Result<()> {
-    if let Some(row_count) = row_count_hint {
-        if row_count > max_rows {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "local {source_label} source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
-                path.display()
-            )));
-        }
+    if let Some(row_count) = row_count_hint
+        && row_count > max_rows
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local {source_label} source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
+            path.display()
+        )));
     }
     Ok(())
 }
