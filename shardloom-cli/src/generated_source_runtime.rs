@@ -19,6 +19,7 @@ use std::{
     time::Instant,
 };
 
+use sha2::{Digest, Sha256};
 #[cfg(any(feature = "universal-format-io", feature = "vortex-write"))]
 use shardloom_core::ScalarValue;
 use shardloom_core::WorkspaceSafeLocalWriteReport;
@@ -2420,7 +2421,7 @@ fn replay_generated_output(
             path.display()
         ))
     })?;
-    let replay_digest = fnv64_digest_bytes(&bytes);
+    let replay_digest = digest_bytes_for_algorithm(&bytes, &write_report.output_digest);
     if replay_digest != write_report.output_digest {
         return Err(ShardLoomError::InvalidOperation(format!(
             "generated-source output replay digest mismatch for {}: expected {}, got {replay_digest}",
@@ -5448,6 +5449,23 @@ fn fnv64_digest_bytes(value: &[u8]) -> String {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     format!("fnv64:{hash:016x}")
+}
+
+fn sha256_digest_bytes(value: &[u8]) -> String {
+    let digest = Sha256::digest(value);
+    let mut encoded = String::with_capacity("sha256:".len() + digest.len() * 2);
+    encoded.push_str("sha256:");
+    for byte in digest {
+        write!(&mut encoded, "{byte:02x}").expect("writing digest hex cannot fail");
+    }
+    encoded
+}
+
+fn digest_bytes_for_algorithm(value: &[u8], expected_digest: &str) -> String {
+    match digest_algorithm(expected_digest) {
+        "sha256" => sha256_digest_bytes(value),
+        _ => fnv64_digest_bytes(value),
+    }
 }
 
 fn digest_algorithm(value: &str) -> &'static str {

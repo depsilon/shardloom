@@ -121,7 +121,7 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
         "sink_artifact_ref",
         &output_path.display().to_string()
     )));
-    assert!(stdout.contains("\"sink_artifact_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"sink_artifact_digest\",\"value\":\"sha256:"));
     assert!(stdout.contains(&field("sink_artifact_formats", "jsonl")));
     assert!(stdout.contains(&field(
         "sink_artifact_manifest_status",
@@ -150,8 +150,8 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains(&field("object_store_lakehouse_claim_allowed", "false")));
     assert!(stdout.contains("\"generated_source_schema_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains("\"generated_source_plan_digest\",\"value\":\"fnv64:"));
-    assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
-    assert!(stdout.contains("\"correctness_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"output_digest\",\"value\":\"sha256:"));
+    assert!(stdout.contains("\"correctness_digest\",\"value\":\"sha256:"));
 
     fs::remove_file(output_path).expect("remove output jsonl");
 }
@@ -930,8 +930,8 @@ fn range_smoke_writes_local_jsonl_and_emits_engine_native_generated_source_evide
     assert!(stdout.contains(&field("object_store_lakehouse_claim_allowed", "false")));
     assert!(stdout.contains("\"generated_source_schema_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains("\"generated_source_plan_digest\",\"value\":\"fnv64:"));
-    assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
-    assert!(stdout.contains("\"correctness_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"output_digest\",\"value\":\"sha256:"));
+    assert!(stdout.contains("\"correctness_digest\",\"value\":\"sha256:"));
 
     fs::remove_file(output_path).expect("remove output jsonl");
 }
@@ -1134,8 +1134,8 @@ fn sql_smoke_writes_literal_select_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains(&field("performance_claim_allowed", "false")));
     assert!(stdout.contains("\"generated_source_schema_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains("\"generated_source_plan_digest\",\"value\":\"fnv64:"));
-    assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
-    assert!(stdout.contains("\"correctness_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"output_digest\",\"value\":\"sha256:"));
+    assert!(stdout.contains("\"correctness_digest\",\"value\":\"sha256:"));
 
     fs::remove_file(output_path).expect("remove output jsonl");
 }
@@ -1565,8 +1565,8 @@ fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
             fanout_path.display()
         )
     )));
-    assert!(stdout.contains("\"sink_artifact_digests\",\"value\":\"jsonl:fnv64:"));
-    assert!(stdout.contains("csv:fnv64:"));
+    assert!(stdout.contains("\"sink_artifact_digests\",\"value\":\"jsonl:sha256:"));
+    assert!(stdout.contains("csv:sha256:"));
     assert!(stdout.contains(&field("sink_artifact_formats", "jsonl,csv")));
     assert!(stdout.contains(&field(
         "sink_artifact_manifest_status",
@@ -1586,7 +1586,7 @@ fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
     assert!(stdout.contains(&field("fanout_output_formats", "csv")));
     assert!(stdout.contains("\"fanout_output_paths\",\"value\":\""));
     assert!(stdout.contains("\"fanout_output_bytes\",\"value\":\"csv:"));
-    assert!(stdout.contains("\"fanout_output_digests\",\"value\":\"csv:fnv64:"));
+    assert!(stdout.contains("\"fanout_output_digests\",\"value\":\"csv:sha256:"));
     assert!(stdout.contains(&field(
         "fanout_output_native_io_certificate_statuses",
         "csv:certified_local_file_sink"
