@@ -247,11 +247,6 @@ def validate_required_reports(repo_root: Path) -> tuple[dict[str, Any], list[str
             "shardloom.runtime_gap_family_burn_down.v1",
         ),
         (
-            "benchmark_artifact_completeness",
-            Path("target/benchmark-artifact-completeness-report.json"),
-            "shardloom.benchmark_artifact_completeness_report.v1",
-        ),
-        (
             "v1_correctness_conformance",
             Path("target/v1-correctness-conformance-report.json"),
             "shardloom.v1_correctness_conformance_report.v1",

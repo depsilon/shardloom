@@ -10395,11 +10395,6 @@ class ReleaseScriptTests(unittest.TestCase):
                 "shardloom.runtime_gap_family_burn_down.v1",
             ),
             (
-                "benchmark_artifact_completeness",
-                "target/benchmark-artifact-completeness-report.json",
-                "shardloom.benchmark_artifact_completeness_report.v1",
-            ),
-            (
                 "v1_correctness_conformance",
                 "target/v1-correctness-conformance-report.json",
                 "shardloom.v1_correctness_conformance_report.v1",
