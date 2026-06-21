@@ -280,6 +280,9 @@ Current autonomous execution order:
       - [x] Keep mixed-predicate `contains` residuals native after Vortex pushdown by combining
         Vortex `Filter` masks with encoded/FSST string-kernel matches, preserving compact filtered
         row ordinals and no-decode evidence for ClickBench-style URL search predicates.
+      - [x] Preserve partitioned Vortex `count_all` as metadata-only capillary work: combine per-file
+        Vortex row-count metadata without scan/read/decode/materialization and certify the native
+        metadata I/O route.
     - [ ] Re-verify the public-route invariant for every optimized row: compatibility inputs are
       source adapters only, `auto` and explicit native routes normalize into an admitted
       Vortex-prepared/native middle, direct local diagnostic paths remain internal safeguards, and
