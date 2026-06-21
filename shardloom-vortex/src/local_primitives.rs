@@ -65,7 +65,8 @@ impl VortexLocalPrimitiveExecutionStatus {
     pub const fn is_error(&self) -> bool {
         matches!(
             self,
-            Self::BlockedByUnsupportedInput
+            Self::FeatureDisabled
+                | Self::BlockedByUnsupportedInput
                 | Self::BlockedByUnsupportedPrimitive
                 | Self::BlockedByUnsupportedDType
                 | Self::Unsupported
@@ -15783,6 +15784,19 @@ mod tests {
                 .contains("requires a numeric value column"),
             "{error:?}"
         );
+    }
+
+    #[test]
+    fn feature_disabled_local_primitive_report_is_runtime_error() {
+        let report = VortexLocalPrimitiveExecutionReport::feature_disabled(
+            VortexQueryPrimitiveKind::CountAll,
+        );
+
+        assert_eq!(
+            report.status,
+            VortexLocalPrimitiveExecutionStatus::FeatureDisabled
+        );
+        assert!(report.has_errors());
     }
 
     #[test]
