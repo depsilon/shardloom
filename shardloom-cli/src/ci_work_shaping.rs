@@ -57,7 +57,6 @@ const MERGE_HARD_LANE_JOB_ORDER: &[&str] = &[
     "python-package",
     "dependency-security",
     "release-runtime-core",
-    "release-benchmark-claim",
     "website-docs",
     "release-package-governance",
     "release-user-surface",
@@ -69,7 +68,6 @@ const RELEASE_PROOF_LANE_JOB_ORDER: &[&str] = &[
     "python-tests",
     "python-package",
     "release-runtime-core",
-    "release-benchmark-claim",
     "website-docs",
     "release-package-governance",
     "release-user-surface",
@@ -87,7 +85,6 @@ const RECOMMENDED_JOB_TOPOLOGICAL_ORDER: &[&str] = &[
     "python-package",
     "dependency-security",
     "release-runtime-core",
-    "release-benchmark-claim",
     "website-docs",
     "release-package-governance",
     "release-user-surface",
@@ -488,7 +485,8 @@ fn selected_jobs(
         push_unique_str(&mut jobs, "website-docs");
     }
     if requirements.benchmark_artifact_scan_required {
-        push_unique_str(&mut jobs, "release-benchmark-claim");
+        push_unique_str(&mut jobs, "python-test-shards");
+        push_unique_str(&mut jobs, "website-docs");
     }
     if requirements.merge_hard_lane_required {
         push_unique_strs(&mut jobs, MERGE_HARD_LANE_JOB_ORDER);
