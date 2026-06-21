@@ -90,13 +90,10 @@ The current local attestation plan records
 `publication_authorization_status=approved_channel_proof_passed`,
 `publication_human_approved=true`, and
 `slsa_attestation_status=not_generated_for_technical_preview_selected_channels`. The selected
-v0.1.10 GitHub/TestPyPI/PyPI/Homebrew channels are published unsigned for the technical preview.
-Future signing and artifact attestations remain separate release-channel actions, not autonomous
+v0.2.0 GitHub/TestPyPI/PyPI/Homebrew channels are published and proof-backed for the technical
+preview. The GitHub release uses a lightweight tag pointing at a GitHub-verified merge commit;
+future signing and artifact attestations remain separate release-channel actions, not autonomous
 Codex actions.
-
-For the `v0.2.0` release train, the rehearsal should verify that the intended GitHub release source
-is a signed annotated tag before publication. A lightweight or unsigned tag should be treated as a
-release blocker when the maintainer expects GitHub's verified tag badge.
 
 ## Current Expected State
 

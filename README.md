@@ -265,16 +265,10 @@ independently.
 Published technical-preview packages are proof-backed through GitHub release assets, PyPI,
 TestPyPI, and Homebrew channel transcripts under `docs/release/channel-proofs/`.
 
-The `v0.2.0` release train should use a signed annotated Git tag so GitHub can show a
-verified tag badge when the local maintainer signing key is configured:
-
-```sh
-git tag -s v0.2.0 -m "ShardLoom v0.2.0"
-git tag -v v0.2.0
-```
-
-If signing is unavailable, stop before publishing and fix the maintainer signing setup rather than
-creating a lightweight or unsigned replacement tag.
+The `v0.2.0` release uses a lightweight tag that points at a GitHub-verified merge commit. The
+checked-in channel proof records the tag ref type, target commit, and commit verification state.
+Future release trains should prefer a signed annotated tag when a maintainer signing key is
+configured.
 
 ## License
 
