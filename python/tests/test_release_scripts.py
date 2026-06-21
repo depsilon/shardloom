@@ -6344,6 +6344,29 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertFalse(report["performance_claim_allowed"])
         self.assertIn("route readiness only", report["site_readiness_claim_boundary"])
 
+    def test_clickbench_olap_statement_splitter_strips_sql_comments(self) -> None:
+        module = self._load_script_module(
+            "check_clickbench_olap_runtime_coverage.py",
+            "clickbench_olap_splitter_comments_for_test",
+        )
+
+        queries = module.split_sql_statements(
+            """
+            -- leading source comment
+            SELECT COUNT(*) FROM hits;
+            /* block comment with ; semicolon */
+            SELECT '-- not a comment' AS literal FROM hits;
+            """
+        )
+
+        self.assertEqual(
+            queries,
+            [
+                "SELECT COUNT(*) FROM hits",
+                "SELECT '-- not a comment' AS literal FROM hits",
+            ],
+        )
+
     def _optimization_target_rows(self) -> list[dict[str, object]]:
         base = {
             "status": "success",

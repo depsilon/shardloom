@@ -87,6 +87,15 @@ def split_sql_statements(text: str) -> list[str]:
                 index += 1
             current.append(" ")
             continue
+        if not in_string and char == "/" and next_char == "*":
+            index += 2
+            while index < len(text):
+                if text[index] == "*" and index + 1 < len(text) and text[index + 1] == "/":
+                    index += 2
+                    break
+                index += 1
+            current.append(" ")
+            continue
         if char == "'":
             current.append(char)
             if in_string and next_char == "'":

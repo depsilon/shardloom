@@ -14,6 +14,53 @@
     "fallback_or_external_engine_violations": 0,
     "observed_max_parallelism": 2
   },
+  "targeted_follow_up": {
+    "scope": "former_timeout_rows_after_native_vortex_grouped_aggregate_optimizations",
+    "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_former_timeouts_current_20260621T025936/summary.json",
+    "timeout_seconds_per_query": 180,
+    "success_count": 6,
+    "timeout_count": 0,
+    "current_known_timeout_rows_after_targeted_follow_up": [],
+    "fallback_or_external_engine_violations": 0,
+    "rows": [
+      {
+        "query_id": "CB-Q17",
+        "elapsed_seconds": 32.223,
+        "state_family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+        "observed_state_items": 24070560
+      },
+      {
+        "query_id": "CB-Q18",
+        "elapsed_seconds": 22.773,
+        "state_family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+        "observed_state_items": 24070560
+      },
+      {
+        "query_id": "CB-Q19",
+        "elapsed_seconds": 156.505,
+        "state_family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+        "observed_state_items": 56384822
+      },
+      {
+        "query_id": "CB-Q33",
+        "elapsed_seconds": 128.962,
+        "state_family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair",
+        "observed_state_items": 99997493
+      },
+      {
+        "query_id": "CB-Q34",
+        "elapsed_seconds": 60.265,
+        "state_family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+        "observed_state_items": 18342019
+      },
+      {
+        "query_id": "CB-Q35",
+        "elapsed_seconds": 57.169,
+        "state_family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+        "observed_state_items": 18342019
+      }
+    ]
+  },
   "timeout_rows": [
     "CB-Q16",
     "CB-Q17",

@@ -230,12 +230,35 @@ Current autonomous execution order:
     merged `target/release/shardloom run dataframe ... --execution-policy native_vortex` CLI route.
     Combined local evidence:
     `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_combined_summary.json`.
+    Post-`#1336` follow-up evidence:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_1336_20260621T001627/summary.json`.
+    Compact-state targeted evidence:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_compact_state_20260621T001/summary.json`.
+    Fixed-key targeted evidence:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_fixed_key_20260621T002/summary.json`.
+    URL chunk-dictionary probe:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_url_chunkdict_20260621T003/summary.json`.
+    Direct minute-key probe:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_direct_minute_20260621T004/summary.json`.
+    Typed/state-elision targeted evidence:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_state_elision_20260621T020609/summary.json`.
+    Numeric-pair measure-plan targeted evidence:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_numeric_pair_measure_plan_20260621T025508/summary.json`.
+    Current six-row targeted follow-up:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_former_timeouts_current_20260621T025936/summary.json`.
   - Current state: the 100M native Vortex route is functionally broad but not yet release-quality
-    for every OLAP family. The cap-only local run recorded 34/43 successful queries, 9 rows timed
-    out at the 180-second UAT cap (`CB-Q16`, `CB-Q17`, `CB-Q18`, `CB-Q19`, `CB-Q23`, `CB-Q32`,
-    `CB-Q33`, `CB-Q34`, `CB-Q35`), 22 successful rows still over 1s, zero completed runtime
-    failures, and no completed fallback/external-engine violations. Successful rows reported
-    `native_vortex` execution and observed `max_parallelism=2`.
+    for every OLAP family. The corrected post-`#1336` cap-only local run recorded 37/43 successful
+    queries, 6 rows timed out at the 180-second UAT cap (`CB-Q17`, `CB-Q18`, `CB-Q19`, `CB-Q33`,
+    `CB-Q34`, `CB-Q35`), zero completed runtime failures, and no completed
+    fallback/external-engine violations. Subsequent targeted optimization passes cleared that
+    timeout set under the 180-second local UAT cap: `CB-Q17` 32.223s, `CB-Q18` 22.773s, `CB-Q19`
+    156.505s, `CB-Q33` 128.962s, `CB-Q34` 60.265s, and `CB-Q35` 57.169s in the current six-row
+    follow-up. Completed targeted rows
+    report native Vortex aggregate execution with `fallback_attempted=false` and
+    `external_engine_invoked=false`. The remaining slow family is concentrated in exact
+    high-cardinality grouped count/top-K and URL/string grouped aggregation, not unsupported
+    routing. `CB-Q01` is verified as a metadata-only count route after correcting an ad hoc UAT
+    parser issue that let a SQL header comment contaminate the query text.
   - Intake review: accepted every >1s UAT row into this burndown rather than preserving them as
     advisory notes. Rows are grouped by shared runtime family so the fix converges public SQL,
     DataFrame, Python, and CLI wrappers into reusable native Vortex operators instead of adding
@@ -288,6 +311,9 @@ Current autonomous execution order:
       Vortex-prepared/native middle, direct local diagnostic paths remain internal safeguards, and
       no product route can report `sql-local-source-smoke`, `direct_compatibility_transient`,
       `fallback_attempted=true`, or `external_engine_invoked=true`.
+    - [x] Harden the local ClickBench UAT runner/parser before the next broad pass: strip SQL line
+      and block comments before splitting statements so benchmark header comments cannot pollute
+      `CB-Q01` or any other query text.
     - [ ] Preserve one shared runtime family across CLI, SQL, Python, and DataFrame-style wrappers:
       update lowering/evidence transport only when needed so aliases converge into the same
       Vortex-native aggregate, string-predicate, bounded-sort, distinct, and sink contracts.
@@ -304,6 +330,52 @@ Current autonomous execution order:
       - [x] Add a direct count-star grouped update path for high-cardinality native Vortex aggregate
         routes, with typed primitive/string identity key extraction, count-state updates that bypass
         generic row-state evaluation, and `count_star_direct_group_update` evidence.
+      - [x] Replace generic per-group aggregate-state cloning for count-only grouped routes with a
+        compact count-star state slot and ordered-candidate comparator that compares integer counts
+        without JSON value allocation.
+      - [x] Add compact multi-key storage for high-cardinality count-only grouped routes
+        (`UserID/SearchPhrase`, `UserID/minute/SearchPhrase`, `WatchID/ClientIP`) so the route
+        stores and compares typed key tuples without materializing every output group value until
+        the retained top-K/source-order window is known.
+      - [x] Record compact group-state evidence: `compact_group_state_strategy`,
+        `group_key_storage`, `topk_retention_after_update`, `materialized_group_value_count`, and
+        state-byte/pressure estimates for the affected rows.
+      - [x] Add compact count/sum/avg grouped state for high-cardinality numeric aggregate routes
+        (`CB-Q32`, `CB-Q33`) so count/order aliases compare raw counts and numeric measures avoid
+        generic per-group state cloning.
+      - [x] Replace heap-backed per-row group keys for common one/two/three-key grouped routes with
+        fixed-width typed keys so `CB-Q17`, `CB-Q19`, `CB-Q33`, `CB-Q34`, and `CB-Q35` avoid tuple
+        `Vec` allocation in the hot update path.
+      - [x] Elide source-order key retention for ordered grouped aggregate routes and compare
+        retained candidates with typed key values instead of per-group string tie-breaker material,
+        preserving deterministic ordering while reducing high-cardinality top-K memory pressure.
+      - [x] Replace per-group compact numeric aggregate `Vec` allocation with inline measure slots
+        for the common 1-4 measure case, targeting `CB-Q33` count/sum/avg high-cardinality groups
+        without creating a query-specific route.
+      - [x] Replace the grouped aggregate state's wide optional-field struct with a compact enum so
+        count-only, compact numeric, and general states carry only the fields they actually need in
+        high-cardinality maps.
+      - [x] Add a typed numeric-pair exact aggregate state for `CB-Q33`-class routes with compact
+        signed/unsigned integer key storage, a precompiled count/sum/avg measure update plan,
+        streaming ordered top-K retention, and evidence fields
+        (`grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair`,
+        `typed_numeric_pair_group_state`, `streaming_numeric_pair_topk_retention`). Targeted 100M
+        UAT moved `CB-Q33` from timeout/barely-passing 177.746s to 120.573s in a one-shot probe
+        and 128.962s in the current six-row follow-up, with no fallback or external engine
+        invocation.
+      - [ ] Evaluate whether a partitioned/spill-capable exact high-cardinality state is needed
+        beyond the local 180-second UAT cap for `CB-Q33`-class nearly-unique groups. Latest
+        evidence observed 99,997,493 aggregate states over 99,997,497 selected rows, so remaining
+        work is optimization margin/state-budget hardening rather than a functional blocker.
+      - [x] Add a direct transformed-key builder for derived numeric/time keys in `CB-Q19` so
+        `extract(minute FROM EventTime)` is computed into the typed key without intermediate
+        `StatValue` construction, and pair it with high-cardinality triple-key state-budget
+        diagnostics.
+      - [ ] Add a stronger exact triple-key aggregate strategy for `CB-Q19`; direct minute-key
+        extraction plus state elision now completes under the 180-second cap at 156.505s in the
+        current six-row follow-up, so the
+        remaining bottleneck is candidate cardinality/state management for
+        `UserID/minute/SearchPhrase`, not timestamp transform cost or functional admission.
     - [ ] Implement dictionary/string-aware group-by and exact distinct improvements for `CB-Q05`,
       `CB-Q06`, `CB-Q09`, `CB-Q10`, `CB-Q11`, `CB-Q12`, `CB-Q13`, `CB-Q14`, `CB-Q15`, `CB-Q22`,
       `CB-Q34`, and `CB-Q35`: group by dictionary/code IDs where available, keep distinct state
@@ -317,6 +389,17 @@ Current autonomous execution order:
       - [x] Replace ordered row-key distinct/duplicate state with hash-backed state where output
         order is already scan-order controlled, preserving deterministic row output while reducing
         state-update cost for exact-distinct and duplicate-mask families.
+      - [x] Add URL/string group interning or dictionary-code grouping for high-cardinality URL
+        grouped routes (`CB-Q34`, `CB-Q35`) so repeated key storage avoids per-row owned string
+        allocation and final string decode is limited to retained output groups.
+      - [ ] Promote URL grouping from interned string keys to exact dictionary/code grouping over
+        the current Vortex layout: use Vortex dictionary codes when present, add chunk-local partial
+        aggregation for materialized URL columns when dictionary codes are unavailable, and expose
+        whether `chunk_dictionary_count_star_group_update` actually ran.
+      - [ ] Rework the URL chunk-local path after the 100M probe showed
+        `chunk_dictionary_count_star_group_update` did not activate on the current Vortex URL
+        layout; the next implementation should operate on the actual materialized/encoded layout
+        surfaced by the reader rather than only host `VarBinView` dictionary chunks.
     - [ ] Implement faster string predicate and URL expression kernels for `CB-Q21`, `CB-Q22`,
       `CB-Q23`, `CB-Q24`, `CB-Q28`, and `CB-Q29`: byte-level contains for `LIKE '%literal%'`,
       shared positive/negative string predicate evaluation, string length without full decode where
@@ -384,6 +467,13 @@ Current autonomous execution order:
       - [x] Add/verify PulseWeave evidence for hash-backed row-key state and sparse selected-row
         materialization so large local runs can distinguish source rows scanned from decoded rows
         materialized.
+      - [x] Add compact count/group-string evidence for the six remaining timeout rows, including
+        rows scanned, groups observed, groups retained, group values materialized, decoded strings,
+        memory-pressure state, spill status, and ProofBound certificate posture.
+      - [x] Add exact heavy-cardinality evidence for rows that still time out or exceed 60s:
+        candidate group count, retained group count, evicted/spilled group count, key storage bytes,
+        string bytes retained, uniqueness proof status, and whether the route used all-hot map,
+        partitioned map, dictionary-code map, or spill-backed state.
     - [ ] Preserve timing-surface discipline in route output and refreshed artifacts: hot runtime,
       replay proof, and publication proof remain separate, and no evidence render/result-sink work
       is folded into a query-runtime claim.
@@ -400,8 +490,9 @@ Current autonomous execution order:
         bounded row-export observed-count semantics, and metadata-only count evidence.
       - [x] Add focused fixtures for direct count-star grouped updates, wide-output sort predicate
         source-ordinal preservation, and partitioned wide-output second-pass materialization.
-    - [ ] Rerun targeted local 100M UAT for the affected rows under the 180-second cap, then rerun
-      the full 43-query native Vortex UAT only after targeted rows no longer timeout or regress.
+    - [ ] Rerun targeted local 100M UAT for the affected timeout rows (`CB-Q17`, `CB-Q18`,
+      `CB-Q19`, `CB-Q33`, `CB-Q34`, `CB-Q35`) under the 180-second cap, then rerun the full
+      43-query native Vortex UAT only after targeted rows no longer timeout or regress.
     - [ ] Update README/docs/capability reports only from the admitted runtime evidence; move the
       completed summary to the ledger after merge/session completion.
   - Next outcome: the 100M native Vortex route no longer has timeout rows for feasible local OLAP
