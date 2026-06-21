@@ -123,8 +123,9 @@ Benchmark work is selected by source family:
 - Runtime, Python surface, fixture, benchmark runner, route timing, or benchmark harness changes:
   `benchmark_rerun_required=true`.
 - Published benchmark artifact changes:
-  `benchmark_artifact_scan_required=true` and publication metadata gates run, but the planner does
-  not declare that a rerun happened.
+  `benchmark_artifact_scan_required=true` and publication metadata gates run through the
+  `python-test-shards` and `website-docs` lanes, but the planner does not declare that a rerun
+  happened.
 - Docs, README, and website copy changes:
   benchmark recomputation is not recommended; metadata and claim gates remain always on.
 
