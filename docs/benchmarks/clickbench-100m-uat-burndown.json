@@ -128,6 +128,62 @@
       "implemented_in_current_batch": ["direct_utf8_contains_count_for_count_where", "mixed_predicate_partial_pushdown", "native_string_expression_transform_registry", "residual_materialization_posture_evidence"]
     }
   ],
+  "prepared_olap_reuse_plan": {
+    "source": "post_1344_prepared_olap_foundation_review",
+    "claim_boundary": "plan_only_no_refreshed_uat_or_public_clickbench_claim",
+    "shared_runtime_contract": "Universal Ingest -> SourceState -> VortexPreparedState -> prepared_olap_state when available -> native_vortex_unified_plan -> typed result or sink",
+    "front_doors_that_must_reuse_contract": [
+      "CLI run dataframe",
+      "CLI route dataframe",
+      "Python ctx.sql",
+      "Python LazyFrame/DataFrame-style methods",
+      "native .vortex input",
+      "prepared local compatibility input",
+      "partitioned Vortex manifest input"
+    ],
+    "families": [
+      {
+        "family": "exact_distinct",
+        "rows": ["CB-Q05", "CB-Q06", "CB-Q09", "CB-Q10", "CB-Q12", "CB-Q14", "CB-Q23"],
+        "dominant_cost_class": "exact distinct state rebuilt at query time",
+        "prepared_olap_state": ["per-segment dictionary unions", "dense-id bitsets where exact", "null/duplicate parity contract"],
+        "query_time_goal": "merge exact prepared distinct state before decoded value materialization",
+        "surface_reuse_requirement": "SQL COUNT(DISTINCT), Python/DataFrame nunique/value_counts/distinct, and CLI SQL all select the same native_vortex_unified_plan distinct contract"
+      },
+      {
+        "family": "high_cardinality_group_topk",
+        "rows": ["CB-Q13", "CB-Q15", "CB-Q16", "CB-Q17", "CB-Q18", "CB-Q19", "CB-Q31", "CB-Q32", "CB-Q33", "CB-Q36", "CB-Q40", "CB-Q41"],
+        "dominant_cost_class": "large or near-unique group state rebuilt at query time",
+        "prepared_olap_state": ["segment-local partial aggregate summaries", "packed typed/composite keys", "source-order prefix windows", "memory-budgeted merge metadata"],
+        "query_time_goal": "consume exact prepared partial state and merge retained candidates instead of scanning all rows into one hot map",
+        "surface_reuse_requirement": "SQL GROUP BY, Python/DataFrame group_by().agg(), nlargest/nsmallest, and CLI SQL all share the prepared aggregate/top-K route"
+      },
+      {
+        "family": "string_predicate_and_string_grouping",
+        "rows": ["CB-Q21", "CB-Q22", "CB-Q23", "CB-Q24", "CB-Q28", "CB-Q29", "CB-Q34", "CB-Q35"],
+        "dominant_cost_class": "runtime string scan, host extraction, or string-key retention",
+        "prepared_olap_state": ["literal substring posting lists", "segment absence certificates", "URL/domain dictionaries", "exact byte-length derived columns", "encoded string/group code maps"],
+        "query_time_goal": "prune from prepared exact string metadata and group on encoded IDs before decoding retained output strings",
+        "surface_reuse_requirement": "SQL LIKE/REGEXP_REPLACE/length and Python/DataFrame contains/replace/length/domain helpers all use the same prepared string route"
+      },
+      {
+        "family": "bounded_wide_row_topn",
+        "rows": ["CB-Q24", "CB-Q25", "CB-Q26", "CB-Q27", "CB-Q40", "CB-Q41"],
+        "dominant_cost_class": "wide row payload reread or materialization before final retained row set",
+        "prepared_olap_state": ["row-position locality map", "predicate posting lists", "row-ref selection vectors", "payload page locality metadata"],
+        "query_time_goal": "retain row references through sort/top-K and materialize only final output rows",
+        "surface_reuse_requirement": "SQL ORDER BY LIMIT/OFFSET, Python/DataFrame sort/head/tail/nlargest, and CLI SQL all share the same late-materialized top-N route"
+      },
+      {
+        "family": "repeated_expression_and_derived_columns",
+        "rows": ["CB-Q19", "CB-Q28", "CB-Q29", "CB-Q30", "CB-Q40", "CB-Q41", "CB-Q43"],
+        "dominant_cost_class": "derived expression recomputation across aggregate/update paths",
+        "prepared_olap_state": ["expression plan fingerprints", "derived-column manifest", "minute/date/domain/length exact columns where admitted", "shared measure update plan"],
+        "query_time_goal": "evaluate reusable exact derived columns once per prepared state or once per retained capillary unit",
+        "surface_reuse_requirement": "SQL expressions and Python/DataFrame expression builders use the same expression fingerprint and derived-column admission path"
+      }
+    ]
+  },
   "no_fallback_policy": {
     "fallback_attempted": false,
     "external_engine_invoked": false,
