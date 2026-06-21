@@ -596,7 +596,7 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "vortex_layout_write_advisor_strategy_admitted": "true",
                 "vortex_layout_write_advisor_runtime_decision_applied": "true",
                 "vortex_layout_write_advisor_selected_strategy": (
-                    "single_local_vortex_artifact"
+                    "single_vortex_artifact_embedded_olap_layout_statistics"
                 ),
                 "vortex_layout_write_advisor_provider_admitted": "true",
                 "vortex_layout_write_advisor_blocker": "none",

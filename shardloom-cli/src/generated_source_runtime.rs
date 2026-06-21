@@ -2839,6 +2839,7 @@ fn vortex_output_success_fields(
     fields
 }
 
+#[allow(clippy::too_many_lines)]
 fn vortex_output_write_success_detail_fields(
     report: &shardloom_vortex::VortexPreparedStateWriteReport,
 ) -> Vec<(String, String)> {
@@ -2910,6 +2911,60 @@ fn vortex_output_write_success_detail_fields(
         (
             "vortex_output_statistics_summary".to_string(),
             report.statistics_summary(),
+        ),
+        (
+            "vortex_prepared_olap_layout_inventory_summary".to_string(),
+            report.prepared_olap_layout_inventory_summary(),
+        ),
+        (
+            "vortex_prepared_olap_layout_inventory_status".to_string(),
+            report.prepared_olap_layout_inventory.status.clone(),
+        ),
+        (
+            "vortex_prepared_olap_layout_inventory_digest".to_string(),
+            report
+                .prepared_olap_layout_inventory
+                .inventory_digest
+                .clone(),
+        ),
+        (
+            "vortex_prepared_olap_layout_footer_row_count".to_string(),
+            report.prepared_olap_layout_inventory.row_count_field(),
+        ),
+        (
+            "vortex_prepared_olap_layout_footer_segment_count".to_string(),
+            report.prepared_olap_layout_inventory.segment_count_field(),
+        ),
+        (
+            "vortex_prepared_olap_layout_footer_statistics_status".to_string(),
+            report
+                .prepared_olap_layout_inventory
+                .statistics_status
+                .clone(),
+        ),
+        (
+            "vortex_prepared_olap_layout_footer_encoding_layout_status".to_string(),
+            report
+                .prepared_olap_layout_inventory
+                .encoding_layout_status
+                .clone(),
+        ),
+        (
+            "vortex_prepared_olap_layout_footer_approx_bytes".to_string(),
+            report
+                .prepared_olap_layout_inventory
+                .approx_footer_bytes_field(),
+        ),
+        (
+            "vortex_prepared_olap_layout_footer_dtype_summary".to_string(),
+            report.prepared_olap_layout_inventory.dtype_summary.clone(),
+        ),
+        (
+            "vortex_prepared_olap_layout_metadata_persisted_in_artifact".to_string(),
+            report
+                .prepared_olap_layout_inventory
+                .metadata_persisted_in_artifact
+                .to_string(),
         ),
         (
             "upstream_vortex_write_called".to_string(),

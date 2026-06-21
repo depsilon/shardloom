@@ -7728,6 +7728,154 @@ fn append_vortex_run_local_primitive_execution_fields(
             ),
         ),
     ]);
+    append_vortex_run_local_primitive_embedded_layout_fields(fields, local);
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_vortex_run_local_primitive_embedded_layout_fields(
+    fields: &mut Vec<(String, String)>,
+    local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
+) {
+    fields.extend([
+        (
+            "local_primitive_embedded_layout_schema_version".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.embedded_layout.schema_version.clone(),
+            ),
+        ),
+        (
+            "local_primitive_embedded_layout_status".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.embedded_layout.status.clone(),
+            ),
+        ),
+        (
+            "local_primitive_footer_row_count".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.embedded_layout.footer_row_count.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_footer_segment_count".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.embedded_layout.footer_segment_count.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_footer_statistics_available".to_string(),
+            local
+                .is_some_and(|local| local.embedded_layout.footer_statistics_available)
+                .to_string(),
+        ),
+        (
+            "local_primitive_footer_statistics_status".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.embedded_layout.footer_statistics_status.clone(),
+            ),
+        ),
+        (
+            "local_primitive_footer_approx_bytes".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| {
+                    local
+                        .embedded_layout
+                        .footer_approx_bytes
+                        .map_or_else(|| "none".to_string(), |value| value.to_string())
+                },
+            ),
+        ),
+        (
+            "local_primitive_footer_dtype_summary".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.embedded_layout.footer_dtype_summary.clone(),
+            ),
+        ),
+        (
+            "local_primitive_footer_layout_summary".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.embedded_layout.footer_layout_summary.clone(),
+            ),
+        ),
+        (
+            "local_primitive_metadata_persisted_in_artifact".to_string(),
+            local
+                .is_some_and(|local| local.embedded_layout.metadata_persisted_in_artifact)
+                .to_string(),
+        ),
+        (
+            "local_primitive_metadata_first_pruning_available".to_string(),
+            local
+                .is_some_and(|local| local.embedded_layout.metadata_first_pruning_available)
+                .to_string(),
+        ),
+        (
+            "local_primitive_metadata_first_pruning_consulted".to_string(),
+            local
+                .is_some_and(|local| local.embedded_layout.metadata_first_pruning_consulted)
+                .to_string(),
+        ),
+        (
+            "local_primitive_metadata_pruned_entire_input".to_string(),
+            local
+                .is_some_and(|local| local.embedded_layout.metadata_pruned_entire_input)
+                .to_string(),
+        ),
+        (
+            "local_primitive_selected_segment_count".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.embedded_layout.selected_segment_count.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_skipped_segment_count".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.embedded_layout.skipped_segment_count.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_vortex_file_stats_reader_available".to_string(),
+            local
+                .is_some_and(|local| local.embedded_layout.vortex_file_stats_reader_available)
+                .to_string(),
+        ),
+        (
+            "local_primitive_planner_consumption_status".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.embedded_layout.planner_consumption_status.clone(),
+            ),
+        ),
+        (
+            "local_primitive_dictionary_encoding_policy".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.embedded_layout.dictionary_encoding_policy.clone(),
+            ),
+        ),
+        (
+            "local_primitive_late_materialization_status".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.embedded_layout.late_materialization_status.clone(),
+            ),
+        ),
+        (
+            "local_primitive_no_query_answer_cache".to_string(),
+            local
+                .is_some_and(|local| local.embedded_layout.no_query_answer_cache)
+                .to_string(),
+        ),
+    ]);
 }
 
 fn vortex_run_human_text(

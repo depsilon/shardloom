@@ -71,67 +71,298 @@
       }
     ]
   },
+  "rejected_prepared_olap_query_summary_sidecar_uat": {
+    "design_status": "rejected_for_public_default_runtime",
+    "reason": "Exact query-summary sidecars behave like query-contract warm state and are not the ShardLoom product path. Public/default runtime uses one prepared .vortex artifact with embedded/generic Vortex layout and statistics evidence; external prepared-OLAP manifests and sidecar directories are disabled.",
+    "replacement_runtime_policy": "single_vortex_artifact_embedded_vortex_layout_statistics_v1",
+    "replacement_query_time_contract": "single_vortex_artifact_native_runtime_no_query_answer_sidecar",
+    "public_runtime_sidecar_family_count": 0,
+    "not_official_clickbench_submission": true,
+    "historical_uat_paths": {
+      "targeted_sidecar_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_prepared_olap_sidecar_20260621T115314/summary.json",
+      "replacement_after_parquet_prepare_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_prepared_olap_replace_20260621T120157/summary.json",
+      "prepare_profile_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/prepare_profile_sidecar_20260621T122501/summary.json",
+      "count_where_prepare_profile_summary": null,
+      "count_where_direct_sidecar_summary": null
+    }
+  },
   "timeout_rows": [],
   "slow_success_rows_over_1s": [
-    { "query_id": "CB-Q03", "elapsed_seconds": 1.015, "family": "scalar_aggregate_state", "observed_state_items": 3 },
-    { "query_id": "CB-Q05", "elapsed_seconds": 3.028, "family": "scalar_count_distinct_state", "observed_state_items": 17630977 },
-    { "query_id": "CB-Q06", "elapsed_seconds": 6.326, "family": "scalar_count_distinct_state", "observed_state_items": 6019104 },
-    { "query_id": "CB-Q09", "elapsed_seconds": 6.021, "family": "grouped_aggregate_state+count_distinct+topk", "observed_state_items": 18005682 },
-    { "query_id": "CB-Q10", "elapsed_seconds": 7.319, "family": "grouped_aggregate_state+count_distinct+topk", "observed_state_items": 18005682 },
-    { "query_id": "CB-Q12", "elapsed_seconds": 1.191, "family": "grouped_aggregate_state+count_distinct+topk", "observed_state_items": 1188780 },
-    { "query_id": "CB-Q13", "elapsed_seconds": 6.076, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 6019102 },
-    { "query_id": "CB-Q14", "elapsed_seconds": 10.148, "family": "grouped_aggregate_state+count_distinct+topk", "observed_state_items": 16700510 },
-    { "query_id": "CB-Q15", "elapsed_seconds": 6.208, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 6474212 },
-    { "query_id": "CB-Q16", "elapsed_seconds": 13.48, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 17630976 },
-    { "query_id": "CB-Q17", "elapsed_seconds": 35.358, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 24070560 },
-    { "query_id": "CB-Q18", "elapsed_seconds": 23.684, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 24070560 },
-    { "query_id": "CB-Q19", "elapsed_seconds": 149.35, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 56384822 },
-    { "query_id": "CB-Q21", "elapsed_seconds": 11.69, "family": "string_contains_count" },
-    { "query_id": "CB-Q22", "elapsed_seconds": 14.549, "family": "grouped_aggregate_state+topk", "observed_state_items": 677 },
-    { "query_id": "CB-Q23", "elapsed_seconds": 45.169, "family": "grouped_aggregate_state+count_distinct+topk", "observed_state_items": 9623 },
-    { "query_id": "CB-Q24", "elapsed_seconds": 24.498, "family": "raw_row_topk_sort_state", "observed_state_items": 15911 },
-    { "query_id": "CB-Q25", "elapsed_seconds": 4.415, "family": "raw_row_topk_sort_state", "observed_state_items": 13172392 },
-    { "query_id": "CB-Q26", "elapsed_seconds": 3.961, "family": "raw_row_topk_sort_state", "observed_state_items": 13172392 },
-    { "query_id": "CB-Q27", "elapsed_seconds": 4.286, "family": "raw_row_topk_sort_state", "observed_state_items": 13172392 },
-    { "query_id": "CB-Q28", "elapsed_seconds": 12.102, "family": "grouped_aggregate_state+topk", "observed_state_items": 6486 },
-    { "query_id": "CB-Q29", "elapsed_seconds": 19.078, "family": "grouped_aggregate_state+topk", "observed_state_items": 2500210 },
-    { "query_id": "CB-Q31", "elapsed_seconds": 1.632, "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair", "observed_state_items": 5730331 },
-    { "query_id": "CB-Q32", "elapsed_seconds": 2.083, "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair", "observed_state_items": 13172392 },
-    { "query_id": "CB-Q33", "elapsed_seconds": 126.67, "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair", "observed_state_items": 99997493 },
-    { "query_id": "CB-Q34", "elapsed_seconds": 59.652, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 18342019 },
-    { "query_id": "CB-Q35", "elapsed_seconds": 54.983, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 18342019 },
-    { "query_id": "CB-Q36", "elapsed_seconds": 6.55, "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state", "observed_state_items": 9762046 }
+    {
+      "query_id": "CB-Q03",
+      "elapsed_seconds": 1.015,
+      "family": "scalar_aggregate_state",
+      "observed_state_items": 3
+    },
+    {
+      "query_id": "CB-Q05",
+      "elapsed_seconds": 3.028,
+      "family": "scalar_count_distinct_state",
+      "observed_state_items": 17630977
+    },
+    {
+      "query_id": "CB-Q06",
+      "elapsed_seconds": 6.326,
+      "family": "scalar_count_distinct_state",
+      "observed_state_items": 6019104
+    },
+    {
+      "query_id": "CB-Q09",
+      "elapsed_seconds": 6.021,
+      "family": "grouped_aggregate_state+count_distinct+topk",
+      "observed_state_items": 18005682
+    },
+    {
+      "query_id": "CB-Q10",
+      "elapsed_seconds": 7.319,
+      "family": "grouped_aggregate_state+count_distinct+topk",
+      "observed_state_items": 18005682
+    },
+    {
+      "query_id": "CB-Q12",
+      "elapsed_seconds": 1.191,
+      "family": "grouped_aggregate_state+count_distinct+topk",
+      "observed_state_items": 1188780
+    },
+    {
+      "query_id": "CB-Q13",
+      "elapsed_seconds": 6.076,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 6019102
+    },
+    {
+      "query_id": "CB-Q14",
+      "elapsed_seconds": 10.148,
+      "family": "grouped_aggregate_state+count_distinct+topk",
+      "observed_state_items": 16700510
+    },
+    {
+      "query_id": "CB-Q15",
+      "elapsed_seconds": 6.208,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 6474212
+    },
+    {
+      "query_id": "CB-Q16",
+      "elapsed_seconds": 13.48,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 17630976
+    },
+    {
+      "query_id": "CB-Q17",
+      "elapsed_seconds": 35.358,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 24070560
+    },
+    {
+      "query_id": "CB-Q18",
+      "elapsed_seconds": 23.684,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 24070560
+    },
+    {
+      "query_id": "CB-Q19",
+      "elapsed_seconds": 149.35,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 56384822
+    },
+    {
+      "query_id": "CB-Q21",
+      "elapsed_seconds": 11.69,
+      "family": "string_contains_count"
+    },
+    {
+      "query_id": "CB-Q22",
+      "elapsed_seconds": 14.549,
+      "family": "grouped_aggregate_state+topk",
+      "observed_state_items": 677
+    },
+    {
+      "query_id": "CB-Q23",
+      "elapsed_seconds": 45.169,
+      "family": "grouped_aggregate_state+count_distinct+topk",
+      "observed_state_items": 9623
+    },
+    {
+      "query_id": "CB-Q24",
+      "elapsed_seconds": 24.498,
+      "family": "raw_row_topk_sort_state",
+      "observed_state_items": 15911
+    },
+    {
+      "query_id": "CB-Q25",
+      "elapsed_seconds": 4.415,
+      "family": "raw_row_topk_sort_state",
+      "observed_state_items": 13172392
+    },
+    {
+      "query_id": "CB-Q26",
+      "elapsed_seconds": 3.961,
+      "family": "raw_row_topk_sort_state",
+      "observed_state_items": 13172392
+    },
+    {
+      "query_id": "CB-Q27",
+      "elapsed_seconds": 4.286,
+      "family": "raw_row_topk_sort_state",
+      "observed_state_items": 13172392
+    },
+    {
+      "query_id": "CB-Q28",
+      "elapsed_seconds": 12.102,
+      "family": "grouped_aggregate_state+topk",
+      "observed_state_items": 6486
+    },
+    {
+      "query_id": "CB-Q29",
+      "elapsed_seconds": 19.078,
+      "family": "grouped_aggregate_state+topk",
+      "observed_state_items": 2500210
+    },
+    {
+      "query_id": "CB-Q31",
+      "elapsed_seconds": 1.632,
+      "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair",
+      "observed_state_items": 5730331
+    },
+    {
+      "query_id": "CB-Q32",
+      "elapsed_seconds": 2.083,
+      "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair",
+      "observed_state_items": 13172392
+    },
+    {
+      "query_id": "CB-Q33",
+      "elapsed_seconds": 126.67,
+      "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair",
+      "observed_state_items": 99997493
+    },
+    {
+      "query_id": "CB-Q34",
+      "elapsed_seconds": 59.652,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 18342019
+    },
+    {
+      "query_id": "CB-Q35",
+      "elapsed_seconds": 54.983,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 18342019
+    },
+    {
+      "query_id": "CB-Q36",
+      "elapsed_seconds": 6.55,
+      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
+      "observed_state_items": 9762046
+    }
   ],
   "optimization_families": [
     {
       "family": "bounded_sort",
-      "rows": ["CB-Q24", "CB-Q25", "CB-Q26", "CB-Q27"],
+      "rows": [
+        "CB-Q24",
+        "CB-Q25",
+        "CB-Q26",
+        "CB-Q27"
+      ],
       "strategy": "capillary retention window before top-k truncation plus late wide-row materialization",
-      "implemented_in_current_batch": ["capillary_retention_window", "mixed_predicate_partial_pushdown"]
+      "implemented_in_current_batch": [
+        "capillary_retention_window",
+        "mixed_predicate_partial_pushdown"
+      ]
     },
     {
       "family": "aggregate_distinct",
-      "rows": ["CB-Q05", "CB-Q06", "CB-Q09", "CB-Q10", "CB-Q11", "CB-Q12", "CB-Q14"],
+      "rows": [
+        "CB-Q05",
+        "CB-Q06",
+        "CB-Q09",
+        "CB-Q10",
+        "CB-Q11",
+        "CB-Q12",
+        "CB-Q14"
+      ],
       "strategy": "typed hash-backed exact distinct state; no external approximate or fallback engine",
-      "implemented_in_current_batch": ["typed_hash_exact_distinct_keys"]
+      "implemented_in_current_batch": [
+        "typed_hash_exact_distinct_keys"
+      ]
     },
     {
       "family": "grouped_aggregate",
-      "rows": ["CB-Q13", "CB-Q15", "CB-Q16", "CB-Q17", "CB-Q18", "CB-Q19", "CB-Q31", "CB-Q32", "CB-Q33", "CB-Q36", "CB-Q40", "CB-Q41"],
+      "rows": [
+        "CB-Q13",
+        "CB-Q15",
+        "CB-Q16",
+        "CB-Q17",
+        "CB-Q18",
+        "CB-Q19",
+        "CB-Q31",
+        "CB-Q32",
+        "CB-Q33",
+        "CB-Q36",
+        "CB-Q40",
+        "CB-Q41"
+      ],
       "strategy": "typed group keys, source-order limited output when SQL has no ORDER BY, and state-budget evidence",
-      "implemented_in_current_batch": ["typed_hash_group_keys", "single_key_group_fast_path", "source_order_no_sort", "functional_dependency_offset_key_pruning", "capillary_ordered_candidate_selection"]
+      "implemented_in_current_batch": [
+        "typed_hash_group_keys",
+        "single_key_group_fast_path",
+        "source_order_no_sort",
+        "functional_dependency_offset_key_pruning",
+        "capillary_ordered_candidate_selection"
+      ]
     },
     {
       "family": "string_predicate_expression",
-      "rows": ["CB-Q21", "CB-Q22", "CB-Q23", "CB-Q24", "CB-Q28", "CB-Q29", "CB-Q34", "CB-Q35"],
+      "rows": [
+        "CB-Q21",
+        "CB-Q22",
+        "CB-Q23",
+        "CB-Q24",
+        "CB-Q28",
+        "CB-Q29",
+        "CB-Q34",
+        "CB-Q35"
+      ],
       "strategy": "keep residual string work ShardLoom-owned; optimize materialization and aggregation around it until upstream Vortex string pushdown is certified",
-      "implemented_in_current_batch": ["direct_utf8_contains_count_for_count_where", "mixed_predicate_partial_pushdown", "native_string_expression_transform_registry", "residual_materialization_posture_evidence"]
+      "implemented_in_current_batch": [
+        "direct_utf8_contains_count_for_count_where",
+        "mixed_predicate_partial_pushdown",
+        "native_string_expression_transform_registry",
+        "residual_materialization_posture_evidence"
+      ]
     }
   ],
   "prepared_olap_reuse_plan": {
     "source": "post_1344_prepared_olap_foundation_review",
     "claim_boundary": "plan_only_no_refreshed_uat_or_public_clickbench_claim",
     "shared_runtime_contract": "Universal Ingest -> SourceState -> VortexPreparedState -> prepared_olap_state when available -> native_vortex_unified_plan -> typed result or sink",
+    "single_artifact_storage_model": "one prepared .vortex artifact; no adjacent prepared-OLAP manifest, .prepared-olap-state.d directory, or query-summary sidecar is allowed on the public/default runtime path",
+    "implemented_single_artifact_evidence_fields": [
+      "vortex_prepared_olap_state_layout_inventory_status",
+      "vortex_prepared_olap_state_layout_inventory_digest",
+      "vortex_prepared_olap_state_layout_footer_row_count",
+      "vortex_prepared_olap_state_layout_footer_segment_count",
+      "vortex_prepared_olap_state_layout_footer_statistics_status",
+      "vortex_prepared_olap_state_layout_footer_encoding_layout_status",
+      "vortex_prepared_olap_state_layout_footer_approx_bytes",
+      "vortex_prepared_olap_state_layout_footer_dtype_summary",
+      "vortex_prepared_olap_state_layout_metadata_persisted_in_artifact",
+      "public_workflow_prepared_olap_state_layout_inventory_status",
+      "public_workflow_prepared_olap_state_layout_metadata_persisted_in_artifact",
+      "local_primitive_embedded_layout_status",
+      "local_primitive_footer_row_count",
+      "local_primitive_footer_segment_count",
+      "local_primitive_footer_statistics_status",
+      "local_primitive_metadata_first_pruning_available",
+      "local_primitive_metadata_first_pruning_consulted",
+      "local_primitive_metadata_pruned_entire_input",
+      "local_primitive_selected_segment_count",
+      "local_primitive_skipped_segment_count",
+      "local_primitive_planner_consumption_status",
+      "local_primitive_no_query_answer_cache"
+    ],
+    "query_time_consumption_status": "implemented_whole_file_footer_pruning_for_count_filter_aggregate_and_bounded_sort_local_primitives_via_VortexFile_can_prune; deeper segment/string/domain metadata-first pruning, dictionary/layout policy, and broader ClickBench-heavy planner consumption remain planned runtime optimization work",
     "front_doors_that_must_reuse_contract": [
       "CLI run dataframe",
       "CLI route dataframe",
@@ -144,41 +375,111 @@
     "families": [
       {
         "family": "exact_distinct",
-        "rows": ["CB-Q05", "CB-Q06", "CB-Q09", "CB-Q10", "CB-Q12", "CB-Q14", "CB-Q23"],
+        "rows": [
+          "CB-Q05",
+          "CB-Q06",
+          "CB-Q09",
+          "CB-Q10",
+          "CB-Q12",
+          "CB-Q14",
+          "CB-Q23"
+        ],
         "dominant_cost_class": "exact distinct state rebuilt at query time",
-        "prepared_olap_state": ["per-segment dictionary unions", "dense-id bitsets where exact", "null/duplicate parity contract"],
+        "prepared_olap_state": [
+          "per-segment dictionary unions",
+          "dense-id bitsets where exact",
+          "null/duplicate parity contract"
+        ],
         "query_time_goal": "merge exact prepared distinct state before decoded value materialization",
         "surface_reuse_requirement": "SQL COUNT(DISTINCT), Python/DataFrame nunique/value_counts/distinct, and CLI SQL all select the same native_vortex_unified_plan distinct contract"
       },
       {
         "family": "high_cardinality_group_topk",
-        "rows": ["CB-Q13", "CB-Q15", "CB-Q16", "CB-Q17", "CB-Q18", "CB-Q19", "CB-Q31", "CB-Q32", "CB-Q33", "CB-Q36", "CB-Q40", "CB-Q41"],
+        "rows": [
+          "CB-Q13",
+          "CB-Q15",
+          "CB-Q16",
+          "CB-Q17",
+          "CB-Q18",
+          "CB-Q19",
+          "CB-Q31",
+          "CB-Q32",
+          "CB-Q33",
+          "CB-Q36",
+          "CB-Q40",
+          "CB-Q41"
+        ],
         "dominant_cost_class": "large or near-unique group state rebuilt at query time",
-        "prepared_olap_state": ["segment-local partial aggregate summaries", "packed typed/composite keys", "source-order prefix windows", "memory-budgeted merge metadata"],
+        "prepared_olap_state": [
+          "segment-local encoded key partitions",
+          "packed typed/composite keys",
+          "source-order prefix windows",
+          "memory-budgeted merge metadata"
+        ],
         "query_time_goal": "consume exact prepared partial state and merge retained candidates instead of scanning all rows into one hot map",
         "surface_reuse_requirement": "SQL GROUP BY, Python/DataFrame group_by().agg(), nlargest/nsmallest, and CLI SQL all share the prepared aggregate/top-K route"
       },
       {
         "family": "string_predicate_and_string_grouping",
-        "rows": ["CB-Q21", "CB-Q22", "CB-Q23", "CB-Q24", "CB-Q28", "CB-Q29", "CB-Q34", "CB-Q35"],
+        "rows": [
+          "CB-Q21",
+          "CB-Q22",
+          "CB-Q23",
+          "CB-Q24",
+          "CB-Q28",
+          "CB-Q29",
+          "CB-Q34",
+          "CB-Q35"
+        ],
         "dominant_cost_class": "runtime string scan, host extraction, or string-key retention",
-        "prepared_olap_state": ["literal substring posting lists", "segment absence certificates", "URL/domain dictionaries", "exact byte-length derived columns", "encoded string/group code maps"],
+        "prepared_olap_state": [
+          "literal substring posting lists",
+          "segment absence certificates",
+          "URL/domain dictionaries",
+          "exact byte-length derived columns",
+          "encoded string/group code maps"
+        ],
         "query_time_goal": "prune from prepared exact string metadata and group on encoded IDs before decoding retained output strings",
         "surface_reuse_requirement": "SQL LIKE/REGEXP_REPLACE/length and Python/DataFrame contains/replace/length/domain helpers all use the same prepared string route"
       },
       {
         "family": "bounded_wide_row_topn",
-        "rows": ["CB-Q24", "CB-Q25", "CB-Q26", "CB-Q27", "CB-Q40", "CB-Q41"],
+        "rows": [
+          "CB-Q24",
+          "CB-Q25",
+          "CB-Q26",
+          "CB-Q27",
+          "CB-Q40",
+          "CB-Q41"
+        ],
         "dominant_cost_class": "wide row payload reread or materialization before final retained row set",
-        "prepared_olap_state": ["row-position locality map", "predicate posting lists", "row-ref selection vectors", "payload page locality metadata"],
+        "prepared_olap_state": [
+          "row-position locality map",
+          "predicate posting lists",
+          "row-ref selection vectors",
+          "payload page locality metadata"
+        ],
         "query_time_goal": "retain row references through sort/top-K and materialize only final output rows",
         "surface_reuse_requirement": "SQL ORDER BY LIMIT/OFFSET, Python/DataFrame sort/head/tail/nlargest, and CLI SQL all share the same late-materialized top-N route"
       },
       {
         "family": "repeated_expression_and_derived_columns",
-        "rows": ["CB-Q19", "CB-Q28", "CB-Q29", "CB-Q30", "CB-Q40", "CB-Q41", "CB-Q43"],
+        "rows": [
+          "CB-Q19",
+          "CB-Q28",
+          "CB-Q29",
+          "CB-Q30",
+          "CB-Q40",
+          "CB-Q41",
+          "CB-Q43"
+        ],
         "dominant_cost_class": "derived expression recomputation across aggregate/update paths",
-        "prepared_olap_state": ["expression plan fingerprints", "derived-column manifest", "minute/date/domain/length exact columns where admitted", "shared measure update plan"],
+        "prepared_olap_state": [
+          "expression plan fingerprints",
+          "embedded derived-column metadata",
+          "minute/date/domain/length exact columns where admitted",
+          "shared measure update plan"
+        ],
         "query_time_goal": "evaluate reusable exact derived columns once per prepared state or once per retained capillary unit",
         "surface_reuse_requirement": "SQL expressions and Python/DataFrame expression builders use the same expression fingerprint and derived-column admission path"
       }
@@ -187,6 +488,13 @@
   "no_fallback_policy": {
     "fallback_attempted": false,
     "external_engine_invoked": false,
-    "forbidden_runtime_engines": ["Spark", "DataFusion", "DuckDB", "Polars", "pandas", "Velox"]
+    "forbidden_runtime_engines": [
+      "Spark",
+      "DataFusion",
+      "DuckDB",
+      "Polars",
+      "pandas",
+      "Velox"
+    ]
   }
 }

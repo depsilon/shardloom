@@ -1076,6 +1076,115 @@ fn append_local_primitive_state_budget_fields(
     );
 }
 
+#[allow(clippy::too_many_lines)]
+fn append_local_primitive_embedded_layout_fields(
+    fields: &mut Vec<(String, String)>,
+    embedded_layout: &shardloom_vortex::VortexLocalPrimitiveEmbeddedLayoutReport,
+) {
+    push_field(
+        fields,
+        "local_primitive_embedded_layout_schema_version",
+        &embedded_layout.schema_version,
+    );
+    push_field(
+        fields,
+        "local_primitive_embedded_layout_status",
+        &embedded_layout.status,
+    );
+    push_field(
+        fields,
+        "local_primitive_footer_row_count",
+        embedded_layout.footer_row_count.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_footer_segment_count",
+        embedded_layout.footer_segment_count.to_string(),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_footer_statistics_available",
+        embedded_layout.footer_statistics_available,
+    );
+    push_field(
+        fields,
+        "local_primitive_footer_statistics_status",
+        &embedded_layout.footer_statistics_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_footer_approx_bytes",
+        embedded_layout
+            .footer_approx_bytes
+            .map_or_else(|| "none".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        fields,
+        "local_primitive_footer_dtype_summary",
+        &embedded_layout.footer_dtype_summary,
+    );
+    push_field(
+        fields,
+        "local_primitive_footer_layout_summary",
+        &embedded_layout.footer_layout_summary,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_metadata_persisted_in_artifact",
+        embedded_layout.metadata_persisted_in_artifact,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_metadata_first_pruning_available",
+        embedded_layout.metadata_first_pruning_available,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_metadata_first_pruning_consulted",
+        embedded_layout.metadata_first_pruning_consulted,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_metadata_pruned_entire_input",
+        embedded_layout.metadata_pruned_entire_input,
+    );
+    push_field(
+        fields,
+        "local_primitive_selected_segment_count",
+        embedded_layout.selected_segment_count.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_skipped_segment_count",
+        embedded_layout.skipped_segment_count.to_string(),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_vortex_file_stats_reader_available",
+        embedded_layout.vortex_file_stats_reader_available,
+    );
+    push_field(
+        fields,
+        "local_primitive_planner_consumption_status",
+        &embedded_layout.planner_consumption_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_dictionary_encoding_policy",
+        &embedded_layout.dictionary_encoding_policy,
+    );
+    push_field(
+        fields,
+        "local_primitive_late_materialization_status",
+        &embedded_layout.late_materialization_status,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_no_query_answer_cache",
+        embedded_layout.no_query_answer_cache,
+    );
+}
+
 fn native_vortex_primitive_row_export_typed_sink_contract(output_format: &str) -> &'static str {
     match output_format {
         "vortex" => "native_vortex_structured_row_stream_to_vortex_sink",
@@ -1972,6 +2081,7 @@ fn append_native_vortex_materializing_primitive_fields(
     append_native_vortex_materializing_limit_fields(fields, report);
     append_local_primitive_result_summary_evidence_fields(fields, report.result_summary.as_deref());
     append_local_primitive_state_budget_fields(fields, &report.state_budget);
+    append_local_primitive_embedded_layout_fields(fields, &report.embedded_layout);
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
         fields,
         native_io_certificate,
@@ -2598,6 +2708,183 @@ fn prepare_local_source_for_public_workflow(
     })
 }
 
+fn prepare_profile_runtime_requested(request: &PublicWorkflowRouteRequest) -> bool {
+    if request.sql_statement.is_some() {
+        return true;
+    }
+    request
+        .plan_summary
+        .as_deref()
+        .and_then(parse_plan_summary_operations)
+        .is_some_and(|operations| operations.len() > 1)
+}
+
+fn prepared_profile_native_runtime_request(
+    request: &PublicWorkflowRouteRequest,
+    prepared_target: &Path,
+    max_parallelism: usize,
+) -> Result<PublicWorkflowRouteRequest, Box<PublicWorkflowRoutePlan>> {
+    let mut native_request = request.clone();
+    if let Some(plan_summary) = prepared_local_workflow_plan_summary(request, prepared_target, None)
+    {
+        native_request.surface = "dataframe".to_string();
+        native_request.input_uri = Some(prepared_target.display().to_string());
+        native_request.input_format = Some("vortex".to_string());
+        native_request.sql_statement = None;
+        native_request.plan_summary = Some(plan_summary);
+    } else if let Some(statement) =
+        prepared_local_workflow_sql_statement(request, prepared_target, None)
+    {
+        native_request.surface = "sql".to_string();
+        native_request.input_uri = Some(prepared_target.display().to_string());
+        native_request.input_format = Some("vortex".to_string());
+        native_request.sql_statement = Some(statement);
+        native_request.plan_summary = Some("sql(statement)".to_string());
+    } else {
+        return Err(Box::new(local_file_vortex_middle_required_route(request)));
+    }
+
+    native_request.requested_output = "collect".to_string();
+    native_request.output_ref = None;
+    native_request.fanout_outputs.clear();
+    native_request.execution_policy = "native_vortex".to_string();
+    native_request.materialization_policy = "zero_decode".to_string();
+    native_request.max_parallelism = Some(max_parallelism.to_string());
+    native_request.bounded = true;
+    Ok(effective_public_workflow_request(&native_request))
+}
+
+#[allow(clippy::too_many_lines)]
+fn prepared_profile_runtime_plan_fields(
+    request: &PublicWorkflowRouteRequest,
+    preparation: &sql_local_source_runtime::PublicWorkflowVortexPreparation,
+    max_parallelism: usize,
+) -> Vec<(String, String)> {
+    let mut fields = vec![
+        (
+            "public_workflow_preparation_profile_runtime_schema_version".to_string(),
+            "shardloom.public_workflow_preparation_profile_runtime.v1".to_string(),
+        ),
+        (
+            "public_workflow_preparation_profile_runtime_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "public_workflow_preparation_profile_runtime_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "public_workflow_preparation_profile_runtime_contract".to_string(),
+            "single_vortex_artifact_native_runtime_no_query_answer_sidecar".to_string(),
+        ),
+    ];
+    if !prepare_profile_runtime_requested(request) {
+        fields.push((
+            "public_workflow_preparation_profile_runtime_plan_status".to_string(),
+            "not_declared".to_string(),
+        ));
+        fields.push((
+            "public_workflow_preparation_profile_runtime_next_action".to_string(),
+            "pass --sql or a DataFrame plan summary when prepare should record native Vortex profile planning evidence"
+                .to_string(),
+        ));
+        return fields;
+    }
+
+    let native_request = match prepared_profile_native_runtime_request(
+        request,
+        &preparation.target_path,
+        max_parallelism,
+    ) {
+        Ok(native_request) => native_request,
+        Err(blocked) => {
+            fields.extend([
+                (
+                    "public_workflow_preparation_profile_runtime_plan_status".to_string(),
+                    "not_admitted".to_string(),
+                ),
+                (
+                    "public_workflow_preparation_profile_runtime_blocker_id".to_string(),
+                    blocked.blocker_id.to_string(),
+                ),
+                (
+                    "public_workflow_preparation_profile_runtime_next_action".to_string(),
+                    blocked
+                        .diagnostics
+                        .first()
+                        .and_then(|diagnostic| diagnostic.suggested_next_step.clone())
+                        .unwrap_or_else(|| {
+                            "use an admitted native Vortex aggregate or bounded sort profile"
+                                .to_string()
+                        }),
+                ),
+            ]);
+            return fields;
+        }
+    };
+    let native_plan = plan_public_workflow_route(&native_request);
+    fields.extend([
+        (
+            "public_workflow_preparation_profile_runtime_route_id".to_string(),
+            native_plan.route_id.to_string(),
+        ),
+        (
+            "public_workflow_preparation_profile_runtime_route_status".to_string(),
+            native_plan.status.as_str().to_string(),
+        ),
+    ]);
+    if native_plan.status != CommandStatus::Success {
+        fields.extend([
+            (
+                "public_workflow_preparation_profile_runtime_plan_status".to_string(),
+                "not_admitted".to_string(),
+            ),
+            (
+                "public_workflow_preparation_profile_runtime_blocker_id".to_string(),
+                native_plan.blocker_id.to_string(),
+            ),
+        ]);
+        return fields;
+    }
+
+    let Some(primitive) = normalized_vortex_primitive(&native_request) else {
+        fields.extend([
+            (
+                "public_workflow_preparation_profile_runtime_plan_status".to_string(),
+                "not_reusable_family".to_string(),
+            ),
+            (
+                "public_workflow_preparation_profile_runtime_next_action".to_string(),
+                "profile resolved without a native Vortex primitive payload".to_string(),
+            ),
+        ]);
+        return fields;
+    };
+    fields.extend([
+        (
+            "public_workflow_preparation_profile_runtime_plan_status".to_string(),
+            "planned_single_vortex_artifact_native_route".to_string(),
+        ),
+        (
+            "public_workflow_preparation_profile_runtime_primitive".to_string(),
+            primitive.as_str().to_string(),
+        ),
+        (
+            "public_workflow_preparation_profile_runtime_execution_status".to_string(),
+            "not_executed_during_prepare".to_string(),
+        ),
+        (
+            "public_workflow_preparation_profile_runtime_query_answer_sidecar_status".to_string(),
+            "disabled_public_runtime_single_vortex_artifact_policy".to_string(),
+        ),
+        (
+            "public_workflow_preparation_profile_runtime_prepared_target".to_string(),
+            preparation.target_path.display().to_string(),
+        ),
+    ]);
+    fields
+}
+
 fn prepared_local_workflow_native_request(
     request: &PublicWorkflowRouteRequest,
 ) -> Result<PreparedLocalWorkflowRun, Box<PublicWorkflowRoutePlan>> {
@@ -2916,56 +3203,115 @@ fn local_prepared_vortex_execution_attachment_fields(
     fields
 }
 
+#[allow(clippy::too_many_lines)]
 fn local_prepared_olap_query_attachment_fields(
     preparation_fields: &[(String, String)],
 ) -> Vec<(String, String)> {
-    let status = preparation_field_value(
+    let status = preparation_olap_field_value(preparation_fields, "status", "not_reported");
+    let query_time_contract =
+        preparation_olap_field_value(preparation_fields, "query_time_contract", "not_reported");
+    let sidecar_family_count =
+        preparation_olap_field_value(preparation_fields, "exact_sidecar_family_count", "0");
+    let artifact_model =
+        preparation_olap_field_value(preparation_fields, "artifact_model", "not_reported");
+    let metadata_pruning_contract = preparation_olap_field_value(
         preparation_fields,
-        "public_workflow_preparation_vortex_prepared_olap_state_status",
-    )
-    .or_else(|| {
-        preparation_field_value(
-            preparation_fields,
-            "public_workflow_preparation_prepared_olap_state_status",
-        )
-    })
-    .unwrap_or("not_reported");
-    let query_time_contract = preparation_field_value(
+        "metadata_pruning_contract",
+        "not_reported",
+    );
+    let embedded_layout_statistics_contract = preparation_olap_field_value(
         preparation_fields,
-        "public_workflow_preparation_vortex_prepared_olap_state_query_time_contract",
-    )
-    .or_else(|| {
-        preparation_field_value(
-            preparation_fields,
-            "public_workflow_preparation_prepared_olap_state_query_time_contract",
-        )
-    })
-    .unwrap_or("not_reported");
-    let sidecar_family_count = preparation_field_value(
+        "embedded_layout_statistics_contract",
+        "not_reported",
+    );
+    let query_answer_sidecar_status = preparation_olap_field_value(
         preparation_fields,
-        "public_workflow_preparation_vortex_prepared_olap_state_exact_sidecar_family_count",
-    )
-    .or_else(|| {
-        preparation_field_value(
-            preparation_fields,
-            "public_workflow_preparation_prepared_olap_state_exact_sidecar_family_count",
-        )
-    })
-    .unwrap_or("0");
+        "query_answer_sidecar_status",
+        "not_reported",
+    );
+    let evidence_persistence =
+        preparation_olap_field_value(preparation_fields, "evidence_persistence", "not_reported");
+    let external_manifest_written = preparation_olap_field_value(
+        preparation_fields,
+        "external_manifest_written",
+        "not_reported",
+    );
+    let layout_inventory_status = preparation_olap_field_value(
+        preparation_fields,
+        "layout_inventory_status",
+        "not_reported",
+    );
+    let layout_inventory_digest = preparation_olap_field_value(
+        preparation_fields,
+        "layout_inventory_digest",
+        "not_reported",
+    );
+    let layout_footer_row_count = preparation_olap_field_value(
+        preparation_fields,
+        "layout_footer_row_count",
+        "not_reported",
+    );
+    let layout_footer_segment_count = preparation_olap_field_value(
+        preparation_fields,
+        "layout_footer_segment_count",
+        "not_reported",
+    );
+    let layout_footer_statistics_status = preparation_olap_field_value(
+        preparation_fields,
+        "layout_footer_statistics_status",
+        "not_reported",
+    );
+    let layout_footer_encoding_layout_status = preparation_olap_field_value(
+        preparation_fields,
+        "layout_footer_encoding_layout_status",
+        "not_reported",
+    );
+    let layout_footer_approx_bytes = preparation_olap_field_value(
+        preparation_fields,
+        "layout_footer_approx_bytes",
+        "not_reported",
+    );
+    let layout_footer_dtype_summary = preparation_olap_field_value(
+        preparation_fields,
+        "layout_footer_dtype_summary",
+        "not_reported",
+    );
+    let layout_metadata_persisted_in_artifact = preparation_olap_field_value(
+        preparation_fields,
+        "layout_metadata_persisted_in_artifact",
+        "not_reported",
+    );
     let admitted = matches!(
         status,
         "prepared_olap_state_ready" | "prepared_olap_state_read_through_hit"
     ) && query_time_contract
-        == "exact_prepared_state_or_fail_closed_no_raw_scan_fallback";
+        == "single_vortex_artifact_native_runtime_no_query_answer_sidecar";
     vec![
         (
-            "public_workflow_prepared_olap_state_consumed".to_string(),
+            "public_workflow_prepared_olap_state_attached".to_string(),
             admitted.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_consumed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_consumption_status".to_string(),
+            if admitted {
+                "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"
+            } else {
+                "not_admitted_for_query_time_attachment"
+            }
+            .to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_query_answer_sidecar_consumed".to_string(),
+            "false".to_string(),
         ),
         (
             "public_workflow_prepared_olap_state_read_through_status".to_string(),
             if admitted {
-                "attached_to_prepared_native_vortex_route"
+                "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"
             } else {
                 "not_admitted_for_query_time_read_through"
             }
@@ -2976,6 +3322,66 @@ fn local_prepared_olap_query_attachment_fields(
             query_time_contract.to_string(),
         ),
         (
+            "public_workflow_prepared_olap_state_artifact_model".to_string(),
+            artifact_model.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_metadata_pruning_contract".to_string(),
+            metadata_pruning_contract.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_embedded_layout_statistics_contract".to_string(),
+            embedded_layout_statistics_contract.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_query_answer_sidecar_status".to_string(),
+            query_answer_sidecar_status.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_evidence_persistence".to_string(),
+            evidence_persistence.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_external_manifest_written".to_string(),
+            external_manifest_written.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_inventory_status".to_string(),
+            layout_inventory_status.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_inventory_digest".to_string(),
+            layout_inventory_digest.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_footer_row_count".to_string(),
+            layout_footer_row_count.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_footer_segment_count".to_string(),
+            layout_footer_segment_count.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_footer_statistics_status".to_string(),
+            layout_footer_statistics_status.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_footer_encoding_layout_status".to_string(),
+            layout_footer_encoding_layout_status.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_footer_approx_bytes".to_string(),
+            layout_footer_approx_bytes.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_footer_dtype_summary".to_string(),
+            layout_footer_dtype_summary.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_metadata_persisted_in_artifact".to_string(),
+            layout_metadata_persisted_in_artifact.to_string(),
+        ),
+        (
             "public_workflow_prepared_olap_state_exact_sidecar_family_count".to_string(),
             sidecar_family_count.to_string(),
         ),
@@ -2984,6 +3390,23 @@ fn local_prepared_olap_query_attachment_fields(
             status.to_string(),
         ),
     ]
+}
+
+fn preparation_olap_field_value<'a>(
+    fields: &'a [(String, String)],
+    suffix: &str,
+    default: &'static str,
+) -> &'a str {
+    for prefix in [
+        "public_workflow_preparation_vortex_prepared_olap_state_",
+        "public_workflow_preparation_prepared_olap_state_",
+    ] {
+        let key = format!("{prefix}{suffix}");
+        if let Some(value) = preparation_field_value(fields, &key) {
+            return value;
+        }
+    }
+    default
 }
 
 fn preparation_field_value<'a>(fields: &'a [(String, String)], key: &str) -> Option<&'a str> {
@@ -3104,7 +3527,10 @@ pub(crate) fn handle_public_workflow_prepare(
             preparation.target_path.display().to_string(),
         ),
     ]);
+    let profile_runtime_fields =
+        prepared_profile_runtime_plan_fields(&request, &preparation, max_parallelism);
     fields.extend(preparation.fields);
+    fields.extend(profile_runtime_fields);
     emit(
         "prepare",
         format,
@@ -10962,7 +11388,70 @@ mod tests {
     }
 
     #[test]
-    fn prepared_local_route_marks_admitted_olap_state_consumed() {
+    fn local_primitive_embedded_layout_lifts_footer_pruning_fields() {
+        let mut embedded_layout =
+            shardloom_vortex::VortexLocalPrimitiveEmbeddedLayoutReport::not_available();
+        embedded_layout.status = "metadata_pruned_entire_input".to_string();
+        embedded_layout.footer_row_count = 5;
+        embedded_layout.footer_segment_count = 2;
+        embedded_layout.footer_statistics_available = true;
+        embedded_layout.footer_statistics_status = "file_statistics_available".to_string();
+        embedded_layout.footer_approx_bytes = Some(4096);
+        embedded_layout.footer_dtype_summary = "struct(value=u32,metric=i64)".to_string();
+        embedded_layout.footer_layout_summary = "vortex_footer_root_layout".to_string();
+        embedded_layout.metadata_persisted_in_artifact = true;
+        embedded_layout.metadata_first_pruning_available = true;
+        embedded_layout.metadata_first_pruning_consulted = true;
+        embedded_layout.metadata_pruned_entire_input = true;
+        embedded_layout.selected_segment_count = 0;
+        embedded_layout.skipped_segment_count = 2;
+        embedded_layout.vortex_file_stats_reader_available = true;
+        embedded_layout.planner_consumption_status =
+            "metadata_first_pruning_consulted_pruned".to_string();
+        embedded_layout.dictionary_encoding_policy =
+            "preserve_vortex_dictionary_encoding_when_present".to_string();
+        embedded_layout.late_materialization_status =
+            "projection_bound_before_materialization".to_string();
+        embedded_layout.no_query_answer_cache = true;
+        let mut fields = Vec::new();
+
+        append_local_primitive_embedded_layout_fields(&mut fields, &embedded_layout);
+
+        assert_eq!(
+            field(&fields, "local_primitive_embedded_layout_status"),
+            "metadata_pruned_entire_input"
+        );
+        assert_eq!(field(&fields, "local_primitive_footer_row_count"), "5");
+        assert_eq!(
+            field(&fields, "local_primitive_footer_statistics_available"),
+            "true"
+        );
+        assert_eq!(
+            field(&fields, "local_primitive_metadata_first_pruning_consulted"),
+            "true"
+        );
+        assert_eq!(
+            field(&fields, "local_primitive_metadata_pruned_entire_input"),
+            "true"
+        );
+        assert_eq!(
+            field(&fields, "local_primitive_selected_segment_count"),
+            "0"
+        );
+        assert_eq!(field(&fields, "local_primitive_skipped_segment_count"), "2");
+        assert_eq!(
+            field(&fields, "local_primitive_planner_consumption_status"),
+            "metadata_first_pruning_consulted_pruned"
+        );
+        assert_eq!(
+            field(&fields, "local_primitive_no_query_answer_cache"),
+            "true"
+        );
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn prepared_local_route_marks_admitted_olap_state_attached_not_sidecar_consumed() {
         let preparation_fields = vec![
             (
                 "public_workflow_preparation_vortex_prepared_olap_state_status".to_string(),
@@ -10971,34 +11460,221 @@ mod tests {
             (
                 "public_workflow_preparation_vortex_prepared_olap_state_query_time_contract"
                     .to_string(),
-                "exact_prepared_state_or_fail_closed_no_raw_scan_fallback".to_string(),
+                "single_vortex_artifact_native_runtime_no_query_answer_sidecar".to_string(),
             ),
             (
                 "public_workflow_preparation_vortex_prepared_olap_state_exact_sidecar_family_count"
                     .to_string(),
-                "3".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_artifact_model"
+                    .to_string(),
+                "single_prepared_vortex_artifact".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_metadata_pruning_contract"
+                    .to_string(),
+                "metadata_first_when_vortex_layout_statistics_are_available_no_query_answer_cache"
+                    .to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_query_answer_sidecar_status"
+                    .to_string(),
+                "disabled_rejected_for_public_default_runtime".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_evidence_persistence"
+                    .to_string(),
+                "embedded_in_single_prepared_vortex_artifact".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_external_manifest_written"
+                    .to_string(),
+                "false".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_inventory_status"
+                    .to_string(),
+                "opened_single_vortex_artifact_footer".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_inventory_digest"
+                    .to_string(),
+                "fnv64:layout".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_footer_row_count"
+                    .to_string(),
+                "100000000".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_footer_segment_count"
+                    .to_string(),
+                "64".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_footer_statistics_status"
+                    .to_string(),
+                "available".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_footer_encoding_layout_status"
+                    .to_string(),
+                "segment_map_available".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_footer_approx_bytes"
+                    .to_string(),
+                "4096".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_footer_dtype_summary"
+                    .to_string(),
+                "Struct".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_metadata_persisted_in_artifact"
+                    .to_string(),
+                "true".to_string(),
             ),
         ];
 
         let fields = local_prepared_olap_query_attachment_fields(&preparation_fields);
 
         assert_eq!(
-            field(&fields, "public_workflow_prepared_olap_state_consumed"),
+            field(&fields, "public_workflow_prepared_olap_state_attached"),
             "true"
+        );
+        assert_eq!(
+            field(&fields, "public_workflow_prepared_olap_state_consumed"),
+            "false"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_query_answer_sidecar_consumed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_consumption_status"
+            ),
+            "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"
         );
         assert_eq!(
             field(
                 &fields,
                 "public_workflow_prepared_olap_state_read_through_status"
             ),
-            "attached_to_prepared_native_vortex_route"
+            "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"
         );
         assert_eq!(
             field(
                 &fields,
                 "public_workflow_prepared_olap_state_exact_sidecar_family_count"
             ),
-            "3"
+            "0"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_artifact_model"
+            ),
+            "single_prepared_vortex_artifact"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_metadata_pruning_contract"
+            ),
+            "metadata_first_when_vortex_layout_statistics_are_available_no_query_answer_cache"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_query_answer_sidecar_status"
+            ),
+            "disabled_rejected_for_public_default_runtime"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_evidence_persistence"
+            ),
+            "embedded_in_single_prepared_vortex_artifact"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_external_manifest_written"
+            ),
+            "false"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_inventory_status"
+            ),
+            "opened_single_vortex_artifact_footer"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_inventory_digest"
+            ),
+            "fnv64:layout"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_footer_row_count"
+            ),
+            "100000000"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_footer_segment_count"
+            ),
+            "64"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_footer_statistics_status"
+            ),
+            "available"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_footer_encoding_layout_status"
+            ),
+            "segment_map_available"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_footer_approx_bytes"
+            ),
+            "4096"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_footer_dtype_summary"
+            ),
+            "Struct"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_metadata_persisted_in_artifact"
+            ),
+            "true"
         );
     }
 
@@ -13583,6 +14259,161 @@ mod tests {
             prepared.request.vortex_predicate.as_deref(),
             Some("contains:URL:google")
         );
+    }
+
+    #[test]
+    fn prepare_profile_runtime_request_reuses_prepared_target_for_sql_count_profile() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--input",
+                "target/hits.parquet",
+                "--input-format",
+                "parquet",
+                "--sql",
+                "SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%'",
+                "--request",
+                "prepare",
+                "--output",
+                "target/hits.vortex",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "prepare_once",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("prepare SQL count profile route request");
+
+        let native =
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+                .expect("prepared profile native request");
+        let plan = plan_public_workflow_route(&native);
+        let fields = route_fields(&native, &plan);
+
+        assert_eq!(native.input_format.as_deref(), Some("vortex"));
+        assert_eq!(native.input_uri.as_deref(), Some("target/hits.vortex"));
+        assert_eq!(native.requested_output, "collect");
+        assert_eq!(native.execution_policy, "native_vortex");
+        assert_eq!(native.max_parallelism.as_deref(), Some("2"));
+        assert_eq!(
+            plan.status,
+            CommandStatus::Success,
+            "route={} blocker={} reason={}",
+            plan.route_id,
+            plan.blocker_id,
+            plan.blocker_reason
+        );
+        assert_eq!(plan.route_id, "native_vortex_count_where");
+        assert_eq!(field(&fields, "vortex_primitive"), "count_where");
+        assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
+    }
+
+    #[test]
+    fn prepare_profile_runtime_request_reuses_prepared_target_for_sql_aggregate_profile() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--input",
+                "target/hits.parquet",
+                "--input-format",
+                "parquet",
+                "--sql",
+                "SELECT SearchPhrase, MIN(URL), COUNT(*) AS c FROM hits WHERE URL LIKE '%google%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10",
+                "--request",
+                "prepare",
+                "--output",
+                "target/hits.vortex",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "prepare_once",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("prepare SQL profile route request");
+
+        let native =
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+                .expect("prepared profile native request");
+        let plan = plan_public_workflow_route(&native);
+        let fields = route_fields(&native, &plan);
+
+        assert_eq!(native.input_format.as_deref(), Some("vortex"));
+        assert_eq!(native.input_uri.as_deref(), Some("target/hits.vortex"));
+        assert_eq!(native.requested_output, "collect");
+        assert_eq!(native.execution_policy, "native_vortex");
+        assert_eq!(native.max_parallelism.as_deref(), Some("2"));
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(
+                plan.status,
+                CommandStatus::Success,
+                "route={} blocker={} reason={}",
+                plan.route_id,
+                plan.blocker_id,
+                plan.blocker_reason
+            );
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert_eq!(
+            field(&fields, "vortex_predicate"),
+            "and(contains:URL:google;neq:SearchPhrase:)"
+        );
+    }
+
+    #[test]
+    fn prepare_profile_runtime_request_reuses_prepared_target_for_dataframe_topn_profile() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "target/hits.parquet",
+                "--input-format",
+                "parquet",
+                "--plan",
+                "read_parquet(target/hits.parquet) -> select(WatchID,EventTime,URL) -> sort(desc,EventTime) -> limit(10)",
+                "--request",
+                "prepare",
+                "--output",
+                "target/hits.vortex",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "prepare_once",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("prepare DataFrame profile route request");
+
+        let native =
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+                .expect("prepared profile native request");
+        let plan = plan_public_workflow_route(&native);
+        let fields = route_fields(&native, &plan);
+
+        assert_eq!(native.input_format.as_deref(), Some("vortex"));
+        assert_eq!(native.input_uri.as_deref(), Some("target/hits.vortex"));
+        assert_eq!(native.surface, "dataframe");
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(
+                plan.status,
+                CommandStatus::Success,
+                "route={} blocker={} reason={}",
+                plan.route_id,
+                plan.blocker_id,
+                plan.blocker_reason
+            );
+            assert_eq!(plan.route_id, "native_vortex_sort_rows");
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "sort_rows");
     }
 
     #[test]

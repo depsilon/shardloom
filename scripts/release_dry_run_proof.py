@@ -570,7 +570,7 @@ def stage_python_artifacts_for_provenance(
         blockers = python_artifact_blockers(target_dist_dir)
         return {
             "name": "stage_python_artifacts_for_provenance",
-            "command": command,
+            "command": redact_command_for_transcript(repo_root, command),
             "returncode": 0 if not blockers else 1,
             "elapsed_millis": round((time.perf_counter() - started) * 1000.0, 4),
             "stdout": "\n".join(copied_artifacts)[-4000:],
@@ -581,7 +581,7 @@ def stage_python_artifacts_for_provenance(
     except (OSError, shutil.Error) as exc:
         return {
             "name": "stage_python_artifacts_for_provenance",
-            "command": command,
+            "command": redact_command_for_transcript(repo_root, command),
             "returncode": 1,
             "elapsed_millis": round((time.perf_counter() - started) * 1000.0, 4),
             "stdout": "",

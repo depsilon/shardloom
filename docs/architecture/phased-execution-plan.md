@@ -231,13 +231,15 @@ Current autonomous execution order:
     source-spelling-specific, or benchmark-only implementations.
   - Current state: the direct one-shot compatibility route has been blocked from masquerading as a
     product runtime, and public local compatibility inputs are intended to normalize into Vortex.
-    PR `#1344` added the prepared OLAP foundation: artifact-adjacent sidecar manifests, prepared
-    state admission evidence, streaming SHA-256 artifact digests, public `max_parallelism`
-    propagation, and bounded capillary prefetch for large columnar preparation. The remaining risk
-    is architectural drift: a public method, SQL spelling, CLI alias, sink, or capability row may
-    still bypass the shared Vortex-normalized middle or fail to consume the prepared OLAP state
-    because the input was spelled as CSV, Parquet, JSONL, Python rows, SQL, or DataFrame-style API
-    rather than as prepared Vortex.
+    PR `#1344` added the prepared OLAP foundation but the artifact-adjacent query-summary sidecar
+    prototype has since been rejected for public/default runtime. The accepted direction is one
+    prepared `.vortex` artifact with generic embedded layout/statistics posture, prepared-state
+    admission evidence, streaming SHA-256 artifact digests, public `max_parallelism` propagation,
+    and bounded capillary prefetch for large columnar preparation. The remaining risk is
+    architectural drift: a public method, SQL spelling, CLI alias, sink, or capability row may still
+    bypass the shared Vortex-normalized middle or fail to consume the prepared OLAP layout/statistics
+    posture because the input was spelled as CSV, Parquet, JSONL, Python rows, SQL, or
+    DataFrame-style API rather than as prepared Vortex.
   - Intake review: accepted as a prerequisite audit/capability pass, not a new parallel runtime.
     Candidate rows cover filters, projections, limit, group-by/aggregate, joins, bounded top-N,
     distinct/drop-duplicates/unique, string predicates, casts/null handling, bounded collect,
@@ -440,16 +442,19 @@ Current autonomous execution order:
     rejected the newest micro-optimization batch as sufficient runtime progress: `CB-Q19` timed
     out at the 180-second local cap, `CB-Q28` completed at 13.634s, and `CB-Q33` completed at
     152.673s. Ordinary prepared Vortex storage is already in the query path for this UAT; the
-    missing global lever is prepared OLAP state produced by Universal Ingest/prepare and consumed
-    by shared native Vortex routes so heavy rows do not rebuild full string scans or nearly-unique
-    group state at query time. Existing compact typed state and bounded retention remain useful
-    evidence/guardrails, but the next pass must reduce dominant data work through reusable
-    prepared/indexed state rather than one-query or hot-loop tweaks.
+    missing global lever is generic OLAP-oriented Vortex layout/statistics embedded in the prepared
+    Vortex artifact by Universal Ingest/prepare and consumed by shared native Vortex routes so heavy
+    rows do not rebuild full string scans or nearly-unique group state unnecessarily. Existing compact typed state and
+    bounded retention remain useful evidence/guardrails, but the next pass must reduce dominant
+    data work through reusable single-artifact layout/statistics, encoded dictionaries, segment
+    pruning, and capillary partial state rather than one-query or hot-loop tweaks.
     Post-`#1344`, the preparation side has the first reusable foundation for that approach:
-    foundation sidecar manifests, prepared OLAP admission fields, public preparation parallelism,
-    and bounded capillary source prefetch. No refreshed 100M UAT has been run against deeper
-    sidecar-consuming query routes yet, so the next implementation work is query-time consumption
-    and user-surface reuse, not another benchmark rerun over the same runtime path.
+    prepared OLAP admission fields, public preparation parallelism, and bounded capillary source
+    prefetch. The exact query-summary sidecar prototype was invalidated by product-policy review:
+    ShardLoom's public/default runtime should expose one prepared `.vortex` data artifact for the
+    OLAP-prepared route. Prepared OLAP evidence is derived from that artifact and any future generic
+    layout/statistics must be embedded in Vortex metadata/layout structures, not persisted as
+    `.prepared-olap-state.manifest` or `.prepared-olap-state.d` adjacent files.
   - Intake review: accepted all listed optimization targets as feasible runtime work because they
     improve shared OLAP operator families and public SQL/Python/DataFrame wrappers once route
     unification is verified. Rows are grouped by architectural lever rather than query number so
@@ -465,84 +470,75 @@ Current autonomous execution order:
   - Sub-second target rule: treat `sub_1s_query_time` as a prepared/indexed execution target, not
     a micro-optimization target. Rows that still require a full 100M-row string scan, full
     high-cardinality state build, or wide-row payload reread at query time must move work into
-    reusable, exact prepared Vortex/ShardLoom state during load/prepare, with sidecar/layout
-    evidence and source-hash invalidation. Do not cache benchmark answers, add ClickBench-only
-    routes, use approximate semantics for exact SQL, or keep loop tweaks that fail measured
-    before/after UAT.
+    reusable, generic Vortex layout/statistics/encoding policy during load/prepare, with
+    source-hash invalidation and Native I/O evidence. Do not cache benchmark answers, write
+    query-specific sidecars, add ClickBench-only routes, use approximate semantics for exact SQL,
+    or keep loop tweaks that fail measured before/after UAT.
   - Compound-technique dependency: implement changes under
     `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` when a nested SourceState/VortexPreparedState/
     capillary/PulseWeave/encoded/late-materialized layer removes a dominant cost class; do not add
     nanoscale routing, cost classification, counters, or evidence inside hot loops when the same
     amount of data work remains.
   - Execution checklist:
-    - [ ] Implement a content-addressed `sub_1s_prepared_olap_state` bundle produced by Universal
-      Ingest/prepare and consumed by the same native Vortex route family: source digest, schema
-      digest, row-count digest, segment map, derived-column manifest, exact posting-list indexes,
-      exact group-summary indexes, invalidation policy, and ProofBound evidence. This is a
-      reusable prepared-layout feature, not a ClickBench answer cache.
-      - [x] Add the fail-closed prepared OLAP manifest/report contract with source digest, schema
-        digest, row-count, segment map status, sidecar manifest references, exact sidecar family
-        count, query-time admission contract, sub-second candidate flag, deterministic blockers,
-        no-fallback/no-external-engine fields, and read-through admission evaluation that validates
-        manifest digest, source evidence, prepared artifact size/digest, state digest, and exact
-        query-time contract before native query routes may use prepared OLAP state.
-      - [x] Add focused tests proving exact sidecar declarations admit query-time prepared OLAP
-        state and plain Vortex artifacts without exact sidecars remain blocked from prepared OLAP
-        query-time claims; artifact drift blocks before query-time admission.
-      - [x] Generate the first artifact-adjacent prepared sidecar payload manifests during
-        Universal Ingest/prepare and prepared-state reuse: exact source-to-prepared segment map,
-        exact source-order row-position map, exact global count summary, and schema/dictionary
-        descriptor sidecars with sidecar digest validation and fail-closed drift handling.
-      - [x] Wire prepared OLAP state evidence into public local-file prepare and
-        prepare-once-first-query execution so SQL/DataFrame/Python routes that normalize through
-        Vortex report `public_workflow_prepared_olap_state_consumed=true`, sidecar family count,
-        query-time contract, and no-fallback/no-external-engine evidence.
-      - [x] Remove the redundant post-write full-artifact digest pass from local Vortex
-        preparation by moving workspace-safe staged writes to streaming SHA-256 and reusing that
-        digest as the prepared artifact digest. Public prepare evidence now reports
-        `public_workflow_preparation_vortex_artifact_digest_source=workspace_safe_streaming_sha256_digest`
-        and `public_workflow_preparation_vortex_digest_millis=0` for the extra digest lane.
-      - [x] Thread public `--max-parallelism` through `prepare dataframe` and prepare-once
-        local-file normalization into Vortex ingest Capillary/PulseWeave evidence. Public prepare
-        evidence now exposes `public_workflow_requested_max_parallelism`,
-        `public_workflow_preparation_vortex_ingest_requested_max_parallelism`, and
-        `public_workflow_preparation_vortex_capillary_preparation_max_parallelism`.
-      - [x] Replace the current serial columnar source-to-writer stream with a bounded Capillary
-        RecordBatch prefetch executor for large Parquet/Arrow IPC/Avro/ORC and partition
-        directories. Public `max_parallelism` now configures bounded in-flight source units,
-        preserves source order, overlaps admitted source adapter read/decode with Vortex writer
-        consumption, keeps streaming writer backpressure, and emits no-fallback/no-external-engine
-        evidence through `public_workflow_preparation_source_state_ingest_executor_*` fields.
-      - [ ] Extend sidecar payload generation beyond the foundation bundle to exact posting-list
-        indexes, derived-column manifests, exact high-cardinality group-summary indexes, and
-        dictionary-union value payloads selected by data/profile evidence.
-      - [ ] Consume admitted prepared OLAP state from native Vortex query routes for result
-        production, validating requested SQL/DataFrame semantics against exact sidecar contracts
-        before answering a query family without raw scans.
-      - [ ] Wire prepared OLAP consumption through the public workflow narrow waist and Python
-        session worker so SQL, Python query-builder, DataFrame-style, and CLI front doors expose
-        the same query-time sidecar admission/result fields instead of a benchmark-only or
-        native-file-only branch.
-      - [ ] Add targeted rerun proof showing a query over an already-prepared Vortex artifact can
-        reuse exact prepared OLAP sidecars/indexes/summaries instead of rescanning/rebuilding the
-        same high-cardinality or string-derived state. This is the expected global rerun lever; the
-        current 100M UAT already uses prepared Vortex storage but does not yet consume these deeper
-        prepared OLAP artifacts.
-      - [ ] Keep the checked-in ClickBench burndown manifest aligned with the implementation by
-        mapping each slow query family to the prepared sidecar/index/summary it should consume and
-        to the public front doors that must reuse it.
-    - [ ] Add exact prepared substring/domain indexes for literal URL/Title/Referer predicates:
-      sparse row-id posting lists for admitted literals, segment-level absence certificates for
-      pruning, positive/negative mask composition, and query-time evidence showing whether runtime
-      read avoided full string scans.
-    - [ ] Add prepared exact aggregate summary families for common OLAP group shapes selected by
-      data/profile evidence: single numeric top-K counts, source-order limited group prefixes,
-      exact numeric-pair count/sum/avg summaries, exact URL/domain count summaries, and exact
-      distinct/dictionary-union summaries. Query routes must validate the requested SQL semantics
-      against the summary contract before answering from prepared state.
-    - [ ] Add prepared row-position locality for wide bounded top-N: persist selected row-reference
-      payload pages or row ordinal -> segment/page maps so `SELECT * ... ORDER BY ... LIMIT/OFFSET`
-      can materialize only retained rows without scanning every source chunk at query time.
+    - [x] Apply the single-artifact prepared OLAP correction: remove public/default
+      query-summary sidecar execution, stop `prepare sql`/`prepare dataframe` from executing
+      profile queries to generate sidecars, stop primitive reruns from consuming query-summary
+      payloads, keep prepared OLAP admission derived from the single `.vortex` artifact with no
+      adjacent OLAP manifest or sidecar directory, and add focused Rust/Python tests proving no
+      sidecar hit/write/consume fields are emitted on the public runtime paths.
+    - [ ] Implement single-artifact prepared OLAP layout/statistics in Universal Ingest: source
+      digest, schema digest, row-count digest, embedded Vortex layout/footer statistics posture,
+      Vortex writer/layout policy, invalidation policy, and ProofBound evidence. This must be a
+      reusable Vortex layout feature, not a ClickBench answer cache.
+      - [x] Add the fail-closed prepared OLAP single-artifact report contract with source digest, schema
+        digest, row count, embedded layout/statistics status, query-time contract, deterministic
+        blockers, no-fallback/no-external-engine fields, and read-through admission evaluation that
+        derives state from source evidence plus prepared artifact size/digest.
+      - [x] Correct the product policy so plain prepared Vortex artifacts with embedded layout
+        posture are admitted, exact sidecar family count is zero, and query-summary sidecar
+        declarations are cleared by the bundle writer.
+      - [x] Remove public/default query-summary sidecar APIs and evidence propagation from native
+        primitive execution, public workflow prepare-profile planning, direct `vortex-run`, and the
+        Python SQL/DataFrame/session convergence tests.
+      - [x] Add focused Rust/Python tests proving primitive reruns stay on native Vortex scan paths,
+        prepared OLAP evidence admits a single `.vortex` artifact, same-size artifact mutations
+        update derived state without stale external manifests, no `.prepared-olap-state.manifest` or
+        `.prepared-olap-state.d` path is created, and public surfaces converge on single-artifact
+        native Vortex evidence.
+      - [x] Add Vortex-footer-derived OLAP layout inventory evidence from the single prepared
+        `.vortex` artifact: row count, segment count, statistics status, encoding/layout status,
+        footer byte estimate, dtype summary, inventory digest, and
+        `layout_metadata_persisted_in_artifact=true`; thread those fields through Vortex writes,
+        prepared OLAP read-through evaluation, public workflow route evidence, and Python surface
+        tests without creating adjacent OLAP files.
+      - [x] Consume embedded Vortex footer statistics in the shared local primitive planner through
+        `VortexFile::can_prune` before scan creation for count/filter, scalar/group aggregate, and
+        bounded top-K/sort routes; add route evidence fields for footer row count, segment count,
+        statistics status, planner consumption status, selected/skipped segments,
+        no-query-answer-cache posture, and no-read metadata-pruned results; lift those fields
+        through public workflow and `vortex-run` outputs with focused Rust tests.
+      - [ ] Add the actual embedded/generic Vortex OLAP layout strategy beyond current footer
+        inventory: writer/layout policy choices, segment/zone statistics inventory suitable for
+        broader pruning, dictionary/statistics preservation evidence, and planner consumption fields
+        beyond whole-file footer pruning.
+      - [ ] Re-run targeted 100M UAT after the embedded-layout strategy exists; ship only if the
+        single-artifact path improves the measured slow families or clearly preserves correctness
+        while setting up a reusable optimization.
+      - [ ] Move the rejected exact query-summary sidecar prototype evidence to the completed ledger
+        or rejected-design appendix after merge. Current JSON records it under
+        `rejected_prepared_olap_query_summary_sidecar_uat`; it must not be used as runtime
+        acceptance or ClickBench methodology.
+    - [ ] Add embedded generic string/domain metadata for URL/Title/Referer predicates inside the
+      prepared Vortex artifact or its Vortex-native metadata tree: segment-level absence
+      certificates, dictionary/domain sketches, byte-length statistics, and safe substring/LIKE
+      pruning evidence. This must prune or encode runtime work, not store query answers.
+    - [ ] Add generic prepared layout families selected by source/profile evidence: date/counter
+      clustering, URL/domain dictionary preservation, low-cardinality dictionary-union metadata,
+      and high-cardinality key layout hints. Do not create pre-aggregated summaries,
+      materialized-view equivalents, or query-specific projections as public/default runtime.
+    - [ ] Add row-reference locality for wide bounded top-N through Vortex layout/page metadata and
+      late materialization: keep ordered candidate row refs until final output, then materialize
+      only retained rows from the single `.vortex` artifact.
     - [ ] Implement hierarchical capillary aggregate state for high-cardinality grouped count/sum/
       avg/top-K families: segment-local partials, packed typed/composite keys, memory-budgeted
       merge, state pressure evidence, and optional spill diagnostics before process OOM risk.
@@ -942,9 +938,9 @@ Current autonomous execution order:
     - [ ] Rerun targeted local 100M UAT for the affected timeout rows (`CB-Q17`, `CB-Q18`,
       `CB-Q19`, `CB-Q33`, `CB-Q34`, `CB-Q35`) under the 180-second cap, then rerun the full
       43-query native Vortex UAT only after targeted rows no longer timeout or regress.
-      Replace or reuse the existing local prepared Vortex artifact/sidecars in the Desktop UAT
-      folder rather than creating duplicate massive files, and record whether each row used
-      prepared OLAP sidecars, plain prepared Vortex, or raw native Vortex scan state.
+      Replace or reuse the existing local prepared Vortex artifact in the Desktop UAT folder rather
+      than creating duplicate massive files, and record whether each row used embedded
+      layout/statistics pruning, plain prepared Vortex scan state, or raw native Vortex scan state.
     - [ ] Update README/docs/capability reports only from the admitted runtime evidence; move the
       completed summary to the ledger after merge/session completion.
   - Next outcome: the 100M native Vortex route no longer has timeout rows for feasible local OLAP

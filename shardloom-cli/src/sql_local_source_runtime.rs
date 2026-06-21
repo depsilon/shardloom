@@ -1565,7 +1565,7 @@ impl SqlLocalSourceOutputFormat {
 
     const fn output_selected_layout_write_strategy(self) -> &'static str {
         match self {
-            Self::Vortex => "single_local_vortex_artifact",
+            Self::Vortex => "single_vortex_artifact_embedded_olap_layout_statistics",
             Self::Parquet
             | Self::ArrowIpc
             | Self::Avro
@@ -4874,9 +4874,24 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "vortex_prepared_state_reuse_role_scoped_repair_status",
         "prepared_olap_state_allowed",
         "prepared_olap_state_status",
-        "prepared_olap_state_manifest_path",
-        "prepared_olap_state_manifest_digest",
+        "prepared_olap_state_evidence_persistence",
+        "prepared_olap_state_external_manifest_written",
         "prepared_olap_state_query_time_contract",
+        "prepared_olap_state_artifact_model",
+        "prepared_olap_state_writer_layout_strategy",
+        "prepared_olap_state_embedded_layout_statistics_contract",
+        "prepared_olap_state_layout_inventory_status",
+        "prepared_olap_state_layout_inventory_digest",
+        "prepared_olap_state_layout_footer_row_count",
+        "prepared_olap_state_layout_footer_segment_count",
+        "prepared_olap_state_layout_footer_statistics_status",
+        "prepared_olap_state_layout_footer_encoding_layout_status",
+        "prepared_olap_state_layout_footer_approx_bytes",
+        "prepared_olap_state_layout_footer_dtype_summary",
+        "prepared_olap_state_layout_metadata_persisted_in_artifact",
+        "prepared_olap_state_dictionary_metadata_policy",
+        "prepared_olap_state_metadata_pruning_contract",
+        "prepared_olap_state_query_answer_sidecar_status",
         "prepared_olap_state_admitted_query_families",
         "prepared_olap_state_exact_sidecar_family_count",
         "prepared_olap_state_sub_second_candidate",
@@ -4884,10 +4899,27 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "vortex_prepared_olap_state_schema_version",
         "vortex_prepared_olap_state_status",
         "vortex_prepared_olap_state_policy",
-        "vortex_prepared_olap_state_manifest_path",
-        "vortex_prepared_olap_state_manifest_digest",
+        "vortex_prepared_olap_state_evidence_persistence",
+        "vortex_prepared_olap_state_external_manifest_written",
         "vortex_prepared_olap_state_id",
         "vortex_prepared_olap_state_digest",
+        "vortex_prepared_olap_state_prepared_artifact_ref",
+        "vortex_prepared_olap_state_prepared_artifact_digest",
+        "vortex_prepared_olap_state_artifact_model",
+        "vortex_prepared_olap_state_writer_layout_strategy",
+        "vortex_prepared_olap_state_embedded_layout_statistics_contract",
+        "vortex_prepared_olap_state_layout_inventory_status",
+        "vortex_prepared_olap_state_layout_inventory_digest",
+        "vortex_prepared_olap_state_layout_footer_row_count",
+        "vortex_prepared_olap_state_layout_footer_segment_count",
+        "vortex_prepared_olap_state_layout_footer_statistics_status",
+        "vortex_prepared_olap_state_layout_footer_encoding_layout_status",
+        "vortex_prepared_olap_state_layout_footer_approx_bytes",
+        "vortex_prepared_olap_state_layout_footer_dtype_summary",
+        "vortex_prepared_olap_state_layout_metadata_persisted_in_artifact",
+        "vortex_prepared_olap_state_dictionary_metadata_policy",
+        "vortex_prepared_olap_state_metadata_pruning_contract",
+        "vortex_prepared_olap_state_query_answer_sidecar_status",
         "vortex_prepared_olap_state_admitted_query_families",
         "vortex_prepared_olap_state_exact_sidecar_family_count",
         "vortex_prepared_olap_state_query_time_contract",
@@ -5130,11 +5162,9 @@ fn write_prepared_olap_state_for_report(
         report.source_schema_digest.clone(),
         source_row_count,
         &report.vortex_report.target_path,
-        shardloom_vortex::vortex_prepared_olap_state_manifest_path(
-            &report.vortex_report.target_path,
-        )?,
+        &report.vortex_report.target_path,
     )?
-    .with_prepared_layout_policy("universal_ingest_content_addressed_local_olap_state_v1")
+    .with_prepared_layout_policy("single_vortex_artifact_embedded_vortex_layout_statistics_v1")
     .with_feature_gates(report.vortex_report.preparation_spine.feature_gate.clone())
     .with_certification_level(report.request.certification_level.as_str())
     .with_certificate_refs(format!(
@@ -5162,17 +5192,13 @@ fn write_or_evaluate_prepared_olap_state_for_reuse(
         reuse.source_schema_digest.clone(),
         reuse.source_row_count,
         &reuse.prepared_artifact_ref,
-        shardloom_vortex::vortex_prepared_olap_state_manifest_path(&reuse.prepared_artifact_ref)?,
+        &reuse.prepared_artifact_ref,
     )?
-    .with_prepared_layout_policy("universal_ingest_content_addressed_local_olap_state_v1")
+    .with_prepared_layout_policy("single_vortex_artifact_embedded_vortex_layout_statistics_v1")
     .with_feature_gates(reuse.feature_gates.clone())
     .with_certification_level(reuse.certification_level.clone())
     .with_certificate_refs(reuse.certificate_refs.clone());
-    if request.manifest_path.exists() {
-        shardloom_vortex::evaluate_vortex_prepared_olap_state_manifest(&request)
-    } else {
-        shardloom_vortex::write_vortex_prepared_olap_state_bundle(request)
-    }
+    shardloom_vortex::evaluate_vortex_prepared_olap_single_artifact_state(&request)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -5713,11 +5739,13 @@ fn layout_write_advisor_report(
             source_statistics_status: layout_source_statistics_status(source),
             requested_pushdown_requirements: "none_prepare_once_full_source".to_string(),
             sink_requirements: "workspace_safe_local_vortex_file_sink".to_string(),
-            layout_strategy: "single_local_vortex_artifact".to_string(),
+            layout_strategy: "single_vortex_artifact_embedded_olap_layout_statistics".to_string(),
             chunking_strategy: layout_chunking_strategy(source),
-            segmentation_strategy: "single_segment_local_fixture".to_string(),
-            dictionary_strategy: "writer_default_no_dictionary_claim".to_string(),
-            statistics_policy: "writer_default_statistics_no_pruning_claim".to_string(),
+            segmentation_strategy: "upstream_vortex_writer_default_zoned_segments".to_string(),
+            dictionary_strategy:
+                "preserve_vortex_dictionary_and_encoding_metadata_when_writer_emits_it".to_string(),
+            statistics_policy: "preserve_vortex_layout_footer_statistics_for_metadata_pruning"
+                .to_string(),
             writer_provider_kind: layout_writer_provider_kind(source).to_string(),
             writer_provider_surface: layout_writer_provider_surface(source).to_string(),
             writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
@@ -5749,7 +5777,7 @@ fn layout_chunking_strategy(source: &VortexIngestSourceData) -> String {
     if source.row_count <= 4096 {
         "single_chunk_for_scoped_local_fixture".to_string()
     } else {
-        "writer_default_chunking_no_performance_claim".to_string()
+        "upstream_vortex_writer_default_zoned_row_blocks".to_string()
     }
 }
 
@@ -7265,6 +7293,63 @@ impl VortexIngestReport {
                 self.vortex_report.statistics_summary(),
             ),
             (
+                "prepared_olap_layout_inventory_summary".to_string(),
+                self.vortex_report.prepared_olap_layout_inventory_summary(),
+            ),
+            (
+                "vortex_prepared_olap_layout_inventory_status".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_inventory_digest".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .inventory_digest
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_row_count".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .row_count_field(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_segment_count".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .segment_count_field(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_statistics_status".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .statistics_status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_encoding_layout_status".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .encoding_layout_status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_approx_bytes".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .approx_footer_bytes_field(),
+            ),
+            (
+                "vortex_prepared_olap_layout_metadata_persisted_in_artifact".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .metadata_persisted_in_artifact
+                    .to_string(),
+            ),
+            (
                 "column_family_summary".to_string(),
                 self.vortex_report.column_family_summary(),
             ),
@@ -8708,6 +8793,7 @@ fn apply_prepared_state_reuse_fields(
     fields.extend(report.evidence_fields());
 }
 
+#[allow(clippy::too_many_lines)]
 fn apply_prepared_olap_state_fields(
     fields: &mut Vec<(String, String)>,
     report: &shardloom_vortex::VortexPreparedOlapStateReport,
@@ -8716,18 +8802,93 @@ fn apply_prepared_olap_state_fields(
     set_cli_field(fields, "prepared_olap_state_status", report.status.clone());
     set_cli_field(
         fields,
-        "prepared_olap_state_manifest_path",
-        report.manifest_path.display().to_string(),
+        "prepared_olap_state_evidence_persistence",
+        "embedded_in_single_prepared_vortex_artifact",
     );
     set_cli_field(
         fields,
-        "prepared_olap_state_manifest_digest",
-        report.manifest_digest.clone(),
+        "prepared_olap_state_external_manifest_written",
+        "false",
     );
     set_cli_field(
         fields,
         "prepared_olap_state_query_time_contract",
         report.query_time_contract.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_artifact_model",
+        report.artifact_model.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_writer_layout_strategy",
+        report.writer_layout_strategy.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_embedded_layout_statistics_contract",
+        report.embedded_layout_statistics_contract.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_inventory_status",
+        report.layout_inventory_status.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_inventory_digest",
+        report.layout_inventory_digest.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_footer_row_count",
+        report.layout_footer_row_count.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_footer_segment_count",
+        report.layout_footer_segment_count.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_footer_statistics_status",
+        report.layout_footer_statistics_status.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_footer_encoding_layout_status",
+        report.layout_footer_encoding_layout_status.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_footer_approx_bytes",
+        report.layout_footer_approx_bytes.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_footer_dtype_summary",
+        report.layout_footer_dtype_summary.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_layout_metadata_persisted_in_artifact",
+        report.layout_metadata_persisted_in_artifact.to_string(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_dictionary_metadata_policy",
+        report.dictionary_metadata_policy.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_metadata_pruning_contract",
+        report.metadata_pruning_contract.clone(),
+    );
+    set_cli_field(
+        fields,
+        "prepared_olap_state_query_answer_sidecar_status",
+        report.query_answer_sidecar_status.clone(),
     );
     set_cli_field(
         fields,
@@ -15438,11 +15599,15 @@ fn plan_sql_output_layout_write_advisor_prewrite(
                     .to_string(),
                 requested_pushdown_requirements: "not_applicable_output_sink".to_string(),
                 sink_requirements: "workspace_safe_local_vortex_file_sink".to_string(),
-                layout_strategy: "single_local_vortex_artifact".to_string(),
-                chunking_strategy: "writer_default_chunking_no_performance_claim".to_string(),
-                segmentation_strategy: "single_segment_local_fixture".to_string(),
-                dictionary_strategy: "writer_default_no_dictionary_claim".to_string(),
-                statistics_policy: "writer_default_statistics_no_pruning_claim".to_string(),
+                layout_strategy: "single_vortex_artifact_embedded_olap_layout_statistics"
+                    .to_string(),
+                chunking_strategy: "upstream_vortex_writer_default_zoned_row_blocks".to_string(),
+                segmentation_strategy: "upstream_vortex_writer_default_zoned_segments".to_string(),
+                dictionary_strategy:
+                    "preserve_vortex_dictionary_and_encoding_metadata_when_writer_emits_it"
+                        .to_string(),
+                statistics_policy:
+                    "preserve_vortex_layout_footer_statistics_for_metadata_pruning".to_string(),
                 writer_provider_kind: writer_provider_kind.to_string(),
                 writer_provider_surface: writer_provider_surface.to_string(),
                 writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
@@ -30114,6 +30279,46 @@ impl SqlLocalSourceReport {
                 self.vortex_output_column_families(),
             ),
             (
+                "vortex_prepared_olap_layout_inventory_summary".to_string(),
+                self.primary_vortex_prepared_olap_layout_inventory_summary(),
+            ),
+            (
+                "vortex_prepared_olap_layout_inventory_status".to_string(),
+                self.primary_vortex_prepared_olap_layout_inventory_status(),
+            ),
+            (
+                "vortex_prepared_olap_layout_inventory_digest".to_string(),
+                self.primary_vortex_prepared_olap_layout_inventory_digest(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_row_count".to_string(),
+                self.primary_vortex_prepared_olap_layout_footer_row_count(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_segment_count".to_string(),
+                self.primary_vortex_prepared_olap_layout_footer_segment_count(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_statistics_status".to_string(),
+                self.primary_vortex_prepared_olap_layout_footer_statistics_status(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_encoding_layout_status".to_string(),
+                self.primary_vortex_prepared_olap_layout_footer_encoding_layout_status(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_approx_bytes".to_string(),
+                self.primary_vortex_prepared_olap_layout_footer_approx_bytes(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_dtype_summary".to_string(),
+                self.primary_vortex_prepared_olap_layout_footer_dtype_summary(),
+            ),
+            (
+                "vortex_prepared_olap_layout_metadata_persisted_in_artifact".to_string(),
+                self.primary_vortex_prepared_olap_layout_metadata_persisted_in_artifact(),
+            ),
+            (
                 "vortex_artifact_bytes".to_string(),
                 self.vortex_output_artifact_bytes(),
             ),
@@ -30886,6 +31091,106 @@ impl SqlLocalSourceReport {
                 .as_ref()
                 .map(shardloom_vortex::VortexPreparedStateWriteReport::column_family_summary)
         }))
+    }
+
+    fn primary_vortex_report(&self) -> Option<&shardloom_vortex::VortexPreparedStateWriteReport> {
+        self.vortex_written_outputs()
+            .next()
+            .and_then(|output| output.vortex_report.as_ref())
+    }
+
+    fn primary_vortex_prepared_olap_layout_inventory_summary(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            shardloom_vortex::VortexPreparedStateWriteReport::prepared_olap_layout_inventory_summary,
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_inventory_status(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| report.prepared_olap_layout_inventory.status.clone(),
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_inventory_digest(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .inventory_digest
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_footer_row_count(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| report.prepared_olap_layout_inventory.row_count_field(),
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_footer_segment_count(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| report.prepared_olap_layout_inventory.segment_count_field(),
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_footer_statistics_status(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .statistics_status
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_footer_encoding_layout_status(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .encoding_layout_status
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_footer_approx_bytes(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .approx_footer_bytes_field()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_footer_dtype_summary(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| report.prepared_olap_layout_inventory.dtype_summary.clone(),
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_metadata_persisted_in_artifact(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "false".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .metadata_persisted_in_artifact
+                    .to_string()
+            },
+        )
     }
 
     fn vortex_output_artifact_bytes(&self) -> String {
@@ -42238,19 +42543,22 @@ mod tests {
         let sink_decisions = vec![
             (
                 SqlLocalSourceOutputFormat::Vortex,
-                Some("single_local_vortex_artifact_runtime_applied".to_string()),
+                Some(
+                    "single_vortex_artifact_embedded_olap_layout_statistics_runtime_applied"
+                        .to_string(),
+                ),
             ),
             (SqlLocalSourceOutputFormat::Csv, None),
         ];
 
         let selected = output_layout_selected_strategy_for_sink_decisions(
             &sink_decisions,
-            "vortex:single_local_vortex_artifact,csv:advisory_only_no_runtime_write_knob_applied",
+            "vortex:single_vortex_artifact_embedded_olap_layout_statistics,csv:advisory_only_no_runtime_write_knob_applied",
         );
 
         assert_eq!(
             selected,
-            "vortex:single_local_vortex_artifact_runtime_applied,csv:advisory_only_no_runtime_write_knob_applied"
+            "vortex:single_vortex_artifact_embedded_olap_layout_statistics_runtime_applied,csv:advisory_only_no_runtime_write_knob_applied"
         );
     }
 
@@ -45695,6 +46003,27 @@ mod tests {
         );
         assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
         assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
+        assert_field_eq(
+            &fields,
+            "vortex_prepared_olap_layout_inventory_status",
+            "opened_single_vortex_artifact_footer",
+        );
+        assert_field_eq(&fields, "vortex_prepared_olap_layout_footer_row_count", "2");
+        assert_field_eq(
+            &fields,
+            "vortex_prepared_olap_layout_footer_statistics_status",
+            "available",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_prepared_olap_layout_footer_encoding_layout_status",
+            "segment_map_available",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_prepared_olap_layout_metadata_persisted_in_artifact",
+            "true",
+        );
         assert_field_eq(
             &fields,
             "vortex_output_column_families",

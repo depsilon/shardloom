@@ -82,18 +82,87 @@ pub const VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION: &str =
 /// Evidence schema emitted by exact prepared OLAP state manifests.
 pub const VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION: &str =
     "shardloom.vortex_prepared_olap_state.v1";
-/// Evidence schema emitted by exact prepared OLAP state sidecar payload manifests.
-pub const VORTEX_PREPARED_OLAP_STATE_SIDECAR_SCHEMA_VERSION: &str =
-    "shardloom.vortex_prepared_olap_state.sidecar.v1";
 /// Evidence schema emitted for the local prepared-state read-through index view.
 pub const VORTEX_PREPARED_STATE_REUSE_INDEX_SCHEMA_VERSION: &str =
     "shardloom.vortex_prepared_state_reuse_index.v1";
 /// Admission policy for artifact-adjacent prepared-state reuse manifests.
 pub const VORTEX_PREPARED_STATE_REUSE_POLICY: &str =
     "artifact_adjacent_local_prepared_state_reuse.v1";
-/// Admission policy for exact reusable OLAP sidecars attached to a prepared Vortex artifact.
+/// Admission policy for generic OLAP layout/statistics evidence attached to a
+/// single prepared Vortex artifact.
 pub const VORTEX_PREPARED_OLAP_STATE_POLICY: &str =
-    "universal_ingest_content_addressed_exact_olap_state.v1";
+    "single_vortex_artifact_embedded_olap_layout_statistics.v1";
+const VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY: &str =
+    "single_vortex_artifact_embedded_vortex_layout_statistics_v1";
+const VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS: &str =
+    "embedded_vortex_layout_footer_statistics";
+const VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT: &str =
+    "single_vortex_artifact_native_runtime_no_query_answer_sidecar";
+const VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL: &str = "single_prepared_vortex_artifact";
+const VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT: &str =
+    "metadata_first_when_vortex_layout_statistics_are_available_no_query_answer_cache";
+const VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS: &str =
+    "disabled_rejected_for_public_default_runtime";
+const VORTEX_PREPARED_OLAP_WRITER_LAYOUT_STRATEGY: &str =
+    "upstream_vortex_write_options_default_table_layout_generic_olap_posture";
+const VORTEX_PREPARED_OLAP_DICTIONARY_METADATA_POLICY: &str =
+    "preserve_vortex_dictionary_and_encoding_metadata_when_writer_emits_it";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexPreparedOlapLayoutInventory {
+    pub status: String,
+    pub row_count: Option<u64>,
+    pub segment_count: Option<usize>,
+    pub statistics_status: String,
+    pub encoding_layout_status: String,
+    pub approx_footer_bytes: Option<usize>,
+    pub dtype_summary: String,
+    pub metadata_persisted_in_artifact: bool,
+    pub inventory_digest: String,
+}
+
+impl VortexPreparedOlapLayoutInventory {
+    #[must_use]
+    fn unavailable(status: impl Into<String>) -> Self {
+        let status = status.into();
+        let inventory_digest =
+            fnv64_digest_text(&format!("prepared_olap_layout_inventory|{status}"));
+        Self {
+            status,
+            row_count: None,
+            segment_count: None,
+            statistics_status: "not_available".to_string(),
+            encoding_layout_status: "not_available".to_string(),
+            approx_footer_bytes: None,
+            dtype_summary: "not_available".to_string(),
+            metadata_persisted_in_artifact: false,
+            inventory_digest,
+        }
+    }
+
+    #[must_use]
+    fn is_admitted(&self) -> bool {
+        self.status == "opened_single_vortex_artifact_footer"
+    }
+
+    #[must_use]
+    pub fn row_count_field(&self) -> String {
+        self.row_count
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string())
+    }
+
+    #[must_use]
+    pub fn segment_count_field(&self) -> String {
+        self.segment_count
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string())
+    }
+
+    #[must_use]
+    pub fn approx_footer_bytes_field(&self) -> String {
+        self.approx_footer_bytes
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string())
+    }
+}
 /// Pinned upstream Vortex crate line used by the scoped local preparation spine.
 pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str =
     crate::UPSTREAM_VORTEX_PROVIDER_VERSION;
@@ -175,13 +244,12 @@ pub struct VortexPreparedStateReuseReport {
     pub external_engine_invoked: bool,
 }
 
-/// Request to publish a content-addressed exact OLAP prepared-state manifest.
+/// Request to derive content-addressed prepared OLAP state evidence.
 ///
-/// The manifest records exact reusable sidecar families produced by Universal
-/// Ingest/prepare. It is intentionally separate from query results: routes may
-/// answer from it only when the requested SQL/DataFrame semantics match one of
-/// the exact sidecar contracts. Otherwise they must use the native Vortex
-/// runtime path or fail closed, never a hidden external engine.
+/// Product prepared OLAP state is attached to the single prepared `.vortex`
+/// artifact. The `manifest_path` field is retained only for compatibility with
+/// earlier request plumbing; public/default runtime must not create or require
+/// an adjacent OLAP manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexPreparedOlapStateWriteRequest {
@@ -208,7 +276,7 @@ pub struct VortexPreparedOlapStateWriteRequest {
     pub external_engine_invoked: bool,
 }
 
-/// Published exact OLAP prepared-state manifest evidence.
+/// Published exact OLAP prepared-state evidence for one prepared Vortex artifact.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexPreparedOlapStateReport {
@@ -230,8 +298,23 @@ pub struct VortexPreparedOlapStateReport {
     pub prepared_artifact_ref: PathBuf,
     pub prepared_artifact_digest: String,
     pub prepared_artifact_size_bytes: u64,
+    pub artifact_model: String,
     pub prepared_layout_policy: String,
     pub segment_map_status: String,
+    pub writer_layout_strategy: String,
+    pub embedded_layout_statistics_contract: String,
+    pub layout_inventory_status: String,
+    pub layout_inventory_digest: String,
+    pub layout_footer_row_count: String,
+    pub layout_footer_segment_count: String,
+    pub layout_footer_statistics_status: String,
+    pub layout_footer_encoding_layout_status: String,
+    pub layout_footer_approx_bytes: String,
+    pub layout_footer_dtype_summary: String,
+    pub layout_metadata_persisted_in_artifact: bool,
+    pub dictionary_metadata_policy: String,
+    pub metadata_pruning_contract: String,
+    pub query_answer_sidecar_status: String,
     pub derived_column_manifest: String,
     pub substring_index_manifest: String,
     pub aggregate_summary_manifest: String,
@@ -703,20 +786,12 @@ impl VortexPreparedOlapStateReport {
                 self.policy.to_string(),
             ),
             (
-                "vortex_prepared_olap_state_manifest_path".to_string(),
-                self.manifest_path.display().to_string(),
+                "vortex_prepared_olap_state_evidence_persistence".to_string(),
+                "embedded_in_single_prepared_vortex_artifact".to_string(),
             ),
             (
-                "vortex_prepared_olap_state_manifest_digest".to_string(),
-                self.manifest_digest.clone(),
-            ),
-            (
-                "vortex_prepared_olap_state_manifest_digest_algorithm".to_string(),
-                digest_algorithm(&self.manifest_digest).to_string(),
-            ),
-            (
-                "vortex_prepared_olap_state_manifest_written".to_string(),
-                self.manifest_written.to_string(),
+                "vortex_prepared_olap_state_external_manifest_written".to_string(),
+                "false".to_string(),
             ),
             (
                 "vortex_prepared_olap_state_id".to_string(),
@@ -767,6 +842,10 @@ impl VortexPreparedOlapStateReport {
                 self.prepared_artifact_size_bytes.to_string(),
             ),
             (
+                "vortex_prepared_olap_state_artifact_model".to_string(),
+                self.artifact_model.clone(),
+            ),
+            (
                 "vortex_prepared_olap_state_prepared_layout_policy".to_string(),
                 self.prepared_layout_policy.clone(),
             ),
@@ -775,23 +854,79 @@ impl VortexPreparedOlapStateReport {
                 self.segment_map_status.clone(),
             ),
             (
-                "vortex_prepared_olap_state_derived_column_manifest".to_string(),
+                "vortex_prepared_olap_state_writer_layout_strategy".to_string(),
+                self.writer_layout_strategy.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_embedded_layout_statistics_contract".to_string(),
+                self.embedded_layout_statistics_contract.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_inventory_status".to_string(),
+                self.layout_inventory_status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_inventory_digest".to_string(),
+                self.layout_inventory_digest.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_footer_row_count".to_string(),
+                self.layout_footer_row_count.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_footer_segment_count".to_string(),
+                self.layout_footer_segment_count.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_footer_statistics_status".to_string(),
+                self.layout_footer_statistics_status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_footer_encoding_layout_status".to_string(),
+                self.layout_footer_encoding_layout_status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_footer_approx_bytes".to_string(),
+                self.layout_footer_approx_bytes.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_footer_dtype_summary".to_string(),
+                self.layout_footer_dtype_summary.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_metadata_persisted_in_artifact".to_string(),
+                self.layout_metadata_persisted_in_artifact.to_string(),
+            ),
+            (
+                "vortex_prepared_olap_state_dictionary_metadata_policy".to_string(),
+                self.dictionary_metadata_policy.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_metadata_pruning_contract".to_string(),
+                self.metadata_pruning_contract.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_query_answer_sidecar_status".to_string(),
+                self.query_answer_sidecar_status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_derived_column_metadata_ref".to_string(),
                 self.derived_column_manifest.clone(),
             ),
             (
-                "vortex_prepared_olap_state_substring_index_manifest".to_string(),
+                "vortex_prepared_olap_state_substring_index_metadata_ref".to_string(),
                 self.substring_index_manifest.clone(),
             ),
             (
-                "vortex_prepared_olap_state_aggregate_summary_manifest".to_string(),
+                "vortex_prepared_olap_state_aggregate_summary_metadata_ref".to_string(),
                 self.aggregate_summary_manifest.clone(),
             ),
             (
-                "vortex_prepared_olap_state_row_position_manifest".to_string(),
+                "vortex_prepared_olap_state_row_position_metadata_ref".to_string(),
                 self.row_position_manifest.clone(),
             ),
             (
-                "vortex_prepared_olap_state_dictionary_union_manifest".to_string(),
+                "vortex_prepared_olap_state_dictionary_union_metadata_ref".to_string(),
                 self.dictionary_union_manifest.clone(),
             ),
             (
@@ -863,417 +998,86 @@ pub fn vortex_prepared_state_reuse_manifest_path(
         .join(format!("{file_name}.prepared-state-reuse.manifest")))
 }
 
-/// Return the artifact-adjacent exact OLAP prepared-state manifest path.
+/// Publish prepared OLAP state evidence for a single Vortex artifact.
 ///
-/// # Errors
-/// Returns [`ShardLoomError::InvalidOperation`] when the artifact path has no
-/// local file name.
-pub fn vortex_prepared_olap_state_manifest_path(
-    prepared_artifact_path: impl AsRef<Path>,
-) -> Result<PathBuf> {
-    let path = absolute_local_path(prepared_artifact_path.as_ref())?;
-    let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "prepared OLAP state manifest requires a local artifact file name for '{}'; no fallback execution was attempted",
-            path.display()
-        )));
-    };
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    Ok(parent
-        .join(".shardloom")
-        .join(format!("{file_name}.prepared-olap-state.manifest")))
-}
-
-/// Return the artifact-adjacent prepared OLAP sidecar directory.
-///
-/// # Errors
-/// Returns [`ShardLoomError::InvalidOperation`] when the artifact path has no
-/// local file name.
-pub fn vortex_prepared_olap_state_sidecar_dir(
-    prepared_artifact_path: impl AsRef<Path>,
-) -> Result<PathBuf> {
-    let path = absolute_local_path(prepared_artifact_path.as_ref())?;
-    let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "prepared OLAP state sidecars require a local artifact file name for '{}'; no fallback execution was attempted",
-            path.display()
-        )));
-    };
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    Ok(parent
-        .join(".shardloom")
-        .join(format!("{file_name}.prepared-olap-state.d")))
-}
-
-/// Publish artifact-adjacent exact OLAP sidecar manifests, then publish the
-/// top-level prepared OLAP state manifest.
-///
-/// The first sidecars are deliberately generic and source/artifact-scoped:
-/// exact source-to-artifact segment mapping, exact source-order row positions,
-/// exact global count summary, and exact dictionary/schema-family descriptor
-/// evidence. They are reusable prepared-state payloads, not benchmark answer
-/// caches and not broad grouped-aggregate/string-index acceleration claims.
-///
-/// # Errors
-/// Returns [`ShardLoomError::InvalidOperation`] when the prepared artifact
-/// cannot be fingerprinted or any sidecar/manifest cannot be written safely.
-pub fn write_vortex_prepared_olap_state_bundle(
-    mut request: VortexPreparedOlapStateWriteRequest,
-) -> Result<VortexPreparedOlapStateReport> {
-    let artifact_fingerprint = LocalReuseFileFingerprint::from_path(
-        &request.prepared_artifact_path,
-        "prepared OLAP state artifact",
-    )?;
-    let sidecar_dir = vortex_prepared_olap_state_sidecar_dir(&request.prepared_artifact_path)?;
-    if !prepared_olap_manifest_declared(&request.prepared_layout_policy) {
-        request.prepared_layout_policy =
-            "universal_ingest_content_addressed_local_olap_state_v1".to_string();
-    }
-    request.segment_map_status = write_prepared_olap_sidecar_manifest(
-        &request,
-        &artifact_fingerprint,
-        &sidecar_dir,
-        "segment-map",
-        "exact_source_to_prepared_artifact_segment_map",
-        &[
-            ("segment_count", "1".to_string()),
-            (
-                "segment_row_range_refs",
-                format!(
-                    "{}:segment=0:rows=0..{}",
-                    request.source_state_id, request.source_row_count
-                ),
-            ),
-        ],
-    )?;
-    request.row_position_manifest = write_prepared_olap_sidecar_manifest(
-        &request,
-        &artifact_fingerprint,
-        &sidecar_dir,
-        "row-position",
-        "exact_source_order_row_position_map",
-        &[
-            ("row_position_base", "zero_based_source_order".to_string()),
-            (
-                "row_position_range",
-                format!("0..{}", request.source_row_count),
-            ),
-        ],
-    )?;
-    request.aggregate_summary_manifest = write_prepared_olap_sidecar_manifest(
-        &request,
-        &artifact_fingerprint,
-        &sidecar_dir,
-        "aggregate-summary-global-count",
-        "exact_global_count_star_summary",
-        &[("global_count_star", request.source_row_count.to_string())],
-    )?;
-    request.dictionary_union_manifest = write_prepared_olap_sidecar_manifest(
-        &request,
-        &artifact_fingerprint,
-        &sidecar_dir,
-        "dictionary-union-descriptor",
-        "exact_schema_family_dictionary_union_descriptor",
-        &[(
-            "dictionary_union_scope",
-            "schema_family_descriptor_values_not_materialized".to_string(),
-        )],
-    )?;
-    write_vortex_prepared_olap_state_manifest(&request)
-}
-
-/// Publish a fail-closed, content-addressed exact OLAP prepared-state manifest.
+/// Product prepared OLAP state is represented by the prepared `.vortex` file
+/// and Vortex-native embedded layout/statistics evidence. This writer does not
+/// create artifact-adjacent query-summary or exact-answer sidecars.
 ///
 /// # Errors
 /// Returns [`ShardLoomError::InvalidOperation`] when the prepared artifact
 /// cannot be fingerprinted or the manifest cannot be written safely.
+pub fn write_vortex_prepared_olap_state_bundle(
+    mut request: VortexPreparedOlapStateWriteRequest,
+) -> Result<VortexPreparedOlapStateReport> {
+    let _artifact_fingerprint = LocalReuseFileFingerprint::from_path(
+        &request.prepared_artifact_path,
+        "prepared OLAP state artifact",
+    )?;
+    if !prepared_olap_metadata_ref_declared(&request.prepared_layout_policy) {
+        request.prepared_layout_policy =
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY.to_string();
+    }
+    if !prepared_olap_metadata_ref_declared(&request.segment_map_status) {
+        request.segment_map_status =
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS.to_string();
+    }
+    request.derived_column_manifest = "none".to_string();
+    request.substring_index_manifest = "none".to_string();
+    request.aggregate_summary_manifest = "none".to_string();
+    request.row_position_manifest = "none".to_string();
+    request.dictionary_union_manifest = "none".to_string();
+    publish_vortex_prepared_olap_single_artifact_state(&request)
+}
+
+/// Publish fail-closed, content-addressed OLAP evidence for one Vortex artifact.
+///
+/// No external prepared OLAP manifest or `.prepared-olap-state.d` directory is
+/// created. The report state digest is derived from the prepared Vortex artifact
+/// plus source/certificate evidence.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the prepared artifact
+/// cannot be fingerprinted.
 #[allow(clippy::too_many_lines)]
-pub fn write_vortex_prepared_olap_state_manifest(
+pub fn publish_vortex_prepared_olap_single_artifact_state(
     request: &VortexPreparedOlapStateWriteRequest,
 ) -> Result<VortexPreparedOlapStateReport> {
     let artifact_fingerprint = LocalReuseFileFingerprint::from_path(
         &request.prepared_artifact_path,
         "prepared OLAP state artifact",
     )?;
-    let exact_sidecar_family_count = prepared_olap_exact_sidecar_family_count(request);
-    let status = prepared_olap_state_status(request, exact_sidecar_family_count);
-    let admitted_query_families = prepared_olap_admitted_query_families(request);
-    let query_time_contract = if status == "prepared_olap_state_ready" {
-        "exact_prepared_state_or_fail_closed_no_raw_scan_fallback".to_string()
-    } else {
-        "not_admitted_for_prepared_olap_query_time".to_string()
-    };
-    let sub_second_candidate = status == "prepared_olap_state_ready"
-        && prepared_olap_has_sub_second_candidate_family(request);
-    let blocker_id = prepared_olap_blocker_id(request, exact_sidecar_family_count);
-    let next_action = prepared_olap_next_action(&blocker_id);
-    let state_digest =
-        prepared_olap_state_digest(request, &artifact_fingerprint, exact_sidecar_family_count);
-    let state_id = format!(
-        "prepared-olap-state-{}",
-        state_digest
-            .strip_prefix("sha256:")
-            .unwrap_or(state_digest.as_str())
-    );
-    let mut fields = BTreeMap::new();
-    fields.insert(
-        "schema_version".to_string(),
-        VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION.to_string(),
-    );
-    fields.insert(
-        "policy".to_string(),
-        VORTEX_PREPARED_OLAP_STATE_POLICY.to_string(),
-    );
-    fields.insert("status".to_string(), status.clone());
-    fields.insert("state_id".to_string(), state_id.clone());
-    fields.insert("state_digest".to_string(), state_digest.clone());
-    fields.insert(
-        "source_state_id".to_string(),
-        request.source_state_id.clone(),
-    );
-    fields.insert(
-        "source_state_digest".to_string(),
-        request.source_state_digest.clone(),
-    );
-    fields.insert("source_format".to_string(), request.source_format.clone());
-    fields.insert(
-        "source_content_digest".to_string(),
-        request.source_content_digest.clone(),
-    );
-    fields.insert(
-        "source_size_bytes".to_string(),
-        request.source_size_bytes.to_string(),
-    );
-    fields.insert(
-        "source_schema_digest".to_string(),
-        request.source_schema_digest.clone(),
-    );
-    fields.insert(
-        "source_row_count".to_string(),
-        request.source_row_count.to_string(),
-    );
-    fields.insert(
-        "prepared_artifact_path".to_string(),
-        request.prepared_artifact_path.display().to_string(),
-    );
-    fields.insert(
-        "prepared_artifact_digest".to_string(),
+    Ok(prepared_olap_report_from_request(
+        request,
+        &artifact_fingerprint,
+        prepared_olap_state_status(request, prepared_olap_exact_sidecar_family_count(request)),
         artifact_fingerprint.content_digest.clone(),
-    );
-    fields.insert(
-        "prepared_artifact_size_bytes".to_string(),
-        artifact_fingerprint.size_bytes.to_string(),
-    );
-    fields.insert(
-        "prepared_layout_policy".to_string(),
-        request.prepared_layout_policy.clone(),
-    );
-    fields.insert(
-        "segment_map_status".to_string(),
-        request.segment_map_status.clone(),
-    );
-    fields.insert(
-        "derived_column_manifest".to_string(),
-        request.derived_column_manifest.clone(),
-    );
-    fields.insert(
-        "substring_index_manifest".to_string(),
-        request.substring_index_manifest.clone(),
-    );
-    fields.insert(
-        "aggregate_summary_manifest".to_string(),
-        request.aggregate_summary_manifest.clone(),
-    );
-    fields.insert(
-        "row_position_manifest".to_string(),
-        request.row_position_manifest.clone(),
-    );
-    fields.insert(
-        "dictionary_union_manifest".to_string(),
-        request.dictionary_union_manifest.clone(),
-    );
-    fields.insert(
-        "admitted_query_families".to_string(),
-        admitted_query_families.clone(),
-    );
-    fields.insert(
-        "exact_sidecar_family_count".to_string(),
-        exact_sidecar_family_count.to_string(),
-    );
-    fields.insert(
-        "query_time_contract".to_string(),
-        query_time_contract.clone(),
-    );
-    fields.insert(
-        "sub_second_candidate".to_string(),
-        sub_second_candidate.to_string(),
-    );
-    fields.insert("blocker_id".to_string(), blocker_id.clone());
-    fields.insert("next_action".to_string(), next_action.clone());
-    fields.insert("feature_gates".to_string(), request.feature_gates.clone());
-    fields.insert(
-        "certification_level".to_string(),
-        request.certification_level.clone(),
-    );
-    fields.insert(
-        "certificate_refs".to_string(),
-        request.certificate_refs.clone(),
-    );
-    fields.insert(
-        "fallback_attempted".to_string(),
-        request.fallback_attempted.to_string(),
-    );
-    fields.insert(
-        "external_engine_invoked".to_string(),
-        request.external_engine_invoked.to_string(),
-    );
-    let manifest_digest = reuse_manifest_digest(&fields);
-    fields.insert("manifest_digest".to_string(), manifest_digest.clone());
-    write_key_value_manifest_fields(
-        &request.manifest_path,
-        &fields,
-        "ShardLoom prepared OLAP state manifest",
-        "prepared OLAP state manifest",
-    )?;
-
-    Ok(VortexPreparedOlapStateReport {
-        schema_version: VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION,
-        status,
-        policy: VORTEX_PREPARED_OLAP_STATE_POLICY,
-        manifest_path: request.manifest_path.clone(),
-        manifest_digest,
-        manifest_written: true,
-        state_id,
-        state_digest,
-        source_state_id: request.source_state_id.clone(),
-        source_state_digest: request.source_state_digest.clone(),
-        source_format: request.source_format.clone(),
-        source_content_digest: request.source_content_digest.clone(),
-        source_size_bytes: request.source_size_bytes,
-        source_schema_digest: request.source_schema_digest.clone(),
-        source_row_count: request.source_row_count,
-        prepared_artifact_ref: request.prepared_artifact_path.clone(),
-        prepared_artifact_digest: artifact_fingerprint.content_digest,
-        prepared_artifact_size_bytes: artifact_fingerprint.size_bytes,
-        prepared_layout_policy: request.prepared_layout_policy.clone(),
-        segment_map_status: request.segment_map_status.clone(),
-        derived_column_manifest: request.derived_column_manifest.clone(),
-        substring_index_manifest: request.substring_index_manifest.clone(),
-        aggregate_summary_manifest: request.aggregate_summary_manifest.clone(),
-        row_position_manifest: request.row_position_manifest.clone(),
-        dictionary_union_manifest: request.dictionary_union_manifest.clone(),
-        admitted_query_families,
-        exact_sidecar_family_count,
-        query_time_contract,
-        sub_second_candidate,
-        blocker_id,
-        next_action,
-        feature_gates: request.feature_gates.clone(),
-        certification_level: request.certification_level.clone(),
-        certificate_refs: request.certificate_refs.clone(),
-        fallback_attempted: request.fallback_attempted,
-        external_engine_invoked: request.external_engine_invoked,
-    })
+        false,
+    ))
 }
 
-/// Evaluate an existing exact OLAP prepared-state manifest for query-time
-/// admission.
+/// Evaluate existing single-artifact OLAP prepared-state evidence for
+/// query-time admission.
 ///
 /// This is a read-through admission gate, not a fallback path. It succeeds only
-/// when the manifest, source evidence, prepared artifact fingerprint, sidecar
-/// declarations, and no-fallback fields still match the supplied request.
+/// when the prepared artifact can be fingerprinted and the supplied source,
+/// embedded-layout posture, and no-fallback evidence describe an admitted
+/// single-artifact Vortex route.
 ///
 /// # Errors
-/// Returns [`ShardLoomError::InvalidOperation`] when an existing manifest cannot
-/// be parsed deterministically or the prepared artifact cannot be fingerprinted.
+/// Returns [`ShardLoomError::InvalidOperation`] when the prepared artifact
+/// cannot be fingerprinted.
 #[allow(clippy::too_many_lines)]
-pub fn evaluate_vortex_prepared_olap_state_manifest(
+pub fn evaluate_vortex_prepared_olap_single_artifact_state(
     request: &VortexPreparedOlapStateWriteRequest,
 ) -> Result<VortexPreparedOlapStateReport> {
-    if !request.manifest_path.exists() {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_missing_prepared_olap_manifest",
-            "prepared_olap_state.manifest_missing",
-            "publish an exact prepared OLAP manifest during Universal Ingest before query-time prepared-state admission",
-            "none",
-            None,
-        ));
-    }
-    let fields = read_reuse_manifest_fields(&request.manifest_path)?;
-    let manifest_digest = fields
-        .get("manifest_digest")
-        .cloned()
-        .unwrap_or_else(|| "none".to_string());
-    if manifest_digest != reuse_manifest_digest(&fields) {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_manifest_digest_mismatch",
-            "prepared_olap_state.manifest_digest_mismatch",
-            "rebuild the prepared OLAP manifest from current SourceState and prepared artifact evidence",
-            &manifest_digest,
-            None,
-        ));
-    }
-    if fields.get("schema_version").map(String::as_str)
-        != Some(VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION)
-    {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_manifest_schema_mismatch",
-            "prepared_olap_state.manifest_schema_mismatch",
-            "rebuild the prepared OLAP manifest with the current schema version",
-            &manifest_digest,
-            None,
-        ));
-    }
-    if fields.get("policy").map(String::as_str) != Some(VORTEX_PREPARED_OLAP_STATE_POLICY) {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_manifest_policy_mismatch",
-            "prepared_olap_state.manifest_policy_mismatch",
-            "rebuild the prepared OLAP manifest with the current admission policy",
-            &manifest_digest,
-            None,
-        ));
-    }
-    if let Some(reason) = prepared_olap_manifest_request_mismatch_reason(request, &fields) {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_manifest_source_mismatch",
-            &format!("prepared_olap_state.{reason}"),
-            "rebuild the prepared OLAP state because source evidence no longer matches the manifest",
-            &manifest_digest,
-            None,
-        ));
-    }
-    if fields.get("fallback_attempted").map(String::as_str) != Some("false") {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_manifest_fallback_attempted",
-            "prepared_olap_state.manifest_fallback_attempted",
-            "rebuild the prepared OLAP state through ShardLoom/Vortex-native preparation without fallback",
-            &manifest_digest,
-            None,
-        ));
-    }
-    if fields.get("external_engine_invoked").map(String::as_str) != Some("false") {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_manifest_external_engine_invoked",
-            "prepared_olap_state.manifest_external_engine_invoked",
-            "rebuild the prepared OLAP state through ShardLoom/Vortex-native preparation without external execution",
-            &manifest_digest,
-            None,
-        ));
-    }
     if !request.prepared_artifact_path.exists() {
         return Ok(prepared_olap_blocked_report(
             request,
             "blocked_prepared_olap_artifact_missing",
             "prepared_olap_state.prepared_artifact_missing",
             "recreate the prepared Vortex artifact before query-time prepared-state admission",
-            &manifest_digest,
+            "none",
             None,
         ));
     }
@@ -1281,90 +1085,23 @@ pub fn evaluate_vortex_prepared_olap_state_manifest(
         &request.prepared_artifact_path,
         "prepared OLAP state artifact",
     )?;
-    if fields
-        .get("prepared_artifact_size_bytes")
-        .map(String::as_str)
-        != Some(artifact_fingerprint.size_bytes.to_string().as_str())
-    {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_artifact_size_changed",
-            "prepared_olap_state.prepared_artifact_size_changed",
-            "rebuild the prepared OLAP manifest because the prepared artifact size changed",
-            &manifest_digest,
-            Some(&artifact_fingerprint),
-        ));
-    }
-    if fields.get("prepared_artifact_digest").map(String::as_str)
-        != Some(artifact_fingerprint.content_digest.as_str())
-    {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_artifact_digest_changed",
-            "prepared_olap_state.prepared_artifact_digest_changed",
-            "rebuild the prepared OLAP manifest because the prepared artifact digest changed",
-            &manifest_digest,
-            Some(&artifact_fingerprint),
-        ));
-    }
-
-    let manifest_request = prepared_olap_request_from_manifest_fields(request, &fields);
-    if let Some((blocker_id, next_action)) =
-        prepared_olap_sidecar_validation_blocker(&manifest_request)
-    {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_sidecar_invalid",
-            &blocker_id,
-            &next_action,
-            &manifest_digest,
-            Some(&artifact_fingerprint),
-        ));
-    }
-    let exact_sidecar_family_count = prepared_olap_exact_sidecar_family_count(&manifest_request);
-    let manifest_status = prepared_olap_state_status(&manifest_request, exact_sidecar_family_count);
-    if manifest_status != "prepared_olap_state_ready" {
+    let status =
+        prepared_olap_state_status(request, prepared_olap_exact_sidecar_family_count(request));
+    if status != "prepared_olap_state_ready" {
         return Ok(prepared_olap_report_from_request(
-            &manifest_request,
+            request,
             &artifact_fingerprint,
-            manifest_status,
-            manifest_digest,
+            status,
+            artifact_fingerprint.content_digest.clone(),
             false,
-        ));
-    }
-    let expected_state_digest = prepared_olap_state_digest(
-        &manifest_request,
-        &artifact_fingerprint,
-        exact_sidecar_family_count,
-    );
-    if fields.get("state_digest").map(String::as_str) != Some(expected_state_digest.as_str()) {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_state_digest_mismatch",
-            "prepared_olap_state.state_digest_mismatch",
-            "rebuild the prepared OLAP manifest because state digest inputs changed",
-            &manifest_digest,
-            Some(&artifact_fingerprint),
-        ));
-    }
-    if fields.get("query_time_contract").map(String::as_str)
-        != Some("exact_prepared_state_or_fail_closed_no_raw_scan_fallback")
-    {
-        return Ok(prepared_olap_blocked_report(
-            request,
-            "blocked_prepared_olap_query_time_contract_missing",
-            "prepared_olap_state.query_time_contract_missing",
-            "rebuild the prepared OLAP manifest with an exact query-time contract",
-            &manifest_digest,
-            Some(&artifact_fingerprint),
         ));
     }
 
     Ok(prepared_olap_report_from_request(
-        &manifest_request,
+        request,
         &artifact_fingerprint,
         "prepared_olap_state_read_through_hit".to_string(),
-        manifest_digest,
+        artifact_fingerprint.content_digest.clone(),
         false,
     ))
 }
@@ -2517,191 +2254,6 @@ fn missing_refinement_manifest_field(fields: &BTreeMap<String, String>, key: &st
     fields.get(key).is_none_or(|value| value.trim().is_empty())
 }
 
-fn write_prepared_olap_sidecar_manifest(
-    request: &VortexPreparedOlapStateWriteRequest,
-    artifact_fingerprint: &LocalReuseFileFingerprint,
-    sidecar_dir: &Path,
-    family: &str,
-    payload_contract: &str,
-    extra_fields: &[(&str, String)],
-) -> Result<String> {
-    let path = sidecar_dir.join(format!("{family}.manifest"));
-    let mut fields = BTreeMap::new();
-    fields.insert(
-        "schema_version".to_string(),
-        VORTEX_PREPARED_OLAP_STATE_SIDECAR_SCHEMA_VERSION.to_string(),
-    );
-    fields.insert(
-        "policy".to_string(),
-        VORTEX_PREPARED_OLAP_STATE_POLICY.to_string(),
-    );
-    fields.insert("sidecar_family".to_string(), family.to_string());
-    fields.insert(
-        "sidecar_status".to_string(),
-        "exact_prepared_olap_sidecar_written".to_string(),
-    );
-    fields.insert("payload_contract".to_string(), payload_contract.to_string());
-    fields.insert(
-        "source_state_id".to_string(),
-        request.source_state_id.clone(),
-    );
-    fields.insert(
-        "source_state_digest".to_string(),
-        request.source_state_digest.clone(),
-    );
-    fields.insert("source_format".to_string(), request.source_format.clone());
-    fields.insert(
-        "source_content_digest".to_string(),
-        request.source_content_digest.clone(),
-    );
-    fields.insert(
-        "source_size_bytes".to_string(),
-        request.source_size_bytes.to_string(),
-    );
-    fields.insert(
-        "source_schema_digest".to_string(),
-        request.source_schema_digest.clone(),
-    );
-    fields.insert(
-        "source_row_count".to_string(),
-        request.source_row_count.to_string(),
-    );
-    fields.insert(
-        "prepared_artifact_path".to_string(),
-        request.prepared_artifact_path.display().to_string(),
-    );
-    fields.insert(
-        "prepared_artifact_digest".to_string(),
-        artifact_fingerprint.content_digest.clone(),
-    );
-    fields.insert(
-        "prepared_artifact_size_bytes".to_string(),
-        artifact_fingerprint.size_bytes.to_string(),
-    );
-    fields.insert(
-        "fallback_attempted".to_string(),
-        request.fallback_attempted.to_string(),
-    );
-    fields.insert(
-        "external_engine_invoked".to_string(),
-        request.external_engine_invoked.to_string(),
-    );
-    for (key, value) in extra_fields {
-        fields.insert((*key).to_string(), value.clone());
-    }
-    let sidecar_digest = reuse_manifest_digest(&fields);
-    fields.insert("sidecar_digest".to_string(), sidecar_digest.clone());
-    write_key_value_manifest_fields(
-        &path,
-        &fields,
-        "ShardLoom prepared OLAP sidecar manifest",
-        "prepared OLAP sidecar manifest",
-    )?;
-    Ok(format!(
-        "sidecar|{family}|{sidecar_digest}|{}",
-        path.display()
-    ))
-}
-
-fn prepared_olap_sidecar_validation_blocker(
-    request: &VortexPreparedOlapStateWriteRequest,
-) -> Option<(String, String)> {
-    [
-        ("segment_map_status", &request.segment_map_status),
-        ("derived_column_manifest", &request.derived_column_manifest),
-        (
-            "substring_index_manifest",
-            &request.substring_index_manifest,
-        ),
-        (
-            "aggregate_summary_manifest",
-            &request.aggregate_summary_manifest,
-        ),
-        ("row_position_manifest", &request.row_position_manifest),
-        (
-            "dictionary_union_manifest",
-            &request.dictionary_union_manifest,
-        ),
-    ]
-    .into_iter()
-    .filter(|(_, value)| prepared_olap_manifest_declared(value))
-    .find_map(|(field, value)| prepared_olap_sidecar_ref_validation_blocker(field, value))
-}
-
-fn prepared_olap_sidecar_ref_validation_blocker(
-    field: &str,
-    value: &str,
-) -> Option<(String, String)> {
-    let sidecar = parse_prepared_olap_sidecar_ref(value)?;
-    if !sidecar.path.exists() {
-        return Some((
-            format!("prepared_olap_state.{field}.sidecar_missing"),
-            "rebuild prepared OLAP state because an exact sidecar manifest is missing".to_string(),
-        ));
-    }
-    let fields = match read_reuse_manifest_fields(&sidecar.path) {
-        Ok(fields) => fields,
-        Err(error) => {
-            return Some((
-                format!("prepared_olap_state.{field}.sidecar_unreadable"),
-                format!(
-                    "rebuild prepared OLAP state because sidecar manifest '{}' could not be read: {error}",
-                    sidecar.path.display()
-                ),
-            ));
-        }
-    };
-    if fields.get("schema_version").map(String::as_str)
-        != Some(VORTEX_PREPARED_OLAP_STATE_SIDECAR_SCHEMA_VERSION)
-    {
-        return Some((
-            format!("prepared_olap_state.{field}.sidecar_schema_mismatch"),
-            "rebuild prepared OLAP state because a sidecar manifest has a stale schema".to_string(),
-        ));
-    }
-    if fields.get("sidecar_family").map(String::as_str) != Some(sidecar.family.as_str()) {
-        return Some((
-            format!("prepared_olap_state.{field}.sidecar_family_mismatch"),
-            "rebuild prepared OLAP state because a sidecar manifest family changed".to_string(),
-        ));
-    }
-    let digest = fields
-        .get("sidecar_digest")
-        .cloned()
-        .unwrap_or_else(|| "none".to_string());
-    if digest != reuse_manifest_digest(&fields) || digest != sidecar.digest {
-        return Some((
-            format!("prepared_olap_state.{field}.sidecar_digest_mismatch"),
-            "rebuild prepared OLAP state because a sidecar manifest digest changed".to_string(),
-        ));
-    }
-    None
-}
-
-struct PreparedOlapSidecarRef {
-    family: String,
-    digest: String,
-    path: PathBuf,
-}
-
-fn parse_prepared_olap_sidecar_ref(value: &str) -> Option<PreparedOlapSidecarRef> {
-    let mut parts = value.splitn(4, '|');
-    if parts.next()? != "sidecar" {
-        return None;
-    }
-    let family = parts.next()?.trim();
-    let digest = parts.next()?.trim();
-    let path = parts.next()?.trim();
-    if family.is_empty() || digest.is_empty() || path.is_empty() {
-        return None;
-    }
-    Some(PreparedOlapSidecarRef {
-        family: family.to_string(),
-        digest: digest.to_string(),
-        path: PathBuf::from(path),
-    })
-}
-
 fn append_only_refinement_blocked(
     request: &VortexPreparedStateReuseRequest,
     status: &str,
@@ -2864,7 +2416,7 @@ fn reuse_manifest_request_mismatch_reason(
 
 fn prepared_olap_state_status(
     request: &VortexPreparedOlapStateWriteRequest,
-    exact_sidecar_family_count: usize,
+    _exact_sidecar_family_count: usize,
 ) -> String {
     if request.fallback_attempted {
         "blocked_fallback_attempted".to_string()
@@ -2877,10 +2429,10 @@ fn prepared_olap_state_status(
         "blocked_missing_source_state_evidence".to_string()
     } else if !is_local_artifact_digest(&request.source_content_digest) {
         "blocked_missing_source_content_digest".to_string()
-    } else if exact_sidecar_family_count == 0 {
-        "blocked_missing_exact_olap_sidecars".to_string()
-    } else if !prepared_olap_manifest_declared(&request.segment_map_status) {
+    } else if !prepared_olap_metadata_ref_declared(&request.segment_map_status) {
         "blocked_missing_segment_map".to_string()
+    } else if prepared_olap_query_answer_sidecar_declared(request) {
+        "blocked_query_answer_sidecar_not_public_runtime".to_string()
     } else {
         "prepared_olap_state_ready".to_string()
     }
@@ -2902,22 +2454,25 @@ fn prepared_olap_blocker_id(
         "blocked_missing_source_content_digest" => {
             "prepared_olap_state.source_content_digest_missing".to_string()
         }
-        "blocked_missing_exact_olap_sidecars" => {
-            "prepared_olap_state.exact_sidecars_missing".to_string()
-        }
         "blocked_missing_segment_map" => "prepared_olap_state.segment_map_missing".to_string(),
+        "blocked_vortex_layout_footer_inventory_unavailable" => {
+            "prepared_olap_state.layout_footer_inventory_unavailable".to_string()
+        }
+        "blocked_query_answer_sidecar_not_public_runtime" => {
+            "prepared_olap_state.query_answer_sidecar_not_public_runtime".to_string()
+        }
         _ => "prepared_olap_state.unknown_blocker".to_string(),
     }
 }
 
 fn prepared_olap_next_action(blocker_id: &str) -> String {
     match blocker_id {
-        "none" => "consume only through exact prepared-state query contracts".to_string(),
-        "prepared_olap_state.exact_sidecars_missing" => {
-            "materialize exact substring, aggregate-summary, row-position, or dictionary-union sidecars during Universal Ingest before claiming sub-second prepared OLAP state".to_string()
-        }
+        "none" => "run queries through native Vortex runtime over the single prepared .vortex artifact; query-answer sidecars are disabled".to_string(),
         "prepared_olap_state.segment_map_missing" => {
-            "attach source-to-prepared segment map evidence before prepared-state query admission".to_string()
+            "record embedded Vortex layout/footer statistics posture before prepared-state query admission".to_string()
+        }
+        "prepared_olap_state.layout_footer_inventory_unavailable" => {
+            "recreate the prepared state as a valid single Vortex artifact so footer layout/statistics inventory can be read".to_string()
         }
         "prepared_olap_state.source_state_evidence_missing" => {
             "record SourceState id, digest, and schema digest before publishing prepared OLAP state".to_string()
@@ -2925,19 +2480,22 @@ fn prepared_olap_next_action(blocker_id: &str) -> String {
         "prepared_olap_state.source_content_digest_missing" => {
             "fingerprint the source bytes with a local digest before publishing prepared OLAP state".to_string()
         }
+        "prepared_olap_state.query_answer_sidecar_not_public_runtime" => {
+            "recreate prepared OLAP evidence from the single Vortex artifact with embedded layout/statistics posture; query-answer sidecars are not public runtime".to_string()
+        }
         "prepared_olap_state.fallback_attempted" | "prepared_olap_state.external_engine_invoked" => {
             "rebuild the prepared state through ShardLoom/Vortex-native preparation without external execution".to_string()
         }
-        _ => "inspect prepared OLAP manifest evidence and rebuild fail-closed".to_string(),
+        _ => "inspect prepared OLAP single-artifact evidence and rebuild fail-closed".to_string(),
     }
 }
 
 fn prepared_olap_admitted_query_families(request: &VortexPreparedOlapStateWriteRequest) -> String {
     let mut families = Vec::new();
-    if prepared_olap_manifest_declared(&request.substring_index_manifest) {
+    if prepared_olap_metadata_ref_declared(&request.substring_index_manifest) {
         families.push("literal_substring_predicate");
     }
-    if prepared_olap_manifest_declared(&request.aggregate_summary_manifest) {
+    if prepared_olap_metadata_ref_declared(&request.aggregate_summary_manifest) {
         if request
             .aggregate_summary_manifest
             .contains("aggregate-summary-global-count")
@@ -2947,17 +2505,21 @@ fn prepared_olap_admitted_query_families(request: &VortexPreparedOlapStateWriteR
             families.push("exact_group_summary");
         }
     }
-    if prepared_olap_manifest_declared(&request.row_position_manifest) {
+    if prepared_olap_metadata_ref_declared(&request.row_position_manifest) {
         families.push("bounded_topk_row_position_locality");
     }
-    if prepared_olap_manifest_declared(&request.dictionary_union_manifest) {
+    if prepared_olap_metadata_ref_declared(&request.dictionary_union_manifest) {
         families.push("dictionary_union_exact_distinct");
     }
-    if prepared_olap_manifest_declared(&request.derived_column_manifest) {
+    if prepared_olap_metadata_ref_declared(&request.derived_column_manifest) {
         families.push("exact_derived_column");
     }
     if families.is_empty() {
-        "none".to_string()
+        if prepared_olap_metadata_ref_declared(&request.segment_map_status) {
+            "native_vortex_runtime,zoned_statistics_pruning_candidate,metadata_count".to_string()
+        } else {
+            "none".to_string()
+        }
     } else {
         families.join(",")
     }
@@ -2974,19 +2536,36 @@ fn prepared_olap_exact_sidecar_family_count(
         &request.derived_column_manifest,
     ]
     .into_iter()
-    .filter(|value| prepared_olap_manifest_declared(value))
+    .filter(|value| prepared_olap_metadata_ref_declared(value))
     .count()
 }
 
-fn prepared_olap_has_sub_second_candidate_family(
+fn prepared_olap_query_answer_sidecar_declared(
     request: &VortexPreparedOlapStateWriteRequest,
 ) -> bool {
-    prepared_olap_manifest_declared(&request.substring_index_manifest)
-        || prepared_olap_manifest_declared(&request.aggregate_summary_manifest)
-        || prepared_olap_manifest_declared(&request.row_position_manifest)
+    [
+        &request.substring_index_manifest,
+        &request.aggregate_summary_manifest,
+        &request.row_position_manifest,
+        &request.dictionary_union_manifest,
+        &request.derived_column_manifest,
+    ]
+    .into_iter()
+    .any(|value| prepared_olap_sidecar_ref_declared(value))
 }
 
-fn prepared_olap_manifest_declared(value: &str) -> bool {
+fn prepared_olap_sidecar_ref_declared(value: &str) -> bool {
+    let value = value.trim().to_ascii_lowercase();
+    value == "sidecar" || value.starts_with("sidecar:") || value.starts_with("sidecar|")
+}
+
+fn prepared_olap_has_sub_second_candidate_family(
+    _request: &VortexPreparedOlapStateWriteRequest,
+) -> bool {
+    false
+}
+
+fn prepared_olap_metadata_ref_declared(value: &str) -> bool {
     !matches!(
         value.trim(),
         "" | "none" | "not_declared" | "not_available" | "not_emitted" | "unsupported"
@@ -3030,95 +2609,64 @@ fn prepared_olap_state_digest(
     sha256_digest_string(digest.finalize())
 }
 
-fn prepared_olap_manifest_request_mismatch_reason(
+fn prepared_olap_embedded_layout_statistics_contract(
     request: &VortexPreparedOlapStateWriteRequest,
-    fields: &BTreeMap<String, String>,
-) -> Option<&'static str> {
-    if fields.get("source_state_id").map(String::as_str) != Some(request.source_state_id.as_str()) {
-        return Some("source_state_id_changed");
-    }
-    if fields.get("source_state_digest").map(String::as_str)
-        != Some(request.source_state_digest.as_str())
-    {
-        return Some("source_state_digest_changed");
-    }
-    if fields.get("source_format").map(String::as_str) != Some(request.source_format.as_str()) {
-        return Some("source_format_changed");
-    }
-    if fields.get("source_content_digest").map(String::as_str)
-        != Some(request.source_content_digest.as_str())
-    {
-        return Some("source_content_digest_changed");
-    }
-    if fields
-        .get("source_size_bytes")
-        .and_then(|value| value.parse::<u64>().ok())
-        != Some(request.source_size_bytes)
-    {
-        return Some("source_size_bytes_changed");
-    }
-    if fields.get("source_schema_digest").map(String::as_str)
-        != Some(request.source_schema_digest.as_str())
-    {
-        return Some("source_schema_digest_changed");
-    }
-    if fields
-        .get("source_row_count")
-        .and_then(|value| value.parse::<u64>().ok())
-        != Some(request.source_row_count)
-    {
-        return Some("source_row_count_changed");
-    }
-    None
-}
-
-fn prepared_olap_request_from_manifest_fields(
-    request: &VortexPreparedOlapStateWriteRequest,
-    fields: &BTreeMap<String, String>,
-) -> VortexPreparedOlapStateWriteRequest {
-    VortexPreparedOlapStateWriteRequest {
-        source_state_id: manifest_string_field(fields, "source_state_id"),
-        source_state_digest: manifest_string_field(fields, "source_state_digest"),
-        source_format: manifest_string_field(fields, "source_format"),
-        source_content_digest: manifest_string_field(fields, "source_content_digest"),
-        source_size_bytes: manifest_u64_field(fields, "source_size_bytes"),
-        source_schema_digest: manifest_string_field(fields, "source_schema_digest"),
-        source_row_count: manifest_u64_field(fields, "source_row_count"),
-        prepared_artifact_path: request.prepared_artifact_path.clone(),
-        manifest_path: request.manifest_path.clone(),
-        prepared_layout_policy: manifest_string_field(fields, "prepared_layout_policy"),
-        segment_map_status: manifest_string_field(fields, "segment_map_status"),
-        derived_column_manifest: manifest_string_field(fields, "derived_column_manifest"),
-        substring_index_manifest: manifest_string_field(fields, "substring_index_manifest"),
-        aggregate_summary_manifest: manifest_string_field(fields, "aggregate_summary_manifest"),
-        row_position_manifest: manifest_string_field(fields, "row_position_manifest"),
-        dictionary_union_manifest: manifest_string_field(fields, "dictionary_union_manifest"),
-        feature_gates: manifest_string_field(fields, "feature_gates"),
-        certification_level: manifest_string_field(fields, "certification_level"),
-        certificate_refs: manifest_string_field(fields, "certificate_refs"),
-        fallback_attempted: manifest_bool_field(fields, "fallback_attempted"),
-        external_engine_invoked: manifest_bool_field(fields, "external_engine_invoked"),
+) -> String {
+    if prepared_olap_metadata_ref_declared(&request.segment_map_status) {
+        format!(
+            "{};segment_map_status={}",
+            VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT, request.segment_map_status
+        )
+    } else {
+        "not_admitted_missing_embedded_layout_statistics_status".to_string()
     }
 }
 
+fn prepared_olap_query_answer_sidecar_status(
+    request: &VortexPreparedOlapStateWriteRequest,
+) -> String {
+    if prepared_olap_query_answer_sidecar_declared(request) {
+        "rejected_declared_query_answer_sidecar_not_public_runtime".to_string()
+    } else {
+        VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS.to_string()
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 fn prepared_olap_report_from_request(
     request: &VortexPreparedOlapStateWriteRequest,
     artifact_fingerprint: &LocalReuseFileFingerprint,
-    status: String,
+    mut status: String,
     manifest_digest: String,
     manifest_written: bool,
 ) -> VortexPreparedOlapStateReport {
     let exact_sidecar_family_count = prepared_olap_exact_sidecar_family_count(request);
+    let layout_inventory =
+        read_prepared_vortex_artifact_layout_inventory(&request.prepared_artifact_path)
+            .unwrap_or_else(|_| {
+                VortexPreparedOlapLayoutInventory::unavailable(
+                    "blocked_vortex_layout_footer_open_failed",
+                )
+            });
+    if matches!(
+        status.as_str(),
+        "prepared_olap_state_ready" | "prepared_olap_state_read_through_hit"
+    ) && !layout_inventory.is_admitted()
+    {
+        status = "blocked_vortex_layout_footer_inventory_unavailable".to_string();
+    }
     let blocker_id = if matches!(
         status.as_str(),
         "prepared_olap_state_ready" | "prepared_olap_state_read_through_hit"
     ) {
         "none".to_string()
+    } else if status == "blocked_vortex_layout_footer_inventory_unavailable" {
+        "prepared_olap_state.layout_footer_inventory_unavailable".to_string()
     } else {
         prepared_olap_blocker_id(request, exact_sidecar_family_count)
     };
     let query_time_contract = if blocker_id == "none" {
-        "exact_prepared_state_or_fail_closed_no_raw_scan_fallback".to_string()
+        VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT.to_string()
     } else {
         "not_admitted_for_prepared_olap_query_time".to_string()
     };
@@ -3132,6 +2680,14 @@ fn prepared_olap_report_from_request(
             .strip_prefix("sha256:")
             .unwrap_or(state_digest.as_str())
     );
+    let layout_inventory_status = layout_inventory.status.clone();
+    let layout_inventory_digest = layout_inventory.inventory_digest.clone();
+    let layout_footer_row_count = layout_inventory.row_count_field();
+    let layout_footer_segment_count = layout_inventory.segment_count_field();
+    let layout_footer_statistics_status = layout_inventory.statistics_status.clone();
+    let layout_footer_encoding_layout_status = layout_inventory.encoding_layout_status.clone();
+    let layout_footer_approx_bytes = layout_inventory.approx_footer_bytes_field();
+    let layout_footer_dtype_summary = layout_inventory.dtype_summary.clone();
     VortexPreparedOlapStateReport {
         schema_version: VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION,
         status,
@@ -3151,8 +2707,25 @@ fn prepared_olap_report_from_request(
         prepared_artifact_ref: request.prepared_artifact_path.clone(),
         prepared_artifact_digest: artifact_fingerprint.content_digest.clone(),
         prepared_artifact_size_bytes: artifact_fingerprint.size_bytes,
+        artifact_model: VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL.to_string(),
         prepared_layout_policy: request.prepared_layout_policy.clone(),
         segment_map_status: request.segment_map_status.clone(),
+        writer_layout_strategy: VORTEX_PREPARED_OLAP_WRITER_LAYOUT_STRATEGY.to_string(),
+        embedded_layout_statistics_contract: prepared_olap_embedded_layout_statistics_contract(
+            request,
+        ),
+        layout_inventory_status,
+        layout_inventory_digest,
+        layout_footer_row_count,
+        layout_footer_segment_count,
+        layout_footer_statistics_status,
+        layout_footer_encoding_layout_status,
+        layout_footer_approx_bytes,
+        layout_footer_dtype_summary,
+        layout_metadata_persisted_in_artifact: layout_inventory.metadata_persisted_in_artifact,
+        dictionary_metadata_policy: VORTEX_PREPARED_OLAP_DICTIONARY_METADATA_POLICY.to_string(),
+        metadata_pruning_contract: VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT.to_string(),
+        query_answer_sidecar_status: prepared_olap_query_answer_sidecar_status(request),
         derived_column_manifest: request.derived_column_manifest.clone(),
         substring_index_manifest: request.substring_index_manifest.clone(),
         aggregate_summary_manifest: request.aggregate_summary_manifest.clone(),
@@ -3189,6 +2762,25 @@ fn prepared_olap_blocked_report(
         || "none".to_string(),
         |value| format!("prepared-olap-state-{value}"),
     );
+    let layout_inventory = artifact_fingerprint.map_or_else(
+        || VortexPreparedOlapLayoutInventory::unavailable(status),
+        |_| {
+            read_prepared_vortex_artifact_layout_inventory(&request.prepared_artifact_path)
+                .unwrap_or_else(|_| {
+                    VortexPreparedOlapLayoutInventory::unavailable(
+                        "blocked_vortex_layout_footer_open_failed",
+                    )
+                })
+        },
+    );
+    let layout_inventory_status = layout_inventory.status.clone();
+    let layout_inventory_digest = layout_inventory.inventory_digest.clone();
+    let layout_footer_row_count = layout_inventory.row_count_field();
+    let layout_footer_segment_count = layout_inventory.segment_count_field();
+    let layout_footer_statistics_status = layout_inventory.statistics_status.clone();
+    let layout_footer_encoding_layout_status = layout_inventory.encoding_layout_status.clone();
+    let layout_footer_approx_bytes = layout_inventory.approx_footer_bytes_field();
+    let layout_footer_dtype_summary = layout_inventory.dtype_summary.clone();
     VortexPreparedOlapStateReport {
         schema_version: VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION,
         status: status.to_string(),
@@ -3212,8 +2804,25 @@ fn prepared_olap_blocked_report(
         ),
         prepared_artifact_size_bytes: artifact_fingerprint
             .map_or(0, |fingerprint| fingerprint.size_bytes),
+        artifact_model: VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL.to_string(),
         prepared_layout_policy: request.prepared_layout_policy.clone(),
         segment_map_status: request.segment_map_status.clone(),
+        writer_layout_strategy: VORTEX_PREPARED_OLAP_WRITER_LAYOUT_STRATEGY.to_string(),
+        embedded_layout_statistics_contract: prepared_olap_embedded_layout_statistics_contract(
+            request,
+        ),
+        layout_inventory_status,
+        layout_inventory_digest,
+        layout_footer_row_count,
+        layout_footer_segment_count,
+        layout_footer_statistics_status,
+        layout_footer_encoding_layout_status,
+        layout_footer_approx_bytes,
+        layout_footer_dtype_summary,
+        layout_metadata_persisted_in_artifact: layout_inventory.metadata_persisted_in_artifact,
+        dictionary_metadata_policy: VORTEX_PREPARED_OLAP_DICTIONARY_METADATA_POLICY.to_string(),
+        metadata_pruning_contract: VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT.to_string(),
+        query_answer_sidecar_status: prepared_olap_query_answer_sidecar_status(request),
         derived_column_manifest: request.derived_column_manifest.clone(),
         substring_index_manifest: request.substring_index_manifest.clone(),
         aggregate_summary_manifest: request.aggregate_summary_manifest.clone(),
@@ -3231,21 +2840,6 @@ fn prepared_olap_blocked_report(
         fallback_attempted: request.fallback_attempted,
         external_engine_invoked: request.external_engine_invoked,
     }
-}
-
-fn manifest_string_field(fields: &BTreeMap<String, String>, key: &str) -> String {
-    fields.get(key).cloned().unwrap_or_default()
-}
-
-fn manifest_u64_field(fields: &BTreeMap<String, String>, key: &str) -> u64 {
-    fields
-        .get(key)
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(0)
-}
-
-fn manifest_bool_field(fields: &BTreeMap<String, String>, key: &str) -> bool {
-    fields.get(key).map(String::as_str) == Some("true")
 }
 
 fn read_reuse_manifest_fields(path: &Path) -> Result<BTreeMap<String, String>> {
@@ -5164,7 +4758,10 @@ fn layout_write_runtime_blocker(
     if advisor.unsupported_diagnostic_code != "none" {
         return advisor.unsupported_diagnostic_code.clone();
     }
-    if advisor.layout_strategy != "single_local_vortex_artifact" {
+    if !matches!(
+        advisor.layout_strategy.as_str(),
+        "single_local_vortex_artifact" | "single_vortex_artifact_embedded_olap_layout_statistics"
+    ) {
         return "vortex_layout_write_advisor.unsupported_layout_strategy".to_string();
     }
     if advisor.sink_requirements != "workspace_safe_local_vortex_file_sink" {
@@ -5178,19 +4775,30 @@ fn layout_write_runtime_blocker(
         "single_chunk_for_scoped_local_fixture"
             | "single_chunk_for_scoped_fixture"
             | "writer_default_chunking_no_performance_claim"
+            | "upstream_vortex_writer_default_zoned_row_blocks"
     ) {
         return "vortex_layout_write_advisor.unsupported_chunking_strategy".to_string();
     }
     if !matches!(
         advisor.segmentation_strategy.as_str(),
-        "single_segment_local_fixture" | "single_segment_fixture"
+        "single_segment_local_fixture"
+            | "single_segment_fixture"
+            | "upstream_vortex_writer_default_zoned_segments"
     ) {
         return "vortex_layout_write_advisor.unsupported_segmentation_strategy".to_string();
     }
-    if advisor.dictionary_strategy != "writer_default_no_dictionary_claim" {
+    if !matches!(
+        advisor.dictionary_strategy.as_str(),
+        "writer_default_no_dictionary_claim"
+            | "preserve_vortex_dictionary_and_encoding_metadata_when_writer_emits_it"
+    ) {
         return "vortex_layout_write_advisor.unsupported_dictionary_strategy".to_string();
     }
-    if advisor.statistics_policy != "writer_default_statistics_no_pruning_claim" {
+    if !matches!(
+        advisor.statistics_policy.as_str(),
+        "writer_default_statistics_no_pruning_claim"
+            | "preserve_vortex_layout_footer_statistics_for_metadata_pruning"
+    ) {
         return "vortex_layout_write_advisor.unsupported_statistics_policy".to_string();
     }
     if advisor.writer_provider_kind != expected_provider_kind {
@@ -6997,6 +6605,7 @@ pub struct VortexPreparedStateWriteReport {
     pub preparation_spine: VortexPreparationSpineReport,
     pub layout_write_decision: VortexLayoutWriteRuntimeDecision,
     pub capillary_prewrite_control: VortexCapillaryPreWriteControlReport,
+    pub prepared_olap_layout_inventory: VortexPreparedOlapLayoutInventory,
     pub workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
 
@@ -7033,11 +6642,32 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn statistics_summary(&self) -> String {
         format!(
-            "writer_row_count={};reopen_row_count={};reopen_verification_status={};bytes_written={}",
+            "writer_row_count={};reopen_row_count={};reopen_verification_status={};bytes_written={};layout_inventory_status={};footer_statistics_status={};footer_segment_count={}",
             self.writer_row_count,
             self.reopen_row_count,
             self.reopen_verification_status,
-            self.bytes_written
+            self.bytes_written,
+            self.prepared_olap_layout_inventory.status,
+            self.prepared_olap_layout_inventory.statistics_status,
+            self.prepared_olap_layout_inventory.segment_count_field()
+        )
+    }
+
+    /// Return a compact single-artifact OLAP layout inventory summary.
+    #[must_use]
+    pub fn prepared_olap_layout_inventory_summary(&self) -> String {
+        format!(
+            "status={};row_count={};segment_count={};statistics={};encoding_layout={};footer_bytes={};persisted_in_artifact={};digest={}",
+            self.prepared_olap_layout_inventory.status,
+            self.prepared_olap_layout_inventory.row_count_field(),
+            self.prepared_olap_layout_inventory.segment_count_field(),
+            self.prepared_olap_layout_inventory.statistics_status,
+            self.prepared_olap_layout_inventory.encoding_layout_status,
+            self.prepared_olap_layout_inventory
+                .approx_footer_bytes_field(),
+            self.prepared_olap_layout_inventory
+                .metadata_persisted_in_artifact,
+            self.prepared_olap_layout_inventory.inventory_digest,
         )
     }
 }
@@ -7757,10 +7387,13 @@ fn finalize_vortex_prepared_state_write(
         reopen_scan_micros,
         reopen_verification_status,
         upstream_vortex_scan_called,
+        prepared_olap_layout_inventory,
     ) = if input.certification_level == VortexIngestCertificationLevel::IngestCertified {
         capillary_prewrite_control.apply_task_role_gate("reopen_verify", "reopen")?;
         let reopen_start = Instant::now();
-        let reopen_row_count = reopen_vortex_metadata_row_count(&input.target_path)?;
+        let prepared_olap_layout_inventory =
+            read_prepared_vortex_artifact_layout_inventory(&input.target_path)?;
+        let reopen_row_count = prepared_olap_layout_inventory.row_count.unwrap_or(0);
         let reopen_scan_micros = reopen_start.elapsed().as_micros();
         if write_result.writer_row_count != input.row_count || reopen_row_count != input.row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
@@ -7773,16 +7406,25 @@ fn finalize_vortex_prepared_state_write(
             reopen_scan_micros,
             "reopen_metadata_row_count_verified".to_string(),
             false,
+            prepared_olap_layout_inventory,
         )
     } else {
         capillary_prewrite_control.mark_task_role_not_performed("reopen_verify", "reopen");
+        let prepared_olap_layout_inventory =
+            read_prepared_vortex_artifact_layout_inventory(&input.target_path)?;
         if write_result.writer_row_count != input.row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "local vortex_ingest writer row count mismatch: source={} writer={}; no fallback execution was attempted",
                 input.row_count, write_result.writer_row_count
             )));
         }
-        (0, 0, "not_performed_ingest_minimal".to_string(), false)
+        (
+            prepared_olap_layout_inventory.row_count.unwrap_or(0),
+            0,
+            "not_performed_ingest_minimal".to_string(),
+            false,
+            prepared_olap_layout_inventory,
+        )
     };
     capillary_prewrite_control.apply_task_role_gate("sink_evidence", "sink_evidence")?;
     let preparation_spine = preparation_spine_report(
@@ -7825,11 +7467,13 @@ fn finalize_vortex_prepared_state_write(
         preparation_spine,
         layout_write_decision: input.layout_write_decision,
         capillary_prewrite_control,
+        prepared_olap_layout_inventory,
         workspace_write_report: write_result.workspace_write_report,
     })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
 fn finalize_vortex_prepared_state_stream_write<I>(
     input: VortexPreparedStateStreamFinalizeInput<I>,
 ) -> Result<VortexPreparedStateWriteReport>
@@ -7865,10 +7509,13 @@ where
         reopen_scan_micros,
         reopen_verification_status,
         upstream_vortex_scan_called,
+        prepared_olap_layout_inventory,
     ) = if certification_level == VortexIngestCertificationLevel::IngestCertified {
         capillary_prewrite_control.apply_task_role_gate("reopen_verify", "reopen")?;
         let reopen_start = Instant::now();
-        let reopen_row_count = reopen_vortex_metadata_row_count(&target_path)?;
+        let prepared_olap_layout_inventory =
+            read_prepared_vortex_artifact_layout_inventory(&target_path)?;
+        let reopen_row_count = prepared_olap_layout_inventory.row_count.unwrap_or(0);
         let reopen_scan_micros = reopen_start.elapsed().as_micros();
         if reopen_row_count != row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
@@ -7880,10 +7527,19 @@ where
             reopen_scan_micros,
             "reopen_metadata_row_count_verified".to_string(),
             false,
+            prepared_olap_layout_inventory,
         )
     } else {
         capillary_prewrite_control.mark_task_role_not_performed("reopen_verify", "reopen");
-        (0, 0, "not_performed_ingest_minimal".to_string(), false)
+        let prepared_olap_layout_inventory =
+            read_prepared_vortex_artifact_layout_inventory(&target_path)?;
+        (
+            prepared_olap_layout_inventory.row_count.unwrap_or(0),
+            0,
+            "not_performed_ingest_minimal".to_string(),
+            false,
+            prepared_olap_layout_inventory,
+        )
     };
     capillary_prewrite_control.apply_task_role_gate("sink_evidence", "sink_evidence")?;
     let emitted_record_batch_count = input.emitted_record_batch_count.load(Ordering::Relaxed);
@@ -7930,6 +7586,7 @@ where
         preparation_spine,
         layout_write_decision: input.layout_write_decision,
         capillary_prewrite_control,
+        prepared_olap_layout_inventory,
         workspace_write_report: write_result.workspace_write_report,
     })
 }
@@ -9651,7 +9308,9 @@ where
 }
 
 #[cfg(feature = "vortex-write")]
-fn reopen_vortex_metadata_row_count(path: &Path) -> Result<u64> {
+fn read_prepared_vortex_artifact_layout_inventory(
+    path: &Path,
+) -> Result<VortexPreparedOlapLayoutInventory> {
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
@@ -9664,7 +9323,51 @@ fn reopen_vortex_metadata_row_count(path: &Path) -> Result<u64> {
     let file = runtime
         .block_on(session.open_options().open_path(path))
         .map_err(vortex_error)?;
-    Ok(file.row_count())
+    let footer = file.footer();
+    let row_count = footer.row_count();
+    let segment_count = footer.segment_map().len();
+    let statistics_status = if footer.statistics().is_some() {
+        "available"
+    } else {
+        "not_available"
+    }
+    .to_string();
+    let encoding_layout_status = if segment_count > 0 {
+        "segment_map_available"
+    } else {
+        "segment_map_empty_or_unavailable"
+    }
+    .to_string();
+    let approx_footer_bytes = footer.approx_byte_size();
+    let dtype_summary = format!("{:?}", footer.dtype());
+    let inventory_digest = fnv64_digest_text(&format!(
+        "prepared_olap_layout_inventory|opened_single_vortex_artifact_footer|{row_count}|{segment_count}|{}|{}|{}|{}",
+        statistics_status,
+        encoding_layout_status,
+        approx_footer_bytes.map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+        dtype_summary
+    ));
+    Ok(VortexPreparedOlapLayoutInventory {
+        status: "opened_single_vortex_artifact_footer".to_string(),
+        row_count: Some(row_count),
+        segment_count: Some(segment_count),
+        statistics_status,
+        encoding_layout_status,
+        approx_footer_bytes,
+        dtype_summary,
+        metadata_persisted_in_artifact: true,
+        inventory_digest,
+    })
+}
+
+#[cfg(not(feature = "vortex-write"))]
+#[allow(clippy::unnecessary_wraps)]
+fn read_prepared_vortex_artifact_layout_inventory(
+    _path: &Path,
+) -> Result<VortexPreparedOlapLayoutInventory> {
+    Ok(VortexPreparedOlapLayoutInventory::unavailable(
+        "blocked_vortex_write_feature_disabled",
+    ))
 }
 
 #[cfg(feature = "vortex-write")]
@@ -9765,6 +9468,65 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("create temp root");
         root
+    }
+
+    fn legacy_prepared_olap_state_manifest_path(target: &Path) -> PathBuf {
+        target
+            .parent()
+            .expect("target parent")
+            .join(".shardloom")
+            .join(format!(
+                "{}.prepared-olap-state.manifest",
+                target
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .expect("target file name")
+            ))
+    }
+
+    fn write_test_prepared_vortex_artifact(
+        target: &Path,
+        seed: i64,
+    ) -> VortexPreparedStateWriteReport {
+        let request = VortexPreparedStateWriteRequest::new(
+            target,
+            vec![
+                "id".to_string(),
+                "group_key".to_string(),
+                "metric".to_string(),
+            ],
+            vec![
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(seed)),
+                    ("group_key".to_string(), ScalarValue::Int64(seed % 3)),
+                    (
+                        "metric".to_string(),
+                        ScalarValue::Float64(seed as f64 + 0.5),
+                    ),
+                ],
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(seed + 1)),
+                    ("group_key".to_string(), ScalarValue::Int64((seed + 1) % 3)),
+                    (
+                        "metric".to_string(),
+                        ScalarValue::Float64(seed as f64 + 1.5),
+                    ),
+                ],
+            ],
+        )
+        .allow_overwrite(true);
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write test vortex");
+        assert_eq!(
+            report.prepared_olap_layout_inventory.status,
+            "opened_single_vortex_artifact_footer"
+        );
+        assert_eq!(report.prepared_olap_layout_inventory.row_count, Some(2));
+        assert!(
+            report
+                .prepared_olap_layout_inventory
+                .metadata_persisted_in_artifact
+        );
+        report
     }
 
     fn reuse_request_for_test(
@@ -10635,7 +10397,7 @@ mod tests {
         assert!(report.layout_write_decision.runtime_decision_applied);
         assert_eq!(
             report.layout_write_decision.selected_strategy,
-            "single_local_vortex_artifact"
+            "single_vortex_artifact_embedded_olap_layout_statistics"
         );
         assert!(
             report
@@ -12545,7 +12307,10 @@ mod tests {
         assert_eq!(report.status, "admitted_local_layout_write_strategy");
         assert!(report.strategy_admitted);
         assert!(!report.runtime_decision_applied);
-        assert_eq!(report.selected_strategy, "single_local_vortex_artifact");
+        assert_eq!(
+            report.selected_strategy,
+            "single_vortex_artifact_embedded_olap_layout_statistics"
+        );
         assert!(report.strategy_decision_digest.starts_with("fnv64:"));
         assert!(report.provider_admitted);
         assert_eq!(report.blocker, "pending_runtime_write_decision");
@@ -12792,15 +12557,14 @@ mod tests {
     }
 
     #[test]
-    fn prepared_olap_state_manifest_requires_exact_sidecars_for_query_time_admission() {
-        let root = temp_test_root("prepared-olap-sidecar-gate");
+    fn prepared_olap_state_report_admits_single_vortex_artifact_without_sidecars() {
+        let root = temp_test_root("prepared-olap-single-artifact");
         let source = root.join("source.parquet");
         let target = root.join("prepared.vortex");
         std::fs::write(&source, b"source bytes").expect("write source");
-        std::fs::write(&target, b"prepared vortex bytes").expect("write prepared artifact");
+        write_test_prepared_vortex_artifact(&target, 10);
         let source_digest = sha256_file_digest(&source, "test source").expect("source digest");
-        let manifest_path =
-            vortex_prepared_olap_state_manifest_path(&target).expect("olap manifest path");
+        let legacy_manifest_path = legacy_prepared_olap_state_manifest_path(&target);
 
         let request = VortexPreparedOlapStateWriteRequest::new_local(
             "source-state-hits",
@@ -12809,76 +12573,154 @@ mod tests {
             source_digest,
             12,
             "sha256:schema-digest",
-            100,
+            2,
             &target,
-            manifest_path.clone(),
+            &target,
         )
         .expect("olap request")
-        .with_prepared_layout_policy("clickbench_like_local_olap_layout_v1")
-        .with_segment_map_status("exact_source_to_vortex_segment_map")
-        .with_substring_index_manifest("sidecar:url_google_literal_postings.sha256")
-        .with_aggregate_summary_manifest("sidecar:user_id_count_topk.sha256")
-        .with_row_position_manifest("sidecar:event_time_topk_row_positions.sha256")
-        .with_dictionary_union_manifest("sidecar:search_phrase_dictionary_union.sha256")
-        .with_certification_level("exact_prepared_olap_state_contract")
+        .with_prepared_layout_policy(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY)
+        .with_segment_map_status(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS)
+        .with_certification_level("single_vortex_artifact_olap_contract")
         .with_certificate_refs("local-prepared-olap-state-test");
 
-        let report =
-            write_vortex_prepared_olap_state_manifest(&request).expect("write olap manifest");
+        let report = publish_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("publish olap state");
 
         assert_eq!(report.status, "prepared_olap_state_ready");
-        assert!(report.manifest_path.exists());
+        assert!(!legacy_manifest_path.exists());
+        assert!(!report.manifest_written);
         assert!(report.manifest_digest.starts_with("sha256:"));
         assert!(report.state_digest.starts_with("sha256:"));
-        assert_eq!(report.exact_sidecar_family_count, 4);
-        assert!(report.sub_second_candidate);
+        assert_eq!(report.exact_sidecar_family_count, 0);
+        assert!(!report.sub_second_candidate);
+        assert_eq!(
+            report.artifact_model,
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL
+        );
+        assert_eq!(
+            report.writer_layout_strategy,
+            VORTEX_PREPARED_OLAP_WRITER_LAYOUT_STRATEGY
+        );
+        assert_eq!(
+            report.metadata_pruning_contract,
+            VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT
+        );
+        assert_eq!(
+            report.query_answer_sidecar_status,
+            VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS
+        );
         assert_eq!(
             report.query_time_contract,
-            "exact_prepared_state_or_fail_closed_no_raw_scan_fallback"
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT
         );
+        assert_eq!(
+            report.layout_inventory_status,
+            "opened_single_vortex_artifact_footer"
+        );
+        assert!(report.layout_inventory_digest.starts_with("fnv64:"));
+        assert_eq!(report.layout_footer_row_count, "2");
+        assert!(report.layout_footer_segment_count != "unknown");
+        assert!(report.layout_footer_approx_bytes != "unknown");
+        assert!(report.layout_metadata_persisted_in_artifact);
         assert_eq!(report.blocker_id, "none");
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
         assert!(
             report
                 .admitted_query_families
-                .contains("exact_group_summary")
-        );
-        assert!(
-            report
-                .admitted_query_families
-                .contains("literal_substring_predicate")
+                .contains("native_vortex_runtime")
         );
 
-        let fields = read_reuse_manifest_fields(&manifest_path).expect("read olap manifest");
+        let fields = report
+            .evidence_fields()
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
         assert_eq!(
-            fields.get("schema_version").map(String::as_str),
+            fields
+                .get("vortex_prepared_olap_state_schema_version")
+                .map(String::as_str),
             Some(VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION)
         );
         assert_eq!(
-            fields.get("query_time_contract").map(String::as_str),
-            Some("exact_prepared_state_or_fail_closed_no_raw_scan_fallback")
+            fields
+                .get("vortex_prepared_olap_state_query_time_contract")
+                .map(String::as_str),
+            Some(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT)
         );
         assert_eq!(
-            fields.get("fallback_attempted").map(String::as_str),
+            fields
+                .get("vortex_prepared_olap_state_artifact_model")
+                .map(String::as_str),
+            Some(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL)
+        );
+        assert_eq!(
+            fields
+                .get("vortex_prepared_olap_state_metadata_pruning_contract")
+                .map(String::as_str),
+            Some(VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT)
+        );
+        assert_eq!(
+            fields
+                .get("vortex_prepared_olap_state_query_answer_sidecar_status")
+                .map(String::as_str),
+            Some(VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS)
+        );
+        assert_eq!(
+            fields
+                .get("vortex_prepared_olap_state_evidence_persistence")
+                .map(String::as_str),
+            Some("embedded_in_single_prepared_vortex_artifact")
+        );
+        assert_eq!(
+            fields
+                .get("vortex_prepared_olap_state_external_manifest_written")
+                .map(String::as_str),
             Some("false")
         );
         assert_eq!(
-            fields.get("external_engine_invoked").map(String::as_str),
-            Some("false")
+            fields
+                .get("vortex_prepared_olap_state_layout_inventory_status")
+                .map(String::as_str),
+            Some("opened_single_vortex_artifact_footer")
+        );
+        assert_eq!(
+            fields
+                .get("vortex_prepared_olap_state_layout_footer_row_count")
+                .map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            fields
+                .get("vortex_prepared_olap_state_layout_metadata_persisted_in_artifact")
+                .map(String::as_str),
+            Some("true")
         );
 
-        let hit =
-            evaluate_vortex_prepared_olap_state_manifest(&request).expect("evaluate olap manifest");
+        let hit = evaluate_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("evaluate olap state");
         assert_eq!(hit.status, "prepared_olap_state_read_through_hit");
         assert!(!hit.manifest_written);
         assert_eq!(hit.manifest_digest, report.manifest_digest);
         assert_eq!(hit.state_digest, report.state_digest);
-        assert_eq!(hit.exact_sidecar_family_count, 4);
+        assert_eq!(hit.exact_sidecar_family_count, 0);
+        assert_eq!(
+            hit.metadata_pruning_contract,
+            VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT
+        );
+        assert_eq!(
+            hit.query_answer_sidecar_status,
+            VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS
+        );
         assert_eq!(
             hit.query_time_contract,
-            "exact_prepared_state_or_fail_closed_no_raw_scan_fallback"
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT
         );
+        assert_eq!(
+            hit.layout_inventory_status,
+            "opened_single_vortex_artifact_footer"
+        );
+        assert_eq!(hit.layout_footer_row_count, "2");
+        assert!(hit.layout_metadata_persisted_in_artifact);
         assert_eq!(hit.blocker_id, "none");
         assert!(!hit.fallback_attempted);
         assert!(!hit.external_engine_invoked);
@@ -12887,15 +12729,14 @@ mod tests {
     }
 
     #[test]
-    fn prepared_olap_state_manifest_blocks_artifact_drift_before_query_time_admission() {
+    fn prepared_olap_state_artifact_report_updates_digest_without_external_manifest() {
         let root = temp_test_root("prepared-olap-artifact-drift");
         let source = root.join("source.parquet");
         let target = root.join("prepared.vortex");
         std::fs::write(&source, b"source bytes").expect("write source");
-        std::fs::write(&target, b"prepared vortex bytes").expect("write prepared artifact");
+        write_test_prepared_vortex_artifact(&target, 20);
         let source_digest = sha256_file_digest(&source, "test source").expect("source digest");
-        let manifest_path =
-            vortex_prepared_olap_state_manifest_path(&target).expect("olap manifest path");
+        let legacy_manifest_path = legacy_prepared_olap_state_manifest_path(&target);
         let request = VortexPreparedOlapStateWriteRequest::new_local(
             "source-state-hits",
             "sha256:source-state-digest",
@@ -12903,50 +12744,48 @@ mod tests {
             source_digest,
             12,
             "sha256:schema-digest",
-            100,
+            2,
             &target,
-            manifest_path,
+            &target,
         )
         .expect("olap request")
-        .with_prepared_layout_policy("clickbench_like_local_olap_layout_v1")
-        .with_segment_map_status("exact_source_to_vortex_segment_map")
-        .with_substring_index_manifest("sidecar:url_google_literal_postings.sha256");
-        write_vortex_prepared_olap_state_manifest(&request).expect("write olap manifest");
-        std::fs::write(&target, b"prepared vortex bytex")
-            .expect("mutate prepared artifact with same size");
+        .with_prepared_layout_policy(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY)
+        .with_segment_map_status(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS);
+        let initial = publish_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("publish olap state");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        write_test_prepared_vortex_artifact(&target, 30);
 
-        let decision = evaluate_vortex_prepared_olap_state_manifest(&request)
-            .expect("evaluate drifted olap manifest");
+        let decision = evaluate_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("evaluate mutated olap artifact");
 
-        assert_eq!(
-            decision.status,
-            "blocked_prepared_olap_artifact_digest_changed"
-        );
-        assert_eq!(
-            decision.blocker_id,
-            "prepared_olap_state.prepared_artifact_digest_changed"
-        );
+        assert_eq!(decision.status, "prepared_olap_state_read_through_hit");
+        assert_eq!(decision.blocker_id, "none");
         assert_eq!(
             decision.query_time_contract,
-            "not_admitted_for_prepared_olap_query_time"
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT
         );
         assert!(!decision.manifest_written);
+        assert!(!legacy_manifest_path.exists());
         assert!(!decision.fallback_attempted);
         assert!(!decision.external_engine_invoked);
+        assert_ne!(
+            decision.prepared_artifact_digest,
+            initial.prepared_artifact_digest
+        );
+        assert_ne!(decision.state_digest, initial.state_digest);
 
         std::fs::remove_dir_all(root).expect("remove temp root");
     }
 
     #[test]
-    fn prepared_olap_state_manifest_blocks_plain_vortex_artifact_without_sidecars() {
-        let root = temp_test_root("prepared-olap-no-sidecars");
+    fn prepared_olap_artifact_fingerprint_tracks_same_size_artifact_mutation() {
+        let root = temp_test_root("prepared-olap-artifact-fingerprint");
         let source = root.join("source.parquet");
         let target = root.join("prepared.vortex");
         std::fs::write(&source, b"source bytes").expect("write source");
-        std::fs::write(&target, b"prepared vortex bytes").expect("write prepared artifact");
+        write_test_prepared_vortex_artifact(&target, 40);
         let source_digest = sha256_file_digest(&source, "test source").expect("source digest");
-        let manifest_path =
-            vortex_prepared_olap_state_manifest_path(&target).expect("olap manifest path");
         let request = VortexPreparedOlapStateWriteRequest::new_local(
             "source-state-hits",
             "sha256:source-state-digest",
@@ -12954,42 +12793,90 @@ mod tests {
             source_digest,
             12,
             "sha256:schema-digest",
-            100,
+            2,
             &target,
-            manifest_path,
+            &target,
         )
         .expect("olap request")
-        .with_segment_map_status("exact_source_to_vortex_segment_map");
+        .with_prepared_layout_policy(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY)
+        .with_segment_map_status(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS);
+        let initial = publish_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("publish olap state");
 
-        let report =
-            write_vortex_prepared_olap_state_manifest(&request).expect("write blocked manifest");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        write_test_prepared_vortex_artifact(&target, 50);
+        let current_digest = sha256_file_digest(&target, "test artifact").expect("current digest");
+        assert_ne!(current_digest, initial.prepared_artifact_digest);
 
-        assert_eq!(report.status, "blocked_missing_exact_olap_sidecars");
+        let fingerprint =
+            LocalReuseFileFingerprint::from_path(&target, "test artifact").expect("fingerprint");
+        assert_eq!(fingerprint.content_digest, current_digest);
+        assert_ne!(fingerprint.content_digest, initial.prepared_artifact_digest);
+
+        std::fs::remove_dir_all(root).expect("remove temp root");
+    }
+
+    #[test]
+    fn prepared_olap_state_admits_plain_vortex_artifact_with_embedded_layout_status() {
+        let root = temp_test_root("prepared-olap-plain-single-artifact");
+        let source = root.join("source.parquet");
+        let target = root.join("prepared.vortex");
+        std::fs::write(&source, b"source bytes").expect("write source");
+        write_test_prepared_vortex_artifact(&target, 60);
+        let source_digest = sha256_file_digest(&source, "test source").expect("source digest");
+        let legacy_manifest_path = legacy_prepared_olap_state_manifest_path(&target);
+        let request = VortexPreparedOlapStateWriteRequest::new_local(
+            "source-state-hits",
+            "sha256:source-state-digest",
+            "parquet",
+            source_digest,
+            12,
+            "sha256:schema-digest",
+            2,
+            &target,
+            &target,
+        )
+        .expect("olap request")
+        .with_prepared_layout_policy(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY)
+        .with_segment_map_status(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS);
+
+        let report = publish_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("publish ready state");
+
+        assert_eq!(report.status, "prepared_olap_state_ready");
+        assert!(!legacy_manifest_path.exists());
+        assert!(!report.manifest_written);
         assert_eq!(report.exact_sidecar_family_count, 0);
         assert!(!report.sub_second_candidate);
         assert_eq!(
             report.query_time_contract,
-            "not_admitted_for_prepared_olap_query_time"
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT
         );
         assert_eq!(
-            report.blocker_id,
-            "prepared_olap_state.exact_sidecars_missing"
+            report.layout_inventory_status,
+            "opened_single_vortex_artifact_footer"
         );
-        assert!(report.next_action.contains("materialize exact substring"));
+        assert_eq!(report.layout_footer_row_count, "2");
+        assert!(report.layout_metadata_persisted_in_artifact);
+        assert_eq!(report.blocker_id, "none");
+        assert!(
+            report
+                .admitted_query_families
+                .contains("native_vortex_runtime")
+        );
 
         std::fs::remove_dir_all(root).expect("remove temp root");
     }
 
     #[test]
-    fn prepared_olap_state_bundle_writes_and_validates_sidecars() {
-        let root = temp_test_root("prepared-olap-bundle");
+    fn prepared_olap_state_bundle_reports_single_artifact_without_adjacent_olap_files() {
+        let root = temp_test_root("prepared-olap-bundle-single-artifact");
         let source = root.join("source.parquet");
         let target = root.join("prepared.vortex");
         std::fs::write(&source, b"source bytes").expect("write source");
-        std::fs::write(&target, b"prepared vortex bytes").expect("write prepared artifact");
+        write_test_prepared_vortex_artifact(&target, 70);
         let source_digest = sha256_file_digest(&source, "test source").expect("source digest");
-        let manifest_path =
-            vortex_prepared_olap_state_manifest_path(&target).expect("olap manifest path");
+        let legacy_manifest_path = legacy_prepared_olap_state_manifest_path(&target);
         let request = VortexPreparedOlapStateWriteRequest::new_local(
             "source-state-hits",
             "sha256:source-state-digest",
@@ -12997,56 +12884,58 @@ mod tests {
             source_digest,
             12,
             "sha256:schema-digest",
-            100,
+            2,
             &target,
-            manifest_path,
+            &target,
         )
-        .expect("olap request");
+        .expect("olap request")
+        .with_prepared_layout_policy(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY)
+        .with_segment_map_status(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS);
 
         let report =
             write_vortex_prepared_olap_state_bundle(request.clone()).expect("write olap bundle");
 
         assert_eq!(report.status, "prepared_olap_state_ready");
-        assert_eq!(report.exact_sidecar_family_count, 3);
+        assert!(!report.manifest_written);
+        assert!(!legacy_manifest_path.exists());
+        assert_eq!(report.exact_sidecar_family_count, 0);
+        assert_eq!(
+            report.artifact_model,
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL
+        );
+        assert_eq!(
+            report.metadata_pruning_contract,
+            VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT
+        );
+        assert_eq!(
+            report.layout_inventory_status,
+            "opened_single_vortex_artifact_footer"
+        );
+        assert_eq!(report.layout_footer_row_count, "2");
+        assert!(report.layout_metadata_persisted_in_artifact);
         assert!(
             report
                 .admitted_query_families
-                .contains("exact_global_count_summary")
+                .contains("native_vortex_runtime")
         );
+        let sidecar_dir = target
+            .parent()
+            .expect("target parent")
+            .join(".shardloom")
+            .join("prepared.vortex.prepared-olap-state.d");
         assert!(
-            report
-                .aggregate_summary_manifest
-                .starts_with("sidecar|aggregate-summary-global-count|sha256:")
-        );
-        assert!(
-            report
-                .row_position_manifest
-                .starts_with("sidecar|row-position|sha256:")
-        );
-        assert!(
-            report
-                .dictionary_union_manifest
-                .starts_with("sidecar|dictionary-union-descriptor|sha256:")
-        );
-        let sidecar_dir =
-            vortex_prepared_olap_state_sidecar_dir(&target).expect("olap sidecar dir");
-        assert!(sidecar_dir.join("segment-map.manifest").exists());
-        assert!(
-            sidecar_dir
-                .join("aggregate-summary-global-count.manifest")
-                .exists()
-        );
-        assert!(sidecar_dir.join("row-position.manifest").exists());
-        assert!(
-            sidecar_dir
-                .join("dictionary-union-descriptor.manifest")
-                .exists()
+            !sidecar_dir.exists(),
+            "single-artifact prepared OLAP state must not create a .prepared-olap-state.d directory"
         );
 
-        let hit =
-            evaluate_vortex_prepared_olap_state_manifest(&request).expect("evaluate olap bundle");
+        let hit = evaluate_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("evaluate olap bundle");
         assert_eq!(hit.status, "prepared_olap_state_read_through_hit");
         assert_eq!(hit.blocker_id, "none");
+        assert_eq!(
+            hit.query_answer_sidecar_status,
+            VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS
+        );
         assert!(!hit.fallback_attempted);
         assert!(!hit.external_engine_invoked);
 
@@ -13054,15 +12943,14 @@ mod tests {
     }
 
     #[test]
-    fn prepared_olap_state_bundle_blocks_missing_sidecar() {
-        let root = temp_test_root("prepared-olap-sidecar-missing");
+    fn prepared_olap_state_bundle_rejects_then_clears_old_sidecar_request_fields() {
+        let root = temp_test_root("prepared-olap-clears-sidecar-fields");
         let source = root.join("source.parquet");
         let target = root.join("prepared.vortex");
         std::fs::write(&source, b"source bytes").expect("write source");
-        std::fs::write(&target, b"prepared vortex bytes").expect("write prepared artifact");
+        write_test_prepared_vortex_artifact(&target, 80);
         let source_digest = sha256_file_digest(&source, "test source").expect("source digest");
-        let manifest_path =
-            vortex_prepared_olap_state_manifest_path(&target).expect("olap manifest path");
+        let legacy_manifest_path = legacy_prepared_olap_state_manifest_path(&target);
         let request = VortexPreparedOlapStateWriteRequest::new_local(
             "source-state-hits",
             "sha256:source-state-digest",
@@ -13070,27 +12958,74 @@ mod tests {
             source_digest,
             12,
             "sha256:schema-digest",
-            100,
+            2,
             &target,
-            manifest_path,
+            &target,
         )
-        .expect("olap request");
-        write_vortex_prepared_olap_state_bundle(request.clone()).expect("write olap bundle");
-        let sidecar_dir =
-            vortex_prepared_olap_state_sidecar_dir(&target).expect("olap sidecar dir");
-        std::fs::remove_file(sidecar_dir.join("row-position.manifest")).expect("remove sidecar");
-
-        let decision = evaluate_vortex_prepared_olap_state_manifest(&request)
-            .expect("evaluate missing sidecar");
-
-        assert_eq!(decision.status, "blocked_prepared_olap_sidecar_invalid");
+        .expect("olap request")
+        .with_prepared_layout_policy(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY)
+        .with_segment_map_status(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS)
+        .with_substring_index_manifest("sidecar:old-query-summary")
+        .with_aggregate_summary_manifest("sidecar:old-aggregate-summary")
+        .with_row_position_manifest("sidecar:old-row-position")
+        .with_dictionary_union_manifest("sidecar:old-dictionary-union")
+        .with_derived_column_manifest("sidecar|derived_column|sha256:copied|copied.sidecar");
+        let blocked = publish_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("reject sidecar request");
         assert_eq!(
-            decision.blocker_id,
-            "prepared_olap_state.row_position_manifest.sidecar_missing"
+            blocked.status,
+            "blocked_query_answer_sidecar_not_public_runtime"
         );
         assert_eq!(
+            blocked.blocker_id,
+            "prepared_olap_state.query_answer_sidecar_not_public_runtime"
+        );
+        assert_eq!(
+            blocked.query_answer_sidecar_status,
+            "rejected_declared_query_answer_sidecar_not_public_runtime"
+        );
+        assert_eq!(
+            blocked.layout_inventory_status,
+            "opened_single_vortex_artifact_footer"
+        );
+
+        let report =
+            write_vortex_prepared_olap_state_bundle(request.clone()).expect("write olap bundle");
+
+        let still_blocked = evaluate_vortex_prepared_olap_single_artifact_state(&request)
+            .expect("evaluate original sidecar fields");
+        let sanitized_request = request
+            .clone()
+            .with_substring_index_manifest("none")
+            .with_aggregate_summary_manifest("none")
+            .with_row_position_manifest("none")
+            .with_dictionary_union_manifest("none")
+            .with_derived_column_manifest("none");
+        let decision = evaluate_vortex_prepared_olap_single_artifact_state(&sanitized_request)
+            .expect("evaluate cleared sidecar fields");
+
+        assert_eq!(report.status, "prepared_olap_state_ready");
+        assert!(!report.manifest_written);
+        assert!(!legacy_manifest_path.exists());
+        assert_eq!(report.exact_sidecar_family_count, 0);
+        assert_eq!(
+            report.query_answer_sidecar_status,
+            VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS
+        );
+        assert_eq!(
+            report.layout_inventory_status,
+            "opened_single_vortex_artifact_footer"
+        );
+        assert_eq!(
+            still_blocked.status,
+            "blocked_query_answer_sidecar_not_public_runtime"
+        );
+        assert_eq!(still_blocked.exact_sidecar_family_count, 5);
+        assert_eq!(decision.status, "prepared_olap_state_read_through_hit");
+        assert_eq!(decision.exact_sidecar_family_count, 0);
+        assert_eq!(
             decision.query_time_contract,
-            "not_admitted_for_prepared_olap_query_time"
+            VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT
         );
         assert!(!decision.fallback_attempted);
         assert!(!decision.external_engine_invoked);
@@ -13345,11 +13280,13 @@ mod tests {
             source_statistics_status: "local_source_file_stats_only".to_string(),
             requested_pushdown_requirements: "none_prepare_once".to_string(),
             sink_requirements: "workspace_safe_local_vortex_file_sink".to_string(),
-            layout_strategy: "single_local_vortex_artifact".to_string(),
-            chunking_strategy: "single_chunk_for_scoped_fixture".to_string(),
-            segmentation_strategy: "single_segment_fixture".to_string(),
-            dictionary_strategy: "writer_default_no_dictionary_claim".to_string(),
-            statistics_policy: "writer_default_statistics_no_pruning_claim".to_string(),
+            layout_strategy: "single_vortex_artifact_embedded_olap_layout_statistics".to_string(),
+            chunking_strategy: "upstream_vortex_writer_default_zoned_row_blocks".to_string(),
+            segmentation_strategy: "upstream_vortex_writer_default_zoned_segments".to_string(),
+            dictionary_strategy:
+                "preserve_vortex_dictionary_and_encoding_metadata_when_writer_emits_it".to_string(),
+            statistics_policy:
+                "preserve_vortex_layout_footer_statistics_for_metadata_pruning".to_string(),
             writer_provider_kind: "shardloom_kernel".to_string(),
             writer_provider_surface:
                 "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)"

@@ -1901,7 +1901,8 @@ class UserRouteCapabilityReport:
                     "source_state_digest",
                     "prepared_state_id",
                     "prepared_state_digest",
-                    "public_workflow_prepared_olap_state_consumed",
+                    "public_workflow_prepared_olap_state_attached",
+                    "public_workflow_prepared_olap_state_query_answer_sidecar_consumed",
                     "native_vortex_plan_route_family",
                     "native_vortex_operation_family",
                     "typed_result_contract",
@@ -2028,7 +2029,7 @@ class UserRouteCapabilityReport:
             PublicRouteReuseMatrixRow(
                 row_id="generated_source_prepared_vortex",
                 operation_family="generated_source_output",
-                public_surfaces=("Python", "DataFrame", "context", "session", "CLI"),
+                public_surfaces=generated.front_doors,
                 source_variants=("from_rows", "range", "literal_table", "source_free_sql"),
                 primary_route_id=generated.route_id,
                 alternate_route_ids=(),
