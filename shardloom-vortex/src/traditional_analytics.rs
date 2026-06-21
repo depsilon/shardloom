@@ -27193,13 +27193,23 @@ fn file_digest(path: &std::path::Path, label: &str) -> Result<String> {
 fn traditional_digest_from_workspace_write(
     report: &shardloom_core::WorkspaceSafeLocalWriteReport,
 ) -> Result<String> {
-    let digest = report.output_digest.strip_prefix("fnv64:").ok_or_else(|| {
-        ShardLoomError::InvalidOperation(format!(
-            "traditional analytics workspace-safe Vortex artifact digest '{}' used an unsupported algorithm label; no fallback execution was attempted",
-            report.output_digest
-        ))
-    })?;
-    Ok(format!("{OUTPUT_ARTIFACT_DIGEST_ALGORITHM}:{digest}"))
+    traditional_digest_from_workspace_output_digest(&report.output_digest)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_digest_from_workspace_output_digest(output_digest: &str) -> Result<String> {
+    if output_digest.starts_with("sha256:") {
+        return Ok(output_digest.to_string());
+    }
+    if output_digest.starts_with("fnv1a64:") {
+        return Ok(output_digest.to_string());
+    }
+    if let Some(digest) = output_digest.strip_prefix("fnv64:") {
+        return Ok(format!("{OUTPUT_ARTIFACT_DIGEST_ALGORITHM}:{digest}"));
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "traditional analytics workspace-safe Vortex artifact digest '{output_digest}' used an unsupported algorithm label; no fallback execution was attempted"
+    )))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -39214,6 +39224,27 @@ mod tests {
     #![allow(clippy::too_many_lines)]
 
     use super::*;
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn workspace_safe_writer_digest_accepts_sha256_prepared_artifacts() {
+        assert_eq!(
+            traditional_digest_from_workspace_output_digest("sha256:abc123")
+                .expect("sha256 digest accepted"),
+            "sha256:abc123"
+        );
+        assert_eq!(
+            traditional_digest_from_workspace_output_digest("fnv64:0000000000000001")
+                .expect("legacy fnv64 digest accepted"),
+            "fnv1a64:0000000000000001"
+        );
+        assert_eq!(
+            traditional_digest_from_workspace_output_digest("fnv1a64:0000000000000002")
+                .expect("canonical fnv1a64 digest accepted"),
+            "fnv1a64:0000000000000002"
+        );
+        assert!(traditional_digest_from_workspace_output_digest("md5:abc").is_err());
+    }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
