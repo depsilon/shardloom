@@ -7658,11 +7658,10 @@ fn execute_vortex_local_partitioned_primitive_enabled(
     let sources = partitioned_local_vortex_source_paths(source_uris, request.kind)?;
     match request.kind {
         VortexQueryPrimitiveKind::CountAll => {
-            let scan =
-                read_local_vortex_partitioned_scan(&sources, request.kind, policy, |_| {
-                    Ok(LocalVortexScanPlan::passthrough())
-                })?;
-            Ok(partitioned_report(count_all_report(request.kind, &scan), source_uris.len())?)
+            Ok(partitioned_report(
+                partitioned_count_all_metadata_report(&sources, policy)?,
+                source_uris.len(),
+            )?)
         }
         VortexQueryPrimitiveKind::CountWhere | VortexQueryPrimitiveKind::FilterPredicate => {
             let Some(predicate) = request.predicate.as_ref() else {
@@ -9556,53 +9555,75 @@ fn count_all_metadata_report(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn count_all_report(
-    primitive_kind: VortexQueryPrimitiveKind,
-    scan: &LocalVortexScan,
-) -> VortexLocalPrimitiveExecutionReport {
-    let rows = scan.source_row_count;
-    VortexLocalPrimitiveExecutionReport {
+fn partitioned_count_all_metadata_report(
+    sources: &[LocalVortexPartitionSource],
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let mut rows = 0_u64;
+    for source in sources {
+        let file = runtime
+            .block_on(session.open_options().open_path(&source.path))
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to open partitioned local Vortex target for count_all metadata: {error}"
+                ))
+            })?;
+        rows = rows.checked_add(file.row_count()).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "partitioned local Vortex count_all metadata row count overflowed u64; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+    }
+    Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::MetadataPreservingCount,
-        primitive_kind,
+        primitive_kind: VortexQueryPrimitiveKind::CountAll,
         result_summary: Some(rows.to_string()),
         rows_scanned: rows,
         rows_selected: Some(rows),
         rows_projected: None,
         projected_columns: Vec::new(),
-        arrays_read_count: scan.arrays_read_count,
-        reader_splits: scan.reader_splits.clone(),
-        reader_generated_prepared_batch_report: Some(
-            scan.reader_generated_prepared_batch_report.clone(),
-        ),
-        max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: true,
+        arrays_read_count: 0,
+        reader_splits: Vec::new(),
+        reader_generated_prepared_batch_report: None,
+        max_chunk_rows: 0,
+        streaming_scan_used: false,
         full_stream_collected: false,
-        max_parallelism_requested: scan.max_parallelism_requested,
-        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
-        filter_pushdown_applied: scan.filter_pushdown_applied,
-        projection_pushdown_applied: scan.projection_pushdown_applied,
-        upstream_filter_expression_used: scan.upstream_filter_expression_used(),
-        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        max_parallelism_requested: policy.max_parallelism,
+        scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+        filter_pushdown_applied: false,
+        projection_pushdown_applied: false,
+        upstream_filter_expression_used: false,
+        upstream_projection_expression_used: false,
         source_order_limit_requested: None,
         source_order_limit_applied: false,
         source_order_limit_input_rows: None,
         source_order_limit_rows_output: None,
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
-        data_read: true,
-        data_decoded: scan.residual_predicate_materialized(),
-        data_materialized: scan.residual_predicate_materialized(),
-        upstream_scan_called: true,
-        row_read: scan.residual_predicate_materialized(),
+        data_read: false,
+        data_decoded: false,
+        data_materialized: false,
+        upstream_scan_called: false,
+        row_read: false,
         arrow_converted: false,
         object_store_io: false,
         write_io: false,
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: scan.residual_predicate_materialized(),
+        materialization_boundary_reported: false,
         diagnostics: Vec::new(),
-    }
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -22637,14 +22658,22 @@ mod tests {
         assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::CountAll);
         assert_eq!(report.rows_scanned, 10);
         assert_eq!(report.rows_selected, Some(10));
-        assert_eq!(report.reader_splits.len(), 2);
-        assert!(report.streaming_scan_used);
-        assert!(report.upstream_scan_called);
-        assert!(report.data_read);
+        assert_eq!(report.reader_splits.len(), 0);
+        assert_eq!(report.arrays_read_count, 0);
+        assert_eq!(report.max_chunk_rows, 0);
+        assert!(!report.streaming_scan_used);
+        assert!(!report.upstream_scan_called);
+        assert!(!report.data_read);
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_execution_allowed);
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        assert!(
+            certificate.is_certified(),
+            "partitioned metadata count should certify as native Vortex metadata I/O without a scan"
+        );
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("partitioned_vortex_sources=2"));
         assert!(summary.contains("partitioned_execution_strategy=sequential_capillary_parts"));
