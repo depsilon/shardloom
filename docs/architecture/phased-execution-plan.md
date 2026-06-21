@@ -258,6 +258,28 @@ Current autonomous execution order:
       capillary bounded-sort retention, direct UTF-8 contains counts for `COUNT WHERE`, residual
       materialization evidence, and functional-dependency group-key pruning for deterministic
       offset-derived group expressions.
+    - [x] Resolve post-merge route/evidence correctness findings before the next rebuild or UAT
+      pass so runtime optimizations cannot over-report native/no-decode posture:
+      - [x] Certify metadata-only `count_all` as a native Vortex metadata route without requiring a
+        scan/read/streaming flag, while preserving `data_read=false`, `data_decoded=false`, and
+        no-fallback evidence.
+      - [x] Keep UTF-8 `COUNT WHERE contains` in the no-decode fast path only for host
+        `VarBinView` arrays; encoded/dictionary layouts must use encoded kernels or materialized
+        evidence instead of silently executing to decoded UTF-8 while reporting no decode.
+      - [x] Disable wide-output late materialization for sort rows when Vortex predicate pushdown
+        already changed source ordinals, so selected ordinals cannot be applied to the unfiltered
+        source.
+      - [x] Reject grouped aggregate `HAVING`/`ORDER BY` references to missing output columns with a
+        deterministic diagnostic instead of comparing JSON nulls.
+      - [x] Route empty streaming columnar Vortex writes through the empty writer path so layout
+        advisor/provider evidence stays consistent with the actual writer.
+      - [x] Keep streaming public-preparation SourceState digests stable between prewrite layout
+        planning and postwrite evidence while still recording observed row/batch counts.
+      - [x] Validate the rewritten native route before public prepare-once run artifacts are
+        created, so blocked routes cannot produce `.vortex` side effects before failing.
+      - [x] Keep mixed-predicate `contains` residuals native after Vortex pushdown by combining
+        Vortex `Filter` masks with encoded/FSST string-kernel matches, preserving compact filtered
+        row ordinals and no-decode evidence for ClickBench-style URL search predicates.
     - [ ] Re-verify the public-route invariant for every optimized row: compatibility inputs are
       source adapters only, `auto` and explicit native routes normalize into an admitted
       Vortex-prepared/native middle, direct local diagnostic paths remain internal safeguards, and
@@ -276,6 +298,9 @@ Current autonomous execution order:
       - [x] Add capillary ordered-candidate selection for grouped top-K/offset finalization so
         ordered aggregate routes retain only the required candidate window before final sort and
         row materialization.
+      - [x] Add a direct count-star grouped update path for high-cardinality native Vortex aggregate
+        routes, with typed primitive/string identity key extraction, count-state updates that bypass
+        generic row-state evaluation, and `count_star_direct_group_update` evidence.
     - [ ] Implement dictionary/string-aware group-by and exact distinct improvements for `CB-Q05`,
       `CB-Q06`, `CB-Q09`, `CB-Q10`, `CB-Q11`, `CB-Q12`, `CB-Q13`, `CB-Q14`, `CB-Q15`, `CB-Q22`,
       `CB-Q34`, and `CB-Q35`: group by dictionary/code IDs where available, keep distinct state
@@ -286,6 +311,9 @@ Current autonomous execution order:
         `ORDER BY`; source-order limited output now stops once the requested groups are emitted.
       - [x] Add a single-key grouped aggregate fast path for identity, UTF-8 length, and URL-domain
         transformed keys so common string-group profiles avoid generic row-key string formatting.
+      - [x] Replace ordered row-key distinct/duplicate state with hash-backed state where output
+        order is already scan-order controlled, preserving deterministic row output while reducing
+        state-update cost for exact-distinct and duplicate-mask families.
     - [ ] Implement faster string predicate and URL expression kernels for `CB-Q21`, `CB-Q22`,
       `CB-Q23`, `CB-Q24`, `CB-Q28`, and `CB-Q29`: byte-level contains for `LIKE '%literal%'`,
       shared positive/negative string predicate evaluation, string length without full decode where
@@ -300,11 +328,23 @@ Current autonomous execution order:
       - [x] Keep ClickBench string expression transforms (`length`, URL-domain extraction, minute
         extraction/truncation, and scoped CASE expression grouping) inside the shared native
         aggregate transform registry rather than a parallel benchmark-only evaluator.
+      - [x] Add capillary selected-row candidate masks for sparse UTF-8 residual predicates, including
+        `AND` predicates with a fast string child, so aggregate and sort routes materialize only
+        candidate rows before final predicate evaluation.
+      - [x] Route file-scan FSST UTF-8 contains predicates through Vortex's FSST DFA `LIKE` kernel for
+        count and selected-row masks, with escaped literal patterns and nullable/unsupported shapes
+        still falling back to explicit materialized ShardLoom evaluation evidence.
     - [ ] Implement bounded sort/materialization improvements for `CB-Q24`, `CB-Q25`, `CB-Q26`,
       `CB-Q27`, `CB-Q40`, and `CB-Q41`: top-N/offset heaps, projection-aware row materialization,
       late payload decode, and deterministic ordering/tie fields.
       - [x] Replace tiny per-chunk truncation with a capillary retention window so bounded top-K
         sort routes reduce repeated resort/truncate work while preserving deterministic ties.
+      - [x] Preserve original scan ordinals while using selected-row predicate masks for bounded
+        sort/top-N, so wide-output late materialization stays correct without full payload decode.
+      - [x] For wide-output top-N with predicates, keep the first pass narrow by evaluating the
+        predicate as a ShardLoom residual over predicate/order columns, preserve source ordinals, and
+        reopen only retained rows for final payload materialization; apply the same strategy to
+        partitioned local Vortex sources.
     - [ ] Apply PulseWeave work shaping in the optimized routes: record `FlowInventory`-style
       source/execution/writer work, `ScarcityLedger` memory/decode/sink pressure, `EndoPulse`
       run-local feedback, and `ProofBound` evidence so adaptive behavior remains certificate-gated.
@@ -314,6 +354,9 @@ Current autonomous execution order:
       no-fallback evidence for ingest/prep/execution/output units.
       - [x] Record capillary retention and ordered-candidate work units for bounded sort and grouped
         ordered aggregate routes, including retained candidate counts and pressure signals.
+      - [x] Record direct count-star grouped-update and wide-output second-pass work-shaping
+        evidence so local UAT rows can distinguish rows scanned, rows selected, and rows actually
+        materialized for output.
       - [x] Preserve direct non-null Vortex dictionary/run-end kernel admission while blocking
         nullable encoded layouts from being silently decoded into reader-generated kernel inputs.
     - [ ] Apply dynamic work shaping without route proliferation: coalesce small units when
@@ -335,6 +378,9 @@ Current autonomous execution order:
         `candidate_groups`, and `retained_candidate_groups`.
       - [x] Add/verify metadata-only count evidence so local engine count routes do not report data
         reads when the route answered from Vortex file row-count metadata.
+      - [x] Add/verify PulseWeave evidence for hash-backed row-key state and sparse selected-row
+        materialization so large local runs can distinguish source rows scanned from decoded rows
+        materialized.
     - [ ] Preserve timing-surface discipline in route output and refreshed artifacts: hot runtime,
       replay proof, and publication proof remain separate, and no evidence render/result-sink work
       is folded into a query-runtime claim.
@@ -349,6 +395,8 @@ Current autonomous execution order:
         conjuncts while UTF-8 residual predicates stay ShardLoom-owned and evidence-backed.
       - [x] Add/regression-fix fixtures for nullable dictionary/run-end encoded input blocking,
         bounded row-export observed-count semantics, and metadata-only count evidence.
+      - [x] Add focused fixtures for direct count-star grouped updates, wide-output sort predicate
+        source-ordinal preservation, and partitioned wide-output second-pass materialization.
     - [ ] Rerun targeted local 100M UAT for the affected rows under the 180-second cap, then rerun
       the full 43-query native Vortex UAT only after targeted rows no longer timeout or regress.
     - [ ] Update README/docs/capability reports only from the admitted runtime evidence; move the

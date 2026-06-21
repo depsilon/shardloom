@@ -5827,16 +5827,6 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
 
     let source_shape = validate_flat_columnar_stream_source_shape(&request.source)?;
     let column_families = columnar_column_families_from_schema(&source_shape)?;
-    let expected_provider_kind = "vortex_array_kernel";
-    let expected_provider_surface = "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator";
-    let layout_write_decision = admit_layout_write_runtime_decision(
-        request.layout_write_advisor.as_ref(),
-        expected_provider_kind,
-        expected_provider_surface,
-        &request.target_path,
-        request.certification_level,
-    )?;
-    prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let mut capillary_prewrite_control =
         plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
     capillary_prewrite_control
@@ -5876,6 +5866,16 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         &source_shape,
         1,
     )?;
+    let expected_provider_kind = "vortex_array_kernel";
+    let expected_provider_surface = "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator";
+    let layout_write_decision = admit_layout_write_runtime_decision(
+        request.layout_write_advisor.as_ref(),
+        expected_provider_kind,
+        expected_provider_surface,
+        &request.target_path,
+        request.certification_level,
+    )?;
+    prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let first_array = record_batch_to_vortex_from_arrow_provider(&first_batch, &source_shape)?;
     let dtype = first_array.dtype().clone();
     let batch_count = Arc::new(AtomicUsize::new(1));
@@ -9565,6 +9565,93 @@ mod tests {
             "no_scalar_row_decode_for_streamed_batches"
         );
         assert_eq!(report.column_family_summary(), "id:int64,label:utf8");
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_empty_flat_columnar_stream_source_uses_empty_writer_provider() {
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        use arrow_array::RecordBatch;
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl arrow_array::RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-empty-columnar-stream-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "label".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("label", DataType::Utf8, false),
+        ]));
+        let reader = TestRecordBatchReader {
+            schema,
+            batches: VecDeque::new(),
+        };
+        let source = FlatLocalColumnarStreamSource {
+            header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(DataType::Utf8)],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            row_count_hint: Some(0),
+            record_batch_count_hint: Some(0),
+            reader: Box::new(reader),
+        };
+        let mut advisor_input = layout_advisor_input(true, "none");
+        advisor_input.row_count = 0;
+        advisor_input.writer_provider_kind = "shardloom_kernel".to_string();
+        advisor_input.writer_provider_surface =
+            "shardloom_empty_columnar_struct_builder;VortexSession::write_options().write(ArrayStream)"
+                .to_string();
+        advisor_input.materialization_boundary_status =
+            "empty_columnar_source_state_preserved_to_vortex_struct".to_string();
+        advisor_input.decode_boundary_status =
+            "no_scalar_row_decode_for_empty_columnar_source".to_string();
+        let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
+            .layout_write_advisor(advisor)
+            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 0, 0));
+
+        let report =
+            write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
+
+        assert_eq!(report.row_count, 0);
+        assert_eq!(report.reopen_row_count, 0);
+        assert_eq!(report.array_build_record_batch_count, 0);
+        assert_eq!(report.array_build_provider_kind, "shardloom_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "shardloom_empty_columnar_struct_builder"
+        );
+        assert_eq!(
+            report.preparation_spine.source_surface,
+            "local_columnar_source_state_arrow_record_batches"
+        );
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }

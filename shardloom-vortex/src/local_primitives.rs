@@ -983,7 +983,7 @@ fn local_primitive_native_io_safe(
     request: &VortexQueryPrimitiveRequest,
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> bool {
-    request.kind == report.primitive_kind
+    let common_safe = request.kind == report.primitive_kind
         && request.diagnostics.iter().all(|diagnostic| {
             !matches!(
                 diagnostic.severity,
@@ -991,13 +991,26 @@ fn local_primitive_native_io_safe(
             ) && !diagnostic.fallback.attempted
         })
         && report.status == VortexLocalPrimitiveExecutionStatus::Executed
-        && report.upstream_scan_called
-        && report.data_read
-        && report.streaming_scan_used
         && (!report.full_stream_collected || local_primitive_materialization_declared(report))
         && local_primitive_row_count(report).is_some()
         && local_primitive_pushdown_evidence_is_sufficient(report)
-        && !local_primitive_unsafe_effect_detected(report)
+        && !local_primitive_unsafe_effect_detected(report);
+    if !common_safe {
+        return false;
+    }
+    if request.kind == VortexQueryPrimitiveKind::CountAll
+        && report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingCount
+    {
+        return !report.upstream_scan_called
+            && !report.data_read
+            && !report.streaming_scan_used
+            && !report.data_decoded
+            && !report.data_materialized
+            && !report.row_read
+            && !report.arrow_converted
+            && !report.full_stream_collected;
+    }
+    report.upstream_scan_called && report.data_read && report.streaming_scan_used
 }
 
 fn local_primitive_pushdown_evidence_is_sufficient(
@@ -2135,13 +2148,13 @@ fn execute_vortex_local_primitive_row_export_enabled(
         let mut arrays_read_count = 0usize;
         let mut max_chunk_rows = 0usize;
         let distinct_requested = request.kind == VortexQueryPrimitiveKind::DistinctRows;
-        let mut distinct_keys = std::collections::BTreeSet::new();
-        let mut duplicate_keys = std::collections::BTreeSet::new();
+        let mut distinct_keys = std::collections::HashSet::new();
+        let mut duplicate_keys = std::collections::HashSet::new();
         let duplicate_keep = request.duplicate_keep;
         let duplicate_needs_full_scan =
             duplicate_mask_requested && duplicate_keep != VortexDuplicateKeepPolicy::First;
-        let mut duplicate_counts = std::collections::BTreeMap::<String, usize>::new();
-        let mut duplicate_last_positions = std::collections::BTreeMap::<String, usize>::new();
+        let mut duplicate_counts = std::collections::HashMap::<String, usize>::new();
+        let mut duplicate_last_positions = std::collections::HashMap::<String, usize>::new();
         let mut duplicate_output_keys = Vec::<(usize, String)>::new();
         let mut duplicate_global_index = 0usize;
         let drop_duplicate_key_columns = if drop_duplicate_requested {
@@ -2149,9 +2162,9 @@ fn execute_vortex_local_primitive_row_export_enabled(
         } else {
             Vec::new()
         };
-        let mut drop_duplicate_counts = std::collections::BTreeMap::<String, usize>::new();
-        let mut drop_duplicate_first_positions = std::collections::BTreeMap::<String, usize>::new();
-        let mut drop_duplicate_last_positions = std::collections::BTreeMap::<String, usize>::new();
+        let mut drop_duplicate_counts = std::collections::HashMap::<String, usize>::new();
+        let mut drop_duplicate_first_positions = std::collections::HashMap::<String, usize>::new();
+        let mut drop_duplicate_last_positions = std::collections::HashMap::<String, usize>::new();
         let mut drop_duplicate_rows = Vec::<(usize, String, Vec<StatValue>)>::new();
         let mut drop_duplicate_global_index = 0usize;
         let tail_requested = request.kind == VortexQueryPrimitiveKind::TailRows;
@@ -4035,6 +4048,47 @@ fn row_export_columns_from_chunk(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn row_export_selected_columns_from_chunk(
+    chunk: &vortex::array::ArrayRef,
+    declared_columns: &[String],
+    row_indices: &[usize],
+) -> Result<Vec<Vec<StatValue>>> {
+    let mut out = Vec::with_capacity(declared_columns.len());
+    if chunk.dtype().is_struct() {
+        let children = chunk
+            .named_children()
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for column in declared_columns {
+            let Some(array) = children.get(column.as_str()) else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Vortex selected row export column '{column}' was not present in scanned chunk; no fallback execution was attempted"
+                )));
+            };
+            out.push(row_export_selected_values_from_vortex_array(
+                column,
+                array,
+                row_indices,
+            )?);
+        }
+    } else {
+        let column = declared_columns.first().map_or("value", String::as_str);
+        out.push(row_export_selected_values_from_vortex_array(
+            column,
+            chunk,
+            row_indices,
+        )?);
+    }
+    if out.iter().any(|values| values.len() != row_indices.len()) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex selected row export scanned columns had mismatched row counts; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn row_export_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
@@ -4042,6 +4096,19 @@ fn row_export_values_from_vortex_array(
     stat_values_from_vortex_array(array).ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
             "local Vortex row export column '{column}' has unsupported dtype or nullable validity for scoped JSONL/CSV export; no fallback execution was attempted"
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn row_export_selected_values_from_vortex_array(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+    row_indices: &[usize],
+) -> Result<Vec<StatValue>> {
+    selected_stat_values_from_vortex_array(array, row_indices).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex selected row export column '{column}' has unsupported dtype or nullable validity for scoped selected materialization; no fallback execution was attempted"
         ))
     })
 }
@@ -6194,6 +6261,51 @@ impl MaterializedPredicateEvaluator {
         }
     }
 
+    fn fast_candidate_row_indices_in_chunk(
+        &self,
+        chunk: &vortex::array::ArrayRef,
+        columns: &[String],
+    ) -> Result<Option<Vec<usize>>> {
+        match self {
+            Self::AlwaysTrue => Ok(Some((0..chunk.len()).collect())),
+            Self::StringContains {
+                column_index,
+                needle,
+                negated,
+                ..
+            } => fast_utf8_contains_row_indices_from_chunk(
+                chunk,
+                columns,
+                *column_index,
+                needle,
+                *negated,
+            ),
+            Self::And(predicates) => {
+                let mut candidates = None::<Vec<usize>>;
+                for predicate in predicates {
+                    let Some(row_indices) =
+                        predicate.fast_candidate_row_indices_in_chunk(chunk, columns)?
+                    else {
+                        continue;
+                    };
+                    candidates = Some(match candidates {
+                        None => row_indices,
+                        Some(existing) => intersect_sorted_row_indices(&existing, &row_indices),
+                    });
+                    if candidates.as_ref().is_some_and(Vec::is_empty) {
+                        break;
+                    }
+                }
+                Ok(candidates)
+            }
+            Self::AlwaysFalse
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::Compare { .. }
+            | Self::InList { .. } => Ok(None),
+        }
+    }
+
     fn matches(&self, columns: &[Vec<StatValue>], row_index: usize) -> Result<bool> {
         match self {
             Self::AlwaysTrue => Ok(true),
@@ -6250,6 +6362,47 @@ impl MaterializedPredicateEvaluator {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn intersect_sorted_row_indices(left: &[usize], right: &[usize]) -> Vec<usize> {
+    let mut out = Vec::with_capacity(left.len().min(right.len()));
+    let mut left_index = 0usize;
+    let mut right_index = 0usize;
+    while let (Some(&left_value), Some(&right_value)) =
+        (left.get(left_index), right.get(right_index))
+    {
+        match left_value.cmp(&right_value) {
+            std::cmp::Ordering::Less => left_index += 1,
+            std::cmp::Ordering::Equal => {
+                out.push(left_value);
+                left_index += 1;
+                right_index += 1;
+            }
+            std::cmp::Ordering::Greater => right_index += 1,
+        }
+    }
+    out
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn projected_array_from_chunk(
+    chunk: &vortex::array::ArrayRef,
+    columns: &[String],
+    column_index: usize,
+) -> Option<vortex::array::ArrayRef> {
+    let column = columns.get(column_index)?;
+    if chunk.dtype().is_struct() {
+        let children = chunk
+            .named_children()
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        children.get(column.as_str()).cloned()
+    } else if column_index == 0 {
+        Some(chunk.clone())
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn fast_utf8_contains_count_from_chunk(
     chunk: &vortex::array::ArrayRef,
     columns: &[String],
@@ -6257,45 +6410,66 @@ fn fast_utf8_contains_count_from_chunk(
     needle: &str,
     negated: bool,
 ) -> Result<Option<usize>> {
-    use vortex::array::VortexSessionExecute as _;
-    use vortex::array::arrays::VarBinViewArray;
-    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
-
-    let Some(column) = columns.get(column_index) else {
-        return Ok(None);
-    };
-    let target = if chunk.dtype().is_struct() {
-        let children = chunk
-            .named_children()
-            .into_iter()
-            .collect::<std::collections::BTreeMap<_, _>>();
-        let Some(array) = children.get(column.as_str()) else {
-            return Ok(None);
-        };
-        array.clone()
-    } else if column_index == 0 {
-        chunk.clone()
-    } else {
+    let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
     };
     if !matches!(target.dtype(), vortex::array::dtype::DType::Utf8(_)) {
         return Ok(None);
     }
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
-    let utf8 = target
-        .clone()
-        .execute::<VarBinViewArray>(&mut ctx)
-        .map_err(vortex_error)?;
-    let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    fast_utf8_contains_count_from_array(&target, needle, negated)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_count_from_array(
+    target: &vortex::array::ArrayRef,
+    needle: &str,
+    negated: bool,
+) -> Result<Option<usize>> {
+    use vortex::array::arrays::Chunked;
+    use vortex::array::arrays::Filter;
+    use vortex::array::arrays::chunked::ChunkedArrayExt as _;
+    use vortex::array::arrays::varbinview::VarBinView;
+    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
+    use vortex::array::validity::Validity;
+
+    if let Some(filter) = target.as_opt::<Filter>() {
+        return fast_utf8_contains_count_from_filtered_array(filter, needle, negated);
+    }
+    if let Some(chunked) = target.as_opt::<Chunked>() {
+        let mut selected = 0usize;
+        for child in chunked.iter_chunks() {
+            let Some(child_selected) = fast_utf8_contains_count_from_array(child, needle, negated)?
+            else {
+                return Ok(None);
+            };
+            selected = selected.checked_add(child_selected).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex chunked UTF-8 contains selected row count overflowed usize"
+                        .to_string(),
+                )
+            })?;
+        }
+        return Ok(Some(selected));
+    }
+    if let Some(selected) = fast_utf8_contains_count_from_fsst_array(target, needle, negated)? {
+        return Ok(Some(selected));
+    }
+    if let Some(selected) = fast_utf8_contains_count_from_dictionary_array(target, needle, negated)?
+    {
+        return Ok(Some(selected));
+    }
+    if !target.is_host() {
+        return Ok(None);
+    }
+    let Some(utf8) = target.as_opt::<VarBinView>() else {
+        return Ok(None);
+    };
+    match utf8.varbinview_validity() {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return Ok(None),
+    }
     let mut selected = 0usize;
     for index in 0..utf8.len() {
-        if !validity
-            .execute_is_valid(index, &mut validity_ctx)
-            .map_err(vortex_error)?
-        {
-            return Ok(None);
-        }
         let bytes = utf8.bytes_at(index);
         let Some(value) = std::str::from_utf8(bytes.as_slice()).ok() else {
             return Ok(None);
@@ -6308,6 +6482,386 @@ fn fast_utf8_contains_count_from_chunk(
                         .to_string(),
                 )
             })?;
+        }
+    }
+    Ok(Some(selected))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_row_indices_from_chunk(
+    chunk: &vortex::array::ArrayRef,
+    columns: &[String],
+    column_index: usize,
+    needle: &str,
+    negated: bool,
+) -> Result<Option<Vec<usize>>> {
+    let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
+        return Ok(None);
+    };
+    if !matches!(target.dtype(), vortex::array::dtype::DType::Utf8(_)) {
+        return Ok(None);
+    }
+    fast_utf8_contains_row_indices_from_array(&target, needle, negated, 0)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_row_indices_from_array(
+    target: &vortex::array::ArrayRef,
+    needle: &str,
+    negated: bool,
+    base_offset: usize,
+) -> Result<Option<Vec<usize>>> {
+    use vortex::array::arrays::Chunked;
+    use vortex::array::arrays::Filter;
+    use vortex::array::arrays::chunked::ChunkedArrayExt as _;
+    use vortex::array::arrays::varbinview::VarBinView;
+    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
+    use vortex::array::validity::Validity;
+
+    if let Some(filter) = target.as_opt::<Filter>() {
+        return fast_utf8_contains_row_indices_from_filtered_array(
+            filter,
+            needle,
+            negated,
+            base_offset,
+        );
+    }
+    if let Some(chunked) = target.as_opt::<Chunked>() {
+        let mut selected = Vec::new();
+        let mut offset = base_offset;
+        for child in chunked.iter_chunks() {
+            let Some(child_indices) =
+                fast_utf8_contains_row_indices_from_array(child, needle, negated, offset)?
+            else {
+                return Ok(None);
+            };
+            selected.extend(child_indices);
+            offset = offset.checked_add(child.len()).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex chunked UTF-8 contains row offset overflowed usize".to_string(),
+                )
+            })?;
+        }
+        return Ok(Some(selected));
+    }
+    if let Some(indices) =
+        fast_utf8_contains_row_indices_from_fsst_array(target, needle, negated, base_offset)?
+    {
+        return Ok(Some(indices));
+    }
+    if let Some(indices) =
+        fast_utf8_contains_row_indices_from_dictionary_array(target, needle, negated)?
+    {
+        return add_row_index_offset(indices, base_offset).map(Some);
+    }
+    if !target.is_host() {
+        return Ok(None);
+    }
+    let Some(utf8) = target.as_opt::<VarBinView>() else {
+        return Ok(None);
+    };
+    match utf8.varbinview_validity() {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return Ok(None),
+    }
+    let mut selected = Vec::new();
+    for index in 0..utf8.len() {
+        let bytes = utf8.bytes_at(index);
+        let Some(value) = std::str::from_utf8(bytes.as_slice()).ok() else {
+            return Ok(None);
+        };
+        let matched = value.contains(needle);
+        if matched != negated {
+            selected.push(base_offset.checked_add(index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex UTF-8 contains row index overflowed usize".to_string(),
+                )
+            })?);
+        }
+    }
+    Ok(Some(selected))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_count_from_filtered_array(
+    filter: vortex::array::ArrayView<'_, vortex::array::arrays::Filter>,
+    needle: &str,
+    negated: bool,
+) -> Result<Option<usize>> {
+    use vortex::array::arrays::filter::FilterArrayExt as _;
+
+    let mask = filter.filter_mask();
+    let Some(child_indices) =
+        fast_utf8_contains_row_indices_from_array(filter.child(), needle, negated, 0)?
+    else {
+        return Ok(None);
+    };
+    let mut selected = 0usize;
+    for child_index in child_indices {
+        if child_index >= mask.len() {
+            return Ok(None);
+        }
+        if mask.value(child_index) {
+            selected = selected.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex filtered UTF-8 contains selected row count overflowed usize"
+                        .to_string(),
+                )
+            })?;
+        }
+    }
+    Ok(Some(selected))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_row_indices_from_filtered_array(
+    filter: vortex::array::ArrayView<'_, vortex::array::arrays::Filter>,
+    needle: &str,
+    negated: bool,
+    base_offset: usize,
+) -> Result<Option<Vec<usize>>> {
+    use vortex::array::arrays::filter::FilterArrayExt as _;
+
+    let mask = filter.filter_mask();
+    let Some(child_indices) =
+        fast_utf8_contains_row_indices_from_array(filter.child(), needle, negated, 0)?
+    else {
+        return Ok(None);
+    };
+    let mut child_indices = child_indices.into_iter().peekable();
+    let mut filtered_row_index = 0usize;
+    let mut selected = Vec::new();
+    for (source_row_index, mask_selected) in mask.iter().enumerate() {
+        while child_indices
+            .peek()
+            .is_some_and(|child_index| *child_index < source_row_index)
+        {
+            child_indices.next();
+        }
+        let child_matched = child_indices
+            .peek()
+            .is_some_and(|child_index| *child_index == source_row_index);
+        if child_matched && mask_selected {
+            selected.push(base_offset.checked_add(filtered_row_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex filtered UTF-8 contains row index overflowed usize".to_string(),
+                )
+            })?);
+        }
+        if child_matched {
+            child_indices.next();
+        }
+        if mask_selected {
+            filtered_row_index = filtered_row_index.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex filtered UTF-8 contains filtered row index overflowed usize"
+                        .to_string(),
+                )
+            })?;
+        }
+    }
+    if child_indices.next().is_some() {
+        return Ok(None);
+    }
+    Ok(Some(selected))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn add_row_index_offset(mut row_indices: Vec<usize>, base_offset: usize) -> Result<Vec<usize>> {
+    if base_offset == 0 {
+        return Ok(row_indices);
+    }
+    for row_index in &mut row_indices {
+        *row_index = row_index.checked_add(base_offset).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex row index offset overflowed usize".to_string(),
+            )
+        })?;
+    }
+    Ok(row_indices)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_count_from_fsst_array(
+    array: &vortex::array::ArrayRef,
+    needle: &str,
+    negated: bool,
+) -> Result<Option<usize>> {
+    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated)? else {
+        return Ok(None);
+    };
+    Ok(Some(matches.into_iter().filter(|matched| *matched).count()))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_row_indices_from_fsst_array(
+    array: &vortex::array::ArrayRef,
+    needle: &str,
+    negated: bool,
+    base_offset: usize,
+) -> Result<Option<Vec<usize>>> {
+    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated)? else {
+        return Ok(None);
+    };
+    matches
+        .into_iter()
+        .enumerate()
+        .filter(|(_index, matched)| *matched)
+        .map(|(index, _matched)| {
+            base_offset.checked_add(index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex FSST UTF-8 contains row index overflowed usize".to_string(),
+                )
+            })
+        })
+        .collect::<Result<Vec<_>>>()
+        .map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_fsst_matches(
+    array: &vortex::array::ArrayRef,
+    needle: &str,
+    negated: bool,
+) -> Result<Option<Vec<bool>>> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::ConstantArray;
+    use vortex::array::arrays::bool::BoolArrayExt as _;
+    use vortex::array::scalar_fn::fns::like::{LikeKernel, LikeOptions};
+    use vortex::array::validity::Validity;
+
+    let Some(fsst) = array.as_opt::<vortex::encodings::fsst::FSST>() else {
+        return Ok(None);
+    };
+    let pattern = contains_literal_like_pattern(needle);
+    let pattern = ConstantArray::new(pattern.as_str(), array.len()).into_array();
+    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let Some(result) = <vortex::encodings::fsst::FSST as LikeKernel>::like(
+        fsst,
+        &pattern,
+        LikeOptions {
+            negated,
+            case_insensitive: false,
+        },
+        &mut ctx,
+    )
+    .map_err(vortex_error)?
+    else {
+        return Ok(None);
+    };
+    let Some(mask) = result.as_opt::<vortex::array::arrays::Bool>() else {
+        return Ok(None);
+    };
+    match mask.validity().map_err(vortex_error)? {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return Ok(None),
+    }
+    Ok(Some(mask.to_bit_buffer().iter().take(mask.len()).collect()))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn contains_literal_like_pattern(needle: &str) -> String {
+    let mut pattern = String::with_capacity(needle.len() + 2);
+    pattern.push('%');
+    for ch in needle.chars() {
+        if matches!(ch, '%' | '_' | '\\') {
+            pattern.push('\\');
+        }
+        pattern.push(ch);
+    }
+    pattern.push('%');
+    pattern
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_count_from_dictionary_array(
+    array: &vortex::array::ArrayRef,
+    needle: &str,
+    negated: bool,
+) -> Result<Option<usize>> {
+    use vortex::array::arrays::dict::DictArraySlotsExt as _;
+
+    let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
+        return Ok(None);
+    };
+    let Some(dictionary) =
+        direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())
+    else {
+        return Ok(None);
+    };
+    let mut dictionary_matches = Vec::with_capacity(dictionary.len());
+    for value in dictionary {
+        let StatValue::Utf8(text) = value else {
+            return Ok(None);
+        };
+        let matched = text.contains(needle);
+        dictionary_matches.push(if negated { !matched } else { matched });
+    }
+    let Some(codes) = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())
+    else {
+        return Ok(None);
+    };
+    let mut selected = 0usize;
+    for code in codes {
+        let Some(&matched) = dictionary_matches.get(usize::try_from(code).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "local Vortex dictionary code overflowed usize during UTF-8 contains count: {error}"
+            ))
+        })?) else {
+            return Ok(None);
+        };
+        if matched {
+            selected = selected.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex dictionary UTF-8 contains selected row count overflowed usize"
+                        .to_string(),
+                )
+            })?;
+        }
+    }
+    Ok(Some(selected))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn fast_utf8_contains_row_indices_from_dictionary_array(
+    array: &vortex::array::ArrayRef,
+    needle: &str,
+    negated: bool,
+) -> Result<Option<Vec<usize>>> {
+    use vortex::array::arrays::dict::DictArraySlotsExt as _;
+
+    let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
+        return Ok(None);
+    };
+    let Some(dictionary) =
+        direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())
+    else {
+        return Ok(None);
+    };
+    let mut dictionary_matches = Vec::with_capacity(dictionary.len());
+    for value in dictionary {
+        let StatValue::Utf8(text) = value else {
+            return Ok(None);
+        };
+        let matched = text.contains(needle);
+        dictionary_matches.push(if negated { !matched } else { matched });
+    }
+    let Some(codes) = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())
+    else {
+        return Ok(None);
+    };
+    let mut selected = Vec::new();
+    for (row_index, code) in codes.into_iter().enumerate() {
+        let Some(&matched) = dictionary_matches.get(usize::try_from(code).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "local Vortex dictionary code overflowed usize during UTF-8 contains row selection: {error}"
+            ))
+        })?) else {
+            return Ok(None);
+        };
+        if matched {
+            selected.push(row_index);
         }
     }
     Ok(Some(selected))
@@ -6452,7 +7006,7 @@ fn coerce_rewrite_value_for_column(
 #[cfg(feature = "vortex-local-primitives")]
 fn distinct_row_indices(
     row_key_columns: &[Vec<String>],
-    seen: &mut std::collections::BTreeSet<String>,
+    seen: &mut std::collections::HashSet<String>,
     remaining_limit: Option<usize>,
 ) -> Result<Vec<usize>> {
     let Some(row_count) = row_key_columns.first().map(Vec::len) else {
@@ -6477,7 +7031,7 @@ fn distinct_row_indices(
 #[cfg(feature = "vortex-local-primitives")]
 fn duplicate_mask_values(
     row_key_columns: &[Vec<String>],
-    seen: &mut std::collections::BTreeSet<String>,
+    seen: &mut std::collections::HashSet<String>,
     rows: usize,
 ) -> Result<Vec<StatValue>> {
     let available_rows = row_key_materialized_row_count(row_key_columns)?;
@@ -6515,8 +7069,8 @@ fn row_key_materialized_row_count(row_key_columns: &[Vec<String>]) -> Result<usi
 #[cfg(feature = "vortex-local-primitives")]
 fn duplicate_mask_values_from_policy(
     output_keys: &[(usize, String)],
-    counts: &std::collections::BTreeMap<String, usize>,
-    last_positions: &std::collections::BTreeMap<String, usize>,
+    counts: &std::collections::HashMap<String, usize>,
+    last_positions: &std::collections::HashMap<String, usize>,
     keep: VortexDuplicateKeepPolicy,
 ) -> Result<Vec<StatValue>> {
     output_keys
@@ -6549,9 +7103,9 @@ fn duplicate_mask_values_from_policy(
 #[cfg(feature = "vortex-local-primitives")]
 fn retain_drop_duplicate_rows_from_policy(
     rows: &[(usize, String, Vec<StatValue>)],
-    counts: &std::collections::BTreeMap<String, usize>,
-    first_positions: &std::collections::BTreeMap<String, usize>,
-    last_positions: &std::collections::BTreeMap<String, usize>,
+    counts: &std::collections::HashMap<String, usize>,
+    first_positions: &std::collections::HashMap<String, usize>,
+    last_positions: &std::collections::HashMap<String, usize>,
     keep: VortexDuplicateKeepPolicy,
     source_order_limit: Option<usize>,
 ) -> Result<Vec<Vec<StatValue>>> {
@@ -7499,8 +8053,13 @@ fn row_export_state_budget_report(
         }
         VortexQueryPrimitiveKind::DistinctRows => {
             Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
-                "row_key_distinct_state",
-                vec!["vortex_scan", "row_key_state", "compatibility_sink"],
+                "row_key_distinct_state+hash_row_key",
+                vec![
+                    "vortex_scan",
+                    "row_key_state",
+                    "hash_row_key_state",
+                    "compatibility_sink",
+                ],
                 vec!["distinct_key_cardinality", "input_rows", "sink_rows"],
                 usize_to_u64(output_rows)?,
                 Some(usize_to_u64(input_rows.max(output_rows))?),
@@ -7509,10 +8068,11 @@ fn row_export_state_budget_report(
         }
         VortexQueryPrimitiveKind::DropDuplicateRows => {
             Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
-                "retained_row_deduplicate_state",
+                "retained_row_deduplicate_state+hash_row_key",
                 vec![
                     "vortex_scan",
                     "row_key_state",
+                    "hash_row_key_state",
                     "retained_row_materialization",
                     "compatibility_sink",
                 ],
@@ -7529,10 +8089,11 @@ fn row_export_state_budget_report(
         }
         VortexQueryPrimitiveKind::DuplicateMaskRows => {
             Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
-                "duplicate_mask_row_key_state",
+                "duplicate_mask_row_key_state+hash_row_key",
                 vec![
                     "vortex_scan",
                     "row_key_state",
+                    "hash_row_key_state",
                     "duplicate_mask",
                     "compatibility_sink",
                 ],
@@ -8417,6 +8978,31 @@ fn stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn selected_stat_values_from_vortex_array(
+    array: &vortex::array::ArrayRef,
+    row_indices: &[usize],
+) -> Option<Vec<StatValue>> {
+    if row_indices.is_empty() {
+        return Some(Vec::new());
+    }
+    if let Some(values) =
+        direct_selected_dictionary_stat_values_from_vortex_array(array, row_indices)
+    {
+        return Some(values);
+    }
+    if let Some(values) =
+        direct_selected_non_nullable_stat_values_from_vortex_array(array, row_indices)
+    {
+        return Some(values);
+    }
+    let values = stat_values_from_vortex_array(array)?;
+    row_indices
+        .iter()
+        .map(|&row_index| values.get(row_index).cloned())
+        .collect()
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn direct_non_nullable_stat_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Option<Vec<StatValue>> {
@@ -8426,6 +9012,40 @@ fn direct_non_nullable_stat_values_from_vortex_array(
         DType::Primitive(_, _) => direct_non_nullable_host_primitive(array)
             .and_then(|primitive| primitive_stat_values_from_primitive_array(&primitive)),
         DType::Utf8(_) => direct_non_nullable_utf8_stat_values_from_vortex_array(array),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn direct_selected_dictionary_stat_values_from_vortex_array(
+    array: &vortex::array::ArrayRef,
+    row_indices: &[usize],
+) -> Option<Vec<StatValue>> {
+    use vortex::array::arrays::dict::DictArraySlotsExt as _;
+
+    let dictionary_array = array.as_opt::<vortex::array::arrays::Dict>()?;
+    let dictionary = direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())?;
+    let codes = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())?;
+    row_indices
+        .iter()
+        .map(|&row_index| {
+            let code = *codes.get(row_index)?;
+            dictionary.get(usize::try_from(code).ok()?).cloned()
+        })
+        .collect()
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn direct_selected_non_nullable_stat_values_from_vortex_array(
+    array: &vortex::array::ArrayRef,
+    row_indices: &[usize],
+) -> Option<Vec<StatValue>> {
+    use vortex::array::dtype::DType;
+
+    match array.dtype() {
+        DType::Primitive(_, _) => direct_non_nullable_host_primitive(array)
+            .and_then(|primitive| selected_primitive_stat_values(&primitive, row_indices)),
+        DType::Utf8(_) => selected_direct_non_nullable_utf8_stat_values(array, row_indices),
         _ => None,
     }
 }
@@ -8444,6 +9064,65 @@ fn primitive_stat_values_from_vortex_array(
     let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
     let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
     primitive_stat_values_from_primitive_array(&primitive)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn selected_primitive_stat_values(
+    primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
+    row_indices: &[usize],
+) -> Option<Vec<StatValue>> {
+    use vortex::array::dtype::PType;
+    use vortex::array::validity::Validity;
+
+    match primitive.validity() {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return None,
+    }
+    match primitive.ptype() {
+        PType::U8 => selected_from_slice(primitive.as_slice::<u8>(), row_indices, |value| {
+            StatValue::UInt64(u64::from(value))
+        }),
+        PType::U16 => selected_from_slice(primitive.as_slice::<u16>(), row_indices, |value| {
+            StatValue::UInt64(u64::from(value))
+        }),
+        PType::U32 => selected_from_slice(primitive.as_slice::<u32>(), row_indices, |value| {
+            StatValue::UInt64(u64::from(value))
+        }),
+        PType::U64 => {
+            selected_from_slice(primitive.as_slice::<u64>(), row_indices, StatValue::UInt64)
+        }
+        PType::I8 => selected_from_slice(primitive.as_slice::<i8>(), row_indices, |value| {
+            StatValue::Int64(i64::from(value))
+        }),
+        PType::I16 => selected_from_slice(primitive.as_slice::<i16>(), row_indices, |value| {
+            StatValue::Int64(i64::from(value))
+        }),
+        PType::I32 => selected_from_slice(primitive.as_slice::<i32>(), row_indices, |value| {
+            StatValue::Int64(i64::from(value))
+        }),
+        PType::I64 => {
+            selected_from_slice(primitive.as_slice::<i64>(), row_indices, StatValue::Int64)
+        }
+        PType::F16 => None,
+        PType::F32 => selected_from_slice(primitive.as_slice::<f32>(), row_indices, |value| {
+            StatValue::Float64(f64::from(value))
+        }),
+        PType::F64 => {
+            selected_from_slice(primitive.as_slice::<f64>(), row_indices, StatValue::Float64)
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn selected_from_slice<T: Copy>(
+    values: &[T],
+    row_indices: &[usize],
+    convert: impl Fn(T) -> StatValue,
+) -> Option<Vec<StatValue>> {
+    row_indices
+        .iter()
+        .map(|&row_index| values.get(row_index).copied().map(&convert))
+        .collect()
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -8507,6 +9186,34 @@ fn primitive_stat_values_from_primitive_array(
             .collect(),
     };
     stat_values_with_validity(values, &validity)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn selected_direct_non_nullable_utf8_stat_values(
+    array: &vortex::array::ArrayRef,
+    row_indices: &[usize],
+) -> Option<Vec<StatValue>> {
+    use vortex::array::arrays::varbinview::VarBinView;
+    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
+    use vortex::array::validity::Validity;
+
+    if !array.is_host() {
+        return None;
+    }
+    let utf8 = array.as_opt::<VarBinView>()?;
+    match utf8.varbinview_validity() {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return None,
+    }
+    row_indices
+        .iter()
+        .map(|&row_index| {
+            let bytes = utf8.bytes_at(row_index);
+            std::str::from_utf8(bytes.as_slice())
+                .ok()
+                .map(|value| StatValue::Utf8(value.to_string()))
+        })
+        .collect()
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -9068,7 +9775,7 @@ fn distinct_rows_report(
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind,
         result_summary: Some(format!(
-            "distinct_rows={} projected_columns={}",
+            "distinct_rows={} projected_columns={} distinct_state_strategy=hash_row_key_exact",
             rows,
             scan.projected_columns.join(",")
         )),
@@ -9094,7 +9801,14 @@ fn distinct_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
-        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+            "row_key_distinct_state+hash_row_key",
+            vec!["vortex_scan", "hash_row_key_state"],
+            vec!["distinct_key_cardinality", "input_rows"],
+            usize_to_u64(scan.pre_limit_result_row_count)?,
+            Some(scan.source_row_count),
+            "local_vortex_distinct_collect",
+        ),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -9129,7 +9843,7 @@ fn drop_duplicate_rows_report(
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: VortexQueryPrimitiveKind::DropDuplicateRows,
         result_summary: Some(format!(
-            "drop_duplicate_rows={} output_columns={} key_columns={} keep={}",
+            "drop_duplicate_rows={} output_columns={} key_columns={} keep={} row_key_state_strategy=hash_row_key_exact",
             rows,
             scan.projected_columns.join(","),
             key_columns,
@@ -9158,10 +9872,11 @@ fn drop_duplicate_rows_report(
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
-            "retained_row_deduplicate_state",
+            "retained_row_deduplicate_state+hash_row_key",
             vec![
                 "vortex_scan",
                 "row_key_state",
+                "hash_row_key_state",
                 "retained_row_materialization",
             ],
             vec!["deduplicate_key_cardinality", "input_rows", "retained_rows"],
@@ -9196,7 +9911,7 @@ fn duplicate_mask_rows_report(
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: VortexQueryPrimitiveKind::DuplicateMaskRows,
         result_summary: Some(format!(
-            "duplicate_mask_rows={} subset_columns={} output_columns=duplicated keep={}",
+            "duplicate_mask_rows={} subset_columns={} output_columns=duplicated keep={} row_key_state_strategy=hash_row_key_exact",
             rows,
             scan.projected_columns.join(","),
             request.duplicate_keep.as_str()
@@ -9223,7 +9938,14 @@ fn duplicate_mask_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
-        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+            "duplicate_mask_row_key_state+hash_row_key",
+            vec!["vortex_scan", "row_key_state", "hash_row_key_state"],
+            vec!["duplicate_key_cardinality", "input_rows"],
+            usize_to_u64(scan.pre_limit_result_row_count)?,
+            Some(scan.source_row_count),
+            "local_vortex_duplicate_mask_collect",
+        ),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -10305,7 +11027,7 @@ fn read_local_vortex_distinct_scan(
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
-    let mut seen = std::collections::BTreeSet::new();
+    let mut seen = std::collections::HashSet::new();
     let mut result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
@@ -10424,9 +11146,9 @@ fn read_local_vortex_drop_duplicate_scan(
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
-    let mut counts = std::collections::BTreeMap::<String, usize>::new();
-    let mut first_positions = std::collections::BTreeMap::<String, usize>::new();
-    let mut last_positions = std::collections::BTreeMap::<String, usize>::new();
+    let mut counts = std::collections::HashMap::<String, usize>::new();
+    let mut first_positions = std::collections::HashMap::<String, usize>::new();
+    let mut last_positions = std::collections::HashMap::<String, usize>::new();
     let mut rows = Vec::<(usize, String, Vec<StatValue>)>::new();
     let mut global_index = 0usize;
     let mut arrays_read_count = 0usize;
@@ -10567,7 +11289,7 @@ fn read_local_vortex_duplicate_mask_scan(
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
-    let mut seen = std::collections::BTreeSet::new();
+    let mut seen = std::collections::HashSet::new();
     let duplicate_keep = request.duplicate_keep;
     let duplicate_needs_full_scan = duplicate_keep != VortexDuplicateKeepPolicy::First;
     let mut result_row_count = 0usize;
@@ -11768,20 +12490,29 @@ fn read_local_vortex_simple_aggregate_scan(
             &chunk,
         )?);
         reader_splits.push(split);
-        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-        let materialized_rows = if columns.is_empty() {
-            rows
-        } else {
-            row_export_materialized_row_count(&columns, rows)?
-        };
         if let Some(predicate) = residual_evaluator.as_ref() {
-            let mut selected_rows = 0usize;
-            for row_index in 0..materialized_rows {
-                if predicate.matches(&columns, row_index)? {
+            let selected_rows = if let Some(row_indices) =
+                predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
+                && row_indices.len() < rows
+            {
+                let columns = row_export_selected_columns_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                    &row_indices,
+                )?;
+                let mut selected_rows = 0usize;
+                for row_index in 0..row_indices.len() {
+                    if !predicate.matches(&columns, row_index)? {
+                        continue;
+                    }
                     if let Some(states) = scalar_states.as_mut() {
                         states.update_row(&columns, row_index)?;
                     }
-                    if let Some(states) = grouped_states.as_mut() {
+                    if let Some(states) = grouped_states.as_mut()
+                        && !states.update_count_star_direct_from_materialized_columns(
+                            &columns, row_index,
+                        )?
+                    {
                         states.update_row(&columns, row_index)?;
                     }
                     selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
@@ -11791,7 +12522,38 @@ fn read_local_vortex_simple_aggregate_scan(
                         )
                     })?;
                 }
-            }
+                selected_rows
+            } else {
+                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                let materialized_rows = if columns.is_empty() {
+                    rows
+                } else {
+                    row_export_materialized_row_count(&columns, rows)?
+                };
+                let mut selected_rows = 0usize;
+                for row_index in 0..materialized_rows {
+                    if !predicate.matches(&columns, row_index)? {
+                        continue;
+                    }
+                    if let Some(states) = scalar_states.as_mut() {
+                        states.update_row(&columns, row_index)?;
+                    }
+                    if let Some(states) = grouped_states.as_mut()
+                        && !states.update_count_star_direct_from_materialized_columns(
+                            &columns, row_index,
+                        )?
+                    {
+                        states.update_row(&columns, row_index)?;
+                    }
+                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex simple aggregate selected row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                }
+                selected_rows
+            };
             pre_limit_result_row_count = pre_limit_result_row_count
                 .checked_add(selected_rows)
                 .ok_or_else(|| {
@@ -11801,12 +12563,28 @@ fn read_local_vortex_simple_aggregate_scan(
                     )
                 })?;
         } else {
-            if let Some(states) = scalar_states.as_mut() {
-                states.update(&columns, materialized_rows)?;
-            }
-            if let Some(states) = grouped_states.as_mut() {
-                states.update(&columns, materialized_rows)?;
-            }
+            let direct_count_star_updated = if let Some(states) = grouped_states.as_mut() {
+                states.update_count_star_direct_from_chunk(&chunk, &declared_columns, None)?
+            } else {
+                false
+            };
+            let materialized_rows = if direct_count_star_updated {
+                rows
+            } else {
+                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                let materialized_rows = if columns.is_empty() {
+                    rows
+                } else {
+                    row_export_materialized_row_count(&columns, rows)?
+                };
+                if let Some(states) = scalar_states.as_mut() {
+                    states.update(&columns, materialized_rows)?;
+                }
+                if let Some(states) = grouped_states.as_mut() {
+                    states.update(&columns, materialized_rows)?;
+                }
+                materialized_rows
+            };
             pre_limit_result_row_count = pre_limit_result_row_count
                 .checked_add(materialized_rows)
                 .ok_or_else(|| {
@@ -11997,20 +12775,59 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
-            let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-            let materialized_rows = if columns.is_empty() {
-                rows
-            } else {
-                row_export_materialized_row_count(&columns, rows)?
-            };
             if let Some(predicate) = residual_evaluator.as_ref() {
-                let mut selected_rows = 0usize;
-                for row_index in 0..materialized_rows {
-                    if predicate.matches(&columns, row_index)? {
+                let selected_rows = if let Some(row_indices) =
+                    predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
+                    && row_indices.len() < rows
+                {
+                    let columns = row_export_selected_columns_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &row_indices,
+                    )?;
+                    let mut selected_rows = 0usize;
+                    for row_index in 0..row_indices.len() {
+                        if !predicate.matches(&columns, row_index)? {
+                            continue;
+                        }
                         if let Some(states) = scalar_states.as_mut() {
                             states.update_row(&columns, row_index)?;
                         }
-                        if let Some(states) = grouped_states.as_mut() {
+                        if let Some(states) = grouped_states.as_mut()
+                            && !states.update_count_star_direct_from_materialized_columns(
+                                &columns, row_index,
+                            )?
+                        {
+                            states.update_row(&columns, row_index)?;
+                        }
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "partitioned local Vortex aggregate selected row count overflowed usize"
+                                .to_string(),
+                            )
+                        })?;
+                    }
+                    selected_rows
+                } else {
+                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let materialized_rows = if columns.is_empty() {
+                        rows
+                    } else {
+                        row_export_materialized_row_count(&columns, rows)?
+                    };
+                    let mut selected_rows = 0usize;
+                    for row_index in 0..materialized_rows {
+                        if !predicate.matches(&columns, row_index)? {
+                            continue;
+                        }
+                        if let Some(states) = scalar_states.as_mut() {
+                            states.update_row(&columns, row_index)?;
+                        }
+                        if let Some(states) = grouped_states.as_mut()
+                            && !states.update_count_star_direct_from_materialized_columns(
+                                &columns, row_index,
+                            )?
+                        {
                             states.update_row(&columns, row_index)?;
                         }
                         selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
@@ -12020,7 +12837,8 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                             )
                         })?;
                     }
-                }
+                    selected_rows
+                };
                 pre_limit_result_row_count = pre_limit_result_row_count
                     .checked_add(selected_rows)
                     .ok_or_else(|| {
@@ -12030,12 +12848,28 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                         )
                     })?;
             } else {
-                if let Some(states) = scalar_states.as_mut() {
-                    states.update(&columns, materialized_rows)?;
-                }
-                if let Some(states) = grouped_states.as_mut() {
-                    states.update(&columns, materialized_rows)?;
-                }
+                let direct_count_star_updated = if let Some(states) = grouped_states.as_mut() {
+                    states.update_count_star_direct_from_chunk(&chunk, &declared_columns, None)?
+                } else {
+                    false
+                };
+                let materialized_rows = if direct_count_star_updated {
+                    rows
+                } else {
+                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let materialized_rows = if columns.is_empty() {
+                        rows
+                    } else {
+                        row_export_materialized_row_count(&columns, rows)?
+                    };
+                    if let Some(states) = scalar_states.as_mut() {
+                        states.update(&columns, materialized_rows)?;
+                    }
+                    if let Some(states) = grouped_states.as_mut() {
+                        states.update(&columns, materialized_rows)?;
+                    }
+                    materialized_rows
+                };
                 pre_limit_result_row_count = pre_limit_result_row_count
                     .checked_add(materialized_rows)
                     .ok_or_else(|| {
@@ -12205,13 +13039,19 @@ fn read_local_vortex_sort_rows_scan(
         })?;
     let source_row_count = file.row_count();
     let output_columns = projected_column_names(file.dtype(), &request.projection, request.kind)?;
-    let (pushdown_predicate, residual_predicate) = request
+    let (candidate_pushdown_predicate, candidate_residual_predicate) = request
         .predicate
         .as_ref()
         .map_or((None, None), split_predicate_for_vortex_pushdown);
-    let wide_output_second_pass = output_columns.len() > 8
-        && sort_rows.tie_policy != VortexSortTiePolicy::All
-        && (residual_predicate.is_some() || request.predicate.is_none());
+    let wide_output_second_pass =
+        output_columns.len() > 8 && sort_rows.tie_policy != VortexSortTiePolicy::All;
+    let force_residual_predicate_for_source_ordinals =
+        wide_output_second_pass && request.predicate.is_some();
+    let (pushdown_predicate, residual_predicate) = if force_residual_predicate_for_source_ordinals {
+        (None, request.predicate.clone())
+    } else {
+        (candidate_pushdown_predicate, candidate_residual_predicate)
+    };
     let mut projected_columns = Vec::<ColumnRef>::new();
     if !wide_output_second_pass {
         projected_columns.extend(
@@ -12289,31 +13129,91 @@ fn read_local_vortex_sort_rows_scan(
             &chunk,
         )?);
         reader_splits.push(split);
-        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-        let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-        for row_index in 0..materialized_rows {
-            if let Some(predicate) = residual_evaluator.as_ref()
-                && !predicate.matches(&columns, row_index)?
+        if let Some(predicate) = residual_evaluator.as_ref() {
+            if let Some(row_indices) =
+                predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
+                && row_indices.len() < rows
             {
-                continue;
+                let columns = row_export_selected_columns_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                    &row_indices,
+                )?;
+                for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
+                    if !predicate.matches(&columns, compact_index)? {
+                        continue;
+                    }
+                    let ordinal = selected_rows;
+                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                .to_string(),
+                        )
+                    })?;
+                    candidates.push(SortRowCandidate {
+                        ordinal,
+                        source_partition_index: 0,
+                        source_ordinal: source_rows_seen.checked_add(source_row_index).ok_or_else(
+                            || {
+                                ShardLoomError::InvalidOperation(
+                                    "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
+                                        .to_string(),
+                                )
+                            },
+                        )?,
+                        values: materialized_sort_row_values(&columns, compact_index)?,
+                    });
+                }
+            } else {
+                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+                for row_index in 0..materialized_rows {
+                    if !predicate.matches(&columns, row_index)? {
+                        continue;
+                    }
+                    let ordinal = selected_rows;
+                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                .to_string(),
+                        )
+                    })?;
+                    candidates.push(SortRowCandidate {
+                        ordinal,
+                        source_partition_index: 0,
+                        source_ordinal: source_rows_seen.checked_add(row_index).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?,
+                        values: materialized_sort_row_values(&columns, row_index)?,
+                    });
+                }
             }
-            let ordinal = selected_rows;
-            selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })?;
-            candidates.push(SortRowCandidate {
-                ordinal,
-                source_ordinal: source_rows_seen.checked_add(row_index).ok_or_else(|| {
+        } else {
+            let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+            let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+            for row_index in 0..materialized_rows {
+                let ordinal = selected_rows;
+                selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
-                        "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
+                        "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
                             .to_string(),
                     )
-                })?,
-                values: materialized_sort_row_values(&columns, row_index)?,
-            });
+                })?;
+                candidates.push(SortRowCandidate {
+                    ordinal,
+                    source_partition_index: 0,
+                    source_ordinal: source_rows_seen.checked_add(row_index).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
+                                .to_string(),
+                        )
+                    })?,
+                    values: materialized_sort_row_values(&columns, row_index)?,
+                });
+            }
         }
         if sort_rows.tie_policy != VortexSortTiePolicy::All
             && candidates.len() > retention_flush_threshold
@@ -12327,7 +13227,7 @@ fn read_local_vortex_sort_rows_scan(
             candidates.truncate(retained_cap);
         }
         max_chunk_rows = max_chunk_rows.max(rows);
-        source_rows_seen = source_rows_seen.checked_add(materialized_rows).ok_or_else(|| {
+        source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex sort source row count overflowed usize; no fallback execution was attempted"
                     .to_string(),
@@ -12400,6 +13300,16 @@ fn read_local_vortex_sort_rows_scan(
         "offset": sort_rows.offset,
         "tie_policy": sort_rows.tie_policy.as_str(),
         "bounded_topk_strategy": "capillary_retention_window",
+        "wide_output_second_pass": wide_output_second_pass,
+        "sort_predicate_strategy": if force_residual_predicate_for_source_ordinals {
+            "residual_predicate_source_ordinals"
+        } else if filter_pushdown_applied {
+            "vortex_filter_pushdown"
+        } else if residual_predicate.is_some() {
+            "residual_predicate"
+        } else {
+            "none"
+        },
         "retention_flush_threshold": retention_flush_threshold,
         "values": result_rows,
     })
@@ -12465,14 +13375,28 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let session = VortexSession::default().with_handle(runtime.handle());
     let output_columns =
         local_vortex_sort_rows_output_columns(&sources[0].path, request, sort_rows)?;
-    let mut projected_columns = output_columns
-        .iter()
-        .map(ColumnRef::new)
-        .collect::<Result<Vec<_>>>()?;
-    let (pushdown_predicate, residual_predicate) = request
+    let wide_output_second_pass =
+        output_columns.len() > 8 && sort_rows.tie_policy != VortexSortTiePolicy::All;
+    let mut projected_columns = Vec::<ColumnRef>::new();
+    if !wide_output_second_pass {
+        projected_columns.extend(
+            output_columns
+                .iter()
+                .map(ColumnRef::new)
+                .collect::<Result<Vec<_>>>()?,
+        );
+    }
+    let (candidate_pushdown_predicate, candidate_residual_predicate) = request
         .predicate
         .as_ref()
         .map_or((None, None), split_predicate_for_vortex_pushdown);
+    let force_residual_predicate_for_source_ordinals =
+        wide_output_second_pass && request.predicate.is_some();
+    let (pushdown_predicate, residual_predicate) = if force_residual_predicate_for_source_ordinals {
+        (None, request.predicate.clone())
+    } else {
+        (candidate_pushdown_predicate, candidate_residual_predicate)
+    };
     if let Some(predicate) = residual_predicate.as_ref() {
         append_predicate_columns(predicate, &mut projected_columns);
     }
@@ -12485,6 +13409,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let retention_flush_threshold = sort_retention_flush_threshold(retained_cap);
     let mut candidates = Vec::<SortRowCandidate>::new();
     let mut selected_rows = 0_usize;
+    let mut source_rows_seen = 0_usize;
     let mut arrays_read_count = 0_usize;
     let mut reader_splits = Vec::new();
     let mut encoded_kernel_inputs = Vec::new();
@@ -12494,7 +13419,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let mut expected_declared_columns: Option<Vec<String>> = None;
     let mut output_column_indices = None::<Vec<usize>>;
     let mut order_column_indices = None::<Vec<usize>>;
-    for source in sources {
+    for (source_index, source) in sources.iter().enumerate() {
         let file = runtime
             .block_on(session.open_options().open_path(&source.path))
             .map_err(|error| {
@@ -12529,13 +13454,21 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         }
         match &expected_declared_columns {
             None => {
-                let indices = sort_row_column_indices(
-                    &plan.projected_columns,
-                    &output_columns,
-                    &sort_rows.order_by,
-                )?;
-                output_column_indices = Some(indices.0);
-                order_column_indices = Some(indices.1);
+                if wide_output_second_pass {
+                    output_column_indices = None;
+                    order_column_indices = Some(sort_row_order_column_indices(
+                        &plan.projected_columns,
+                        &sort_rows.order_by,
+                    )?);
+                } else {
+                    let indices = sort_row_column_indices(
+                        &plan.projected_columns,
+                        &output_columns,
+                        &sort_rows.order_by,
+                    )?;
+                    output_column_indices = Some(indices.0);
+                    order_column_indices = Some(indices.1);
+                }
                 expected_declared_columns = Some(plan.projected_columns.clone());
             }
             Some(expected) if expected != &plan.projected_columns => {
@@ -12566,6 +13499,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             .as_ref()
             .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, declared_columns))
             .transpose()?;
+        let mut source_local_rows_seen = 0usize;
         for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
@@ -12584,26 +13518,95 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
-            let columns = row_export_columns_from_chunk(&chunk, declared_columns)?;
-            let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-            for row_index in 0..materialized_rows {
-                if let Some(predicate) = residual_evaluator.as_ref()
-                    && !predicate.matches(&columns, row_index)?
+            if let Some(predicate) = residual_evaluator.as_ref() {
+                if let Some(row_indices) =
+                    predicate.fast_candidate_row_indices_in_chunk(&chunk, declared_columns)?
+                    && row_indices.len() < rows
                 {
-                    continue;
+                    let columns = row_export_selected_columns_from_chunk(
+                        &chunk,
+                        declared_columns,
+                        &row_indices,
+                    )?;
+                    for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
+                        if !predicate.matches(&columns, compact_index)? {
+                            continue;
+                        }
+                        let ordinal = selected_rows;
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                        candidates.push(SortRowCandidate {
+                            ordinal,
+                            source_partition_index: source_index,
+                            source_ordinal: source_local_rows_seen.checked_add(source_row_index).ok_or_else(
+                                || {
+                                    ShardLoomError::InvalidOperation(
+                                        "partitioned local Vortex sort local source row ordinal overflowed usize; no fallback execution was attempted"
+                                            .to_string(),
+                                    )
+                                },
+                            )?,
+                            values: materialized_sort_row_values(&columns, compact_index)?,
+                        });
+                    }
+                } else {
+                    let columns = row_export_columns_from_chunk(&chunk, declared_columns)?;
+                    let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+                    for row_index in 0..materialized_rows {
+                        if !predicate.matches(&columns, row_index)? {
+                            continue;
+                        }
+                        let ordinal = selected_rows;
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                        candidates.push(SortRowCandidate {
+                            ordinal,
+                            source_partition_index: source_index,
+                            source_ordinal: source_local_rows_seen.checked_add(row_index).ok_or_else(
+                                || {
+                                    ShardLoomError::InvalidOperation(
+                                        "partitioned local Vortex sort local source row ordinal overflowed usize; no fallback execution was attempted"
+                                            .to_string(),
+                                    )
+                                },
+                            )?,
+                            values: materialized_sort_row_values(&columns, row_index)?,
+                        });
+                    }
                 }
-                let ordinal = selected_rows;
-                selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
-                            .to_string(),
-                    )
+            } else {
+                let columns = row_export_columns_from_chunk(&chunk, declared_columns)?;
+                let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+                for row_index in 0..materialized_rows {
+                    let ordinal = selected_rows;
+                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                .to_string(),
+                        )
                 })?;
-                candidates.push(SortRowCandidate {
+                    candidates.push(SortRowCandidate {
                     ordinal,
-                    source_ordinal: ordinal,
+                    source_partition_index: source_index,
+                    source_ordinal: source_local_rows_seen.checked_add(row_index).ok_or_else(
+                        || {
+                            ShardLoomError::InvalidOperation(
+                                "partitioned local Vortex sort local source row ordinal overflowed usize; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        },
+                    )?,
                     values: materialized_sort_row_values(&columns, row_index)?,
                 });
+                }
             }
             if sort_rows.tie_policy != VortexSortTiePolicy::All
                 && candidates.len() > retention_flush_threshold
@@ -12623,15 +13626,21 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 candidates.truncate(retained_cap);
             }
             max_chunk_rows = max_chunk_rows.max(rows);
+            source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex sort source row count overflowed usize; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            source_local_rows_seen = source_local_rows_seen.checked_add(rows).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex sort local source row count overflowed usize; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
             arrays_read_count += 1;
         }
     }
-    let output_column_indices = output_column_indices.ok_or_else(|| {
-        ShardLoomError::InvalidOperation(
-            "partitioned local Vortex sort output column indices were not initialized; no fallback execution was attempted"
-                .to_string(),
-        )
-    })?;
     let order_column_indices = order_column_indices.ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "partitioned local Vortex sort order column indices were not initialized; no fallback execution was attempted"
@@ -12651,22 +13660,32 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         limit,
         sort_rows.tie_policy,
     );
-    let result_rows = selected_candidates
-        .into_iter()
-        .map(|candidate| {
-            let mut out = serde_json::Map::with_capacity(output_columns.len());
-            for (column, &column_index) in output_columns.iter().zip(&output_column_indices) {
-                out.insert(
-                    column.clone(),
-                    candidate
-                        .values
-                        .get(column_index)
-                        .map_or(Ok(serde_json::Value::Null), stat_value_to_json_value)?,
-                );
-            }
-            Ok(serde_json::Value::Object(out))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let result_rows = if let Some(output_column_indices) = output_column_indices.as_ref() {
+        selected_candidates
+            .into_iter()
+            .map(|candidate| {
+                let mut out = serde_json::Map::with_capacity(output_columns.len());
+                for (column, &column_index) in output_columns.iter().zip(output_column_indices) {
+                    out.insert(
+                        column.clone(),
+                        candidate
+                            .values
+                            .get(column_index)
+                            .map_or(Ok(serde_json::Value::Null), stat_value_to_json_value)?,
+                    );
+                }
+                Ok(serde_json::Value::Object(out))
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
+            sources,
+            request,
+            &output_columns,
+            &selected_candidates,
+            policy,
+        )?
+    };
     let result_row_count = result_rows.len();
     let source = UniversalInputSource::from_dataset_uri(sources[0].uri.clone())?;
     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
@@ -12689,6 +13708,16 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         "offset": sort_rows.offset,
         "tie_policy": sort_rows.tie_policy.as_str(),
         "bounded_topk_strategy": "capillary_retention_window",
+        "wide_output_second_pass": wide_output_second_pass,
+        "sort_predicate_strategy": if force_residual_predicate_for_source_ordinals {
+            "residual_predicate_source_ordinals"
+        } else if filter_pushdown_applied {
+            "vortex_filter_pushdown"
+        } else if residual_predicate.is_some() {
+            "residual_predicate"
+        } else {
+            "none"
+        },
         "retention_flush_threshold": retention_flush_threshold,
         "values": result_rows,
     })
@@ -12715,6 +13744,69 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         },
         result_summary,
     })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
+    sources: &[LocalVortexPartitionSource],
+    request: &VortexQueryPrimitiveRequest,
+    output_columns: &[String],
+    selected_candidates: &[&SortRowCandidate],
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<Vec<serde_json::Value>> {
+    let mut rows_out = vec![None; selected_candidates.len()];
+    let mut by_partition = std::collections::BTreeMap::<usize, Vec<(usize, usize)>>::new();
+    for (position, candidate) in selected_candidates.iter().enumerate() {
+        if candidate.source_partition_index >= sources.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "partitioned local Vortex sort selected candidate referenced an unknown partition; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        by_partition
+            .entry(candidate.source_partition_index)
+            .or_default()
+            .push((position, candidate.source_ordinal));
+    }
+    for (partition_index, positions) in by_partition {
+        let source = sources.get(partition_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "partitioned local Vortex sort materializer source partition was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        let ordinals = positions
+            .iter()
+            .map(|(_position, ordinal)| *ordinal)
+            .collect::<Vec<_>>();
+        let rows = materialize_local_vortex_sort_output_rows_by_source_ordinals(
+            &source.path,
+            request,
+            output_columns,
+            &ordinals,
+            policy,
+        )?;
+        if rows.len() != positions.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "partitioned local Vortex sort materializer returned an unexpected row count; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        for ((position, _ordinal), row) in positions.into_iter().zip(rows) {
+            rows_out[position] = Some(row);
+        }
+    }
+    rows_out
+        .into_iter()
+        .map(|row| {
+            row.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex wide sort output did not materialize a selected row; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })
+        })
+        .collect()
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -12877,6 +13969,7 @@ fn required_sort_rows(request: &VortexQueryPrimitiveRequest) -> Result<&VortexSo
 #[cfg(feature = "vortex-local-primitives")]
 struct SortRowCandidate {
     ordinal: usize,
+    source_partition_index: usize,
     source_ordinal: usize,
     values: Vec<StatValue>,
 }
@@ -13268,6 +14361,31 @@ impl SimpleAggregateStates {
         Ok(())
     }
 
+    fn is_count_star_only(&self) -> bool {
+        self.states.len() == 1
+            && self.states[0].function == SimpleAggregateFunction::Count
+            && self.states[0].column_index.is_none()
+            && matches!(
+                self.states[0].value_transform,
+                AggregateValueTransform::Identity
+            )
+    }
+
+    fn increment_count_star_by(&mut self, rows: u64) -> Result<()> {
+        if !self.is_count_star_only() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct count update requires count(*) only; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        self.states[0].count = self.states[0].count.checked_add(rows).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct count overflowed u64".to_string(),
+            )
+        })?;
+        Ok(())
+    }
+
     fn functions_summary(&self) -> String {
         self.states
             .iter()
@@ -13396,6 +14514,7 @@ struct GroupedAggregateStates<'a> {
     state_template: SimpleAggregateStates,
     groups: std::collections::HashMap<AggregateGroupKey, GroupedAggregateState>,
     group_order: Vec<AggregateGroupKey>,
+    count_star_direct_updates: bool,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -13605,6 +14724,7 @@ impl<'a> GroupedAggregateStates<'a> {
             state_template: SimpleAggregateStates::new(request, declared_columns)?,
             groups: std::collections::HashMap::new(),
             group_order: Vec::new(),
+            count_star_direct_updates: false,
         })
     }
 
@@ -13665,6 +14785,178 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         entry.states.update_row(columns, row_index)?;
         Ok(())
+    }
+
+    fn update_count_star_direct_from_chunk(
+        &mut self,
+        chunk: &vortex::array::ArrayRef,
+        declared_columns: &[String],
+        row_indices: Option<&[usize]>,
+    ) -> Result<bool> {
+        if !self.admits_count_star_direct_updates() {
+            return Ok(false);
+        }
+        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        match row_indices {
+            Some(row_indices) => {
+                for &row_index in row_indices {
+                    self.update_count_star_direct_row(&accessors, row_index)?;
+                }
+            }
+            None => {
+                for row_index in 0..chunk.len() {
+                    self.update_count_star_direct_row(&accessors, row_index)?;
+                }
+            }
+        }
+        self.count_star_direct_updates = true;
+        Ok(true)
+    }
+
+    fn update_count_star_direct_from_materialized_columns(
+        &mut self,
+        columns: &[Vec<StatValue>],
+        row_index: usize,
+    ) -> Result<bool> {
+        if !self.admits_count_star_direct_updates() {
+            return Ok(false);
+        }
+        let key = self.grouped_key_for_materialized_row(columns, row_index)?;
+        if let Some(group) = self.groups.get_mut(&key) {
+            group.states.increment_count_star_by(1)?;
+            self.count_star_direct_updates = true;
+            return Ok(true);
+        }
+        let group_values = self.group_values_for_materialized_row(columns, row_index)?;
+        self.groups.insert(
+            key.clone(),
+            GroupedAggregateState {
+                group_values,
+                states: self.state_template.clone(),
+            },
+        );
+        self.group_order.push(key.clone());
+        let group = self.groups.get_mut(&key).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate count-star direct materialized group was not found; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        group.states.increment_count_star_by(1)?;
+        self.count_star_direct_updates = true;
+        Ok(true)
+    }
+
+    fn admits_count_star_direct_updates(&self) -> bool {
+        self.state_template.is_count_star_only()
+    }
+
+    fn update_count_star_direct_row(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+    ) -> Result<()> {
+        let key = self.grouped_key_for_direct_row(accessors, row_index)?;
+        if let Some(group) = self.groups.get_mut(&key) {
+            group.states.increment_count_star_by(1)?;
+            return Ok(());
+        }
+        let group_values = self.group_values_for_direct_row(accessors, row_index)?;
+        self.groups.insert(
+            key.clone(),
+            GroupedAggregateState {
+                group_values,
+                states: self.state_template.clone(),
+            },
+        );
+        self.group_order.push(key.clone());
+        let group = self.groups.get_mut(&key).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate count-star direct group was not found; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        group.states.increment_count_star_by(1)
+    }
+
+    fn grouped_key_for_direct_row(
+        &self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+    ) -> Result<AggregateGroupKey> {
+        self.group_key_indices
+            .iter()
+            .map(|index| {
+                let group_column = self.group_columns.get(*index).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex grouped aggregate count-star direct key index was missing; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+                aggregate_group_column_distinct_value_for_direct_row(
+                    group_column,
+                    accessors,
+                    row_index,
+                )
+            })
+            .collect::<Result<Vec<_>>>()
+            .map(AggregateGroupKey)
+    }
+
+    fn group_values_for_direct_row(
+        &self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+    ) -> Result<Vec<StatValue>> {
+        self.group_columns
+            .iter()
+            .map(|group_column| {
+                aggregate_group_column_stat_value_for_direct_row(group_column, accessors, row_index)
+            })
+            .collect()
+    }
+
+    fn grouped_key_for_materialized_row(
+        &self,
+        columns: &[Vec<StatValue>],
+        row_index: usize,
+    ) -> Result<AggregateGroupKey> {
+        self.group_key_indices
+            .iter()
+            .map(|index| {
+                let group_column = self.group_columns.get(*index).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex grouped aggregate count-star materialized key index was missing; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+                let value =
+                    aggregate_group_column_stat_value_for_materialized_row(
+                        group_column,
+                        columns,
+                        row_index,
+                    )?;
+                Ok(AggregateDistinctValue::from(&value))
+            })
+            .collect::<Result<Vec<_>>>()
+            .map(AggregateGroupKey)
+    }
+
+    fn group_values_for_materialized_row(
+        &self,
+        columns: &[Vec<StatValue>],
+        row_index: usize,
+    ) -> Result<Vec<StatValue>> {
+        self.group_columns
+            .iter()
+            .map(|group_column| {
+                aggregate_group_column_stat_value_for_materialized_row(
+                    group_column,
+                    columns,
+                    row_index,
+                )
+            })
+            .collect()
     }
 
     fn update_single_group_fast_path(
@@ -13762,6 +15054,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "group_by": group_by.join(","),
             "functions": functions,
             "aggregate_key_encoding_mode": self.aggregate_key_encoding_mode(),
+            "aggregate_update_strategy": self.aggregate_update_strategy(),
             "distinct_state_strategy": if self.has_count_distinct() {
                 "typed_hash_exact"
             } else {
@@ -13826,6 +15119,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "group_by": group_by.join(","),
             "functions": functions,
             "aggregate_key_encoding_mode": self.aggregate_key_encoding_mode(),
+            "aggregate_update_strategy": self.aggregate_update_strategy(),
             "distinct_state_strategy": if self.has_count_distinct() {
                 "typed_hash_exact"
             } else {
@@ -13890,6 +15184,14 @@ impl<'a> GroupedAggregateStates<'a> {
         self.group_key_indices.len() < self.group_columns.len()
     }
 
+    fn aggregate_update_strategy(&self) -> &'static str {
+        if self.count_star_direct_updates {
+            "count_star_direct_group_update"
+        } else {
+            "row_state_update"
+        }
+    }
+
     fn result_row_for_group(
         &self,
         group: &GroupedAggregateState,
@@ -13950,7 +15252,9 @@ impl<'a> GroupedAggregateStates<'a> {
         {
             return stat_value_to_json_value(value);
         }
-        Ok(serde_json::Value::Null)
+        Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex grouped aggregate HAVING/ORDER BY references missing output column '{column}'; no fallback execution was attempted"
+        )))
     }
 
     fn sort_ordered_candidates(&self, candidates: &mut [GroupedAggregateOrderCandidate]) {
@@ -14029,6 +15333,9 @@ impl<'a> GroupedAggregateStates<'a> {
         if has_offset {
             state_family.push_str("+offset");
         }
+        if self.count_star_direct_updates {
+            state_family.push_str("+count_star_direct");
+        }
         let mut capillary_work_units = vec!["vortex_scan", "group_key_state", "aggregate_state"];
         let mut pulseweave_pressure_signals = vec![
             "group_cardinality",
@@ -14048,6 +15355,10 @@ impl<'a> GroupedAggregateStates<'a> {
         if has_offset {
             capillary_work_units.push("offset_drain");
             pulseweave_pressure_signals.push("offset_drain_rows");
+        }
+        if self.count_star_direct_updates {
+            capillary_work_units.push("count_star_direct_group_update");
+            pulseweave_pressure_signals.push("row_materialization_bypass");
         }
         if !request.having.is_empty() {
             capillary_work_units.push("having_filter");
@@ -14224,6 +15535,359 @@ fn single_group_fast_value(
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
             group_column.transform.apply(value)
         }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+enum AggregateDirectColumnAccessor {
+    UInt64(Vec<u64>),
+    Int64(Vec<i64>),
+    Float64(Vec<f64>),
+    Utf8(Vec<String>),
+    Materialized(Vec<StatValue>),
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_column_accessors_from_chunk(
+    chunk: &vortex::array::ArrayRef,
+    declared_columns: &[String],
+) -> Result<Vec<AggregateDirectColumnAccessor>> {
+    let mut out = Vec::with_capacity(declared_columns.len());
+    if chunk.dtype().is_struct() {
+        let children = chunk
+            .named_children()
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for column in declared_columns {
+            let Some(array) = children.get(column.as_str()) else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Vortex aggregate direct column '{column}' was not present in scanned chunk; no fallback execution was attempted"
+                )));
+            };
+            out.push(aggregate_direct_column_accessor(column, array)?);
+        }
+    } else {
+        let column = declared_columns.first().map_or("value", String::as_str);
+        out.push(aggregate_direct_column_accessor(column, chunk)?);
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_column_accessor(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<AggregateDirectColumnAccessor> {
+    if let Some(accessor) = direct_primitive_aggregate_column_accessor(array) {
+        return Ok(accessor);
+    }
+    if let Some(utf8) = direct_non_nullable_host_utf8(array) {
+        let mut values = Vec::with_capacity(utf8.len());
+        for row_index in 0..utf8.len() {
+            let bytes = utf8.bytes_at(row_index);
+            let value = std::str::from_utf8(bytes.as_slice()).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local Vortex aggregate direct UTF-8 column '{column}' had invalid UTF-8: {error}; no fallback execution was attempted"
+                ))
+            })?;
+            values.push(value.to_string());
+        }
+        return Ok(AggregateDirectColumnAccessor::Utf8(values));
+    }
+    Ok(AggregateDirectColumnAccessor::Materialized(
+        row_export_values_from_vortex_array(column, array)?,
+    ))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn direct_primitive_aggregate_column_accessor(
+    array: &vortex::array::ArrayRef,
+) -> Option<AggregateDirectColumnAccessor> {
+    use vortex::array::arrays::primitive::PrimitiveArrayExt as _;
+    use vortex::array::dtype::PType;
+
+    let primitive = direct_non_nullable_host_primitive(array)?;
+    match primitive.ptype() {
+        PType::U8 => Some(AggregateDirectColumnAccessor::UInt64(
+            primitive
+                .as_slice::<u8>()
+                .iter()
+                .map(|v| u64::from(*v))
+                .collect(),
+        )),
+        PType::U16 => Some(AggregateDirectColumnAccessor::UInt64(
+            primitive
+                .as_slice::<u16>()
+                .iter()
+                .map(|v| u64::from(*v))
+                .collect(),
+        )),
+        PType::U32 => Some(AggregateDirectColumnAccessor::UInt64(
+            primitive
+                .as_slice::<u32>()
+                .iter()
+                .map(|v| u64::from(*v))
+                .collect(),
+        )),
+        PType::U64 => Some(AggregateDirectColumnAccessor::UInt64(
+            primitive.as_slice::<u64>().to_vec(),
+        )),
+        PType::I8 => Some(AggregateDirectColumnAccessor::Int64(
+            primitive
+                .as_slice::<i8>()
+                .iter()
+                .map(|v| i64::from(*v))
+                .collect(),
+        )),
+        PType::I16 => Some(AggregateDirectColumnAccessor::Int64(
+            primitive
+                .as_slice::<i16>()
+                .iter()
+                .map(|v| i64::from(*v))
+                .collect(),
+        )),
+        PType::I32 => Some(AggregateDirectColumnAccessor::Int64(
+            primitive
+                .as_slice::<i32>()
+                .iter()
+                .map(|v| i64::from(*v))
+                .collect(),
+        )),
+        PType::I64 => Some(AggregateDirectColumnAccessor::Int64(
+            primitive.as_slice::<i64>().to_vec(),
+        )),
+        PType::F16 => None,
+        PType::F32 => Some(AggregateDirectColumnAccessor::Float64(
+            primitive
+                .as_slice::<f32>()
+                .iter()
+                .map(|v| f64::from(*v))
+                .collect(),
+        )),
+        PType::F64 => Some(AggregateDirectColumnAccessor::Float64(
+            primitive.as_slice::<f64>().to_vec(),
+        )),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn direct_non_nullable_host_utf8(
+    array: &vortex::array::ArrayRef,
+) -> Option<vortex::array::ArrayView<'_, vortex::array::arrays::varbinview::VarBinView>> {
+    use vortex::array::arrays::varbinview::VarBinView;
+    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
+    use vortex::array::validity::Validity;
+
+    if !array.is_host() {
+        return None;
+    }
+    let utf8 = array.as_opt::<VarBinView>()?;
+    match utf8.varbinview_validity() {
+        Validity::NonNullable | Validity::AllValid => Some(utf8),
+        Validity::AllInvalid | Validity::Array(_) => None,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_group_column_distinct_value_for_direct_row(
+    group_column: &AggregateGroupRuntimeColumn,
+    accessors: &[AggregateDirectColumnAccessor],
+    row_index: usize,
+) -> Result<AggregateDistinctValue> {
+    if group_column.extra_column_indices.is_empty()
+        && matches!(group_column.transform, AggregateValueTransform::Identity)
+    {
+        let accessor = accessors.get(group_column.column_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex aggregate direct key column index was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        return aggregate_direct_distinct_value(accessor, row_index);
+    }
+    let value =
+        aggregate_group_column_stat_value_for_direct_row(group_column, accessors, row_index)?;
+    Ok(AggregateDistinctValue::from(&value))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_group_column_stat_value_for_direct_row(
+    group_column: &AggregateGroupRuntimeColumn,
+    accessors: &[AggregateDirectColumnAccessor],
+    row_index: usize,
+) -> Result<StatValue> {
+    let value = aggregate_direct_stat_value(
+        accessors.get(group_column.column_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex aggregate direct group column index was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?,
+        row_index,
+    )?;
+    let extra_values = group_column
+        .extra_column_indices
+        .iter()
+        .map(|column_index| {
+            let accessor = accessors.get(*column_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate direct auxiliary column index was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            aggregate_direct_stat_value(accessor, row_index)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let extra_refs = extra_values.iter().collect::<Vec<_>>();
+    group_column.transform.apply_values(&value, &extra_refs)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_group_column_stat_value_for_materialized_row(
+    group_column: &AggregateGroupRuntimeColumn,
+    columns: &[Vec<StatValue>],
+    row_index: usize,
+) -> Result<StatValue> {
+    let value = columns
+        .get(group_column.column_index)
+        .and_then(|values| values.get(row_index))
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex aggregate materialized group column row was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+    let extra_values = group_column
+        .extra_column_indices
+        .iter()
+        .map(|column_index| {
+            columns
+                .get(*column_index)
+                .and_then(|values| values.get(row_index))
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex aggregate materialized auxiliary column row was missing; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    group_column.transform.apply_values(value, &extra_values)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_stat_value(
+    accessor: &AggregateDirectColumnAccessor,
+    row_index: usize,
+) -> Result<StatValue> {
+    match accessor {
+        AggregateDirectColumnAccessor::UInt64(values) => values
+            .get(row_index)
+            .copied()
+            .map(StatValue::UInt64)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate direct uint64 row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+        AggregateDirectColumnAccessor::Int64(values) => values
+            .get(row_index)
+            .copied()
+            .map(StatValue::Int64)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate direct int64 row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+        AggregateDirectColumnAccessor::Float64(values) => values
+            .get(row_index)
+            .copied()
+            .map(StatValue::Float64)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate direct float64 row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+        AggregateDirectColumnAccessor::Utf8(values) => values
+            .get(row_index)
+            .cloned()
+            .map(StatValue::Utf8)
+            .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex aggregate direct UTF-8 row index was out of bounds; no fallback execution was attempted"
+                    .to_string(),
+            )
+        }),
+        AggregateDirectColumnAccessor::Materialized(values) => values
+            .get(row_index)
+            .cloned()
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate materialized row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_distinct_value(
+    accessor: &AggregateDirectColumnAccessor,
+    row_index: usize,
+) -> Result<AggregateDistinctValue> {
+    match accessor {
+        AggregateDirectColumnAccessor::UInt64(values) => values
+            .get(row_index)
+            .copied()
+            .map(AggregateDistinctValue::UInt64)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate direct uint64 key row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+        AggregateDirectColumnAccessor::Int64(values) => values
+            .get(row_index)
+            .copied()
+            .map(AggregateDistinctValue::Int64)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate direct int64 key row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+        AggregateDirectColumnAccessor::Float64(values) => values
+            .get(row_index)
+            .copied()
+            .map(|value| AggregateDistinctValue::Float64Bits(value.to_bits()))
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate direct float64 key row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+        AggregateDirectColumnAccessor::Utf8(values) => values
+            .get(row_index)
+            .cloned()
+            .map(AggregateDistinctValue::Utf8)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate direct UTF-8 key row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+        AggregateDirectColumnAccessor::Materialized(values) => values
+            .get(row_index)
+            .map(AggregateDistinctValue::from)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate materialized key row index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
     }
 }
 
@@ -16347,6 +18011,12 @@ mod tests {
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
         assert!(!report.fallback_execution_allowed);
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        assert!(
+            certificate.is_certified(),
+            "metadata-only count should certify as native Vortex metadata I/O without a scan"
+        );
     }
 
     #[test]
@@ -16499,6 +18169,41 @@ mod tests {
             }
             other => panic!("expected dictionary batch, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn fast_utf8_contains_count_only_admits_host_varbinview_without_decode() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{DictArray, PrimitiveArray, VarBinViewArray};
+
+        let columns = vec!["label".to_string()];
+        let direct =
+            VarBinViewArray::from_iter_str(["google", "other", "google-news"]).into_array();
+        let direct_count =
+            fast_utf8_contains_count_from_chunk(&direct, &columns, 0, "google", false)
+                .expect("direct host contains count");
+        assert_eq!(direct_count, Some(2));
+
+        let codes = [0_u8, 1, 0]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values = VarBinViewArray::from_iter_str(["google", "other"]).into_array();
+        let encoded = DictArray::try_new(codes, values)
+            .expect("dictionary array")
+            .into_array();
+        let encoded_count =
+            fast_utf8_contains_count_from_chunk(&encoded, &columns, 0, "google", false)
+                .expect("encoded count decision");
+        assert_eq!(
+            encoded_count,
+            Some(2),
+            "dictionary UTF-8 should count through dictionary codes without executing into decoded VarBinView"
+        );
+        let encoded_negated =
+            fast_utf8_contains_count_from_chunk(&encoded, &columns, 0, "google", true)
+                .expect("encoded negated count decision");
+        assert_eq!(encoded_negated, Some(1));
     }
 
     #[test]
@@ -17479,9 +19184,21 @@ mod tests {
         assert_eq!(report.rows_selected, Some(2));
         assert_eq!(report.rows_projected, Some(2));
         assert_eq!(report.projected_columns, vec!["value".to_string()]);
-        assert_eq!(
-            report.result_summary.as_deref(),
-            Some("distinct_rows=2 projected_columns=value")
+        let summary = report.result_summary.as_deref().expect("summary");
+        assert!(summary.contains("distinct_rows=2"));
+        assert!(summary.contains("projected_columns=value"));
+        assert!(summary.contains("distinct_state_strategy=hash_row_key_exact"));
+        assert!(
+            report
+                .state_budget
+                .state_family
+                .contains("row_key_distinct_state+hash_row_key")
+        );
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"hash_row_key_state".to_string())
         );
         assert_eq!(report.max_parallelism_requested, 2);
         assert_eq!(report.scan_concurrency_per_worker, 2);
@@ -17577,7 +19294,13 @@ mod tests {
         assert!(report.materialization_boundary_reported);
         assert_eq!(
             report.state_budget.state_family,
-            "retained_row_deduplicate_state"
+            "retained_row_deduplicate_state+hash_row_key"
+        );
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"hash_row_key_state".to_string())
         );
     }
 
@@ -21060,6 +22783,47 @@ mod tests {
     }
 
     #[test]
+    fn partitioned_sort_rows_wide_output_materializes_selected_partition_ordinals() {
+        let left_path = unique_vortex_path("partitioned-wide-sort-left");
+        let right_path = unique_vortex_path("partitioned-wide-sort-right");
+        write_wide_sort_fixture(&left_path).expect("left fixture");
+        write_wide_sort_fixture(&right_path).expect("right fixture");
+        let source_uris = vec![
+            DatasetUri::new(left_path.display().to_string()).expect("left uri"),
+            DatasetUri::new(right_path.display().to_string()).expect("right uri"),
+        ];
+        let request = VortexQueryPrimitiveRequest::sort_rows(
+            DatasetUri::new("placeholder.vortex").expect("request uri"),
+            ProjectionRequest::All,
+            None,
+            VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new("metric", true)]),
+            1,
+        );
+
+        let report = execute_vortex_local_partitioned_primitive_with_policy(
+            &request,
+            &source_uris,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&left_path);
+        let _ = std::fs::remove_file(&right_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SortRows);
+        assert_eq!(report.rows_scanned, 6);
+        assert_eq!(report.rows_selected, Some(1));
+        assert_eq!(report.rows_projected, Some(1));
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        let summary = report.result_summary.expect("summary");
+        assert!(summary.contains("\"wide_output_second_pass\":true"));
+        assert!(summary.contains("\"id\":2"));
+        assert!(summary.contains("\"metric\":30"));
+        assert!(summary.contains("\"c7\":207"));
+    }
+
+    #[test]
     fn simple_aggregate_applies_sum_argument_offsets_without_fallback() {
         let path = unique_vortex_path("simple-aggregate-offset");
         write_struct_fixture(&path).expect("fixture");
@@ -21317,6 +23081,64 @@ mod tests {
     }
 
     #[test]
+    fn grouped_aggregate_missing_having_or_order_column_fails_closed() {
+        let path = unique_vortex_path("grouped-aggregate-missing-having-order");
+        write_pivot_struct_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let grouped_request = |aggregate: VortexSimpleAggregateRequest| {
+            VortexQueryPrimitiveRequest::simple_aggregate(uri.clone(), aggregate)
+        };
+
+        let having_request = grouped_request(
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("label").expect("column")],
+                vec![crate::VortexSimpleAggregateMeasure::new(
+                    "count",
+                    None,
+                    "rows".to_string(),
+                )],
+            )
+            .with_having(vec![crate::VortexAggregateHavingExpr::new(
+                "missing_metric",
+                ComparisonOp::Gt,
+                "0",
+            )]),
+        );
+        let having_error = execute_vortex_local_primitive(&having_request)
+            .expect_err("missing HAVING column must fail closed");
+        assert!(
+            having_error
+                .to_string()
+                .contains("HAVING column 'missing_metric' was not present in the result row"),
+            "{having_error:?}"
+        );
+
+        let order_request = grouped_request(
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("label").expect("column")],
+                vec![crate::VortexSimpleAggregateMeasure::new(
+                    "count",
+                    None,
+                    "rows".to_string(),
+                )],
+            )
+            .with_order_by(vec![crate::VortexAggregateOrderExpr::new(
+                "missing_metric",
+                true,
+            )]),
+        );
+        let order_error = execute_vortex_local_primitive(&order_request)
+            .expect_err("missing ORDER BY column must fail closed");
+        let _ = std::fs::remove_file(&path);
+        assert!(
+            order_error
+                .to_string()
+                .contains("order column 'missing_metric' is not a group column or aggregate alias"),
+            "{order_error:?}"
+        );
+    }
+
+    #[test]
     fn grouped_aggregate_mixed_predicate_preserves_pushdown_and_residual_boundary() {
         let path = unique_vortex_path("grouped-aggregate-mixed-predicate");
         write_mixed_string_filter_fixture(&path).expect("fixture");
@@ -21421,9 +23243,29 @@ mod tests {
         assert_eq!(report.source_order_limit_rows_output, Some(1));
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_execution_allowed);
+        assert_eq!(
+            report.state_budget.state_family,
+            "grouped_aggregate_state+topk+count_star_direct"
+        );
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"count_star_direct_group_update".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"row_materialization_bypass".to_string())
+        );
         let summary = report.result_summary.expect("summary");
         let payload = simple_aggregate_values_json(&summary);
         assert_eq!(payload["group_output_strategy"], "source_order_no_sort");
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "count_star_direct_group_update"
+        );
         assert_eq!(payload["rows"], serde_json::json!(1));
         let values = payload["values"].as_array().expect("values");
         assert_eq!(values.len(), 1);
@@ -21526,6 +23368,58 @@ mod tests {
         assert!(summary.contains("\"c7\":207"));
         assert!(!summary.contains("\"id\":1"));
         assert!(!summary.contains("\"id\":3"));
+    }
+
+    #[test]
+    fn sort_rows_wide_projection_with_pushdown_and_residual_keeps_filtered_ordinals() {
+        let path = unique_vortex_path("sort-rows-wide-pushdown-residual");
+        write_wide_sort_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sort_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::All,
+            Some(PredicateExpr::And(vec![
+                PredicateExpr::Compare {
+                    column: ColumnRef::new("metric").expect("column"),
+                    op: ComparisonOp::GtEq,
+                    value: StatValue::Int64(20),
+                },
+                PredicateExpr::InList {
+                    column: ColumnRef::new("c0").expect("column"),
+                    values: vec![StatValue::Int64(300)],
+                    negated: false,
+                },
+            ])),
+            VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new("metric", true)]),
+            1,
+        );
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SortRows);
+        assert!(!report.filter_pushdown_applied);
+        assert!(!report.upstream_filter_expression_used);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(report.materialization_boundary_reported);
+        assert_eq!(report.rows_selected, Some(1));
+        let summary = report.result_summary.expect("summary");
+        assert!(summary.contains("\"wide_output_second_pass\":true"));
+        assert!(
+            summary.contains("\"sort_predicate_strategy\":\"residual_predicate_source_ordinals\"")
+        );
+        assert!(summary.contains("\"id\":3"));
+        assert!(summary.contains("\"metric\":20"));
+        assert!(summary.contains("\"c7\":307"));
+        assert!(
+            !summary.contains("\"id\":2"),
+            "filtered ordinals must not be applied to the unfiltered source during wide output materialization"
+        );
     }
 
     #[test]
