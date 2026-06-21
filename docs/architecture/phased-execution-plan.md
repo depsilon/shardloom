@@ -240,9 +240,8 @@ Current autonomous execution order:
     advisory notes. Rows are grouped by shared runtime family so the fix converges public SQL,
     DataFrame, Python, and CLI wrappers into reusable native Vortex operators instead of adding
     ClickBench-only routes.
-  - V1/v0.2 scope classification: `required_for_release_quality` for local native Vortex OLAP
-    readiness; not a public ClickBench submission, superiority claim, or production object-store
-    proof.
+  - V1 scope classification: `required_for_v1` for local native Vortex OLAP readiness; not a
+    public ClickBench submission, superiority claim, or production object-store proof.
   - ShardLoom technique review: apply dictionary/encoded execution, metadata-first pruning,
     capillary aggregate/state units, PulseWeave memory/spill/pressure diagnostics, dynamic
     admission by cardinality/selectivity/dtype, bounded top-K state, late materialization, and
