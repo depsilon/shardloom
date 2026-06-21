@@ -556,7 +556,6 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "python scripts/check_package_channel_readiness.py",
         "feature/build matrix execution evidence",
         "typed_envelope_compatibility",
-        "shardloom-prepare-batch",
         "cargo fmt --all -- --check",
         "cargo clippy --workspace --all-targets -- -D warnings",
         "cargo test --workspace --all-targets",
@@ -2423,7 +2422,10 @@ fn gar_runtime_4s_5q_production_usability_gate_is_local_and_claim_safe() {
     assert!(validation_script.contains("production_usability_gate"));
     assert!(validation_script.contains("scripts/check_production_usability_gate.py"));
     assert!(validation_script.contains("scripts/check_website_readiness.py"));
-    assert!(validation_script.contains("scripts/check_benchmark_artifact_completeness.py"));
+    assert!(
+        !validation_script.contains("scripts/check_benchmark_artifact_completeness.py"),
+        "default release validation should not run benchmark publication gates"
+    );
 
     let doc = read_repo_file("docs/release/production-usability-gate.md");
     for required in [
