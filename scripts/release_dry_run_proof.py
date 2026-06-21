@@ -540,6 +540,57 @@ def build_python_artifacts(
     return mark_python_artifact_presence(fallback_step, dist_dir)
 
 
+def stage_python_artifacts_for_provenance(
+    repo_root: Path,
+    built_dist_dir: Path,
+    provenance_dist_dir: Path | None = None,
+) -> dict[str, Any]:
+    started = time.perf_counter()
+    target_dist_dir = provenance_dist_dir or repo_root / "python" / "dist"
+    command = [
+        "internal:stage_python_artifacts_for_provenance",
+        str(built_dist_dir),
+        str(target_dist_dir),
+    ]
+    try:
+        if built_dist_dir.resolve() != target_dist_dir.resolve():
+            clean_python_dist(target_dist_dir)
+            copied_artifacts: list[str] = []
+            for pattern in ("shardloom-*.whl", "shardloom-*.tar.gz"):
+                for artifact in sorted(built_dist_dir.glob(pattern)):
+                    destination = target_dist_dir / artifact.name
+                    shutil.copy2(artifact, destination)
+                    copied_artifacts.append(transcript_path_ref(repo_root, destination) or str(destination))
+        else:
+            copied_artifacts = [
+                transcript_path_ref(repo_root, artifact) or str(artifact)
+                for pattern in ("shardloom-*.whl", "shardloom-*.tar.gz")
+                for artifact in sorted(target_dist_dir.glob(pattern))
+            ]
+        blockers = python_artifact_blockers(target_dist_dir)
+        return {
+            "name": "stage_python_artifacts_for_provenance",
+            "command": command,
+            "returncode": 0 if not blockers else 1,
+            "elapsed_millis": round((time.perf_counter() - started) * 1000.0, 4),
+            "stdout": "\n".join(copied_artifacts)[-4000:],
+            "stderr": "; ".join(blockers),
+            "python_artifact_blockers": blockers,
+            "copied_artifacts": copied_artifacts,
+        }
+    except (OSError, shutil.Error) as exc:
+        return {
+            "name": "stage_python_artifacts_for_provenance",
+            "command": command,
+            "returncode": 1,
+            "elapsed_millis": round((time.perf_counter() - started) * 1000.0, 4),
+            "stdout": "",
+            "stderr": str(exc),
+            "python_artifact_blockers": ["failed to stage Python artifacts for provenance"],
+            "copied_artifacts": [],
+        }
+
+
 def stage_python_package_with_bundled_cli(
     repo_root: Path,
     stage_dir: Path,
@@ -925,6 +976,7 @@ def main() -> int:
                 timeout_seconds=args.benchmark_smoke_timeout_seconds,
             )
         )
+    steps.append(stage_python_artifacts_for_provenance(repo_root, dist_dir))
     steps.append(
         run_step(
             name="release_provenance_dry_run",

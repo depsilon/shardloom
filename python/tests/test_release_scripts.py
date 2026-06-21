@@ -13409,6 +13409,36 @@ jobs:
             self.assertEqual(step["python_artifact_blockers"], [])
             self.assertEqual(len(step["fallback_steps"]), 2)
 
+    def test_release_dry_run_stages_built_artifacts_for_provenance(self) -> None:
+        module = self._load_script_module(
+            "release_dry_run_proof.py",
+            "release_dry_run_proof_provenance_artifact_staging_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            built_dist = repo_root / "target" / "release-dry-run-proof" / "python-package-stage" / "dist"
+            built_dist.mkdir(parents=True)
+            wheel = built_dist / "shardloom-0.2.0-py3-none-any.whl"
+            sdist = built_dist / "shardloom-0.2.0.tar.gz"
+            wheel.write_text("wheel", encoding="utf-8")
+            sdist.write_text("sdist", encoding="utf-8")
+            target_dist = repo_root / "python" / "dist"
+            target_dist.mkdir(parents=True)
+            stale = target_dist / "shardloom-0.1.10-py3-none-any.whl"
+            stale.write_text("stale", encoding="utf-8")
+
+            step = module.stage_python_artifacts_for_provenance(repo_root, built_dist)
+
+            self.assertEqual(step["returncode"], 0)
+            self.assertEqual(step["python_artifact_blockers"], [])
+            self.assertFalse(stale.exists())
+            self.assertTrue((target_dist / wheel.name).exists())
+            self.assertTrue((target_dist / sdist.name).exists())
+            self.assertEqual(
+                step["copied_artifacts"],
+                [f"python/dist/{wheel.name}", f"python/dist/{sdist.name}"],
+            )
+
     def test_release_dry_run_cleanup_rejects_repo_root_and_top_level_targets(self) -> None:
         module = self._load_script_module(
             "release_dry_run_proof.py", "release_dry_run_proof_cleanup_guard_for_test"
