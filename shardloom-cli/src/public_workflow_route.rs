@@ -2322,6 +2322,11 @@ fn execute_local_file_prepare_once_first_query_run(
         Err(blocked) => return emit_blocked_facade("run", format, request, &blocked),
     };
 
+    let native_plan = plan_public_workflow_route(&prepared_run.request);
+    if native_plan.status != CommandStatus::Success {
+        return emit_blocked_facade("run", format, &prepared_run.request, &native_plan);
+    }
+
     let left_preparation = match prepare_local_source_for_public_workflow(
         &prepared_run.left_source_uri,
         &prepared_run.left_source_format,
@@ -2373,11 +2378,6 @@ fn execute_local_file_prepare_once_first_query_run(
         extra_fields.extend(local_prepared_vortex_right_execution_attachment_fields(
             &right_preparation,
         ));
-    }
-
-    let native_plan = plan_public_workflow_route(&prepared_run.request);
-    if native_plan.status != CommandStatus::Success {
-        return emit_blocked_facade("run", format, &prepared_run.request, &native_plan);
     }
 
     execute_prepared_local_native_route(&prepared_run.request, &native_plan, format, extra_fields)

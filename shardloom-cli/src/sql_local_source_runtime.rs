@@ -6170,8 +6170,8 @@ fn run_columnar_vortex_prepare(
         vortex_report.row_count,
         vortex_report.array_build_record_batch_count,
     );
-    let source_state_id = source_state_id_for_source(&source);
-    let source_state_digest = source_state_digest_for_source(&source, &source_schema_digest);
+    let source_state_id = prewrite_source_state_id;
+    let source_state_digest = prewrite_source_state_digest;
     let scout_ingress = scout_ingress_report(
         &source,
         &request.source_path,
