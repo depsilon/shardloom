@@ -41,7 +41,7 @@ legacy_flat_field_policy=stable_aliases_for_v1_with_documented_deprecation_windo
 
 RFC 0024 requires public release, package publication, API compatibility, schema compatibility,
 checksums, SBOM, signing, and publication approval to be explicit release gates. The current
-technical-preview repository has v0.1.10 selected-channel publication proof for GitHub pre-release,
+technical-preview repository has v0.2.0 selected-channel publication proof for GitHub pre-release,
 TestPyPI, PyPI, and Homebrew plus local v1 API/schema stability evidence. Signing/attestation
 expansion, production claims, performance superiority claims, and future package channels remain
 blocked.
@@ -56,7 +56,7 @@ release-readiness validator so release/package claims fail closed.
 - `docs/release/fixtures/v1-api-schema-stability/golden-fixtures.json`
 - `scripts/check_v1_api_schema_stability.py`
 
-That contract validates stable v1 machine-readable fields for local and package-installed v0.1.10
+That contract validates stable v1 machine-readable fields for local and package-installed v0.2.0
 technical-preview workflows. It does not unblock signing, future package channels, production
 claims, performance claims, or broad runtime claims.
 
@@ -64,13 +64,13 @@ claims, performance claims, or broad runtime claims.
 
 | Gate row | Status | Required publication evidence | Current blocker |
 | --- | --- | --- | --- |
-| `api_compatibility_window` | local_v1_contract_ready | Published API stability tiers, compatibility window, deprecation policy, breaking-change approval. | Local v1 stable-field aliases and deprecation policy are declared for the v0.1.10 technical preview. |
+| `api_compatibility_window` | local_v1_contract_ready | Published API stability tiers, compatibility window, deprecation policy, breaking-change approval. | Local v1 stable-field aliases and deprecation policy are declared for the v0.2.0 technical preview. |
 | `schema_compatibility_window` | local_v1_contract_ready | Schema version registry, compatibility window, migration notes, golden fixtures. | Stable schema files and golden fixtures exist for 11 v1 machine-readable surfaces. |
-| `package_identity_approval` | selected_channels_ready | Approved package identities, channel ownership, naming, install/uninstall/rollback proof. | GitHub/TestPyPI/PyPI/Homebrew are published and proof-backed for v0.1.10. |
+| `package_identity_approval` | selected_channels_ready | Approved package identities, channel ownership, naming, install/uninstall/rollback proof. | GitHub/TestPyPI/PyPI/Homebrew are published and proof-backed for v0.2.0. |
 | `signing_policy_decision` | blocked | Artifact signing policy, maintainer approval, key custody, signing workflow evidence. | No signing key may be used and no signing mechanism is approved before publication. |
 | `checksum_manifest` | dry_run_only | Publication-grade checksum manifest tied to release artifacts and source revision. | Local dry-run checksum evidence exists, but publication-grade checksums are not attached. |
 | `sbom_bundle` | dry_run_only | Publication-grade Rust, Python, CLI, and optional image SBOM bundle. | Local dry-run SBOM evidence exists, but publication-grade SBOM approval is missing. |
-| `publication_approval` | selected_channels_ready | Explicit maintainer approval, release notes, tag approval, package-channel gate pass. | Maintainer approval and channel proof exist for the v0.1.10 GitHub, TestPyPI, PyPI, and Homebrew sequence. |
+| `publication_approval` | selected_channels_ready | Explicit maintainer approval, release notes, tag approval, package-channel gate pass. | Maintainer approval and channel proof exist for the v0.2.0 GitHub, TestPyPI, PyPI, and Homebrew sequence. |
 
 ## Relationship To Existing Release Evidence
 
@@ -85,7 +85,7 @@ Existing dry-run and release-readiness surfaces remain valid inputs:
 - `docs/architecture/workspace-feature-build-matrix.md` defines required feature/build evidence.
 
 Those surfaces are necessary but not sufficient for production, performance, signing, future
-package-channel, or broad runtime claims. Selected v0.1.10 package publication is proof-backed; the
+package-channel, or broad runtime claims. Selected v0.2.0 package publication is proof-backed; the
 remaining blocked rows must stay explicit.
 
 ## Hard Release Rule

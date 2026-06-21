@@ -19,7 +19,9 @@ SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
     "homebrew_tap",
 ]
 
-SELECTED_PACKAGE_RELEASE_VERSION = "0.1.10"
+# The JSON field names still include v0_1_0 for schema compatibility. The
+# selected release value itself is the current proof-backed package version.
+SELECTED_PACKAGE_RELEASE_VERSION = "0.2.0"
 SELECTED_PACKAGE_RELEASE_TAG = f"v{SELECTED_PACKAGE_RELEASE_VERSION}"
 SELECTED_PACKAGE_CHANNEL_STATUS_MARKER = (
     f"published_v{SELECTED_PACKAGE_RELEASE_VERSION}_selected_channels"
