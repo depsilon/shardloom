@@ -5229,57 +5229,6 @@ class ReleaseScriptTests(unittest.TestCase):
             module.runtime_gap_family_burn_down_blockers(mismatched),
         )
 
-    def test_release_readiness_accepts_precomputed_benchmark_reports(self) -> None:
-        module = self._load_script_module(
-            "check_release_readiness.py",
-            "check_release_readiness_benchmark_reports_for_test",
-        )
-        manifest_ref = "website/assets/benchmarks/latest/manifest.json"
-        completeness = {
-            "schema_version": "shardloom.benchmark_artifact_completeness_report.v1",
-            "status": "passed",
-            "manifest": manifest_ref,
-            "benchmark_profile": "full_local",
-            "artifact_status": "complete",
-            "performance_claim_allowed": False,
-            "benchmark_run_performed": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "blockers": [],
-        }
-        publication = {
-            "schema_version": "shardloom.benchmark_publication_claim_gate.v1",
-            "status": "passed",
-            "manifest": manifest_ref,
-            "benchmark_run_performed": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "blockers": [],
-        }
-
-        self.assertEqual(
-            module.benchmark_completeness_report_blockers(
-                completeness,
-                manifest_ref=manifest_ref,
-            ),
-            [],
-        )
-        self.assertEqual(
-            module.benchmark_publication_claim_report_blockers(
-                publication,
-                manifest_ref=manifest_ref,
-            ),
-            [],
-        )
-        blocked = dict(completeness, status="blocked", blockers=["missing lane"])
-        self.assertIn(
-            "benchmark artifact completeness: missing lane",
-            module.benchmark_completeness_report_blockers(
-                blocked,
-                manifest_ref=manifest_ref,
-            ),
-        )
-
     def test_differential_preparation_matrix_preserves_refinement_evidence(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
 
@@ -8329,10 +8278,6 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(commands["package_channel_readiness"][0], "/tool/python3.12")
         self.assertEqual(
-            commands["benchmark_constitution"],
-            ["/tool/python3.12", "scripts/check_benchmark_constitution.py"],
-        )
-        self.assertEqual(
             commands["v1_source_prepared_state_scope_gate"],
             ["/tool/python3.12", "scripts/check_v1_source_prepared_state_scope.py"],
         )
@@ -8372,48 +8317,11 @@ class ReleaseScriptTests(unittest.TestCase):
             commands["final_release_approval_post_release_verification"],
             ["/tool/python3.12", "scripts/check_final_release_approval.py"],
         )
-        self.assertEqual(
-            commands["benchmark_artifact_completeness"],
-            [
-                "/tool/python3.12",
-                "scripts/check_benchmark_artifact_completeness.py",
-                "--manifest",
-                "website/assets/benchmarks/latest/manifest.json",
-                "--output",
-                "target/benchmark-artifact-completeness-report.json",
-            ],
-        )
-        self.assertEqual(
-            commands["benchmark_publication_claim_gate"],
-            [
-                "/tool/python3.12",
-                "scripts/check_benchmark_publication_claim_gate.py",
-                "--manifest",
-                "website/assets/benchmarks/latest/manifest.json",
-                "--allow-stale-git",
-            ],
-        )
-        self.assertEqual(
-            commands["front_door_benchmark_publication_gate"],
-            [
-                "/tool/python3.12",
-                "scripts/check_front_door_benchmark_publication.py",
-                "--manifest",
-                "website/assets/benchmarks/latest/manifest.json",
-                "--allow-stale-git",
-            ],
-        )
-
-        self.assertEqual(
-            commands["pre_5j_dependency_freshness_gate"],
-            [
-                "/tool/python3.12",
-                "scripts/check_pre_5j_dependency_freshness.py",
-                "--require-live-github",
-                "--output",
-                "target/pre-5j-dependency-freshness-gate.json",
-            ],
-        )
+        self.assertNotIn("benchmark_constitution", commands)
+        self.assertNotIn("benchmark_artifact_completeness", commands)
+        self.assertNotIn("benchmark_publication_claim_gate", commands)
+        self.assertNotIn("front_door_benchmark_publication_gate", commands)
+        self.assertNotIn("pre_5j_dependency_freshness_gate", commands)
         self.assertEqual(
             commands["v1_front_door_runtime_scope_gate"],
             ["/tool/python3.12", "scripts/check_v1_front_door_runtime_scope.py"],
@@ -9992,23 +9900,6 @@ class ReleaseScriptTests(unittest.TestCase):
                 expected,
             )
         )
-        pre_5j_expected = "python scripts/check_pre_5j_dependency_freshness.py"
-        self.assertTrue(
-            module.validation_command_passed(
-                {
-                    pre_5j_expected
-                    + " --require-live-github --output target/pre-5j-dependency-freshness-gate.json": "passed"
-                },
-                pre_5j_expected,
-            )
-        )
-        self.assertFalse(
-            module.validation_command_passed(
-                {pre_5j_expected + " --require-live-github": "failed"},
-                pre_5j_expected,
-            )
-        )
-
     def test_pre_5j_dependency_freshness_accepts_current_dependabot_prs(self) -> None:
         module = self._load_script_module(
             "check_pre_5j_dependency_freshness.py",
