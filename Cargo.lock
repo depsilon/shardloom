@@ -2360,7 +2360,7 @@ dependencies = [
 
 [[package]]
 name = "shardloom-cli"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "arrow-array",
  "arrow-avro",
@@ -2379,7 +2379,7 @@ dependencies = [
 
 [[package]]
 name = "shardloom-contract-tests"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "shardloom-core",
  "shardloom-exec",
@@ -2389,14 +2389,14 @@ dependencies = [
 
 [[package]]
 name = "shardloom-core"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "regex",
 ]
 
 [[package]]
 name = "shardloom-exec"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "shardloom-core",
  "shardloom-plan",
@@ -2404,14 +2404,14 @@ dependencies = [
 
 [[package]]
 name = "shardloom-plan"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "shardloom-core",
 ]
 
 [[package]]
 name = "shardloom-vortex"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "arrow-array",
  "arrow-avro",
