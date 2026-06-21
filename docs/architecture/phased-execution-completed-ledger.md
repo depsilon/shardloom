@@ -5469,8 +5469,10 @@ phase plan first.
     - Added `scripts/check_benchmark_optimization_targets.py` to extract diagnostic-only hot
       runtime optimization targets from the promoted benchmark artifact without running
       benchmarks, importing external engines, mutating rows, or making a performance claim.
-    - Wired the optimization-target report into the `release-benchmark-claim` CI lane,
-      release-readiness artifact verification, and CI gate matrix documentation.
+    - Wired the optimization-target report into the prior benchmark claim evidence lane,
+      release-readiness artifact verification, and CI gate matrix documentation. The default
+      release-readiness CI aggregate later retired that lane after the public benchmark surface
+      moved to the ClickBench handoff.
     - Advanced the phase plan to `REPO-WIDE-AUDIT-3B`, which owns actual hot-runtime code
       optimization implementation from the target report.
   - Local evidence:

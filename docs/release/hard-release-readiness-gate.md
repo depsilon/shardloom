@@ -44,11 +44,9 @@ Producer evidence artifacts:
 - `release-user-surface-evidence`: Python user-surface, SQL/DataFrame parity, runtime-gap,
   graduation, burn-down, and route-capability reports; produced after reusing the local dry-run
   transcript from `release-local-smoke-evidence`.
-- `release-benchmark-claim-evidence`: pre-5J dependency freshness, benchmark artifact
-  completeness, benchmark publication claim gate, and front-door benchmark publication gate
-  reports. The final aggregate consumes the precomputed benchmark completeness/publication reports
-  when present instead of rescanning the large public benchmark bundle, and verifies
-  manifest/artifact digests before trusting the precomputed completeness report.
+- Benchmark publication validators remain manual, intentional publication gates. They are not part
+  of the default CI release-readiness artifact aggregate now that the public benchmark surface is a
+  ClickBench handoff rather than a bundled ShardLoom benchmark dashboard.
 - `website-docs-evidence`: website readiness report.
 - `ci-gate-matrix-report`: CI matrix drift contract.
 - `v1-security-ci-hardening-report`: dependency audit, license, forbidden-fallback dependency,

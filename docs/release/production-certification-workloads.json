@@ -147,7 +147,7 @@
           "status": "blocked_not_claim_grade",
           "evidence_refs": [
             "website-src/src/pages/benchmarks.astro",
-            "target/benchmark-artifact-completeness-report.json"
+            "docs/benchmarks/static-benchmark-publishing-runbook.md"
           ]
         },
         "security_governance": {

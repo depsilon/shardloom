@@ -262,10 +262,10 @@ independently.
 
 ## Release Notes
 
-The latest published technical-preview package is proof-backed through GitHub release assets, PyPI,
+Published technical-preview packages are proof-backed through GitHub release assets, PyPI,
 TestPyPI, and Homebrew channel transcripts under `docs/release/channel-proofs/`.
 
-For the next release train, `v0.2.0` should use a signed annotated Git tag so GitHub can show a
+The `v0.2.0` release train should use a signed annotated Git tag so GitHub can show a
 verified tag badge when the local maintainer signing key is configured:
 
 ```sh

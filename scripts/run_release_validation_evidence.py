@@ -216,48 +216,6 @@ def required_validation_commands(
         ("admitted_semantics_matrix", [python_executable, "scripts/check_admitted_semantics_matrix.py"]),
         ("runtime_execution_envelopes", [python_executable, "scripts/check_runtime_execution_envelopes.py"]),
         ("website_readiness", [python_executable, "scripts/check_website_readiness.py"]),
-        ("benchmark_constitution", [python_executable, "scripts/check_benchmark_constitution.py"]),
-        (
-            "benchmark_artifact_completeness",
-            [
-                python_executable,
-                "scripts/check_benchmark_artifact_completeness.py",
-                "--manifest",
-                "website/assets/benchmarks/latest/manifest.json",
-                "--output",
-                "target/benchmark-artifact-completeness-report.json",
-            ],
-        ),
-        (
-            "pre_5j_dependency_freshness_gate",
-            [
-                python_executable,
-                "scripts/check_pre_5j_dependency_freshness.py",
-                "--require-live-github",
-                "--output",
-                "target/pre-5j-dependency-freshness-gate.json",
-            ],
-        ),
-        (
-            "benchmark_publication_claim_gate",
-            [
-                python_executable,
-                "scripts/check_benchmark_publication_claim_gate.py",
-                "--manifest",
-                "website/assets/benchmarks/latest/manifest.json",
-                "--allow-stale-git",
-            ],
-        ),
-        (
-            "front_door_benchmark_publication_gate",
-            [
-                python_executable,
-                "scripts/check_front_door_benchmark_publication.py",
-                "--manifest",
-                "website/assets/benchmarks/latest/manifest.json",
-                "--allow-stale-git",
-            ],
-        ),
         (
             "final_release_rehearsal",
             [python_executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],

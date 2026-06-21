@@ -164,16 +164,6 @@ LOCAL_PRODUCT_REPORTS: tuple[ReportRequirement, ...] = (
         status_field=None,
     ),
     ReportRequirement(
-        "benchmark_artifact_completeness",
-        Path("target/benchmark-artifact-completeness-report.json"),
-        "shardloom.benchmark_artifact_completeness_report.v1",
-    ),
-    ReportRequirement(
-        "front_door_benchmark_publication",
-        Path("target/front-door-benchmark-publication-gate.json"),
-        "shardloom.front_door_benchmark_publication_gate.v1",
-    ),
-    ReportRequirement(
         "ci_gate_matrix",
         Path("target/ci-gate-matrix-report.json"),
         "shardloom.ci_gate_matrix_report.v1",
@@ -181,11 +171,6 @@ LOCAL_PRODUCT_REPORTS: tuple[ReportRequirement, ...] = (
 )
 
 PUBLICATION_REPORTS: tuple[ReportRequirement, ...] = (
-    ReportRequirement(
-        "benchmark_publication_claim",
-        Path("target/benchmark-publication-claim-gate-report.json"),
-        "shardloom.benchmark_publication_claim_gate.v1",
-    ),
     ReportRequirement(
         "final_release_rehearsal",
         Path("target/final-release-rehearsal/final-release-rehearsal-report.json"),

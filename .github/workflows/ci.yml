@@ -480,44 +480,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  release-benchmark-claim:
-    name: Release benchmark claim evidence
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # actions/checkout@v6
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # actions/setup-python@v6
-        with:
-          python-version: "3.11"
-      - name: Pre-5J dependency freshness gate
-        if: github.event_name == 'pull_request'
-        run: python scripts/check_pre_5j_dependency_freshness.py
-      - name: Pre-5J dependency freshness gate (live GitHub)
-        if: github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python scripts/check_pre_5j_dependency_freshness.py --require-live-github
-      - name: Benchmark artifact completeness
-        run: python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json
-      - name: Benchmark publication claim gate
-        continue-on-error: true
-        run: python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
-      - name: Front-door benchmark publication gate
-        run: python scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
-      - name: Benchmark optimization targets
-        run: python scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
-        if: always()
-        with:
-          name: release-benchmark-claim-evidence
-          path: |
-            target/pre-5j-dependency-freshness-gate.json
-            target/benchmark-artifact-completeness-report.json
-            target/benchmark-publication-claim-gate-report.json
-            target/front-door-benchmark-publication-gate.json
-            target/benchmark-optimization-targets-report.json
-          if-no-files-found: ignore
-          retention-days: 14
-
   release-readiness:
     name: Release readiness reports
     runs-on: ubuntu-latest
@@ -531,7 +493,6 @@ jobs:
       - release-runtime-core
       - release-package-governance
       - release-user-surface
-      - release-benchmark-claim
       - website-docs
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # actions/checkout@v6
@@ -578,11 +539,6 @@ jobs:
         with:
           name: release-user-surface-evidence
           path: target/downloads/release-user-surface-evidence
-      - name: Reuse benchmark claim evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
-        with:
-          name: release-benchmark-claim-evidence
-          path: target/downloads/release-benchmark-claim-evidence
       - name: Reuse website/docs evidence
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
         with:
@@ -599,7 +555,6 @@ jobs:
             --artifact target/downloads/release-runtime-core-evidence \
             --artifact target/downloads/release-package-governance-evidence \
             --artifact target/downloads/release-user-surface-evidence \
-            --artifact target/downloads/release-benchmark-claim-evidence \
             --artifact target/downloads/website-docs-evidence
       - name: Verify downloaded release evidence
         run: |
@@ -634,11 +589,6 @@ jobs:
           test -f target/user-surface-graduation-matrix.json
           test -f target/runtime-gap-family-burn-down.json
           test -f target/user-route-capability-report.json
-          test -f target/pre-5j-dependency-freshness-gate.json
-          test -f target/benchmark-artifact-completeness-report.json
-          test -f target/benchmark-publication-claim-gate-report.json
-          test -f target/front-door-benchmark-publication-gate.json
-          test -f target/benchmark-optimization-targets-report.json
           test -f target/public-status-docs-report.json
           test -f target/website-readiness-report.json
       - name: Final release rehearsal
@@ -705,11 +655,6 @@ jobs:
             target/user-surface-graduation-matrix.json
             target/runtime-gap-family-burn-down.json
             target/user-route-capability-report.json
-            target/pre-5j-dependency-freshness-gate.json
-            target/benchmark-artifact-completeness-report.json
-            target/benchmark-publication-claim-gate-report.json
-            target/front-door-benchmark-publication-gate.json
-            target/benchmark-optimization-targets-report.json
             target/ci-gate-matrix-report.json
             target/ci-work-shaping-plan.json
             target/ci-work-shaping-changed-files.txt
