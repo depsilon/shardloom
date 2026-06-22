@@ -2726,6 +2726,7 @@ pub fn flat_rows_to_record_batch_with_schema(
     rows: &[Vec<(String, ScalarValue)>],
     context: &str,
 ) -> Result<RecordBatch> {
+    validate_flat_columns(columns, context)?;
     if schema.fields().len() != columns.len() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "{context} schema has {} fields for {} columns",
@@ -4297,6 +4298,41 @@ mod tests {
             Ok(_) => panic!("reserved hidden derived columns must be rejected"),
             Err(error) => error,
         };
+
+        let message = error.to_string();
+        assert!(
+            message.contains("reserved ShardLoom hidden derived column"),
+            "{message}"
+        );
+        assert!(message.contains("no fallback execution was attempted"));
+    }
+
+    #[test]
+    fn schema_stable_record_batch_rejects_reserved_hidden_derived_columns() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("URL", DataType::Utf8, true),
+            Field::new("__shardloom_derived_url_domain_URL", DataType::Utf8, true),
+        ]));
+        let columns = vec![
+            "URL".to_string(),
+            "__shardloom_derived_url_domain_URL".to_string(),
+        ];
+        let rows = vec![vec![
+            (
+                "URL".to_string(),
+                ScalarValue::Utf8("https://example.com/path".to_string()),
+            ),
+            (
+                "__shardloom_derived_url_domain_URL".to_string(),
+                ScalarValue::Utf8("attacker-controlled.example".to_string()),
+            ),
+        ]];
+
+        let error =
+            match flat_rows_to_record_batch_with_schema(schema, &columns, &rows, "schema batch") {
+                Ok(_) => panic!("reserved hidden derived columns must be rejected"),
+                Err(error) => error,
+            };
 
         let message = error.to_string();
         assert!(

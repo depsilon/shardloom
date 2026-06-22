@@ -3512,7 +3512,11 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
 }
 
 #[cfg(all(feature = "vortex-local-primitives", feature = "universal-format-io"))]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::needless_pass_by_value,
+    clippy::too_many_arguments,
+    clippy::unnecessary_wraps
+)]
 fn execute_vortex_local_structured_vortex_row_export_enabled(
     request: &VortexQueryPrimitiveRequest,
     output_path: &std::path::Path,
@@ -19560,8 +19564,14 @@ impl<'a> GroupedAggregateStates<'a> {
         if retained_cap == 0 || counts.len() < retained_cap {
             return Ok(false);
         }
-        let mut retained = self.numeric_utf8_topk_candidates(counts, retained_cap);
-        self.sort_numeric_utf8_topk_candidates(&mut retained);
+        let roles = self.numeric_utf8_topk_group_roles.ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-UTF8 top-K heavy-hitter group roles were missing before exact proof; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        let mut retained = self.numeric_utf8_topk_candidates(counts, retained_cap, roles);
+        self.sort_numeric_utf8_topk_candidates(&mut retained, roles);
         let minimum_retained = retained
             .get(retained_cap.saturating_sub(1))
             .map_or(0, |candidate| candidate.count);
@@ -22088,8 +22098,8 @@ impl<'a> GroupedAggregateStates<'a> {
             )
         })?;
         let retained_cap = self.request.offset.saturating_add(limit);
-        let mut retained = self.numeric_utf8_topk_candidates(counts, retained_cap);
-        self.sort_numeric_utf8_topk_candidates(&mut retained);
+        let mut retained = self.numeric_utf8_topk_candidates(counts, retained_cap, roles);
+        self.sort_numeric_utf8_topk_candidates(&mut retained, roles);
         let available = retained.len().saturating_sub(self.request.offset);
         let row_count = available.min(limit);
         let count_alias = self.state_template.count_star_alias()?;
@@ -22147,7 +22157,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "compact_group_state_strategy": self.compact_group_state_strategy(),
             "group_state_mode": self.group_state_mode(),
             "group_key_storage": self.group_key_storage(),
-            "group_key_comparison_strategy": "proofbound_count_desc_numeric_utf8_asc",
+            "group_key_comparison_strategy": "proofbound_count_desc_declared_group_key_order",
             "source_order_key_retention": self.source_order_key_retention(),
             "topk_retention_after_update": retained_cap.min(counts.len()),
             "materialized_group_value_count": self.materialized_group_value_count(),
@@ -22179,6 +22189,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         counts: &rustc_hash::FxHashMap<AggregateNumericUtf8Key, u64>,
         retained_cap: usize,
+        roles: NumericUtf8GroupRoles,
     ) -> Vec<NumericUtf8TopKCandidate> {
         if retained_cap == 0 {
             return Vec::new();
@@ -22194,11 +22205,11 @@ impl<'a> GroupedAggregateStates<'a> {
                 retained.push(candidate);
                 continue;
             }
-            if let Some((worst_index, worst_candidate)) = retained
-                .iter()
-                .enumerate()
-                .max_by(|(_, left), (_, right)| compare_numeric_utf8_topk_candidates(left, right))
-                && compare_numeric_utf8_topk_candidates(&candidate, worst_candidate)
+            if let Some((worst_index, worst_candidate)) =
+                retained.iter().enumerate().max_by(|(_, left), (_, right)| {
+                    compare_numeric_utf8_topk_candidates(left, right, roles)
+                })
+                && compare_numeric_utf8_topk_candidates(&candidate, worst_candidate, roles)
                     == std::cmp::Ordering::Less
             {
                 retained[worst_index] = candidate;
@@ -22208,8 +22219,12 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     #[allow(clippy::unused_self)]
-    fn sort_numeric_utf8_topk_candidates(&self, retained: &mut [NumericUtf8TopKCandidate]) {
-        retained.sort_by(compare_numeric_utf8_topk_candidates);
+    fn sort_numeric_utf8_topk_candidates(
+        &self,
+        retained: &mut [NumericUtf8TopKCandidate],
+        roles: NumericUtf8GroupRoles,
+    ) {
+        retained.sort_by(|left, right| compare_numeric_utf8_topk_candidates(left, right, roles));
     }
 
     #[allow(clippy::too_many_lines)]
@@ -24769,19 +24784,26 @@ fn string_candidate_signatures(
 fn compare_numeric_utf8_topk_candidates(
     left: &NumericUtf8TopKCandidate,
     right: &NumericUtf8TopKCandidate,
+    roles: NumericUtf8GroupRoles,
 ) -> std::cmp::Ordering {
-    left.count
-        .cmp(&right.count)
-        .reverse()
-        .then_with(|| {
-            compare_integer_key_bits(
-                left.key.numeric_bits,
-                left.key.numeric_signed,
-                right.key.numeric_bits,
-                right.key.numeric_signed,
-            )
-        })
-        .then_with(|| left.key.utf8.as_ref().cmp(right.key.utf8.as_ref()))
+    let count_order = left.count.cmp(&right.count).reverse();
+    if count_order != std::cmp::Ordering::Equal {
+        return count_order;
+    }
+    let numeric_order = || {
+        compare_integer_key_bits(
+            left.key.numeric_bits,
+            left.key.numeric_signed,
+            right.key.numeric_bits,
+            right.key.numeric_signed,
+        )
+    };
+    let utf8_order = || left.key.utf8.as_ref().cmp(right.key.utf8.as_ref());
+    if roles.numeric_group < roles.utf8_group {
+        numeric_order().then_with(utf8_order)
+    } else {
+        utf8_order().then_with(numeric_order)
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -36550,6 +36572,78 @@ mod tests {
             serde_json::json!("warm")
         );
         assert_eq!(payload["values"][1]["rows"], serde_json::json!(2));
+    }
+
+    #[test]
+    fn grouped_aggregate_numeric_utf8_topk_preserves_declared_group_key_ties() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("search_phrase").expect("column"),
+                ColumnRef::new("user_id").expect("column"),
+            ],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let declared_columns = vec!["search_phrase".to_string(), "user_id".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        states.enable_numeric_utf8_topk_heavy_hitter();
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 0, 0, 0, 1, 1],
+                values: vec![
+                    std::sync::Arc::<str>::from("alpha"),
+                    std::sync::Arc::<str>::from("beta"),
+                ],
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+            AggregateDirectColumnAccessor::Int64(vec![1, 1, 9, 9, 1, 1]),
+        ];
+
+        assert!(
+            states
+                .update_numeric_utf8_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("heavy-hitter count pass")
+        );
+        states
+            .prepare_numeric_utf8_topk_heavy_hitter_second_pass()
+            .expect("prepare candidates");
+        assert!(
+            states
+                .update_numeric_utf8_topk_heavy_hitter_exact_from_accessors(&accessors)
+                .expect("exact recount")
+        );
+        assert!(
+            states
+                .numeric_utf8_topk_exact_proved(Some(2))
+                .expect("exact proof")
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["group_key_comparison_strategy"],
+            "proofbound_count_desc_declared_group_key_order"
+        );
+        assert_eq!(
+            payload["values"][0]["search_phrase"],
+            serde_json::json!("alpha")
+        );
+        assert_eq!(payload["values"][0]["user_id"], serde_json::json!(1));
+        assert_eq!(
+            payload["values"][1]["search_phrase"],
+            serde_json::json!("alpha")
+        );
+        assert_eq!(payload["values"][1]["user_id"], serde_json::json!(9));
     }
 
     #[test]
