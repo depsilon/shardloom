@@ -138,8 +138,12 @@ The ClickBench OLAP fixture under `benchmarks/clickbench/queries.sql` is now the
 driver. `scripts/check_clickbench_olap_runtime_coverage.py` classifies all 43 canonical `hits`
 queries into admitted primitive SQL rows or reusable implementation families. The current local
 coverage map validates 43 admitted rows and 0 implementation-required rows through shared native
-Vortex aggregate, grouped expression, predicate, and sorted-row route families. The checker is a
-readiness map, not a runtime benchmark or public performance claim. The canonical report exposes
+Vortex aggregate, grouped expression, predicate, and sorted-row route families. The current native
+aggregate family includes direct typed/dictionary scalar `count`/`sum`/`avg`/`min`/`max` and exact
+`count_distinct`, compact grouped count/sum/avg state, exact `length(...)` measures, transformed
+dictionary URL-domain/length grouping, typed numeric-pair state, and typed numeric/minute/string
+state. The checker is a readiness map, not a runtime benchmark or public performance claim. The
+canonical report exposes
 `clickbench_olap_readiness_status`, `route_family_counts`,
 `memory_spill_diagnostic_status`, `admitted_query_count`,
 `implementation_required_count`, and `site_readiness_claim_boundary` so docs and benchmark-site
@@ -150,7 +154,7 @@ surfaces cannot silently reinterpret route readiness as timing evidence.
 | Status | Meaning |
 | --- | --- |
 | `smoke_supported` / `smoke-supported` | Narrow fixture or smoke route; synthetic safeguards such as row, byte, or output caps may be intentional. |
-| `scoped_runtime_supported` / `runtime-supported` | Runtime-backed scoped capability with explicit claim boundary; not automatically broad product workflow support. |
+| `global_runtime_supported` / `runtime-supported` | Runtime-backed capability that is globally reusable across supported SQL/Python/DataFrame/CLI surfaces with explicit semantic and claim boundaries. |
 | `feature_gated` | Requires an explicit build/runtime gate such as `universal-format-io`, `vortex-write`, `vortex-production-runtime`, or the aggregate release set `release-user-surfaces`. |
 | `production_admitted_local_workflow` | Product local workflow route admitted for normal local Python/SQL/DataFrame-facing usage without smoke-only synthetic caps, while still bounded by local v1 scope and no-fallback evidence. |
 
@@ -242,7 +246,7 @@ engine invocation.
 
 ## Claim Boundary
 
-After this scope is closed, ShardLoom may claim scoped local front-door support for the supported v1
+After this scope is closed, ShardLoom may claim global front-door support for the supported v1
 forms above. It still may not claim:
 
 - broad SQL/DataFrame parity;

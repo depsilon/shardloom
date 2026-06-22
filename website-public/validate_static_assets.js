@@ -54,7 +54,7 @@ const forbiddenRuntimeText = [
 ];
 const statusVocabulary = new Set([
   "runtime_supported",
-  "scoped_runtime_supported",
+  "global_runtime_supported",
   "smoke_supported",
   "internal_smoke_only",
   "fixture_smoke_only",

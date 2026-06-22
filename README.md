@@ -49,12 +49,21 @@ blanket performance claims:
   - Each unit carries source range, projection/filter mask, and target artifact references.
   - Each unit records materialization posture, retry/idempotency state, sink pressure, memory
     pressure, and no-fallback evidence.
+  - Universal Ingest carries source-native units such as Parquet row groups or Arrow IPC batches
+    into `SourceState` split evidence before Vortex preparation.
   - Units can be coalesced, split, retried, reused, or audited without hiding execution
     boundaries.
+  - Native aggregates and bounded top-K routes use capillary retained windows; large bounded
+    top-N payload projections keep row references/order keys in the candidate loop and materialize
+    only the final retained rows from the single `.vortex` artifact.
 - **Dynamic work shaping**: metadata, workload shape, route evidence, and measured feedback guide
   how ShardLoom sizes work.
   - Small units can be coalesced when scheduling overhead dominates.
   - Large units can be split when memory, decode, sink, or source pressure requires it.
+  - Product columnar preparation uses a larger streaming batch policy than internal smoke readers;
+    Parquet preparation can coalesce row groups into bounded parallel capillary tasks when
+    `max_parallelism` is greater than one, while preserving deterministic evidence for
+    source-unit hints and dictionary handoff posture.
   - Hard proof lanes remain separate from fast lanes so CI, benchmarks, and release gates stay
     evidence-preserving.
 - **Metadata-first, late-materialized execution**: ShardLoom tries to answer from metadata, prune
@@ -62,6 +71,18 @@ blanket performance claims:
   explicit output boundaries.
   - Metadata and statistics checks run before row reads where the route supports them.
   - Segment pruning and encoded kernels are preferred before decode.
+  - Prepared `.vortex` artifacts carry the active single-artifact OLAP posture: writer/layout
+    policy, row-block sizing, footer statistics, segment-map membership, layout encoding inventory,
+    dictionary/domain status, row-position locality, and layout-reader cache evidence are reported
+    from the artifact instead of a query sidecar.
+  - Scalar and grouped OLAP routes use typed/dictionary state where available before row export:
+    direct scalar `count`/`sum`/`avg`/`min`/`max`, exact scalar distinct over used dictionary codes,
+    repeated numeric SUM/AVG expression fusion, compact grouped count/sum/avg, URL-domain/length
+    grouping over chunk dictionary IDs, and chunk-local exact partial maps for materialized UTF-8
+    when the current Vortex layout does not expose dictionary codes.
+  - Runtime evidence separates true Vortex dictionary accessors, chunk-local UTF-8 dictionaries,
+    primitive direct accessors, and materialized accessors so slow routes can be improved from the
+    actual consumed layout instead of route labels alone.
   - Collect and compatibility writes report bounded decode/materialization evidence.
 - **Timing-surface discipline**: hot runtime, replay proof, and publication proof are separated so
   proof-heavy evidence work does not silently become a query-runtime claim.
@@ -143,10 +164,10 @@ external_engine_invoked=false
 
 ## Current Support Posture
 
-ShardLoom is a technical-preview compute engine with scoped local runtime support. It does not claim
-broad pandas/Polars/DataFrame parity, broad ANSI SQL compliance, production object-store or
-lakehouse support, production Foundry support, Spark replacement, or public performance
-superiority.
+ShardLoom is a technical-preview compute engine with a globally reusable local Vortex runtime for
+admitted operations. It does not claim broad pandas/Polars/DataFrame parity, broad ANSI SQL
+compliance, production object-store or lakehouse support, production Foundry support, Spark
+replacement, or public performance superiority.
 `production_claim_allowed` Must remain false unless a later production gate authorizes the specific workload.
 
 Use these canonical references instead of reading support claims out of README prose:
@@ -210,7 +231,7 @@ Representative evidence fields include `scenario_selective-filter_fallback_attem
 Benchmarks are evidence, not leaderboard claims. Route lanes, timing surfaces, stage attribution,
 and claim gates must be read together.
 
-- Public site: [shardloom.io/benchmarks](https://shardloom.io/benchmarks)
+- Public comparison destination: [ClickBench](https://benchmark.clickhouse.com/)
 - Local taxonomy: [docs/benchmarks/local-taxonomy-benchmark.md](docs/benchmarks/local-taxonomy-benchmark.md)
 - ClickBench coverage map: [benchmarks/clickbench/README.md](benchmarks/clickbench/README.md)
 - ClickBench 100M local UAT burndown:

@@ -1277,7 +1277,7 @@ p {
 }
 
 .status-runtime-supported,
-.status-scoped-runtime-supported,
+.status-global-runtime-supported,
 .status-ready-local,
 .status-smoke-supported,
 .status-executable,

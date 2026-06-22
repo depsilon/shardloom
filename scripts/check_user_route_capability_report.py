@@ -27,7 +27,7 @@ PUBLIC_ROUTE_REUSE_MATRIX_SCHEMA_VERSION = "shardloom.public_route_reuse_matrix.
 
 ROUTE_RUNTIME_STATUSES = {
     "internal_smoke_only",
-    "scoped_runtime_supported",
+    "global_runtime_supported",
     "output_route_pending",
     "runtime_expansion_pending",
     "external_environment_gate_pending",
@@ -37,7 +37,7 @@ ROUTE_RUNTIME_STATUSES = {
 
 LOCAL_FILE_BENCHMARK_ROUTE_RUNTIME_STATUSES = {
     "internal_smoke_only",
-    "scoped_runtime_supported",
+    "global_runtime_supported",
     "prepared_route_supported",
     "front_door_connection_pending",
     "output_route_pending",
@@ -155,7 +155,7 @@ REQUIRED_OUTPUT_TOKENS = {
 }
 
 ADMITTED_ROUTE_RUNTIME_STATUSES = {
-    "scoped_runtime_supported",
+    "global_runtime_supported",
     "prepared_route_supported",
 }
 
@@ -601,8 +601,8 @@ def validate_local_vortex_primitives(
             blockers.append(f"{route_id}: vortex_normalization_point must be native_vortex_boundary")
         if row.get("execution_mode") != "native_vortex":
             blockers.append(f"{route_id}: execution_mode must be native_vortex")
-        if row.get("route_runtime_status") != "scoped_runtime_supported":
-            blockers.append(f"{route_id}: route_runtime_status must be scoped_runtime_supported")
+        if row.get("route_runtime_status") != "global_runtime_supported":
+            blockers.append(f"{route_id}: route_runtime_status must be global_runtime_supported")
         if row.get("fallback_attempted") is not False:
             blockers.append(f"{route_id}: fallback_attempted must be false")
         if row.get("external_engine_invoked") is not False:
@@ -889,7 +889,7 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
         runtime_blocker = str(row.get("runtime_blocker_code") or "")
         if blocker != "none" and runtime_blocker != blocker:
             blockers.append(f"{route_id}: runtime_blocker_code must mirror blocker_id")
-        if status == "scoped_runtime_supported" and runtime_blocker != "none":
+        if status == "global_runtime_supported" and runtime_blocker != "none":
             blockers.append(f"{route_id}: supported route must have runtime_blocker_code=none")
         if row.get("fallback_attempted") is not False:
             blockers.append(f"{route_id}: fallback_attempted must be false")
@@ -1207,9 +1207,9 @@ def validate_public_front_door_routes(
             if not isinstance(value, str) or not value.strip():
                 blockers.append(f"{front_door_id}: missing {field}")
 
-        if row.get("route_runtime_status") != "scoped_runtime_supported":
+        if row.get("route_runtime_status") != "global_runtime_supported":
             blockers.append(
-                f"{front_door_id}: route_runtime_status must be scoped_runtime_supported"
+                f"{front_door_id}: route_runtime_status must be global_runtime_supported"
             )
         if "VortexPreparedState" not in str(row.get("vortex_normalization_point", "")):
             blockers.append(f"{front_door_id}: must name VortexPreparedState normalization")

@@ -1242,7 +1242,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         expected_status = (
             "production_admitted_local_workflow"
             if method == "sort_index"
-            else "scoped_runtime_supported"
+            else "global_runtime_supported"
         )
         if support_status != expected_status:
             blockers.append(f"{method}: index metadata row must be {expected_status}")

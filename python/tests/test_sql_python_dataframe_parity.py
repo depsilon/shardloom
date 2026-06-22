@@ -279,7 +279,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             SimpleNamespace(
                 row_id=row_id,
                 workflow=row_id,
-                support_status="scoped_runtime_supported",
+                support_status="global_runtime_supported",
                 runtime_gap_status="admitted_scope",
                 sql_surface="sql",
                 python_surface="python",

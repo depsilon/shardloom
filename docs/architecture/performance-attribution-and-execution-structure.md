@@ -1139,7 +1139,7 @@ The route labels used in public docs are:
 | `compatibility_import_certified` | Certified import/stage route | End-to-end certified import, Vortex stage, query, output, and evidence total. |
 | `prepared_vortex` | Prepared Vortex steady-state route | `prepare_once_millis` plus warm query, output, and evidence timing. |
 | `native_vortex` | Already-Vortex route | Native query, output, and evidence timing over existing Vortex artifacts. |
-| `internal_local_source_smoke` | Direct one-shot route | Source read/parse plus ShardLoom compute and optional output, with no Vortex-native claim. |
+| `internal_local_source_smoke` | Internal direct diagnostic route | Source read/parse plus ShardLoom-owned compute and optional output for smoke safeguards only; no public workflow or Vortex-native claim. |
 | Generated-source reports | Source-free generated-output route | Generation plus output and evidence timing; source-read timing is zero. |
 | Fanout reports | Multi-output fanout route | Query/reuse timing plus per-output write/replay/evidence timing. |
 

@@ -15,7 +15,7 @@ The clean public route contract is:
 | `/` | Astro product surface | First-screen ShardLoom identity, route console, current evidence posture, and next actions. |
 | `/about` | Astro product surface | Concise no-fallback, Vortex-first, pre-release overview. |
 | `/start` | Astro product surface | Source-checkout local proof and current Python ETL scenario shape. |
-| `/benchmarks` | Astro evidence surface | Promoted timing artifact, timing surfaces, route lanes, evidence tiers, and proof boundaries. |
+| `/benchmarks` | Astro evidence surface | ClickBench handoff, local-evidence boundary, timing-surface vocabulary, and proof boundaries. |
 | `/compute-engine-flow` | Astro architecture surface | Human-readable rendering of the canonical compute-flow reference. |
 | `/field-guide/` | Starlight docs shell | Durable docs, vocabulary, quickstart, Python surface, benchmark methodology, and limitations. |
 
@@ -36,7 +36,7 @@ The following are no longer first-class public pages:
 Keep these current assets visible:
 
 - ShardLoom logos and favicon.
-- Promoted benchmark timing artifact and route-surface dashboard.
+- ClickBench handoff and local benchmark/UAT evidence boundary.
 - Python ETL scenario snippet using the primary ShardLoom route.
 - No-fallback and Vortex-native route identity.
 - Compute-flow diagram derived from `docs/architecture/compute-engine-flow-reference.md`.

@@ -202,7 +202,7 @@ Public benchmark presentation must add a route-runtime layer on top of those int
 published row should expose:
 
 ```text
-route_runtime_status=scoped_runtime_supported|feature_gated|fixture_smoke_only|unsupported|external_baseline_only
+route_runtime_status=global_runtime_supported|production_admitted_local_workflow|internal_smoke_only|feature_gated|unsupported|external_baseline_only
 route_lane_id
 route_display_name
 start_state

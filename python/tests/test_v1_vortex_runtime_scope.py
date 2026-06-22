@@ -110,7 +110,7 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
             start_state="native_vortex_file",
             vortex_normalization_point="native_vortex_boundary",
             execution_mode="native_vortex",
-            route_runtime_status="scoped_runtime_supported",
+            route_runtime_status="global_runtime_supported",
             fallback_attempted=False,
             external_engine_invoked=False,
             claim_gate_status="not_claim_grade",

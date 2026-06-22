@@ -551,7 +551,7 @@
       ],
       "blocker_id": "none",
       "claim_gate_status": "local_workflow_runtime_supported",
-      "claim_boundary": "local-source SQL runtime executes admitted product workflow shapes through ShardLoom-owned planning; broad SQL/DataFrame, object-store/table SQL, external-engine fallback, and performance claims remain bounded",
+      "claim_boundary": "local-source SQL runtime is a ShardLoom-owned compatibility adapter/smoke command used under the Vortex-middle policy; public product workflows prepare into Vortex or use native Vortex input before admitted execution, and broad SQL/DataFrame, object-store/table SQL, external-engine fallback, and performance claims remain bounded",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,

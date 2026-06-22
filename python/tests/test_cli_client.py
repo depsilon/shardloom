@@ -7304,7 +7304,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("set_index").support_status,
-            "scoped_runtime_supported",
+            "global_runtime_supported",
         )
         self.assertIsNone(dataframe_methods.row("set_index").blocker_id)
         self.assertIn(
@@ -7317,7 +7317,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("reset_index").support_status,
-            "scoped_runtime_supported",
+            "global_runtime_supported",
         )
         self.assertIsNone(dataframe_methods.row("reset_index").blocker_id)
         self.assertIn(
@@ -7763,7 +7763,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(broad.blocker_id)
         self.assertIn("documented local SQL/Python/DataFrame-style subset", broad.claim_boundary)
         performance = matrix.row("performance_equivalence")
-        self.assertEqual(performance.support_status, "scoped_runtime_supported")
+        self.assertEqual(performance.support_status, "global_runtime_supported")
         self.assertEqual(performance.runtime_gap_status, "admitted_scope")
         self.assertIn("no_benchmark_claim", performance.performance_equivalence_status)
         self.assertTrue(performance.equivalent_admitted_scope)

@@ -58,7 +58,7 @@ export function siteStatus(value: string): string {
     blocked: "blocked",
     unsupported: "unsupported",
     runtime_supported: "runtime_supported",
-    scoped_runtime_supported: "scoped_runtime_supported",
+    global_runtime_supported: "global_runtime_supported",
     fixture_smoke_only: "fixture_smoke_only",
     not_planned: "not_planned",
     executable: "executable",

@@ -254,7 +254,7 @@ impl SqlLocalSourceRuntimeProfile {
 
     const fn route_runtime_status(self) -> &'static str {
         match self {
-            Self::Smoke => "scoped_runtime_supported",
+            Self::Smoke => "internal_smoke_only",
             Self::ProductLocalWorkflow => "production_admitted_local_workflow",
         }
     }
@@ -3455,6 +3455,11 @@ struct VortexIngestSourceData {
     compatibility_parse_millis: u128,
     source_to_columnar_millis: u128,
     record_batch_count: usize,
+    source_stream_batch_size: usize,
+    source_stream_unit_count_hint: Option<usize>,
+    source_stream_unit_hint_kind: String,
+    source_stream_policy: String,
+    source_dictionary_preservation_status: String,
     ingest_executor_status: String,
     ingest_executor_kind: String,
     ingest_executor_requested_parallelism: usize,
@@ -3476,6 +3481,11 @@ impl VortexIngestSourceData {
             compatibility_parse_millis: source.parse_millis,
             source_to_columnar_millis: source.source_to_columnar_millis,
             record_batch_count: source.record_batch_count,
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: None,
+            source_stream_unit_hint_kind: "not_applicable_scalar_text_source".to_string(),
+            source_stream_policy: "not_applicable_scalar_text_source".to_string(),
+            source_dictionary_preservation_status: "not_applicable_scalar_text_source".to_string(),
             ingest_executor_status: "not_applicable_scalar_text_source".to_string(),
             ingest_executor_kind: "scalar_text_source_materialized_before_vortex_write".to_string(),
             ingest_executor_requested_parallelism: 1,
@@ -3508,6 +3518,8 @@ impl VortexIngestSourceData {
         source_to_columnar_millis: u128,
     ) -> Self {
         let row_count = columnar_source.row_count_hint.unwrap_or(0);
+        let source_split_row_ranges =
+            source_unit_split_row_ranges(row_count, columnar_source.source_stream_unit_count_hint);
         Self {
             source_format: source_adapter.source_format,
             source_adapter,
@@ -3520,7 +3532,7 @@ impl VortexIngestSourceData {
             source_digest: scout.digest,
             row_count,
             row_count_known: columnar_source.row_count_hint.is_some(),
-            source_split_row_ranges: single_source_split_row_ranges(row_count),
+            source_split_row_ranges,
             source_metadata_scout_millis: scout.metadata_scout_millis,
             source_byte_acquisition_millis: scout.byte_acquisition_millis,
             source_full_body_millis: scout.full_body_millis,
@@ -3528,6 +3540,13 @@ impl VortexIngestSourceData {
             compatibility_parse_millis: 0,
             source_to_columnar_millis,
             record_batch_count: columnar_source.record_batch_count_hint.unwrap_or(0),
+            source_stream_batch_size: columnar_source.source_stream_batch_size,
+            source_stream_unit_count_hint: columnar_source.source_stream_unit_count_hint,
+            source_stream_unit_hint_kind: columnar_source.source_stream_unit_hint_kind.clone(),
+            source_stream_policy: columnar_source.source_stream_policy.clone(),
+            source_dictionary_preservation_status: columnar_source
+                .source_dictionary_preservation_status
+                .clone(),
             ingest_executor_status: columnar_source.ingest_executor_status.clone(),
             ingest_executor_kind: columnar_source.ingest_executor_kind.clone(),
             ingest_executor_requested_parallelism: columnar_source
@@ -3545,7 +3564,8 @@ impl VortexIngestSourceData {
     fn with_observed_streaming_write(mut self, row_count: u64, record_batch_count: usize) -> Self {
         self.row_count = usize::try_from(row_count).unwrap_or(usize::MAX);
         self.row_count_known = true;
-        self.source_split_row_ranges = single_source_split_row_ranges(self.row_count);
+        self.source_split_row_ranges =
+            source_unit_split_row_ranges(self.row_count, self.source_stream_unit_count_hint);
         self.record_batch_count = record_batch_count;
         if record_batch_count > 0 {
             self.ingest_executor_applied_parallelism = self
@@ -3630,7 +3650,7 @@ impl VortexIngestSourceData {
 
     fn source_state_digest(&self, source_schema_digest: &str) -> String {
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
             self.source_adapter.source_extension,
             self.source_adapter.inference_kind(),
@@ -3645,6 +3665,12 @@ impl VortexIngestSourceData {
             self.projection_pushdown_status.as_str(),
             self.materialization_layout,
             self.columnar_source_preserved,
+            self.source_stream_batch_size,
+            self.source_stream_unit_count_hint
+                .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+            self.source_stream_unit_hint_kind,
+            self.source_stream_policy,
+            self.source_dictionary_preservation_status,
             self.ingest_executor_status,
             self.ingest_executor_kind,
             self.ingest_executor_applied_parallelism
@@ -3730,6 +3756,29 @@ fn single_source_split_row_ranges(row_count: usize) -> Vec<(usize, usize)> {
     } else {
         vec![(0, row_count)]
     }
+}
+
+fn source_unit_split_row_ranges(
+    row_count: usize,
+    source_unit_count_hint: Option<usize>,
+) -> Vec<(usize, usize)> {
+    let Some(source_unit_count_hint) = source_unit_count_hint else {
+        return single_source_split_row_ranges(row_count);
+    };
+    if row_count == 0 {
+        return Vec::new();
+    }
+    let unit_count = source_unit_count_hint.clamp(1, row_count);
+    if unit_count == 1 {
+        return single_source_split_row_ranges(row_count);
+    }
+    (0..unit_count)
+        .filter_map(|index| {
+            let start = index.saturating_mul(row_count) / unit_count;
+            let end = (index + 1).saturating_mul(row_count) / unit_count;
+            (start < end).then_some((start, end))
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -4831,6 +4880,11 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "source_state_parse_normalization",
         "source_state_columnar_preserved",
         "source_state_record_batch_count",
+        "source_state_stream_batch_size",
+        "source_state_stream_unit_count_hint",
+        "source_state_stream_unit_hint_kind",
+        "source_state_stream_policy",
+        "source_state_dictionary_preservation_status",
         "source_state_ingest_executor_status",
         "source_state_ingest_executor_kind",
         "source_state_ingest_executor_requested_parallelism",
@@ -6454,8 +6508,18 @@ fn stream_columnar_vortex_ingest_source(
             max_parallelism,
         );
     }
-    let source = stream_columnar_vortex_ingest_file_source(source_format, path, max_rows)?;
-    Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
+    let source =
+        stream_columnar_vortex_ingest_file_source(source_format, path, max_rows, max_parallelism)?;
+    if source.ingest_executor_status == "bounded_capillary_row_group_parallel_active" {
+        Ok(source)
+    } else {
+        Ok(
+            shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
+                source,
+                max_parallelism,
+            ),
+        )
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -6463,10 +6527,15 @@ fn stream_columnar_vortex_ingest_file_source(
     source_format: LocalSourceFormat,
     path: &Path,
     max_rows: usize,
+    max_parallelism: usize,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
     match source_format {
         LocalSourceFormat::Parquet => {
-            shardloom_vortex::stream_flat_parquet_columnar_source(path, max_rows)
+            shardloom_vortex::stream_flat_parquet_columnar_source_with_parallelism(
+                path,
+                max_rows,
+                max_parallelism,
+            )
         }
         LocalSourceFormat::ArrowIpc => {
             shardloom_vortex::stream_flat_arrow_ipc_columnar_source(path, max_rows)
@@ -6520,7 +6589,7 @@ impl Iterator for PartitionedColumnarStreamReader {
                     if self.row_count > self.max_rows {
                         self.failed = true;
                         return Some(Err(ArrowError::InvalidArgumentError(format!(
-                            "local {} partition source '{}' exceeds the scoped SQL local-source row limit of {} across partition files",
+                            "local {} partition source '{}' exceeds the configured local source row budget of {} across partition files",
                             self.source_label, self.path, self.max_rows
                         ))));
                     }
@@ -6543,6 +6612,7 @@ impl RecordBatchReader for PartitionedColumnarStreamReader {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
 fn stream_columnar_vortex_ingest_partition_source(
     source_format: LocalSourceFormat,
     path: &Path,
@@ -6561,7 +6631,7 @@ fn stream_columnar_vortex_ingest_partition_source(
     };
 
     let first_source =
-        stream_columnar_vortex_ingest_file_source(source_format, first_file, max_rows)?;
+        stream_columnar_vortex_ingest_file_source(source_format, first_file, max_rows, 1)?;
     let shardloom_vortex::FlatLocalColumnarStreamSource {
         header,
         column_dtypes,
@@ -6570,6 +6640,11 @@ fn stream_columnar_vortex_ingest_partition_source(
         reader_projection_columns,
         row_count_hint,
         record_batch_count_hint,
+        source_stream_batch_size,
+        source_stream_unit_count_hint,
+        source_stream_unit_hint_kind,
+        source_stream_policy,
+        source_dictionary_preservation_status,
         ingest_executor_unit_count_hint: _,
         ingest_executor_status: _,
         ingest_executor_kind: _,
@@ -6582,8 +6657,10 @@ fn stream_columnar_vortex_ingest_partition_source(
     readers.push_back(reader);
     let mut combined_row_count_hint = row_count_hint;
     let mut combined_record_batch_count_hint = record_batch_count_hint;
+    let mut combined_source_stream_unit_count_hint = source_stream_unit_count_hint;
     for file_path in partition_files.files.iter().skip(1) {
-        let source = stream_columnar_vortex_ingest_file_source(source_format, file_path, max_rows)?;
+        let source =
+            stream_columnar_vortex_ingest_file_source(source_format, file_path, max_rows, 1)?;
         validate_columnar_stream_partition_schema(
             &header,
             &column_dtypes,
@@ -6604,13 +6681,18 @@ fn stream_columnar_vortex_ingest_partition_source(
             source.record_batch_count_hint,
             "partition RecordBatch count",
         )?;
+        combined_source_stream_unit_count_hint = checked_sum_optional_usize(
+            combined_source_stream_unit_count_hint,
+            source.source_stream_unit_count_hint,
+            "partition source stream unit count",
+        )?;
         readers.push_back(source.reader);
     }
     if let Some(row_count_hint) = combined_row_count_hint
         && row_count_hint > max_rows
     {
         return Err(unsupported_sql_error(&format!(
-            "local {} partition source {} exceeds the scoped SQL local-source row limit of {} across partition files",
+            "local {} partition source {} exceeds the configured local source row budget of {} across partition files",
             source_format.row_label(),
             path.display(),
             max_rows
@@ -6624,11 +6706,20 @@ fn stream_columnar_vortex_ingest_partition_source(
         reader_projection_columns,
         row_count_hint: combined_row_count_hint,
         record_batch_count_hint: combined_record_batch_count_hint,
+        source_stream_batch_size,
+        source_stream_unit_count_hint: combined_source_stream_unit_count_hint,
+        source_stream_unit_hint_kind: format!(
+            "partition_directory_source_units;inner={source_stream_unit_hint_kind}"
+        ),
+        source_stream_policy: format!("partitioned_columnar_stream;inner={source_stream_policy}"),
+        source_dictionary_preservation_status,
         ingest_executor_status: "serial_partition_pull_reader".to_string(),
         ingest_executor_kind: "partition_directory_record_batch_reader".to_string(),
         ingest_executor_requested_parallelism: 1,
         ingest_executor_applied_parallelism: 1,
-        ingest_executor_unit_count_hint: combined_record_batch_count_hint.or(Some(readers.len())),
+        ingest_executor_unit_count_hint: combined_source_stream_unit_count_hint
+            .or(combined_record_batch_count_hint)
+            .or(Some(readers.len())),
         reader: Box::new(PartitionedColumnarStreamReader {
             schema,
             readers,
@@ -7186,6 +7277,29 @@ impl VortexIngestReport {
                 self.source.record_batch_count.to_string(),
             ),
             (
+                "source_state_stream_batch_size".to_string(),
+                self.source.source_stream_batch_size.to_string(),
+            ),
+            (
+                "source_state_stream_unit_count_hint".to_string(),
+                self.source.source_stream_unit_count_hint.map_or_else(
+                    || "unknown".to_string(),
+                    |unit_count| unit_count.to_string(),
+                ),
+            ),
+            (
+                "source_state_stream_unit_hint_kind".to_string(),
+                self.source.source_stream_unit_hint_kind.clone(),
+            ),
+            (
+                "source_state_stream_policy".to_string(),
+                self.source.source_stream_policy.clone(),
+            ),
+            (
+                "source_state_dictionary_preservation_status".to_string(),
+                self.source.source_dictionary_preservation_status.clone(),
+            ),
+            (
                 "source_state_ingest_executor_status".to_string(),
                 self.source.ingest_executor_status.clone(),
             ),
@@ -7343,6 +7457,55 @@ impl VortexIngestReport {
                     .approx_footer_bytes_field(),
             ),
             (
+                "vortex_prepared_olap_layout_root_encoding".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .root_layout_encoding
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_encoding_inventory".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .layout_encoding_inventory
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_segment_membership_status".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .segment_membership_status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_domain_dictionary_status".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .domain_dictionary_status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_derived_stats_status".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .derived_layout_stats_status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_row_position_locality_status".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .row_position_locality_status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_reader_cache_status".to_string(),
+                self.vortex_report
+                    .prepared_olap_layout_inventory
+                    .layout_reader_cache_status
+                    .clone(),
+            ),
+            (
                 "vortex_prepared_olap_layout_metadata_persisted_in_artifact".to_string(),
                 self.vortex_report
                     .prepared_olap_layout_inventory
@@ -7467,6 +7630,14 @@ impl VortexIngestReport {
             (
                 "vortex_writer_context_reuse_status".to_string(),
                 self.vortex_report.writer_context_reuse_status.clone(),
+            ),
+            (
+                "vortex_writer_layout_strategy_applied".to_string(),
+                self.vortex_report.writer_layout_strategy_applied.clone(),
+            ),
+            (
+                "vortex_writer_layout_row_block_size".to_string(),
+                self.vortex_report.writer_layout_row_block_size.to_string(),
             ),
             (
                 "vortex_segment_write_millis".to_string(),
@@ -30315,6 +30486,34 @@ impl SqlLocalSourceReport {
                 self.primary_vortex_prepared_olap_layout_footer_dtype_summary(),
             ),
             (
+                "vortex_prepared_olap_layout_root_encoding".to_string(),
+                self.primary_vortex_prepared_olap_layout_root_encoding(),
+            ),
+            (
+                "vortex_prepared_olap_layout_encoding_inventory".to_string(),
+                self.primary_vortex_prepared_olap_layout_encoding_inventory(),
+            ),
+            (
+                "vortex_prepared_olap_layout_segment_membership_status".to_string(),
+                self.primary_vortex_prepared_olap_layout_segment_membership_status(),
+            ),
+            (
+                "vortex_prepared_olap_layout_domain_dictionary_status".to_string(),
+                self.primary_vortex_prepared_olap_layout_domain_dictionary_status(),
+            ),
+            (
+                "vortex_prepared_olap_layout_derived_stats_status".to_string(),
+                self.primary_vortex_prepared_olap_layout_derived_stats_status(),
+            ),
+            (
+                "vortex_prepared_olap_layout_row_position_locality_status".to_string(),
+                self.primary_vortex_prepared_olap_layout_row_position_locality_status(),
+            ),
+            (
+                "vortex_prepared_olap_layout_reader_cache_status".to_string(),
+                self.primary_vortex_prepared_olap_layout_reader_cache_status(),
+            ),
+            (
                 "vortex_prepared_olap_layout_metadata_persisted_in_artifact".to_string(),
                 self.primary_vortex_prepared_olap_layout_metadata_persisted_in_artifact(),
             ),
@@ -30325,6 +30524,14 @@ impl SqlLocalSourceReport {
             (
                 "vortex_write_millis".to_string(),
                 self.vortex_write_millis().to_string(),
+            ),
+            (
+                "vortex_writer_layout_strategies".to_string(),
+                self.vortex_writer_layout_strategies(),
+            ),
+            (
+                "vortex_writer_layout_row_block_sizes".to_string(),
+                self.vortex_writer_layout_row_block_sizes(),
             ),
             (
                 "vortex_digest_millis".to_string(),
@@ -31181,6 +31388,90 @@ impl SqlLocalSourceReport {
         )
     }
 
+    fn primary_vortex_prepared_olap_layout_root_encoding(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .root_layout_encoding
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_encoding_inventory(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .layout_encoding_inventory
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_segment_membership_status(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .segment_membership_status
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_domain_dictionary_status(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .domain_dictionary_status
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_derived_stats_status(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .derived_layout_stats_status
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_row_position_locality_status(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .row_position_locality_status
+                    .clone()
+            },
+        )
+    }
+
+    fn primary_vortex_prepared_olap_layout_reader_cache_status(&self) -> String {
+        self.primary_vortex_report().map_or_else(
+            || "not_applicable".to_string(),
+            |report| {
+                report
+                    .prepared_olap_layout_inventory
+                    .layout_reader_cache_status
+                    .clone()
+            },
+        )
+    }
+
     fn primary_vortex_prepared_olap_layout_metadata_persisted_in_artifact(&self) -> String {
         self.primary_vortex_report().map_or_else(
             || "false".to_string(),
@@ -31207,6 +31498,24 @@ impl SqlLocalSourceReport {
             .filter_map(|output| output.vortex_report.as_ref())
             .map(|report| report.write_micros / 1_000)
             .sum()
+    }
+
+    fn vortex_writer_layout_strategies(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_layout_strategy_applied.clone())
+        }))
+    }
+
+    fn vortex_writer_layout_row_block_sizes(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_layout_row_block_size.to_string())
+        }))
     }
 
     fn vortex_digest_millis(&self) -> u128 {
@@ -42424,6 +42733,10 @@ mod tests {
             SqlLocalSourceRuntimeProfile::ProductLocalWorkflow.join_candidate_cap_label(),
             "none_synthetic_join_candidate_cap_disabled"
         );
+        assert_eq!(
+            SqlLocalSourceRuntimeProfile::ProductLocalWorkflow.route_runtime_status(),
+            "production_admitted_local_workflow"
+        );
         assert!(
             !SqlLocalSourceRuntimeProfile::ProductLocalWorkflow.synthetic_input_row_cap_enabled()
         );
@@ -42453,6 +42766,10 @@ mod tests {
         assert!(SqlLocalSourceRuntimeProfile::Smoke.synthetic_output_row_cap_enabled());
         assert!(SqlLocalSourceRuntimeProfile::Smoke.synthetic_source_byte_cap_enabled());
         assert!(SqlLocalSourceRuntimeProfile::Smoke.synthetic_join_candidate_cap_enabled());
+        assert_eq!(
+            SqlLocalSourceRuntimeProfile::Smoke.route_runtime_status(),
+            "internal_smoke_only"
+        );
         assert_eq!(
             SqlLocalSourceRuntimeProfile::Smoke
                 .read_limits()
@@ -42491,6 +42808,75 @@ mod tests {
             SqlLocalSourceRuntimeProfile::ProductLocalWorkflow.read_limits(),
         )
         .expect("product local workflow has no synthetic output cap");
+    }
+
+    #[test]
+    fn source_unit_split_row_ranges_use_known_source_units() {
+        assert_eq!(
+            source_unit_split_row_ranges(10, Some(3)),
+            vec![(0, 3), (3, 6), (6, 10)]
+        );
+        assert_eq!(source_unit_split_row_ranges(10, None), vec![(0, 10)]);
+        assert_eq!(
+            source_unit_split_row_ranges(0, Some(3)),
+            Vec::<(usize, usize)>::new()
+        );
+    }
+
+    #[test]
+    fn public_workflow_preparation_fields_keep_product_stream_source_evidence() {
+        let fields = public_workflow_preparation_fields(vec![
+            ("source_state_stream_batch_size".to_string(), "65536".to_string()),
+            (
+                "source_state_stream_unit_count_hint".to_string(),
+                "8".to_string(),
+            ),
+            (
+                "source_state_stream_unit_hint_kind".to_string(),
+                "parquet_row_group_count".to_string(),
+            ),
+            (
+                "source_state_stream_policy".to_string(),
+                "product_columnar_stream_batch_size_65536_rows".to_string(),
+            ),
+            (
+                "source_state_dictionary_preservation_status".to_string(),
+                "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary"
+                    .to_string(),
+            ),
+            (
+                "not_selected_internal_field".to_string(),
+                "should_drop".to_string(),
+            ),
+        ]);
+        let fields = field_map(fields);
+
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_stream_batch_size",
+            "65536",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_stream_unit_count_hint",
+            "8",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_stream_unit_hint_kind",
+            "parquet_row_group_count",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_stream_policy",
+            "product_columnar_stream_batch_size_65536_rows",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_dictionary_preservation_status",
+            "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary",
+        );
+        assert!(!fields.contains_key("public_workflow_preparation_not_selected_internal_field"));
     }
 
     #[test]
@@ -42587,6 +42973,11 @@ mod tests {
             compatibility_parse_millis: 0,
             source_to_columnar_millis: 0,
             record_batch_count: 1,
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
+            source_stream_policy: "test_source_defined_record_batches".to_string(),
+            source_dictionary_preservation_status: "test_not_applicable".to_string(),
             ingest_executor_status: "serial_pull_reader".to_string(),
             ingest_executor_kind: "test_record_batch_reader".to_string(),
             ingest_executor_requested_parallelism: 1,
@@ -42628,6 +43019,13 @@ mod tests {
             compatibility_parse_millis: 0,
             source_to_columnar_millis: 0,
             record_batch_count: 0,
+            source_stream_batch_size: 65_536,
+            source_stream_unit_count_hint: Some(8),
+            source_stream_unit_hint_kind: "parquet_row_group_count".to_string(),
+            source_stream_policy: "product_columnar_stream_batch_size_65536_rows".to_string(),
+            source_dictionary_preservation_status:
+                "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary"
+                    .to_string(),
             ingest_executor_status: "bounded_capillary_prefetch_active".to_string(),
             ingest_executor_kind: "source_reader_to_vortex_writer_prefetch_pipeline".to_string(),
             ingest_executor_requested_parallelism: 2,
@@ -42669,6 +43067,14 @@ mod tests {
             compatibility_parse_millis: 0,
             source_to_columnar_millis: 0,
             record_batch_count: 0,
+            source_stream_batch_size: 65_536,
+            source_stream_unit_count_hint: None,
+            source_stream_unit_hint_kind: "orc_stream_record_batches_unknown_before_read"
+                .to_string(),
+            source_stream_policy: "product_columnar_stream_batch_size_65536_rows".to_string(),
+            source_dictionary_preservation_status:
+                "orc_arrow_reader_typed_batches_preserved_dictionary_contract_not_declared"
+                    .to_string(),
             ingest_executor_status: "bounded_capillary_prefetch_active".to_string(),
             ingest_executor_kind: "source_reader_to_vortex_writer_prefetch_pipeline".to_string(),
             ingest_executor_requested_parallelism: 2,
@@ -42753,11 +43159,9 @@ mod tests {
             .next()
             .expect("global row budget error")
             .expect_err("second partition exceeds aggregate budget");
-        assert!(
-            error.to_string().contains(
-                "exceeds the scoped SQL local-source row limit of 3 across partition files"
-            )
-        );
+        assert!(error.to_string().contains(
+            "exceeds the configured local source row budget of 3 across partition files"
+        ));
         assert!(reader.next().is_none());
     }
 

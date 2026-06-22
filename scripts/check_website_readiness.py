@@ -64,7 +64,7 @@ EXPECTED_NAV_PATHS = {
 }
 STATUS_VOCABULARY = {
     "runtime_supported",
-    "scoped_runtime_supported",
+    "global_runtime_supported",
     "smoke_supported",
     "internal_smoke_only",
     "fixture_smoke_only",

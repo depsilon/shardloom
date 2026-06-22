@@ -1519,10 +1519,10 @@ class UserRouteCapabilityRow:
 
     @property
     def runtime_supported(self) -> bool:
-        """Whether the route is admitted for scoped runtime use."""
+        """Whether the route is admitted for global runtime use."""
 
         return self.route_runtime_status in {
-            "scoped_runtime_supported",
+            "global_runtime_supported",
             "production_admitted_local_workflow",
         }
 
@@ -2195,10 +2195,10 @@ class LocalVortexPrimitiveRouteRow:
 
     @property
     def runtime_supported(self) -> bool:
-        """Whether this primitive route is admitted for scoped runtime use."""
+        """Whether this primitive route is admitted for global runtime use."""
 
         return self.route_runtime_status in {
-            "scoped_runtime_supported",
+            "global_runtime_supported",
             "production_admitted_local_workflow",
         }
 
@@ -2229,7 +2229,7 @@ class LocalVortexPrimitiveRouteReport:
 
     @property
     def all_runtime_supported(self) -> bool:
-        """Whether every primitive route is scoped runtime-supported."""
+        """Whether every primitive route is globally runtime-supported."""
 
         return all(row.runtime_supported for row in self.rows)
 
@@ -2349,7 +2349,7 @@ class NativeVortexProviderRouteCertificateRow:
         """Whether the exact provider route is admitted for v1 runtime use."""
 
         return self.route_runtime_status in {
-            "scoped_runtime_supported",
+            "global_runtime_supported",
             "production_admitted_local_workflow",
         }
 
@@ -3269,7 +3269,7 @@ def _route_diagnostic_packet(
             ),
         }
     runnable = route_runtime_status in {
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         "prepared_route_supported",
     }
     nearest_by_route = {
@@ -3484,7 +3484,7 @@ def _local_vortex_primitive_route(
         evidence_route="local primitive command envelope, execution certificate, Native I/O, no-fallback evidence",
         materialization_decode_boundary="primitive report boundary; decoded rows only when the bounded collect surface explicitly asks for them",
         supports_source_order_limit=supports_source_order_limit,
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         fallback_attempted=False,
         external_engine_invoked=False,
         required_evidence=tuple(required_evidence),
@@ -4265,7 +4265,7 @@ DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS: tuple[
         ("set_index",),
         "scoped_product_boundary",
         current_runtime_status="explicit_index_metadata_drop_false_admitted",
-        v1_resolution="hidden pandas-style index materialization is not part of the scoped ShardLoom runtime claim",
+        v1_resolution="hidden pandas-style index materialization is not part of the ShardLoom runtime contract",
         next_action="Keep index state explicit unless a future product decision adds hidden index materialization with evidence.",
     ),
     _df_future_contract(
@@ -4273,7 +4273,7 @@ DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS: tuple[
         ("sort_index",),
         "scoped_product_boundary",
         current_runtime_status="source_order_or_explicit_index_metadata_sort_admitted",
-        v1_resolution="hidden pandas-style index ordering is not part of the scoped ShardLoom runtime claim",
+        v1_resolution="hidden pandas-style index ordering is not part of the ShardLoom runtime contract",
         next_action="Keep ordering explicit through columns/index metadata unless hidden index semantics become a product requirement.",
     ),
     _df_future_contract(
@@ -4984,7 +4984,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "source-order final-row window. The route reports selected-row decode/materialization "
             "explicitly and does not invoke external fallback. Filtered tail, distinct-tail, "
             "reverse-scan optimization, pandas index semantics, and performance claims remain "
-            "outside this scoped claim."
+            "outside this explicit claim."
         ),
     ),
     _df_method(
@@ -5639,7 +5639,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "scalar, boolean, and UTF-8 row streams with optional filter/projection and source-order "
             "limit. The route explicitly reports row-key decode/materialization and never invokes "
             "external fallback. Nested/list/struct equality and broad SQL/DataFrame "
-            "distinct semantics remain outside this scoped claim."
+            "distinct semantics remain outside this explicit claim."
         ),
     ),
     _df_method(
@@ -5692,7 +5692,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "set_index",
         "dataframe_index_metadata",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         future_contract_blocker_ids=_SET_INDEX_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "explicit_index_state_metadata",
@@ -5713,7 +5713,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "reset_index",
         "dataframe_index_metadata",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         future_contract_blocker_ids=(),
         required_evidence=(
             "native_vortex_expression_project_primitive",
@@ -6276,7 +6276,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_parquet is admitted for scoped local workflows after Vortex preparation and "
+            "write_parquet is admitted for local workflows after Vortex preparation and "
             "Parquet sink replay evidence. Parquet is a compatibility output, not a fallback "
             "engine or a full native Vortex-layout preservation claim."
         ),
@@ -6296,7 +6296,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_arrow_ipc is admitted for scoped local workflows after Vortex preparation and "
+            "write_arrow_ipc is admitted for local workflows after Vortex preparation and "
             "Arrow IPC sink replay evidence. Arrow IPC is a compatibility output/container "
             "boundary, not fallback execution or a full native Vortex-layout preservation claim."
         ),
@@ -6316,7 +6316,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_avro is admitted for scoped local workflows after Vortex preparation and Avro "
+            "write_avro is admitted for local workflows after Vortex preparation and Avro "
             "sink replay evidence. Avro is a compatibility output, not fallback execution or a "
             "full native Vortex-layout preservation claim."
         ),
@@ -6336,7 +6336,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_orc is admitted for scoped local workflows after Vortex preparation and ORC "
+            "write_orc is admitted for local workflows after Vortex preparation and ORC "
             "sink replay evidence. ORC is a compatibility output, not fallback execution or a "
             "full native Vortex-layout preservation claim."
         ),
@@ -6586,7 +6586,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "python_context",
         "Public workflow route, run, and prepare facade",
         "high_level_context",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         cli_commands=("route", "run", "prepare"),
         context_methods=("route", "run", "prepare"),
         client_methods=(
@@ -6619,7 +6619,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "python_context",
         "Local SQL/Python/DataFrame filter/project/join/aggregate/window workflows",
         "high_level_context",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         cli_commands=(
             "local-source-runtime",
         ),
@@ -6690,7 +6690,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "python_context",
         "Source-free generated rows/ranges/SQL values and local output",
         "high_level_context",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         cli_commands=(
             "generated-source-user-rows-smoke",
             "generated-source-range-smoke",
@@ -6724,7 +6724,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "python_context",
         "Prepare-once compatibility routes and scoped native Vortex primitive routes",
         "high_level_context",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         cli_commands=(
             "vortex-prepare",
             "vortex-production-runtime-run",
@@ -6976,7 +6976,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "python_context",
         "Pandas, Arrow, IPC, and decoded materialized input boundaries",
         "high_level_context",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         context_methods=("from_pandas", "from_arrow_table", "from_arrow_ipc"),
         runtime_route="bounded_materialization_container_boundary|generated_rows_reentry_boundary",
         promotion_criteria=(
@@ -7337,7 +7337,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "local_file_filter_project_limit",
         "local file read, filter, project, limit, collect, metadata profile, and native Vortex write",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         sql_surface="ctx.sql(\"SELECT ... FROM 'local.csv' WHERE ... LIMIT ...\").collect()",
         python_surface="ctx.sql(...), ctx.read(...), LazyFrame.collect(), LazyFrame.write_vortex() where provider-admitted",
         dataframe_surface="ctx.read_csv(...).filter(...).select(...).limit(...).collect(); compatibility write_* blockers unless native export exists",
@@ -7367,7 +7367,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "local_file_join_aggregate_sort_window",
         "local file joins, grouped/scalar aggregates, top-N, computed columns, and windows",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         sql_surface="ctx.sql(\"SELECT ... JOIN/GROUP BY/ORDER BY/window ... FROM 'local.csv'\")",
         python_surface="ctx.sql(...), LazyFrame.join(condition=predicate)/group_by/agg/sort/window",
         dataframe_surface="ctx.read(...).join(condition=predicate).group_by(...).agg(...).sort(...).window(...)",
@@ -7393,7 +7393,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "generated_source_output",
         "source-free generated rows, ranges, sequences, SQL VALUES, and literal projections",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         sql_surface="ctx.sql_values(...), ctx.sql_literal_select(...), ctx.sql(...).write_*",
         python_surface="ctx.from_rows(...), ctx.range(...), ctx.sequence(...), ctx.calendar(...)",
         dataframe_surface="ctx.dataframe_source_free_projection(...), ctx.dataframe_generated_with_column(...)",
@@ -7449,7 +7449,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "local_vortex_primitive_runtime",
         "local Vortex count, count-where, filter, project, filter-project, scalar aggregate, and primitive row-export sinks",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         sql_surface=(
             "ctx.sql(\"SELECT COUNT(*)/SUM(...)/columns FROM 'local.vortex' WHERE ... LIMIT ...\")"
             ".collect/write_jsonl/write_csv/fanout"
@@ -7494,7 +7494,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "typed_nested_compatibility_sink",
         "computed typed nested compatibility sink output for scoped ARRAY/STRUCT projections",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         sql_surface=(
             "ctx.sql(\"SELECT ARRAY[...] AS values, STRUCT(...) AS payload FROM 'local.csv'\")"
             ".write_parquet/write_arrow_ipc/write_avro"
@@ -7537,7 +7537,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "native_vortex_general_runtime",
         "general admitted native/prepared Vortex read, transform, and write workflows",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         runtime_gap_status="admitted_scope",
         sql_surface="admitted SQL `.vortex` and Vortex-prepared local workflows using the shared native Vortex plan contract",
         python_surface="ctx.read_vortex(...), prepared local LazyFrame.collect(), profile, and write_* for admitted operator/sink families",
@@ -7638,7 +7638,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "arbitrary_sql_python_dataframe_breadth",
         "scoped SQL, Python expression, DataFrame API, UDF/effect-boundary language surface",
-        "scoped_runtime_supported",
+        "global_runtime_supported",
         runtime_gap_status="admitted_scope",
         sql_surface=(
             "documented SQL-standard-inspired SELECT subset with parser, binder, operator, "
@@ -7686,8 +7686,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     ),
     _front_door_row(
         "performance_equivalence",
-        "scoped local SQL, Python, and DataFrame front-door route-equivalence evidence",
-        "scoped_runtime_supported",
+        "SQL, Python, and DataFrame front-door route-equivalence evidence",
+        "global_runtime_supported",
         runtime_gap_status="admitted_scope",
         sql_surface="equivalent local scenario workload rows with SQL surface strings and shared native Vortex route evidence",
         python_surface="equivalent local scenario workload rows with Python surface strings and shared native Vortex route evidence",
@@ -8345,7 +8345,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="internal_local_source_smoke_no_persistent_preparation",
         execution_mode="internal_local_source_smoke",
-        execution_route="local-source-runtime local-source ShardLoom runtime",
+        execution_route="local-source-runtime internal compatibility adapter/smoke route",
         output_route="internal lower-level smoke report or sink only; not admitted through public workflow route/run",
         evidence_route="local-source-runtime internal envelope plus public direct-policy block evidence",
         materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
@@ -8391,7 +8391,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="result sink plus certificate/evidence report",
         evidence_route="route-runtime fields, VortexPreparedState evidence, stage timings, and no-fallback evidence",
         materialization_decode_boundary="decode/materialization only at declared result sink or bounded report",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D.local_file_cold_certified_route",
@@ -8433,7 +8433,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="prepared query result, bounded report, or local result sink",
         evidence_route="prepared-state creation evidence, preparation_included_in_route=true, query_timing_starts_after_preparation=true, first-query route fields",
         materialization_decode_boundary="decode/materialization only after prepared query output is declared",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D.local_file_prepare_once_first_query",
@@ -8474,7 +8474,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="one report/result per prepared scenario plus amortization evidence",
         evidence_route="prepare_batch_scale_route, prepared_state_reused=true, batch stage timing, no-fallback evidence",
         materialization_decode_boundary="decode/materialization only for each declared result sink",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D.local_file_prepare_once_batch",
@@ -8507,7 +8507,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="prepared query result, bounded report, or local result sink",
         evidence_route="prepared_state_reused=true, preparation_included=false, route-runtime fields",
         materialization_decode_boundary="decode/materialization only after warm prepared query output is declared",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.prepared_vortex_warm_query",
@@ -8540,7 +8540,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="machine-readable native route report, bounded scoped collect output, or Vortex result sink",
         evidence_route="vortex-production-runtime-run/vortex-batch envelope, Native I/O, execution mode, resource policy, and no-fallback evidence",
         materialization_decode_boundary="Vortex metadata/encoded boundary; decoded output only when requested by result/report boundary",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.native_vortex_query",
@@ -8570,7 +8570,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="machine-readable primitive report and bounded scoped collect output",
         evidence_route="local primitive command envelope, execution certificate, Native I/O, no-fallback evidence",
         materialization_decode_boundary="primitive report boundary; no broad decoded row materialization",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.local_vortex_primitive_report",
@@ -8620,7 +8620,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "and no-fallback evidence"
         ),
         materialization_decode_boundary="generated rows are materialized input rows; output decode only at declared sink",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D.generated_rows_local_output",
@@ -8651,7 +8651,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="local JSONL/CSV report and generated-source evidence",
         evidence_route="materialized input boundary, generated-source certificate, no-fallback evidence",
         materialization_decode_boundary="materialized input is explicit; no hidden pandas/Arrow execution engine",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D.materialized_python_snapshot_reentry",
@@ -8681,7 +8681,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="bounded decoded preview, Python row objects, or optional container conversion",
         evidence_route="bounded_materialization_contract, optional_dependency_policy, no-fallback evidence",
         materialization_decode_boundary="explicit bounded decoded container boundary after prepared local route",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.bounded_decoded_preview",
@@ -8724,7 +8724,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="machine-readable schema, validation, data-quality, and preview reports",
         evidence_route="bounded_schema_report_contract, data_quality_report_contract, no-fallback evidence",
         materialization_decode_boundary="explicit bounded report-row materialization after prepared local route",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.schema_quality_preview",
@@ -8738,7 +8738,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         ),
         claim_boundary=(
             "Schema, validation, data-quality, and bounded preview helpers are admitted only for "
-            "scoped local workflows after Vortex preparation. Broad schema registry/table "
+            "local workflows after Vortex preparation. Broad schema registry/table "
             "constraints, object-store/table discovery, production profiling, and performance "
             "claims remain blocked."
         ),
@@ -8762,7 +8762,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="bounded quarantine rows and optional local sink replay evidence",
         evidence_route="bounded_quarantine_classification, local_quarantine_sink_replay_evidence, no-fallback evidence",
         materialization_decode_boundary="explicit bounded quarantine rows and declared sink boundary",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=False,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D:last_order.quarantine_output_route",
@@ -8797,7 +8797,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="admitted typed collect/write/materialization boundaries or deterministic diagnostic",
         evidence_route="semantic conformance, execution certificate, Native I/O, future-contract classifier, no-fallback evidence",
         materialization_decode_boundary="must be explicit per operator/output; hidden materialization is not allowed",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
@@ -8865,11 +8865,11 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         source_route="front-door workload manifest",
         preparation_route="prepare_once_batch local technical-preview evidence",
         execution_mode="native_vortex_unified_plan",
-        execution_route="scoped local front-door equivalence rows over shared native Vortex plan contract",
+        execution_route="global front-door equivalence rows over shared native Vortex plan contract",
         output_route="front-door equivalence artifact and website benchmark data",
         evidence_route="correctness digests, execution certificate ids, route timings, benchmark manifest, and no-fallback evidence",
         materialization_decode_boundary="must match across front doors or be declared as timing scope difference",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="global_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D:last_order.performance_equivalence",
@@ -9076,7 +9076,7 @@ _REPORT_ONLY_WORKFLOW_BOUNDARY = (
     "Report-only workflow posture; inspectable diagnostics do not authorize runtime support."
 )
 _BLOCKED_WORKFLOW_BOUNDARY = (
-    "Blocked until scoped runtime, correctness, certificate, Native I/O, policy, and no-fallback "
+    "Blocked until global runtime, correctness, certificate, Native I/O, policy, and no-fallback "
     "evidence exists."
 )
 
