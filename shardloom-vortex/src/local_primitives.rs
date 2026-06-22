@@ -14361,7 +14361,7 @@ fn read_local_vortex_simple_aggregate_scan(
     let string_topk_needs_exact_fallback = if let Some(states) = grouped_states.as_mut()
         && states.needs_string_count_topk_heavy_hitter_second_pass()
     {
-        if states.promote_string_count_topk_exact_first_pass_if_possible()? {
+        if states.promote_string_count_topk_exact_first_pass_if_possible(result_limit)? {
             false
         } else if !states.string_count_topk_heavy_hitter_exact_proof_possible(result_limit)? {
             true
@@ -17366,6 +17366,7 @@ struct GroupedAggregateStates<'a> {
     string_count_topk_total_weight: u64,
     string_count_topk_string_group_index: Option<usize>,
     string_count_topk_first_pass_exact_counts: bool,
+    string_count_topk_exact_counts_source: Option<&'static str>,
     string_count_distinct_topk_heavy_hitter_enabled: bool,
     string_count_distinct_topk_heavy_hitter_sketch: Option<StringCountTopKHeavyHitterSketch>,
     string_count_distinct_topk_candidate_values: Option<rustc_hash::FxHashSet<std::sync::Arc<str>>>,
@@ -17629,6 +17630,7 @@ impl AggregateStringInterner {
 struct StringCountTopKHeavyHitterSlot {
     id: u64,
     stored_count: u64,
+    exact_from_first_pass: bool,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -17870,8 +17872,14 @@ impl StringCountTopKHeavyHitterSketch {
                 })?;
                 let value = std::sync::Arc::clone(value);
                 self.keys.insert(id, std::sync::Arc::clone(&value));
-                self.slots
-                    .insert(value, StringCountTopKHeavyHitterSlot { id, stored_count });
+                self.slots.insert(
+                    value,
+                    StringCountTopKHeavyHitterSlot {
+                        id,
+                        stored_count,
+                        exact_from_first_pass: self.offset == 0,
+                    },
+                );
                 self.order
                     .insert(StringCountTopKHeavyHitterOrder { stored_count, id });
                 return Ok(());
@@ -17947,6 +17955,53 @@ impl StringCountTopKHeavyHitterSketch {
         )?;
         for (value, slot) in &self.slots {
             counts.insert(std::sync::Arc::clone(value), slot.stored_count);
+        }
+        Ok(Some(counts))
+    }
+
+    fn exact_counts_if_retained_proved(
+        &self,
+        retained_cap: usize,
+        untracked_threshold: u64,
+    ) -> Result<Option<rustc_hash::FxHashMap<std::sync::Arc<str>, u64>>> {
+        if retained_cap == 0 {
+            return Ok(None);
+        }
+        let mut exact_candidates = self
+            .slots
+            .iter()
+            .filter(|(_, slot)| slot.exact_from_first_pass)
+            .map(|(value, slot)| StringCountTopKCandidate {
+                value: std::sync::Arc::clone(value),
+                count: slot.stored_count,
+            })
+            .collect::<Vec<_>>();
+        if exact_candidates.len() < retained_cap {
+            return Ok(None);
+        }
+        exact_candidates.sort_by(compare_string_count_topk_candidates);
+        let Some(boundary) = exact_candidates
+            .get(retained_cap.saturating_sub(1))
+            .map(|candidate| candidate.count)
+        else {
+            return Ok(None);
+        };
+        if boundary <= untracked_threshold {
+            return Ok(None);
+        }
+        for slot in self.slots.values() {
+            if !slot.exact_from_first_pass && slot.stored_count >= boundary {
+                return Ok(None);
+            }
+        }
+        let mut counts = rustc_hash::FxHashMap::default();
+        reserve_hash_map_capacity(
+            &mut counts,
+            exact_candidates.len(),
+            "string top-K retained first-pass exact counts",
+        )?;
+        for candidate in exact_candidates {
+            counts.insert(candidate.value, candidate.count);
         }
         Ok(Some(counts))
     }
@@ -19086,6 +19141,7 @@ impl<'a> GroupedAggregateStates<'a> {
             string_count_topk_total_weight: 0,
             string_count_topk_string_group_index: None,
             string_count_topk_first_pass_exact_counts: false,
+            string_count_topk_exact_counts_source: None,
             string_count_distinct_topk_heavy_hitter_enabled: false,
             string_count_distinct_topk_heavy_hitter_sketch: None,
             string_count_distinct_topk_candidate_values: None,
@@ -20178,22 +20234,41 @@ impl<'a> GroupedAggregateStates<'a> {
             && self.string_count_topk_candidate_values.is_none()
     }
 
-    fn promote_string_count_topk_exact_first_pass_if_possible(&mut self) -> Result<bool> {
+    fn promote_string_count_topk_exact_first_pass_if_possible(
+        &mut self,
+        limit: Option<usize>,
+    ) -> Result<bool> {
         let Some(sketch) = self.string_count_topk_heavy_hitter_sketch.as_ref() else {
             return Ok(false);
         };
-        let Some(counts) = sketch.exact_counts_if_no_eviction()? else {
+        if let Some(counts) = sketch.exact_counts_if_no_eviction()? {
+            if counts.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex string top-K heavy-hitter first pass produced no exact candidates; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+            self.string_count_topk_candidate_values = Some(counts.keys().cloned().collect());
+            self.string_count_topk_exact_counts = Some(counts);
+            self.string_count_topk_first_pass_exact_counts = true;
+            self.string_count_topk_exact_counts_source = Some("first_pass_no_eviction");
+            return Ok(true);
+        }
+        let Some(limit) = limit else {
+            return Ok(false);
+        };
+        let retained_cap = self.request.offset.saturating_add(limit);
+        let threshold = self.string_count_topk_heavy_hitter_threshold(sketch)?;
+        let Some(counts) = sketch.exact_counts_if_retained_proved(retained_cap, threshold)? else {
             return Ok(false);
         };
         if counts.is_empty() {
-            return Err(ShardLoomError::InvalidOperation(
-                "local Vortex string top-K heavy-hitter first pass produced no exact candidates; no fallback execution was attempted"
-                    .to_string(),
-            ));
+            return Ok(false);
         }
         self.string_count_topk_candidate_values = Some(counts.keys().cloned().collect());
         self.string_count_topk_exact_counts = Some(counts);
         self.string_count_topk_first_pass_exact_counts = true;
+        self.string_count_topk_exact_counts_source = Some("first_pass_retained_boundary_proof");
         Ok(true)
     }
 
@@ -20212,6 +20287,7 @@ impl<'a> GroupedAggregateStates<'a> {
             Some(string_candidate_signatures(&candidates)?);
         self.string_count_topk_candidate_values = Some(candidates);
         self.string_count_topk_exact_counts = Some(rustc_hash::FxHashMap::default());
+        self.string_count_topk_exact_counts_source = Some("candidate_recount_second_pass");
         Ok(())
     }
 
@@ -22226,15 +22302,18 @@ impl<'a> GroupedAggregateStates<'a> {
             "proofbound_heavy_hitter_string_count_topk_late_recount"
         };
         let uniqueness_proof_status = if self.string_count_topk_first_pass_exact_counts {
-            "proofbound_heavy_hitter_exact_first_pass_no_eviction"
+            match self.string_count_topk_exact_counts_source {
+                Some("first_pass_retained_boundary_proof") => {
+                    "proofbound_heavy_hitter_exact_first_pass_retained_boundary"
+                }
+                _ => "proofbound_heavy_hitter_exact_first_pass_no_eviction",
+            }
         } else {
             "proofbound_heavy_hitter_exact_topk"
         };
-        let exact_counts_source = if self.string_count_topk_first_pass_exact_counts {
-            "first_pass_no_eviction"
-        } else {
-            "candidate_recount_second_pass"
-        };
+        let exact_counts_source = self
+            .string_count_topk_exact_counts_source
+            .unwrap_or("candidate_recount_second_pass");
         let payload = serde_json::json!({
             "rows": rows.len(),
             "group_by": group_by.join(","),
@@ -24241,7 +24320,15 @@ impl<'a> GroupedAggregateStates<'a> {
             pulseweave_pressure_signals.push("string_heavy_hitter_threshold");
             if self.string_count_topk_first_pass_exact_counts {
                 capillary_work_units.push("string_heavy_hitter_first_pass_exact_counts");
-                pulseweave_pressure_signals.push("string_heavy_hitter_no_eviction_exact_proof");
+                if self.string_count_topk_exact_counts_source
+                    == Some("first_pass_retained_boundary_proof")
+                {
+                    capillary_work_units.push("string_heavy_hitter_retained_boundary_exact_proof");
+                    pulseweave_pressure_signals
+                        .push("string_heavy_hitter_retained_boundary_upper_bound");
+                } else {
+                    pulseweave_pressure_signals.push("string_heavy_hitter_no_eviction_exact_proof");
+                }
             } else {
                 capillary_work_units.push("string_topk_candidate_exact_recount");
                 if self.string_count_topk_candidate_signatures.is_some() {
@@ -36119,7 +36206,7 @@ mod tests {
         assert!(states.needs_string_count_topk_heavy_hitter_second_pass());
         assert!(
             states
-                .promote_string_count_topk_exact_first_pass_if_possible()
+                .promote_string_count_topk_exact_first_pass_if_possible(Some(2))
                 .expect("promote exact first pass")
         );
         assert!(!states.needs_string_count_topk_heavy_hitter_second_pass());
@@ -36175,6 +36262,88 @@ mod tests {
         assert_eq!(payload["values"][0]["rows"], serde_json::json!(3));
         assert_eq!(payload["values"][1]["url"], serde_json::json!("warm"));
         assert_eq!(payload["values"][1]["rows"], serde_json::json!(2));
+    }
+
+    #[test]
+    fn grouped_aggregate_string_count_topk_skips_recount_when_retained_exact_boundary_is_proved() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("url").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let declared_columns = vec!["url".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, true)
+                .expect("states");
+        let mut sketch = StringCountTopKHeavyHitterSketch::new(2);
+        let hot = std::sync::Arc::<str>::from("hot");
+        let warm = std::sync::Arc::<str>::from("warm");
+        let cold = std::sync::Arc::<str>::from("cold");
+        sketch.update(&hot, 100).expect("hot update");
+        sketch.update(&warm, 90).expect("warm update");
+        sketch
+            .update(&cold, 50)
+            .expect("cold update triggers offset");
+        assert!(
+            sketch.offset > 0,
+            "test must exercise the retained-boundary proof, not no-eviction exactness"
+        );
+        states.string_count_topk_heavy_hitter_sketch = Some(sketch);
+        states.string_count_topk_total_weight = 240;
+        states.string_count_topk_string_group_index = Some(0);
+        states.count_star_direct_updates = true;
+        states.chunk_dictionary_direct_updates = true;
+        states.string_count_topk_heavy_hitter_direct_updates = true;
+
+        assert!(
+            states
+                .promote_string_count_topk_exact_first_pass_if_possible(Some(2))
+                .expect("promote retained-boundary exact first pass")
+        );
+        assert!(!states.needs_string_count_topk_heavy_hitter_second_pass());
+        let budget = states
+            .state_budget_report(&request, 240, 2)
+            .expect("state budget");
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_heavy_hitter_retained_boundary_exact_proof".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"string_heavy_hitter_retained_boundary_upper_bound".to_string())
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["group_output_strategy"],
+            "proofbound_heavy_hitter_string_count_topk_first_pass_exact"
+        );
+        assert_eq!(
+            payload["uniqueness_proof_status"],
+            "proofbound_heavy_hitter_exact_first_pass_retained_boundary"
+        );
+        assert_eq!(
+            payload["string_count_topk_heavy_hitter_second_pass"],
+            serde_json::json!(false)
+        );
+        assert_eq!(
+            payload["string_count_topk_heavy_hitter_exact_counts_source"],
+            serde_json::json!("first_pass_retained_boundary_proof")
+        );
+        assert_eq!(payload["values"][0]["url"], serde_json::json!("hot"));
+        assert_eq!(payload["values"][0]["rows"], serde_json::json!(100));
+        assert_eq!(payload["values"][1]["url"], serde_json::json!("warm"));
+        assert_eq!(payload["values"][1]["rows"], serde_json::json!(90));
     }
 
     #[test]
