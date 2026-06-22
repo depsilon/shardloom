@@ -6429,102 +6429,110 @@ fn run_scalar_vortex_prepare(
     }
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     {
-        let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
-        let source_schema_digest = vortex_ingest_source_schema_digest(&source);
-        let source_state_id = source_state_id_for_source(&source_evidence);
-        let source_state_digest =
-            source_state_digest_for_source(&source_evidence, &source_schema_digest);
-        let scout_ingress = scout_ingress_report(
-            &source_evidence,
-            &request.source_path,
-            &source_state_id,
-            &source_state_digest,
-            &source_schema_digest,
-        );
-        let layout_write_advisor = layout_write_advisor_report(
-            &source_evidence,
-            &source_state_id,
-            &source_state_digest,
-            &source_schema_digest,
-            request.certification_level,
-        );
-        let rows = ordered_source_rows(&source.header, &source.rows)?;
-        let prewrite_input = capillary_prewrite_input(
-            &source_evidence,
-            &request.target_path,
-            request.certification_level,
-            &source_state_id,
-            &source_state_digest,
-            request.max_parallelism,
-        );
-        let vortex_request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
-            &request.target_path,
-            source.header.clone(),
-            rows,
-        )
-        .column_dtypes(source.column_dtypes.clone())
-        .allow_overwrite(request.allow_overwrite)
-        .certification_level(request.certification_level)
-        .layout_write_advisor(layout_write_advisor.clone())
-        .capillary_prewrite_input(prewrite_input);
-        let vortex_report =
-            shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
-        let layout_write_advisor =
-            layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
-        let prepare_once_total_millis = prepare_start.elapsed().as_millis();
-
-        let evidence_start = Instant::now();
-        let prepared_state_digest = fnv64_digest(&format!(
-            "{}|{}|{}|{}",
-            source_state_digest,
-            vortex_report.artifact_digest,
-            vortex_report.column_family_summary(),
-            vortex_report.row_count
-        ));
-        let prepared_state_id = format!(
-            "vortex-prepared-state-{}",
-            prepared_state_digest.replace(':', "-")
-        );
-        let capillary_preparation = capillary_preparation_report(
-            &source_evidence,
-            &vortex_report,
-            request.certification_level,
-            &source_state_id,
-            &source_state_digest,
-            &prepared_state_id,
-            &prepared_state_digest,
-            request.max_parallelism,
-        )?;
-        let copy_budget = copy_budget_report(
-            &source_evidence,
-            &vortex_report,
-            &source_state_id,
-            &source_state_digest,
-            &prepared_state_id,
-            &prepared_state_digest,
-        );
-        let evidence_render_millis = evidence_start.elapsed().as_millis();
-
-        Ok(VortexIngestReport {
-            request,
-            source: source_evidence,
-            source_schema_digest,
-            source_state_id,
-            source_state_digest,
-            prepared_state_id,
-            prepared_state_digest,
-            prepare_once_total_millis,
-            evidence_render_millis,
-            vortex_report,
-            scout_ingress,
-            layout_write_advisor,
-            capillary_preparation,
-            copy_budget,
-            differential_preparation: None,
-            prepared_state_reuse: None,
-            prepared_olap_state: None,
-        })
+        run_scalar_rows_vortex_prepare(request, &source, prepare_start)
     }
+}
+
+#[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+fn run_scalar_rows_vortex_prepare(
+    request: VortexIngestRequest,
+    source: &CsvSourceData,
+    prepare_start: Instant,
+) -> Result<VortexIngestReport, ShardLoomError> {
+    let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
+    let source_schema_digest = vortex_ingest_source_schema_digest(source);
+    let source_state_id = source_state_id_for_source(&source_evidence);
+    let source_state_digest =
+        source_state_digest_for_source(&source_evidence, &source_schema_digest);
+    let scout_ingress = scout_ingress_report(
+        &source_evidence,
+        &request.source_path,
+        &source_state_id,
+        &source_state_digest,
+        &source_schema_digest,
+    );
+    let layout_write_advisor = layout_write_advisor_report(
+        &source_evidence,
+        &source_state_id,
+        &source_state_digest,
+        &source_schema_digest,
+        request.certification_level,
+    );
+    let rows = ordered_source_rows(&source.header, &source.rows)?;
+    let prewrite_input = capillary_prewrite_input(
+        &source_evidence,
+        &request.target_path,
+        request.certification_level,
+        &source_state_id,
+        &source_state_digest,
+        request.max_parallelism,
+    );
+    let vortex_request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
+        &request.target_path,
+        source.header.clone(),
+        rows,
+    )
+    .column_dtypes(source.column_dtypes.clone())
+    .allow_overwrite(request.allow_overwrite)
+    .certification_level(request.certification_level)
+    .layout_write_advisor(layout_write_advisor.clone())
+    .capillary_prewrite_input(prewrite_input);
+    let vortex_report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
+    let layout_write_advisor =
+        layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
+    let prepare_once_total_millis = prepare_start.elapsed().as_millis();
+
+    let evidence_start = Instant::now();
+    let prepared_state_digest = fnv64_digest(&format!(
+        "{}|{}|{}|{}",
+        source_state_digest,
+        vortex_report.artifact_digest,
+        vortex_report.column_family_summary(),
+        vortex_report.row_count
+    ));
+    let prepared_state_id = format!(
+        "vortex-prepared-state-{}",
+        prepared_state_digest.replace(':', "-")
+    );
+    let capillary_preparation = capillary_preparation_report(
+        &source_evidence,
+        &vortex_report,
+        request.certification_level,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+        request.max_parallelism,
+    )?;
+    let copy_budget = copy_budget_report(
+        &source_evidence,
+        &vortex_report,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+    );
+    let evidence_render_millis = evidence_start.elapsed().as_millis();
+
+    Ok(VortexIngestReport {
+        request,
+        source: source_evidence,
+        source_schema_digest,
+        source_state_id,
+        source_state_digest,
+        prepared_state_id,
+        prepared_state_digest,
+        prepare_once_total_millis,
+        evidence_render_millis,
+        vortex_report,
+        scout_ingress,
+        layout_write_advisor,
+        capillary_preparation,
+        copy_budget,
+        differential_preparation: None,
+        prepared_state_reuse: None,
+        prepared_olap_state: None,
+    })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
