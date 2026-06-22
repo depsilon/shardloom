@@ -8,13 +8,13 @@
 
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     fs::File,
     io::{BufReader, Write},
     path::Path,
     rc::Rc,
     sync::{
-        Arc,
+        Arc, Mutex,
         mpsc::{self, Receiver},
     },
     thread::{self, JoinHandle},
@@ -34,6 +34,59 @@ use arrow_array::{
 };
 use arrow_schema::{ArrowError, DataType, Field, Fields, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
+
+const SCOPED_COMPAT_RECORD_BATCH_ROWS: usize = 8_192;
+pub const PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS: usize = 65_536;
+const PARQUET_PARALLEL_ROW_GROUPS_PER_TASK: usize = 16;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FlatColumnarStreamSourcePlan {
+    record_batch_count_hint: Option<usize>,
+    source_unit_count_hint: Option<usize>,
+    source_unit_hint_kind: &'static str,
+    stream_batch_size: usize,
+    stream_policy: &'static str,
+    dictionary_preservation_status: &'static str,
+}
+
+impl FlatColumnarStreamSourcePlan {
+    fn source_defined_batches(record_batch_count_hint: usize) -> Self {
+        Self {
+            record_batch_count_hint: Some(record_batch_count_hint),
+            source_unit_count_hint: Some(record_batch_count_hint),
+            source_unit_hint_kind: "source_defined_record_batch_count",
+            stream_batch_size: 0,
+            stream_policy: "source_defined_record_batches",
+            dictionary_preservation_status: "source_arrow_batches_preserve_dictionary_arrays_when_present",
+        }
+    }
+
+    fn product_batches(
+        max_rows: usize,
+        source_unit_count_hint: Option<usize>,
+        source_unit_hint_kind: &'static str,
+        dictionary_preservation_status: &'static str,
+    ) -> Self {
+        Self {
+            record_batch_count_hint: None,
+            source_unit_count_hint,
+            source_unit_hint_kind,
+            stream_batch_size: product_columnar_stream_record_batch_rows(max_rows),
+            stream_policy: "product_columnar_stream_batch_size_65536_rows",
+            dictionary_preservation_status,
+        }
+    }
+}
+
+const fn product_columnar_stream_record_batch_rows(max_rows: usize) -> usize {
+    if max_rows == 0 {
+        1
+    } else if max_rows < PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS {
+        max_rows
+    } else {
+        PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS
+    }
+}
 /// Materialized scalar rows produced by a scoped local compatibility adapter.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlatLocalSourceTable {
@@ -100,6 +153,18 @@ pub struct FlatLocalColumnarStreamSource {
     pub row_count_hint: Option<usize>,
     /// Reader batch count when the file format exposes it without scanning.
     pub record_batch_count_hint: Option<usize>,
+    /// Product stream batch size requested from the source adapter. A value of
+    /// zero means the source format owns batch boundaries, such as Arrow IPC.
+    pub source_stream_batch_size: usize,
+    /// Source-native work-unit count when known before streaming.
+    pub source_stream_unit_count_hint: Option<usize>,
+    /// Meaning of `source_stream_unit_count_hint`.
+    pub source_stream_unit_hint_kind: String,
+    /// Stream shaping policy applied before the Vortex writer consumes batches.
+    pub source_stream_policy: String,
+    /// Whether source dictionaries/typed columnar layouts can survive to the
+    /// Vortex provider boundary.
+    pub source_dictionary_preservation_status: String,
     /// Source-to-writer executor status for product ingest evidence.
     pub ingest_executor_status: String,
     /// Source-to-writer executor kind for product ingest evidence.
@@ -160,6 +225,177 @@ impl RecordBatchReader for CapillaryPrefetchRecordBatchReader {
     }
 }
 
+#[derive(Debug)]
+struct ParquetRowGroupReadTask {
+    task_index: usize,
+    row_groups: Vec<usize>,
+}
+
+struct ParquetRowGroupReadResult {
+    task_index: usize,
+    result: std::result::Result<VecDeque<RecordBatch>, ArrowError>,
+}
+
+struct ParquetRowGroupParallelRecordBatchReader {
+    schema: SchemaRef,
+    receiver: Option<Receiver<ParquetRowGroupReadResult>>,
+    workers: Vec<JoinHandle<()>>,
+    next_task_index: usize,
+    task_count: usize,
+    pending: BTreeMap<usize, std::result::Result<VecDeque<RecordBatch>, ArrowError>>,
+    current: VecDeque<RecordBatch>,
+}
+
+impl ParquetRowGroupParallelRecordBatchReader {
+    fn new(
+        path: &Path,
+        schema: SchemaRef,
+        row_group_count: usize,
+        batch_size: usize,
+        applied_parallelism: usize,
+    ) -> Self {
+        let path = path.to_path_buf();
+        let mut tasks = VecDeque::new();
+        let chunk_size = PARQUET_PARALLEL_ROW_GROUPS_PER_TASK.max(1);
+        for (task_index, start) in (0..row_group_count).step_by(chunk_size).enumerate() {
+            let end = (start + chunk_size).min(row_group_count);
+            tasks.push_back(ParquetRowGroupReadTask {
+                task_index,
+                row_groups: (start..end).collect(),
+            });
+        }
+        let task_count = tasks.len();
+        let shared_tasks = Arc::new(Mutex::new(tasks));
+        let (sender, receiver) = mpsc::channel();
+        let worker_count = applied_parallelism.max(1).min(task_count.max(1));
+        let mut workers = Vec::with_capacity(worker_count);
+        for _ in 0..worker_count {
+            let worker_path = path.clone();
+            let worker_tasks = Arc::clone(&shared_tasks);
+            let worker_sender = sender.clone();
+            workers.push(thread::spawn(move || {
+                loop {
+                    let task = {
+                        let mut tasks = worker_tasks.lock().expect("Parquet task queue poisoned");
+                        tasks.pop_front()
+                    };
+                    let Some(task) = task else {
+                        break;
+                    };
+                    let result =
+                        read_parquet_row_group_batches(&worker_path, task.row_groups, batch_size);
+                    if worker_sender
+                        .send(ParquetRowGroupReadResult {
+                            task_index: task.task_index,
+                            result,
+                        })
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            }));
+        }
+        drop(sender);
+        Self {
+            schema,
+            receiver: Some(receiver),
+            workers,
+            next_task_index: 0,
+            task_count,
+            pending: BTreeMap::new(),
+            current: VecDeque::new(),
+        }
+    }
+
+    fn close_and_join(&mut self) {
+        self.receiver.take();
+        for worker in self.workers.drain(..) {
+            let _ = worker.join();
+        }
+    }
+}
+
+impl Iterator for ParquetRowGroupParallelRecordBatchReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(batch) = self.current.pop_front() {
+                return Some(Ok(batch));
+            }
+            if self.next_task_index >= self.task_count {
+                self.close_and_join();
+                return None;
+            }
+            if let Some(result) = self.pending.remove(&self.next_task_index) {
+                self.next_task_index += 1;
+                match result {
+                    Ok(mut batches) => {
+                        self.current.append(&mut batches);
+                        continue;
+                    }
+                    Err(error) => {
+                        self.close_and_join();
+                        return Some(Err(error));
+                    }
+                }
+            }
+            let Some(receiver) = self.receiver.as_ref() else {
+                self.close_and_join();
+                return Some(Err(ArrowError::ComputeError(
+                    "Parquet row-group parallel reader closed before all tasks completed"
+                        .to_string(),
+                )));
+            };
+            if let Ok(result) = receiver.recv() {
+                self.pending.insert(result.task_index, result.result);
+            } else {
+                self.close_and_join();
+                return Some(Err(ArrowError::ComputeError(
+                    "Parquet row-group parallel reader stopped before all tasks completed"
+                        .to_string(),
+                )));
+            }
+        }
+    }
+}
+
+impl RecordBatchReader for ParquetRowGroupParallelRecordBatchReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
+impl Drop for ParquetRowGroupParallelRecordBatchReader {
+    fn drop(&mut self) {
+        self.close_and_join();
+    }
+}
+
+fn parquet_row_group_parallel_task_count(row_group_count: usize) -> usize {
+    row_group_count.div_ceil(PARQUET_PARALLEL_ROW_GROUPS_PER_TASK)
+}
+
+fn read_parquet_row_group_batches(
+    path: &Path,
+    row_groups: Vec<usize>,
+    batch_size: usize,
+) -> std::result::Result<VecDeque<RecordBatch>, ArrowError> {
+    let file = File::open(path).map_err(ArrowError::from)?;
+    let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+        .map_err(|error| ArrowError::ParquetError(error.to_string()))?
+        .with_batch_size(batch_size.max(1))
+        .with_row_groups(row_groups)
+        .build()
+        .map_err(|error| ArrowError::ParquetError(error.to_string()))?;
+    let mut batches = VecDeque::new();
+    for batch in reader {
+        batches.push_back(batch?);
+    }
+    Ok(batches)
+}
+
 struct RowLimitRecordBatchReader<R> {
     inner: R,
     schema: SchemaRef,
@@ -214,7 +450,7 @@ where
                 if self.row_count > self.max_rows {
                     self.failed = true;
                     return Some(Err(ArrowError::InvalidArgumentError(format!(
-                        "local {} source '{}' exceeds the scoped SQL local-source row limit of {}",
+                        "local {} source '{}' exceeds the configured local source row budget of {}",
                         self.source_label, self.path, self.max_rows
                     ))));
                 }
@@ -244,7 +480,7 @@ fn validate_known_stream_row_count(
         && row_count > max_rows
     {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "local {source_label} source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
+            "local {source_label} source '{}' exceeds the configured local source row budget of {max_rows}",
             path.display()
         )));
     }
@@ -257,7 +493,7 @@ fn flat_columnar_stream_source_from_reader(
     materialized_columns: Vec<String>,
     reader_projection_columns: Vec<String>,
     row_count_hint: Option<usize>,
-    record_batch_count_hint: Option<usize>,
+    stream_plan: FlatColumnarStreamSourcePlan,
     reader: Box<dyn RecordBatchReader + Send>,
 ) -> FlatLocalColumnarStreamSource {
     FlatLocalColumnarStreamSource {
@@ -267,12 +503,21 @@ fn flat_columnar_stream_source_from_reader(
         materialized_columns,
         reader_projection_columns,
         row_count_hint,
-        record_batch_count_hint,
+        record_batch_count_hint: stream_plan.record_batch_count_hint,
+        source_stream_batch_size: stream_plan.stream_batch_size,
+        source_stream_unit_count_hint: stream_plan.source_unit_count_hint,
+        source_stream_unit_hint_kind: stream_plan.source_unit_hint_kind.to_string(),
+        source_stream_policy: stream_plan.stream_policy.to_string(),
+        source_dictionary_preservation_status: stream_plan
+            .dictionary_preservation_status
+            .to_string(),
         ingest_executor_status: "serial_pull_reader".to_string(),
         ingest_executor_kind: "single_source_record_batch_reader".to_string(),
         ingest_executor_requested_parallelism: 1,
         ingest_executor_applied_parallelism: 1,
-        ingest_executor_unit_count_hint: record_batch_count_hint,
+        ingest_executor_unit_count_hint: stream_plan
+            .source_unit_count_hint
+            .or(stream_plan.record_batch_count_hint),
         reader,
     }
 }
@@ -297,6 +542,11 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         reader_projection_columns,
         row_count_hint,
         record_batch_count_hint,
+        source_stream_batch_size,
+        source_stream_unit_count_hint,
+        source_stream_unit_hint_kind,
+        source_stream_policy,
+        source_dictionary_preservation_status,
         ingest_executor_unit_count_hint,
         reader,
         ..
@@ -310,6 +560,11 @@ pub fn with_capillary_prefetch_columnar_stream_source(
             reader_projection_columns,
             row_count_hint,
             record_batch_count_hint,
+            source_stream_batch_size,
+            source_stream_unit_count_hint,
+            source_stream_unit_hint_kind,
+            source_stream_policy,
+            source_dictionary_preservation_status,
             ingest_executor_status: "serial_pull_reader".to_string(),
             ingest_executor_kind: "single_source_record_batch_reader".to_string(),
             ingest_executor_requested_parallelism: requested_max_parallelism,
@@ -330,6 +585,11 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         reader_projection_columns,
         row_count_hint,
         record_batch_count_hint,
+        source_stream_batch_size,
+        source_stream_unit_count_hint,
+        source_stream_unit_hint_kind,
+        source_stream_policy,
+        source_dictionary_preservation_status,
         ingest_executor_status: "bounded_capillary_prefetch_active".to_string(),
         ingest_executor_kind: "source_reader_to_vortex_writer_prefetch_pipeline".to_string(),
         ingest_executor_requested_parallelism: requested_max_parallelism,
@@ -371,7 +631,7 @@ pub fn read_flat_parquet_columnar_source(
                 path.display()
             ))
         })?
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(max_rows.clamp(1, SCOPED_COMPAT_RECORD_BATCH_ROWS))
         .build()
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -393,6 +653,21 @@ pub fn stream_flat_parquet_columnar_source(
     path: &Path,
     max_rows: usize,
 ) -> Result<FlatLocalColumnarStreamSource> {
+    stream_flat_parquet_columnar_source_with_parallelism(path, max_rows, 1)
+}
+
+/// Stream a local Parquet file as Arrow batches using source-native row-group
+/// work units when product ingest requests parallelism.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Parquet reader cannot be constructed, or known file metadata exceeds
+/// `max_rows`.
+pub fn stream_flat_parquet_columnar_source_with_parallelism(
+    path: &Path,
+    max_rows: usize,
+    requested_max_parallelism: usize,
+) -> Result<FlatLocalColumnarStreamSource> {
     let file = open_local_source_file(path, "Parquet")?;
     let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
         .map_err(|error| {
@@ -404,9 +679,45 @@ pub fn stream_flat_parquet_columnar_source(
     let schema = Arc::clone(builder.schema());
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
     let row_count_hint = usize::try_from(builder.metadata().file_metadata().num_rows()).ok();
+    let row_group_count = builder.metadata().num_row_groups();
+    let row_group_count_hint = Some(row_group_count);
     validate_known_stream_row_count(path, "Parquet", row_count_hint, max_rows)?;
+    let stream_plan = FlatColumnarStreamSourcePlan::product_batches(
+        max_rows,
+        row_group_count_hint,
+        "parquet_row_group_count",
+        "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary",
+    );
+    let requested_max_parallelism = requested_max_parallelism.max(1);
+    if requested_max_parallelism > 1 && row_group_count > 1 {
+        let task_count = parquet_row_group_parallel_task_count(row_group_count);
+        let applied_parallelism = requested_max_parallelism.min(task_count.max(1));
+        let stream_batch_size = stream_plan.stream_batch_size;
+        let mut source = flat_columnar_stream_source_from_reader(
+            schema.as_ref(),
+            header.clone(),
+            header.clone(),
+            header,
+            row_count_hint,
+            stream_plan,
+            Box::new(ParquetRowGroupParallelRecordBatchReader::new(
+                path,
+                Arc::clone(&schema),
+                row_group_count,
+                stream_batch_size,
+                applied_parallelism,
+            )),
+        );
+        source.ingest_executor_status = "bounded_capillary_row_group_parallel_active".to_string();
+        source.ingest_executor_kind =
+            "parquet_row_group_coalesced_reader_to_vortex_writer".to_string();
+        source.ingest_executor_requested_parallelism = requested_max_parallelism;
+        source.ingest_executor_applied_parallelism = applied_parallelism;
+        source.ingest_executor_unit_count_hint = Some(task_count);
+        return Ok(source);
+    }
     let reader = builder
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(stream_plan.stream_batch_size)
         .build()
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -420,7 +731,7 @@ pub fn stream_flat_parquet_columnar_source(
         header.clone(),
         header,
         row_count_hint,
-        None,
+        stream_plan,
         Box::new(reader),
     ))
 }
@@ -476,7 +787,7 @@ pub fn read_flat_parquet_columnar_source_with_projection(
         projection_indices.iter().copied(),
     );
     let mut reader = builder
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(max_rows.clamp(1, SCOPED_COMPAT_RECORD_BATCH_ROWS))
         .with_projection(projection)
         .build()
         .map_err(|error| {
@@ -551,13 +862,14 @@ pub fn stream_flat_arrow_ipc_columnar_source(
     let schema = reader.schema();
     let header = source_schema_header(path, "Arrow IPC", schema.as_ref())?;
     let batch_hint = reader.num_batches();
+    let stream_plan = FlatColumnarStreamSourcePlan::source_defined_batches(batch_hint);
     Ok(flat_columnar_stream_source_from_reader(
         schema.as_ref(),
         header.clone(),
         header.clone(),
         header,
         None,
-        Some(batch_hint),
+        stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -659,7 +971,7 @@ pub fn read_flat_avro_columnar_source(
 ) -> Result<FlatLocalColumnarSource> {
     let file = open_local_source_file(path, "Avro")?;
     let mut reader = arrow_avro::reader::ReaderBuilder::new()
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(max_rows.clamp(1, SCOPED_COMPAT_RECORD_BATCH_ROWS))
         .build(BufReader::new(file))
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -681,8 +993,14 @@ pub fn stream_flat_avro_columnar_source(
     max_rows: usize,
 ) -> Result<FlatLocalColumnarStreamSource> {
     let file = open_local_source_file(path, "Avro")?;
+    let stream_plan = FlatColumnarStreamSourcePlan::product_batches(
+        max_rows,
+        None,
+        "avro_stream_record_batches_unknown_before_read",
+        "avro_arrow_reader_typed_batches_preserved_dictionary_contract_not_declared",
+    );
     let reader = arrow_avro::reader::ReaderBuilder::new()
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(stream_plan.stream_batch_size)
         .build(BufReader::new(file))
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -698,7 +1016,7 @@ pub fn stream_flat_avro_columnar_source(
         header.clone(),
         header,
         None,
-        None,
+        stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -739,7 +1057,7 @@ pub fn read_flat_avro_columnar_source_with_projection(
 ) -> Result<FlatLocalColumnarSource> {
     let full_file = open_local_source_file(path, "Avro")?;
     let full_reader = arrow_avro::reader::ReaderBuilder::new()
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(max_rows.clamp(1, SCOPED_COMPAT_RECORD_BATCH_ROWS))
         .build(BufReader::new(full_file))
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -762,7 +1080,7 @@ pub fn read_flat_avro_columnar_source_with_projection(
 
     let file = open_local_source_file(path, "Avro")?;
     let mut reader = arrow_avro::reader::ReaderBuilder::new()
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(max_rows.clamp(1, SCOPED_COMPAT_RECORD_BATCH_ROWS))
         .with_projection(reader_projection_indices)
         .build(BufReader::new(file))
         .map_err(|error| {
@@ -816,7 +1134,7 @@ pub fn read_flat_orc_columnar_source(
                 path.display()
             ))
         })?
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(max_rows.clamp(1, SCOPED_COMPAT_RECORD_BATCH_ROWS))
         .build();
 
     read_flat_record_batch_reader_columnar(&mut reader, path, "ORC", max_rows)
@@ -840,14 +1158,22 @@ pub fn stream_flat_orc_columnar_source(
     })?;
     let schema = builder.schema();
     let header = source_schema_header(path, "ORC", schema.as_ref())?;
-    let reader = builder.with_batch_size(max_rows.clamp(1, 8192)).build();
+    let stream_plan = FlatColumnarStreamSourcePlan::product_batches(
+        max_rows,
+        None,
+        "orc_stream_record_batches_unknown_before_read",
+        "orc_arrow_reader_typed_batches_preserved_dictionary_contract_not_declared",
+    );
+    let reader = builder
+        .with_batch_size(stream_plan.stream_batch_size)
+        .build();
     Ok(flat_columnar_stream_source_from_reader(
         schema.as_ref(),
         header.clone(),
         header.clone(),
         header,
         None,
-        None,
+        stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -905,7 +1231,7 @@ pub fn read_flat_orc_columnar_source_with_projection(
         &projected_header,
     );
     let mut reader = builder
-        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_batch_size(max_rows.clamp(1, SCOPED_COMPAT_RECORD_BATCH_ROWS))
         .with_projection(projection)
         .build();
 
@@ -1026,7 +1352,7 @@ where
         })?;
         if row_count > max_rows {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "local {source_label} source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
+                "local {source_label} source '{}' exceeds the configured local source row budget of {max_rows}",
                 path.display()
             )));
         }
@@ -2848,6 +3174,17 @@ mod tests {
     }
 
     #[test]
+    fn product_columnar_stream_batch_size_uses_product_policy_not_smoke_cap() {
+        assert_eq!(product_columnar_stream_record_batch_rows(0), 1);
+        assert_eq!(product_columnar_stream_record_batch_rows(10), 10);
+        assert_eq!(
+            product_columnar_stream_record_batch_rows(usize::MAX),
+            PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS
+        );
+        assert!(PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS > SCOPED_COMPAT_RECORD_BATCH_ROWS);
+    }
+
+    #[test]
     fn capillary_prefetch_stream_source_preserves_order_and_records_executor() {
         let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
         let batch_1 = RecordBatch::try_new(
@@ -2868,6 +3205,11 @@ mod tests {
             reader_projection_columns: vec!["id".to_string()],
             row_count_hint: Some(3),
             record_batch_count_hint: Some(2),
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(2),
+            source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
+            source_stream_policy: "test_source_defined_record_batches".to_string(),
+            source_dictionary_preservation_status: "test_not_applicable".to_string(),
             ingest_executor_status: "serial_pull_reader".to_string(),
             ingest_executor_kind: "test_record_batch_reader".to_string(),
             ingest_executor_requested_parallelism: 1,
@@ -2892,6 +3234,20 @@ mod tests {
         assert_eq!(source.ingest_executor_requested_parallelism, 4);
         assert_eq!(source.ingest_executor_applied_parallelism, 2);
         assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
+        assert_eq!(source.source_stream_batch_size, 0);
+        assert_eq!(source.source_stream_unit_count_hint, Some(2));
+        assert_eq!(
+            source.source_stream_unit_hint_kind,
+            "test_record_batch_count"
+        );
+        assert_eq!(
+            source.source_stream_policy,
+            "test_source_defined_record_batches"
+        );
+        assert_eq!(
+            source.source_dictionary_preservation_status,
+            "test_not_applicable"
+        );
         let first = source
             .reader
             .next()
@@ -2905,6 +3261,74 @@ mod tests {
         assert_eq!(first.num_rows(), 2);
         assert_eq!(second.num_rows(), 1);
         assert!(source.reader.next().is_none());
+    }
+
+    #[test]
+    fn parquet_row_group_parallel_stream_preserves_order_and_records_executor() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-parquet-row-group-parallel-{}-{}.parquet",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+        let expected_ids: Vec<i64> = (0..40).collect();
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int64Array::from(expected_ids.clone()))],
+        )
+        .expect("test batch");
+        let props = parquet::file::properties::WriterProperties::builder()
+            .set_max_row_group_row_count(Some(2))
+            .build();
+        let file = File::create(&path).expect("create parquet");
+        let mut writer =
+            parquet::arrow::ArrowWriter::try_new(file, Arc::clone(&schema), Some(props))
+                .expect("parquet writer");
+        writer.write(&batch).expect("write parquet batch");
+        writer.close().expect("close parquet writer");
+
+        let mut source = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
+            .expect("stream parquet");
+
+        assert_eq!(
+            source.ingest_executor_status,
+            "bounded_capillary_row_group_parallel_active"
+        );
+        assert_eq!(
+            source.ingest_executor_kind,
+            "parquet_row_group_coalesced_reader_to_vortex_writer"
+        );
+        assert_eq!(source.ingest_executor_requested_parallelism, 2);
+        assert_eq!(source.ingest_executor_applied_parallelism, 2);
+        assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
+        assert_eq!(source.source_stream_unit_count_hint, Some(20));
+        assert_eq!(
+            source.source_stream_unit_hint_kind,
+            "parquet_row_group_count"
+        );
+        assert_eq!(
+            source.source_stream_policy,
+            "product_columnar_stream_batch_size_65536_rows"
+        );
+
+        let mut ids = Vec::new();
+        while let Some(batch) = source.reader.next() {
+            let batch = batch.expect("row group batch");
+            let id_array = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .expect("id array");
+            for index in 0..id_array.len() {
+                ids.push(id_array.value(index));
+            }
+        }
+        assert_eq!(ids, expected_ids);
+
+        std::fs::remove_file(path).expect("remove parquet test file");
     }
 
     #[test]

@@ -261,8 +261,8 @@ REQUIRED_SHARED_SEMANTIC_ROW_IDS = {"shared_claim_vocabulary"}
 
 REQUIRED_DATAFRAME_METHOD_STATUSES = {
     "sample": {"production_admitted_local_workflow"},
-    "set_index": {"scoped_runtime_supported"},
-    "reset_index": {"scoped_runtime_supported"},
+    "set_index": {"global_runtime_supported"},
+    "reset_index": {"global_runtime_supported"},
     "sort_index": {"production_admitted_local_workflow"},
     "pivot": {"production_admitted_local_workflow"},
     "pivot_table": {"production_admitted_local_workflow"},

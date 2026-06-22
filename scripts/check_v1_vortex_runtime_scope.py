@@ -254,8 +254,8 @@ def validate_primitive_report(report: Any, constants: dict[str, tuple[str, ...]]
             blockers.append(f"{route_id}: must start at native_vortex_boundary")
         if row.execution_mode != "native_vortex":
             blockers.append(f"{route_id}: execution_mode must be native_vortex")
-        if row.route_runtime_status != "scoped_runtime_supported":
-            blockers.append(f"{route_id}: route_runtime_status must be scoped_runtime_supported")
+        if row.route_runtime_status != "global_runtime_supported":
+            blockers.append(f"{route_id}: route_runtime_status must be global_runtime_supported")
         if row.fallback_attempted is not False:
             blockers.append(f"{route_id}: fallback_attempted must be false")
         if row.external_engine_invoked is not False:
@@ -407,12 +407,12 @@ def validate_user_routes(
         blockers.append("user route report must have zero unsupported local benchmark routes")
 
     required_user_routes = {
-        "local_file_prepare_once_first_query": "scoped_runtime_supported",
-        "local_file_prepare_once_batch": "scoped_runtime_supported",
-        "prepared_vortex_warm_query": "scoped_runtime_supported",
-        "native_vortex_query": "scoped_runtime_supported",
-        "local_vortex_primitive_report": "scoped_runtime_supported",
-        "generated_rows_local_output": "scoped_runtime_supported",
+        "local_file_prepare_once_first_query": "global_runtime_supported",
+        "local_file_prepare_once_batch": "global_runtime_supported",
+        "prepared_vortex_warm_query": "global_runtime_supported",
+        "native_vortex_query": "global_runtime_supported",
+        "local_vortex_primitive_report": "global_runtime_supported",
+        "generated_rows_local_output": "global_runtime_supported",
     }
     for route_id, status in required_user_routes.items():
         row = report.route(route_id)

@@ -198,21 +198,23 @@ third-party documentation brand.
 
 ## Benchmark Evidence Direction
 
-The benchmark page must be framed as evidence, not a leaderboard.
+The benchmark page must be framed as a ClickBench handoff and claim boundary, not a ShardLoom-hosted
+leaderboard or a renderer for local timing artifacts.
 
 Preferred page title:
 
 ```text
-Benchmark Evidence, Not A Leaderboard
+Public Comparisons Belong On ClickBench
 ```
 
 Preferred top cards:
 
-- Local smoke evidence.
-- Performance claim not allowed.
+- ClickBench public comparison surface.
+- Local UAT evidence remains repository evidence.
+- Performance claim not allowed unless a separate gate approves it.
 - `fallback_attempted=false`.
 - External engines baseline-only.
-- Prepared/native batch smoke.
+- Prepared/native Vortex route evidence.
 
 Use safer labels:
 

@@ -63,7 +63,7 @@ REQUIRED_MANIFEST_FIELDS = {
 }
 ROUTE_RUNTIME_STATUS_SCHEMA_VERSION = "shardloom.website.route_runtime_status.v1"
 ROUTE_RUNTIME_STATUSES = {
-    "scoped_runtime_supported",
+    "global_runtime_supported",
     "feature_gated",
     "fixture_smoke_only",
     "unsupported",
@@ -2092,8 +2092,8 @@ def validate_public_front_door_rows(
             blockers.append(f"{front_door_id}: missing public front-door publication status")
         if row.get("benchmark_route_publication_source") != "user_route_capability_report":
             blockers.append(f"{front_door_id}: missing public front-door publication source")
-        if row.get("route_runtime_status") != "scoped_runtime_supported":
-            blockers.append(f"{front_door_id}: route_runtime_status must be scoped_runtime_supported")
+        if row.get("route_runtime_status") != "global_runtime_supported":
+            blockers.append(f"{front_door_id}: route_runtime_status must be global_runtime_supported")
         if front_door_id == "local_source_vortex_middle_front_door":
             if row.get("front_door_end_state") != "result_sink":
                 blockers.append(f"{front_door_id}: front door must end at result_sink")

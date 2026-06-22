@@ -500,7 +500,7 @@ def validate_public_front_door_rows(
             examples.append(f"{prefix}:benchmark_route_publication_source")
         if not str(row.get("benchmark_route_publication_claim_boundary") or "").strip():
             examples.append(f"{prefix}:benchmark_route_publication_claim_boundary")
-        if row.get("route_runtime_status") != "scoped_runtime_supported":
+        if row.get("route_runtime_status") != "global_runtime_supported":
             examples.append(f"{prefix}:route_runtime_status")
         expected_end_state = (
             "result_sink"

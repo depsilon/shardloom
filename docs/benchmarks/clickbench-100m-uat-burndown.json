@@ -1,7 +1,7 @@
 {
   "schema_version": "shardloom.clickbench_100m_uat_burndown.v1",
   "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
-  "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_1338_20260621T034915/summary.json",
+  "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_current_20260621T222424Z/targeted-summary.json",
   "dataset": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
   "execution_surface": "cli_native_vortex",
   "command_shape": "target/release/shardloom run dataframe --input <hits.vortex> --input-format vortex --execution-policy native_vortex --request collect --bounded true --format json",
@@ -9,19 +9,21 @@
     "query_count": 43,
     "success_count": 43,
     "error_count": 0,
+    "unsupported_count": 0,
     "timeout_count": 0,
     "timeout_seconds_per_query": 180,
-    "elapsed_seconds_total": 665.36,
-    "successful_elapsed_seconds_min": 0.025,
-    "successful_elapsed_seconds_median": 4.286,
-    "successful_elapsed_seconds_mean": 15.472,
-    "successful_elapsed_seconds_max": 149.35,
-    "fast_rows_le_1s": 15,
-    "slow_rows_over_1s": 28,
-    "slow_rows_over_10s": 14,
-    "slow_rows_over_60s": 2,
+    "elapsed_seconds_total": 808.701,
+    "successful_elapsed_seconds_min": 0.044,
+    "successful_elapsed_seconds_median": 2.857,
+    "successful_elapsed_seconds_mean": 18.807,
+    "successful_elapsed_seconds_max": 173.236,
+    "fast_rows_le_1s": 13,
+    "slow_rows_over_1s": 30,
+    "slow_rows_over_10s": 13,
+    "slow_rows_over_60s": 3,
     "fallback_or_external_engine_violations": 0,
-    "observed_max_parallelism": 2
+    "observed_max_parallelism": 2,
+    "prepared_artifact_policy": "single_vortex_artifact_no_query_answer_sidecars"
   },
   "targeted_follow_up": {
     "superseded_by_source_summary": true,
@@ -71,6 +73,64 @@
       }
     ]
   },
+  "targeted_current_guardrails": {
+    "scope": "post_full43_ship_drop_checks_for_current_optimization_patch",
+    "timeout_seconds_per_query": 180,
+    "retained_changes": [
+      {
+        "change": "typed_hash_state_reservation_for_numeric_pair_grouped_aggregate",
+        "query_id": "CB-Q33",
+        "baseline_seconds": 173.236,
+        "targeted_seconds": 143.428,
+        "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_hashstate_20260621T230205Z/summary.json",
+        "route_id": "native_vortex_aggregate",
+        "aggregate_update_strategy": "numeric_pair_direct_group_update",
+        "group_state_mode": "numeric_pair_hot_hash_map",
+        "fallback_or_external_engine_violations": 0
+      },
+      {
+        "change": "string_path_hash_change_rolled_back_after_mixed_evidence",
+        "query_id": "CB-Q35",
+        "baseline_seconds": 157.799,
+        "mixed_patch_seconds": 161.73,
+        "post_rollback_guard_seconds": 143.407,
+        "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_guard_20260621T231356Z/summary.json",
+        "route_id": "native_vortex_aggregate",
+        "aggregate_update_strategy": "materialized_string_partial_count_star_group_update",
+        "group_state_mode": "chunk_materialized_partial_map",
+        "decoded_string_count": 18342019,
+        "fallback_or_external_engine_violations": 0
+      }
+    ],
+    "new_runtime_evidence_fields_added_before_next_uat": [
+      "local_primitive_aggregate_accessor_summary",
+      "local_primitive_aggregate_accessor_materialization_status",
+      "local_primitive_aggregate_vortex_dictionary_accessor_columns",
+      "local_primitive_aggregate_chunk_dictionary_accessor_columns",
+      "local_primitive_aggregate_primitive_accessor_columns",
+      "local_primitive_aggregate_materialized_accessor_columns",
+      "local_primitive_aggregate_accessor_blockers",
+      "public_workflow_preparation_source_state_stream_batch_size",
+      "public_workflow_preparation_source_state_stream_unit_count_hint",
+      "public_workflow_preparation_source_state_stream_unit_hint_kind",
+      "public_workflow_preparation_source_state_stream_policy",
+      "public_workflow_preparation_source_state_dictionary_preservation_status"
+    ],
+    "new_ingest_evidence_fields_added_before_next_uat": [
+      "source_state_stream_batch_size",
+      "source_state_stream_unit_count_hint",
+      "source_state_stream_unit_hint_kind",
+      "source_state_stream_policy",
+      "source_state_dictionary_preservation_status",
+      "source_state_ingest_executor_status",
+      "source_state_ingest_executor_kind",
+      "source_state_ingest_executor_requested_parallelism",
+      "source_state_ingest_executor_applied_parallelism",
+      "source_state_ingest_executor_unit_count_hint"
+    ],
+    "ingest_ship_drop_target": "Next 100M Parquet replacement UAT should verify that Universal Ingest reports product columnar streaming policy, Parquet row-group source-unit hints, bounded_capillary_row_group_parallel_active executor evidence when max_parallelism exceeds 1, no sidecar files, one .vortex artifact, and no fallback/external-engine fields before retaining any load-time claim.",
+    "open_conclusion": "Numeric/composite state reservation is useful, but URL/string grouping still reaches materialized UTF-8 chunk partials instead of encoded dictionary/domain metadata. Next UAT should inspect the new per-column accessor evidence to verify whether each slow route consumed true Vortex dictionary codes, chunk-local UTF-8 dictionaries, primitive direct accessors, or materialized values before adding more hash-table-only tweaks."
+  },
   "rejected_prepared_olap_query_summary_sidecar_uat": {
     "design_status": "rejected_for_public_default_runtime",
     "reason": "Exact query-summary sidecars behave like query-contract warm state and are not the ShardLoom product path. Public/default runtime uses one prepared .vortex artifact with embedded/generic Vortex layout and statistics evidence; external prepared-OLAP manifests and sidecar directories are disabled.",
@@ -89,171 +149,274 @@
   "timeout_rows": [],
   "slow_success_rows_over_1s": [
     {
-      "query_id": "CB-Q03",
-      "elapsed_seconds": 1.015,
-      "family": "scalar_aggregate_state",
-      "observed_state_items": 3
-    },
-    {
-      "query_id": "CB-Q05",
-      "elapsed_seconds": 3.028,
-      "family": "scalar_count_distinct_state",
-      "observed_state_items": 17630977
-    },
-    {
-      "query_id": "CB-Q06",
-      "elapsed_seconds": 6.326,
-      "family": "scalar_count_distinct_state",
-      "observed_state_items": 6019104
-    },
-    {
-      "query_id": "CB-Q09",
-      "elapsed_seconds": 6.021,
-      "family": "grouped_aggregate_state+count_distinct+topk",
-      "observed_state_items": 18005682
-    },
-    {
-      "query_id": "CB-Q10",
-      "elapsed_seconds": 7.319,
-      "family": "grouped_aggregate_state+count_distinct+topk",
-      "observed_state_items": 18005682
-    },
-    {
-      "query_id": "CB-Q12",
-      "elapsed_seconds": 1.191,
-      "family": "grouped_aggregate_state+count_distinct+topk",
-      "observed_state_items": 1188780
-    },
-    {
-      "query_id": "CB-Q13",
-      "elapsed_seconds": 6.076,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 6019102
-    },
-    {
-      "query_id": "CB-Q14",
-      "elapsed_seconds": 10.148,
-      "family": "grouped_aggregate_state+count_distinct+topk",
-      "observed_state_items": 16700510
-    },
-    {
-      "query_id": "CB-Q15",
-      "elapsed_seconds": 6.208,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 6474212
-    },
-    {
-      "query_id": "CB-Q16",
-      "elapsed_seconds": 13.48,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 17630976
-    },
-    {
-      "query_id": "CB-Q17",
-      "elapsed_seconds": 35.358,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 24070560
-    },
-    {
-      "query_id": "CB-Q18",
-      "elapsed_seconds": 23.684,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 24070560
-    },
-    {
-      "query_id": "CB-Q19",
-      "elapsed_seconds": 149.35,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 56384822
-    },
-    {
-      "query_id": "CB-Q21",
-      "elapsed_seconds": 11.69,
-      "family": "string_contains_count"
-    },
-    {
-      "query_id": "CB-Q22",
-      "elapsed_seconds": 14.549,
-      "family": "grouped_aggregate_state+topk",
-      "observed_state_items": 677
-    },
-    {
-      "query_id": "CB-Q23",
-      "elapsed_seconds": 45.169,
-      "family": "grouped_aggregate_state+count_distinct+topk",
-      "observed_state_items": 9623
-    },
-    {
-      "query_id": "CB-Q24",
-      "elapsed_seconds": 24.498,
-      "family": "raw_row_topk_sort_state",
-      "observed_state_items": 15911
-    },
-    {
-      "query_id": "CB-Q25",
-      "elapsed_seconds": 4.415,
-      "family": "raw_row_topk_sort_state",
-      "observed_state_items": 13172392
-    },
-    {
-      "query_id": "CB-Q26",
-      "elapsed_seconds": 3.961,
-      "family": "raw_row_topk_sort_state",
-      "observed_state_items": 13172392
-    },
-    {
-      "query_id": "CB-Q27",
-      "elapsed_seconds": 4.286,
-      "family": "raw_row_topk_sort_state",
-      "observed_state_items": 13172392
-    },
-    {
-      "query_id": "CB-Q28",
-      "elapsed_seconds": 12.102,
-      "family": "grouped_aggregate_state+topk",
-      "observed_state_items": 6486
-    },
-    {
-      "query_id": "CB-Q29",
-      "elapsed_seconds": 19.078,
-      "family": "grouped_aggregate_state+topk",
-      "observed_state_items": 2500210
-    },
-    {
-      "query_id": "CB-Q31",
-      "elapsed_seconds": 1.632,
-      "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair",
-      "observed_state_items": 5730331
-    },
-    {
-      "query_id": "CB-Q32",
-      "elapsed_seconds": 2.083,
-      "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair",
-      "observed_state_items": 13172392
-    },
-    {
       "query_id": "CB-Q33",
-      "elapsed_seconds": 126.67,
-      "family": "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair",
-      "observed_state_items": 99997493
-    },
-    {
-      "query_id": "CB-Q34",
-      "elapsed_seconds": 59.652,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 18342019
+      "elapsed_seconds": 173.236,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "numeric_pair_direct_group_update",
+      "group_state_mode": "numeric_pair_hot_hash_map",
+      "decoded_string_count": "0"
     },
     {
       "query_id": "CB-Q35",
-      "elapsed_seconds": 54.983,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 18342019
+      "elapsed_seconds": 157.799,
+      "family": "string_grouping",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "materialized_string_partial_count_star_group_update",
+      "group_state_mode": "chunk_materialized_partial_map",
+      "decoded_string_count": "18342019"
+    },
+    {
+      "query_id": "CB-Q34",
+      "elapsed_seconds": 154.694,
+      "family": "string_grouping",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "materialized_string_partial_count_star_group_update",
+      "group_state_mode": "chunk_materialized_partial_map",
+      "decoded_string_count": "18342019"
+    },
+    {
+      "query_id": "CB-Q23",
+      "elapsed_seconds": 50.124,
+      "family": "string_predicate_expression",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "row_state_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q17",
+      "elapsed_seconds": 50.072,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "count_star_direct_group_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "6019103"
+    },
+    {
+      "query_id": "CB-Q24",
+      "elapsed_seconds": 38.666,
+      "family": "bounded_sort",
+      "route_id": "native_vortex_sort_rows",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q29",
+      "elapsed_seconds": 23.456,
+      "family": "string_predicate_expression",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "row_state_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q19",
+      "elapsed_seconds": 19.103,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "numeric_minute_string_count_direct_group_update",
+      "group_state_mode": "numeric_minute_string_hot_hash_map",
+      "decoded_string_count": "6019103"
+    },
+    {
+      "query_id": "CB-Q22",
+      "elapsed_seconds": 16.38,
+      "family": "string_predicate_expression",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "row_state_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q21",
+      "elapsed_seconds": 13.37,
+      "family": "string_predicate_expression",
+      "route_id": "native_vortex_count_where",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q28",
+      "elapsed_seconds": 12.982,
+      "family": "string_predicate_expression",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q14",
+      "elapsed_seconds": 12.887,
+      "family": "grouped_exact_distinct",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "row_state_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q18",
+      "elapsed_seconds": 10.579,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "count_star_direct_group_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "3"
     },
     {
       "query_id": "CB-Q36",
-      "elapsed_seconds": 6.55,
-      "family": "grouped_aggregate_state+topk+count_star_direct+compact_group_state",
-      "observed_state_items": 9762046
+      "elapsed_seconds": 8.267,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "count_star_direct_group_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q10",
+      "elapsed_seconds": 7.88,
+      "family": "grouped_exact_distinct",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "row_state_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q13",
+      "elapsed_seconds": 7.688,
+      "family": "string_grouping",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "materialized_string_partial_count_star_group_update",
+      "group_state_mode": "chunk_materialized_partial_map",
+      "decoded_string_count": "6019102"
+    },
+    {
+      "query_id": "CB-Q15",
+      "elapsed_seconds": 7.18,
+      "family": "string_grouping",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "count_star_direct_group_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "6019102"
+    },
+    {
+      "query_id": "CB-Q30",
+      "elapsed_seconds": 7.089,
+      "family": "scalar_or_low_cardinality_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q09",
+      "elapsed_seconds": 6.499,
+      "family": "grouped_exact_distinct",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "row_state_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q06",
+      "elapsed_seconds": 5.992,
+      "family": "scalar_exact_distinct",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q27",
+      "elapsed_seconds": 3.791,
+      "family": "bounded_sort",
+      "route_id": "native_vortex_sort_rows",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q26",
+      "elapsed_seconds": 2.857,
+      "family": "bounded_sort",
+      "route_id": "native_vortex_sort_rows",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q05",
+      "elapsed_seconds": 2.813,
+      "family": "scalar_exact_distinct",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q32",
+      "elapsed_seconds": 2.25,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "numeric_pair_direct_group_update",
+      "group_state_mode": "numeric_pair_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q16",
+      "elapsed_seconds": 1.923,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "single_numeric_count_direct_group_update",
+      "group_state_mode": "single_numeric_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q31",
+      "elapsed_seconds": 1.684,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "numeric_pair_direct_group_update",
+      "group_state_mode": "numeric_pair_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q07",
+      "elapsed_seconds": 1.636,
+      "family": "scalar_or_low_cardinality_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q12",
+      "elapsed_seconds": 1.227,
+      "family": "grouped_exact_distinct",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "row_state_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "0"
+    },
+    {
+      "query_id": "CB-Q25",
+      "elapsed_seconds": 1.206,
+      "family": "bounded_sort",
+      "route_id": "native_vortex_sort_rows",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "decoded_string_count": null
+    },
+    {
+      "query_id": "CB-Q40",
+      "elapsed_seconds": 1.153,
+      "family": "high_cardinality_grouped_aggregate",
+      "route_id": "native_vortex_aggregate",
+      "aggregate_update_strategy": "count_star_direct_group_update",
+      "group_state_mode": "all_hot_hash_map",
+      "decoded_string_count": "581903"
     }
   ],
   "optimization_families": [
@@ -265,7 +428,7 @@
         "CB-Q26",
         "CB-Q27"
       ],
-      "strategy": "capillary retention window before top-k truncation plus late wide-row materialization",
+      "strategy": "row-reference/selection-vector top-K with prepared predicate and payload locality; final materialization only for retained rows",
       "implemented_in_current_batch": [
         "capillary_retention_window",
         "mixed_predicate_partial_pushdown"
@@ -282,7 +445,7 @@
         "CB-Q12",
         "CB-Q14"
       ],
-      "strategy": "typed hash-backed exact distinct state; no external approximate or fallback engine",
+      "strategy": "dictionary-aware exact distinct with dense IDs/bitsets where exact and encoded-key merge before decode",
       "implemented_in_current_batch": [
         "typed_hash_exact_distinct_keys"
       ]
@@ -303,7 +466,7 @@
         "CB-Q40",
         "CB-Q41"
       ],
-      "strategy": "typed group keys, source-order limited output when SQL has no ORDER BY, and state-budget evidence",
+      "strategy": "partitioned capillary partial state, packed typed/composite keys, memory-budgeted exact merge, and spill diagnostics for near-unique groups",
       "implemented_in_current_batch": [
         "typed_hash_group_keys",
         "single_key_group_fast_path",
@@ -324,7 +487,7 @@
         "CB-Q34",
         "CB-Q35"
       ],
-      "strategy": "keep residual string work ShardLoom-owned; optimize materialization and aggregation around it until upstream Vortex string pushdown is certified",
+      "strategy": "embedded generic string/domain metadata, segment absence certificates, byte-length/domain dictionaries, and exact predicate masks before materialization",
       "implemented_in_current_batch": [
         "direct_utf8_contains_count_for_count_where",
         "mixed_predicate_partial_pushdown",
@@ -360,7 +523,24 @@
       "local_primitive_selected_segment_count",
       "local_primitive_skipped_segment_count",
       "local_primitive_planner_consumption_status",
-      "local_primitive_no_query_answer_cache"
+      "local_primitive_no_query_answer_cache",
+      "local_primitive_aggregate_accessor_summary",
+      "local_primitive_aggregate_accessor_materialization_status",
+      "local_primitive_aggregate_vortex_dictionary_accessor_columns",
+      "local_primitive_aggregate_chunk_dictionary_accessor_columns",
+      "local_primitive_aggregate_primitive_accessor_columns",
+      "local_primitive_aggregate_materialized_accessor_columns",
+      "local_primitive_aggregate_accessor_blockers",
+      "public_workflow_preparation_source_state_stream_batch_size",
+      "public_workflow_preparation_source_state_stream_unit_count_hint",
+      "public_workflow_preparation_source_state_stream_unit_hint_kind",
+      "public_workflow_preparation_source_state_stream_policy",
+      "public_workflow_preparation_source_state_dictionary_preservation_status",
+      "source_state_stream_batch_size",
+      "source_state_stream_unit_count_hint",
+      "source_state_stream_unit_hint_kind",
+      "source_state_stream_policy",
+      "source_state_dictionary_preservation_status"
     ],
     "query_time_consumption_status": "implemented_whole_file_footer_pruning_for_count_filter_aggregate_and_bounded_sort_local_primitives_via_VortexFile_can_prune; deeper segment/string/domain metadata-first pruning, dictionary/layout policy, and broader ClickBench-heavy planner consumption remain planned runtime optimization work",
     "front_doors_that_must_reuse_contract": [
@@ -496,5 +676,18 @@
       "pandas",
       "Velox"
     ]
+  },
+  "current_replacement_artifact_uat": {
+    "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_current_20260621T222424Z/targeted-summary.json",
+    "prepare_stdout": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_current_20260621T222424Z/prepare_replace_from_parquet.stdout.json",
+    "prepare_time": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_current_20260621T222424Z/prepare_replace_from_parquet.stderr.time",
+    "source_format": "parquet",
+    "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
+    "prepared_rows": 99997497,
+    "prepared_segments": 70503,
+    "prepared_output_size": "14G",
+    "sidecar_family_count": 0,
+    "status": "43_success_0_error_0_unsupported_0_timeout",
+    "not_official_clickbench_submission": true
   }
 }

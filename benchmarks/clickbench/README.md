@@ -75,8 +75,9 @@ sequential query execution. It attempted all 43 rows: 34 completed successfully,
 180-second UAT cap, and completed rows reported no fallback or external-engine execution.
 
 Remaining above-1s and timeout rows are optimization candidates, not fallback permission. Current
-work focuses on capillary bounded-sort retention, typed exact distinct state, source-order limited
-group output, high-cardinality group keys, and string/domain grouped-aggregate reductions while
+work focuses on capillary bounded-sort retention, typed exact distinct state, direct
+typed/dictionary scalar aggregates, compact grouped count/sum/avg state, source-order limited group
+output, high-cardinality group keys, and string/domain grouped-aggregate reductions while
 preserving the shared native Vortex runtime family.
 
 The first burndown batch implements direct UTF-8 contains counting for count-only predicates, mixed
@@ -84,8 +85,12 @@ predicate splitting so safe conjuncts still push into Vortex scans, typed exact 
 functional-dependency pruning for deterministic offset-derived group keys, source-order no-sort
 group output, a single-key grouped aggregate fast path for identity/length/URL-domain keys,
 capillary ordered-candidate selection for grouped top-K/offset finalization, direct non-null
-encoded-layout admission guards, and bounded top-K retention evidence. The timing impact is not a
-public claim until the local 100M UAT is rerun after merge.
+encoded-layout admission guards, bounded top-K retention evidence, row-reference final-K
+materialization for large bounded payload projections, direct scalar aggregate updates for
+`count`/`sum`/`avg`/`min`/`max` and exact `count_distinct`, repeated numeric SUM/AVG expression
+fusion, transformed chunk-dictionary grouping for URL-domain/length expressions, and compact exact
+`length(...)` grouped measures. The timing impact is not a public claim until the local 100M UAT is
+rerun after merge.
 
 ## State And Spill Fields
 

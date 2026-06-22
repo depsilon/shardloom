@@ -58,7 +58,7 @@ but it must not appear in one route and silently disappear from the other.
 | `cold_certified_end_to_end` | Measures source read, parse, Vortex ingest, write/reopen, scan, compute, sink, and evidence. |
 | `warm_prepared_query` | Measures query/runtime work after `VortexPreparedState` already exists. |
 | `native_query` | Measures query/runtime over existing Vortex input. |
-| `direct_one_shot` | Measures read/parse plus direct ShardLoom-native compute/output. |
+| `internal_direct_one_shot` | Internal diagnostic timing for read/parse plus direct ShardLoom-owned compute/output; not a public workflow route, not a product runtime lane, and not a replacement for Vortex preparation/native Vortex execution. |
 | `generated_output` | Measures generated rows plus output/evidence; source read is zero. |
 | `output_fanout` | Measures query/reuse plus per-output planning/write/replay. |
 

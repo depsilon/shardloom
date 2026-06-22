@@ -382,7 +382,9 @@ The primary route must emit ShardLoom evidence. Direct local-file execution is a
       title: "Benchmark methodology",
       description: "How to read hot runtime, publication proof, claim gates, and baseline rows.",
       order: 3,
-      body: `The benchmark page renders a promoted artifact. It is evidence, not a leaderboard.
+      body: `The benchmark page is a ClickBench handoff, not a ShardLoom-hosted leaderboard.
+Local benchmark and UAT artifacts remain repository evidence for engineering validation, route
+coverage, and claim gating.
 
 ## Timing Surfaces
 
@@ -393,7 +395,9 @@ The primary route must emit ShardLoom evidence. Direct local-file execution is a
 
 ## Claim Rules
 
-Do not compare rows without naming the timing surface, evidence tier, and claim gate. If \`performance_claim_allowed=false\`, the page may show timing evidence but must not claim superiority.`,
+Do not compare rows without naming the timing surface, evidence tier, and claim gate. If
+\`performance_claim_allowed=false\`, local artifacts may support engineering decisions but must not
+claim superiority.`,
     }),
   },
   {

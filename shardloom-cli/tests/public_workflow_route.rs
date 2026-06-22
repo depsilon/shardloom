@@ -350,7 +350,7 @@ fn public_route_routes_local_file_vortex_middle_without_direct_runtime() {
     )) {
         assert!(stdout.contains("\"status\":\"success\""));
         assert!(stdout.contains(&field("route_id", "local_file_prepare_once_first_query")));
-        assert!(stdout.contains(&field("route_support_status", "scoped_runtime_supported")));
+        assert!(stdout.contains(&field("route_support_status", "global_runtime_supported")));
         assert!(stdout.contains(&field("native_vortex_plan_contract_status", "admitted")));
         assert!(stdout.contains(&field(
             "native_vortex_plan_route_family",

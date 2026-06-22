@@ -104,7 +104,11 @@ const VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT: &str =
 const VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS: &str =
     "disabled_rejected_for_public_default_runtime";
 const VORTEX_PREPARED_OLAP_WRITER_LAYOUT_STRATEGY: &str =
-    "upstream_vortex_write_options_default_table_layout_generic_olap_posture";
+    "upstream_vortex_write_strategy_table_repartition_zoned_stats_dictionary_compressed_layout";
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE: usize = 8192;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE: usize = 4096;
 const VORTEX_PREPARED_OLAP_DICTIONARY_METADATA_POLICY: &str =
     "preserve_vortex_dictionary_and_encoding_metadata_when_writer_emits_it";
 
@@ -117,6 +121,13 @@ pub struct VortexPreparedOlapLayoutInventory {
     pub encoding_layout_status: String,
     pub approx_footer_bytes: Option<usize>,
     pub dtype_summary: String,
+    pub root_layout_encoding: String,
+    pub layout_encoding_inventory: String,
+    pub segment_membership_status: String,
+    pub domain_dictionary_status: String,
+    pub derived_layout_stats_status: String,
+    pub row_position_locality_status: String,
+    pub layout_reader_cache_status: String,
     pub metadata_persisted_in_artifact: bool,
     pub inventory_digest: String,
 }
@@ -135,6 +146,13 @@ impl VortexPreparedOlapLayoutInventory {
             encoding_layout_status: "not_available".to_string(),
             approx_footer_bytes: None,
             dtype_summary: "not_available".to_string(),
+            root_layout_encoding: "not_available".to_string(),
+            layout_encoding_inventory: "not_available".to_string(),
+            segment_membership_status: "not_available".to_string(),
+            domain_dictionary_status: "not_available".to_string(),
+            derived_layout_stats_status: "not_available".to_string(),
+            row_position_locality_status: "not_available".to_string(),
+            layout_reader_cache_status: "not_available".to_string(),
             metadata_persisted_in_artifact: false,
             inventory_digest,
         }
@@ -311,6 +329,13 @@ pub struct VortexPreparedOlapStateReport {
     pub layout_footer_encoding_layout_status: String,
     pub layout_footer_approx_bytes: String,
     pub layout_footer_dtype_summary: String,
+    pub layout_root_encoding: String,
+    pub layout_encoding_inventory: String,
+    pub layout_segment_membership_status: String,
+    pub layout_domain_dictionary_status: String,
+    pub layout_derived_stats_status: String,
+    pub layout_row_position_locality_status: String,
+    pub layout_reader_cache_status: String,
     pub layout_metadata_persisted_in_artifact: bool,
     pub dictionary_metadata_policy: String,
     pub metadata_pruning_contract: String,
@@ -892,6 +917,34 @@ impl VortexPreparedOlapStateReport {
             (
                 "vortex_prepared_olap_state_layout_footer_dtype_summary".to_string(),
                 self.layout_footer_dtype_summary.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_root_encoding".to_string(),
+                self.layout_root_encoding.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_encoding_inventory".to_string(),
+                self.layout_encoding_inventory.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_segment_membership_status".to_string(),
+                self.layout_segment_membership_status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_domain_dictionary_status".to_string(),
+                self.layout_domain_dictionary_status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_derived_stats_status".to_string(),
+                self.layout_derived_stats_status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_row_position_locality_status".to_string(),
+                self.layout_row_position_locality_status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_layout_reader_cache_status".to_string(),
+                self.layout_reader_cache_status.clone(),
             ),
             (
                 "vortex_prepared_olap_state_layout_metadata_persisted_in_artifact".to_string(),
@@ -2688,6 +2741,13 @@ fn prepared_olap_report_from_request(
     let layout_footer_encoding_layout_status = layout_inventory.encoding_layout_status.clone();
     let layout_footer_approx_bytes = layout_inventory.approx_footer_bytes_field();
     let layout_footer_dtype_summary = layout_inventory.dtype_summary.clone();
+    let layout_root_encoding = layout_inventory.root_layout_encoding.clone();
+    let layout_encoding_inventory = layout_inventory.layout_encoding_inventory.clone();
+    let layout_segment_membership_status = layout_inventory.segment_membership_status.clone();
+    let layout_domain_dictionary_status = layout_inventory.domain_dictionary_status.clone();
+    let layout_derived_stats_status = layout_inventory.derived_layout_stats_status.clone();
+    let layout_row_position_locality_status = layout_inventory.row_position_locality_status.clone();
+    let layout_reader_cache_status = layout_inventory.layout_reader_cache_status.clone();
     VortexPreparedOlapStateReport {
         schema_version: VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION,
         status,
@@ -2722,6 +2782,13 @@ fn prepared_olap_report_from_request(
         layout_footer_encoding_layout_status,
         layout_footer_approx_bytes,
         layout_footer_dtype_summary,
+        layout_root_encoding,
+        layout_encoding_inventory,
+        layout_segment_membership_status,
+        layout_domain_dictionary_status,
+        layout_derived_stats_status,
+        layout_row_position_locality_status,
+        layout_reader_cache_status,
         layout_metadata_persisted_in_artifact: layout_inventory.metadata_persisted_in_artifact,
         dictionary_metadata_policy: VORTEX_PREPARED_OLAP_DICTIONARY_METADATA_POLICY.to_string(),
         metadata_pruning_contract: VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT.to_string(),
@@ -2745,6 +2812,7 @@ fn prepared_olap_report_from_request(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn prepared_olap_blocked_report(
     request: &VortexPreparedOlapStateWriteRequest,
     status: &str,
@@ -2781,6 +2849,13 @@ fn prepared_olap_blocked_report(
     let layout_footer_encoding_layout_status = layout_inventory.encoding_layout_status.clone();
     let layout_footer_approx_bytes = layout_inventory.approx_footer_bytes_field();
     let layout_footer_dtype_summary = layout_inventory.dtype_summary.clone();
+    let layout_root_encoding = layout_inventory.root_layout_encoding.clone();
+    let layout_encoding_inventory = layout_inventory.layout_encoding_inventory.clone();
+    let layout_segment_membership_status = layout_inventory.segment_membership_status.clone();
+    let layout_domain_dictionary_status = layout_inventory.domain_dictionary_status.clone();
+    let layout_derived_stats_status = layout_inventory.derived_layout_stats_status.clone();
+    let layout_row_position_locality_status = layout_inventory.row_position_locality_status.clone();
+    let layout_reader_cache_status = layout_inventory.layout_reader_cache_status.clone();
     VortexPreparedOlapStateReport {
         schema_version: VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION,
         status: status.to_string(),
@@ -2819,6 +2894,13 @@ fn prepared_olap_blocked_report(
         layout_footer_encoding_layout_status,
         layout_footer_approx_bytes,
         layout_footer_dtype_summary,
+        layout_root_encoding,
+        layout_encoding_inventory,
+        layout_segment_membership_status,
+        layout_domain_dictionary_status,
+        layout_derived_stats_status,
+        layout_row_position_locality_status,
+        layout_reader_cache_status,
         layout_metadata_persisted_in_artifact: layout_inventory.metadata_persisted_in_artifact,
         dictionary_metadata_policy: VORTEX_PREPARED_OLAP_DICTIONARY_METADATA_POLICY.to_string(),
         metadata_pruning_contract: VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT.to_string(),
@@ -6586,6 +6668,8 @@ pub struct VortexPreparedStateWriteReport {
     pub write_micros: u128,
     pub writer_context_open_micros: u128,
     pub writer_context_reuse_status: String,
+    pub writer_layout_strategy_applied: String,
+    pub writer_layout_row_block_size: usize,
     pub vortex_segment_write_micros: u128,
     pub workspace_stage_micros: u128,
     pub reopen_scan_micros: u128,
@@ -6633,7 +6717,9 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn encoding_summary(&self) -> String {
         format!(
-            "upstream_vortex_writer_default;{}",
+            "upstream_vortex_writer={};row_block_size={};{}",
+            self.writer_layout_strategy_applied,
+            self.writer_layout_row_block_size,
             self.column_family_summary()
         )
     }
@@ -6642,14 +6728,18 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn statistics_summary(&self) -> String {
         format!(
-            "writer_row_count={};reopen_row_count={};reopen_verification_status={};bytes_written={};layout_inventory_status={};footer_statistics_status={};footer_segment_count={}",
+            "writer_row_count={};reopen_row_count={};reopen_verification_status={};bytes_written={};layout_inventory_status={};footer_statistics_status={};footer_segment_count={};layout_root={};layout_encodings={};domain_dictionary_status={}",
             self.writer_row_count,
             self.reopen_row_count,
             self.reopen_verification_status,
             self.bytes_written,
             self.prepared_olap_layout_inventory.status,
             self.prepared_olap_layout_inventory.statistics_status,
-            self.prepared_olap_layout_inventory.segment_count_field()
+            self.prepared_olap_layout_inventory.segment_count_field(),
+            self.prepared_olap_layout_inventory.root_layout_encoding,
+            self.prepared_olap_layout_inventory
+                .layout_encoding_inventory,
+            self.prepared_olap_layout_inventory.domain_dictionary_status
         )
     }
 
@@ -6657,7 +6747,7 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn prepared_olap_layout_inventory_summary(&self) -> String {
         format!(
-            "status={};row_count={};segment_count={};statistics={};encoding_layout={};footer_bytes={};persisted_in_artifact={};digest={}",
+            "status={};row_count={};segment_count={};statistics={};encoding_layout={};footer_bytes={};root_layout={};layout_encodings={};segment_membership={};domain_dictionary={};derived_stats={};row_position_locality={};layout_reader_cache={};persisted_in_artifact={};digest={}",
             self.prepared_olap_layout_inventory.status,
             self.prepared_olap_layout_inventory.row_count_field(),
             self.prepared_olap_layout_inventory.segment_count_field(),
@@ -6665,6 +6755,18 @@ impl VortexPreparedStateWriteReport {
             self.prepared_olap_layout_inventory.encoding_layout_status,
             self.prepared_olap_layout_inventory
                 .approx_footer_bytes_field(),
+            self.prepared_olap_layout_inventory.root_layout_encoding,
+            self.prepared_olap_layout_inventory
+                .layout_encoding_inventory,
+            self.prepared_olap_layout_inventory
+                .segment_membership_status,
+            self.prepared_olap_layout_inventory.domain_dictionary_status,
+            self.prepared_olap_layout_inventory
+                .derived_layout_stats_status,
+            self.prepared_olap_layout_inventory
+                .row_position_locality_status,
+            self.prepared_olap_layout_inventory
+                .layout_reader_cache_status,
             self.prepared_olap_layout_inventory
                 .metadata_persisted_in_artifact,
             self.prepared_olap_layout_inventory.inventory_digest,
@@ -7016,6 +7118,54 @@ fn prepare_vortex_target(target_path: &Path, allow_overwrite: bool) -> Result<()
     let workspace_root = shardloom_core::infer_local_output_workspace_root(target_path)?;
     shardloom_core::plan_workspace_safe_local_output(workspace_root, target_path, allow_overwrite)?;
     Ok(())
+}
+
+#[cfg(feature = "vortex-write")]
+fn cleanup_legacy_prepared_olap_state_sidecars(target_path: &Path) -> Result<()> {
+    let Some(parent) = target_path.parent() else {
+        return Ok(());
+    };
+    let Some(file_name) = target_path.file_name().and_then(std::ffi::OsStr::to_str) else {
+        return Ok(());
+    };
+    let shardloom_dir = parent.join(".shardloom");
+    if !shardloom_dir.exists() {
+        return Ok(());
+    }
+    cleanup_legacy_prepared_olap_path(
+        &shardloom_dir.join(format!("{file_name}.prepared-olap-state.manifest")),
+        "legacy prepared OLAP manifest",
+    )?;
+    cleanup_legacy_prepared_olap_path(
+        &shardloom_dir.join(format!("{file_name}.prepared-olap-state.d")),
+        "legacy prepared OLAP sidecar directory",
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn cleanup_legacy_prepared_olap_path(path: &Path, label: &str) -> Result<()> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "failed to inspect {label} '{}' during Vortex artifact replacement cleanup: {error}; no fallback execution was attempted",
+                path.display()
+            )));
+        }
+    };
+    let file_type = metadata.file_type();
+    let cleanup_result = if file_type.is_dir() && !file_type.is_symlink() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
+    };
+    cleanup_result.map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to remove {label} '{}' during Vortex artifact replacement cleanup: {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -7380,7 +7530,13 @@ fn finalize_vortex_prepared_state_write(
 ) -> Result<VortexPreparedStateWriteReport> {
     let mut capillary_prewrite_control = input.capillary_prewrite_control.clone();
     capillary_prewrite_control.apply_task_role_gate("vortex_segment_write", "write")?;
-    let write_result = write_vortex_array(&input.target_path, input.array, input.allow_overwrite)?;
+    let write_result = write_vortex_array(
+        &input.target_path,
+        input.array,
+        input.allow_overwrite,
+        &input.layout_write_decision,
+    )?;
+    cleanup_legacy_prepared_olap_state_sidecars(&input.target_path)?;
 
     let (
         reopen_row_count,
@@ -7448,6 +7604,8 @@ fn finalize_vortex_prepared_state_write(
         write_micros: write_result.write_micros,
         writer_context_open_micros: write_result.writer_context_open_micros,
         writer_context_reuse_status: write_result.writer_context_reuse_status,
+        writer_layout_strategy_applied: write_result.writer_layout_strategy_applied,
+        writer_layout_row_block_size: write_result.writer_layout_row_block_size,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
         workspace_stage_micros: write_result.workspace_stage_micros,
         reopen_scan_micros,
@@ -7492,8 +7650,10 @@ where
         &target_path,
         input.array_iterator,
         input.allow_overwrite,
+        &input.layout_write_decision,
         row_count_hint,
     )?;
+    cleanup_legacy_prepared_olap_state_sidecars(&target_path)?;
     if let Some(expected_rows) = row_count_hint
         && write_result.writer_row_count != expected_rows
     {
@@ -7567,6 +7727,8 @@ where
         write_micros: write_result.write_micros,
         writer_context_open_micros: write_result.writer_context_open_micros,
         writer_context_reuse_status: write_result.writer_context_reuse_status,
+        writer_layout_strategy_applied: write_result.writer_layout_strategy_applied,
+        writer_layout_row_block_size: write_result.writer_layout_row_block_size,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
         workspace_stage_micros: write_result.workspace_stage_micros,
         reopen_scan_micros,
@@ -7613,7 +7775,7 @@ fn preparation_spine_report(
         )
     };
     let reopen_provider_surface = if reopen_verification_uses_metadata(reopen_verification_status) {
-        "VortexSession::open_options().open_path(...).row_count()"
+        "VortexSession::open_options().with_layout_reader_cache().open_path(...).row_count()"
     } else if upstream_vortex_scan_called {
         "VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"
     } else {
@@ -7684,7 +7846,7 @@ fn preparation_spine_stream_report(
     reopen_verification_status: &str,
 ) -> VortexPreparationSpineReport {
     let reopen_provider_surface = if reopen_verification_uses_metadata(reopen_verification_status) {
-        "VortexSession::open_options().open_path(...).row_count()"
+        "VortexSession::open_options().with_layout_reader_cache().open_path(...).row_count()"
     } else if upstream_vortex_scan_called {
         "VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"
     } else {
@@ -9105,6 +9267,8 @@ struct LocalVortexWriteResult {
     write_micros: u128,
     writer_context_open_micros: u128,
     writer_context_reuse_status: String,
+    writer_layout_strategy_applied: String,
+    writer_layout_row_block_size: usize,
     vortex_segment_write_micros: u128,
     workspace_stage_micros: u128,
     workspace_write_report: WorkspaceSafeLocalWriteReport,
@@ -9153,14 +9317,16 @@ impl LocalVortexWriteContext {
         path: &Path,
         array: &vortex::array::ArrayRef,
         allow_overwrite: bool,
+        layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_context_reuse_status: impl Into<String>,
     ) -> Result<LocalVortexWriteResult> {
-        use vortex::file::WriteOptionsSessionExt as _;
-
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
         let write_start = Instant::now();
         let expected_rows = usize_to_u64(array.len())?;
         let mut vortex_segment_write_micros = 0;
+        let writer_layout_strategy_applied =
+            vortex_writer_layout_strategy_applied(layout_write_decision).to_string();
+        let writer_layout_row_block_size = vortex_writer_row_block_size(layout_write_decision);
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -9170,8 +9336,7 @@ impl LocalVortexWriteContext {
                 |writer| {
                     let segment_write_start = Instant::now();
                     let result = self
-                        .session
-                        .write_options()
+                        .write_options_for_decision(layout_write_decision)
                         .blocking(&self.runtime)
                         .write(writer, array.to_array_iterator())
                         .map_err(vortex_error);
@@ -9201,6 +9366,8 @@ impl LocalVortexWriteContext {
             write_micros,
             writer_context_open_micros: self.open_micros,
             writer_context_reuse_status: writer_context_reuse_status.into(),
+            writer_layout_strategy_applied,
+            writer_layout_row_block_size,
             vortex_segment_write_micros,
             workspace_stage_micros,
             workspace_write_report,
@@ -9212,17 +9379,19 @@ impl LocalVortexWriteContext {
         path: &Path,
         iter: I,
         allow_overwrite: bool,
+        layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_context_reuse_status: impl Into<String>,
         expected_rows: Option<u64>,
     ) -> Result<LocalVortexWriteResult>
     where
         I: vortex::array::iter::ArrayIterator + Send + 'static,
     {
-        use vortex::file::WriteOptionsSessionExt as _;
-
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
         let write_start = Instant::now();
         let mut vortex_segment_write_micros = 0;
+        let writer_layout_strategy_applied =
+            vortex_writer_layout_strategy_applied(layout_write_decision).to_string();
+        let writer_layout_row_block_size = vortex_writer_row_block_size(layout_write_decision);
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -9232,8 +9401,7 @@ impl LocalVortexWriteContext {
                 |writer| {
                     let segment_write_start = Instant::now();
                     let result = self
-                        .session
-                        .write_options()
+                        .write_options_for_decision(layout_write_decision)
                         .blocking(&self.runtime)
                         .write(writer, iter)
                         .map_err(vortex_error);
@@ -9264,10 +9432,58 @@ impl LocalVortexWriteContext {
             write_micros,
             writer_context_open_micros: self.open_micros,
             writer_context_reuse_status: writer_context_reuse_status.into(),
+            writer_layout_strategy_applied,
+            writer_layout_row_block_size,
             vortex_segment_write_micros,
             workspace_stage_micros,
             workspace_write_report,
         })
+    }
+
+    fn write_options_for_decision(
+        &self,
+        layout_write_decision: &VortexLayoutWriteRuntimeDecision,
+    ) -> vortex::file::VortexWriteOptions {
+        use vortex::file::{WriteOptionsSessionExt as _, WriteStrategyBuilder};
+
+        let options = self.session.write_options();
+        if vortex_layout_write_strategy_applies(layout_write_decision) {
+            options.with_strategy(
+                WriteStrategyBuilder::default()
+                    .with_row_block_size(VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE)
+                    .build(),
+            )
+        } else {
+            options
+        }
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_layout_write_strategy_applies(decision: &VortexLayoutWriteRuntimeDecision) -> bool {
+    decision.runtime_decision_applied
+        && decision.provider_admitted
+        && decision.selected_strategy == "single_vortex_artifact_embedded_olap_layout_statistics"
+        && decision.blocker == "none"
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_row_block_size(decision: &VortexLayoutWriteRuntimeDecision) -> usize {
+    if vortex_layout_write_strategy_applies(decision) {
+        VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE
+    } else {
+        VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_layout_strategy_applied(
+    decision: &VortexLayoutWriteRuntimeDecision,
+) -> &'static str {
+    if vortex_layout_write_strategy_applies(decision) {
+        "vortex_write_strategy_row_block_4096_embedded_olap_layout_statistics"
+    } else {
+        "vortex_write_strategy_upstream_default"
     }
 }
 
@@ -9282,11 +9498,18 @@ fn write_vortex_array(
     path: &Path,
     array: &vortex::array::ArrayRef,
     allow_overwrite: bool,
+    layout_write_decision: &VortexLayoutWriteRuntimeDecision,
 ) -> Result<LocalVortexWriteResult> {
     LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
         let context = context.borrow();
         let reuse_status = context.next_reuse_status();
-        context.write_array(path, array, allow_overwrite, reuse_status)
+        context.write_array(
+            path,
+            array,
+            allow_overwrite,
+            layout_write_decision,
+            reuse_status,
+        )
     })
 }
 
@@ -9295,6 +9518,7 @@ fn write_vortex_array_iterator<I>(
     path: &Path,
     iter: I,
     allow_overwrite: bool,
+    layout_write_decision: &VortexLayoutWriteRuntimeDecision,
     expected_rows: Option<u64>,
 ) -> Result<LocalVortexWriteResult>
 where
@@ -9303,8 +9527,81 @@ where
     LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
         let context = context.borrow();
         let reuse_status = context.next_reuse_status();
-        context.write_array_iterator(path, iter, allow_overwrite, reuse_status, expected_rows)
+        context.write_array_iterator(
+            path,
+            iter,
+            allow_overwrite,
+            layout_write_decision,
+            reuse_status,
+            expected_rows,
+        )
     })
+}
+
+#[cfg(feature = "vortex-write")]
+fn collect_vortex_layout_encodings(
+    layout: &dyn vortex::layout::Layout,
+    encodings: &mut BTreeSet<String>,
+) {
+    encodings.insert(layout.encoding_id().to_string());
+    if let Ok(children) = layout.children() {
+        for child in children {
+            collect_vortex_layout_encodings(child.as_ref(), encodings);
+        }
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_layout_encoding_inventory(layout: &dyn vortex::layout::Layout) -> (String, String) {
+    let root_layout_encoding = layout.encoding_id().to_string();
+    let mut encodings = BTreeSet::new();
+    collect_vortex_layout_encodings(layout, &mut encodings);
+    let layout_encoding_inventory = if encodings.is_empty() {
+        "none".to_string()
+    } else {
+        encodings.into_iter().collect::<Vec<_>>().join(",")
+    };
+    (root_layout_encoding, layout_encoding_inventory)
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_domain_dictionary_status(dtype_summary: &str, layout_encoding_inventory: &str) -> String {
+    let lower_encodings = layout_encoding_inventory.to_ascii_lowercase();
+    let lower_dtype = dtype_summary.to_ascii_lowercase();
+    if lower_encodings.contains("dict") || lower_encodings.contains("dictionary") {
+        "vortex_dictionary_layout_present".to_string()
+    } else if lower_dtype.contains("utf8") || lower_dtype.contains("string") {
+        "utf8_domain_columns_present_dictionary_layout_not_observed".to_string()
+    } else {
+        "not_required_no_utf8_domain_columns".to_string()
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_segment_membership_status(segment_count: usize, root_layout_encoding: &str) -> String {
+    if segment_count > 0 {
+        format!("segment_map_available;segments={segment_count};root_layout={root_layout_encoding}")
+    } else {
+        "segment_map_empty_or_unavailable".to_string()
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_derived_layout_stats_status(statistics_status: &str) -> String {
+    if statistics_status == "available" {
+        "file_statistics_available_for_metadata_first_pruning".to_string()
+    } else {
+        "file_statistics_missing_requires_native_scan".to_string()
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_row_position_locality_status(segment_count: usize) -> String {
+    if segment_count > 0 {
+        "source_ordinals_reopen_single_artifact_for_final_materialization".to_string()
+    } else {
+        "not_available_without_segment_map".to_string()
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -9321,7 +9618,12 @@ fn read_prepared_vortex_artifact_layout_inventory(
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
-        .block_on(session.open_options().open_path(path))
+        .block_on(
+            session
+                .open_options()
+                .with_layout_reader_cache()
+                .open_path(path),
+        )
         .map_err(vortex_error)?;
     let footer = file.footer();
     let row_count = footer.row_count();
@@ -9340,12 +9642,27 @@ fn read_prepared_vortex_artifact_layout_inventory(
     .to_string();
     let approx_footer_bytes = footer.approx_byte_size();
     let dtype_summary = format!("{:?}", footer.dtype());
+    let (root_layout_encoding, layout_encoding_inventory) =
+        vortex_layout_encoding_inventory(footer.layout().as_ref());
+    let segment_membership_status =
+        vortex_segment_membership_status(segment_count, &root_layout_encoding);
+    let domain_dictionary_status =
+        vortex_domain_dictionary_status(&dtype_summary, &layout_encoding_inventory);
+    let derived_layout_stats_status = vortex_derived_layout_stats_status(&statistics_status);
+    let row_position_locality_status = vortex_row_position_locality_status(segment_count);
+    let layout_reader_cache_status = "enabled_for_local_metadata_open".to_string();
     let inventory_digest = fnv64_digest_text(&format!(
-        "prepared_olap_layout_inventory|opened_single_vortex_artifact_footer|{row_count}|{segment_count}|{}|{}|{}|{}",
+        "prepared_olap_layout_inventory|opened_single_vortex_artifact_footer|{row_count}|{segment_count}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
         statistics_status,
         encoding_layout_status,
         approx_footer_bytes.map_or_else(|| "unknown".to_string(), |value| value.to_string()),
-        dtype_summary
+        dtype_summary,
+        root_layout_encoding,
+        layout_encoding_inventory,
+        segment_membership_status,
+        domain_dictionary_status,
+        derived_layout_stats_status,
+        row_position_locality_status
     ));
     Ok(VortexPreparedOlapLayoutInventory {
         status: "opened_single_vortex_artifact_footer".to_string(),
@@ -9355,6 +9672,13 @@ fn read_prepared_vortex_artifact_layout_inventory(
         encoding_layout_status,
         approx_footer_bytes,
         dtype_summary,
+        root_layout_encoding,
+        layout_encoding_inventory,
+        segment_membership_status,
+        domain_dictionary_status,
+        derived_layout_stats_status,
+        row_position_locality_status,
+        layout_reader_cache_status,
         metadata_persisted_in_artifact: true,
         inventory_digest,
     })
@@ -9484,10 +9808,25 @@ mod tests {
             ))
     }
 
+    fn legacy_prepared_olap_state_sidecar_dir(target: &Path) -> PathBuf {
+        target
+            .parent()
+            .expect("target parent")
+            .join(".shardloom")
+            .join(format!(
+                "{}.prepared-olap-state.d",
+                target
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .expect("target file name")
+            ))
+    }
+
     fn write_test_prepared_vortex_artifact(
         target: &Path,
         seed: i64,
     ) -> VortexPreparedStateWriteReport {
+        let seed_f64 = f64::from(i32::try_from(seed).expect("test seed fits f64 exactly"));
         let request = VortexPreparedStateWriteRequest::new(
             target,
             vec![
@@ -9499,18 +9838,12 @@ mod tests {
                 vec![
                     ("id".to_string(), ScalarValue::Int64(seed)),
                     ("group_key".to_string(), ScalarValue::Int64(seed % 3)),
-                    (
-                        "metric".to_string(),
-                        ScalarValue::Float64(seed as f64 + 0.5),
-                    ),
+                    ("metric".to_string(), ScalarValue::Float64(seed_f64 + 0.5)),
                 ],
                 vec![
                     ("id".to_string(), ScalarValue::Int64(seed + 1)),
                     ("group_key".to_string(), ScalarValue::Int64((seed + 1) % 3)),
-                    (
-                        "metric".to_string(),
-                        ScalarValue::Float64(seed as f64 + 1.5),
-                    ),
+                    ("metric".to_string(), ScalarValue::Float64(seed_f64 + 1.5)),
                 ],
             ],
         )
@@ -9682,6 +10015,39 @@ mod tests {
         assert!(!report.preparation_spine.external_engine_invoked);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_vortex_write_removes_legacy_prepared_olap_sidecars_for_target() {
+        let root = temp_test_root("legacy-sidecar-cleanup");
+        let target = root.join("prepared.vortex");
+        let legacy_manifest = legacy_prepared_olap_state_manifest_path(&target);
+        let legacy_sidecar_dir = legacy_prepared_olap_state_sidecar_dir(&target);
+        std::fs::create_dir_all(
+            legacy_manifest
+                .parent()
+                .expect("legacy manifest parent exists"),
+        )
+        .expect("create legacy sidecar root");
+        std::fs::write(&legacy_manifest, b"legacy exact sidecar manifest")
+            .expect("write legacy manifest");
+        std::fs::create_dir_all(&legacy_sidecar_dir).expect("create legacy sidecar dir");
+        std::fs::write(legacy_sidecar_dir.join("query-summary.json"), b"{}")
+            .expect("write legacy sidecar payload");
+
+        let report = write_test_prepared_vortex_artifact(&target, 90);
+
+        assert!(target.exists());
+        assert_eq!(report.workspace_write_report.commit_status, "committed");
+        assert!(
+            !legacy_manifest.exists(),
+            "legacy prepared OLAP manifest should be removed after successful artifact write"
+        );
+        assert!(
+            !legacy_sidecar_dir.exists(),
+            "legacy prepared OLAP sidecar directory should be removed after successful artifact write"
+        );
+        std::fs::remove_dir_all(root).expect("remove test root");
     }
 
     #[cfg(feature = "universal-format-io")]
@@ -10407,7 +10773,37 @@ mod tests {
         );
         assert!(report.layout_write_decision.provider_admitted);
         assert_eq!(report.layout_write_decision.blocker, "none");
+        assert_eq!(
+            report.writer_layout_strategy_applied,
+            "vortex_write_strategy_row_block_4096_embedded_olap_layout_statistics"
+        );
+        assert_eq!(
+            report.writer_layout_row_block_size,
+            VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE
+        );
         assert_eq!(report.reopen_row_count, 1);
+        assert_ne!(
+            report.prepared_olap_layout_inventory.root_layout_encoding,
+            "not_available"
+        );
+        assert_ne!(
+            report
+                .prepared_olap_layout_inventory
+                .layout_encoding_inventory,
+            "not_available"
+        );
+        assert!(
+            report
+                .prepared_olap_layout_inventory
+                .segment_membership_status
+                .starts_with("segment_map_available")
+        );
+        assert_eq!(
+            report
+                .prepared_olap_layout_inventory
+                .layout_reader_cache_status,
+            "enabled_for_local_metadata_open"
+        );
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -10448,7 +10844,7 @@ mod tests {
     }
 
     #[test]
-    fn local_flat_scalar_minimal_ingest_skips_reopen_scan() {
+    fn local_flat_scalar_minimal_ingest_reads_layout_without_reopen_scan() {
         let path = std::env::temp_dir().join(format!(
             "shardloom-vortex-ingest-minimal-{}-{}.vortex",
             std::process::id(),
@@ -10469,7 +10865,8 @@ mod tests {
 
         assert_eq!(report.row_count, 1);
         assert_eq!(report.writer_row_count, 1);
-        assert_eq!(report.reopen_row_count, 0);
+        assert_eq!(report.reopen_row_count, 1);
+        assert_eq!(report.reopen_scan_micros, 0);
         assert_eq!(
             report.reopen_verification_status,
             "not_performed_ingest_minimal"
@@ -10477,6 +10874,16 @@ mod tests {
         assert_eq!(report.certification_level, "ingest_minimal");
         assert!(report.upstream_vortex_write_called);
         assert!(!report.upstream_vortex_scan_called);
+        assert_ne!(
+            report.prepared_olap_layout_inventory.root_layout_encoding,
+            "not_available"
+        );
+        assert!(
+            report
+                .prepared_olap_layout_inventory
+                .layout_reader_cache_status
+                .contains("enabled")
+        );
         assert_eq!(
             report.preparation_spine.native_io_certificate_status,
             "minimal_local_vortex_preparation_spine_digest_only"
@@ -10730,6 +11137,11 @@ mod tests {
             reader_projection_columns: columns,
             row_count_hint: Some(3),
             record_batch_count_hint: Some(2),
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(2),
+            source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
+            source_stream_policy: "test_source_defined_record_batches".to_string(),
+            source_dictionary_preservation_status: "test_not_applicable".to_string(),
             ingest_executor_status: "serial_pull_reader".to_string(),
             ingest_executor_kind: "test_record_batch_reader".to_string(),
             ingest_executor_requested_parallelism: 1,
@@ -10831,6 +11243,11 @@ mod tests {
             reader_projection_columns: columns,
             row_count_hint: Some(0),
             record_batch_count_hint: Some(0),
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(0),
+            source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
+            source_stream_policy: "test_source_defined_record_batches".to_string(),
+            source_dictionary_preservation_status: "test_not_applicable".to_string(),
             ingest_executor_status: "serial_pull_reader".to_string(),
             ingest_executor_kind: "test_record_batch_reader".to_string(),
             ingest_executor_requested_parallelism: 1,
@@ -11910,6 +12327,11 @@ mod tests {
             reader_projection_columns: columns,
             row_count_hint: Some(2),
             record_batch_count_hint: Some(1),
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
+            source_stream_policy: "test_source_defined_record_batches".to_string(),
+            source_dictionary_preservation_status: "test_not_applicable".to_string(),
             ingest_executor_status: "serial_pull_reader".to_string(),
             ingest_executor_kind: "test_record_batch_reader".to_string(),
             ingest_executor_requested_parallelism: 1,
@@ -12557,6 +12979,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn prepared_olap_state_report_admits_single_vortex_artifact_without_sidecars() {
         let root = temp_test_root("prepared-olap-single-artifact");
         let source = root.join("source.parquet");
@@ -12857,6 +13280,17 @@ mod tests {
             "opened_single_vortex_artifact_footer"
         );
         assert_eq!(report.layout_footer_row_count, "2");
+        assert_ne!(report.layout_root_encoding, "not_available");
+        assert_ne!(report.layout_encoding_inventory, "not_available");
+        assert!(
+            report
+                .layout_segment_membership_status
+                .starts_with("segment_map_available")
+        );
+        assert_eq!(
+            report.layout_reader_cache_status,
+            "enabled_for_local_metadata_open"
+        );
         assert!(report.layout_metadata_persisted_in_artifact);
         assert_eq!(report.blocker_id, "none");
         assert!(

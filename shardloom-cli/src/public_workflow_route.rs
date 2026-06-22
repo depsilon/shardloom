@@ -1128,6 +1128,41 @@ fn append_local_primitive_embedded_layout_fields(
         "local_primitive_footer_layout_summary",
         &embedded_layout.footer_layout_summary,
     );
+    push_field(
+        fields,
+        "local_primitive_root_layout_encoding",
+        &embedded_layout.root_layout_encoding,
+    );
+    push_field(
+        fields,
+        "local_primitive_layout_encoding_inventory",
+        &embedded_layout.layout_encoding_inventory,
+    );
+    push_field(
+        fields,
+        "local_primitive_segment_membership_status",
+        &embedded_layout.segment_membership_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_domain_dictionary_status",
+        &embedded_layout.domain_dictionary_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_derived_layout_stats_status",
+        &embedded_layout.derived_layout_stats_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_row_position_locality_status",
+        &embedded_layout.row_position_locality_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_layout_reader_cache_status",
+        &embedded_layout.layout_reader_cache_status,
+    );
     push_bool_field(
         fields,
         "local_primitive_metadata_persisted_in_artifact",
@@ -2289,6 +2324,7 @@ fn append_native_vortex_materializing_limit_fields(
     );
 }
 
+#[allow(clippy::too_many_lines)]
 fn append_local_primitive_result_summary_evidence_fields(
     fields: &mut Vec<(String, String)>,
     result_summary: Option<&str>,
@@ -2335,6 +2371,34 @@ fn append_local_primitive_result_summary_evidence_fields(
         (
             "aggregate_update_strategy",
             "local_primitive_aggregate_update_strategy",
+        ),
+        (
+            "aggregate_accessor_summary",
+            "local_primitive_aggregate_accessor_summary",
+        ),
+        (
+            "aggregate_accessor_materialization_status",
+            "local_primitive_aggregate_accessor_materialization_status",
+        ),
+        (
+            "aggregate_vortex_dictionary_accessor_columns",
+            "local_primitive_aggregate_vortex_dictionary_accessor_columns",
+        ),
+        (
+            "aggregate_chunk_dictionary_accessor_columns",
+            "local_primitive_aggregate_chunk_dictionary_accessor_columns",
+        ),
+        (
+            "aggregate_primitive_accessor_columns",
+            "local_primitive_aggregate_primitive_accessor_columns",
+        ),
+        (
+            "aggregate_materialized_accessor_columns",
+            "local_primitive_aggregate_materialized_accessor_columns",
+        ),
+        (
+            "aggregate_accessor_blockers",
+            "local_primitive_aggregate_accessor_blockers",
         ),
         (
             "compact_group_state_strategy",
@@ -10080,7 +10144,7 @@ fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "source_free_generated_output"
         | "generated_user_rows_direct_output"
         | "generated_range_direct_output"
-        | "generated_sequence_direct_output" => "scoped_runtime_supported",
+        | "generated_sequence_direct_output" => "global_runtime_supported",
         _ => "unsupported_boundary",
     }
 }
@@ -11350,9 +11414,14 @@ mod tests {
             "candidate_groups": 10,
             "retained_candidate_groups": 10,
             "aggregate_key_encoding_mode": "typed_hash_exact",
+            "aggregate_accessor_summary": "URL:vortex_utf8_dictionary",
+            "aggregate_accessor_materialization_status": "vortex_dictionary_or_primitive_only",
+            "aggregate_vortex_dictionary_accessor_columns": "URL",
+            "aggregate_materialized_accessor_columns": "none",
+            "aggregate_accessor_blockers": "none",
             "candidate_rows_seen": 15911,
             "retained_candidate_rows": 10,
-            "retention_selection_strategy": "full_sort_truncate_retention_window",
+            "retention_selection_strategy": "capillary_select_nth_retention_window",
         })
         .to_string();
         for summary in [
@@ -11377,12 +11446,41 @@ mod tests {
                 "typed_hash_exact"
             );
             assert_eq!(
+                field(&fields, "local_primitive_aggregate_accessor_summary"),
+                "URL:vortex_utf8_dictionary"
+            );
+            assert_eq!(
+                field(
+                    &fields,
+                    "local_primitive_aggregate_accessor_materialization_status"
+                ),
+                "vortex_dictionary_or_primitive_only"
+            );
+            assert_eq!(
+                field(
+                    &fields,
+                    "local_primitive_aggregate_vortex_dictionary_accessor_columns"
+                ),
+                "URL"
+            );
+            assert_eq!(
+                field(
+                    &fields,
+                    "local_primitive_aggregate_materialized_accessor_columns"
+                ),
+                "none"
+            );
+            assert_eq!(
+                field(&fields, "local_primitive_aggregate_accessor_blockers"),
+                "none"
+            );
+            assert_eq!(
                 field(&fields, "local_primitive_candidate_rows_seen"),
                 "15911"
             );
             assert_eq!(
                 field(&fields, "local_primitive_retention_selection_strategy"),
-                "full_sort_truncate_retention_window"
+                "capillary_select_nth_retention_window"
             );
         }
     }
@@ -12254,7 +12352,7 @@ mod tests {
         assert_eq!(plan.route_id, "native_vortex_filter_project");
         assert_eq!(
             field(&fields, "route_runtime_status"),
-            "scoped_runtime_supported"
+            "global_runtime_supported"
         );
         assert_eq!(field(&fields, "vortex_primitive"), "filter_project");
         assert_eq!(

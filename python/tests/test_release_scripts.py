@@ -255,7 +255,7 @@ class ReleaseScriptTests(unittest.TestCase):
         return {
             "route_lane_id": lane_id,
             "route_display_name": display_name,
-            "route_runtime_status": "scoped_runtime_supported",
+            "route_runtime_status": "global_runtime_supported",
             "start_state": start_state,
             "end_state": "result_sink",
             "includes_preparation": preparation_included,
@@ -964,7 +964,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "benchmark_route_publication_status": "published_static_route_identity",
             "benchmark_route_publication_source": "user_route_capability_report",
             "benchmark_route_publication_claim_boundary": claim_boundary,
-            "route_runtime_status": "scoped_runtime_supported",
+            "route_runtime_status": "global_runtime_supported",
             "includes_preparation": True,
             "includes_output": True,
             "includes_evidence": True,
@@ -6795,7 +6795,7 @@ class ReleaseScriptTests(unittest.TestCase):
                         "performance_claim_allowed": False,
                         "route_runtime_status_schema_version": "shardloom.website.route_runtime_status.v1",
                         "route_runtime_status_vocabulary": [
-                            "scoped_runtime_supported",
+                            "global_runtime_supported",
                             "feature_gated",
                             "fixture_smoke_only",
                             "unsupported",
@@ -6877,7 +6877,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "status": "passed",
             "benchmark_profile": "full_local",
             "artifact_status": "complete",
-            "route_runtime_status_counts": {"scoped_runtime_supported": 600},
+            "route_runtime_status_counts": {"global_runtime_supported": 600},
             "operator_execution_mode_counts": {"residual_native": 456},
             "shardloom_claim_grade_rows": 600,
             "shardloom_unsupported_rows": 0,
@@ -11291,7 +11291,7 @@ jobs:
                         rows = (
                             SimpleNamespace(
                                 front_door_id="python_prepare_vortex",
-                                route_runtime_status="scoped_runtime_supported",
+                                route_runtime_status="global_runtime_supported",
                                 fallback_attempted=False,
                                 external_engine_invoked=False,
                                 public_user_surface="ctx.prepare_vortex / prepare_vortex",
@@ -11299,7 +11299,7 @@ jobs:
                             ),
                             SimpleNamespace(
                                 front_door_id="sql_prepare_vortex",
-                                route_runtime_status="scoped_runtime_supported",
+                                route_runtime_status="global_runtime_supported",
                                 fallback_attempted=False,
                                 external_engine_invoked=False,
                                 public_user_surface="sql prepare_vortex",
@@ -11426,7 +11426,7 @@ jobs:
                             evidence_route="execution and Native I/O evidence",
                             materialization_decode_boundary="bounded report",
                             supports_source_order_limit=route_id.endswith("_limit_collect"),
-                            route_runtime_status="scoped_runtime_supported",
+                            route_runtime_status="global_runtime_supported",
                             fallback_attempted=False,
                             external_engine_invoked=False,
                             required_evidence=("execution_certificate", "native_io_certificate"),
@@ -11575,7 +11575,7 @@ jobs:
                     front_rows = (
                         SimpleNamespace(
                             front_door_id="python_prepare_vortex",
-                            route_runtime_status="scoped_runtime_supported",
+                            route_runtime_status="global_runtime_supported",
                             fallback_attempted=False,
                             external_engine_invoked=False,
                             public_user_surface="ctx.prepare_vortex / prepare_vortex",
@@ -11583,7 +11583,7 @@ jobs:
                         ),
                         SimpleNamespace(
                             front_door_id="sql_prepare_vortex",
-                            route_runtime_status="scoped_runtime_supported",
+                            route_runtime_status="global_runtime_supported",
                             fallback_attempted=False,
                             external_engine_invoked=False,
                             public_user_surface="sql prepare_vortex",
@@ -11601,7 +11601,7 @@ jobs:
                     ):
                         route_rows[route_id] = SimpleNamespace(
                             route_id=route_id,
-                            route_runtime_status="scoped_runtime_supported",
+                            route_runtime_status="global_runtime_supported",
                             fallback_attempted=False,
                             external_engine_invoked=False,
                             vortex_normalization_point="native_vortex_boundary",
@@ -11862,7 +11862,7 @@ jobs:
                         prepared_state_reuse_reason="manifest_fingerprints_match",
                         prepared_state_reuse_manifest_digest="sha256:manifest",
                         prepared_state_invalidation_reason="none",
-                        route_runtime_status="scoped_runtime_supported",
+                        route_runtime_status="global_runtime_supported",
                         fallback_attempted=False,
                         external_engine_invoked=False,
                         required_evidence=("execution_certificate", "native_io_certificate"),
@@ -12186,7 +12186,7 @@ jobs:
                         output_route="local output/result sink route",
                         evidence_route="OutputPlan, output Native I/O certificate, replay evidence",
                         materialization_decode_boundary="explicit local sink boundary",
-                        route_runtime_status="scoped_runtime_supported",
+                        route_runtime_status="global_runtime_supported",
                         required_evidence=("output_native_io_certificate", "result_replay_verified"),
                         fallback_attempted=False,
                         external_engine_invoked=False,

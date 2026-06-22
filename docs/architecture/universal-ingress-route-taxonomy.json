@@ -20,7 +20,7 @@
     "cold_certified_end_to_end",
     "warm_prepared_query",
     "native_query",
-    "direct_one_shot",
+    "internal_direct_one_shot",
     "generated_output",
     "output_fanout",
     "not_applicable_existing_vortex_input",
@@ -32,7 +32,7 @@
     "vortex_ingest_prepare_once": "Vortex ingest / prepare once route",
     "prepared_vortex": "Prepared Vortex route",
     "native_vortex": "Native Vortex route",
-    "direct_transient": "Direct one-shot route",
+    "direct_transient": "Internal direct one-shot diagnostic route",
     "generated_source": "Source-free generated route",
     "output_fanout": "Output fanout route"
   },

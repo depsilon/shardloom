@@ -963,7 +963,7 @@ COLD_LANE_ATTRIBUTION_SCHEMA_VERSION = (
 )
 ROUTE_RUNTIME_STATUS_SCHEMA_VERSION = "shardloom.website.route_runtime_status.v1"
 ROUTE_RUNTIME_STATUSES = {
-    "scoped_runtime_supported",
+    "global_runtime_supported",
     "feature_gated",
     "fixture_smoke_only",
     "unsupported",
@@ -2811,7 +2811,7 @@ def route_runtime_status_for_row(row: dict[str, Any], fields: dict[str, Any]) ->
         return "feature_gated"
     if str(fields.get("claim_gate_status") or "") == "fixture_smoke_only":
         return "fixture_smoke_only"
-    return "scoped_runtime_supported"
+    return "global_runtime_supported"
 
 
 def route_identity_for_row(row: dict[str, Any]) -> dict[str, Any]:

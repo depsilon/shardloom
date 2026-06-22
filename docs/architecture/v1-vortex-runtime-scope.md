@@ -66,6 +66,16 @@ admitted Vortex preparation/prepared-state route, and otherwise fails closed wit
 by the native route contract, the public surface must return a deterministic blocker with
 `fallback_attempted=false` and `external_engine_invoked=false`.
 
+Prepared local Vortex artifacts use one public/default data artifact. Prepared OLAP state is derived
+from the `.vortex` footer/layout/statistics and source fingerprints, not from query-summary
+sidecars. The writer applies the admitted single-artifact OLAP layout policy through upstream
+Vortex write strategy configuration, and runtime evidence reports the applied writer strategy,
+row-block size, layout encoding inventory, segment-map membership, dictionary/domain status,
+derived layout-stat posture, row-position locality, layout-reader cache status, and
+`no_query_answer_cache=true`. These fields prove the artifact layout consumed by the scoped local
+primitive planner; they are not a broad performance claim and do not authorize query-specific
+materialized summaries.
+
 The admitted direct `.vortex` primitive user routes are surface-aware: Python/DataFrame-style
 `ctx.read_vortex(...).filter(...).select(...).limit(...).collect()`,
 `ctx.read_vortex(...).select(...).distinct().collect()`, and
@@ -156,7 +166,7 @@ The scoped local primitive report admits these route ids:
 | `vortex_explode_collect` | Materialize scoped row expansion for one declared list/fixed-size-list column, same-length multi-column list/fixed-size-list columns, or single-level list-of-struct dotted field projection, with scalar, nullable, list, or struct element values, optional companion columns, empty-list zero-row behavior, nullable-list one-null-row behavior, and explicit decode/materialization evidence. | Yes |
 | `vortex_pivot_collect` / `vortex_pivot_row_export` | Materialize scoped wide reshape for one index column, one pivot column, and one value column through first-unique or sum/count/mean aggregate policy with explicit decode/materialization evidence; sparse JSONL emits missing pivot cells as `null`, and CSV emits missing pivot cells as empty fields. | Yes |
 | `vortex_rolling_window_collect` | Materialize scoped source-order `rolling(...).sum/mean/count/min/max(...)` over one scalar column, with numeric input required for `sum`/`mean`/`min`/`max`, bounded window state, and explicit decode/materialization evidence. | Yes |
-| `native_vortex_simple_aggregate` | Execute scoped scalar and grouped aggregate primitives over local `.vortex` sources, including exact `count_distinct`, grouped top-K/offset, HAVING, expression groups, source-order limited group output, single-key identity/length/URL-domain fast grouping, capillary ordered-candidate selection for bounded grouped top-K/offset finalization, deterministic offset-derived functional-dependency key pruning, mixed-predicate splitting for safe Vortex pushdown plus explicit residual work, and ClickBench OLAP aggregate families with explicit state-budget and no-fallback evidence. | Yes |
+| `native_vortex_simple_aggregate` | Execute scoped scalar and grouped aggregate primitives over local `.vortex` sources, including direct typed/dictionary scalar `count`/`sum`/`avg`/`min`/`max`, repeated numeric SUM/AVG expression fusion over shared accessors, exact `count_distinct` over used dictionary codes, grouped top-K/offset, HAVING, expression groups, source-order limited group output, single-key identity/length/URL-domain fast grouping, compact grouped count/sum/avg state with exact UTF-8 `length(...)` measures, transformed chunk-dictionary grouping for URL-domain/length expressions, exact chunk-local materialized UTF-8 partial grouping when the Vortex layout does not surface dictionary codes, typed numeric-pair count/sum/avg state, typed numeric/minute/string count state with late string materialization, capillary ordered-candidate selection for bounded grouped top-K/offset finalization, deterministic offset-derived functional-dependency key pruning, mixed-predicate splitting for safe Vortex pushdown plus explicit residual work, and ClickBench OLAP aggregate families with explicit state-budget and no-fallback evidence. | Yes |
 | `native_vortex_count_where` | Execute scoped count predicates over local `.vortex` sources, including Vortex filter pushdown where supported, mixed-predicate splitting for safe conjuncts, and ShardLoom-owned UTF-8 substring count over `VarBinViewArray` bytes for admitted count-only `LIKE '%literal%'` shapes, with residual materialization evidence kept separate from residual predicate planning. | Yes |
 | `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/drop-duplicates/duplicate-mask/tail/sample/expression-project/melt/explode/rolling-window row streams and scalar/grouped aggregate result rows to JSONL/CSV, including JSONL+CSV fanout. | Yes |
 

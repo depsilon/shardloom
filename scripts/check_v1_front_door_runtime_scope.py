@@ -326,7 +326,7 @@ def validate_route_report(report: Any) -> tuple[list[dict[str, Any]], list[str]]
         blockers.append("public front-door route report must expose prepared route rows")
     for row in public_rows:
         front_door_id = str(row["front_door_id"])
-        if row.get("route_runtime_status") != "scoped_runtime_supported":
+        if row.get("route_runtime_status") != "global_runtime_supported":
             blockers.append(f"{front_door_id}: public front door must be runtime supported")
         if row.get("fallback_attempted") is not False:
             blockers.append(f"{front_door_id}: fallback_attempted must be false")

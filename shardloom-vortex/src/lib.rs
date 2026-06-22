@@ -562,7 +562,8 @@ pub use universal_format_io::{
     read_flat_parquet_columnar_source_with_projection, read_flat_parquet_source,
     read_flat_parquet_source_with_projection, stream_flat_arrow_ipc_columnar_source,
     stream_flat_avro_columnar_source, stream_flat_orc_columnar_source,
-    stream_flat_parquet_columnar_source, with_capillary_prefetch_columnar_stream_source,
+    stream_flat_parquet_columnar_source, stream_flat_parquet_columnar_source_with_parallelism,
+    with_capillary_prefetch_columnar_stream_source,
 };
 pub use vortex_ingest::{
     VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION, VORTEX_COPY_BUDGET_SCHEMA_VERSION,

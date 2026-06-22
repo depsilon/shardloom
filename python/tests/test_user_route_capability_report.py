@@ -247,7 +247,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
 
         native = by_id["native_vortex_query"]
         self.assertEqual(native["vortex_normalization_point"], "native_vortex_boundary")
-        self.assertEqual(native["route_runtime_status"], "scoped_runtime_supported")
+        self.assertEqual(native["route_runtime_status"], "global_runtime_supported")
         self.assertIn("native_vortex_route", native["recommended_user_surface"])
         self.assertIn("memory_gb", native["recommended_user_surface"])
         self.assertIn("write_vortex", native["recommended_user_surface"])
@@ -260,7 +260,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         broad = by_id["broad_sql_python_dataframe_runtime"]
         self.assertEqual(
             broad["route_runtime_status"],
-            "scoped_runtime_supported",
+            "global_runtime_supported",
         )
         self.assertEqual(
             broad["runtime_blocker_code"],
@@ -277,7 +277,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         performance_evidence = by_id["performance_equivalence_evidence"]
         self.assertEqual(
             performance_evidence["route_runtime_status"],
-            "scoped_runtime_supported",
+            "global_runtime_supported",
         )
         self.assertEqual(
             performance_evidence["runtime_blocker_code"],
@@ -749,7 +749,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         blockers = module.validate_local_vortex_primitives(fake_report, rows)
 
         self.assertTrue(
-            any("route_runtime_status must be scoped_runtime_supported" in b for b in blockers)
+            any("route_runtime_status must be global_runtime_supported" in b for b in blockers)
         )
         self.assertTrue(any("unrecognized cli_command" in b for b in blockers))
         self.assertTrue(

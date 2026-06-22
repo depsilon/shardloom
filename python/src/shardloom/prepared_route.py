@@ -559,7 +559,7 @@ class CompatibilityPreparedVortexRoute:
     def route_runtime_status(self) -> str:
         """Return the route runtime support status."""
 
-        return "scoped_runtime_supported"
+        return "global_runtime_supported"
 
     @property
     def fallback_attempted(self) -> bool:

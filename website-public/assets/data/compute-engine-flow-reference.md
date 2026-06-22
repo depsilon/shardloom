@@ -135,7 +135,7 @@ flowchart LR
 | Group | Owns | Primary evidence |
 | --- | --- | --- |
 | Access and front doors | CLI, Python, SQL, adapters, planned API surfaces | typed request envelope, typed output envelope |
-| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | source fingerprints, prepared-state IDs/digests, import certificates |
+| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | source fingerprints, prepared-state IDs/digests, stream batch policy, source-unit hints, dictionary handoff posture, import certificates |
 | Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`; internal smoke is not a public lane | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
 | Engine fabric | batch, live, hybrid, auto engine mode | `requested_engine_mode`, `selected_engine_mode`, effect and state boundaries |
 | Output and materialization | `OutputPlan`, `SinkArtifact`, Vortex output, compatibility exports | decode/materialization status, result-sink replay, metadata preservation/loss |
@@ -149,9 +149,31 @@ flowchart LR
 | `compatibility_import_certified` | A recognized compatibility source admitted through `UniversalIngress` | source read, parse/decode where required, Vortex preparation, Vortex write/reopen, scan/query, output/replay, certificates, claim-gate evidence | pure query-speed timing, broad SQL/DataFrame support, object-store/table production I/O |
 | `prepared_vortex` | Existing `VortexPreparedState` | warm prepared query work, provider admission, output route, evidence | direct CSV/JSONL/Parquet/database/object-store reads |
 | `native_vortex` | Existing Vortex artifact or native Vortex state | native Vortex scan/source path, provider admission, output route, evidence | compatibility import or external engine evaluation |
-| `internal_local_source_smoke` | Scoped local compatibility source | internal diagnostic one-shot local path with explicit materialization/decode status | public workflow runtime, prepared-state reuse, native Vortex claim, or claim-grade production runtime |
+| `internal_local_source_smoke` | Internal compatibility diagnostic | internal diagnostic one-shot local path with explicit materialization/decode status | public workflow runtime, prepared-state reuse, native Vortex claim, or claim-grade production runtime |
 | `vortex_middle` | Public local workflow policy | prepare local compatibility input into Vortex or use native Vortex input before execution | separate execution lane, hidden fallback, or direct local-source runtime |
 | `external_baseline_only` | Explicit benchmark baseline row | comparison-only timing or correctness reference | ShardLoom runtime support or fallback execution |
+
+## Native Operator Hot Path
+
+Native Vortex routes should consume ShardLoom techniques automatically; users should not need to
+call PulseWeave, capillary, or metadata-first APIs by hand.
+
+| Operator family | Current hot-path posture | Required evidence |
+| --- | --- | --- |
+| Aggregate/distinct | Direct typed/dictionary scalar `count`/`sum`/`avg`/`min`/`max` and `count_distinct`, repeated numeric SUM/AVG expression fusion over shared accessors, exact dictionary distinct over used codes rather than unused dictionary values, compact count/sum/avg grouped state including exact UTF-8 `length(...)` measures, typed numeric-pair state, typed numeric/minute/string count state, transformed dictionary URL-domain/length grouping, and exact chunk-local materialized UTF-8 partial grouping when dictionary codes are not surfaced. Accessor evidence separates true Vortex dictionary codes from chunk-local UTF-8 dictionaries and materialized values. | `aggregate_update_strategy`, `aggregate_accessor_summary`, `aggregate_accessor_materialization_status`, `aggregate_accessor_blockers`, `expression_fusion_strategy`, `expression_plan_fingerprint_status`, `aggregate_key_encoding_mode`, `compact_group_state_strategy`, `distinct_state_strategy`, `group_state_mode`, `decoded_string_count`, `estimated_group_key_storage_bytes` |
+| String predicates | Safe Vortex pushdown first, ShardLoom residual UTF-8 byte predicates where needed, selected-row masks before materialization. | `filter_pushdown_applied`, `residual_predicate_materialization`, selected/materialized row counts |
+| Bounded top-K/order | Capillary select-nth retained windows, source ordinals, dynamic row-reference candidate scans for large bounded payload projections, final retained-row materialization from the single `.vortex` artifact. | `bounded_topk_strategy`, `retention_selection_strategy`, `candidate_rows_seen`, `retained_candidate_rows`, `late_output_materialization`, `row_ref_topk_materialization_policy` |
+| Metadata/layout | Vortex footer/statistics pruning before scan where available; prepared `.vortex` artifacts now expose single-artifact OLAP posture from the artifact itself: writer/layout strategy, row-block sizing, root/layout encodings, segment-map membership, dictionary/domain status, derived layout-stat posture, row-position locality, and layout-reader cache status. Richer domain-specific indexes still require measured proof before any speed claim. | `embedded_layout_planner_consumption_status`, selected/skipped segments, `layout_encoding_inventory`, `segment_membership_status`, `domain_dictionary_status`, `row_position_locality_status`, no-query-answer-cache posture |
+
+Universal Ingest source-state evidence now separates source-native units from emitted batches:
+`source_state_stream_batch_size`, `source_state_stream_unit_count_hint`,
+`source_state_stream_unit_hint_kind`, `source_state_stream_policy`, and
+`source_state_dictionary_preservation_status` identify whether the prepared Vortex artifact was fed
+by product columnar stream batches, Parquet row-group hints, Arrow IPC batch hints, or a scalar text
+adapter. Parquet product preparation can additionally report
+`source_state_ingest_executor_status=bounded_capillary_row_group_parallel_active` with a
+coalesced row-group task count when `max_parallelism` admits source-native parallel read work before
+the single `.vortex` writer boundary.
 
 Common local prepared route:
 
@@ -510,7 +532,7 @@ flowchart LR
     WORKLOAD["Workload request<br/>batch / live / hybrid intent"]
     REQUESTED["requested_engine_mode<br/>auto / batch / live / hybrid"]
     SELECTED["selected_engine_mode<br/>admitted or blocked"]
-    BATCH["batch<br/>current scoped local focus"]
+    BATCH["batch<br/>current local Vortex focus"]
     LIVE["live<br/>report-only or fixture-scoped"]
     HYBRID["hybrid<br/>overlay/report-only"]
     EFFECTS["Effect boundary<br/>side effects explicit"]
