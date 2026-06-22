@@ -827,7 +827,7 @@ fn embedded_derived_column_specs(schema: &Schema) -> Vec<EmbeddedDerivedColumnSp
         {
             specs.push(EmbeddedDerivedColumnSpec {
                 source_index,
-                source_column: source_column.to_string(),
+                source_column: source_column.clone(),
                 output_column: length_column,
                 kind: EmbeddedDerivedColumnKind::Utf8Length,
             });
@@ -837,7 +837,7 @@ fn embedded_derived_column_specs(schema: &Schema) -> Vec<EmbeddedDerivedColumnSp
             if !existing.contains(domain_column.as_str()) {
                 specs.push(EmbeddedDerivedColumnSpec {
                     source_index,
-                    source_column: source_column.to_string(),
+                    source_column: source_column.clone(),
                     output_column: domain_column,
                     kind: EmbeddedDerivedColumnKind::UrlDomain,
                 });
@@ -856,18 +856,17 @@ fn append_embedded_derived_columns_to_batch(
     let mut spec_index = 0;
     while spec_index < specs.len() {
         let spec = &specs[spec_index];
-        if let Some(next_spec) = specs.get(spec_index + 1) {
-            if spec.source_index == next_spec.source_index
-                && spec.kind == EmbeddedDerivedColumnKind::Utf8Length
-                && next_spec.kind == EmbeddedDerivedColumnKind::UrlDomain
-            {
-                let source = batch.column(spec.source_index);
-                let (lengths, domains) = embedded_utf8_length_and_url_domain_arrays(source)?;
-                columns.push(lengths);
-                columns.push(domains);
-                spec_index += 2;
-                continue;
-            }
+        if let Some(next_spec) = specs.get(spec_index + 1)
+            && spec.source_index == next_spec.source_index
+            && spec.kind == EmbeddedDerivedColumnKind::Utf8Length
+            && next_spec.kind == EmbeddedDerivedColumnKind::UrlDomain
+        {
+            let source = batch.column(spec.source_index);
+            let (lengths, domains) = embedded_utf8_length_and_url_domain_arrays(source)?;
+            columns.push(lengths);
+            columns.push(domains);
+            spec_index += 2;
+            continue;
         }
         let source = batch.column(spec.source_index);
         let derived = embedded_derived_column_array(source, spec)?;
@@ -903,7 +902,7 @@ fn embedded_derived_column_array(
                 if let Some(value) = utf8_array_value(source, row_index)? {
                     domains
                         .append(crate::url_domain::shardloom_url_domain(value))
-                        .map_err(embedded_derived_column_arrow_error)?;
+                        .map_err(|error| embedded_derived_column_arrow_error(&error))?;
                 } else {
                     domains.append_null();
                 }
@@ -917,17 +916,14 @@ fn embedded_utf8_length_and_url_domain_arrays(source: &ArrayRef) -> Result<(Arra
     let mut lengths = UInt32Builder::with_capacity(source.len());
     let mut domains = StringDictionaryBuilder::<Int32Type>::with_capacity(source.len(), 256, 4096);
     for row_index in 0..source.len() {
-        match utf8_array_value(source, row_index)? {
-            Some(value) => {
-                lengths.append_value(usize_to_u32(value.len())?);
-                domains
-                    .append(crate::url_domain::shardloom_url_domain(value))
-                    .map_err(embedded_derived_column_arrow_error)?;
-            }
-            None => {
-                lengths.append_null();
-                domains.append_null();
-            }
+        if let Some(value) = utf8_array_value(source, row_index)? {
+            lengths.append_value(usize_to_u32(value.len())?);
+            domains
+                .append(crate::url_domain::shardloom_url_domain(value))
+                .map_err(|error| embedded_derived_column_arrow_error(&error))?;
+        } else {
+            lengths.append_null();
+            domains.append_null();
         }
     }
     Ok((
@@ -936,13 +932,13 @@ fn embedded_utf8_length_and_url_domain_arrays(source: &ArrayRef) -> Result<(Arra
     ))
 }
 
-fn embedded_derived_column_arrow_error(error: ArrowError) -> ShardLoomError {
+fn embedded_derived_column_arrow_error(error: &ArrowError) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "embedded derived column dictionary build failed: {error}; no fallback execution was attempted"
     ))
 }
 
-fn utf8_array_value<'a>(array: &'a ArrayRef, row_index: usize) -> Result<Option<&'a str>> {
+fn utf8_array_value(array: &ArrayRef, row_index: usize) -> Result<Option<&str>> {
     if array.is_null(row_index) {
         return Ok(None);
     }
@@ -1138,6 +1134,7 @@ fn columnar_prefetch_source_parallelism_budget(requested_max_parallelism: usize)
 /// Returns [`ShardLoomError::InvalidOperation`] when the flat rows do not match
 /// the declared schema or cannot be represented by the scoped Arrow/Vortex
 /// provider boundary.
+#[allow(clippy::too_many_arguments)]
 pub fn stream_flat_text_rows_columnar_source(
     header: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
@@ -2543,7 +2540,7 @@ fn flat_rows_to_record_batch(
 /// Build an Arrow `RecordBatch` from ordered flat scalar rows and explicit dtype hints.
 ///
 /// This is used by scoped Universal Ingest adapters that parse small streaming
-/// batches themselves but still need ShardLoom's canonical scalar-to-Arrow
+/// batches themselves but still need `ShardLoom`'s canonical scalar-to-Arrow
 /// conversion, nullability, and no-fallback diagnostics. Callers should pass a
 /// bounded batch, not a whole large source.
 ///

@@ -11494,7 +11494,18 @@ mod tests {
             .unwrap_or_else(|| panic!("missing route field: {key}"))
     }
 
+    fn assert_field_values(fields: &[(String, String)], expected_values: &[(&str, &str)]) {
+        for (key, expected_value) in expected_values {
+            assert_eq!(
+                field(fields, key),
+                *expected_value,
+                "unexpected route field value for {key}"
+            );
+        }
+    }
+
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn local_primitive_result_summary_lifts_runtime_strategy_fields() {
         let payload = serde_json::json!({
             "group_output_strategy": "source_order_limited_group_admission_no_sort",
@@ -11509,22 +11520,22 @@ mod tests {
             "aggregate_accessor_blockers": "none",
             "distinct_state_strategy": "proofbound_candidate_exact_distinct_sets",
             "uniqueness_proof_status": "proofbound_string_count_distinct_exact_topk",
-            "candidate_rows_seen": 15911,
+            "candidate_rows_seen": 15_911,
             "retained_candidate_rows": 10,
             "retention_selection_strategy": "capillary_select_nth_retention_window",
-            "late_materialization_chunks_scanned": 1626,
+            "late_materialization_chunks_scanned": 1_626,
             "late_materialization_early_stop_applied": true,
-            "late_materialization_max_selected_source_ordinal": 98655788,
+            "late_materialization_max_selected_source_ordinal": 98_655_788,
             "sort_predicate_strategy": "residual_predicate_source_ordinals",
             "string_count_topk_candidate_signature_prefilter": true,
             "numeric_utf8_topk_heavy_hitter_second_pass": true,
-            "numeric_utf8_topk_heavy_hitter_candidate_groups": 59813,
-            "numeric_utf8_topk_heavy_hitter_capacity": 65536,
-            "numeric_utf8_topk_heavy_hitter_threshold": 1525,
+            "numeric_utf8_topk_heavy_hitter_candidate_groups": 59_813,
+            "numeric_utf8_topk_heavy_hitter_capacity": 65_536,
+            "numeric_utf8_topk_heavy_hitter_threshold": 1_525,
             "numeric_utf8_topk_heavy_hitter_exact_proof": true,
             "string_count_distinct_topk_heavy_hitter_second_pass": true,
-            "string_count_distinct_topk_heavy_hitter_candidate_groups": 25503,
-            "string_count_distinct_topk_heavy_hitter_capacity": 65536,
+            "string_count_distinct_topk_heavy_hitter_candidate_groups": 25_503,
+            "string_count_distinct_topk_heavy_hitter_capacity": 65_536,
             "string_count_distinct_topk_heavy_hitter_threshold": 200,
             "string_count_distinct_topk_heavy_hitter_exact_proof": true,
             "string_count_distinct_topk_candidate_signature_prefilter": true,
@@ -11538,158 +11549,109 @@ mod tests {
 
             append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
 
-            assert_eq!(
-                field(&fields, "local_primitive_group_output_strategy"),
-                "source_order_limited_group_admission_no_sort"
-            );
-            assert_eq!(
-                field(&fields, "local_primitive_group_admission_strategy"),
-                "first_k_source_order_groups_then_existing_key_updates"
-            );
-            assert_eq!(field(&fields, "local_primitive_candidate_groups"), "10");
-            assert_eq!(
-                field(&fields, "local_primitive_aggregate_key_encoding_mode"),
-                "typed_hash_exact"
-            );
-            assert_eq!(
-                field(&fields, "local_primitive_aggregate_accessor_summary"),
-                "URL:vortex_utf8_dictionary"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_aggregate_accessor_materialization_status"
-                ),
-                "vortex_dictionary_or_primitive_only"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_aggregate_vortex_dictionary_accessor_columns"
-                ),
-                "URL"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_aggregate_materialized_accessor_columns"
-                ),
-                "none"
-            );
-            assert_eq!(
-                field(&fields, "local_primitive_aggregate_accessor_blockers"),
-                "none"
-            );
-            assert_eq!(
-                field(&fields, "local_primitive_distinct_state_strategy"),
-                "proofbound_candidate_exact_distinct_sets"
-            );
-            assert_eq!(
-                field(&fields, "local_primitive_uniqueness_proof_status"),
-                "proofbound_string_count_distinct_exact_topk"
-            );
-            assert_eq!(
-                field(&fields, "local_primitive_candidate_rows_seen"),
-                "15911"
-            );
-            assert_eq!(
-                field(&fields, "local_primitive_retention_selection_strategy"),
-                "capillary_select_nth_retention_window"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_late_materialization_chunks_scanned"
-                ),
-                "1626"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_late_materialization_early_stop_applied"
-                ),
-                "true"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_late_materialization_max_selected_source_ordinal"
-                ),
-                "98655788"
-            );
-            assert_eq!(
-                field(&fields, "local_primitive_sort_predicate_strategy"),
-                "residual_predicate_source_ordinals"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_string_count_topk_candidate_signature_prefilter"
-                ),
-                "true"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass"
-                ),
-                "true"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_numeric_utf8_topk_heavy_hitter_candidate_groups"
-                ),
-                "59813"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_numeric_utf8_topk_heavy_hitter_threshold"
-                ),
-                "1525"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_numeric_utf8_topk_heavy_hitter_exact_proof"
-                ),
-                "true"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_string_count_distinct_topk_heavy_hitter_second_pass"
-                ),
-                "true"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_string_count_distinct_topk_heavy_hitter_candidate_groups"
-                ),
-                "25503"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_string_count_distinct_topk_heavy_hitter_threshold"
-                ),
-                "200"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_string_count_distinct_topk_heavy_hitter_exact_proof"
-                ),
-                "true"
-            );
-            assert_eq!(
-                field(
-                    &fields,
-                    "local_primitive_string_count_distinct_topk_candidate_signature_prefilter"
-                ),
-                "true"
+            assert_field_values(
+                &fields,
+                &[
+                    (
+                        "local_primitive_group_output_strategy",
+                        "source_order_limited_group_admission_no_sort",
+                    ),
+                    (
+                        "local_primitive_group_admission_strategy",
+                        "first_k_source_order_groups_then_existing_key_updates",
+                    ),
+                    ("local_primitive_candidate_groups", "10"),
+                    (
+                        "local_primitive_aggregate_key_encoding_mode",
+                        "typed_hash_exact",
+                    ),
+                    (
+                        "local_primitive_aggregate_accessor_summary",
+                        "URL:vortex_utf8_dictionary",
+                    ),
+                    (
+                        "local_primitive_aggregate_accessor_materialization_status",
+                        "vortex_dictionary_or_primitive_only",
+                    ),
+                    (
+                        "local_primitive_aggregate_vortex_dictionary_accessor_columns",
+                        "URL",
+                    ),
+                    (
+                        "local_primitive_aggregate_materialized_accessor_columns",
+                        "none",
+                    ),
+                    ("local_primitive_aggregate_accessor_blockers", "none"),
+                    (
+                        "local_primitive_distinct_state_strategy",
+                        "proofbound_candidate_exact_distinct_sets",
+                    ),
+                    (
+                        "local_primitive_uniqueness_proof_status",
+                        "proofbound_string_count_distinct_exact_topk",
+                    ),
+                    ("local_primitive_candidate_rows_seen", "15911"),
+                    (
+                        "local_primitive_retention_selection_strategy",
+                        "capillary_select_nth_retention_window",
+                    ),
+                    (
+                        "local_primitive_late_materialization_chunks_scanned",
+                        "1626",
+                    ),
+                    (
+                        "local_primitive_late_materialization_early_stop_applied",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_late_materialization_max_selected_source_ordinal",
+                        "98655788",
+                    ),
+                    (
+                        "local_primitive_sort_predicate_strategy",
+                        "residual_predicate_source_ordinals",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_candidate_signature_prefilter",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_numeric_utf8_topk_heavy_hitter_candidate_groups",
+                        "59813",
+                    ),
+                    (
+                        "local_primitive_numeric_utf8_topk_heavy_hitter_threshold",
+                        "1525",
+                    ),
+                    (
+                        "local_primitive_numeric_utf8_topk_heavy_hitter_exact_proof",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_heavy_hitter_second_pass",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_heavy_hitter_candidate_groups",
+                        "25503",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_heavy_hitter_threshold",
+                        "200",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_heavy_hitter_exact_proof",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_candidate_signature_prefilter",
+                        "true",
+                    ),
+                ],
             );
         }
     }

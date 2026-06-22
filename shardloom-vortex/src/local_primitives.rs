@@ -7692,7 +7692,7 @@ fn fast_utf8_contains_count_from_masked_dictionary_array(
     negated: bool,
 ) -> Result<Option<usize>> {
     let Some((dictionary_matches, codes)) =
-        fast_utf8_contains_dictionary_matches_and_codes(child, needle, negated)?
+        fast_utf8_contains_dictionary_matches_and_codes(child, needle, negated)
     else {
         return Ok(None);
     };
@@ -7733,7 +7733,7 @@ fn fast_utf8_contains_row_indices_from_masked_dictionary_array(
     negated: bool,
 ) -> Result<Option<Vec<usize>>> {
     let Some((dictionary_matches, codes)) =
-        fast_utf8_contains_dictionary_matches_and_codes(child, needle, negated)?
+        fast_utf8_contains_dictionary_matches_and_codes(child, needle, negated)
     else {
         return Ok(None);
     };
@@ -7883,7 +7883,7 @@ fn fast_utf8_contains_count_from_dictionary_array(
     negated: bool,
 ) -> Result<Option<usize>> {
     let Some((dictionary_matches, codes)) =
-        fast_utf8_contains_dictionary_matches_and_codes(array, needle, negated)?
+        fast_utf8_contains_dictionary_matches_and_codes(array, needle, negated)
     else {
         return Ok(None);
     };
@@ -7951,7 +7951,7 @@ fn fast_utf8_contains_row_indices_from_dictionary_array(
     negated: bool,
 ) -> Result<Option<Vec<usize>>> {
     let Some((dictionary_matches, codes)) =
-        fast_utf8_contains_dictionary_matches_and_codes(array, needle, negated)?
+        fast_utf8_contains_dictionary_matches_and_codes(array, needle, negated)
     else {
         return Ok(None);
     };
@@ -7976,29 +7976,20 @@ fn fast_utf8_contains_dictionary_matches_and_codes(
     array: &vortex::array::ArrayRef,
     needle: &str,
     negated: bool,
-) -> Result<Option<(Vec<bool>, Vec<u32>)>> {
+) -> Option<(Vec<bool>, Vec<u32>)> {
     use vortex::array::arrays::dict::DictArraySlotsExt as _;
 
-    let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
-        return Ok(None);
-    };
-    let Some(dictionary) =
-        direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())
-    else {
-        return Ok(None);
-    };
+    let dictionary_array = array.as_opt::<vortex::array::arrays::Dict>()?;
+    let dictionary = direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())?;
     let mut dictionary_matches = Vec::with_capacity(dictionary.len());
     for value in dictionary {
         let StatValue::Utf8(text) = value else {
-            return Ok(None);
+            return None;
         };
         dictionary_matches.push(utf8_contains_effective_match_str(&text, needle, negated));
     }
-    let Some(codes) = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())
-    else {
-        return Ok(None);
-    };
-    Ok(Some((dictionary_matches, codes)))
+    let codes = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())?;
+    Some((dictionary_matches, codes))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -14479,9 +14470,7 @@ fn read_local_vortex_simple_aggregate_scan(
         grouped_states.as_mut()
         && states.needs_string_count_distinct_topk_heavy_hitter_second_pass()
     {
-        if !states.string_count_distinct_topk_heavy_hitter_exact_proof_possible(result_limit)? {
-            true
-        } else {
+        if states.string_count_distinct_topk_heavy_hitter_exact_proof_possible(result_limit)? {
             states.prepare_string_count_distinct_topk_heavy_hitter_second_pass()?;
             let projection = ProjectionRequest::columns(aggregate.projected_columns());
             let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
@@ -14539,6 +14528,8 @@ fn read_local_vortex_simple_aggregate_scan(
                 arrays_read_count += 1;
             }
             !states.string_count_distinct_topk_exact_proved(result_limit)?
+        } else {
+            true
         }
     } else {
         false
@@ -18285,6 +18276,7 @@ impl CompactAggregateMeasures {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     fn update_from_transformed_dictionary_plan(
         &mut self,
         plan: &TransformedDictionaryCompactMeasurePlan,
@@ -18987,6 +18979,7 @@ fn aggregate_group_key_indices(columns: &[AggregateGroupRuntimeColumn]) -> Vec<u
 
 #[cfg(feature = "vortex-local-primitives")]
 impl<'a> GroupedAggregateStates<'a> {
+    #[allow(clippy::too_many_lines)]
     fn new(
         request: &'a VortexSimpleAggregateRequest,
         result_limit: Option<usize>,
@@ -19508,8 +19501,7 @@ impl<'a> GroupedAggregateStates<'a> {
         self.sort_numeric_utf8_topk_candidates(&mut retained);
         let minimum_retained = retained
             .get(retained_cap.saturating_sub(1))
-            .map(|candidate| candidate.count)
-            .unwrap_or(0);
+            .map_or(0, |candidate| candidate.count);
         let threshold = self.numeric_utf8_topk_heavy_hitter_threshold(sketch)?;
         Ok(minimum_retained > threshold)
     }
@@ -19639,6 +19631,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     fn update_numeric_minute_string_count_direct_from_accessors(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
@@ -20300,8 +20293,7 @@ impl<'a> GroupedAggregateStates<'a> {
         self.sort_string_count_topk_candidates(&mut retained);
         let minimum_retained = retained
             .get(retained_cap.saturating_sub(1))
-            .map(|candidate| candidate.count)
-            .unwrap_or(0);
+            .map_or(0, |candidate| candidate.count);
         let threshold = self.string_count_topk_heavy_hitter_threshold(sketch)?;
         Ok(minimum_retained > threshold)
     }
@@ -20324,8 +20316,7 @@ impl<'a> GroupedAggregateStates<'a> {
         self.sort_string_count_topk_candidates(&mut retained);
         let minimum_retained_lower_bound = retained
             .get(retained_cap.saturating_sub(1))
-            .map(|candidate| candidate.count)
-            .unwrap_or(0);
+            .map_or(0, |candidate| candidate.count);
         let threshold = self.string_count_topk_heavy_hitter_threshold(sketch)?;
         Ok(minimum_retained_lower_bound > threshold)
     }
@@ -20605,8 +20596,7 @@ impl<'a> GroupedAggregateStates<'a> {
         self.sort_string_count_topk_candidates(&mut retained);
         let minimum_retained = retained
             .get(retained_cap.saturating_sub(1))
-            .map(|candidate| candidate.count)
-            .unwrap_or(0);
+            .map_or(0, |candidate| candidate.count);
         let threshold = self.string_count_distinct_topk_heavy_hitter_threshold(sketch)?;
         Ok(minimum_retained > threshold)
     }
@@ -20629,8 +20619,7 @@ impl<'a> GroupedAggregateStates<'a> {
         self.sort_string_count_topk_candidates(&mut retained);
         let minimum_retained_lower_bound = retained
             .get(retained_cap.saturating_sub(1))
-            .map(|candidate| candidate.count)
-            .unwrap_or(0);
+            .map_or(0, |candidate| candidate.count);
         let threshold = self.string_count_distinct_topk_heavy_hitter_threshold(sketch)?;
         Ok(minimum_retained_lower_bound > threshold)
     }
@@ -20650,6 +20639,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(self.string_count_distinct_topk_total_weight / denominator)
     }
 
+    #[allow(clippy::unused_self)]
     fn string_count_distinct_topk_exact_counts(
         &self,
         exact_sets: &rustc_hash::FxHashMap<
@@ -20832,6 +20822,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn update_compact_direct_from_transformed_dictionary(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
@@ -21871,6 +21862,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn result_row_count_and_summary(&self, limit: Option<usize>) -> Result<(usize, String)> {
         let group_by = self
             .group_columns
@@ -22099,6 +22091,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok((row_count, payload.to_string()))
     }
 
+    #[allow(clippy::unused_self)]
     fn numeric_utf8_topk_candidates(
         &self,
         counts: &rustc_hash::FxHashMap<AggregateNumericUtf8Key, u64>,
@@ -22131,6 +22124,7 @@ impl<'a> GroupedAggregateStates<'a> {
         retained
     }
 
+    #[allow(clippy::unused_self)]
     fn sort_numeric_utf8_topk_candidates(&self, retained: &mut [NumericUtf8TopKCandidate]) {
         retained.sort_by(compare_numeric_utf8_topk_candidates);
     }
@@ -22284,6 +22278,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok((row_count, payload.to_string()))
     }
 
+    #[allow(clippy::unused_self)]
     fn string_count_topk_candidates(
         &self,
         counts: &rustc_hash::FxHashMap<std::sync::Arc<str>, u64>,
@@ -22316,6 +22311,7 @@ impl<'a> GroupedAggregateStates<'a> {
         retained
     }
 
+    #[allow(clippy::unused_self)]
     fn sort_string_count_topk_candidates(&self, retained: &mut [StringCountTopKCandidate]) {
         retained.sort_by(compare_string_count_topk_candidates);
     }
@@ -23300,22 +23296,21 @@ impl<'a> GroupedAggregateStates<'a> {
             match accessor.evidence_family() {
                 AggregateDirectColumnAccessorEvidenceFamily::Primitive => {
                     self.aggregate_primitive_accessor_columns
-                        .insert(column.to_string());
+                        .insert(column.clone());
                 }
                 AggregateDirectColumnAccessorEvidenceFamily::VortexDictionary => {
                     self.aggregate_vortex_dictionary_accessor_columns
-                        .insert(column.to_string());
+                        .insert(column.clone());
                 }
                 AggregateDirectColumnAccessorEvidenceFamily::ChunkDictionary => {
                     self.aggregate_chunk_dictionary_accessor_columns
-                        .insert(column.to_string());
+                        .insert(column.clone());
                 }
                 AggregateDirectColumnAccessorEvidenceFamily::Materialized => {
                     self.aggregate_materialized_accessor_columns
-                        .insert(column.to_string());
+                        .insert(column.clone());
                     self.aggregate_accessor_blockers.insert(format!(
-                        "{}:cg21.aggregate_accessor.materialized_after_direct_provider_miss",
-                        column
+                        "{column}:cg21.aggregate_accessor.materialized_after_direct_provider_miss"
                     ));
                 }
             }
@@ -23464,9 +23459,9 @@ impl<'a> GroupedAggregateStates<'a> {
                 return "typed_numeric_minute_dictionary_code_key";
             }
             "typed_numeric_minute_interned_utf8_key"
-        } else if self.numeric_pair_late_measure_count_groups.is_some() {
-            "typed_numeric_pair_key"
-        } else if self.numeric_pair_compact_groups.is_some() {
+        } else if self.numeric_pair_late_measure_count_groups.is_some()
+            || self.numeric_pair_compact_groups.is_some()
+        {
             "typed_numeric_pair_key"
         } else if self.numeric_utf8_topk_exact_counts.is_some()
             || self.numeric_utf8_topk_candidate_keys.is_some()
@@ -26007,7 +26002,8 @@ fn aggregate_direct_values_from_slice<T: Copy, U>(
                 .iter()
                 .copied()
                 .zip(mask.iter())
-                .filter_map(|(value, selected)| selected.then(|| convert(value)))
+                .filter(|&(_, selected)| selected)
+                .map(|(value, _)| convert(value))
                 .collect(),
         )
     } else {
