@@ -10655,14 +10655,21 @@ fn direct_non_nullable_host_primitive(
     use vortex::array::arrays::primitive::PrimitiveArrayExt;
     use vortex::array::validity::Validity;
 
-    if !array.is_host() {
-        return None;
-    }
-    let primitive = array.as_opt::<vortex::array::arrays::Primitive>()?;
+    let primitive = direct_host_primitive(array)?;
     match PrimitiveArrayExt::validity(&primitive) {
         Validity::NonNullable | Validity::AllValid => Some(primitive),
         Validity::AllInvalid | Validity::Array(_) => None,
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn direct_host_primitive(
+    array: &vortex::array::ArrayRef,
+) -> Option<vortex::array::ArrayView<'_, vortex::array::arrays::Primitive>> {
+    if !array.is_host() {
+        return None;
+    }
+    array.as_opt::<vortex::array::arrays::Primitive>()
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -25915,7 +25922,7 @@ fn aggregate_direct_utf8_dictionary_accessor(
 fn direct_primitive_aggregate_column_accessor(
     array: &vortex::array::ArrayRef,
 ) -> Option<AggregateDirectColumnAccessor> {
-    if let Some(primitive) = direct_non_nullable_host_primitive(array) {
+    if let Some(primitive) = direct_host_primitive(array) {
         return primitive_aggregate_column_accessor_from_primitive(&primitive);
     }
     let filtered = array.as_opt::<vortex::array::arrays::Filter>()?;
@@ -25929,7 +25936,7 @@ fn filtered_primitive_aggregate_column_accessor(
     use vortex::array::arrays::filter::FilterArrayExt as _;
 
     let mask = filter.filter_mask();
-    let primitive = direct_non_nullable_host_primitive(filter.child())?;
+    let primitive = direct_host_primitive(filter.child())?;
     primitive_aggregate_column_accessor_from_primitive_with_mask(&primitive, Some(mask))
 }
 
@@ -25946,11 +25953,9 @@ fn primitive_aggregate_column_accessor_from_primitive_with_mask(
     mask: Option<&vortex::mask::Mask>,
 ) -> Option<AggregateDirectColumnAccessor> {
     use vortex::array::dtype::PType;
-    use vortex::array::validity::Validity;
 
-    match primitive.validity() {
-        Validity::NonNullable | Validity::AllValid => {}
-        Validity::AllInvalid | Validity::Array(_) => return None,
+    if !primitive_validity_admits_direct_aggregate_access(primitive, mask)? {
+        return None;
     }
     match primitive.ptype() {
         PType::U8 => Some(AggregateDirectColumnAccessor::UInt64(
@@ -25984,6 +25989,41 @@ fn primitive_aggregate_column_accessor_from_primitive_with_mask(
         PType::F64 => Some(AggregateDirectColumnAccessor::Float64(
             aggregate_direct_values_from_slice(primitive.as_slice::<f64>(), mask, |value| value)?,
         )),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn primitive_validity_admits_direct_aggregate_access(
+    primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
+    mask: Option<&vortex::mask::Mask>,
+) -> Option<bool> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::validity::Validity;
+
+    let validity = primitive.validity();
+    match &validity {
+        Validity::NonNullable | Validity::AllValid => Some(true),
+        Validity::AllInvalid => {
+            Some(mask.is_some_and(|mask| mask.iter().all(|selected| !selected)))
+        }
+        Validity::Array(_) => {
+            let len = primitive.len();
+            if let Some(mask) = mask
+                && mask.len() != len
+            {
+                return None;
+            }
+            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            for row_index in 0..len {
+                if mask.is_some_and(|mask| !mask.value(row_index)) {
+                    continue;
+                }
+                if !validity.execute_is_valid(row_index, &mut ctx).ok()? {
+                    return Some(false);
+                }
+            }
+            Some(true)
+        }
     }
 }
 
@@ -35058,6 +35098,60 @@ mod tests {
             panic!("filtered primitive should stay in a typed direct accessor");
         };
         assert_eq!(values, vec![10, 10, 30]);
+    }
+
+    #[test]
+    fn aggregate_accessor_keeps_selected_valid_nullable_primitives_typed() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{FilterArray, PrimitiveArray};
+        use vortex::array::validity::Validity;
+        use vortex::mask::Mask;
+
+        let values = PrimitiveArray::new(
+            vec![10_i64, 20, 10, 30, 20],
+            Validity::from_iter([true, false, true, true, false]),
+        )
+        .into_array();
+        let filtered = FilterArray::new(values, Mask::from_iter([true, false, true, true, false]))
+            .into_array();
+
+        let accessor = aggregate_direct_column_accessor("UserID", &filtered)
+            .expect("filtered nullable primitive aggregate accessor");
+
+        assert_eq!(accessor.evidence_kind(), "direct_i64");
+        assert_eq!(accessor.len(), 3);
+        let AggregateDirectColumnAccessor::Int64(values) = accessor else {
+            panic!("selected valid nullable primitive should stay in a typed direct accessor");
+        };
+        assert_eq!(values, vec![10, 10, 30]);
+    }
+
+    #[test]
+    fn aggregate_accessor_materializes_selected_nullable_primitives_with_retained_nulls() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{FilterArray, PrimitiveArray};
+        use vortex::array::validity::Validity;
+        use vortex::mask::Mask;
+
+        let values = PrimitiveArray::new(
+            vec![10_i64, 20, 10, 30, 20],
+            Validity::from_iter([true, false, true, true, false]),
+        )
+        .into_array();
+        let filtered = FilterArray::new(values, Mask::from_iter([true, true, true, false, false]))
+            .into_array();
+
+        let accessor = aggregate_direct_column_accessor("UserID", &filtered)
+            .expect("filtered nullable primitive aggregate accessor");
+
+        assert_eq!(accessor.evidence_kind(), "materialized_stat_values");
+        let AggregateDirectColumnAccessor::Materialized(values) = accessor else {
+            panic!("retained nulls require materialized null-aware aggregate values");
+        };
+        assert_eq!(
+            values,
+            vec![StatValue::Int64(10), StatValue::Null, StatValue::Int64(10)]
+        );
     }
 
     #[test]
