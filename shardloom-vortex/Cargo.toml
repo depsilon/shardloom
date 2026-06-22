@@ -35,7 +35,7 @@ universal-format-io = [
 ]
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
-vortex-write = ["vortex-file-io"]
+vortex-write = ["vortex-file-io", "dep:vortex-zstd"]
 vortex-local-primitives = ["vortex-file-io", "dep:lending-iterator"]
 vortex-production-runtime = ["vortex-traditional-analytics-benchmark"]
 vortex-traditional-analytics-benchmark = [
@@ -65,3 +65,4 @@ lending-iterator = { version = "0.1.7", optional = true }
 serde_json = "1.0"
 sha2 = { workspace = true }
 vortex = { workspace = true, optional = true }
+vortex-zstd = { workspace = true, optional = true }

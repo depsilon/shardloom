@@ -44,7 +44,7 @@ DOC_MARKERS = (
     "prepared_state_reuse_scope=not_applicable_no_prepared_state",
     "workspace_manifest_local_vortex_artifacts",
     "explicit_prepared_state_input",
-    "artifact_adjacent_manifest_local_vortex_artifacts",
+    "single_vortex_artifact_no_sidecar",
     "cold_prepare_no_manifest",
     "warm_reuse_manifest_match",
     "source_changed",
@@ -234,8 +234,8 @@ def validate_context_report(report: Any) -> list[str]:
         blockers.append("source/prepared routes must preserve no fallback")
     if report.all_prepared_routes_expose_reuse_contract is not True:
         blockers.append("prepared routes must expose reuse contracts")
-    if report.all_generated_routes_expose_artifact_adjacent_reuse is not True:
-        blockers.append("generated routes must expose artifact-adjacent reuse")
+    if report.all_generated_routes_expose_single_artifact_output is not True:
+        blockers.append("generated routes must expose single-artifact output")
     if report.all_internal_source_smoke_routes_are_labeled_non_persistent is not True:
         blockers.append("internal source smoke routes must be labeled non-persistent")
     if report.all_local_file_prepared_rows_expose_source_and_reuse_evidence is not True:
@@ -535,8 +535,8 @@ def build_report(repo_root: Path, *, benchmark_artifact: Path = LATEST_BENCHMARK
         "all_prepared_routes_expose_reuse_contract": (
             scope_report.all_prepared_routes_expose_reuse_contract
         ),
-        "all_generated_routes_expose_artifact_adjacent_reuse": (
-            scope_report.all_generated_routes_expose_artifact_adjacent_reuse
+        "all_generated_routes_expose_single_artifact_output": (
+            scope_report.all_generated_routes_expose_single_artifact_output
         ),
         "all_internal_source_smoke_routes_are_labeled_non_persistent": (
             scope_report.all_internal_source_smoke_routes_are_labeled_non_persistent

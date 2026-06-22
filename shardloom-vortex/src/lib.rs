@@ -100,6 +100,8 @@ pub mod top_level_facade;
 pub mod traditional_analytics;
 #[cfg(feature = "universal-format-io")]
 pub mod universal_format_io;
+#[cfg(any(feature = "universal-format-io", feature = "vortex-local-primitives"))]
+mod url_domain;
 pub mod vortex_compatibility;
 pub mod vortex_compute_provider;
 pub mod vortex_ingest;

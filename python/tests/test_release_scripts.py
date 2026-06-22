@@ -1045,7 +1045,7 @@ class ReleaseScriptTests(unittest.TestCase):
                     "query timing"
                 ),
                 "required_evidence": [
-                    "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output",
+                    "single_vortex_artifact_output_for_feature_gated_local_vortex_output",
                     "route_runtime_status",
                     "no_fallback_evidence",
                 ],
@@ -11849,13 +11849,13 @@ jobs:
                         prepared_state_fingerprint="sha256:prepared",
                         prepared_state_reuse_scope=scope,
                         prepared_state_reuse_manifest_path=(
-                            "target/.shardloom/prepared-state-reuse.manifest"
-                            if scope == "artifact_adjacent_manifest_local_vortex_artifacts"
+                            "not_applicable_single_vortex_artifact"
+                            if scope == "single_vortex_artifact_no_sidecar"
                             else "target/.shardloom/prepared-vortex-reuse-manifest.json"
                         ),
                         prepared_state_reuse_policy=(
-                            "artifact_adjacent_local_prepared_state_reuse.v1"
-                            if scope == "artifact_adjacent_manifest_local_vortex_artifacts"
+                            "single_vortex_artifact_no_sidecar.v1"
+                            if scope == "single_vortex_artifact_no_sidecar"
                             else "shardloom.python.prepared_vortex_reuse_manifest.v1"
                         ),
                         prepared_state_reuse_hit=True,
@@ -11896,7 +11896,7 @@ jobs:
                     generated_user = (
                         _source_prepared_row(
                             "generated_rows_local_output",
-                            "artifact_adjacent_manifest_local_vortex_artifacts",
+                            "single_vortex_artifact_no_sidecar",
                         ),
                     )
                     prepared_local = tuple(
@@ -11952,7 +11952,7 @@ jobs:
                         ),
                         all_no_fallback_no_external_engine=True,
                         all_prepared_routes_expose_reuse_contract=True,
-                        all_generated_routes_expose_artifact_adjacent_reuse=True,
+                        all_generated_routes_expose_single_artifact_output=True,
                         all_internal_source_smoke_routes_are_labeled_non_persistent=True,
                         all_local_file_prepared_rows_expose_source_and_reuse_evidence=True,
                         v1_scope_ready=True,

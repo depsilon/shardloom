@@ -558,7 +558,7 @@ def validate_public_front_door_rows(
             examples.append(f"{prefix}:required_evidence")
         elif front_door_id == "generated_source_prepare_vortex_front_door":
             if (
-                "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output"
+                "single_vortex_artifact_output_for_feature_gated_local_vortex_output"
                 not in evidence
             ):
                 examples.append(f"{prefix}:required_evidence")

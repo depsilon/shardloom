@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] REJECTED-PREPARED-OLAP-QUERY-SUMMARY-SIDECAR rejected design is recorded as non-runtime evidence.
+  - Date: 2026-06-21
+  - Source:
+    - ClickBench 100M local UAT and maintainer direction that public/default ShardLoom runtime must
+      use one prepared `.vortex` artifact only, with generic embedded layout/statistics metadata
+      rather than query-answer sidecars, materialized views, or per-query summaries.
+  - Disposition:
+    - Artifact-adjacent prepared OLAP query-summary sidecars are rejected for public/default
+      runtime, ClickBench methodology, and performance acceptance.
+    - Historical JSON rows under `rejected_prepared_olap_query_summary_sidecar_uat` remain
+      provenance only; they must not be consumed by primitive reruns, `prepare sql`,
+      `prepare dataframe`, Python/DataFrame front doors, public route evidence, or benchmark claim
+      gates.
+    - The accepted runtime model is `Universal Ingest -> SourceState -> single .vortex artifact ->
+      embedded Vortex layout/statistics posture -> native Vortex planner/operator route`.
+  - Claim boundary:
+    - This is a rejected-design ledger entry only. It makes no performance claim and does not
+      authorize query-result caching, query-answer summaries, or benchmark-specific payloads.
+  - Fallback boundary:
+    - No external engine fallback is introduced; admitted runtime remains ShardLoom-native/
+      Vortex-native with `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [x] PUBLIC-SURFACE-VORTEX-NORMALIZED-AUDIT-1 public front-door Vortex-normalized route audit is closed in PR #1347 / merge `4b0fe30d`.
+  - Date: 2026-06-21
+  - Source:
+    - Phase-plan `PUBLIC-SURFACE-VORTEX-NORMALIZED-AUDIT-1` and maintainer direction to collapse SQL/Python/DataFrame/CLI aliases into shared prepared/native Vortex runtime families.
+  - Scope:
+    - Inventoried public entrypoints and aliases across Python `ctx.read*`, SQL/dataframe CLI route/run/prepare, DataFrame-style lazy methods, capability reports, docs snippets, and website examples.
+    - Proved admitted compatibility inputs normalize through `Universal Ingest -> SourceState -> VortexPreparedState -> native_vortex_unified_plan -> typed result/sink`, while native `.vortex` inputs stay native.
+    - Removed product-looking direct/local-source/smoke route labels from successful public rows; the remaining `sql-local-source-smoke` surface is explicitly internal `internal_smoke_only` diagnostic coverage.
+    - Added public route reuse matrix evidence for source variants, native plan family, typed result/sink boundaries, prepared OLAP reuse posture, and no-fallback/no-external-engine fields.
+    - Updated route capability reports and status surfaces so equivalent SQL, Python, DataFrame-style, and CLI spellings report the same shared Vortex-prepared/native runtime spine.
+  - Evidence:
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json` passed with `stale_public_runtime_label_blocker_count=0`.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity.json` passed.
+    - `python3 scripts/check_clickbench_olap_runtime_coverage.py --output target/clickbench-olap-runtime-coverage.json` passed with 43/43 admitted ClickBench rows and no fallback/external-engine invocation.
+    - Focused public workflow route tests passed for equivalent SQL/dataframe local-file routes converging through the Vortex middle.
+    - PR #1347 merged with green required checks.
+  - Claim boundary:
+    - This closes route-family unification and runtime-surface audit evidence only. It does not make a public performance, production, superiority, object-store, Foundry, or official ClickBench claim.
+  - Fallback boundary:
+    - Admitted execution remains ShardLoom-native/Vortex-native. Unsupported external/platform-gated work fails deterministically with `fallback_attempted=false` and `external_engine_invoked=false`; Spark, DataFusion, DuckDB, Polars, pandas, Velox, and Vortex query-engine integrations remain disallowed as fallback execution.
+
 - [x] Session label: ClickBench 100M local UAT optimization burn-down
   - Date: 2026-06-20
   - Branch/PR: local main worktree, PR pending.

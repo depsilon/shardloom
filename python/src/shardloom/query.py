@@ -905,10 +905,9 @@ class _GeneratedStructuredOutputMixin:
 
         Generated rows already originate inside ShardLoom, so this routes through
         the real generated-source Vortex writer instead of a compatibility-file
-        ingest. The returned report exposes prepared-state fields; repeated
-        compatible calls can reuse the artifact-adjacent manifest for the
-        caller-owned local Vortex artifact when source, plan, policy, and
-        artifact fingerprints still match.
+        ingest. The returned report exposes single-artifact prepared-state
+        fields; repeated compatible calls rewrite the caller-owned local Vortex
+        artifact only when `allow_overwrite=True`.
         """
 
         stem_method = getattr(self, "_generated_vortex_stem")
@@ -6979,9 +6978,10 @@ class LazyFrame:
         """Prepare this raw local source into a caller-owned `VortexPreparedState`.
 
         When `workspace` is supplied without `target_vortex_path`, the target is derived as
-        `<workspace>/<source-stem>.vortex`. The real CLI `vortex-prepare` route owns
-        fingerprint-backed reuse and fail-closed invalidation through its artifact-adjacent
-        manifest. Supplying ``dim=...`` returns the queryable compatibility prepared route used by
+        `<workspace>/<source-stem>.vortex`. The real CLI `vortex-prepare` route writes the selected
+        single `.vortex` artifact and reports no-sidecar evidence; callers opt into replacing an
+        existing artifact with ``allow_overwrite=True``. Supplying ``dim=...`` returns the queryable
+        compatibility prepared route used by
         ``ctx.prepare_vortex(..., dim=..., workspace=...).query(...).collect()``.
         """
 
@@ -7064,6 +7064,7 @@ class LazyFrame:
         return self.client.vortex_prepare(
             self.source.uri,
             target,
+            schema=_prepare_vortex_schema_hints(self.source),
             allow_overwrite=allow_overwrite,
             certification_level=certification_level,
             check=check,
@@ -15770,6 +15771,14 @@ def _public_workflow_input_format(source: WorkflowSource) -> str:
         if lower.endswith(".ndjson"):
             return "ndjson"
     return source.source_format
+
+
+def _prepare_vortex_schema_hints(source: WorkflowSource) -> Mapping[str, object] | None:
+    """Return CLI schema hints only for text adapters that accept them."""
+
+    if source.source_format in {"csv", "json"}:
+        return source.schema or None
+    return None
 
 
 def _public_workflow_default_execution_policy(source: WorkflowSource) -> str:

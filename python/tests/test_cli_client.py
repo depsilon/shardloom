@@ -3563,7 +3563,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 workspace="target/prepared",
             )
 
-    def test_lazy_frame_prepare_vortex_auto_uses_artifact_manifest_reuse(
+    def test_lazy_frame_prepare_vortex_auto_uses_single_artifact_rewrite(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -3594,16 +3594,16 @@ class ShardLoomClientTests(unittest.TestCase):
                     target_path = Path(args[2])
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     source_text = source_path.read_text(encoding="utf-8")
-                    if "beta" in source_text:
+                    if allow_overwrite:
                         assert allow_overwrite, sys.argv
                         counts["writes"] += 1
-                        target_path.write_text(f"prepared drift {{counts['writes']}}", encoding="utf-8")
+                        target_path.write_text(f"prepared rewrite {{counts['writes']}}", encoding="utf-8")
                         status = "prepared_state_created"
                         created = "true"
                         reused = "false"
                         reuse_hit = "false"
-                        reuse_reason = "prepared_state_created_after_source_content_digest_changed"
-                        invalidation = "source_content_digest_changed"
+                        reuse_reason = "explicit_allow_overwrite_single_vortex_artifact_rewrite"
+                        invalidation = "explicit_allow_overwrite_single_vortex_artifact_rewrite"
                     elif counts["writes"] == 0:
                         counts["writes"] += 1
                         target_path.write_text(f"prepared {{counts['writes']}}", encoding="utf-8")
@@ -3611,15 +3611,10 @@ class ShardLoomClientTests(unittest.TestCase):
                         created = "true"
                         reused = "false"
                         reuse_hit = "false"
-                        reuse_reason = "no_reuse_manifest"
-                        invalidation = "no_reuse_manifest"
+                        reuse_reason = "public_prepare_writes_single_vortex_artifact_without_sidecar"
+                        invalidation = "not_applicable_single_vortex_artifact"
                     else:
-                        status = "prepared_state_reused_from_artifact_adjacent_manifest"
-                        created = "false"
-                        reused = "true"
-                        reuse_hit = "true"
-                        reuse_reason = "manifest_fingerprints_match"
-                        invalidation = "none"
+                        raise AssertionError("repeat public prepare requires explicit allow_overwrite")
                     count_path.write_text(json.dumps(counts), encoding="utf-8")
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
@@ -3647,8 +3642,11 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "prepared_state_created", "value": created}},
                             {{"key": "prepared_state_reused", "value": reused}},
                             {{"key": "prepared_state_reuse_hit", "value": reuse_hit}},
+                            {{"key": "prepared_state_reuse_scope", "value": "single_vortex_artifact_no_sidecar"}},
+                            {{"key": "prepared_state_reuse_manifest_path", "value": "not_applicable_single_vortex_artifact"}},
+                            {{"key": "prepared_state_reuse_policy", "value": "single_vortex_artifact_no_sidecar.v1"}},
                             {{"key": "prepared_state_reuse_reason", "value": reuse_reason}},
-                            {{"key": "prepared_state_reuse_manifest_digest", "value": "sha256:manifest-auto"}},
+                            {{"key": "prepared_state_reuse_manifest_digest", "value": "not_applicable_single_vortex_artifact"}},
                             {{"key": "prepared_state_invalidation_reason", "value": invalidation}},
                             {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
                             {{"key": "fallback_attempted", "value": "false"}},
@@ -3661,22 +3659,28 @@ class ShardLoomClientTests(unittest.TestCase):
             frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_csv(source)
 
             first = frame.prepare_vortex(workspace=workspace)
-            second = frame.prepare_vortex(workspace=workspace)
+            second = frame.prepare_vortex(workspace=workspace, allow_overwrite=True)
 
             self.assertIsInstance(first, VortexIngestSmokeReport)
             self.assertEqual(first.target_vortex_path, str(target))
             self.assertTrue(first.prepared_state_created)
             self.assertFalse(first.prepared_state_reuse_hit)
-            self.assertEqual(first.prepared_state_reuse_reason, "no_reuse_manifest")
             self.assertEqual(
-                second.vortex_ingest_status,
-                "prepared_state_reused_from_artifact_adjacent_manifest",
+                first.prepared_state_reuse_reason,
+                "public_prepare_writes_single_vortex_artifact_without_sidecar",
             )
-            self.assertFalse(second.prepared_state_created)
-            self.assertTrue(second.prepared_state_reused)
-            self.assertTrue(second.prepared_state_reuse_hit)
-            self.assertEqual(second.prepared_state_reuse_reason, "manifest_fingerprints_match")
-            self.assertEqual(second.prepared_state_invalidation_reason, "none")
+            self.assertEqual(second.vortex_ingest_status, "prepared_state_created")
+            self.assertTrue(second.prepared_state_created)
+            self.assertFalse(second.prepared_state_reused)
+            self.assertFalse(second.prepared_state_reuse_hit)
+            self.assertEqual(
+                second.prepared_state_reuse_reason,
+                "explicit_allow_overwrite_single_vortex_artifact_rewrite",
+            )
+            self.assertEqual(
+                second.prepared_state_invalidation_reason,
+                "explicit_allow_overwrite_single_vortex_artifact_rewrite",
+            )
             self.assertFalse(second.fallback_attempted)
             self.assertFalse(second.external_engine_invoked)
 
@@ -3685,16 +3689,167 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(third.prepared_state_reuse_hit)
             self.assertEqual(
                 third.prepared_state_reuse_reason,
-                "prepared_state_created_after_source_content_digest_changed",
+                "explicit_allow_overwrite_single_vortex_artifact_rewrite",
             )
             self.assertEqual(
                 third.prepared_state_invalidation_reason,
-                "source_content_digest_changed",
+                "explicit_allow_overwrite_single_vortex_artifact_rewrite",
             )
             self.assertEqual(
                 json.loads(count_path.read_text(encoding="utf-8")),
-                {"cli": 3, "writes": 2},
+                {"cli": 3, "writes": 3},
             )
+
+    def test_lazy_frame_prepare_vortex_forwards_declared_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source = root / "source.csv"
+            workspace = root / "prepared"
+            target = workspace / "source.vortex"
+            source.write_text("id,label\n1,alpha\n", encoding="utf-8")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+
+                    args = sys.argv[1:]
+                    assert args[0:3] == [
+                        "vortex-prepare",
+                        {str(source)!r},
+                        {str(target)!r},
+                    ], sys.argv
+                    assert "--schema" in args, sys.argv
+                    assert args[args.index("--schema") + 1] == "id:int64,label:utf8", sys.argv
+                    assert args[-2:] == ["--format", "json"], sys.argv
+                    Path(args[2]).parent.mkdir(parents=True, exist_ok=True)
+                    Path(args[2]).write_text("prepared", encoding="utf-8")
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "vortex-prepare",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "source_path", "value": args[1]}},
+                            {{"key": "target_vortex_path", "value": args[2]}},
+                            {{"key": "source_format", "value": "csv"}},
+                            {{"key": "vortex_ingest_status", "value": "prepared_state_created"}},
+                            {{"key": "prepared_state_id", "value": "vortex-prepared-state-schema"}},
+                            {{"key": "prepared_state_digest", "value": "sha256:prepared-schema"}},
+                            {{"key": "vortex_artifact_digest", "value": "sha256:vortex-schema"}},
+                            {{"key": "input_row_count", "value": "1"}},
+                            {{"key": "writer_row_count", "value": "1"}},
+                            {{"key": "reopen_row_count", "value": "1"}},
+                            {{"key": "reopen_verification_status", "value": "reopen_metadata_row_count_verified"}},
+                            {{"key": "certification_level", "value": "ingest_certified"}},
+                            {{"key": "certification_status", "value": "fixture_smoke_certified"}},
+                            {{"key": "source_state_materialization_layout", "value": "schema_declared_text_to_streaming_arrow_record_batch_source_state"}},
+                            {{"key": "source_state_parse_normalization", "value": "schema_declared_text_to_record_batch_stream"}},
+                            {{"key": "source_io_performed", "value": "true"}},
+                            {{"key": "prepared_state_created", "value": "true"}},
+                            {{"key": "prepared_state_reused", "value": "false"}},
+                            {{"key": "prepared_state_reuse_hit", "value": "false"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_csv(
+                source,
+                schema={"id": "int64", "label": "utf8"},
+            )
+
+            result = frame.prepare_vortex(workspace=workspace)
+
+            self.assertIsInstance(result, VortexIngestSmokeReport)
+            self.assertEqual(result.source_path, str(source))
+            self.assertEqual(result.target_vortex_path, str(target))
+            self.assertEqual(
+                result.source_state_materialization_layout,
+                "schema_declared_text_to_streaming_arrow_record_batch_source_state",
+            )
+            self.assertEqual(
+                result.source_state_parse_normalization,
+                "schema_declared_text_to_record_batch_stream",
+            )
+            self.assertFalse(result.fallback_attempted)
+            self.assertFalse(result.external_engine_invoked)
+
+    def test_lazy_frame_prepare_vortex_does_not_forward_columnar_schema_hints(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source = root / "source.parquet"
+            workspace = root / "prepared"
+            target = workspace / "source.vortex"
+            source.write_bytes(b"not-a-real-parquet-file; fake CLI only")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+
+                    args = sys.argv[1:]
+                    assert args[0:3] == [
+                        "vortex-prepare",
+                        {str(source)!r},
+                        {str(target)!r},
+                    ], sys.argv
+                    assert "--schema" not in args, sys.argv
+                    assert args[-2:] == ["--format", "json"], sys.argv
+                    Path(args[2]).parent.mkdir(parents=True, exist_ok=True)
+                    Path(args[2]).write_text("prepared", encoding="utf-8")
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "vortex-prepare",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "source_path", "value": args[1]}},
+                            {{"key": "target_vortex_path", "value": args[2]}},
+                            {{"key": "source_format", "value": "parquet"}},
+                            {{"key": "vortex_ingest_status", "value": "prepared_state_created"}},
+                            {{"key": "prepared_state_id", "value": "vortex-prepared-state-columnar-schema"}},
+                            {{"key": "prepared_state_digest", "value": "sha256:prepared-columnar-schema"}},
+                            {{"key": "vortex_artifact_digest", "value": "sha256:vortex-columnar-schema"}},
+                            {{"key": "input_row_count", "value": "1"}},
+                            {{"key": "writer_row_count", "value": "1"}},
+                            {{"key": "reopen_row_count", "value": "1"}},
+                            {{"key": "reopen_verification_status", "value": "reopen_metadata_row_count_verified"}},
+                            {{"key": "certification_level", "value": "ingest_certified"}},
+                            {{"key": "certification_status", "value": "fixture_smoke_certified"}},
+                            {{"key": "source_io_performed", "value": "true"}},
+                            {{"key": "prepared_state_created", "value": "true"}},
+                            {{"key": "prepared_state_reused", "value": "false"}},
+                            {{"key": "prepared_state_reuse_hit", "value": "false"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_parquet(
+                source,
+                schema={"id": "int64", "label": "utf8"},
+            )
+
+            result = frame.prepare_vortex(workspace=workspace)
+
+            self.assertIsInstance(result, VortexIngestSmokeReport)
+            self.assertEqual(result.source_path, str(source))
+            self.assertEqual(result.target_vortex_path, str(target))
+            self.assertFalse(result.fallback_attempted)
+            self.assertFalse(result.external_engine_invoked)
 
     def test_lazy_frame_prepare_vortex_route_is_queryable_when_dim_is_supplied(
         self,
@@ -4096,10 +4251,12 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "prepared_state_created", "value": "true"}},
                             {{"key": "prepared_state_reused", "value": "false"}},
                             {{"key": "prepared_state_reuse_hit", "value": "false"}},
-                            {{"key": "prepared_state_reuse_scope", "value": "artifact_adjacent_manifest_local_vortex_artifacts"}},
-                            {{"key": "prepared_state_reuse_reason", "value": "prepared_state_created_after_no_reuse_manifest"}},
-                            {{"key": "prepared_state_reuse_manifest_digest", "value": "fnv64:generated-manifest"}},
-                            {{"key": "prepared_state_invalidation_reason", "value": "no_reuse_manifest"}},
+                            {{"key": "prepared_state_reuse_scope", "value": "single_vortex_artifact_no_sidecar"}},
+                            {{"key": "prepared_state_reuse_manifest_path", "value": "not_applicable_single_vortex_artifact"}},
+                            {{"key": "prepared_state_reuse_policy", "value": "single_vortex_artifact_no_sidecar.v1"}},
+                            {{"key": "prepared_state_reuse_reason", "value": "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar"}},
+                            {{"key": "prepared_state_reuse_manifest_digest", "value": "not_applicable_single_vortex_artifact"}},
+                            {{"key": "prepared_state_invalidation_reason", "value": "not_applicable_single_vortex_artifact"}},
                             {{"key": "upstream_vortex_write_called", "value": "true"}},
                             {{"key": "upstream_vortex_scan_called", "value": "true"}},
                             {{"key": "fallback_attempted", "value": "false"}},
@@ -4127,15 +4284,15 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(report.prepared_state_reuse_hit)
             self.assertEqual(
                 report.prepared_state_reuse_scope,
-                "artifact_adjacent_manifest_local_vortex_artifacts",
+                "single_vortex_artifact_no_sidecar",
             )
             self.assertEqual(
                 report.prepared_state_reuse_reason,
-                "prepared_state_created_after_no_reuse_manifest",
+                "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar",
             )
             self.assertEqual(
                 report.prepared_state_reuse_manifest_digest,
-                "fnv64:generated-manifest",
+                "not_applicable_single_vortex_artifact",
             )
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)

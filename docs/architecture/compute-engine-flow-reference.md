@@ -160,7 +160,7 @@ call PulseWeave, capillary, or metadata-first APIs by hand.
 
 | Operator family | Current hot-path posture | Required evidence |
 | --- | --- | --- |
-| Aggregate/distinct | Direct typed/dictionary scalar `count`/`sum`/`avg`/`min`/`max` and `count_distinct`, repeated numeric SUM/AVG expression fusion over shared accessors, exact dictionary distinct over used codes rather than unused dictionary values, compact count/sum/avg grouped state including exact UTF-8 `length(...)` measures, typed numeric-pair state, typed numeric/minute/string count state, transformed dictionary URL-domain/length grouping, and exact chunk-local materialized UTF-8 partial grouping when dictionary codes are not surfaced. Accessor evidence separates true Vortex dictionary codes from chunk-local UTF-8 dictionaries and materialized values. | `aggregate_update_strategy`, `aggregate_accessor_summary`, `aggregate_accessor_materialization_status`, `aggregate_accessor_blockers`, `expression_fusion_strategy`, `expression_plan_fingerprint_status`, `aggregate_key_encoding_mode`, `compact_group_state_strategy`, `distinct_state_strategy`, `group_state_mode`, `decoded_string_count`, `estimated_group_key_storage_bytes` |
+| Aggregate/distinct | Direct typed/dictionary scalar `count`/`sum`/`avg`/`min`/`max` and `count_distinct`, repeated numeric SUM/AVG expression fusion over shared accessors, exact dictionary distinct over used codes rather than unused dictionary values, compact count/sum/avg grouped state including exact UTF-8 `length(...)` measures, typed numeric-pair state, typed numeric/minute/string count state, transformed dictionary URL-domain/length grouping, exact chunk-local UTF-8 dictionary grouping when Vortex dictionary codes are not surfaced, and streaming count-star top-K finalization for exact count-only ordered groups. Accessor evidence separates true Vortex dictionary codes from chunk-local UTF-8 dictionaries and materialized values. | `aggregate_update_strategy`, `aggregate_accessor_summary`, `aggregate_accessor_materialization_status`, `aggregate_accessor_blockers`, `expression_fusion_strategy`, `expression_plan_fingerprint_status`, `aggregate_key_encoding_mode`, `compact_group_state_strategy`, `distinct_state_strategy`, `group_output_strategy`, `group_state_mode`, `capillary_work_units`, `pulseweave_pressure_signals`, `decoded_string_count`, `estimated_group_key_storage_bytes` |
 | String predicates | Safe Vortex pushdown first, ShardLoom residual UTF-8 byte predicates where needed, selected-row masks before materialization. | `filter_pushdown_applied`, `residual_predicate_materialization`, selected/materialized row counts |
 | Bounded top-K/order | Capillary select-nth retained windows, source ordinals, dynamic row-reference candidate scans for large bounded payload projections, final retained-row materialization from the single `.vortex` artifact. | `bounded_topk_strategy`, `retention_selection_strategy`, `candidate_rows_seen`, `retained_candidate_rows`, `late_output_materialization`, `row_ref_topk_materialization_policy` |
 | Metadata/layout | Vortex footer/statistics pruning before scan where available; prepared `.vortex` artifacts now expose single-artifact OLAP posture from the artifact itself: writer/layout strategy, row-block sizing, root/layout encodings, segment-map membership, dictionary/domain status, derived layout-stat posture, row-position locality, and layout-reader cache status. Richer domain-specific indexes still require measured proof before any speed claim. | `embedded_layout_planner_consumption_status`, selected/skipped segments, `layout_encoding_inventory`, `segment_membership_status`, `domain_dictionary_status`, `row_position_locality_status`, no-query-answer-cache posture |
@@ -171,9 +171,36 @@ Universal Ingest source-state evidence now separates source-native units from em
 `source_state_dictionary_preservation_status` identify whether the prepared Vortex artifact was fed
 by product columnar stream batches, Parquet row-group hints, Arrow IPC batch hints, or a scalar text
 adapter. Parquet product preparation can additionally report
-`source_state_ingest_executor_status=bounded_capillary_row_group_parallel_active` with a
-coalesced row-group task count when `max_parallelism` admits source-native parallel read work before
-the single `.vortex` writer boundary.
+`source_state_ingest_executor_status=bounded_capillary_row_group_parallel_writer_budgeted` with a
+coalesced row-group task count when the requested parallelism leaves source-reader capacity after
+reserving Vortex-normalization and single `.vortex` writer/layout lanes. At `max_parallelism=2`,
+large-source preparation uses one source-to-Vortex normalization lane and one writer/layout lane;
+higher values admit additional coalesced row-group source work. Large columnar sources may use the
+`product_columnar_stream_batch_size_262144_rows` capillary stream policy to reduce writer handoff
+and segment metadata churn; smaller product sources keep the 65,536-row policy.
+
+Large streaming prepared artifacts keep the same single-file runtime contract and use the retained
+custom ShardLoom large-source writer strategy when the layout advisor admits it. UAT rejected the
+upstream Vortex default writer for this 100M streaming shape because it produced less temp output
+over the same safety window, so the default product route does not switch to upstream-default
+writer behavior. The active ingest optimization instead uses Capillary/PulseWeave-style source and
+writer overlap plus a source-text dictionary-Zstd writer profile: Parquet row-group workers emit
+ordered `RecordBatch` units as soon as they are read instead of buffering an entire coalesced task
+before the writer can proceed, while known source text fields use Vortex dictionary-Zstd
+compression and typed/numeric fields stay on the faster flat/zoned/stat path. Rejected variants
+include physical hidden derived-column synthesis for large Parquet streams, separate physical
+batch coalescing ahead of the source stream, and upstream-default writer substitution.
+
+Universal Ingest can also embed exact reusable derived columns in that same `.vortex` artifact when
+the source adapter can produce them without making large preparation slower. The retained derived
+families are compact `UInt32` UTF-8 byte length for high-value URL/search/title text fields and
+dictionary-encoded URL/Referer/URI domain extraction for URL-like fields. These columns are internal
+storage/layout features: user `select *` output hides `__shardloom_derived_*` fields, while native
+predicate and aggregate planning can consume them for `length(...)`, URL-domain grouping, and
+non-empty string predicates before row export. For URL-like fields, the admitted typed-text bridge
+derives byte length and domain in one pass over the source strings. Product columnar adapters report
+`embedded_derived_columns=not_synthesized_source_native_columnar_adapter` until a source-native or
+dictionary-aware generator is proven faster than the baseline.
 
 Common local prepared route:
 

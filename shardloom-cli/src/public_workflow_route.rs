@@ -2441,6 +2441,26 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_retention_flush_threshold",
         ),
         ("predicate_strategy", "local_primitive_predicate_strategy"),
+        (
+            "string_count_topk_heavy_hitter_second_pass",
+            "local_primitive_string_count_topk_heavy_hitter_second_pass",
+        ),
+        (
+            "string_count_topk_heavy_hitter_candidate_groups",
+            "local_primitive_string_count_topk_heavy_hitter_candidate_groups",
+        ),
+        (
+            "string_count_topk_heavy_hitter_capacity",
+            "local_primitive_string_count_topk_heavy_hitter_capacity",
+        ),
+        (
+            "string_count_topk_heavy_hitter_threshold",
+            "local_primitive_string_count_topk_heavy_hitter_threshold",
+        ),
+        (
+            "string_count_topk_heavy_hitter_exact_proof",
+            "local_primitive_string_count_topk_heavy_hitter_exact_proof",
+        ),
     ] {
         if let Some(value) = object.get(summary_key) {
             push_field(fields, field_key, json_value_to_field_string(value));

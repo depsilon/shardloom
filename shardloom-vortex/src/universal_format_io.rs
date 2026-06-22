@@ -1,10 +1,12 @@
 //! Feature-gated local compatibility-format I/O for runtime promotion.
 //!
 //! These helpers are compatibility input adapters, not fallback execution
-//! engines. They decode admitted local file formats into `ShardLoom` scalar rows
-//! and encode admitted local sink formats from `ShardLoom` scalar rows so
-//! caller-owned runtime paths can emit explicit materialization/write evidence
-//! and fail closed for unsupported Arrow types.
+//! engines. Scoped smoke paths may decode admitted local file formats into
+//! `ShardLoom` scalar rows, while product ingest paths preserve typed Arrow
+//! `RecordBatch` streams for Vortex writes whenever the source adapter can
+//! expose them. Compatibility sinks still encode admitted scalar rows with
+//! explicit materialization/write evidence and fail closed for unsupported Arrow
+//! types.
 
 use std::{
     cell::RefCell,
@@ -15,7 +17,7 @@ use std::{
     rc::Rc,
     sync::{
         Arc, Mutex,
-        mpsc::{self, Receiver},
+        mpsc::{self, Receiver, SyncSender},
     },
     thread::{self, JoinHandle},
 };
@@ -28,21 +30,28 @@ use arrow_array::{
     TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
     builder::{
         ArrayBuilder, BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder,
-        Float64Builder, Int64Builder, ListBuilder, StringBuilder, StructBuilder,
-        TimestampMicrosecondBuilder, UInt64Builder, make_builder,
+        Float64Builder, Int64Builder, ListBuilder, StringBuilder, StringDictionaryBuilder,
+        StructBuilder, TimestampMicrosecondBuilder, UInt32Builder, UInt64Builder, make_builder,
     },
+    types::Int32Type,
 };
 use arrow_schema::{ArrowError, DataType, Field, Fields, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
 
 const SCOPED_COMPAT_RECORD_BATCH_ROWS: usize = 8_192;
 pub const PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS: usize = 65_536;
+pub const PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS: usize = 262_144;
+const PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD: usize = 10_000_000;
 const PARQUET_PARALLEL_ROW_GROUPS_PER_TASK: usize = 16;
+const PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER: usize = 2;
+const PRODUCT_COLUMNAR_STREAM_POLICY: &str = "product_columnar_stream_batch_size_65536_rows";
+const PRODUCT_COLUMNAR_LARGE_STREAM_POLICY: &str = "product_columnar_stream_batch_size_262144_rows";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct FlatColumnarStreamSourcePlan {
     record_batch_count_hint: Option<usize>,
     source_unit_count_hint: Option<usize>,
+    source_unit_row_ranges: Option<Vec<(usize, usize)>>,
     source_unit_hint_kind: &'static str,
     stream_batch_size: usize,
     stream_policy: &'static str,
@@ -54,6 +63,7 @@ impl FlatColumnarStreamSourcePlan {
         Self {
             record_batch_count_hint: Some(record_batch_count_hint),
             source_unit_count_hint: Some(record_batch_count_hint),
+            source_unit_row_ranges: None,
             source_unit_hint_kind: "source_defined_record_batch_count",
             stream_batch_size: 0,
             stream_policy: "source_defined_record_batches",
@@ -67,24 +77,36 @@ impl FlatColumnarStreamSourcePlan {
         source_unit_hint_kind: &'static str,
         dictionary_preservation_status: &'static str,
     ) -> Self {
+        let stream_batch_size = product_columnar_stream_record_batch_rows(max_rows);
         Self {
             record_batch_count_hint: None,
             source_unit_count_hint,
+            source_unit_row_ranges: None,
             source_unit_hint_kind,
-            stream_batch_size: product_columnar_stream_record_batch_rows(max_rows),
-            stream_policy: "product_columnar_stream_batch_size_65536_rows",
+            stream_batch_size,
+            stream_policy: product_columnar_stream_policy(stream_batch_size),
             dictionary_preservation_status,
         }
     }
 }
 
-const fn product_columnar_stream_record_batch_rows(max_rows: usize) -> usize {
+fn product_columnar_stream_record_batch_rows(max_rows: usize) -> usize {
     if max_rows == 0 {
         1
     } else if max_rows < PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS {
         max_rows
+    } else if max_rows >= PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD {
+        PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
     } else {
         PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS
+    }
+}
+
+const fn product_columnar_stream_policy(stream_batch_size: usize) -> &'static str {
+    if stream_batch_size == PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS {
+        PRODUCT_COLUMNAR_LARGE_STREAM_POLICY
+    } else {
+        PRODUCT_COLUMNAR_STREAM_POLICY
     }
 }
 /// Materialized scalar rows produced by a scoped local compatibility adapter.
@@ -158,6 +180,8 @@ pub struct FlatLocalColumnarStreamSource {
     pub source_stream_batch_size: usize,
     /// Source-native work-unit count when known before streaming.
     pub source_stream_unit_count_hint: Option<usize>,
+    /// Exact source-native work-unit row ranges when known before streaming.
+    pub source_stream_unit_row_ranges: Option<Vec<(usize, usize)>>,
     /// Meaning of `source_stream_unit_count_hint`.
     pub source_stream_unit_hint_kind: String,
     /// Stream shaping policy applied before the Vortex writer consumes batches.
@@ -225,15 +249,145 @@ impl RecordBatchReader for CapillaryPrefetchRecordBatchReader {
     }
 }
 
+struct VecRecordBatchReader {
+    schema: SchemaRef,
+    batches: VecDeque<RecordBatch>,
+}
+
+impl VecRecordBatchReader {
+    fn new(schema: SchemaRef, batches: VecDeque<RecordBatch>) -> Self {
+        Self { schema, batches }
+    }
+}
+
+impl Iterator for VecRecordBatchReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.batches.pop_front().map(Ok)
+    }
+}
+
+impl RecordBatchReader for VecRecordBatchReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EmbeddedDerivedColumnKind {
+    Utf8Length,
+    UrlDomain,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EmbeddedDerivedColumnSpec {
+    source_index: usize,
+    source_column: String,
+    output_column: String,
+    kind: EmbeddedDerivedColumnKind,
+}
+
+struct EmbeddedDerivedColumnRecordBatchReader {
+    schema: SchemaRef,
+    inner: Box<dyn RecordBatchReader + Send>,
+    specs: Vec<EmbeddedDerivedColumnSpec>,
+}
+
+impl Iterator for EmbeddedDerivedColumnRecordBatchReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|batch| {
+            batch.and_then(|batch| {
+                append_embedded_derived_columns_to_batch(&batch, &self.schema, &self.specs)
+                    .map_err(|error| ArrowError::ExternalError(Box::new(error)))
+            })
+        })
+    }
+}
+
+impl RecordBatchReader for EmbeddedDerivedColumnRecordBatchReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
+struct TextRowsRecordBatchReader {
+    schema: SchemaRef,
+    header: Vec<String>,
+    rows: Vec<Vec<(String, ScalarValue)>>,
+    next_row: usize,
+    batch_size: usize,
+    context: String,
+}
+
+impl TextRowsRecordBatchReader {
+    fn new(
+        schema: SchemaRef,
+        header: Vec<String>,
+        rows: Vec<Vec<(String, ScalarValue)>>,
+        batch_size: usize,
+        context: String,
+    ) -> Self {
+        Self {
+            schema,
+            header,
+            rows,
+            next_row: 0,
+            batch_size: batch_size.max(1),
+            context,
+        }
+    }
+}
+
+impl Iterator for TextRowsRecordBatchReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next_row >= self.rows.len() {
+            return None;
+        }
+        let start = self.next_row;
+        let end = start.saturating_add(self.batch_size).min(self.rows.len());
+        self.next_row = end;
+        Some(
+            flat_rows_to_record_batch_with_schema(
+                Arc::clone(&self.schema),
+                &self.header,
+                &self.rows[start..end],
+                &self.context,
+            )
+            .map_err(|error| ArrowError::ComputeError(error.to_string())),
+        )
+    }
+}
+
+impl RecordBatchReader for TextRowsRecordBatchReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
 #[derive(Debug)]
 struct ParquetRowGroupReadTask {
     task_index: usize,
     row_groups: Vec<usize>,
 }
 
-struct ParquetRowGroupReadResult {
-    task_index: usize,
-    result: std::result::Result<VecDeque<RecordBatch>, ArrowError>,
+enum ParquetRowGroupReadResult {
+    Batch {
+        task_index: usize,
+        batch_index: usize,
+        result: std::result::Result<RecordBatch, ArrowError>,
+    },
+    TaskComplete {
+        task_index: usize,
+    },
+    TaskError {
+        task_index: usize,
+        error: ArrowError,
+    },
 }
 
 struct ParquetRowGroupParallelRecordBatchReader {
@@ -241,9 +395,11 @@ struct ParquetRowGroupParallelRecordBatchReader {
     receiver: Option<Receiver<ParquetRowGroupReadResult>>,
     workers: Vec<JoinHandle<()>>,
     next_task_index: usize,
+    next_batch_index: usize,
     task_count: usize,
-    pending: BTreeMap<usize, std::result::Result<VecDeque<RecordBatch>, ArrowError>>,
-    current: VecDeque<RecordBatch>,
+    pending: BTreeMap<(usize, usize), std::result::Result<RecordBatch, ArrowError>>,
+    completed_tasks: BTreeSet<usize>,
+    task_errors: BTreeMap<usize, ArrowError>,
 }
 
 impl ParquetRowGroupParallelRecordBatchReader {
@@ -266,8 +422,10 @@ impl ParquetRowGroupParallelRecordBatchReader {
         }
         let task_count = tasks.len();
         let shared_tasks = Arc::new(Mutex::new(tasks));
-        let (sender, receiver) = mpsc::channel();
         let worker_count = applied_parallelism.max(1).min(task_count.max(1));
+        let result_queue_capacity =
+            worker_count.max(1) * PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER;
+        let (sender, receiver) = mpsc::sync_channel(result_queue_capacity.max(1));
         let mut workers = Vec::with_capacity(worker_count);
         for _ in 0..worker_count {
             let worker_path = path.clone();
@@ -282,12 +440,22 @@ impl ParquetRowGroupParallelRecordBatchReader {
                     let Some(task) = task else {
                         break;
                     };
-                    let result =
-                        read_parquet_row_group_batches(&worker_path, task.row_groups, batch_size);
-                    if worker_sender
-                        .send(ParquetRowGroupReadResult {
+                    if let Err(error) = stream_parquet_row_group_batches(
+                        &worker_path,
+                        task.task_index,
+                        task.row_groups,
+                        batch_size,
+                        &worker_sender,
+                    ) {
+                        let _ = worker_sender.send(ParquetRowGroupReadResult::TaskError {
                             task_index: task.task_index,
-                            result,
+                            error,
+                        });
+                        break;
+                    }
+                    if worker_sender
+                        .send(ParquetRowGroupReadResult::TaskComplete {
+                            task_index: task.task_index,
                         })
                         .is_err()
                     {
@@ -302,9 +470,11 @@ impl ParquetRowGroupParallelRecordBatchReader {
             receiver: Some(receiver),
             workers,
             next_task_index: 0,
+            next_batch_index: 0,
             task_count,
             pending: BTreeMap::new(),
-            current: VecDeque::new(),
+            completed_tasks: BTreeSet::new(),
+            task_errors: BTreeMap::new(),
         }
     }
 
@@ -321,25 +491,25 @@ impl Iterator for ParquetRowGroupParallelRecordBatchReader {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(batch) = self.current.pop_front() {
-                return Some(Ok(batch));
-            }
             if self.next_task_index >= self.task_count {
                 self.close_and_join();
                 return None;
             }
-            if let Some(result) = self.pending.remove(&self.next_task_index) {
+            if let Some(error) = self.task_errors.remove(&self.next_task_index) {
+                self.close_and_join();
+                return Some(Err(error));
+            }
+            if let Some(result) = self
+                .pending
+                .remove(&(self.next_task_index, self.next_batch_index))
+            {
+                self.next_batch_index += 1;
+                return Some(result);
+            }
+            if self.completed_tasks.remove(&self.next_task_index) {
                 self.next_task_index += 1;
-                match result {
-                    Ok(mut batches) => {
-                        self.current.append(&mut batches);
-                        continue;
-                    }
-                    Err(error) => {
-                        self.close_and_join();
-                        return Some(Err(error));
-                    }
-                }
+                self.next_batch_index = 0;
+                continue;
             }
             let Some(receiver) = self.receiver.as_ref() else {
                 self.close_and_join();
@@ -349,7 +519,21 @@ impl Iterator for ParquetRowGroupParallelRecordBatchReader {
                 )));
             };
             if let Ok(result) = receiver.recv() {
-                self.pending.insert(result.task_index, result.result);
+                match result {
+                    ParquetRowGroupReadResult::Batch {
+                        task_index,
+                        batch_index,
+                        result,
+                    } => {
+                        self.pending.insert((task_index, batch_index), result);
+                    }
+                    ParquetRowGroupReadResult::TaskComplete { task_index } => {
+                        self.completed_tasks.insert(task_index);
+                    }
+                    ParquetRowGroupReadResult::TaskError { task_index, error } => {
+                        self.task_errors.insert(task_index, error);
+                    }
+                }
             } else {
                 self.close_and_join();
                 return Some(Err(ArrowError::ComputeError(
@@ -377,11 +561,19 @@ fn parquet_row_group_parallel_task_count(row_group_count: usize) -> usize {
     row_group_count.div_ceil(PARQUET_PARALLEL_ROW_GROUPS_PER_TASK)
 }
 
-fn read_parquet_row_group_batches(
+fn parquet_row_group_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
+    // Reserve one lane for Vortex array normalization and one for the writer.
+    // Additional lanes can be assigned to source-native row-group reads.
+    requested_max_parallelism.saturating_sub(2)
+}
+
+fn stream_parquet_row_group_batches(
     path: &Path,
+    task_index: usize,
     row_groups: Vec<usize>,
     batch_size: usize,
-) -> std::result::Result<VecDeque<RecordBatch>, ArrowError> {
+    sender: &SyncSender<ParquetRowGroupReadResult>,
+) -> std::result::Result<(), ArrowError> {
     let file = File::open(path).map_err(ArrowError::from)?;
     let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
         .map_err(|error| ArrowError::ParquetError(error.to_string()))?
@@ -389,11 +581,19 @@ fn read_parquet_row_group_batches(
         .with_row_groups(row_groups)
         .build()
         .map_err(|error| ArrowError::ParquetError(error.to_string()))?;
-    let mut batches = VecDeque::new();
-    for batch in reader {
-        batches.push_back(batch?);
+    for (batch_index, batch) in reader.enumerate() {
+        if sender
+            .send(ParquetRowGroupReadResult::Batch {
+                task_index,
+                batch_index,
+                result: batch,
+            })
+            .is_err()
+        {
+            break;
+        }
     }
-    Ok(batches)
+    Ok(())
 }
 
 struct RowLimitRecordBatchReader<R> {
@@ -487,16 +687,30 @@ fn validate_known_stream_row_count(
     Ok(())
 }
 
+fn contiguous_batch_row_ranges(row_count: usize, batch_size: usize) -> Vec<(usize, usize)> {
+    if row_count == 0 {
+        return Vec::new();
+    }
+    let batch_size = batch_size.max(1);
+    (0..row_count)
+        .step_by(batch_size)
+        .map(|start| {
+            let end = (start + batch_size).min(row_count);
+            (start, end)
+        })
+        .collect()
+}
+
 fn flat_columnar_stream_source_from_reader(
     schema: &Schema,
     header: Vec<String>,
     materialized_columns: Vec<String>,
     reader_projection_columns: Vec<String>,
     row_count_hint: Option<usize>,
-    stream_plan: FlatColumnarStreamSourcePlan,
+    stream_plan: &FlatColumnarStreamSourcePlan,
     reader: Box<dyn RecordBatchReader + Send>,
 ) -> FlatLocalColumnarStreamSource {
-    FlatLocalColumnarStreamSource {
+    let mut source = FlatLocalColumnarStreamSource {
         column_dtypes: source_schema_column_dtypes(schema),
         column_arrow_dtypes: source_schema_column_arrow_dtypes(schema),
         header,
@@ -506,6 +720,7 @@ fn flat_columnar_stream_source_from_reader(
         record_batch_count_hint: stream_plan.record_batch_count_hint,
         source_stream_batch_size: stream_plan.stream_batch_size,
         source_stream_unit_count_hint: stream_plan.source_unit_count_hint,
+        source_stream_unit_row_ranges: stream_plan.source_unit_row_ranges.clone(),
         source_stream_unit_hint_kind: stream_plan.source_unit_hint_kind.to_string(),
         source_stream_policy: stream_plan.stream_policy.to_string(),
         source_dictionary_preservation_status: stream_plan
@@ -519,7 +734,295 @@ fn flat_columnar_stream_source_from_reader(
             .source_unit_count_hint
             .or(stream_plan.record_batch_count_hint),
         reader,
+    };
+    source.source_dictionary_preservation_status = format!(
+        "{};embedded_derived_columns=not_synthesized_source_native_columnar_adapter",
+        source.source_dictionary_preservation_status
+    );
+    source
+}
+
+#[must_use]
+pub fn with_embedded_derived_columns_columnar_stream_source(
+    source: FlatLocalColumnarStreamSource,
+) -> FlatLocalColumnarStreamSource {
+    attach_embedded_derived_columns_to_stream_source(source)
+}
+
+fn attach_embedded_derived_columns_to_stream_source(
+    mut source: FlatLocalColumnarStreamSource,
+) -> FlatLocalColumnarStreamSource {
+    let input_schema = source.reader.schema();
+    let specs = embedded_derived_column_specs(input_schema.as_ref());
+    if specs.is_empty() {
+        return source;
     }
+    let output_schema = embedded_derived_column_schema(input_schema.as_ref(), &specs);
+    let output_schema = Arc::new(output_schema);
+    for spec in &specs {
+        source.header.push(spec.output_column.clone());
+        source.materialized_columns.push(spec.output_column.clone());
+        source
+            .reader_projection_columns
+            .push(spec.output_column.clone());
+    }
+    source.column_dtypes = source_schema_column_dtypes(output_schema.as_ref());
+    source.column_arrow_dtypes = source_schema_column_arrow_dtypes(output_schema.as_ref());
+    source.source_dictionary_preservation_status = format!(
+        "{};embedded_derived_columns={}",
+        source.source_dictionary_preservation_status,
+        specs
+            .iter()
+            .map(|spec| spec.output_column.as_str())
+            .collect::<Vec<_>>()
+            .join("|")
+    );
+    source.reader = Box::new(EmbeddedDerivedColumnRecordBatchReader {
+        schema: Arc::clone(&output_schema),
+        inner: source.reader,
+        specs,
+    });
+    source
+}
+
+fn embedded_derived_column_schema(
+    input_schema: &Schema,
+    specs: &[EmbeddedDerivedColumnSpec],
+) -> Schema {
+    let mut fields = input_schema
+        .fields()
+        .iter()
+        .map(|field| field.as_ref().clone())
+        .collect::<Vec<_>>();
+    for spec in specs {
+        let data_type = match spec.kind {
+            EmbeddedDerivedColumnKind::Utf8Length => DataType::UInt32,
+            EmbeddedDerivedColumnKind::UrlDomain => {
+                DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8))
+            }
+        };
+        fields.push(Field::new(&spec.output_column, data_type, true));
+    }
+    Schema::new(fields)
+}
+
+fn embedded_derived_column_specs(schema: &Schema) -> Vec<EmbeddedDerivedColumnSpec> {
+    let existing = schema
+        .fields()
+        .iter()
+        .map(|field| field.name().as_str())
+        .collect::<BTreeSet<_>>();
+    let mut specs = Vec::new();
+    for (source_index, field) in schema.fields().iter().enumerate() {
+        let source_column = field.name();
+        if is_shardloom_hidden_derived_column(source_column)
+            || !is_utf8_arrow_dtype(field.data_type())
+        {
+            continue;
+        }
+        let length_column = shardloom_utf8_length_derived_column(source_column);
+        if should_embed_utf8_length_column(source_column)
+            && !existing.contains(length_column.as_str())
+        {
+            specs.push(EmbeddedDerivedColumnSpec {
+                source_index,
+                source_column: source_column.to_string(),
+                output_column: length_column,
+                kind: EmbeddedDerivedColumnKind::Utf8Length,
+            });
+        }
+        if is_url_like_column_name(source_column) {
+            let domain_column = shardloom_url_domain_derived_column(source_column);
+            if !existing.contains(domain_column.as_str()) {
+                specs.push(EmbeddedDerivedColumnSpec {
+                    source_index,
+                    source_column: source_column.to_string(),
+                    output_column: domain_column,
+                    kind: EmbeddedDerivedColumnKind::UrlDomain,
+                });
+            }
+        }
+    }
+    specs
+}
+
+fn append_embedded_derived_columns_to_batch(
+    batch: &RecordBatch,
+    schema: &SchemaRef,
+    specs: &[EmbeddedDerivedColumnSpec],
+) -> Result<RecordBatch> {
+    let mut columns = batch.columns().to_vec();
+    let mut spec_index = 0;
+    while spec_index < specs.len() {
+        let spec = &specs[spec_index];
+        if let Some(next_spec) = specs.get(spec_index + 1) {
+            if spec.source_index == next_spec.source_index
+                && spec.kind == EmbeddedDerivedColumnKind::Utf8Length
+                && next_spec.kind == EmbeddedDerivedColumnKind::UrlDomain
+            {
+                let source = batch.column(spec.source_index);
+                let (lengths, domains) = embedded_utf8_length_and_url_domain_arrays(source)?;
+                columns.push(lengths);
+                columns.push(domains);
+                spec_index += 2;
+                continue;
+            }
+        }
+        let source = batch.column(spec.source_index);
+        let derived = embedded_derived_column_array(source, spec)?;
+        columns.push(derived);
+        spec_index += 1;
+    }
+    RecordBatch::try_new(Arc::clone(schema), columns).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to append embedded derived column RecordBatch fields: {error}; no fallback execution was attempted"
+        ))
+    })
+}
+
+fn embedded_derived_column_array(
+    source: &ArrayRef,
+    spec: &EmbeddedDerivedColumnSpec,
+) -> Result<ArrayRef> {
+    match spec.kind {
+        EmbeddedDerivedColumnKind::Utf8Length => {
+            let mut values = UInt32Builder::with_capacity(source.len());
+            for row_index in 0..source.len() {
+                match utf8_array_value(source, row_index)? {
+                    Some(value) => values.append_value(usize_to_u32(value.len())?),
+                    None => values.append_null(),
+                }
+            }
+            Ok(Arc::new(values.finish()) as ArrayRef)
+        }
+        EmbeddedDerivedColumnKind::UrlDomain => {
+            let mut domains =
+                StringDictionaryBuilder::<Int32Type>::with_capacity(source.len(), 256, 4096);
+            for row_index in 0..source.len() {
+                if let Some(value) = utf8_array_value(source, row_index)? {
+                    domains
+                        .append(crate::url_domain::shardloom_url_domain(value))
+                        .map_err(embedded_derived_column_arrow_error)?;
+                } else {
+                    domains.append_null();
+                }
+            }
+            Ok(Arc::new(domains.finish()) as ArrayRef)
+        }
+    }
+}
+
+fn embedded_utf8_length_and_url_domain_arrays(source: &ArrayRef) -> Result<(ArrayRef, ArrayRef)> {
+    let mut lengths = UInt32Builder::with_capacity(source.len());
+    let mut domains = StringDictionaryBuilder::<Int32Type>::with_capacity(source.len(), 256, 4096);
+    for row_index in 0..source.len() {
+        match utf8_array_value(source, row_index)? {
+            Some(value) => {
+                lengths.append_value(usize_to_u32(value.len())?);
+                domains
+                    .append(crate::url_domain::shardloom_url_domain(value))
+                    .map_err(embedded_derived_column_arrow_error)?;
+            }
+            None => {
+                lengths.append_null();
+                domains.append_null();
+            }
+        }
+    }
+    Ok((
+        Arc::new(lengths.finish()) as ArrayRef,
+        Arc::new(domains.finish()) as ArrayRef,
+    ))
+}
+
+fn embedded_derived_column_arrow_error(error: ArrowError) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "embedded derived column dictionary build failed: {error}; no fallback execution was attempted"
+    ))
+}
+
+fn utf8_array_value<'a>(array: &'a ArrayRef, row_index: usize) -> Result<Option<&'a str>> {
+    if array.is_null(row_index) {
+        return Ok(None);
+    }
+    if let Some(values) = array.as_any().downcast_ref::<StringArray>() {
+        return Ok(Some(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<LargeStringArray>() {
+        return Ok(Some(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<StringViewArray>() {
+        return Ok(Some(values.value(row_index)));
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "embedded derived column requires a UTF-8 Arrow array, got {:?}; no fallback execution was attempted",
+        array.data_type()
+    )))
+}
+
+fn is_utf8_arrow_dtype(data_type: &DataType) -> bool {
+    matches!(
+        data_type,
+        DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View
+    )
+}
+
+fn is_url_like_column_name(column: &str) -> bool {
+    let lower = column.to_ascii_lowercase();
+    lower.contains("url") || lower.contains("referer") || lower.contains("uri")
+}
+
+fn should_embed_utf8_length_column(column: &str) -> bool {
+    let lower = column.to_ascii_lowercase();
+    is_url_like_column_name(column)
+        || lower.contains("search")
+        || lower.contains("phrase")
+        || lower.contains("title")
+}
+
+fn is_shardloom_hidden_derived_column(column: &str) -> bool {
+    column.starts_with("__shardloom_derived_")
+}
+
+fn shardloom_utf8_length_derived_column(column: &str) -> String {
+    format!(
+        "__shardloom_derived_utf8_len_{}",
+        shardloom_derived_column_token(column)
+    )
+}
+
+fn shardloom_url_domain_derived_column(column: &str) -> String {
+    format!(
+        "__shardloom_derived_url_domain_{}",
+        shardloom_derived_column_token(column)
+    )
+}
+
+fn shardloom_derived_column_token(column: &str) -> String {
+    let token = column
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if token.is_empty() {
+        "column".to_string()
+    } else {
+        token
+    }
+}
+
+fn usize_to_u32(value: usize) -> Result<u32> {
+    u32::try_from(value).map_err(|_| {
+        ShardLoomError::InvalidOperation(
+            "embedded derived column byte length exceeded u32; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
 }
 
 /// Wrap a product columnar ingest source in a bounded Capillary prefetch
@@ -544,6 +1047,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         record_batch_count_hint,
         source_stream_batch_size,
         source_stream_unit_count_hint,
+        source_stream_unit_row_ranges,
         source_stream_unit_hint_kind,
         source_stream_policy,
         source_dictionary_preservation_status,
@@ -551,7 +1055,9 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         reader,
         ..
     } = source;
-    if requested_max_parallelism == 1 {
+    let source_parallelism_budget =
+        columnar_prefetch_source_parallelism_budget(requested_max_parallelism);
+    if source_parallelism_budget == 0 {
         return FlatLocalColumnarStreamSource {
             header,
             column_dtypes,
@@ -562,11 +1068,20 @@ pub fn with_capillary_prefetch_columnar_stream_source(
             record_batch_count_hint,
             source_stream_batch_size,
             source_stream_unit_count_hint,
+            source_stream_unit_row_ranges,
             source_stream_unit_hint_kind,
             source_stream_policy,
             source_dictionary_preservation_status,
-            ingest_executor_status: "serial_pull_reader".to_string(),
-            ingest_executor_kind: "single_source_record_batch_reader".to_string(),
+            ingest_executor_status: if requested_max_parallelism == 1 {
+                "serial_pull_reader".to_string()
+            } else {
+                "serial_pull_reader_writer_slot_reserved".to_string()
+            },
+            ingest_executor_kind: if requested_max_parallelism == 1 {
+                "single_source_record_batch_reader".to_string()
+            } else {
+                "single_source_record_batch_reader_with_writer_slot_reserved".to_string()
+            },
             ingest_executor_requested_parallelism: requested_max_parallelism,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint,
@@ -574,8 +1089,8 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         };
     }
     let unit_hint = ingest_executor_unit_count_hint.or(record_batch_count_hint);
-    let applied_parallelism = unit_hint.map_or(requested_max_parallelism, |unit_count| {
-        requested_max_parallelism.min(unit_count.max(1))
+    let applied_parallelism = unit_hint.map_or(source_parallelism_budget, |unit_count| {
+        source_parallelism_budget.min(unit_count.max(1))
     });
     FlatLocalColumnarStreamSource {
         header,
@@ -587,6 +1102,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         record_batch_count_hint,
         source_stream_batch_size,
         source_stream_unit_count_hint,
+        source_stream_unit_row_ranges,
         source_stream_unit_hint_kind,
         source_stream_policy,
         source_dictionary_preservation_status,
@@ -600,6 +1116,109 @@ pub fn with_capillary_prefetch_columnar_stream_source(
             applied_parallelism,
         )),
     }
+}
+
+fn columnar_prefetch_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
+    requested_max_parallelism.saturating_sub(2)
+}
+
+/// Convert admitted local text scalar rows into a streaming Arrow source for
+/// product Vortex ingest.
+///
+/// This is a Universal Ingest bridge, not a fallback engine: CSV/JSON/JSONL
+/// adapters still own parsing and diagnostics, then the Vortex writer consumes
+/// typed Arrow `RecordBatch` units through the same streaming path as columnar
+/// source adapters.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the flat rows do not match
+/// the declared schema or cannot be represented by the scoped Arrow/Vortex
+/// provider boundary.
+pub fn stream_flat_text_rows_columnar_source(
+    header: Vec<String>,
+    column_dtypes: Vec<Option<LogicalDType>>,
+    column_arrow_dtypes: Vec<Option<DataType>>,
+    materialized_columns: Vec<String>,
+    reader_projection_columns: Vec<String>,
+    rows: Vec<Vec<(String, ScalarValue)>>,
+    requested_batch_size: usize,
+    source_format_label: &str,
+) -> Result<FlatLocalColumnarStreamSource> {
+    let batch_size = requested_batch_size.clamp(1, PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS);
+    let row_count = rows.len();
+    let context = format!("{source_format_label} Universal Ingest typed text RecordBatch");
+    if rows.is_empty() {
+        let empty_batch = flat_rows_to_record_batch_with_dtypes(
+            &header,
+            &column_dtypes,
+            &column_arrow_dtypes,
+            &[],
+            &context,
+        )?;
+        let schema = empty_batch.schema();
+        return Ok(attach_embedded_derived_columns_to_stream_source(
+            FlatLocalColumnarStreamSource {
+                header,
+                column_dtypes,
+                column_arrow_dtypes,
+                materialized_columns,
+                reader_projection_columns,
+                row_count_hint: Some(0),
+                record_batch_count_hint: Some(0),
+                source_stream_batch_size: batch_size,
+                source_stream_unit_count_hint: Some(0),
+                source_stream_unit_row_ranges: Some(Vec::new()),
+                source_stream_unit_hint_kind: "text_record_batch_count".to_string(),
+                source_stream_policy: "typed_text_record_batch_stream_batch_size_65536_rows"
+                    .to_string(),
+                source_dictionary_preservation_status:
+                    "text_typed_column_builders_preserve_declared_types_no_source_dictionary"
+                        .to_string(),
+                ingest_executor_status: "serial_typed_text_record_batch_builder".to_string(),
+                ingest_executor_kind: "text_rows_to_arrow_record_batch_reader".to_string(),
+                ingest_executor_requested_parallelism: 1,
+                ingest_executor_applied_parallelism: 1,
+                ingest_executor_unit_count_hint: Some(0),
+                reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::new())),
+            },
+        ));
+    }
+    let record_batch_count = row_count.div_ceil(batch_size);
+    let schema = infer_flat_text_rows_record_batch_schema(
+        &header,
+        &column_dtypes,
+        &column_arrow_dtypes,
+        &rows,
+        &context,
+    )?;
+    Ok(attach_embedded_derived_columns_to_stream_source(
+        FlatLocalColumnarStreamSource {
+            header: header.clone(),
+            column_dtypes,
+            column_arrow_dtypes,
+            materialized_columns,
+            reader_projection_columns,
+            row_count_hint: Some(row_count),
+            record_batch_count_hint: Some(record_batch_count),
+            source_stream_batch_size: batch_size,
+            source_stream_unit_count_hint: Some(record_batch_count),
+            source_stream_unit_row_ranges: Some(contiguous_batch_row_ranges(row_count, batch_size)),
+            source_stream_unit_hint_kind: "text_record_batch_count".to_string(),
+            source_stream_policy: "typed_text_record_batch_stream_batch_size_65536_rows"
+                .to_string(),
+            source_dictionary_preservation_status:
+                "text_typed_column_builders_preserve_declared_types_no_source_dictionary"
+                    .to_string(),
+            ingest_executor_status: "lazy_typed_text_record_batch_builder".to_string(),
+            ingest_executor_kind: "lazy_text_rows_to_arrow_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(record_batch_count),
+            reader: Box::new(TextRowsRecordBatchReader::new(
+                schema, header, rows, batch_size, context,
+            )),
+        },
+    ))
 }
 
 /// Read a local Parquet file into flat scalar rows for scoped runtime smokes.
@@ -682,16 +1301,37 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
     let row_group_count = builder.metadata().num_row_groups();
     let row_group_count_hint = Some(row_group_count);
     validate_known_stream_row_count(path, "Parquet", row_count_hint, max_rows)?;
-    let stream_plan = FlatColumnarStreamSourcePlan::product_batches(
+    let mut row_group_offset = 0usize;
+    let mut row_group_row_ranges = Vec::with_capacity(row_group_count);
+    let mut row_group_ranges_exact = true;
+    for row_group_index in 0..row_group_count {
+        let Ok(row_group_rows) =
+            usize::try_from(builder.metadata().row_group(row_group_index).num_rows())
+        else {
+            row_group_ranges_exact = false;
+            break;
+        };
+        let Some(row_group_end) = row_group_offset.checked_add(row_group_rows) else {
+            row_group_ranges_exact = false;
+            break;
+        };
+        row_group_row_ranges.push((row_group_offset, row_group_end));
+        row_group_offset = row_group_end;
+    }
+    let row_group_row_ranges = row_group_ranges_exact.then_some(row_group_row_ranges);
+    let mut stream_plan = FlatColumnarStreamSourcePlan::product_batches(
         max_rows,
         row_group_count_hint,
         "parquet_row_group_count",
         "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary",
     );
+    stream_plan.source_unit_row_ranges = row_group_row_ranges;
     let requested_max_parallelism = requested_max_parallelism.max(1);
-    if requested_max_parallelism > 1 && row_group_count > 1 {
+    let source_parallelism_budget =
+        parquet_row_group_source_parallelism_budget(requested_max_parallelism);
+    if requested_max_parallelism > 1 && row_group_count > 1 && source_parallelism_budget > 0 {
         let task_count = parquet_row_group_parallel_task_count(row_group_count);
-        let applied_parallelism = requested_max_parallelism.min(task_count.max(1));
+        let applied_parallelism = source_parallelism_budget.min(task_count.max(1));
         let stream_batch_size = stream_plan.stream_batch_size;
         let mut source = flat_columnar_stream_source_from_reader(
             schema.as_ref(),
@@ -699,7 +1339,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
             header.clone(),
             header,
             row_count_hint,
-            stream_plan,
+            &stream_plan,
             Box::new(ParquetRowGroupParallelRecordBatchReader::new(
                 path,
                 Arc::clone(&schema),
@@ -708,9 +1348,11 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
                 applied_parallelism,
             )),
         );
-        source.ingest_executor_status = "bounded_capillary_row_group_parallel_active".to_string();
+        source.ingest_executor_status =
+            "bounded_capillary_row_group_parallel_writer_budgeted".to_string();
         source.ingest_executor_kind =
-            "parquet_row_group_coalesced_reader_to_vortex_writer".to_string();
+            "parquet_row_group_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
+                .to_string();
         source.ingest_executor_requested_parallelism = requested_max_parallelism;
         source.ingest_executor_applied_parallelism = applied_parallelism;
         source.ingest_executor_unit_count_hint = Some(task_count);
@@ -725,14 +1367,18 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
                 path.display()
             ))
         })?;
-    Ok(flat_columnar_stream_source_from_reader(
+    let source = flat_columnar_stream_source_from_reader(
         schema.as_ref(),
         header.clone(),
         header.clone(),
         header,
         row_count_hint,
-        stream_plan,
+        &stream_plan,
         Box::new(reader),
+    );
+    Ok(with_capillary_prefetch_columnar_stream_source(
+        source,
+        requested_max_parallelism,
     ))
 }
 
@@ -869,7 +1515,7 @@ pub fn stream_flat_arrow_ipc_columnar_source(
         header.clone(),
         header,
         None,
-        stream_plan,
+        &stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -1016,7 +1662,7 @@ pub fn stream_flat_avro_columnar_source(
         header.clone(),
         header,
         None,
-        stream_plan,
+        &stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -1173,7 +1819,7 @@ pub fn stream_flat_orc_columnar_source(
         header.clone(),
         header,
         None,
-        stream_plan,
+        &stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -1884,7 +2530,17 @@ fn flat_rows_to_record_batch(
     )
 }
 
-pub(crate) fn flat_rows_to_record_batch_with_dtypes(
+/// Build an Arrow `RecordBatch` from ordered flat scalar rows and explicit dtype hints.
+///
+/// This is used by scoped Universal Ingest adapters that parse small streaming
+/// batches themselves but still need ShardLoom's canonical scalar-to-Arrow
+/// conversion, nullability, and no-fallback diagnostics. Callers should pass a
+/// bounded batch, not a whole large source.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when columns, dtype hints, or
+/// scalar values cannot be represented by the admitted Arrow/Vortex boundary.
+pub fn flat_rows_to_record_batch_with_dtypes(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
     column_arrow_dtypes: &[Option<DataType>],
@@ -1930,6 +2586,181 @@ pub(crate) fn flat_rows_to_record_batch_with_dtypes(
         .collect::<Vec<_>>();
     let schema = Arc::new(Schema::new(fields));
     RecordBatch::try_new(Arc::clone(&schema), arrays).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("failed to build {context} record batch: {error}"))
+    })
+}
+
+fn infer_flat_text_rows_record_batch_schema(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
+    rows: &[Vec<(String, ScalarValue)>],
+    context: &str,
+) -> Result<SchemaRef> {
+    validate_flat_columns(columns, context)?;
+    if column_dtypes.len() != columns.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{context} declared {} column dtype hints for {} columns",
+            column_dtypes.len(),
+            columns.len()
+        )));
+    }
+    if column_arrow_dtypes.len() != columns.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{context} declared {} column Arrow dtype hints for {} columns",
+            column_arrow_dtypes.len(),
+            columns.len()
+        )));
+    }
+    let fields = columns
+        .iter()
+        .enumerate()
+        .map(|(column_index, column)| {
+            let values = rows
+                .iter()
+                .map(|row| {
+                    let Some((name, value)) = row.get(column_index) else {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "{context} row is missing column '{column}' at index {column_index}"
+                        )));
+                    };
+                    if name != column {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "{context} row column mismatch at index {column_index}: expected '{column}', found '{name}'"
+                        )));
+                    }
+                    Ok(value)
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let nullable = values.iter().any(|value| matches!(value, ScalarValue::Null));
+            let data_type = stable_arrow_dtype_for_flat_text_column(
+                column,
+                column_dtypes[column_index].as_ref(),
+                column_arrow_dtypes[column_index].as_ref(),
+                &values,
+                context,
+            )?;
+            Ok(Field::new(column, data_type, nullable))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(Arc::new(Schema::new(fields)))
+}
+
+fn stable_arrow_dtype_for_flat_text_column(
+    column: &str,
+    column_dtype: Option<&LogicalDType>,
+    column_arrow_dtype: Option<&DataType>,
+    values: &[&ScalarValue],
+    context: &str,
+) -> Result<DataType> {
+    if let Some(data_type) = column_arrow_dtype {
+        return Ok(data_type.clone());
+    }
+    if let Some(data_type) = logical_dtype_arrow_hint(column, column_dtype, values, context)? {
+        return Ok(data_type);
+    }
+    let non_null_values = values
+        .iter()
+        .copied()
+        .filter(|value| !matches!(value, ScalarValue::Null))
+        .collect::<Vec<_>>();
+    if non_null_values.is_empty() {
+        return Ok(DataType::Utf8);
+    }
+    infer_arrow_dtype_from_scalar_values(column, &non_null_values, context)
+}
+
+fn logical_dtype_arrow_hint(
+    column: &str,
+    column_dtype: Option<&LogicalDType>,
+    values: &[&ScalarValue],
+    context: &str,
+) -> Result<Option<DataType>> {
+    let Some(column_dtype) = column_dtype else {
+        return Ok(None);
+    };
+    Ok(match column_dtype {
+        LogicalDType::Boolean => Some(DataType::Boolean),
+        LogicalDType::Int64 => Some(DataType::Int64),
+        LogicalDType::UInt64 => Some(DataType::UInt64),
+        LogicalDType::Float64 => Some(DataType::Float64),
+        LogicalDType::Utf8 => Some(DataType::Utf8),
+        LogicalDType::Binary => Some(DataType::Binary),
+        LogicalDType::Date32 => Some(DataType::Date32),
+        LogicalDType::TimestampMicros => Some(DataType::Timestamp(TimeUnit::Microsecond, None)),
+        LogicalDType::List | LogicalDType::Struct => {
+            Some(infer_arrow_dtype_from_scalar_values(column, values, context)?)
+        }
+        LogicalDType::Unknown => None,
+        LogicalDType::Extension(_) => decimal128_dtype_precision_scale(column_dtype, column, context)?
+            .map(|(precision, scale)| {
+                let scale = i8::try_from(scale).map_err(|_| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{context} column '{column}' cannot preserve decimal128({precision},{scale}): scale exceeds Arrow decimal128 range"
+                    ))
+                })?;
+                Ok(DataType::Decimal128(precision, scale))
+            })
+            .transpose()?,
+    })
+}
+
+/// Build an Arrow `RecordBatch` from ordered flat scalar rows using an existing schema.
+///
+/// This keeps streaming adapters schema-stable across batches when later
+/// batches contain nulls or values whose inferred dtype would otherwise drift.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the row shape does not
+/// match `schema` or a scalar cannot be appended to the target Arrow dtype.
+pub fn flat_rows_to_record_batch_with_schema(
+    schema: SchemaRef,
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+    context: &str,
+) -> Result<RecordBatch> {
+    if schema.fields().len() != columns.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{context} schema has {} fields for {} columns",
+            schema.fields().len(),
+            columns.len()
+        )));
+    }
+    let arrays = columns
+        .iter()
+        .enumerate()
+        .map(|(column_index, column)| {
+            let field = schema.field(column_index);
+            if field.name() != column {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} schema field mismatch at index {column_index}: expected '{column}', found '{}'",
+                    field.name()
+                )));
+            }
+            let mut builder = make_builder(field.data_type(), rows.len());
+            for row in rows {
+                let Some((name, value)) = row.get(column_index) else {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "{context} row is missing column '{column}' at index {column_index}"
+                    )));
+                };
+                if name != column {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "{context} row column mismatch at index {column_index}: expected '{column}', found '{name}'"
+                    )));
+                }
+                append_scalar_to_arrow_builder(
+                    builder.as_mut(),
+                    field.data_type(),
+                    value,
+                    column,
+                    context,
+                )?;
+            }
+            Ok(builder.finish())
+        })
+        .collect::<Result<Vec<_>>>()?;
+    RecordBatch::try_new(schema, arrays).map_err(|error| {
         ShardLoomError::InvalidOperation(format!("failed to build {context} record batch: {error}"))
     })
 }
@@ -3107,6 +3938,7 @@ fn arrow_list_value_to_shardloom(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arrow_array::ArrayAccessor as _;
 
     type FlatSinkRow = Vec<(String, ScalarValue)>;
     type FlatSinkRows = Vec<FlatSinkRow>;
@@ -3178,10 +4010,242 @@ mod tests {
         assert_eq!(product_columnar_stream_record_batch_rows(0), 1);
         assert_eq!(product_columnar_stream_record_batch_rows(10), 10);
         assert_eq!(
-            product_columnar_stream_record_batch_rows(usize::MAX),
+            product_columnar_stream_record_batch_rows(
+                PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD - 1
+            ),
             PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS
         );
+        assert_eq!(
+            product_columnar_stream_record_batch_rows(PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD),
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
+        );
+        assert_eq!(
+            product_columnar_stream_record_batch_rows(usize::MAX),
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
+        );
         assert!(PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS > SCOPED_COMPAT_RECORD_BATCH_ROWS);
+        assert!(
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
+                > PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS
+        );
+    }
+
+    #[test]
+    fn text_rows_stream_source_builds_lazy_schema_stable_batches() {
+        let header = vec!["id".to_string(), "label".to_string()];
+        let rows = vec![
+            vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+            ],
+            vec![
+                ("id".to_string(), ScalarValue::Int64(2)),
+                ("label".to_string(), ScalarValue::Null),
+            ],
+            vec![
+                ("id".to_string(), ScalarValue::Null),
+                ("label".to_string(), ScalarValue::Utf8("gamma".to_string())),
+            ],
+            vec![
+                ("id".to_string(), ScalarValue::Int64(4)),
+                ("label".to_string(), ScalarValue::Utf8("delta".to_string())),
+            ],
+            vec![
+                ("id".to_string(), ScalarValue::Int64(5)),
+                (
+                    "label".to_string(),
+                    ScalarValue::Utf8("epsilon".to_string()),
+                ),
+            ],
+        ];
+        let mut source = stream_flat_text_rows_columnar_source(
+            header.clone(),
+            vec![None, None],
+            vec![None, None],
+            header.clone(),
+            header,
+            rows,
+            2,
+            "CSV",
+        )
+        .expect("text rows stream source");
+
+        assert_eq!(source.row_count_hint, Some(5));
+        assert_eq!(source.record_batch_count_hint, Some(3));
+        assert_eq!(source.source_stream_batch_size, 2);
+        assert_eq!(
+            source.source_stream_policy,
+            "typed_text_record_batch_stream_batch_size_65536_rows"
+        );
+        assert_eq!(
+            source.ingest_executor_status,
+            "lazy_typed_text_record_batch_builder"
+        );
+        assert_eq!(
+            source.ingest_executor_kind,
+            "lazy_text_rows_to_arrow_record_batch_reader"
+        );
+
+        let reader_schema = source.reader.schema();
+        assert_eq!(reader_schema.field(0).data_type(), &DataType::Int64);
+        assert!(reader_schema.field(0).is_nullable());
+        assert_eq!(reader_schema.field(1).data_type(), &DataType::Utf8);
+        assert!(reader_schema.field(1).is_nullable());
+
+        let first = source
+            .reader
+            .next()
+            .expect("first batch")
+            .expect("first ok");
+        let second = source
+            .reader
+            .next()
+            .expect("second batch")
+            .expect("second ok");
+        let third = source
+            .reader
+            .next()
+            .expect("third batch")
+            .expect("third ok");
+        assert_eq!(first.schema(), reader_schema);
+        assert_eq!(second.schema(), reader_schema);
+        assert_eq!(third.schema(), reader_schema);
+        assert_eq!(first.num_rows(), 2);
+        assert_eq!(second.num_rows(), 2);
+        assert_eq!(third.num_rows(), 1);
+        let second_ids = second
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .expect("second id array");
+        assert!(second_ids.is_null(0));
+        assert_eq!(second_ids.value(1), 4);
+        assert!(source.reader.next().is_none());
+    }
+
+    #[test]
+    fn text_rows_stream_source_embeds_exact_hidden_string_metadata() {
+        use arrow_array::DictionaryArray;
+
+        let header = vec![
+            "URL".to_string(),
+            "Referer".to_string(),
+            "SearchPhrase".to_string(),
+            "PlainNote".to_string(),
+        ];
+        let rows = vec![
+            vec![
+                (
+                    "URL".to_string(),
+                    ScalarValue::Utf8("https://www.example.com/a".to_string()),
+                ),
+                (
+                    "Referer".to_string(),
+                    ScalarValue::Utf8("http://www.google.com/search".to_string()),
+                ),
+                ("SearchPhrase".to_string(), ScalarValue::Utf8(String::new())),
+                (
+                    "PlainNote".to_string(),
+                    ScalarValue::Utf8("plain".to_string()),
+                ),
+            ],
+            vec![
+                ("URL".to_string(), ScalarValue::Null),
+                (
+                    "Referer".to_string(),
+                    ScalarValue::Utf8("https://docs.rs/crate".to_string()),
+                ),
+                (
+                    "SearchPhrase".to_string(),
+                    ScalarValue::Utf8("rust".to_string()),
+                ),
+                (
+                    "PlainNote".to_string(),
+                    ScalarValue::Utf8("note".to_string()),
+                ),
+            ],
+        ];
+        let mut source = stream_flat_text_rows_columnar_source(
+            header.clone(),
+            vec![None, None, None, None],
+            vec![None, None, None, None],
+            header.clone(),
+            header,
+            rows,
+            64,
+            "JSONL",
+        )
+        .expect("text rows stream source");
+
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"__shardloom_derived_utf8_len_URL".to_string()));
+        assert!(names.contains(&"__shardloom_derived_url_domain_URL".to_string()));
+        assert!(names.contains(&"__shardloom_derived_utf8_len_Referer".to_string()));
+        assert!(names.contains(&"__shardloom_derived_url_domain_Referer".to_string()));
+        assert!(names.contains(&"__shardloom_derived_utf8_len_SearchPhrase".to_string()));
+        assert!(
+            !names.contains(&"__shardloom_derived_utf8_len_PlainNote".to_string()),
+            "ordinary non-candidate text columns do not get hidden length columns by default"
+        );
+        assert!(
+            !names.contains(&"__shardloom_derived_url_domain_SearchPhrase".to_string()),
+            "non-URL text columns get exact length metadata, not URL-domain metadata"
+        );
+        assert!(
+            source
+                .source_dictionary_preservation_status
+                .contains("embedded_derived_columns=")
+        );
+
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        let referer_len_index = names
+            .iter()
+            .position(|name| name == "__shardloom_derived_utf8_len_Referer")
+            .expect("referer len");
+        let referer_domain_index = names
+            .iter()
+            .position(|name| name == "__shardloom_derived_url_domain_Referer")
+            .expect("referer domain");
+        let search_len_index = names
+            .iter()
+            .position(|name| name == "__shardloom_derived_utf8_len_SearchPhrase")
+            .expect("search len");
+        let referer_lengths = batch
+            .column(referer_len_index)
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .expect("referer lengths");
+        assert_eq!(
+            referer_lengths.value(0),
+            u32::try_from("http://www.google.com/search".len()).expect("len")
+        );
+        assert_eq!(
+            referer_lengths.value(1),
+            u32::try_from("https://docs.rs/crate".len()).expect("len")
+        );
+        let referer_domains = batch
+            .column(referer_domain_index)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("referer domains");
+        let referer_domains = referer_domains
+            .downcast_dict::<StringArray>()
+            .expect("referer domain dictionary values");
+        assert_eq!(referer_domains.value(0), "google.com");
+        assert_eq!(referer_domains.value(1), "docs.rs");
+        let search_lengths = batch
+            .column(search_len_index)
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .expect("search lengths");
+        assert_eq!(search_lengths.value(0), 0);
+        assert_eq!(search_lengths.value(1), 4);
     }
 
     #[test]
@@ -3207,6 +4271,7 @@ mod tests {
             record_batch_count_hint: Some(2),
             source_stream_batch_size: 0,
             source_stream_unit_count_hint: Some(2),
+            source_stream_unit_row_ranges: Some(vec![(0, 2), (2, 3)]),
             source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
             source_stream_policy: "test_source_defined_record_batches".to_string(),
             source_dictionary_preservation_status: "test_not_applicable".to_string(),
@@ -3237,6 +4302,10 @@ mod tests {
         assert_eq!(source.source_stream_batch_size, 0);
         assert_eq!(source.source_stream_unit_count_hint, Some(2));
         assert_eq!(
+            source.source_stream_unit_row_ranges.as_deref(),
+            Some(&[(0, 2), (2, 3)][..])
+        );
+        assert_eq!(
             source.source_stream_unit_hint_kind,
             "test_record_batch_count"
         );
@@ -3260,6 +4329,60 @@ mod tests {
             .expect("second batch ok");
         assert_eq!(first.num_rows(), 2);
         assert_eq!(second.num_rows(), 1);
+        assert!(source.reader.next().is_none());
+    }
+
+    #[test]
+    fn capillary_prefetch_reserves_vortex_normalization_and_writer_at_parallelism_two() {
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int64Array::from(vec![1, 2, 3]))],
+        )
+        .expect("batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: vec!["id".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Int64)],
+            column_arrow_dtypes: vec![Some(DataType::Int64)],
+            materialized_columns: vec!["id".to_string()],
+            reader_projection_columns: vec!["id".to_string()],
+            row_count_hint: Some(3),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 3)]),
+            source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
+            source_stream_policy: "test_source_defined_record_batches".to_string(),
+            source_dictionary_preservation_status: "test_not_applicable".to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            reader: Box::new(TestRecordBatchReader {
+                schema,
+                batches: std::collections::VecDeque::from([batch]),
+            }),
+        };
+
+        let mut source = with_capillary_prefetch_columnar_stream_source(source, 2);
+
+        assert_eq!(
+            source.ingest_executor_status,
+            "serial_pull_reader_writer_slot_reserved"
+        );
+        assert_eq!(
+            source.ingest_executor_kind,
+            "single_source_record_batch_reader_with_writer_slot_reserved"
+        );
+        assert_eq!(source.ingest_executor_requested_parallelism, 2);
+        assert_eq!(source.ingest_executor_applied_parallelism, 1);
+        assert_eq!(
+            source.source_stream_unit_row_ranges.as_deref(),
+            Some(&[(0, 3)][..])
+        );
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        assert_eq!(batch.num_rows(), 3);
         assert!(source.reader.next().is_none());
     }
 
@@ -3290,28 +4413,46 @@ mod tests {
         writer.write(&batch).expect("write parquet batch");
         writer.close().expect("close parquet writer");
 
-        let mut source = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
+        let mut source = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 3)
             .expect("stream parquet");
 
         assert_eq!(
             source.ingest_executor_status,
-            "bounded_capillary_row_group_parallel_active"
+            "bounded_capillary_row_group_parallel_writer_budgeted"
         );
         assert_eq!(
             source.ingest_executor_kind,
-            "parquet_row_group_coalesced_reader_to_vortex_writer"
+            "parquet_row_group_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
         );
-        assert_eq!(source.ingest_executor_requested_parallelism, 2);
-        assert_eq!(source.ingest_executor_applied_parallelism, 2);
+        assert_eq!(source.ingest_executor_requested_parallelism, 3);
+        assert_eq!(source.ingest_executor_applied_parallelism, 1);
         assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
         assert_eq!(source.source_stream_unit_count_hint, Some(20));
+        assert_eq!(
+            source.source_stream_unit_row_ranges.as_ref().map(Vec::len),
+            Some(20)
+        );
+        assert_eq!(
+            source
+                .source_stream_unit_row_ranges
+                .as_ref()
+                .and_then(|ranges| ranges.first().copied()),
+            Some((0, 2))
+        );
+        assert_eq!(
+            source
+                .source_stream_unit_row_ranges
+                .as_ref()
+                .and_then(|ranges| ranges.last().copied()),
+            Some((38, 40))
+        );
         assert_eq!(
             source.source_stream_unit_hint_kind,
             "parquet_row_group_count"
         );
         assert_eq!(
             source.source_stream_policy,
-            "product_columnar_stream_batch_size_65536_rows"
+            "product_columnar_stream_batch_size_262144_rows"
         );
 
         let mut ids = Vec::new();
@@ -3327,6 +4468,109 @@ mod tests {
             }
         }
         assert_eq!(ids, expected_ids);
+
+        std::fs::remove_file(path).expect("remove parquet test file");
+    }
+
+    #[test]
+    fn parquet_row_group_stream_reserves_vortex_normalization_and_writer_at_parallelism_two() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-parquet-row-group-writer-budget-{}-{}.parquet",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int64Array::from(vec![0_i64, 1, 2, 3]))],
+        )
+        .expect("test batch");
+        let props = parquet::file::properties::WriterProperties::builder()
+            .set_max_row_group_row_count(Some(1))
+            .build();
+        let file = File::create(&path).expect("create parquet");
+        let mut writer =
+            parquet::arrow::ArrowWriter::try_new(file, Arc::clone(&schema), Some(props))
+                .expect("parquet writer");
+        writer.write(&batch).expect("write parquet batch");
+        writer.close().expect("close parquet writer");
+
+        let mut source = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
+            .expect("stream parquet");
+
+        assert_eq!(
+            source.ingest_executor_status,
+            "serial_pull_reader_writer_slot_reserved"
+        );
+        assert_eq!(
+            source.ingest_executor_kind,
+            "single_source_record_batch_reader_with_writer_slot_reserved"
+        );
+        assert_eq!(source.ingest_executor_requested_parallelism, 2);
+        assert_eq!(source.ingest_executor_applied_parallelism, 1);
+        let first = source
+            .reader
+            .next()
+            .expect("first batch")
+            .expect("first batch ok");
+        assert_eq!(first.num_rows(), 4);
+        assert!(source.reader.next().is_none());
+
+        std::fs::remove_file(path).expect("remove parquet test file");
+    }
+
+    #[test]
+    fn parquet_product_stream_reports_no_physical_derived_column_synthesis() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-parquet-derived-posture-{}-{}.parquet",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        let schema = Arc::new(Schema::new(vec![Field::new("URL", DataType::Utf8, true)]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(StringArray::from(vec![
+                Some("https://www.example.com/a"),
+                Some("https://docs.rs/crate"),
+            ]))],
+        )
+        .expect("test batch");
+        let file = File::create(&path).expect("create parquet");
+        let mut writer = parquet::arrow::ArrowWriter::try_new(file, Arc::clone(&schema), None)
+            .expect("parquet writer");
+        writer.write(&batch).expect("write parquet batch");
+        writer.close().expect("close parquet writer");
+
+        let mut source = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
+            .expect("stream parquet");
+
+        assert!(
+            source.source_dictionary_preservation_status.contains(
+                "embedded_derived_columns=not_synthesized_source_native_columnar_adapter"
+            ),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(names, vec!["URL".to_string()]);
+        let batch = source
+            .reader
+            .next()
+            .expect("first parquet batch")
+            .expect("first parquet batch ok");
+        assert_eq!(batch.num_columns(), 1);
 
         std::fs::remove_file(path).expect("remove parquet test file");
     }

@@ -225,25 +225,25 @@ PREPARED_STATE_REUSE_MANIFEST_POLICY = (
 )
 PREPARED_STATE_NOT_APPLICABLE = "not_applicable_no_prepared_state"
 GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE = (
-    "artifact_adjacent_manifest_local_vortex_artifacts"
+    "single_vortex_artifact_no_sidecar"
 )
 GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH = (
-    "<target-dir>/.shardloom/<target-name>.prepared-state-reuse.manifest"
+    "not_applicable_single_vortex_artifact"
 )
 GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY = (
-    "artifact_adjacent_local_prepared_state_reuse.v1"
+    "single_vortex_artifact_no_sidecar.v1"
 )
 GENERATED_PREPARED_STATE_REUSE_REASON = (
-    "runtime_evaluated_artifact_adjacent_manifest_lookup"
+    "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar"
 )
 GENERATED_PREPARED_STATE_INVALIDATION_REASON = (
-    "runtime_evaluated_on_source_schema_plan_policy_or_artifact_drift"
+    "not_applicable_single_vortex_artifact"
 )
 GENERATED_SOURCE_SPLIT_MANIFEST_ID = (
     "not_applicable_generated_source_no_source_splits"
 )
-GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE = (
-    "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output"
+GENERATED_VORTEX_OUTPUT_SINGLE_ARTIFACT_EVIDENCE = (
+    "single_vortex_artifact_output_for_feature_gated_local_vortex_output"
 )
 
 REQUIRED_LOCAL_VORTEX_PRIMITIVE_ROUTE_IDS = {
@@ -1002,7 +1002,7 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
         ):
             blockers.append(
                 "generated_rows_local_output: generated-source route must use "
-                "artifact-adjacent manifest reuse scope"
+                "single-artifact Vortex output scope"
             )
         if (
             generated_route.get("prepared_state_reuse_manifest_path")
@@ -1010,7 +1010,7 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
         ):
             blockers.append(
                 "generated_rows_local_output: generated-source route must expose "
-                "artifact-adjacent reuse manifest path"
+                "single-artifact no-sidecar path marker"
             )
         if (
             generated_route.get("prepared_state_reuse_policy")
@@ -1018,11 +1018,11 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
         ):
             blockers.append(
                 "generated_rows_local_output: generated-source route must expose "
-                "artifact-adjacent reuse manifest policy"
+                "single-artifact output manifest policy"
             )
-        if generated_route.get("prepared_state_reuse_hit") != "runtime_evaluated":
+        if generated_route.get("prepared_state_reuse_hit") != "false":
             blockers.append(
-                "generated_rows_local_output: generated-source route must evaluate reuse at runtime"
+                "generated_rows_local_output: generated-source route must report reuse disabled"
             )
         if (
             generated_route.get("prepared_state_reuse_reason")
@@ -1030,7 +1030,7 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
         ):
             blockers.append(
                 "generated_rows_local_output: generated-source route must expose "
-                "artifact-adjacent reuse reason"
+                "single-artifact output reason"
             )
         if (
             generated_route.get("prepared_state_invalidation_reason")
@@ -1050,7 +1050,7 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
             )
         if (
             generated_route.get("prepared_state_reuse_manifest_digest")
-            != "runtime_prepared_state_reuse_manifest_digest_pending"
+            != "not_applicable_single_vortex_artifact"
         ):
             blockers.append(
                 "generated_rows_local_output: generated-source route must expose "
@@ -1067,11 +1067,11 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
         required_evidence = generated_route.get("required_evidence")
         if (
             not isinstance(required_evidence, list)
-            or GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE not in required_evidence
+            or GENERATED_VORTEX_OUTPUT_SINGLE_ARTIFACT_EVIDENCE not in required_evidence
         ):
             blockers.append(
                 "generated_rows_local_output: generated-source route must require "
-                "feature-gated local Vortex output prepared-state reuse manifest evidence"
+                "feature-gated local Vortex output single-artifact evidence"
             )
         desired_outputs = generated_route.get("desired_outputs")
         if (
@@ -1239,10 +1239,10 @@ def validate_public_front_door_routes(
         if not isinstance(required_evidence, list) or not required_evidence:
             blockers.append(f"{front_door_id}: missing required_evidence")
         elif front_door_id == "generated_source_prepare_vortex_front_door":
-            if GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE not in required_evidence:
+            if GENERATED_VORTEX_OUTPUT_SINGLE_ARTIFACT_EVIDENCE not in required_evidence:
                 blockers.append(
                     f"{front_door_id}: required_evidence must include "
-                    f"{GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE}"
+                    f"{GENERATED_VORTEX_OUTPUT_SINGLE_ARTIFACT_EVIDENCE}"
                 )
         elif "prepared_state_reuse_manifest" not in required_evidence:
             blockers.append(
@@ -1300,17 +1300,17 @@ def validate_public_front_door_routes(
                 row.get("prepared_state_reuse_scope")
                 != GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE
             ):
-                blockers.append(f"{front_door_id}: must use artifact-adjacent manifest reuse scope")
+                blockers.append(f"{front_door_id}: must use single-artifact Vortex output scope")
             if (
                 row.get("prepared_state_reuse_manifest_path")
                 != GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH
             ):
-                blockers.append(f"{front_door_id}: must expose artifact-adjacent manifest path")
+                blockers.append(f"{front_door_id}: must expose single-artifact manifest path")
             if (
                 row.get("prepared_state_reuse_policy")
                 != GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY
             ):
-                blockers.append(f"{front_door_id}: must expose artifact-adjacent manifest policy")
+                blockers.append(f"{front_door_id}: must expose single-artifact manifest policy")
 
     return blockers
 
@@ -1514,7 +1514,7 @@ def front_door_row_exposes_prepared_state_reuse_contract(row: dict[str, Any]) ->
         expected_scope = GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE
         expected_path = GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH
         expected_policy = GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY
-        expected_evidence = GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE
+        expected_evidence = GENERATED_VORTEX_OUTPUT_SINGLE_ARTIFACT_EVIDENCE
     else:
         expected_scope = PREPARED_STATE_REUSE_MANIFEST_SCOPE
         expected_path = PREPARED_STATE_REUSE_MANIFEST_PATH
@@ -1750,7 +1750,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 == PREPARED_STATE_REUSE_MANIFEST_POLICY
                 for row in prepared_route_reuse_rows
             ),
-            "generated_source_route_exposes_artifact_adjacent_manifest_reuse_contract": (
+            "generated_source_route_exposes_single_vortex_artifact_contract": (
                 generated_reuse_row is not None
                 and "GeneratedSourceState"
                 in str(generated_reuse_row.get("vortex_normalization_point"))
@@ -1768,7 +1768,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 == GENERATED_PREPARED_STATE_INVALIDATION_REASON
                 and generated_reuse_row.get("source_split_manifest_id")
                 == GENERATED_SOURCE_SPLIT_MANIFEST_ID
-                and GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE
+                and GENERATED_VORTEX_OUTPUT_SINGLE_ARTIFACT_EVIDENCE
                 in generated_reuse_row.get("required_evidence", [])
                 and "feature_gated_local_vortex_output"
                 in generated_reuse_row.get("desired_outputs", [])

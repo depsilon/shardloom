@@ -330,9 +330,10 @@ Repeated compatible `traditional-analytics-prepare-batch-run` calls may report
 `workspace_manifest_local_vortex_artifacts` when the workspace manifest validates and compatibility
 preparation is skipped; source or artifact drift must reprepare and record the invalidation reason.
 Feature-gated `vortex-prepare`
-reports `artifact_adjacent_manifest_local_vortex_artifacts` when a repeated local ingest reuses an
-existing `.vortex` artifact, and it must keep source/artifact drift visible through
-`prepared_state_invalidation_reason`.
+reports `single_vortex_artifact_no_sidecar` for public local ingest writes. Repeated public
+ingest rewrites the selected `.vortex` artifact when requested instead of creating or consulting a
+sidecar reuse manifest; source/artifact drift remains visible through the explicit
+single-artifact evidence fields.
 
 ```text
 all_no_fallback_no_external_engine=true

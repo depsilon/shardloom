@@ -2430,6 +2430,7 @@ dependencies = [
  "shardloom-exec",
  "shardloom-plan",
  "vortex",
+ "vortex-zstd",
 ]
 
 [[package]]

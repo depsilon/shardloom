@@ -86,7 +86,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertTrue(
             report["acceptance_summary"][
-                "generated_source_route_exposes_artifact_adjacent_manifest_reuse_contract"
+                "generated_source_route_exposes_single_vortex_artifact_contract"
             ]
         )
         self.assertTrue(
@@ -217,31 +217,31 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertEqual(
             generated["prepared_state_reuse_scope"],
-            "artifact_adjacent_manifest_local_vortex_artifacts",
+            "single_vortex_artifact_no_sidecar",
         )
         self.assertEqual(
             generated["prepared_state_reuse_manifest_path"],
-            "<target-dir>/.shardloom/<target-name>.prepared-state-reuse.manifest",
+            "not_applicable_single_vortex_artifact",
         )
         self.assertEqual(
             generated["prepared_state_reuse_policy"],
-            "artifact_adjacent_local_prepared_state_reuse.v1",
+            "single_vortex_artifact_no_sidecar.v1",
         )
-        self.assertEqual(generated["prepared_state_reuse_hit"], "runtime_evaluated")
+        self.assertEqual(generated["prepared_state_reuse_hit"], "false")
         self.assertEqual(
             generated["prepared_state_reuse_reason"],
-            "runtime_evaluated_artifact_adjacent_manifest_lookup",
+            "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar",
         )
         self.assertEqual(
             generated["prepared_state_invalidation_reason"],
-            "runtime_evaluated_on_source_schema_plan_policy_or_artifact_drift",
+            "not_applicable_single_vortex_artifact",
         )
         self.assertEqual(
             generated["source_split_manifest_id"],
             "not_applicable_generated_source_no_source_splits",
         )
         self.assertIn(
-            "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output",
+            "single_vortex_artifact_output_for_feature_gated_local_vortex_output",
             generated["required_evidence"],
         )
 
@@ -414,10 +414,10 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertEqual(
             generated_front_door["prepared_state_reuse_scope"],
-            "artifact_adjacent_manifest_local_vortex_artifacts",
+            "single_vortex_artifact_no_sidecar",
         )
         self.assertIn(
-            "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output",
+            "single_vortex_artifact_output_for_feature_gated_local_vortex_output",
             generated_front_door["required_evidence"],
         )
 
@@ -504,7 +504,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertEqual(
             routes.route("generated_rows_local_output").prepared_state_reuse_scope,
-            "artifact_adjacent_manifest_local_vortex_artifacts",
+            "single_vortex_artifact_no_sidecar",
         )
         self.assertEqual(
             routes.route("local_vortex_primitive_report").vortex_normalization_point,
@@ -609,7 +609,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
                     item
                     for item in row["required_evidence"]
                     if item
-                    != "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output"
+                    != "single_vortex_artifact_output_for_feature_gated_local_vortex_output"
                 ]
                 break
         for row in rows:
@@ -638,11 +638,11 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertTrue(any("must not advertise write_vortex" in blocker for blocker in blockers))
         self.assertTrue(any("workspace manifest path" in blocker for blocker in blockers))
         self.assertTrue(
-            any("artifact-adjacent reuse manifest path" in blocker for blocker in blockers)
+            any("single-artifact no-sidecar path marker" in blocker for blocker in blockers)
         )
         self.assertTrue(
             any(
-                "feature-gated local Vortex output prepared-state reuse manifest evidence"
+                "feature-gated local Vortex output single-artifact evidence"
                 in blocker
                 for blocker in blockers
             )

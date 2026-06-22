@@ -375,7 +375,7 @@ def validate_source_prepared(payload: Mapping[str, Any]) -> tuple[dict[str, Any]
         "all_no_fallback_no_external_engine",
         "all_prepared_routes_expose_reuse_contract",
         "all_internal_source_smoke_routes_are_labeled_non_persistent",
-        "all_generated_routes_expose_artifact_adjacent_reuse",
+        "all_generated_routes_expose_single_artifact_output",
     ):
         if payload.get(key) is not True:
             blockers.append(f"source_prepared_state: {key} must be true")

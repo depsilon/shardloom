@@ -236,142 +236,6 @@ Current autonomous execution order:
    prepared `.vortex` file rather than creating duplicate massive artifacts.
 6. Start any version/release train only after the post-merge UAT result is acceptable.
 
-- [ ] `PUBLIC-SURFACE-VORTEX-NORMALIZED-AUDIT-1` Collapse public SQL/Python/DataFrame/CLI
-  aliases into the shared prepared/native Vortex runtime families.
-  - Source: post-v0.2 release architecture review and local ClickBench UAT follow-up. The hidden
-    capability pass to prove is: every public SQL/DataFrame/Python/CLI operation should reuse the
-    native Vortex operator families once a source is prepared, rather than keeping facade-only,
-    source-spelling-specific, or benchmark-only implementations.
-  - Current state: the direct one-shot compatibility route has been blocked from masquerading as a
-    product runtime, and public local compatibility inputs are intended to normalize into Vortex.
-    PR `#1344` added the prepared OLAP foundation but the artifact-adjacent query-summary sidecar
-    prototype has since been rejected for public/default runtime. The accepted direction is one
-    prepared `.vortex` artifact with generic embedded layout/statistics posture, prepared-state
-    admission evidence, streaming SHA-256 artifact digests, public `max_parallelism` propagation,
-    and bounded capillary prefetch for large columnar preparation. The remaining risk is
-    architectural drift: a public method, SQL spelling, CLI alias, sink, or capability row may still
-    bypass the shared Vortex-normalized middle or fail to consume the prepared OLAP layout/statistics
-    posture because the input was spelled as CSV, Parquet, JSONL, Python rows, SQL, or
-    DataFrame-style API rather than as prepared Vortex.
-  - Intake review: accepted as a prerequisite audit/capability pass, not a new parallel runtime.
-    Candidate rows cover filters, projections, limit, group-by/aggregate, joins, bounded top-N,
-    distinct/drop-duplicates/unique, string predicates, casts/null handling, bounded collect,
-    `write_jsonl`, `write_csv`, `write_vortex`, fanout, and ClickBench-native SQL operator
-    families. This item must collapse duplicate wrappers into shared contracts where semantics are
-    identical; extensive missing behavior must be promoted into concrete implementation rows rather
-    than preserved as blockers.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: apply SourceState and VortexPreparedState as the shared middle,
-    PulseWeave route-control evidence for source/execution/writer work, capillary work-unit
-    posture for ingest/operator/sink boundaries, dynamic admission by source shape and operator
-    semantics, metadata-first/late-materialized planning before decode, timing-surface separation,
-    and evidence-tier controls proving `fallback_attempted=false` and
-    `external_engine_invoked=false`.
-  - Execution checklist:
-    - [x] Inventory all public entrypoints and aliases: Python `ctx.read`, `read_csv`,
-      `read_json`, `read_parquet`, `read_vortex`, SQL/dataframe CLI route/run/prepare commands,
-      DataFrame-style lazy methods, capability reports, docs snippets, and website examples.
-    - [x] Trace each admitted operation family after preparation and record the shared runtime
-      family it lowers into: filter/project/limit, aggregate, join, top-N/sort, distinct/unique,
-      string contains/length/domain, cast/try-cast/nulls, bounded collect, declared sinks, and
-      fanout.
-    - [x] Add a route/capability reuse matrix proving every admitted alias records the same shared
-      runtime spine when semantics match: `Universal Ingest -> SourceState -> VortexPreparedState
-      -> prepared_olap_state when available -> native_vortex_unified_plan -> typed result/sink`.
-      The matrix must identify the evidence fields for `public_workflow_prepared_olap_state_*`,
-      native route id, source-state id, prepared-state id, materialization/decode boundary,
-      `fallback_attempted=false`, and `external_engine_invoked=false`.
-    - [x] Verify ClickBench-shaped operation families through all front doors, not only the CLI:
-      exact distinct (`CB-Q05`/`CB-Q06`/`CB-Q09`/`CB-Q10`/`CB-Q14`), high-cardinality grouped
-      aggregates (`CB-Q16`-`CB-Q19`, `CB-Q31`-`CB-Q36`), string predicate/grouping
-      (`CB-Q21`-`CB-Q24`, `CB-Q28`/`CB-Q29`, `CB-Q34`/`CB-Q35`), bounded wide-row top-N
-      (`CB-Q24`-`CB-Q27`, `CB-Q40`/`CB-Q41`), and repeated expressions (`CB-Q30`). SQL,
-      Python query-builder, DataFrame-style, and CLI spellings must converge after preparation.
-    - [x] Remove or internalize any facade-only/direct/local-source/smoke/benchmark-only
-      implementation that still executes as a product route after source preparation; keep
-      diagnostic safeguards only when they are explicitly named internal/dev surfaces.
-      - [x] Promoted `selective_filter` and `filter_projection_limit` local benchmark scenario
-        route guidance from primary internal smoke rows to the prepared Vortex first-query route;
-        the internal smoke route remains only as the explicit diagnostic safeguard row.
-      - [x] Added generated public-status stale-label validation so product/admitted route rows,
-        public front-door rows, primitive rows, local benchmark rows, and the route-reuse matrix
-        cannot expose `sql-local-source-smoke`, `direct_compatibility_transient`, or
-        `internal_local_source_smoke`; the one internal smoke safeguard row remains explicitly
-        allowed as `internal_smoke_only`.
-      - [x] Audit docs examples and route execution fixtures for any
-        remaining product-looking public success path that names `sql-local-source-smoke`,
-        `direct_compatibility_transient`, or another facade-only middle.
-        - Evidence: `python3 scripts/check_user_route_capability_report.py --output
-          target/user-route-capability-report.json` reports
-          `stale_public_runtime_label_blocker_count=0`; remaining smoke labels are confined to the
-          explicitly allowed `internal_smoke_only` diagnostic row.
-    - [x] Ensure compatibility inputs use Universal Ingest -> SourceState ->
-      VortexPreparedState/prepared Vortex -> native/shared operator family; native Vortex inputs
-      stay native without a compatibility detour.
-      - Evidence: focused public workflow route test
-        `route_planner_admits_equivalent_sql_and_dataframe_local_file_routes_through_vortex_middle`
-        passed with `execution_policy=vortex_middle` converging on
-        `local_file_prepare_once_first_query`; public route reports retain
-        `fallback_attempted=false` and `external_engine_invoked=false`.
-    - [x] Consolidate route/capability vocabulary so user-facing labels can differ while the
-      implementation reports one shared planner/operator/sink contract and one evidence envelope
-      for equivalent semantics.
-    - [x] Add source-variant parity snapshots for native `.vortex`, prepared compatibility input,
-      and partitioned Vortex manifest inputs proving the same logical operation family selects the
-      same native/prepared Vortex query contract and differs only in source adapter or preparation
-      evidence.
-      - Evidence: `python3 scripts/check_sql_python_dataframe_parity.py --output
-        target/sql-python-dataframe-parity.json` and
-        `python3 scripts/check_clickbench_olap_runtime_coverage.py --output
-        target/clickbench-olap-runtime-coverage.json` pass; the ClickBench coverage checker reports
-        43/43 admitted rows with no fallback or external engine invocation.
-    - [x] Add focused regression tests proving SQL, Python, DataFrame-style, and CLI spellings of
-      the same admitted shape report the same prepared/native route family, no fallback, no
-      external engine, and equivalent results.
-      - [x] Added `check_user_route_capability_report.py` matrix assertions for the shared spine,
-        admitted source variants, native plan family, typed result/sink boundary, prepared OLAP
-        reuse posture, and no-fallback/no-external-engine fields.
-      - [x] Added Python route-report regression coverage proving promoted local benchmark rows
-        select `local_file_prepare_once_first_query`/`prepared_vortex`, generated/product matrix
-        rows avoid stale smoke/direct labels, and the validator rejects stale public runtime labels.
-      - [x] Add route/runtime parity fixtures that execute representative SQL, Python, DataFrame,
-        and CLI spellings through the public facade and compare route/result evidence.
-        - Evidence: focused public workflow route test plus user-route, SQL/Python/DataFrame parity,
-          user-surface gap, and ClickBench OLAP coverage validators listed above.
-    - [x] Update docs, README, architecture, capability reports, and generated website/public status
-      surfaces only from the proven shared-route evidence.
-      - [x] Updated the route capability report surface with
-        `public_route_reuse_matrix_*` fields, prepared/native Vortex runtime-spine evidence,
-        stale public runtime label blocker counts, and acceptance flags.
-    - [ ] Move the completed summary to the ledger after merge/session completion.
-  - Next outcome: there is no remaining public-success path whose execution layer depends on the
-    spelling of the front door or input format instead of the Vortex-normalized runtime family.
-  - User-visible surface: Python context/lazy frame, SQL CLI/dataframe route/run, capability
-    reports, docs/examples, and ClickBench/native route evidence.
-  - Implementation scope: `shardloom-cli/src/public_workflow_route.rs`, capability/status reports,
-    Python lowering in `python/src/shardloom`, native Vortex primitive route metadata,
-    user-surface validators, docs, and generated website/public status artifacts as needed.
-  - Evidence required: route/evidence snapshots, focused CLI/Python tests, capability report
-    validator output, docs/status validator output, and no-fallback/no-external-engine fields.
-  - Acceptance: no successful public route reports `sql-local-source-smoke`,
-    `direct_compatibility_transient`, a facade-only runtime middle, `fallback_attempted=true`, or
-    `external_engine_invoked=true`; aliases with equivalent semantics converge into the same
-    shared prepared/native Vortex runtime family.
-  - Verification: focused public-workflow route tests, focused Python user-surface tests,
-    `python3 scripts/check_user_surface_runtime_gap_inventory.py`,
-    `python3 scripts/check_user_route_capability_report.py`,
-    `python3 scripts/check_sql_python_dataframe_parity.py`,
-    `python3 scripts/check_public_status_docs.py`, and generated site readiness if public surfaces
-    change.
-  - Non-goals: adding a new execution engine, preserving awkward pre-release route splits for
-    compatibility alone, official ClickBench submission, object-store/Foundry production proof, or
-    performance superiority claims from audit-only changes.
-  - Claim boundary: route-family unification and runtime-surface readiness only; no new speed claim
-    until measured UAT/benchmark artifacts are refreshed.
-  - Fallback boundary: all admitted execution remains ShardLoom-native/Vortex-native; unsupported
-    external/platform-gated work fails deterministically with no fallback or external engine.
-  - Ledger rule: move completed detail after merge/session completion.
-
 - [ ] `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` Add zero-overhead nested technique
   composition for slow native/prepared runtime families.
   - Source: ClickBench 100M slow-family review plus follow-up architecture question about embedding
@@ -481,9 +345,11 @@ Current autonomous execution order:
   parallel, single-artifact Vortex preparation pipeline.
   - Source: current 100M ClickBench UAT replacement run over official `hits.parquet`. The current
     Parquet-to-Vortex replacement is correct enough to produce one `.vortex` artifact and uses an
-    atomic temporary output path, but observed CPU utilization is roughly one core even with
-    `max_parallelism=2`, so the ingest path is not yet using ShardLoom's capillary/PulseWeave
-    design deeply enough.
+    atomic temporary output path. The current budget reserves `max_parallelism=2` for
+    source-to-Vortex normalization plus the writer/layout boundary; additional source-reader lanes
+    are admitted only when more budget is explicitly available. Remaining ingest work is throughput,
+    source-specific work avoidance, and a replacement UAT that completes inside the local safety
+    policy.
   - Current state: stale sidecar-era `.prepared-olap-state.d` files were cleaned from the Desktop
     UAT workspace before the replacement run. The new prepare writes through a temporary
     `.vortex` path and should atomically replace the destination. The remaining issue is throughput
@@ -505,28 +371,123 @@ Current autonomous execution order:
         through focused Vortex reopen tests.
     - [ ] Add typed column builders for CSV/JSONL that are projection/schema aware and avoid
       string/row materialization for unused columns.
+      - [x] Promote admitted text compatibility preparation onto the same streaming Vortex writer
+        path as columnar inputs: CSV/JSONL rows are converted into lazy, schema-stable Arrow
+        `RecordBatch` units, wrapped with bounded capillary prefetch, and reported as
+        `typed_text_rows_to_streaming_arrow_record_batch_source_state` with
+        `text_adapter_to_typed_record_batch_stream` normalization. This closes the public
+        smoke-route/cap gap but does not yet replace the no-schema parser with a direct
+        parser-to-builder stream.
+      - [x] Add a schema-declared CSV/JSONL fast path for normal Python/public examples:
+        declared scalar schemas that match a CSV header or define a JSONL field set stream directly
+        from a file-backed reader into lazy Arrow `RecordBatch` builders and the shared Vortex
+        writer after a streaming source-fingerprint pass, reporting
+        `schema_declared_text_to_streaming_arrow_record_batch_source_state`,
+        `schema_declared_text_to_record_batch_stream`, bounded source buffering evidence, and
+        `compatibility_parse_millis=0`. Incompatible schema shapes keep the conservative parser path.
+      - [x] Promote no-schema CSV/JSONL product preparation out of the whole-source scalar-row
+        bridge: infer a stable flat scalar schema in a streaming source pass, then reopen the same
+        source into lazy Arrow `RecordBatch` builders and the shared Vortex writer, reporting
+        `inferred_text_to_streaming_arrow_record_batch_source_state`,
+        `inferred_text_to_record_batch_stream`, `inferred_*_record_batch_stream_batch_size_65536_rows`,
+        `compatibility_parse_millis=0`, and no-fallback/no-external-engine evidence. Smoke
+        profiles still enforce their diagnostic row caps; product/local public profiles do not.
     - [ ] Implement a real capillary ingest pipeline: read row groups/source splits, build typed
       Vortex arrays, encode/layout, and write segments concurrently through bounded queues while
       respecting `max_parallelism` and memory pressure.
       - [x] Add product columnar stream shaping and source-unit evidence without adding route
-        proliferation: Parquet uses a 65,536-row product stream batch policy plus row-group unit
-        hints, Arrow IPC preserves source-defined batch units, Avro/ORC use the same product stream
-        batch policy, and `SourceState` split refs now use source-native unit hints instead of a
-        fake single split when the adapter exposes them. Public workflow evidence carries
+        proliferation: Parquet uses product stream batches plus row-group unit hints, large
+        columnar sources use an adaptive 262,144-row capillary batch policy to reduce writer
+        handoff/segment churn, Arrow IPC preserves source-defined batch units, Avro/ORC use the
+        same product stream planning family, and `SourceState` split refs now use source-native
+        unit hints instead of a fake single split when the adapter exposes them. Public workflow
+        evidence carries
         `source_state_stream_batch_size`, `source_state_stream_unit_count_hint`,
         `source_state_stream_unit_hint_kind`, `source_state_stream_policy`, and
         `source_state_dictionary_preservation_status`.
       - [x] Promote Parquet product preparation from generic single-reader prefetch to
         source-native row-group capillary work: `stream_flat_parquet_columnar_source_with_parallelism`
         uses upstream Parquet row-group selection, coalesces row groups into bounded ordered tasks,
-        preserves source row order, records `bounded_capillary_row_group_parallel_active`, and lets
-        the public CLI preserve that executor evidence instead of double-wrapping it as a serial
-        source.
+        preserves source row order, records `bounded_capillary_row_group_parallel_writer_budgeted`,
+        and lets the public CLI preserve that executor evidence instead of double-wrapping it as a
+        serial source. Row-group workers now reserve lanes for Vortex normalization and writer/layout
+        first: `max_parallelism=2` uses source-to-Vortex normalization plus writer flush, while
+        higher values admit additional coalesced row-group source tasks.
+      - [x] Route text source preparation through a shared lazy RecordBatch stream plus capillary
+        prefetch boundary, so the Vortex writer consumes typed batches instead of the scalar Vortex
+        writer path for public builds with `vortex-write,universal-format-io`.
     - [ ] Reuse one writer/runtime context per prepare job, coalesce small source units when
       scheduling overhead dominates, and split large units when decode/write pressure requires it.
       - [x] Preserve one `LocalVortexWriteContext` per prepared-artifact write and report
         `writer_context_open_micros` plus `writer_context_reuse_status`; the remaining open portion
-        is adaptive coalesce/split policy beyond the Parquet row-group task coalescing added above.
+        is adaptive split/coalesce beyond the proven fixed Parquet row-group coalescing policy.
+      - [x] Reject both large-source uncompressed fast-load and all-column balanced BtrBlocks
+        compression as default product writer profiles after UAT showed the first could balloon a
+        100M Parquet-derived `.vortex` artifact to ~50G and the second made only ~144M progress in
+        three minutes. The retained product writer keeps the 65,536-row large-source writer
+        row-block policy, keeps the fast flat/zoned/stat path for most typed columns, and applies
+        Vortex dictionary-Zstd compression to source-schema text-heavy/source-derived fields rather
+        than only a hand-selected query subset. It reports
+        `writer_layout_strategy_applied=vortex_write_strategy_row_block_65536_source_text_dictionary_zstd_embedded_olap_layout_statistics`.
+        The first fast-load Desktop 100M replacement ingest attempt was not retained because the
+        local CPU guard killed the process at exactly 100.0% after 3.041s:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/prepare_fast_load_uncompressed_20260622T040020Z/summary.json`.
+        A later normalization-prefetch run proved the pipeline was much faster but confirmed the
+        uncompressed writer-size regression:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T102409Z/prepare_summary.json`.
+        The all-column balanced compression follow-up was rejected because it re-entered the slow
+        compression-selection path:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T104108Z/prepare_summary.json`.
+        The first narrow text-compression follow-up improved progress to ~2.54GB temp output
+        within the three-minute UAT cap but still did not complete, so it was cleaned up and not
+        retained:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T105615Z/prepare_summary.json`.
+        Later broad source-text dictionary-Zstd UAT completed with a single final `.vortex` artifact,
+        no sidecars, and explicit no-fallback evidence; do not retain a load-speed claim until writer
+        timing improves instead of only artifact shape.
+      - [x] Rejected a bounded adaptive Parquet row-group task-shape patch after local 100M
+        replacement-ingest UAT crossed the three-minute safety cap without completing; the
+        previously proven fixed row-group coalescing path is retained until a new approach reduces
+        data work instead of increasing source-reader churn.
+      - [x] Rejected physical Arrow batch coalescing plus a 262,144-row/8 MiB writer target after
+        replacement-ingest UAT showed worse progress than the retained 65,536-row/1 MiB profile:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T092003Z/prepare_summary.json`
+        stopped after 220.938s before artifact swap, left the previous 14G `.vortex` target intact,
+        and removed temporary files. The retained path keeps compact embedded derived columns and
+        removes only the regressing writer/coalescer change.
+      - [x] Rejected default physical derived-column synthesis for large Parquet product streams
+        after replacement-ingest UAT again made poor progress before artifact swap:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T093523Z/prepare_summary.json`
+        stopped after 237.907s with the previous 14G `.vortex` target intact and no remaining temp
+        files. The retained path keeps the compact derived-column implementation for admitted typed
+        sources, but product columnar adapters now report
+        `embedded_derived_columns=not_synthesized_source_native_columnar_adapter` until a
+        source-native/dictionary-aware generator proves faster than baseline.
+      - [x] Tested the retained custom large streaming Vortex writer strategy after the
+        65,536-row/1 MiB path still showed poor 100M Parquet replacement-ingest progress:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T094514Z/prepare_summary.json`
+        stopped after 169.848s and left the previous 14G target intact. This remains the better
+        measured writer path versus upstream default, but its pace is not yet acceptable, so the
+        next optimization target is source/writer overlap and dynamic unit scheduling.
+      - [x] Rejected upstream-default writer substitution after UAT showed it was even slower for
+        the 100M Parquet streaming shape:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T095654Z/prepare_summary.json`
+        stopped after 119.009s with only ~46M temp output, versus ~333M after ~170s for the retained
+        custom writer path. The retained product route keeps the custom large-source writer strategy
+        and moves optimization to dynamic Capillary/PulseWeave source/writer overlap.
+      - [x] Convert Parquet row-group capillary tasks from whole-task buffering to ordered
+        per-`RecordBatch` emission. Follow-up 100M UAT showed this source-only overlap was still
+        too slow:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T100544Z/prepare_summary.json`
+        stopped after 201.353s with only ~412M temp output and left the previous 14G target intact.
+        The retained policy now reserves `max_parallelism=2` for source-to-Vortex normalization plus
+        writer flush, and assigns extra Parquet row-group source lanes only above that budget.
+      - [x] Move streaming Arrow-to-Vortex normalization into a bounded Capillary worker before the
+        writer when parallelism is available. The writer still consumes the upstream Vortex
+        `ArrayIterator` contract and writes a single `.vortex` file, but it no longer owns all
+        source read, projection validation, Arrow-to-Vortex conversion, and write/layout work on one
+        pull path. Evidence uses
+        `array_build_strategy=capillary_vortex_array_prefetch_from_arrow_record_batch_stream`.
     - [x] Compute artifact digest and write evidence during the streaming write path so prepare
       does not need a full-file reread/reopen just to prove identity.
       - Evidence: `LocalVortexWriteContext::write_array` and `write_array_iterator` return
@@ -545,6 +506,15 @@ Current autonomous execution order:
       - Evidence: `local_flat_scalar_rows_apply_layout_write_advisor_before_write` verifies the
         admitted Vortex writer strategy, row-block sizing, layout inventory fields, and fail-closed
         behavior for blocked layout strategies.
+      - Evidence:
+        `local_flat_scalar_rows_use_source_text_large_source_layout_row_blocks_when_advised`
+        verifies the non-streaming large-source 65,536-row block policy plus source-text
+        dictionary-Zstd writer policy evidence.
+      - Evidence: `parquet_row_group_parallel_stream_preserves_order_and_records_executor` and
+        `parquet_row_group_stream_reserves_vortex_normalization_and_writer_at_parallelism_two`
+        verify ordered Parquet capillary source units, Vortex-normalization/writer reservation at
+        `max_parallelism=2`, and source-order preservation after the per-`RecordBatch` emission
+        change.
     - [x] Persist only generic layout/statistics/domain evidence in the single `.vortex` artifact;
       do not create query-answer sidecars, materialized views, or query-summary payloads.
       - Evidence: prepared OLAP evidence reports
@@ -573,9 +543,81 @@ Current autonomous execution order:
       - [x] Add focused legacy cleanup coverage:
         `cargo test -p shardloom-vortex --features vortex-write,universal-format-io --lib
         local_vortex_write_removes_legacy_prepared_olap_sidecars_for_target -- --nocapture`.
+      - [x] Add focused text-stream preparation coverage:
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io --lib
+        text_rows_stream_source_builds_lazy_schema_stable_batches -- --nocapture` and
+        `cargo test -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom
+        vortex_ingest_text_sources_use_typed_record_batch_stream -- --nocapture`.
+      - [x] Add focused schema-declared direct-stream coverage:
+        `cargo test -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom
+        vortex_ingest_schema_declared_text_sources_stream_without_scalar_row_bridge --
+        --nocapture`.
+      - [x] Add focused no-schema inferred text-stream coverage:
+        `cargo test -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom
+        vortex_ingest_inferred_text_sources_stream_without_scalar_row_bridge -- --nocapture`.
+      - [x] Add focused smoke/product row-budget coverage for both schema-declared and inferred
+        text streams:
+        `cargo test -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom
+        schema_declared_text_stream_preserves_smoke_cap_and_product_no_cap -- --nocapture`.
     - [ ] Run a targeted UAT replacement ingest over the official 100M Parquet source and record
       elapsed time, output size, CPU utilization, sidecar absence, and route evidence before
       retaining the approach.
+      - [x] Resolve the local CPU-safety interpretation before replacement UAT:
+        macOS `ps %CPU` is core-relative, so `178%` means about 1.78 cores rather than 178% of
+        total machine CPU. Two-lane ingest is therefore consistent with the restored
+        `max_parallelism=2` public default; UAT transcripts should record core-equivalent CPU and
+        guard against total-machine saturation instead of treating any value above `100%` as unsafe.
+        Earlier guarded current-branch attempts preserved the existing `.vortex` artifact and
+        cleaned temporary files, but were killed before JSON route evidence because the guard used
+        the incorrect total-CPU interpretation:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/current_branch_bounded_writer_20260622T024100Z`
+        peaked at `184.4%`,
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/current_branch_writer_budget_serial_source_20260622T024537Z`
+        peaked at `122.0%`, and
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/current_branch_writer_zoned_budget_20260622T024816Z`
+        peaked at `121.1%`.
+      - [x] Latest guarded replacement attempt after the source-lane budget correction hit the same
+        strict per-core guard before route JSON was emitted:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/current_branch_replacement_uat_20260622T051151Z/prepare_guard_summary.json`
+        stopped after `2.096s` at `100.0%` CPU. The existing 14G `.vortex` artifact was preserved
+        byte-for-byte, no temp files remained, and no prepared-OLAP sidecars were observed.
+      - [ ] Re-run replacement UAT with the corrected two-lane safety interpretation, replacing the
+        Desktop `.vortex` artifact in place and verifying no hidden temp files or prepared sidecars
+        remain.
+        - [x] Reject the first corrected-safety replacement attempt before artifact swap:
+          `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T034259Z/prepare_summary.json`
+          ran for `555.036s`, peaked at `184.8%` process CPU on a one-core basis
+          (`18.48%` of 10 logical CPUs), preserved the previous 14G target, and was stopped when
+          the hidden atomic temp artifact grew to roughly 32G. The oversized temp was removed and
+          no sidecars remained.
+        - [x] Fix the identified inflation flaw before retrying: embedded UTF-8 length columns now
+          write as compact `UInt32` only for admitted high-value URL/search/title text fields,
+          URL/Referer/URI domain columns write as Arrow dictionary arrays (`Int32` keys over UTF-8
+          values), and a streaming writer/reopen regression proves the compact schema persists in
+          the single `.vortex` artifact. Focused validation:
+          `cargo test -q -p shardloom-vortex --features vortex-local-primitives,universal-format-io,vortex-write --lib streaming_vortex_write_preserves_compact_embedded_derived_columns -- --nocapture`
+          and
+          `cargo test -q -p shardloom-vortex --features vortex-local-primitives,universal-format-io,vortex-write --lib`.
+        - [x] Retain the first successful broad source-text single-artifact replacement UAT as the
+          current correct-product baseline:
+          `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T115230Z/prepare_summary.json`
+          completed in `870.375s`, wrote a single `28,221,878,552` byte `.vortex`, reported
+          `fallback_attempted=false`, `external_engine_invoked=false`,
+          `external_manifest_written=false`, no query-answer sidecars, no leftover hidden temp
+          files, `source_state_record_batch_count=1526`, and
+          `layout_footer_segment_count=65527`.
+        - [x] Retain the adaptive large-source capillary stream-batch variant as an artifact-shape
+          improvement with an explicit load-time tradeoff:
+          `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T122003Z/prepare_summary.json`
+          completed in `990.389s`, wrote a single `28,005,713,616` byte `.vortex`, reported
+          `source_state_stream_batch_size=262144`,
+          `source_state_stream_policy=product_columnar_stream_batch_size_262144_rows`,
+          `source_state_record_batch_count=382`, `layout_footer_segment_count=33495`,
+          `layout_footer_approx_bytes=1520112`, `fallback_attempted=false`,
+          `external_engine_invoked=false`, `external_manifest_written=false`, and no leftover temp
+          or sidecar files. This reduces batch/segment churn and likely helps read-side metadata
+          overhead, but it is not a load-speed closeout because `prepare_once_millis` increased
+          from `834654` to `950957`; keep writer profile tuning open as a knob/dial item.
   - Next outcome: official-source local prepare is fast enough to be a credible load step and the
     generated `.vortex` artifact is the only runtime data artifact.
   - User-visible surface: `prepare dataframe`, Python `ctx.read_*` normalization, local package use,
@@ -654,6 +696,48 @@ Current autonomous execution order:
       grouping still reports `chunk_materialized_partial_map`, 18,342,019 decoded strings, and
       `supported_with_materialization_boundary`; the next implementation must consume encoded
       string/domain metadata or improve the Vortex reader/accessor boundary.
+    - Current-branch ship/drop update: the shared UTF-8 chunk-dictionary accessor plus generic
+      count-star streaming top-K finalizer is retained because targeted local 100M UAT moved the
+      URL grouping family from the 154-158s full-43 baseline to `CB-Q34` 92.982s and `CB-Q35`
+      100.037s in
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_slow6_current_branch_20260622T033654Z/summary.json`.
+      A narrower probe over the same route recorded `url_group_top10` 88.834s and
+      `const_url_group_top10` 92.978s in
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_streaming_count_topk_20260622T033253Z/summary.json`.
+      The route still decodes 18,342,019 strings, so this is a retained state/output improvement,
+      not completion of the embedded string metadata work.
+    - Rejected current-branch ship/drop update: a decoded primitive aggregate accessor probe for
+      `CB-Q33` was removed after targeted local UAT regressed the row from 149.269s to 153.257s
+      while still materializing most hot columns:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_decoded_primitive_20260622T034758Z/summary.json`.
+      The next `CB-Q33` work must reduce near-unique state volume or merge cost, not add another
+      decode boundary.
+    - Rejected current-branch ship/drop update: maintaining the `CB-Q33` numeric-pair retained
+      top-K candidate window during every group update was removed after targeted local 100M UAT
+      exceeded the 180-second cap:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_update_time_topk_20260622T042051Z/summary.json`.
+      The probe reached 180.994s with max CPU 98.9% versus the prior current-branch 149.269s, so
+      the next `CB-Q33` work must reduce near-unique state volume, partition/merge cost, or layout
+      work instead of adding per-update top-K maintenance.
+	    - Rejected current-branch ship/drop update: the candidate `URLHash` grouping surrogate for
+	      `CB-Q34`/`CB-Q35` was removed after targeted local 100M UAT did not activate a faster route
+	      (`CB-Q34` 93.956s, `CB-Q35` 103.938s) and a bounded exactness check found 4 URLs with
+	      multiple `URLHash` values in 1,000 sampled rows. Existing source columns cannot be assumed to
+	      be exact URL group-key surrogates. Future URL/string grouping work must use exact embedded
+	      domain/dictionary metadata or source-derived columns created by Universal Ingest with
+	      source-hash invalidation, artifact-size accounting, and Native I/O evidence.
+	    - Retained current-branch ship/drop update: proof-bound string count top-K heavy hitters are now
+	      admitted for large exact count-only string top-K routes. The route builds a first-pass
+	      weighted heavy-hitter candidate sketch from chunk UTF-8 dictionaries, proves whether exact
+	      top-K is possible from the sketch lower bound, recounts only candidate strings on a second
+	      scan, and falls back to the existing exact native Vortex dictionary route if proof is not
+	      possible. Targeted local 100M UAT retained exact result parity with the prior route while
+	      moving `CB-Q34` to 33.958s and `CB-Q35` to 34.064s from the prior 92.982s/100.037s
+	      current-branch path:
+	      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_heavy_hitter_guard_20260622T072212Z/summary.json`
+	      and `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_heavy_hitter_20260622T071417Z/summary.json`.
+	      This is a retained exact ShardLoom-native operator strategy, not completion of embedded
+	      string/domain metadata or sub-second URL grouping.
   - Compound-technique dependency: implement changes under
     `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` when a nested SourceState/VortexPreparedState/
     capillary/PulseWeave/encoded/late-materialized layer removes a dominant cost class; do not add
@@ -722,8 +806,8 @@ Current autonomous execution order:
       - [ ] Rework the embedded-layout/string/group-state path before release retention: the
         single-artifact path preserves correctness and the right product contract, but current
         timing shows it still does not prune enough string/high-cardinality work.
-      - [ ] Move the rejected exact query-summary sidecar prototype evidence to the completed ledger
-        or rejected-design appendix after merge. Current JSON records it under
+      - [x] Move the rejected exact query-summary sidecar prototype evidence to the completed ledger
+        as non-runtime rejected-design provenance. Current JSON records it under
         `rejected_prepared_olap_query_summary_sidecar_uat`; it must not be used as runtime
         acceptance or ClickBench methodology.
     - [ ] Add embedded generic string/domain metadata for URL/Title/Referer predicates inside the
@@ -740,6 +824,21 @@ Current autonomous execution order:
         aggregate planner must choose `Utf8Dictionary`/dictionary-code accessors, dictionary unions,
         segment-membership masks, or deterministic materialization boundaries from the same
         evidence.
+        - [x] First exact single-artifact metadata consumption slice: Universal Ingest now embeds
+          hidden compact `UInt32` UTF-8 byte-length columns for admitted high-value URL/search/title
+          text fields and exact dictionary-encoded URL-domain columns for URL/Referer/URI-like
+          fields directly in the prepared `.vortex` artifact when the source adapter can produce
+          them without regressing large-source preparation. The typed-text bridge generates URL-like
+          length/domain columns in one source-string pass; product columnar adapters do not
+          synthesize physical derived columns by default after 100M Parquet UAT rejected the per-row
+          preprocessing cost. The native aggregate planner rewrites `length(...)` measures,
+          URL-domain group expressions, and non-empty string predicates to those embedded columns
+          when they exist, while
+          `ProjectionRequest::All` hides `__shardloom_derived_*` columns from user output.
+          Focused validation:
+          `cargo test -q -p shardloom-vortex --features vortex-local-primitives,universal-format-io,vortex-write --lib embedded -- --nocapture`
+          and
+          `cargo test -q -p shardloom-vortex --features vortex-local-primitives,universal-format-io,vortex-write --lib streaming_vortex_write_preserves_compact_embedded_derived_columns -- --nocapture`.
       - [ ] Add per-route/per-column evidence explaining why a slow string route used
         `chunk_dictionary_code_map`, `transformed_chunk_dictionary_code_map`,
         `chunk_materialized_partial_map`, or a residual row-state path; include blocker codes when
@@ -762,6 +861,13 @@ Current autonomous execution order:
         domain, URL byte length, timestamp minute/date buckets, and non-empty string masks when
         generated during Universal Ingest. These are storage/layout features, not query-specific
         summaries.
+        - [x] Implement and test the first exact derived-column family: URL/Referer domain and
+          UTF-8 byte length are generated during Universal Ingest, persisted into the single
+          `.vortex` file as scoped compact/dictionary-aware hidden columns, and consumed by native
+          count/filter/aggregate planning. Non-empty string predicate support is represented by
+          exact `length > 0` rewrites when an admitted length column exists instead of a separate
+          mask file. Timestamp buckets and broader substring/posting metadata remain open pending
+          UAT-driven proof.
       - [ ] Ensure any metadata-derived optimization is exact, source-hash invalidated, counted in
         artifact size/load time, exposed through Native I/O evidence, and disabled for official
         benchmark comparison if it would amount to a query-answer cache or materialized view.
@@ -783,6 +889,11 @@ Current autonomous execution order:
       - [x] Added packed typed/composite keys, compact count/numeric measure slots, transformed
         dictionary grouping, materialized UTF-8 chunk-local exact partial counts, streaming
         retained-candidate top-K, and state-pressure evidence for shared grouped aggregate routes.
+      - [x] Added generic streaming count-star top-K finalization for count-only ordered grouped
+        routes so exact `ORDER BY count DESC LIMIT K` keeps only the retained candidate window
+        before final row materialization. Evidence reports `capillary_streaming_count_star_topk`,
+        `streaming_count_star_topk_retention`, `typed_count_star_key_topk`, and zero materialized
+        group values; targeted local 100M UAT retained the improvement for `CB-Q34`/`CB-Q35`.
       - [ ] Add real partitioned/spill-backed exact merge execution beyond diagnostics for
         near-unique grouped state such as `CB-Q33` when in-memory state is not enough.
     - [ ] Rework bounded ordered group output only with a proven lower-cost strategy than the
@@ -843,10 +954,16 @@ Current autonomous execution order:
         `cargo test -p shardloom-vortex --features vortex-local-primitives --lib grouped_count_star_vortex_dict_array_child_uses_dictionary_accessor -- --nocapture`.
         Evidence now records `URL:vortex_utf8_dictionary` versus chunk-local/materialized accessors
         through the primitive summary and public workflow fields.
-      - [ ] Extend the direct dictionary accessor to all safe Vortex string encodings surfaced by the
-        current reader, including nullable dictionary diagnostics, FSST/string dictionary provider
-        checks, and column-specific blockers when global layout inventory says dictionary is present
-        but the route chunk still materializes.
+      - [x] Extend the direct string accessor to safe non-null UTF-8 chunks surfaced by the current
+        reader even when Vortex does not expose a stable `DictArray` code view, building exact
+        chunk-local dictionaries before generic row materialization. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib aggregate_accessor_uses_utf8_chunk_dictionary_before_materialized_rows -- --nocapture`.
+        Targeted local 100M UAT shows `URL:chunk_utf8_dictionary`,
+        `chunk_dictionary_count_star_group_update`, and `chunk_dictionary_code_map` for the URL
+        grouping routes.
+      - [ ] Extend the direct dictionary accessor to nullable dictionary diagnostics, FSST/string
+        dictionary provider checks, and column-specific blockers when global layout inventory says
+        dictionary is present but the route chunk still materializes.
     - [ ] Replace bounded top-N/sort wide-row work with prepared row-position/payload-locality
       indexes, row-ref or selection-vector heaps, and final-K payload materialization. A raw
       `select_nth_unstable` retention-loop attempt was rejected after targeted 100M UAT did not
@@ -1117,6 +1234,16 @@ Current autonomous execution order:
         regressed to 152.673s while observing 99,997,493 candidate groups; do not treat this as
         complete until prepared summary/partitioned merge work removes the near-unique full-state
         rebuild cost.
+      - [x] Reject the per-update numeric-pair retained-candidate experiment after targeted 100M
+        UAT timed out at the 180-second cap, proving it added hot-loop overhead for the near-unique
+        `CB-Q33` state shape instead of reducing dominant work. Evidence:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_update_time_topk_20260622T042051Z/summary.json`.
+      - [x] Reject fixed partitioned numeric-pair group maps after targeted 100M UAT regressed
+        `CB-Q33` from the current-branch 149.269s to 175.602s:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_partitioned_numeric_pair_20260622T044156Z/summary.json`.
+        The fixed partitions created useful evidence for future capillary/spill design but did not
+        remove the dominant 99,997,493-group state volume, so the code path was removed before
+        shipment.
       - [x] Add a direct single-numeric count top-K state for `CB-Q16`-class routes with typed
         numeric key storage, direct count updates, streaming retained-candidate selection, and
         evidence fields
@@ -1134,10 +1261,20 @@ Current autonomous execution order:
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_evidence_projection_20260621T075629/summary.json`
         lifted `source_order_limited_group_admission_no_sort` and
         `first_k_source_order_groups_then_existing_key_updates` into public route fields.
-      - [ ] Evaluate whether a partitioned/spill-capable exact high-cardinality state is needed
-        beyond the local 180-second UAT cap for `CB-Q33`-class nearly-unique groups. Latest
-        evidence observed 99,997,493 aggregate states over 99,997,497 selected rows, so remaining
-        work is optimization margin/state-budget hardening rather than a functional blocker.
+      - [x] Add a capillary two-pass numeric-pair late-measure route for `CB-Q33`-class bounded
+        ordered count/sum/avg aggregates: first build exact count state, retain the top-K
+        numeric-pair keys, then reopen the same single `.vortex` artifact and materialize SUM/AVG
+        measures only for retained keys. Targeted 100M UAT recorded exact result-row parity with
+        the previous one-pass route while reducing `CB-Q33` to 14.860s from the current-branch
+        149.269s / prior ship-drop 127.950s range:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_late_measure_20260622T065457Z/summary.json`.
+        Evidence reports `capillary_two_pass_numeric_pair_count_topk_late_measures`,
+        `numeric_pair_count_state_then_retained_measure_state`,
+        `late_measure_count_state_retained_in_memory_second_pass_exact`,
+        `fallback_attempted=false`, and `external_engine_invoked=false`.
+      - [ ] Finish spill/state-budget hardening for exact high-cardinality aggregate families after
+        retained two-pass or source-order strategies are exhausted. Do not reintroduce fixed
+        partitions unless a measured approach reduces dominant work without regressing UAT.
       - [x] Add a direct transformed-key builder for derived numeric/time keys in `CB-Q19` so
         `extract(minute FROM EventTime)` is computed into the typed key without intermediate
         `StatValue` construction, and pair it with high-cardinality triple-key state-budget
@@ -1147,7 +1284,24 @@ Current autonomous execution order:
         interned dictionary-backed search phrase ID, then performs streaming retained-candidate
         top-K and decodes strings only for surviving output rows. Focused validation:
         `cargo test -p shardloom-vortex --features vortex-local-primitives grouped_aggregate_numeric_minute_string_uses_streaming_topk_compact_state`.
-        Targeted 100M UAT remains required by the ship/drop cadence before release retention.
+      - [x] Bind the `CB-Q19`-class string key to Vortex dictionary codes when the direct accessor
+        exposes a dictionary, so the hot update path uses one prepared dictionary-to-interner map
+        instead of looking up and hashing the UTF-8 value on every row. Evidence reports
+        `typed_numeric_minute_dictionary_code_hash_key`,
+        `numeric_minute_string_dictionary_code_direct_group_update`,
+        `typed_numeric_minute_dictionary_code_key`, and the capillary work unit
+        `dictionary_code_bound_numeric_minute_string_key`.
+        Targeted local 100M UAT
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_slow6_current_branch_20260622T033654Z/summary.json`
+        recorded `CB-Q19` at 17.160s with no fallback or external engine invocation; retain the
+        dictionary-code path, but keep the row open because the remaining cost still exceeds the
+        sub-second target.
+      - [ ] Evaluate the current exact hash-state fast-map candidate before retaining it for
+        release: grouped aggregate general state, UTF-8 interning, materialized string partials,
+        and direct UTF-8 dictionary builders now use `FxHashMap`, with deterministic output still
+        controlled by existing sorted/source-order result paths. Focused correctness tests pass,
+        but prior broad string hash-table changes had mixed UAT evidence, so targeted 100M
+        ship/drop evidence is required before this is treated as a completed optimization.
     - [ ] Implement dictionary/string-aware group-by and exact distinct improvements for `CB-Q05`,
       `CB-Q06`, `CB-Q09`, `CB-Q10`, `CB-Q11`, `CB-Q12`, `CB-Q13`, `CB-Q14`, `CB-Q15`, `CB-Q22`,
       `CB-Q34`, and `CB-Q35`: group by dictionary/code IDs where available, keep distinct state
@@ -1179,6 +1333,16 @@ Current autonomous execution order:
         by the reader with exact chunk-local partial counts and separate evidence from dictionary
         code grouping. Focused validation:
         `cargo test -p shardloom-vortex --features vortex-local-primitives grouped_count_star_ -- --nocapture`.
+	      - [x] Add generic streaming count-star top-K output for URL/string count-only groups, reducing
+	        full candidate sorting/materialization while preserving exact ordering by count. Targeted
+	        local 100M UAT retained the route for `CB-Q34`/`CB-Q35`; remaining work is deeper
+	        prepared string/domain metadata to avoid the full runtime string decode.
+	      - [x] Add proof-bound string count top-K heavy-hitter recount for large exact count-only
+	        string groups: first-pass weighted candidate sketch over chunk UTF-8 dictionaries,
+	        lower-bound proof before the second pass, candidate-only exact recount on the same single
+	        `.vortex` artifact, and existing exact native Vortex dictionary fallback when proof is not
+	        possible. Targeted 100M UAT retained exact row parity and moved `CB-Q34` to 33.958s and
+	        `CB-Q35` to 34.064s with `fallback_attempted=false` and `external_engine_invoked=false`.
     - [ ] Implement faster string predicate and URL expression kernels for `CB-Q21`, `CB-Q22`,
       `CB-Q23`, `CB-Q24`, `CB-Q28`, and `CB-Q29`: exact prepared literal membership indexes for
       `LIKE '%literal%'`, shared positive/negative string predicate masks, prepared string length
@@ -1210,6 +1374,39 @@ Current autonomous execution order:
       - [x] Route file-scan FSST UTF-8 contains predicates through Vortex's FSST DFA `LIKE` kernel for
         count and selected-row masks, with escaped literal patterns and nullable/unsupported shapes
         still falling back to explicit materialized ShardLoom evaluation evidence.
+      - [x] Add a generic mask-first contains helper for Vortex `Filter` arrays so admitted mixed
+        predicates can scan only selected rows for host UTF-8 and dictionary UTF-8 children before
+        falling back to the older child-scan/intersection path. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib contains -- --nocapture`.
+        Targeted 100M UAT kept the route correct with no fallback/external engine and no meaningful
+        regression: `CB-Q21` ran in `13.264s` and `CB-Q22` ran in `15.891s`
+        (`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q21_maskfirst_20260622T051302Z/summary.json`,
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q22_maskfirst_20260622T051345Z/summary.json`).
+        This is retained as a reusable filtered-array data-work reduction, not as completion of the
+        string predicate family; the dominant cost still requires prepared string/domain metadata
+        or exact segment/block pruning.
+      - [x] Add exact residual candidate narrowing for comparison, null, and `IN`-list predicates
+        over typed, dictionary, and materialized single-column Vortex accessors, then feed exact
+        candidates directly into scalar/grouped aggregate accessors when every residual predicate
+        child is exact. This avoids selected-row export/re-check for admitted equality/range,
+        `IN`/`.isin()`, and null-filtered aggregate families while preserving advisory candidate
+        materialization for mixed residual predicates that still need a full ShardLoom predicate
+        check. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib count_where_in_list -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_in_list -- --nocapture`,
+        and `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib residual_predicate_exact_candidates -- --nocapture`.
+        Targeted local 100M UAT retained the change for the filtered date/counter group/top-K
+        family:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_filtered_family_current_20260622T054637Z/summary.json`
+        recorded `CB-Q37` 0.261s, `CB-Q38` 0.116s, `CB-Q39` 0.121s, `CB-Q40` 0.841s,
+        `CB-Q41` 0.065s, `CB-Q42` 0.041s, and `CB-Q43` 0.054s, all on native Vortex routes with
+        no fallback or external engine invocation.
+      - [x] Reject the FSST count-only bool-mask counting micro-optimization after targeted local
+        100M UAT regressed `CB-Q21` from the prior 13.370s full-43 baseline to 14.310s:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q21_fsst_count_mask_20260622T043513Z/summary.json`.
+        The next string-predicate work must reduce full string/layout scanning through prepared
+        string/domain metadata or exact segment/block pruning rather than optimizing the final bool
+        mask count.
     - [ ] Implement bounded sort/materialization improvements for `CB-Q24`, `CB-Q25`, `CB-Q26`,
       `CB-Q27`, `CB-Q40`, and `CB-Q41`: top-N/offset heaps, projection-aware row materialization,
       late payload decode, and deterministic ordering/tie fields.
@@ -1218,6 +1415,11 @@ Current autonomous execution order:
         window remains a diagnostic baseline and is not sufficient for `sub_1s_query_time`.
       - [x] Replace bounded sort/top-K periodic full-sort truncation with capillary select-nth
         retention windows and final deterministic sort over the retained candidate set.
+      - [x] Replace generic count-star grouped top-K's linear retained-window scan with dynamic
+        capillary select-nth retention when `offset + limit > 128`, preserving the small-`LIMIT`
+        streaming window while avoiding `O(groups x offset)` comparisons for offset-heavy rows.
+        Targeted 100M UAT moved `CB-Q40` from a post-candidate 2.88s probe to 0.841s with
+        `group_output_strategy=capillary_select_nth_count_star_topk`.
       - [x] Preserve original scan ordinals while using selected-row predicate masks for bounded
         sort/top-N, so wide-output late materialization stays correct without full payload decode.
       - [x] For wide-output top-N with predicates, keep the first pass narrow by evaluating the
@@ -1307,6 +1509,9 @@ Current autonomous execution order:
       - [x] Add focused fixtures for numeric/minute/string grouped top-K state, transformed
         dictionary URL-domain grouping, scalar direct exact distinct, and capillary select-nth
         bounded sort retention.
+      - [x] Add focused fixture coverage for dictionary-code-bound numeric/minute/string grouped
+        top-K state so a Vortex dictionary accessor cannot regress to per-row string lookup/hash in
+        the compact triple-key route.
       - [x] Add focused fixtures for materialized URL-domain chunk-local partial grouping,
         direct/materialized numeric expression fusion, exact dictionary distinct over used codes,
         and row-reference final-K materialization state-budget evidence.
@@ -1316,6 +1521,17 @@ Current autonomous execution order:
       Replace or reuse the existing local prepared Vortex artifact in the Desktop UAT folder rather
       than creating duplicate massive files, and record whether each row used embedded
       layout/statistics pruning, plain prepared Vortex scan state, or raw native Vortex scan state.
+      - [x] Current-branch targeted local UAT for the six affected rows completed with zero
+        timeouts and zero fallback/external-engine violations:
+        `CB-Q17` 2.026s, `CB-Q18` 11.109s, `CB-Q19` 17.160s, `CB-Q33` 149.269s, `CB-Q34`
+        92.982s, and `CB-Q35` 100.037s in
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_slow6_current_branch_20260622T033654Z/summary.json`.
+        This proves route stability but not performance completion for `CB-Q18`, `CB-Q19`,
+        `CB-Q33`, `CB-Q34`, or `CB-Q35`.
+      - [x] Targeted `CB-Q33` rerun after the two-pass numeric-pair late-measure route completed in
+        14.860s with exact result parity to the prior route and no fallback/external-engine
+        invocation:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_late_measure_20260622T065457Z/summary.json`.
     - [ ] Update README/docs/capability reports only from the admitted runtime evidence; move the
       completed summary to the ledger after merge/session completion.
   - Next outcome: the 100M native Vortex route no longer has timeout rows for feasible local OLAP
