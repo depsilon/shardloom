@@ -3523,8 +3523,10 @@ impl VortexIngestSourceData {
         source_to_columnar_millis: u128,
     ) -> Self {
         let row_count = columnar_source.row_count_hint.unwrap_or(0);
-        let source_split_row_ranges =
-            source_unit_split_row_ranges(row_count, columnar_source.source_stream_unit_count_hint);
+        let source_split_row_ranges = source_unit_split_row_ranges(
+            row_count,
+            columnar_source.source_stream_unit_row_ranges.as_deref(),
+        );
         Self {
             source_format: source_adapter.source_format,
             source_adapter,
@@ -3570,7 +3572,7 @@ impl VortexIngestSourceData {
         self.row_count = usize::try_from(row_count).unwrap_or(usize::MAX);
         self.row_count_known = true;
         self.source_split_row_ranges =
-            source_unit_split_row_ranges(self.row_count, self.source_stream_unit_count_hint);
+            source_unit_split_row_ranges(self.row_count, Some(&self.source_split_row_ranges));
         self.record_batch_count = record_batch_count;
         if record_batch_count > 0 {
             self.ingest_executor_applied_parallelism = self
@@ -3769,25 +3771,29 @@ fn single_source_split_row_ranges(row_count: usize) -> Vec<(usize, usize)> {
 )]
 fn source_unit_split_row_ranges(
     row_count: usize,
-    source_unit_count_hint: Option<usize>,
+    exact_source_unit_row_ranges: Option<&[(usize, usize)]>,
 ) -> Vec<(usize, usize)> {
-    let Some(source_unit_count_hint) = source_unit_count_hint else {
-        return single_source_split_row_ranges(row_count);
-    };
     if row_count == 0 {
         return Vec::new();
     }
-    let unit_count = source_unit_count_hint.clamp(1, row_count);
-    if unit_count == 1 {
+    let Some(exact_source_unit_row_ranges) = exact_source_unit_row_ranges else {
+        return single_source_split_row_ranges(row_count);
+    };
+    if exact_source_unit_row_ranges.is_empty() {
         return single_source_split_row_ranges(row_count);
     }
-    (0..unit_count)
-        .filter_map(|index| {
-            let start = index.saturating_mul(row_count) / unit_count;
-            let end = (index + 1).saturating_mul(row_count) / unit_count;
-            (start < end).then_some((start, end))
-        })
-        .collect()
+    let mut expected_start = 0usize;
+    for &(start, end) in exact_source_unit_row_ranges {
+        if start != expected_start || end <= start || end > row_count {
+            return single_source_split_row_ranges(row_count);
+        }
+        expected_start = end;
+    }
+    if expected_start == row_count {
+        exact_source_unit_row_ranges.to_vec()
+    } else {
+        single_source_split_row_ranges(row_count)
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -3980,6 +3986,7 @@ fn schema_declared_text_stream_contract(
     source_path: &Path,
     source_format: LocalSourceFormat,
     source_schema_hints: &[(String, LogicalDType)],
+    max_input_rows: Option<usize>,
 ) -> Result<Option<SchemaDeclaredTextStreamContract>, ShardLoomError> {
     if source_schema_hints.is_empty()
         || !matches!(
@@ -4008,15 +4015,15 @@ fn schema_declared_text_stream_contract(
         .iter()
         .map(|(name, dtype)| schema_declared_text_arrow_dtype(dtype, name, &context).map(Some))
         .collect::<Result<Vec<_>, ShardLoomError>>()?;
-    let file = fs::File::open(source_path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "{context} failed to open {} for streaming read: {error}; no fallback execution was attempted",
-            source_path.display()
-        ))
-    })?;
-    let mut reader = BufReader::new(file);
     match source_format {
         LocalSourceFormat::Csv => {
+            let file = fs::File::open(source_path).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{context} failed to open {} for streaming read: {error}; no fallback execution was attempted",
+                    source_path.display()
+                ))
+            })?;
+            let mut reader = BufReader::new(file);
             let mut header_line = String::new();
             let bytes_read = reader.read_line(&mut header_line).map_err(|error| {
                 ShardLoomError::InvalidOperation(format!(
@@ -4035,7 +4042,12 @@ fn schema_declared_text_stream_contract(
                 validate_sql_identifier(column)?;
             }
             if header != declared_header {
-                return Ok(None);
+                return schema_hinted_inferred_text_stream_contract(
+                    source_path,
+                    source_format,
+                    max_input_rows,
+                    source_schema_hints,
+                );
             }
             Ok(Some(SchemaDeclaredTextStreamContract {
                 source_format,
@@ -4046,20 +4058,97 @@ fn schema_declared_text_stream_contract(
                 source_stream_policy: "schema_declared_csv_record_batch_stream_batch_size_65536_rows",
             }))
         }
-        LocalSourceFormat::JsonLines => Ok(Some(SchemaDeclaredTextStreamContract {
+        LocalSourceFormat::JsonLines => schema_hinted_inferred_text_stream_contract(
+            source_path,
             source_format,
-            header: declared_header,
-            column_dtypes,
-            column_arrow_dtypes,
-            reader,
-            source_stream_policy: "schema_declared_jsonl_record_batch_stream_batch_size_65536_rows",
-        })),
+            max_input_rows,
+            source_schema_hints,
+        ),
         LocalSourceFormat::Json
         | LocalSourceFormat::Parquet
         | LocalSourceFormat::ArrowIpc
         | LocalSourceFormat::Avro
         | LocalSourceFormat::Orc => Ok(None),
     }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn schema_hinted_inferred_text_stream_contract(
+    source_path: &Path,
+    source_format: LocalSourceFormat,
+    max_input_rows: Option<usize>,
+    source_schema_hints: &[(String, LogicalDType)],
+) -> Result<Option<SchemaDeclaredTextStreamContract>, ShardLoomError> {
+    let Some(mut contract) =
+        inferred_text_stream_contract(source_path, source_format, max_input_rows)?
+    else {
+        return Ok(None);
+    };
+    let context = format!(
+        "{} schema-hinted Universal Ingest stream",
+        source_format.row_label()
+    );
+    apply_schema_hints_to_text_stream_contract(&mut contract, source_schema_hints, &context)?;
+    let complete_declared_schema = contract.header.iter().all(|column| {
+        source_schema_hints
+            .iter()
+            .any(|(hint, _dtype)| hint == column)
+    });
+    contract.source_stream_policy = match (source_format, complete_declared_schema) {
+        (LocalSourceFormat::Csv, true) => {
+            "schema_declared_csv_record_batch_stream_batch_size_65536_rows"
+        }
+        (LocalSourceFormat::JsonLines, true) => {
+            "schema_declared_jsonl_record_batch_stream_batch_size_65536_rows"
+        }
+        (LocalSourceFormat::Csv, false) => {
+            "schema_hinted_csv_record_batch_stream_batch_size_65536_rows"
+        }
+        (LocalSourceFormat::JsonLines, false) => {
+            "schema_hinted_jsonl_record_batch_stream_batch_size_65536_rows"
+        }
+        (
+            LocalSourceFormat::Json
+            | LocalSourceFormat::Parquet
+            | LocalSourceFormat::ArrowIpc
+            | LocalSourceFormat::Avro
+            | LocalSourceFormat::Orc,
+            _,
+        ) => "not_applicable",
+    };
+    Ok(Some(contract))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn apply_schema_hints_to_text_stream_contract(
+    contract: &mut SchemaDeclaredTextStreamContract,
+    source_schema_hints: &[(String, LogicalDType)],
+    context: &str,
+) -> Result<(), ShardLoomError> {
+    for (name, dtype) in source_schema_hints {
+        let Some(index) = contract.header.iter().position(|column| column == name) else {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} schema column {name:?} is not present in source header {}; no fallback execution was attempted",
+                contract.header.join(",")
+            )));
+        };
+        contract.column_dtypes[index] = Some(dtype.clone());
+        contract.column_arrow_dtypes[index] =
+            Some(schema_declared_text_arrow_dtype(dtype, name, context)?);
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn text_stream_contract_schema_hints(
+    contract: &SchemaDeclaredTextStreamContract,
+) -> Vec<(String, LogicalDType)> {
+    contract
+        .header
+        .iter()
+        .zip(contract.column_dtypes.iter())
+        .filter_map(|(name, dtype)| dtype.as_ref().map(|dtype| (name.clone(), dtype.clone())))
+        .collect()
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -6566,6 +6655,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         &request.source_path,
         source_format,
         source_schema_hints,
+        read_limits.input_rows,
     )?
     else {
         return Ok(None);
@@ -6574,6 +6664,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         "{} schema-declared Universal Ingest stream",
         contract.source_format.row_label()
     );
+    let source_schema_hints = text_stream_contract_schema_hints(&contract);
     let fields = contract
         .header
         .iter()
@@ -6609,6 +6700,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         record_batch_count_hint: None,
         source_stream_batch_size: batch_size,
         source_stream_unit_count_hint: None,
+        source_stream_unit_row_ranges: None,
         source_stream_unit_hint_kind: "schema_declared_text_record_batch_stream".to_string(),
         source_stream_policy: contract.source_stream_policy.to_string(),
         source_dictionary_preservation_status:
@@ -6620,6 +6712,10 @@ fn try_run_schema_declared_text_vortex_prepare(
         ingest_executor_unit_count_hint: None,
         reader: Box::new(batch_reader),
     };
+    let columnar_source =
+        shardloom_vortex::universal_format_io::with_embedded_derived_columns_columnar_stream_source(
+            columnar_source,
+        );
     let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
         columnar_source,
         request.max_parallelism,
@@ -6639,12 +6735,13 @@ fn try_run_schema_declared_text_vortex_prepare(
     prewrite_source.materialization_layout =
         "schema_declared_text_to_streaming_arrow_record_batch_source_state";
     prewrite_source.parse_normalization = "schema_declared_text_to_record_batch_stream";
-    prewrite_source.source_dictionary_preservation_status =
-        "schema_declared_text_typed_builders_preserve_declared_scalar_types".to_string();
+    prewrite_source.source_dictionary_preservation_status = columnar_source
+        .source_dictionary_preservation_status
+        .clone();
 
     let source_schema_digest = fnv64_digest(&vortex_ingest_schema_digest_from_parts(
         &prewrite_source.header,
-        source_schema_hints,
+        &source_schema_hints,
     ));
     let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
     let prewrite_source_state_digest =
@@ -6778,6 +6875,7 @@ fn try_run_inferred_text_vortex_prepare(
         "{} inferred-schema Universal Ingest stream",
         contract.source_format.row_label()
     );
+    let source_schema_hints = text_stream_contract_schema_hints(&contract);
     let fields = contract
         .header
         .iter()
@@ -6813,6 +6911,7 @@ fn try_run_inferred_text_vortex_prepare(
         record_batch_count_hint: None,
         source_stream_batch_size: batch_size,
         source_stream_unit_count_hint: None,
+        source_stream_unit_row_ranges: None,
         source_stream_unit_hint_kind: "inferred_text_record_batch_stream".to_string(),
         source_stream_policy: contract.source_stream_policy.to_string(),
         source_dictionary_preservation_status:
@@ -6824,6 +6923,10 @@ fn try_run_inferred_text_vortex_prepare(
         ingest_executor_unit_count_hint: None,
         reader: Box::new(batch_reader),
     };
+    let columnar_source =
+        shardloom_vortex::universal_format_io::with_embedded_derived_columns_columnar_stream_source(
+            columnar_source,
+        );
     let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
         columnar_source,
         request.max_parallelism,
@@ -6843,15 +6946,10 @@ fn try_run_inferred_text_vortex_prepare(
     prewrite_source.materialization_layout =
         "inferred_text_to_streaming_arrow_record_batch_source_state";
     prewrite_source.parse_normalization = "inferred_text_to_record_batch_stream";
-    prewrite_source.source_dictionary_preservation_status =
-        "inferred_text_typed_builders_preserve_inferred_scalar_types".to_string();
+    prewrite_source.source_dictionary_preservation_status = columnar_source
+        .source_dictionary_preservation_status
+        .clone();
 
-    let source_schema_hints = contract
-        .header
-        .iter()
-        .zip(contract.column_dtypes.iter())
-        .filter_map(|(name, dtype)| dtype.as_ref().map(|dtype| (name.clone(), dtype.clone())))
-        .collect::<Vec<_>>();
     let source_schema_digest = fnv64_digest(&vortex_ingest_schema_digest_from_parts(
         &prewrite_source.header,
         &source_schema_hints,
@@ -7016,8 +7114,9 @@ fn run_text_streaming_vortex_prepare(
     prewrite_source.materialization_layout =
         "typed_text_rows_to_streaming_arrow_record_batch_source_state";
     prewrite_source.parse_normalization = "text_adapter_to_typed_record_batch_stream";
-    prewrite_source.source_dictionary_preservation_status =
-        "text_typed_column_builders_preserve_declared_types_no_source_dictionary".to_string();
+    prewrite_source.source_dictionary_preservation_status = columnar_source
+        .source_dictionary_preservation_status
+        .clone();
 
     let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
     let prewrite_source_state_digest =
@@ -7423,6 +7522,7 @@ fn stream_columnar_vortex_ingest_partition_source(
         record_batch_count_hint,
         source_stream_batch_size,
         source_stream_unit_count_hint,
+        source_stream_unit_row_ranges: _,
         source_stream_unit_hint_kind,
         source_stream_policy,
         source_dictionary_preservation_status,
@@ -7489,6 +7589,7 @@ fn stream_columnar_vortex_ingest_partition_source(
         record_batch_count_hint: combined_record_batch_count_hint,
         source_stream_batch_size,
         source_stream_unit_count_hint: combined_source_stream_unit_count_hint,
+        source_stream_unit_row_ranges: None,
         source_stream_unit_hint_kind: format!(
             "partition_directory_source_units;inner={source_stream_unit_hint_kind}"
         ),
@@ -42510,6 +42611,17 @@ mod tests {
         );
     }
 
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn assert_field_contains(fields: &BTreeMap<String, String>, key: &str, expected: &str) {
+        let value = fields
+            .get(key)
+            .unwrap_or_else(|| panic!("field {key} must be present"));
+        assert!(
+            value.contains(expected),
+            "field {key} value {value:?} must contain {expected:?}"
+        );
+    }
+
     #[test]
     fn local_source_read_budget_rejects_oversized_regular_file() {
         let path = sql_local_source_test_path("csv");
@@ -42717,14 +42829,22 @@ mod tests {
     }
 
     #[test]
-    fn source_unit_split_row_ranges_use_known_source_units() {
+    fn source_unit_split_row_ranges_use_exact_source_units_only() {
         assert_eq!(
-            source_unit_split_row_ranges(10, Some(3)),
-            vec![(0, 3), (3, 6), (6, 10)]
+            source_unit_split_row_ranges(10, Some(&[(0, 2), (2, 7), (7, 10)])),
+            vec![(0, 2), (2, 7), (7, 10)]
         );
         assert_eq!(source_unit_split_row_ranges(10, None), vec![(0, 10)]);
         assert_eq!(
-            source_unit_split_row_ranges(0, Some(3)),
+            source_unit_split_row_ranges(10, Some(&[(0, 3), (4, 10)])),
+            vec![(0, 10)]
+        );
+        assert_eq!(
+            source_unit_split_row_ranges(10, Some(&[(0, 3), (3, 9)])),
+            vec![(0, 10)]
+        );
+        assert_eq!(
+            source_unit_split_row_ranges(0, Some(&[(0, 0)])),
             Vec::<(usize, usize)>::new()
         );
     }
@@ -43523,6 +43643,184 @@ mod tests {
         }
 
         fs::remove_dir_all(root).expect("remove schema declared text stream root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn vortex_ingest_streaming_text_routes_preserve_hidden_derived_columns() {
+        let root = vortex_ingest_reuse_test_root("streaming-derived-columns");
+        let inferred_source = root.join("inferred.csv");
+        let inferred_target = root.join("inferred.vortex");
+        fs::write(
+            &inferred_source,
+            "id,URL,SearchPhrase\n1,https://www.example.com/a,alpha\n2,https://[2001:db8::1]:8443/b,beta\n",
+        )
+        .expect("write inferred csv source");
+
+        let inferred = run_vortex_prepare(vortex_ingest_reuse_request(
+            inferred_source,
+            inferred_target,
+            false,
+        ))
+        .expect("inferred text stream writes Vortex artifact");
+        let inferred_report = match inferred {
+            VortexIngestOutcome::Prepared(report) => report,
+        };
+        let inferred_fields = field_map(inferred_report.fields());
+        assert!(
+            inferred_report
+                .vortex_report
+                .column_family_summary()
+                .contains("__shardloom_derived_utf8_len_URL:"),
+            "{}",
+            inferred_report.vortex_report.column_family_summary()
+        );
+        assert!(
+            inferred_report
+                .vortex_report
+                .column_family_summary()
+                .contains("__shardloom_derived_url_domain_URL:"),
+            "{}",
+            inferred_report.vortex_report.column_family_summary()
+        );
+        assert_field_contains(
+            &inferred_fields,
+            "source_state_dictionary_preservation_status",
+            "__shardloom_derived_url_domain_URL",
+        );
+
+        let schema_source = root.join("schema.csv");
+        let schema_target = root.join("schema.vortex");
+        fs::write(
+            &schema_source,
+            "id,URL,SearchPhrase\n1,https://www.example.net/a,alpha\n2,https://www.example.org/b,beta\n",
+        )
+        .expect("write schema csv source");
+        let full_hints = vec![
+            ("id".to_string(), LogicalDType::Int64),
+            ("URL".to_string(), LogicalDType::Utf8),
+            ("SearchPhrase".to_string(), LogicalDType::Utf8),
+        ];
+        let schema_declared = run_vortex_ingest_prepare_once_with_schema(
+            vortex_ingest_reuse_request(schema_source, schema_target, false),
+            &full_hints,
+        )
+        .expect("schema-declared text stream writes Vortex artifact");
+        let schema_report = match schema_declared {
+            VortexIngestOutcome::Prepared(report) => report,
+        };
+        let schema_fields = field_map(schema_report.fields());
+        assert!(
+            schema_report
+                .vortex_report
+                .column_family_summary()
+                .contains("__shardloom_derived_url_domain_URL:"),
+            "{}",
+            schema_report.vortex_report.column_family_summary()
+        );
+        assert_field_contains(
+            &schema_fields,
+            "source_state_dictionary_preservation_status",
+            "__shardloom_derived_utf8_len_SearchPhrase",
+        );
+
+        fs::remove_dir_all(root).expect("remove streaming derived columns root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn vortex_ingest_partial_jsonl_schema_hints_preserve_undeclared_columns() {
+        let root = vortex_ingest_reuse_test_root("partial-jsonl-schema-hints");
+        let source = root.join("input.jsonl");
+        let target = root.join("prepared.vortex");
+        fs::write(
+            &source,
+            "{\"id\":1,\"URL\":\"https://www.example.com/a\",\"amount\":10}\n{\"id\":2,\"URL\":\"https://www.example.net/b\",\"amount\":20}\n",
+        )
+        .expect("write partial schema jsonl source");
+        let hints = vec![("id".to_string(), LogicalDType::Int64)];
+
+        let outcome = run_vortex_ingest_prepare_once_with_schema(
+            vortex_ingest_reuse_request(source, target, false),
+            &hints,
+        )
+        .expect("schema-hinted JSONL preserves inferred fields");
+        let report = match outcome {
+            VortexIngestOutcome::Prepared(report) => report,
+        };
+        let fields = field_map(report.fields());
+        let summary = report.vortex_report.column_family_summary();
+        assert!(summary.contains("id:int64"), "{summary}");
+        assert!(summary.contains("URL:utf8"), "{summary}");
+        assert!(summary.contains("amount:int64"), "{summary}");
+        assert!(
+            summary.contains("__shardloom_derived_url_domain_URL:"),
+            "{summary}"
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_stream_policy",
+            "schema_hinted_jsonl_record_batch_stream_batch_size_65536_rows",
+        );
+        assert_field_contains(
+            &fields,
+            "source_state_dictionary_preservation_status",
+            "__shardloom_derived_url_domain_URL",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_dir_all(root).expect("remove partial jsonl schema root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn vortex_ingest_partial_csv_schema_hints_preserve_undeclared_columns() {
+        let root = vortex_ingest_reuse_test_root("partial-csv-schema-hints");
+        let source = root.join("input.csv");
+        let target = root.join("prepared.vortex");
+        fs::write(
+            &source,
+            "id,URL,event_date,amount\n1,https://www.example.com/a,2026-06-22,10\n2,https://www.example.net/b,2026-06-23,20\n",
+        )
+        .expect("write partial schema csv source");
+        let hints = vec![
+            ("event_date".to_string(), LogicalDType::Date32),
+            ("id".to_string(), LogicalDType::Int64),
+        ];
+
+        let outcome = run_vortex_ingest_prepare_once_with_schema(
+            vortex_ingest_reuse_request(source, target, false),
+            &hints,
+        )
+        .expect("schema-hinted CSV preserves inferred fields");
+        let report = match outcome {
+            VortexIngestOutcome::Prepared(report) => report,
+        };
+        let fields = field_map(report.fields());
+        let summary = report.vortex_report.column_family_summary();
+        assert!(summary.contains("id:int64"), "{summary}");
+        assert!(summary.contains("URL:utf8"), "{summary}");
+        assert!(summary.contains("event_date:date32"), "{summary}");
+        assert!(summary.contains("amount:int64"), "{summary}");
+        assert!(
+            summary.contains("__shardloom_derived_url_domain_URL:"),
+            "{summary}"
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_stream_policy",
+            "schema_hinted_csv_record_batch_stream_batch_size_65536_rows",
+        );
+        assert_field_contains(
+            &fields,
+            "source_state_dictionary_preservation_status",
+            "__shardloom_derived_url_domain_URL",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_dir_all(root).expect("remove partial csv schema root");
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

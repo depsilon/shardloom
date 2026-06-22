@@ -7064,7 +7064,7 @@ class LazyFrame:
         return self.client.vortex_prepare(
             self.source.uri,
             target,
-            schema=self.source.schema or None,
+            schema=_prepare_vortex_schema_hints(self.source),
             allow_overwrite=allow_overwrite,
             certification_level=certification_level,
             check=check,
@@ -15771,6 +15771,14 @@ def _public_workflow_input_format(source: WorkflowSource) -> str:
         if lower.endswith(".ndjson"):
             return "ndjson"
     return source.source_format
+
+
+def _prepare_vortex_schema_hints(source: WorkflowSource) -> Mapping[str, object] | None:
+    """Return CLI schema hints only for text adapters that accept them."""
+
+    if source.source_format in {"csv", "json"}:
+        return source.schema or None
+    return None
 
 
 def _public_workflow_default_execution_policy(source: WorkflowSource) -> str:

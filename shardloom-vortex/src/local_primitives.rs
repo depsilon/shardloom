@@ -1454,7 +1454,6 @@ fn local_primitive_native_io_safe(
         && report.status == VortexLocalPrimitiveExecutionStatus::Executed
         && (!report.full_stream_collected || local_primitive_materialization_declared(report))
         && local_primitive_row_count(report).is_some()
-        && local_primitive_pushdown_evidence_is_sufficient(report)
         && !local_primitive_unsafe_effect_detected(report);
     if !common_safe {
         return false;
@@ -1482,6 +1481,9 @@ fn local_primitive_native_io_safe(
             && !report.full_stream_collected
             && report.filter_pushdown_applied
             && report.upstream_filter_expression_used;
+    }
+    if !local_primitive_pushdown_evidence_is_sufficient(report) {
+        return false;
     }
     report.upstream_scan_called && report.data_read && report.streaming_scan_used
 }
@@ -28884,6 +28886,12 @@ mod tests {
         assert!(!report.materialization_boundary_reported);
         assert!(!report.row_read);
         assert!(!report.fallback_execution_allowed);
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        assert!(
+            certificate.is_certified(),
+            "metadata-pruned aggregate should certify as native Vortex metadata I/O without scan"
+        );
     }
 
     #[test]
@@ -28932,6 +28940,12 @@ mod tests {
         assert!(!report.materialization_boundary_reported);
         assert!(!report.row_read);
         assert!(!report.fallback_execution_allowed);
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        assert!(
+            certificate.is_certified(),
+            "metadata-pruned sort should certify as native Vortex metadata I/O without scan"
+        );
     }
 
     #[test]

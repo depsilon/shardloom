@@ -17,7 +17,7 @@ use std::{
     rc::Rc,
     sync::{
         Arc, Mutex,
-        mpsc::{self, Receiver},
+        mpsc::{self, Receiver, SyncSender},
     },
     thread::{self, JoinHandle},
 };
@@ -43,13 +43,15 @@ pub const PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS: usize = 65_536;
 pub const PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS: usize = 262_144;
 const PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD: usize = 10_000_000;
 const PARQUET_PARALLEL_ROW_GROUPS_PER_TASK: usize = 16;
+const PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER: usize = 2;
 const PRODUCT_COLUMNAR_STREAM_POLICY: &str = "product_columnar_stream_batch_size_65536_rows";
 const PRODUCT_COLUMNAR_LARGE_STREAM_POLICY: &str = "product_columnar_stream_batch_size_262144_rows";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct FlatColumnarStreamSourcePlan {
     record_batch_count_hint: Option<usize>,
     source_unit_count_hint: Option<usize>,
+    source_unit_row_ranges: Option<Vec<(usize, usize)>>,
     source_unit_hint_kind: &'static str,
     stream_batch_size: usize,
     stream_policy: &'static str,
@@ -61,6 +63,7 @@ impl FlatColumnarStreamSourcePlan {
         Self {
             record_batch_count_hint: Some(record_batch_count_hint),
             source_unit_count_hint: Some(record_batch_count_hint),
+            source_unit_row_ranges: None,
             source_unit_hint_kind: "source_defined_record_batch_count",
             stream_batch_size: 0,
             stream_policy: "source_defined_record_batches",
@@ -78,6 +81,7 @@ impl FlatColumnarStreamSourcePlan {
         Self {
             record_batch_count_hint: None,
             source_unit_count_hint,
+            source_unit_row_ranges: None,
             source_unit_hint_kind,
             stream_batch_size,
             stream_policy: product_columnar_stream_policy(stream_batch_size),
@@ -176,6 +180,8 @@ pub struct FlatLocalColumnarStreamSource {
     pub source_stream_batch_size: usize,
     /// Source-native work-unit count when known before streaming.
     pub source_stream_unit_count_hint: Option<usize>,
+    /// Exact source-native work-unit row ranges when known before streaming.
+    pub source_stream_unit_row_ranges: Option<Vec<(usize, usize)>>,
     /// Meaning of `source_stream_unit_count_hint`.
     pub source_stream_unit_hint_kind: String,
     /// Stream shaping policy applied before the Vortex writer consumes batches.
@@ -416,8 +422,10 @@ impl ParquetRowGroupParallelRecordBatchReader {
         }
         let task_count = tasks.len();
         let shared_tasks = Arc::new(Mutex::new(tasks));
-        let (sender, receiver) = mpsc::channel();
         let worker_count = applied_parallelism.max(1).min(task_count.max(1));
+        let result_queue_capacity =
+            worker_count.max(1) * PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER;
+        let (sender, receiver) = mpsc::sync_channel(result_queue_capacity.max(1));
         let mut workers = Vec::with_capacity(worker_count);
         for _ in 0..worker_count {
             let worker_path = path.clone();
@@ -564,7 +572,7 @@ fn stream_parquet_row_group_batches(
     task_index: usize,
     row_groups: Vec<usize>,
     batch_size: usize,
-    sender: &mpsc::Sender<ParquetRowGroupReadResult>,
+    sender: &SyncSender<ParquetRowGroupReadResult>,
 ) -> std::result::Result<(), ArrowError> {
     let file = File::open(path).map_err(ArrowError::from)?;
     let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
@@ -679,13 +687,27 @@ fn validate_known_stream_row_count(
     Ok(())
 }
 
+fn contiguous_batch_row_ranges(row_count: usize, batch_size: usize) -> Vec<(usize, usize)> {
+    if row_count == 0 {
+        return Vec::new();
+    }
+    let batch_size = batch_size.max(1);
+    (0..row_count)
+        .step_by(batch_size)
+        .map(|start| {
+            let end = (start + batch_size).min(row_count);
+            (start, end)
+        })
+        .collect()
+}
+
 fn flat_columnar_stream_source_from_reader(
     schema: &Schema,
     header: Vec<String>,
     materialized_columns: Vec<String>,
     reader_projection_columns: Vec<String>,
     row_count_hint: Option<usize>,
-    stream_plan: FlatColumnarStreamSourcePlan,
+    stream_plan: &FlatColumnarStreamSourcePlan,
     reader: Box<dyn RecordBatchReader + Send>,
 ) -> FlatLocalColumnarStreamSource {
     let mut source = FlatLocalColumnarStreamSource {
@@ -698,6 +720,7 @@ fn flat_columnar_stream_source_from_reader(
         record_batch_count_hint: stream_plan.record_batch_count_hint,
         source_stream_batch_size: stream_plan.stream_batch_size,
         source_stream_unit_count_hint: stream_plan.source_unit_count_hint,
+        source_stream_unit_row_ranges: stream_plan.source_unit_row_ranges.clone(),
         source_stream_unit_hint_kind: stream_plan.source_unit_hint_kind.to_string(),
         source_stream_policy: stream_plan.stream_policy.to_string(),
         source_dictionary_preservation_status: stream_plan
@@ -717,6 +740,13 @@ fn flat_columnar_stream_source_from_reader(
         source.source_dictionary_preservation_status
     );
     source
+}
+
+#[must_use]
+pub fn with_embedded_derived_columns_columnar_stream_source(
+    source: FlatLocalColumnarStreamSource,
+) -> FlatLocalColumnarStreamSource {
+    attach_embedded_derived_columns_to_stream_source(source)
 }
 
 fn attach_embedded_derived_columns_to_stream_source(
@@ -1017,6 +1047,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         record_batch_count_hint,
         source_stream_batch_size,
         source_stream_unit_count_hint,
+        source_stream_unit_row_ranges,
         source_stream_unit_hint_kind,
         source_stream_policy,
         source_dictionary_preservation_status,
@@ -1037,6 +1068,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
             record_batch_count_hint,
             source_stream_batch_size,
             source_stream_unit_count_hint,
+            source_stream_unit_row_ranges,
             source_stream_unit_hint_kind,
             source_stream_policy,
             source_dictionary_preservation_status,
@@ -1070,6 +1102,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         record_batch_count_hint,
         source_stream_batch_size,
         source_stream_unit_count_hint,
+        source_stream_unit_row_ranges,
         source_stream_unit_hint_kind,
         source_stream_policy,
         source_dictionary_preservation_status,
@@ -1134,6 +1167,7 @@ pub fn stream_flat_text_rows_columnar_source(
                 record_batch_count_hint: Some(0),
                 source_stream_batch_size: batch_size,
                 source_stream_unit_count_hint: Some(0),
+                source_stream_unit_row_ranges: Some(Vec::new()),
                 source_stream_unit_hint_kind: "text_record_batch_count".to_string(),
                 source_stream_policy: "typed_text_record_batch_stream_batch_size_65536_rows"
                     .to_string(),
@@ -1168,6 +1202,7 @@ pub fn stream_flat_text_rows_columnar_source(
             record_batch_count_hint: Some(record_batch_count),
             source_stream_batch_size: batch_size,
             source_stream_unit_count_hint: Some(record_batch_count),
+            source_stream_unit_row_ranges: Some(contiguous_batch_row_ranges(row_count, batch_size)),
             source_stream_unit_hint_kind: "text_record_batch_count".to_string(),
             source_stream_policy: "typed_text_record_batch_stream_batch_size_65536_rows"
                 .to_string(),
@@ -1266,12 +1301,31 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
     let row_group_count = builder.metadata().num_row_groups();
     let row_group_count_hint = Some(row_group_count);
     validate_known_stream_row_count(path, "Parquet", row_count_hint, max_rows)?;
-    let stream_plan = FlatColumnarStreamSourcePlan::product_batches(
+    let mut row_group_offset = 0usize;
+    let mut row_group_row_ranges = Vec::with_capacity(row_group_count);
+    let mut row_group_ranges_exact = true;
+    for row_group_index in 0..row_group_count {
+        let Ok(row_group_rows) =
+            usize::try_from(builder.metadata().row_group(row_group_index).num_rows())
+        else {
+            row_group_ranges_exact = false;
+            break;
+        };
+        let Some(row_group_end) = row_group_offset.checked_add(row_group_rows) else {
+            row_group_ranges_exact = false;
+            break;
+        };
+        row_group_row_ranges.push((row_group_offset, row_group_end));
+        row_group_offset = row_group_end;
+    }
+    let row_group_row_ranges = row_group_ranges_exact.then_some(row_group_row_ranges);
+    let mut stream_plan = FlatColumnarStreamSourcePlan::product_batches(
         max_rows,
         row_group_count_hint,
         "parquet_row_group_count",
         "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary",
     );
+    stream_plan.source_unit_row_ranges = row_group_row_ranges;
     let requested_max_parallelism = requested_max_parallelism.max(1);
     let source_parallelism_budget =
         parquet_row_group_source_parallelism_budget(requested_max_parallelism);
@@ -1285,7 +1339,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
             header.clone(),
             header,
             row_count_hint,
-            stream_plan,
+            &stream_plan,
             Box::new(ParquetRowGroupParallelRecordBatchReader::new(
                 path,
                 Arc::clone(&schema),
@@ -1319,7 +1373,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         header.clone(),
         header,
         row_count_hint,
-        stream_plan,
+        &stream_plan,
         Box::new(reader),
     );
     Ok(with_capillary_prefetch_columnar_stream_source(
@@ -1461,7 +1515,7 @@ pub fn stream_flat_arrow_ipc_columnar_source(
         header.clone(),
         header,
         None,
-        stream_plan,
+        &stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -1608,7 +1662,7 @@ pub fn stream_flat_avro_columnar_source(
         header.clone(),
         header,
         None,
-        stream_plan,
+        &stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -1765,7 +1819,7 @@ pub fn stream_flat_orc_columnar_source(
         header.clone(),
         header,
         None,
-        stream_plan,
+        &stream_plan,
         Box::new(RowLimitRecordBatchReader::new(
             reader,
             max_rows,
@@ -4217,6 +4271,7 @@ mod tests {
             record_batch_count_hint: Some(2),
             source_stream_batch_size: 0,
             source_stream_unit_count_hint: Some(2),
+            source_stream_unit_row_ranges: Some(vec![(0, 2), (2, 3)]),
             source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
             source_stream_policy: "test_source_defined_record_batches".to_string(),
             source_dictionary_preservation_status: "test_not_applicable".to_string(),
@@ -4246,6 +4301,10 @@ mod tests {
         assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
         assert_eq!(source.source_stream_batch_size, 0);
         assert_eq!(source.source_stream_unit_count_hint, Some(2));
+        assert_eq!(
+            source.source_stream_unit_row_ranges.as_deref(),
+            Some(&[(0, 2), (2, 3)][..])
+        );
         assert_eq!(
             source.source_stream_unit_hint_kind,
             "test_record_batch_count"
@@ -4291,6 +4350,7 @@ mod tests {
             record_batch_count_hint: Some(1),
             source_stream_batch_size: 0,
             source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 3)]),
             source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
             source_stream_policy: "test_source_defined_record_batches".to_string(),
             source_dictionary_preservation_status: "test_not_applicable".to_string(),
@@ -4317,6 +4377,10 @@ mod tests {
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 2);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
+        assert_eq!(
+            source.source_stream_unit_row_ranges.as_deref(),
+            Some(&[(0, 3)][..])
+        );
         let batch = source.reader.next().expect("batch").expect("batch ok");
         assert_eq!(batch.num_rows(), 3);
         assert!(source.reader.next().is_none());
@@ -4364,6 +4428,24 @@ mod tests {
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
         assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
         assert_eq!(source.source_stream_unit_count_hint, Some(20));
+        assert_eq!(
+            source.source_stream_unit_row_ranges.as_ref().map(Vec::len),
+            Some(20)
+        );
+        assert_eq!(
+            source
+                .source_stream_unit_row_ranges
+                .as_ref()
+                .and_then(|ranges| ranges.first().copied()),
+            Some((0, 2))
+        );
+        assert_eq!(
+            source
+                .source_stream_unit_row_ranges
+                .as_ref()
+                .and_then(|ranges| ranges.last().copied()),
+            Some((38, 40))
+        );
         assert_eq!(
             source.source_stream_unit_hint_kind,
             "parquet_row_group_count"

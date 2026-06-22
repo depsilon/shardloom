@@ -18,11 +18,21 @@ pub(crate) fn shardloom_url_domain(value: &str) -> &str {
     if ascii_starts_with_ignore_case(&bytes[start..authority_end], b"www.") {
         start += 4;
     }
-    let host_end = bytes[start..authority_end]
+    let host_end = host_end_without_port(bytes, start, authority_end);
+    &value[start..host_end]
+}
+
+fn host_end_without_port(bytes: &[u8], start: usize, authority_end: usize) -> usize {
+    if bytes.get(start) == Some(&b'[') {
+        return bytes[start..authority_end]
+            .iter()
+            .position(|byte| *byte == b']')
+            .map_or(authority_end, |offset| start + offset + 1);
+    }
+    bytes[start..authority_end]
         .iter()
         .position(|byte| *byte == b':')
-        .map_or(authority_end, |offset| start + offset);
-    &value[start..host_end]
+        .map_or(authority_end, |offset| start + offset)
 }
 
 fn ascii_scheme_end(bytes: &[u8]) -> Option<usize> {
@@ -73,6 +83,14 @@ mod tests {
         assert_eq!(
             shardloom_url_domain("https://user:pass@www.example.net/path"),
             "example.net"
+        );
+        assert_eq!(
+            shardloom_url_domain("https://[2001:db8::1]:8443/path"),
+            "[2001:db8::1]"
+        );
+        assert_eq!(
+            shardloom_url_domain("https://user:pass@[2001:db8::2]/path"),
+            "[2001:db8::2]"
         );
         assert_eq!(shardloom_url_domain(""), "");
     }

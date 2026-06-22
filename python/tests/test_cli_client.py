@@ -3781,6 +3781,76 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(result.fallback_attempted)
             self.assertFalse(result.external_engine_invoked)
 
+    def test_lazy_frame_prepare_vortex_does_not_forward_columnar_schema_hints(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source = root / "source.parquet"
+            workspace = root / "prepared"
+            target = workspace / "source.vortex"
+            source.write_bytes(b"not-a-real-parquet-file; fake CLI only")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+
+                    args = sys.argv[1:]
+                    assert args[0:3] == [
+                        "vortex-prepare",
+                        {str(source)!r},
+                        {str(target)!r},
+                    ], sys.argv
+                    assert "--schema" not in args, sys.argv
+                    assert args[-2:] == ["--format", "json"], sys.argv
+                    Path(args[2]).parent.mkdir(parents=True, exist_ok=True)
+                    Path(args[2]).write_text("prepared", encoding="utf-8")
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "vortex-prepare",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "source_path", "value": args[1]}},
+                            {{"key": "target_vortex_path", "value": args[2]}},
+                            {{"key": "source_format", "value": "parquet"}},
+                            {{"key": "vortex_ingest_status", "value": "prepared_state_created"}},
+                            {{"key": "prepared_state_id", "value": "vortex-prepared-state-columnar-schema"}},
+                            {{"key": "prepared_state_digest", "value": "sha256:prepared-columnar-schema"}},
+                            {{"key": "vortex_artifact_digest", "value": "sha256:vortex-columnar-schema"}},
+                            {{"key": "input_row_count", "value": "1"}},
+                            {{"key": "writer_row_count", "value": "1"}},
+                            {{"key": "reopen_row_count", "value": "1"}},
+                            {{"key": "reopen_verification_status", "value": "reopen_metadata_row_count_verified"}},
+                            {{"key": "certification_level", "value": "ingest_certified"}},
+                            {{"key": "certification_status", "value": "fixture_smoke_certified"}},
+                            {{"key": "source_io_performed", "value": "true"}},
+                            {{"key": "prepared_state_created", "value": "true"}},
+                            {{"key": "prepared_state_reused", "value": "false"}},
+                            {{"key": "prepared_state_reuse_hit", "value": "false"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_parquet(
+                source,
+                schema={"id": "int64", "label": "utf8"},
+            )
+
+            result = frame.prepare_vortex(workspace=workspace)
+
+            self.assertIsInstance(result, VortexIngestSmokeReport)
+            self.assertEqual(result.source_path, str(source))
+            self.assertEqual(result.target_vortex_path, str(target))
+            self.assertFalse(result.fallback_attempted)
+            self.assertFalse(result.external_engine_invoked)
+
     def test_lazy_frame_prepare_vortex_route_is_queryable_when_dim_is_supplied(
         self,
     ) -> None:
