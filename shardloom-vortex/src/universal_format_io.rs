@@ -562,9 +562,10 @@ fn parquet_row_group_parallel_task_count(row_group_count: usize) -> usize {
 }
 
 fn parquet_row_group_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
-    // Reserve one lane for Vortex array normalization and one for the writer.
-    // Additional lanes can be assigned to source-native row-group reads.
-    requested_max_parallelism.saturating_sub(2)
+    // Reserve one lane for the Vortex writer. The remaining default lane keeps
+    // source/native normalization overlapped without returning to unbounded
+    // row-group buffering.
+    requested_max_parallelism.saturating_sub(1)
 }
 
 fn stream_parquet_row_group_batches(
@@ -1119,7 +1120,10 @@ pub fn with_capillary_prefetch_columnar_stream_source(
 }
 
 fn columnar_prefetch_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
-    requested_max_parallelism.saturating_sub(2)
+    // Reserve one lane for the Vortex writer. Even the public default
+    // `max_parallelism=2` should keep a bounded source prefetch lane active
+    // rather than collapsing the product path back to serial pull.
+    requested_max_parallelism.saturating_sub(1)
 }
 
 /// Convert admitted local text scalar rows into a streaming Arrow source for
@@ -2101,6 +2105,12 @@ fn source_schema_header(path: &Path, source_label: &str, schema: &Schema) -> Res
                 path.display()
             )));
         }
+        if is_shardloom_hidden_derived_column(column) {
+            return Err(reserved_hidden_derived_column_error(
+                column,
+                &format!("local {source_label} source '{}'", path.display()),
+            ));
+        }
         if !seen_columns.insert(column) {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "local {source_label} source '{}' contains duplicate column '{column}'",
@@ -2803,6 +2813,9 @@ fn validate_flat_columns(columns: &[String], context: &str) -> Result<()> {
                 "{context} contains an empty column name"
             )));
         }
+        if is_shardloom_hidden_derived_column(column) {
+            return Err(reserved_hidden_derived_column_error(column, context));
+        }
         if !seen_columns.insert(column) {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "{context} contains duplicate column '{column}'"
@@ -2810,6 +2823,15 @@ fn validate_flat_columns(columns: &[String], context: &str) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn reserved_hidden_derived_column_error(column: &str, context: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "{context} contains reserved ShardLoom hidden derived column '{column}'; \
+         columns beginning with '__shardloom_derived_' are owned by Universal Ingest and \
+         cannot be supplied by callers because native rewrite routes require verified \
+         source-derived values; rename the input column and retry; no fallback execution was attempted"
+    ))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -4249,6 +4271,45 @@ mod tests {
     }
 
     #[test]
+    fn text_rows_stream_source_rejects_reserved_hidden_derived_columns() {
+        let header = vec![
+            "URL".to_string(),
+            "__shardloom_derived_url_domain_URL".to_string(),
+        ];
+        let rows = vec![vec![
+            (
+                "URL".to_string(),
+                ScalarValue::Utf8("https://example.com/path".to_string()),
+            ),
+            (
+                "__shardloom_derived_url_domain_URL".to_string(),
+                ScalarValue::Utf8("attacker-controlled.example".to_string()),
+            ),
+        ]];
+
+        let error = match stream_flat_text_rows_columnar_source(
+            header.clone(),
+            vec![None, None],
+            vec![None, None],
+            header.clone(),
+            header,
+            rows,
+            64,
+            "JSONL",
+        ) {
+            Ok(_) => panic!("reserved hidden derived columns must be rejected"),
+            Err(error) => error,
+        };
+
+        let message = error.to_string();
+        assert!(
+            message.contains("reserved ShardLoom hidden derived column"),
+            "{message}"
+        );
+        assert!(message.contains("no fallback execution was attempted"));
+    }
+
+    #[test]
     fn capillary_prefetch_stream_source_preserves_order_and_records_executor() {
         let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
         let batch_1 = RecordBatch::try_new(
@@ -4333,7 +4394,7 @@ mod tests {
     }
 
     #[test]
-    fn capillary_prefetch_reserves_vortex_normalization_and_writer_at_parallelism_two() {
+    fn capillary_prefetch_uses_default_second_lane_for_bounded_source_overlap() {
         let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
         let batch = RecordBatch::try_new(
             Arc::clone(&schema),
@@ -4369,11 +4430,11 @@ mod tests {
 
         assert_eq!(
             source.ingest_executor_status,
-            "serial_pull_reader_writer_slot_reserved"
+            "bounded_capillary_prefetch_active"
         );
         assert_eq!(
             source.ingest_executor_kind,
-            "single_source_record_batch_reader_with_writer_slot_reserved"
+            "source_reader_to_vortex_writer_prefetch_pipeline"
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 2);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
@@ -4425,7 +4486,7 @@ mod tests {
             "parquet_row_group_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 3);
-        assert_eq!(source.ingest_executor_applied_parallelism, 1);
+        assert_eq!(source.ingest_executor_applied_parallelism, 2);
         assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
         assert_eq!(source.source_stream_unit_count_hint, Some(20));
         assert_eq!(
@@ -4473,7 +4534,7 @@ mod tests {
     }
 
     #[test]
-    fn parquet_row_group_stream_reserves_vortex_normalization_and_writer_at_parallelism_two() {
+    fn parquet_row_group_stream_uses_default_second_lane_for_bounded_source_overlap() {
         let path = std::env::temp_dir().join(format!(
             "shardloom-parquet-row-group-writer-budget-{}-{}.parquet",
             std::process::id(),
@@ -4503,11 +4564,11 @@ mod tests {
 
         assert_eq!(
             source.ingest_executor_status,
-            "serial_pull_reader_writer_slot_reserved"
+            "bounded_capillary_row_group_parallel_writer_budgeted"
         );
         assert_eq!(
             source.ingest_executor_kind,
-            "single_source_record_batch_reader_with_writer_slot_reserved"
+            "parquet_row_group_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 2);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
@@ -4571,6 +4632,50 @@ mod tests {
             .expect("first parquet batch")
             .expect("first parquet batch ok");
         assert_eq!(batch.num_columns(), 1);
+
+        std::fs::remove_file(path).expect("remove parquet test file");
+    }
+
+    #[test]
+    fn parquet_stream_rejects_reserved_hidden_derived_columns() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-parquet-hidden-derived-collision-{}-{}.parquet",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("URL", DataType::Utf8, true),
+            Field::new("__shardloom_derived_url_domain_URL", DataType::Utf8, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(StringArray::from(vec![Some("https://example.com/path")])) as ArrayRef,
+                Arc::new(StringArray::from(vec![Some("attacker-controlled.example")])) as ArrayRef,
+            ],
+        )
+        .expect("test batch");
+        let file = File::create(&path).expect("create parquet");
+        let mut writer = parquet::arrow::ArrowWriter::try_new(file, Arc::clone(&schema), None)
+            .expect("parquet writer");
+        writer.write(&batch).expect("write parquet batch");
+        writer.close().expect("close parquet writer");
+
+        let error = match stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
+        {
+            Ok(_) => panic!("reserved hidden derived columns must be rejected"),
+            Err(error) => error,
+        };
+
+        let message = error.to_string();
+        assert!(
+            message.contains("reserved ShardLoom hidden derived column"),
+            "{message}"
+        );
+        assert!(message.contains("no fallback execution was attempted"));
 
         std::fs::remove_file(path).expect("remove parquet test file");
     }

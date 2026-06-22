@@ -279,6 +279,29 @@ Current autonomous execution order:
       - [x] Added packed typed/composite grouped states, compact count/numeric measure slots,
         transformed dictionary grouping, and materialized UTF-8 chunk-local partial count merges for
         shared high-cardinality/string grouped families.
+      - [x] Added transformed UTF-8 dictionary general-measure updates for grouped domain/length/min
+        families so query shapes like Q29 update `avg(length(string))`, `count(*)`, and `min(string)`
+        from dictionary value/count pairs instead of row-state updates. Targeted 100M local UAT over
+        the retained single `.vortex` artifact moved Q29 from the previous
+        `row_state_update` evidence at `35.95s` to
+        `transformed_dictionary_general_measure_group_update` at `20.52s`, then a post-cleanup
+        rerun over the same public native Vortex CLI surface recorded `16.48s`, with
+        `fallback_attempted=false`, `external_engine_invoked=false`, and evidence saved at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/q29_retained_transformed_general_probe.json`
+        and `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/q29_current_retained_after_cleanup_probe.json`.
+        A same-column dictionary predicate shortcut was tested and removed because it did not
+        produce a measured win over the retained updater.
+      - [x] Tested and rejected the naive exact count-threshold second-scan approach for
+        transformed dictionary HAVING families. It reduced materialized group values from about
+        `1.8M` to `74`, but the extra full native Vortex pass slowed Q29 from the retained
+        `20.52s` general-measure path to `29.999s`; the rejected evidence is recorded at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/q29_count_threshold_second_pass_probe.json`.
+        Do not reintroduce this shape unless the count-threshold decision comes from embedded
+        single-artifact metadata or prepared layout state and proves faster without sidecars,
+        query-answer caches, or an extra full scan.
+      - [ ] Add a metadata-backed exact HAVING/selectivity path for transformed dictionary groups
+        only if it can use embedded `.vortex` layout/statistics to avoid both row-state updates and
+        an extra full scan while preserving exact SQL semantics.
       - [ ] Add a real partitioned/spill-backed exact merge path for near-unique group state when
         bounded memory is insufficient; current spill posture remains diagnostic/fail-closed.
     - [ ] For wide-row/top-K costs, compose predicate posting lists or selection vectors with
@@ -295,6 +318,20 @@ Current autonomous execution order:
       - [x] Corrected UTF-8 dictionary exact distinct to union only dictionary codes that are
         actually used by each chunk, preserving exactness without materializing unused dictionary
         values.
+      - [x] Added a proof-bound string `count_distinct` top-K route for large exact grouped
+        distinct queries: first pass builds a weighted string heavy-hitter candidate sketch from
+        chunk UTF-8 dictionaries, the second pass recounts exact distinct values only for retained
+        candidate strings using direct primitive accessors, and the route falls back to the
+        existing exact ShardLoom-native path if the proof threshold is not satisfied. Targeted
+        local 100M UAT over the retained single `.vortex` artifact moved `CB-Q14` from the latest
+        full-run `24.65s` / targeted `24.77s` range to `11.15s`, then `13.88s` after public field
+        lifting, with exact result parity, `fallback_attempted=false`, `external_engine_invoked=false`,
+        `SearchPhrase:chunk_utf8_dictionary,UserID:direct_i64`,
+        `proofbound_candidate_exact_distinct_sets`, and
+        `proofbound_string_count_distinct_exact_topk`. Evidence:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_count_distinct_topk_q14_20260622T_now/summary.json`
+        and
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_count_distinct_topk_q14_field_lift_20260622T_now/summary.json`.
     - [ ] For repeated-expression costs, compose expression-plan fingerprinting, one-time measure
       evaluation, and shared aggregate/update state across SQL/Python/DataFrame spellings.
       - [x] Added direct and materialized fused numeric additive aggregate updates for repeated
@@ -738,6 +775,36 @@ Current autonomous execution order:
 	      and `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_heavy_hitter_20260622T071417Z/summary.json`.
 	      This is a retained exact ShardLoom-native operator strategy, not completion of embedded
 	      string/domain metadata or sub-second URL grouping.
+    - Retained current-branch ship/drop update: string top-K exact recount now builds a compact
+      candidate signature prefilter from retained heavy-hitter strings, then still verifies exact
+      candidate membership before counting. This keeps exact SQL semantics, uses the same single
+      `.vortex` artifact, and avoids adding query sidecars or result caches. Focused validation:
+      `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib string_count_topk -- --nocapture`
+      and `cargo test -q -p shardloom-cli --features release-user-surfaces
+      local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`. Targeted 100M
+      local UAT retained native Vortex/no-fallback evidence while moving the string heavy-hitter
+      lane from the prior targeted `CB-Q34` `32.984s` / `CB-Q35` `33.896s` to `CB-Q34` `29.777s`
+      and `CB-Q35` `26.522s`:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_signature_prefilter_q34_clean_20260622T_now/summary.json`
+      and `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_signature_prefilter_20260622T_now/summary.json`.
+    - Retained current-branch ship/drop update: proof-bound numeric+UTF8 count top-K heavy hitters
+      are now admitted for two-key ordered count-only grouped routes such as `CB-Q17`
+      (`UserID, SearchPhrase ORDER BY count DESC LIMIT K`). The route keeps first-pass state
+      bounded to heavy-hitter candidates, reopens the same single `.vortex` artifact for an exact
+      candidate recount, and falls back to the existing exact ShardLoom-native route if the
+      ProofBound threshold is not satisfied. Focused validation:
+      `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib numeric_utf8 -- --nocapture`
+      and `cargo test -q -p shardloom-cli --features release-user-surfaces
+      local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`.
+      Targeted local 100M UAT moved `CB-Q17` from the prior full-run `67.435s` to `20.648s`
+      (`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_numeric_utf8_topk_20260622T_now/summary.json`)
+      and then `22.720s` with flattened proof fields
+      (`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_numeric_utf8_topk_fields_20260622T_now/summary.json`).
+      The subsequent full sequential 43-query pass retained the route at `20.982s`, with
+      `numeric_utf8_count_topk_heavy_hitter_late_recount`,
+      `proofbound_heavy_hitter_numeric_utf8_count_topk_late_recount`,
+      `numeric_utf8_topk_heavy_hitter_exact_proof=true`, and no fallback/external-engine
+      invocation.
   - Compound-technique dependency: implement changes under
     `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` when a nested SourceState/VortexPreparedState/
     capillary/PulseWeave/encoded/late-materialized layer removes a dominant cost class; do not add
@@ -1000,6 +1067,21 @@ Current autonomous execution order:
         dictionary contains unused values and keeping the update in the dictionary-code path.
         Focused validation:
         `cargo test -p shardloom-vortex --features vortex-local-primitives direct_count_distinct_uses_used_dictionary_codes_not_all_dictionary_values -- --nocapture`.
+      - [x] Add proof-bound string count-distinct top-K for `CB-Q14`-class grouped exact distinct:
+        candidate sketch over chunk UTF-8 dictionary values, exact candidate distinct recount over
+        direct primitive values, public proof-field lifting, and exact fallback when the ProofBound
+        threshold is not met. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib aggregate_accessor_keeps_filtered_primitives_typed -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib count_distinct -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib string_count_topk -- --nocapture`, and
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib numeric_utf8 -- --nocapture`.
+        Targeted local 100M UAT retained exact row parity with the previous route and moved `CB-Q14`
+        to `11.15s` / `13.88s` from the latest `24.65s` full-run result, with no fallback or
+        external-engine invocation and machine-readable public fields for
+        `local_primitive_distinct_state_strategy`,
+        `local_primitive_string_count_distinct_topk_heavy_hitter_*`, and
+        `local_primitive_uniqueness_proof_status`.
     - [ ] Extend the prepared Vortex layout advisor so universal ingest can choose
       ClickBench-like OLAP layout policy from data/profile evidence: date/counter partitions,
       URL/search dictionaries, low-cost exact derived columns, segment stats, and read/write
@@ -1213,6 +1295,15 @@ Current autonomous execution order:
       - [x] Replace heap-backed per-row group keys for common one/two/three-key grouped routes with
         fixed-width typed keys so `CB-Q17`, `CB-Q19`, `CB-Q33`, `CB-Q34`, and `CB-Q35` avoid tuple
         `Vec` allocation in the hot update path.
+      - [x] Tested and rejected a dictionary-code-bound `numeric + string` compact count top-K
+        variant for `CB-Q17`/`CB-Q15`-class two-key routes. It activated
+        `numeric_string_dictionary_code_direct_group_update` but regressed the current 100M
+        `CB-Q17` local UAT from the latest full-run `52.277s` to `62.675s` while still carrying
+        about `24M` candidate groups; the rejected evidence is recorded at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/q17_numeric_string_probe.json`.
+        Future work for this family must reduce state volume through partitioned/spill-backed
+        merge, prepared grouping layout, or metadata-assisted pruning rather than adding another
+        in-memory key spelling over the same rows.
       - [x] Elide source-order key retention for ordered grouped aggregate routes and compare
         retained candidates with typed key values instead of per-group string tie-breaker material,
         preserving deterministic ordering while reducing high-cardinality top-K memory pressure.
@@ -1385,6 +1476,32 @@ Current autonomous execution order:
         This is retained as a reusable filtered-array data-work reduction, not as completion of the
         string predicate family; the dominant cost still requires prepared string/domain metadata
         or exact segment/block pruning.
+      - [x] Add the retained count-only chunk-dictionary contains path for `count_where` so
+        string count predicates can reuse the same Vortex/ShardLoom chunk UTF-8 dictionary accessor
+        family as grouped aggregate routes instead of materializing full residual rows. Targeted
+        100M local UAT over the current single `.vortex` artifact moved `CB-Q21` from the fresh
+        full-run `16.442s` to `12.166s` with `data_decoded=false` and
+        `data_materialized=false`, while the adjacent filtered aggregate/sort rows stayed usable
+        (`CB-Q22` 8.212s, `CB-Q24` 19.330s) in
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_route_family_string_count_only_20260622T170000Z/summary.json`.
+        The broader row-index chunk-dictionary contains variant was tested and removed because it
+        regressed `CB-Q22`/`CB-Q24`; keep this optimization count-only until prepared predicate
+        row indexes or exact segment/block pruning exist.
+      - [x] Add an exact ASCII-literal byte-search path for UTF-8 contains predicates over host
+        string chunks and dictionary values. Non-ASCII needles keep the existing UTF-8 string
+        semantics; ASCII `LIKE '%literal%'` predicates use `memchr` byte search over already-valid
+        Vortex UTF-8 buffers and preserve the same no-fallback route boundary. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib count_where_string_contains_uses_native_utf8_count_without_fallback -- --nocapture`,
+        and
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib mixed_predicate_count_pushes_safe_conjunct_and_keeps_utf8_residual_unmaterialized -- --nocapture`.
+        Targeted local 100M UAT over the retained single `.vortex` artifact moved `CB-Q21` from
+        `13.158s` to `12.564s`, `CB-Q22` from `10.118s` to `8.969s`, and `CB-Q23` from `18.267s`
+        to `15.470s`; `CB-Q24` remained in its noisy row-ref materialization range at `22.256s`.
+        Evidence:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_ascii_contains_byte_search_20260622T_now/summary.json`
+        and
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_ascii_contains_sort_q24_20260622T_now/summary.json`.
       - [x] Add exact residual candidate narrowing for comparison, null, and `IN`-list predicates
         over typed, dictionary, and materialized single-column Vortex accessors, then feed exact
         candidates directly into scalar/grouped aggregate accessors when every residual predicate
@@ -1515,6 +1632,12 @@ Current autonomous execution order:
       - [x] Add focused fixtures for materialized URL-domain chunk-local partial grouping,
         direct/materialized numeric expression fusion, exact dictionary distinct over used codes,
         and row-reference final-K materialization state-budget evidence.
+      - [x] Add focused fixture coverage for count-only UTF-8 contains over chunk dictionaries so
+        the count route can use dictionary value/count pairs without activating the slower
+        row-index path for filtered aggregate or sort routes.
+      - [x] Add focused fixture coverage for proof-bound string count-distinct top-K routes,
+        including candidate sketch admission, exact candidate recount, proof status, retained row
+        ordering, and public evidence-field lifting.
     - [ ] Rerun targeted local 100M UAT for the affected timeout rows (`CB-Q17`, `CB-Q18`,
       `CB-Q19`, `CB-Q33`, `CB-Q34`, `CB-Q35`) under the 180-second cap, then rerun the full
       43-query native Vortex UAT only after targeted rows no longer timeout or regress.
@@ -1532,6 +1655,73 @@ Current autonomous execution order:
         14.860s with exact result parity to the prior route and no fallback/external-engine
         invocation:
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_late_measure_20260622T065457Z/summary.json`.
+      - [x] Full sequential 43-query local UAT over the current single `.vortex` artifact completed
+        with 43/43 successes, zero timeouts, and zero fallback/external-engine violations after the
+        grouped count-distinct compact-admission guard fix:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_current_branch_bounded_after_guardfix_20260622T164414Z/summary.json`.
+        Route-family baseline from that run:
+        `native_vortex_count_all` (`CB-Q01`), `native_vortex_count_where` (`CB-Q02`, `CB-Q21`),
+        `native_vortex_filter_project` (`CB-Q20`), `native_vortex_sort_rows`
+        (`CB-Q24`-`CB-Q27`), scalar/direct aggregate (`CB-Q03`-`CB-Q07`, `CB-Q30`), generic
+        grouped row-state (`CB-Q09`-`CB-Q12`, `CB-Q14`, `CB-Q22`, `CB-Q23`), compact count-star
+        grouped routes (`CB-Q08`, `CB-Q15`, `CB-Q17`, `CB-Q18`, `CB-Q36`, `CB-Q40`-`CB-Q43`),
+        chunk-dictionary count-star (`CB-Q13`, `CB-Q37`-`CB-Q39`), numeric-pair compact
+        (`CB-Q31`, `CB-Q32`), numeric-pair late-measure (`CB-Q33`), numeric-minute-string
+        (`CB-Q19`), transformed dictionary general-measure (`CB-Q29`), and string heavy-hitter
+        (`CB-Q34`, `CB-Q35`).
+      - [x] Before returning to individual slow-lane work, run a route-family embedded-Vortex pass:
+        metadata-only count already uses file row-count metadata; count-where now has the retained
+        count-only chunk-dictionary contains path; filter/project is already sub-100ms over native
+        Vortex; sort rows already uses row-reference late materialization and rejected the slower
+        row-index contains variant; scalar/direct aggregate already uses direct primitive/dictionary
+        updates; transformed dictionary general-measure now uses dictionary value/count pairs; and
+        compact grouped routes already expose capillary/selection-vector/embedded-layout evidence.
+        Remaining heavy routes should now resume as deeper slow-lane work rather than route
+        availability work: generic grouped count-distinct/string row-state, high-cardinality
+        compact count-star state, string heavy-hitter recount, and exact predicate row-index
+        metadata.
+      - [x] Rerun the full sequential 43-query native Vortex UAT after the route-family pass and
+        numeric+UTF8 proof-bound route, using max parallelism 2 and the same retained single
+        `.vortex` artifact. Evidence:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_embedded_layout_route_pass_fixed_20260622T_now/summary.json`.
+        Result: 43/43 success, zero timeouts, zero fallback violations. Every public ClickBench
+        route family has now had at least one applicable embedded-layout/native-operator
+        optimization pass before returning to slower lanes: metadata count (`CB-Q01`), string
+        count-where (`CB-Q21`), filter/project (`CB-Q20`), sort/top-K (`CB-Q24`-`CB-Q27`),
+        scalar aggregate (`CB-Q03`-`CB-Q07`, `CB-Q30`), exact/grouped row-state
+        (`CB-Q09`-`CB-Q14`, `CB-Q22`, `CB-Q23`), compact count-star grouped routes
+        (`CB-Q08`, `CB-Q15`-`CB-Q19`, `CB-Q36`, `CB-Q40`-`CB-Q43`), numeric pair compact/late
+        measure (`CB-Q31`-`CB-Q33`), transformed dictionary general measure (`CB-Q29`), and string
+        heavy-hitter recount (`CB-Q34`, `CB-Q35`).
+      - [x] Recheck apparent regressions from the full sequential pass with targeted reruns before
+        changing code. Evidence:
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_regression_check_20260622T_now/summary.json`.
+        `CB-Q14` (`22.046s`), `CB-Q31` (`2.468s`), and `CB-Q32` (`3.372s`) returned to the prior
+        range, so those were run-order/cache variance rather than retained regressions. `CB-Q33`
+        (`19.573s` targeted, `27.711s` full), `CB-Q34` (`32.984s` targeted), and `CB-Q35`
+        (`33.896s` targeted) remain the dominant slow lanes.
+      - [x] Retain row-position locality early-stop for wide bounded sort materialization. The
+        sort/top-K route already retained row references and delayed wide payload decoding; the
+        new pass stops the final single-artifact `.vortex` materialization scan once every selected
+        source ordinal has been found, then exposes
+        `late_materialization_chunks_scanned`,
+        `late_materialization_early_stop_applied`, and
+        `late_materialization_max_selected_source_ordinal` through the public route fields.
+        Focused validation: `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib sort_rows -- --nocapture`
+        and `cargo test -q -p shardloom-cli --features release-user-surfaces
+        local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`. Targeted
+        100M local UAT over the retained single `.vortex` artifact showed the bounded sort family
+        remains cleanly routed with no fallback or external engine invocation and produced
+        `CB-Q24` `18.607s`, `CB-Q25` `2.373s`, `CB-Q26` `3.701s`, `CB-Q27` `3.701s` in
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_sort_early_stop_20260622T_now/summary.json`.
+        Follow-up flattened-field probes showed why this is a reusable optimization but not a
+        universal Q24 fix: `CB-Q24` selected rows near source ordinal `98,655,788` and remained
+        noisy (`27.597s`) while `CB-Q25` stopped after `272` materialization chunks with max
+        selected ordinal `9,440,339` and completed in `2.513s`
+        (`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/q24_sort_early_stop_flattened_fields_20260622T_now/summary.json`,
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/q25_sort_early_stop_flattened_fields_20260622T_now/summary.json`).
+        The remaining Q24-class work is prepared predicate/row-position locality metadata, not
+        another final-pass materialization tweak.
     - [ ] Update README/docs/capability reports only from the admitted runtime evidence; move the
       completed summary to the ledger after merge/session completion.
   - Next outcome: the 100M native Vortex route no longer has timeout rows for feasible local OLAP

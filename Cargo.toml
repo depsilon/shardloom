@@ -27,6 +27,7 @@ arrow-array = "58.3.0"
 arrow-avro = { version = "58.3.0", default-features = false, features = ["deflate", "snappy"] }
 arrow-ipc = "58.3.0"
 arrow-schema = "58.3.0"
+memchr = "2.8.0"
 parquet = "58.3.0"
 regex = "1.12.4"
 rustc-hash = "2.1.2"
