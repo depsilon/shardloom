@@ -1081,7 +1081,11 @@ Current autonomous execution order:
         external-engine invocation and machine-readable public fields for
         `local_primitive_distinct_state_strategy`,
         `local_primitive_string_count_distinct_topk_heavy_hitter_*`, and
-        `local_primitive_uniqueness_proof_status`.
+        `local_primitive_uniqueness_proof_status`. PR #1350 then closed the selected-valid
+        nullable primitive accessor gap for this family: `CB-Q14` targeted local UAT retained
+        `UserID:direct_i64`, no aggregate accessor blockers, and zero materialized group values;
+        the remaining exact-distinct work is broader dense-ID/per-segment dictionary union coverage
+        and rows that still expose real provider-miss/materialization evidence.
     - [ ] Extend the prepared Vortex layout advisor so universal ingest can choose
       ClickBench-like OLAP layout policy from data/profile evidence: date/counter partitions,
       URL/search dictionaries, low-cost exact derived columns, segment stats, and read/write

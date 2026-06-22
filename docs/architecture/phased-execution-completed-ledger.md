@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] PR #1350 selected-valid primitive aggregate accessor closeout.
+  - Date: 2026-06-22
+  - Branch/PR: `codex/direct-valid-primitive-aggregate-accessors` / PR #1350, merged as
+    `084e05fb`.
+  - Source:
+    - Phase-plan `CLICKBENCH-100M-ARCHITECTURAL-OPTIMIZATION-3` and
+      `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` exact distinct/accessor work for reducing
+      materialized aggregate state on native Vortex grouped routes.
+  - Scope:
+    - Kept selected-valid nullable primitive filter arrays on typed aggregate accessors instead of
+      falling through to `materialized_stat_values`.
+    - Preserved the null-aware materialized path when selected rows retain nulls, so the optimized
+      route does not weaken SQL/null semantics.
+    - Added focused regression coverage for selected-valid nullable primitive filters and retained
+      null filters.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib aggregate_accessor_ -- --nocapture`
+      passed.
+    - `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`
+      passed.
+    - PR #1350 checks passed before merge, including Rust baseline/matrix, Python/package smoke,
+      release runtime/package/user-surface/readiness evidence, CodeQL, website/docs validation, and
+      Workers build.
+    - Targeted 100M local UAT over the retained single Desktop `.vortex` artifact recorded
+      `CB-Q14` at `13.859s` with `SearchPhrase:chunk_utf8_dictionary`, `UserID:direct_i64`, no
+      aggregate accessor blockers, and zero materialized group values. `CB-Q28` remained a
+      separate `CounterID:materialized_after_direct_provider_miss` optimization target.
+  - Claim boundary:
+    - This is focused local runtime/accessor evidence only. It is not a public benchmark,
+      superiority, production, or official ClickBench claim.
+  - Fallback boundary:
+    - The optimized route remains ShardLoom-native/Vortex-native with no external query-engine
+      fallback. Retained unsupported or null-bearing paths fail or materialize explicitly rather
+      than delegating to Spark, DataFusion, DuckDB, Polars, pandas, or Velox.
+
 - [x] REJECTED-PREPARED-OLAP-QUERY-SUMMARY-SIDECAR rejected design is recorded as non-runtime evidence.
   - Date: 2026-06-21
   - Source:
