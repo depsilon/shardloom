@@ -26,7 +26,11 @@ use std::{
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
+    mpsc::{self, Receiver},
 };
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use std::thread::{self, JoinHandle};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
@@ -109,6 +113,28 @@ const VORTEX_PREPARED_OLAP_WRITER_LAYOUT_STRATEGY: &str =
 const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE: usize = 8192;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE: usize = 4096;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE: usize = 65_536;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD: u64 = 10_000_000;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY: usize = 0;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY: usize = 0;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_CONCURRENCY: usize = 2;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY: &str =
+    "vortex_default_btrblocks_available_parallelism";
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_POLICY: &str =
+    "vortex_large_source_fast_load_uncompressed_layout_statistics";
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_BALANCED_LARGE_SOURCE_COMPRESSION_POLICY: &str =
+    "vortex_large_source_balanced_zstd_layout_statistics";
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY: &str =
+    "vortex_large_source_text_dictionary_zstd_layout_statistics";
 const VORTEX_PREPARED_OLAP_DICTIONARY_METADATA_POLICY: &str =
     "preserve_vortex_dictionary_and_encoding_metadata_when_writer_emits_it";
 
@@ -4423,6 +4449,9 @@ pub struct VortexLayoutWriteRuntimeDecision {
     pub selected_strategy: String,
     pub strategy_decision_digest: String,
     pub provider_admitted: bool,
+    pub writer_row_block_size: usize,
+    pub writer_compression_policy: String,
+    pub writer_compression_concurrency: usize,
     pub blocker: String,
 }
 
@@ -4437,6 +4466,11 @@ impl VortexLayoutWriteRuntimeDecision {
                 "layout_write_runtime_decision|not_requested|{blocker}"
             )),
             provider_admitted: false,
+            writer_row_block_size: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE,
+            writer_compression_policy: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY
+                .to_string(),
+            writer_compression_concurrency:
+                VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY,
             blocker,
         }
     }
@@ -4449,8 +4483,12 @@ impl VortexLayoutWriteRuntimeDecision {
         certification_level: VortexIngestCertificationLevel,
     ) -> Self {
         let selected_strategy = advisor.layout_strategy.clone();
+        let writer_row_block_size = admitted_layout_writer_row_block_size(advisor);
+        let writer_compression_policy = admitted_layout_writer_compression_policy(advisor);
+        let writer_compression_concurrency =
+            admitted_layout_writer_compression_concurrency(advisor);
         let strategy_decision_digest = fnv64_digest_text(&format!(
-            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             advisor.schema_version,
             advisor.source_state_digest,
             advisor.source_schema_digest,
@@ -4459,6 +4497,9 @@ impl VortexLayoutWriteRuntimeDecision {
             expected_provider_surface,
             advisor.writer_admission_policy,
             certification_level.as_str(),
+            writer_row_block_size,
+            writer_compression_policy,
+            writer_compression_concurrency,
             target_path.display()
         ));
         Self {
@@ -4466,8 +4507,42 @@ impl VortexLayoutWriteRuntimeDecision {
             selected_strategy,
             strategy_decision_digest,
             provider_admitted: true,
+            writer_row_block_size,
+            writer_compression_policy: writer_compression_policy.to_string(),
+            writer_compression_concurrency,
             blocker: "none".to_string(),
         }
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_row_block_size(advisor: &VortexLayoutWriteAdvisorReport) -> usize {
+    if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
+        VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE
+    } else {
+        VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_compression_policy(
+    advisor: &VortexLayoutWriteAdvisorReport,
+) -> &'static str {
+    if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
+        VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
+    } else {
+        VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_compression_concurrency(
+    advisor: &VortexLayoutWriteAdvisorReport,
+) -> usize {
+    if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
+        VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_CONCURRENCY
+    } else {
+        VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY
     }
 }
 
@@ -6670,6 +6745,8 @@ pub struct VortexPreparedStateWriteReport {
     pub writer_context_reuse_status: String,
     pub writer_layout_strategy_applied: String,
     pub writer_layout_row_block_size: usize,
+    pub writer_compression_policy: String,
+    pub writer_compression_concurrency: usize,
     pub vortex_segment_write_micros: u128,
     pub workspace_stage_micros: u128,
     pub reopen_scan_micros: u128,
@@ -6717,9 +6794,11 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn encoding_summary(&self) -> String {
         format!(
-            "upstream_vortex_writer={};row_block_size={};{}",
+            "upstream_vortex_writer={};row_block_size={};compression_policy={};compression_concurrency={};{}",
             self.writer_layout_strategy_applied,
             self.writer_layout_row_block_size,
+            self.writer_compression_policy,
+            self.writer_compression_concurrency,
             self.column_family_summary()
         )
     }
@@ -7035,11 +7114,17 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         1,
     )?;
     let expected_provider_kind = "vortex_array_kernel";
-    let expected_provider_surface = "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator";
+    let underlying_provider_surface = "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator";
+    let use_vortex_array_prefetch = request.source.ingest_executor_requested_parallelism > 1;
+    let array_build_provider_surface = if use_vortex_array_prefetch {
+        "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch;streaming ArrayIterator"
+    } else {
+        underlying_provider_surface
+    };
     let layout_write_decision = admit_layout_write_runtime_decision(
         request.layout_write_advisor.as_ref(),
         expected_provider_kind,
-        expected_provider_surface,
+        underlying_provider_surface,
         &request.target_path,
         request.certification_level,
     )?;
@@ -7047,15 +7132,21 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let first_array = record_batch_to_vortex_from_arrow_provider(&first_batch, &source_shape)?;
     let dtype = first_array.dtype().clone();
     let batch_count = Arc::new(AtomicUsize::new(1));
-    let stream_iter = StreamingColumnarVortexArrayIterator {
-        dtype,
-        first_array: Some(first_array),
-        reader,
-        reader_projection_columns: request.source.reader_projection_columns.clone(),
-        source_shape: source_shape.clone(),
-        batch_count: Arc::clone(&batch_count),
-        next_batch_index: 2,
+    let array_build_strategy = if use_vortex_array_prefetch {
+        "capillary_vortex_array_prefetch_from_arrow_record_batch_stream"
+    } else {
+        "vortex_from_arrow_record_batch_stream"
     };
+    let stream_iter = StreamingColumnarVortexArrayIterator::new(
+        dtype,
+        first_array,
+        reader,
+        request.source.reader_projection_columns.clone(),
+        source_shape.clone(),
+        Arc::clone(&batch_count),
+        2,
+        use_vortex_array_prefetch,
+    );
     let array_build_micros = array_build_start.elapsed().as_micros();
     let projection_mask_status =
         if request.source.materialized_columns.len() < request.source.header.len() {
@@ -7078,8 +7169,8 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         certification_level: request.certification_level,
         allow_overwrite: request.allow_overwrite,
         array_build_provider_kind: expected_provider_kind,
-        array_build_provider_surface: expected_provider_surface,
-        array_build_strategy: "vortex_from_arrow_record_batch_stream",
+        array_build_provider_surface,
+        array_build_strategy,
         array_build_input_layout: "streaming_arrow_record_batch_columnar_source_state",
         manual_scalar_copy_avoided: true,
         capillary_prewrite_control,
@@ -7388,11 +7479,82 @@ struct VortexPreparationSpineFinalizeInput {
 struct StreamingColumnarVortexArrayIterator {
     dtype: vortex::array::dtype::DType,
     first_array: Option<vortex::array::ArrayRef>,
-    reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+    reader: Option<Box<dyn arrow_array::RecordBatchReader + Send>>,
+    prefetch_receiver: Option<Receiver<vortex::error::VortexResult<vortex::array::ArrayRef>>>,
+    prefetch_worker: Option<JoinHandle<()>>,
     reader_projection_columns: Vec<String>,
     source_shape: FlatColumnarSourceShape,
     batch_count: Arc<AtomicUsize>,
     next_batch_index: usize,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl StreamingColumnarVortexArrayIterator {
+    fn new(
+        dtype: vortex::array::dtype::DType,
+        first_array: vortex::array::ArrayRef,
+        reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+        reader_projection_columns: Vec<String>,
+        source_shape: FlatColumnarSourceShape,
+        batch_count: Arc<AtomicUsize>,
+        next_batch_index: usize,
+        use_vortex_array_prefetch: bool,
+    ) -> Self {
+        if use_vortex_array_prefetch {
+            let (sender, receiver) = mpsc::sync_channel(1);
+            let worker_dtype = dtype.clone();
+            let worker_projection_columns = reader_projection_columns.clone();
+            let worker_source_shape = source_shape.clone();
+            let worker_batch_count = Arc::clone(&batch_count);
+            let worker = thread::spawn(move || {
+                stream_arrow_batches_to_vortex_arrays(
+                    reader,
+                    worker_projection_columns,
+                    worker_source_shape,
+                    worker_dtype,
+                    worker_batch_count,
+                    next_batch_index,
+                    sender,
+                );
+            });
+            return Self {
+                dtype,
+                first_array: Some(first_array),
+                reader: None,
+                prefetch_receiver: Some(receiver),
+                prefetch_worker: Some(worker),
+                reader_projection_columns,
+                source_shape,
+                batch_count,
+                next_batch_index,
+            };
+        }
+        Self {
+            dtype,
+            first_array: Some(first_array),
+            reader: Some(reader),
+            prefetch_receiver: None,
+            prefetch_worker: None,
+            reader_projection_columns,
+            source_shape,
+            batch_count,
+            next_batch_index,
+        }
+    }
+
+    fn close_prefetch_worker(&mut self) {
+        self.prefetch_receiver.take();
+        if let Some(worker) = self.prefetch_worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl Drop for StreamingColumnarVortexArrayIterator {
+    fn drop(&mut self) {
+        self.close_prefetch_worker();
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -7403,7 +7565,17 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
         if let Some(array) = self.first_array.take() {
             return Some(Ok(array));
         }
-        let batch = match self.reader.next()? {
+        if let Some(receiver) = self.prefetch_receiver.as_ref() {
+            return match receiver.recv() {
+                Ok(result) => Some(result),
+                Err(_) => {
+                    self.close_prefetch_worker();
+                    None
+                }
+            };
+        }
+        let reader = self.reader.as_mut()?;
+        let batch = match reader.next()? {
             Ok(batch) => batch,
             Err(error) => {
                 return Some(Err(vortex_stream_error(format!(
@@ -7441,6 +7613,50 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
 impl vortex::array::iter::ArrayIterator for StreamingColumnarVortexArrayIterator {
     fn dtype(&self) -> &vortex::array::dtype::DType {
         &self.dtype
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn stream_arrow_batches_to_vortex_arrays(
+    mut reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+    reader_projection_columns: Vec<String>,
+    source_shape: FlatColumnarSourceShape,
+    dtype: vortex::array::dtype::DType,
+    batch_count: Arc<AtomicUsize>,
+    next_batch_index: usize,
+    sender: mpsc::SyncSender<vortex::error::VortexResult<vortex::array::ArrayRef>>,
+) {
+    for (offset, batch) in reader.by_ref().enumerate() {
+        let batch_index = next_batch_index.saturating_add(offset);
+        let result = match batch {
+            Ok(batch) => validate_stream_record_batch_shape(
+                &batch,
+                &reader_projection_columns,
+                &source_shape,
+                batch_index,
+            )
+            .and_then(|()| record_batch_to_vortex_from_arrow_provider(&batch, &source_shape))
+            .map_err(vortex_stream_error)
+            .and_then(|array| {
+                if array.dtype() == &dtype {
+                    batch_count.fetch_add(1, Ordering::Relaxed);
+                    Ok(array)
+                } else {
+                    Err(vortex_stream_error(format!(
+                        "streaming local vortex_ingest batch {batch_index} produced dtype {}, expected {}; no fallback execution was attempted",
+                        array.dtype(),
+                        dtype
+                    )))
+                }
+            }),
+            Err(error) => Err(vortex_stream_error(format!(
+                "streaming local vortex_ingest Arrow reader failed: {error}; no fallback execution was attempted"
+            ))),
+        };
+        let should_stop = result.is_err();
+        if sender.send(result).is_err() || should_stop {
+            break;
+        }
     }
 }
 
@@ -7606,6 +7822,8 @@ fn finalize_vortex_prepared_state_write(
         writer_context_reuse_status: write_result.writer_context_reuse_status,
         writer_layout_strategy_applied: write_result.writer_layout_strategy_applied,
         writer_layout_row_block_size: write_result.writer_layout_row_block_size,
+        writer_compression_policy: write_result.writer_compression_policy,
+        writer_compression_concurrency: write_result.writer_compression_concurrency,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
         workspace_stage_micros: write_result.workspace_stage_micros,
         reopen_scan_micros,
@@ -7729,6 +7947,8 @@ where
         writer_context_reuse_status: write_result.writer_context_reuse_status,
         writer_layout_strategy_applied: write_result.writer_layout_strategy_applied,
         writer_layout_row_block_size: write_result.writer_layout_row_block_size,
+        writer_compression_policy: write_result.writer_compression_policy,
+        writer_compression_concurrency: write_result.writer_compression_concurrency,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
         workspace_stage_micros: write_result.workspace_stage_micros,
         reopen_scan_micros,
@@ -9269,6 +9489,8 @@ struct LocalVortexWriteResult {
     writer_context_reuse_status: String,
     writer_layout_strategy_applied: String,
     writer_layout_row_block_size: usize,
+    writer_compression_policy: String,
+    writer_compression_concurrency: usize,
     vortex_segment_write_micros: u128,
     workspace_stage_micros: u128,
     workspace_write_report: WorkspaceSafeLocalWriteReport,
@@ -9327,6 +9549,10 @@ impl LocalVortexWriteContext {
         let writer_layout_strategy_applied =
             vortex_writer_layout_strategy_applied(layout_write_decision).to_string();
         let writer_layout_row_block_size = vortex_writer_row_block_size(layout_write_decision);
+        let writer_compression_policy =
+            vortex_writer_compression_policy(layout_write_decision).to_string();
+        let writer_compression_concurrency =
+            vortex_writer_compression_concurrency(layout_write_decision);
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -9368,6 +9594,8 @@ impl LocalVortexWriteContext {
             writer_context_reuse_status: writer_context_reuse_status.into(),
             writer_layout_strategy_applied,
             writer_layout_row_block_size,
+            writer_compression_policy,
+            writer_compression_concurrency,
             vortex_segment_write_micros,
             workspace_stage_micros,
             workspace_write_report,
@@ -9392,6 +9620,10 @@ impl LocalVortexWriteContext {
         let writer_layout_strategy_applied =
             vortex_writer_layout_strategy_applied(layout_write_decision).to_string();
         let writer_layout_row_block_size = vortex_writer_row_block_size(layout_write_decision);
+        let writer_compression_policy =
+            vortex_writer_compression_policy(layout_write_decision).to_string();
+        let writer_compression_concurrency =
+            vortex_writer_compression_concurrency(layout_write_decision);
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -9434,6 +9666,8 @@ impl LocalVortexWriteContext {
             writer_context_reuse_status: writer_context_reuse_status.into(),
             writer_layout_strategy_applied,
             writer_layout_row_block_size,
+            writer_compression_policy,
+            writer_compression_concurrency,
             vortex_segment_write_micros,
             workspace_stage_micros,
             workspace_write_report,
@@ -9444,15 +9678,32 @@ impl LocalVortexWriteContext {
         &self,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
     ) -> vortex::file::VortexWriteOptions {
+        use vortex::compressor::BtrBlocksCompressorBuilder;
         use vortex::file::{WriteOptionsSessionExt as _, WriteStrategyBuilder};
 
         let options = self.session.write_options();
         if vortex_layout_write_strategy_applies(layout_write_decision) {
-            options.with_strategy(
+            let row_block_size = vortex_writer_row_block_size(layout_write_decision);
+            let strategy = if vortex_writer_uses_large_source_fast_load(layout_write_decision) {
+                large_source_fast_load_vortex_write_strategy(row_block_size)
+            } else if vortex_writer_uses_large_source_balanced(layout_write_decision) {
                 WriteStrategyBuilder::default()
-                    .with_row_block_size(VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE)
-                    .build(),
-            )
+                    .with_row_block_size(row_block_size)
+                    .with_btrblocks_builder(
+                        BtrBlocksCompressorBuilder::default().only_cuda_compatible(),
+                    )
+                    .build()
+            } else if vortex_writer_uses_large_source_text(layout_write_decision) {
+                large_source_text_vortex_write_strategy(
+                    row_block_size,
+                    vortex_writer_compression_concurrency(layout_write_decision),
+                )
+            } else {
+                WriteStrategyBuilder::default()
+                    .with_row_block_size(row_block_size)
+                    .build()
+            };
+            options.with_strategy(strategy)
         } else {
             options
         }
@@ -9470,10 +9721,212 @@ fn vortex_layout_write_strategy_applies(decision: &VortexLayoutWriteRuntimeDecis
 #[cfg(feature = "vortex-write")]
 fn vortex_writer_row_block_size(decision: &VortexLayoutWriteRuntimeDecision) -> usize {
     if vortex_layout_write_strategy_applies(decision) {
-        VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE
+        decision.writer_row_block_size
     } else {
         VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE
     }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_compression_policy(decision: &VortexLayoutWriteRuntimeDecision) -> &str {
+    if vortex_layout_write_strategy_applies(decision) {
+        &decision.writer_compression_policy
+    } else {
+        VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_compression_concurrency(decision: &VortexLayoutWriteRuntimeDecision) -> usize {
+    if vortex_layout_write_strategy_applies(decision) {
+        decision.writer_compression_concurrency
+    } else {
+        VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_uses_large_source_fast_load(decision: &VortexLayoutWriteRuntimeDecision) -> bool {
+    vortex_layout_write_strategy_applies(decision)
+        && decision.writer_compression_policy
+            == VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_POLICY
+        && decision.writer_compression_concurrency
+            == VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_uses_large_source_balanced(decision: &VortexLayoutWriteRuntimeDecision) -> bool {
+    vortex_layout_write_strategy_applies(decision)
+        && decision.writer_compression_policy
+            == VORTEX_PREPARED_OLAP_WRITER_BALANCED_LARGE_SOURCE_COMPRESSION_POLICY
+        && decision.writer_compression_concurrency
+            == VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_uses_large_source_text(decision: &VortexLayoutWriteRuntimeDecision) -> bool {
+    vortex_layout_write_strategy_applies(decision)
+        && decision.writer_compression_policy
+            == VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
+        && decision.writer_compression_concurrency
+            == VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_CONCURRENCY
+}
+
+#[cfg(feature = "vortex-write")]
+fn large_source_fast_load_vortex_write_strategy(
+    row_block_size: usize,
+) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
+    std::sync::Arc::new(large_source_fast_load_table_strategy(row_block_size))
+}
+
+#[cfg(feature = "vortex-write")]
+fn large_source_fast_load_table_strategy(
+    row_block_size: usize,
+) -> vortex::layout::layouts::table::TableStrategy {
+    use vortex::file::ALLOWED_ENCODINGS;
+    use vortex::layout::layouts::buffered::BufferedStrategy;
+    use vortex::layout::layouts::chunked::writer::ChunkedLayoutStrategy;
+    use vortex::layout::layouts::collect::CollectStrategy;
+    use vortex::layout::layouts::dict::writer::DictStrategy;
+    use vortex::layout::layouts::flat::writer::FlatLayoutStrategy;
+    use vortex::layout::layouts::repartition::{RepartitionStrategy, RepartitionWriterOptions};
+    use vortex::layout::layouts::table::TableStrategy;
+    use vortex::layout::layouts::zoned::writer::{ZonedLayoutOptions, ZonedStrategy};
+
+    const ONE_MEG: u64 = 1 << 20;
+
+    let flat: std::sync::Arc<dyn vortex::layout::LayoutStrategy> = std::sync::Arc::new(
+        FlatLayoutStrategy::default().with_allow_encodings((*ALLOWED_ENCODINGS).clone()),
+    );
+    let chunked = ChunkedLayoutStrategy::new(std::sync::Arc::clone(&flat));
+    let buffered = BufferedStrategy::new(chunked, 2 * ONE_MEG);
+    let coalescing = RepartitionStrategy::new(
+        buffered,
+        RepartitionWriterOptions {
+            block_size_minimum: ONE_MEG,
+            block_len_multiple: row_block_size,
+            block_size_target: Some(ONE_MEG),
+            canonicalize: true,
+        },
+    );
+    let dict = DictStrategy::new(
+        coalescing.clone(),
+        std::sync::Arc::clone(&flat),
+        coalescing,
+        Default::default(),
+    );
+    let stats = ZonedStrategy::new(
+        dict,
+        std::sync::Arc::clone(&flat),
+        ZonedLayoutOptions {
+            block_size: row_block_size,
+            concurrency: 1,
+            ..Default::default()
+        },
+    );
+    let repartition = RepartitionStrategy::new(
+        stats,
+        RepartitionWriterOptions {
+            block_size_minimum: 0,
+            block_len_multiple: row_block_size,
+            block_size_target: None,
+            canonicalize: false,
+        },
+    );
+    let validity_strategy = CollectStrategy::new(flat);
+    TableStrategy::new(
+        std::sync::Arc::new(validity_strategy),
+        std::sync::Arc::new(repartition),
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn large_source_text_vortex_write_strategy(
+    row_block_size: usize,
+    compression_concurrency: usize,
+) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
+    use vortex::array::dtype::FieldPath;
+
+    let text_strategy =
+        large_source_dictionary_zstd_text_leaf_strategy(row_block_size, compression_concurrency);
+    let mut strategy = large_source_fast_load_table_strategy(row_block_size);
+    for field in source_text_compression_field_names() {
+        strategy = strategy.with_field_writer(
+            FieldPath::from_name(*field),
+            std::sync::Arc::clone(&text_strategy),
+        );
+    }
+    std::sync::Arc::new(strategy)
+}
+
+#[cfg(feature = "vortex-write")]
+fn large_source_dictionary_zstd_text_leaf_strategy(
+    row_block_size: usize,
+    compression_concurrency: usize,
+) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
+    use vortex::array::arrays::VarBinViewArray;
+    use vortex::array::{Executable as _, IntoArray as _};
+    use vortex::layout::layouts::chunked::writer::ChunkedLayoutStrategy;
+    use vortex::layout::layouts::compressed::CompressingStrategy;
+    use vortex::layout::layouts::flat::writer::FlatLayoutStrategy;
+
+    let values_per_frame = row_block_size.max(1);
+    let compressor = move |chunk: &vortex::array::ArrayRef,
+                           ctx: &mut vortex::array::ExecutionCtx| {
+        if !chunk.dtype().is_utf8() {
+            return Ok(chunk.clone());
+        }
+        let varbin = VarBinViewArray::execute(chunk.clone(), ctx)?.compact_buffers()?;
+        Ok(
+            vortex_zstd::Zstd::from_var_bin_view(&varbin, 0, values_per_frame.min(8_192), ctx)?
+                .into_array(),
+        )
+    };
+    let chunked = ChunkedLayoutStrategy::new(FlatLayoutStrategy::default());
+    std::sync::Arc::new(
+        CompressingStrategy::new(chunked, compressor)
+            .with_concurrency(compression_concurrency.max(1)),
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn source_text_compression_field_names() -> &'static [&'static str] {
+    &[
+        "BrowserCountry",
+        "BrowserLanguage",
+        "FlashMinor2",
+        "FromTag",
+        "HitColor",
+        "MobilePhoneModel",
+        "OpenstatAdID",
+        "OpenstatCampaignID",
+        "OpenstatServiceName",
+        "OpenstatSourceID",
+        "OriginalURL",
+        "PageCharset",
+        "ParamCurrency",
+        "ParamOrderID",
+        "Params",
+        "Referer",
+        "SearchPhrase",
+        "SocialAction",
+        "SocialNetwork",
+        "SocialSourcePage",
+        "Title",
+        "UTMCampaign",
+        "UTMContent",
+        "UTMMedium",
+        "UTMSource",
+        "UTMTerm",
+        "URL",
+        "UserAgentMinor",
+        "__shardloom_derived_url_domain_URL",
+        "__shardloom_derived_url_domain_Referer",
+        "__shardloom_derived_utf8_len_URL",
+        "__shardloom_derived_utf8_len_Referer",
+        "__shardloom_derived_utf8_len_SearchPhrase",
+        "__shardloom_derived_utf8_len_Title",
+    ]
 }
 
 #[cfg(feature = "vortex-write")]
@@ -9481,7 +9934,23 @@ fn vortex_writer_layout_strategy_applied(
     decision: &VortexLayoutWriteRuntimeDecision,
 ) -> &'static str {
     if vortex_layout_write_strategy_applies(decision) {
-        "vortex_write_strategy_row_block_4096_embedded_olap_layout_statistics"
+        if vortex_writer_uses_large_source_fast_load(decision) {
+            "vortex_write_strategy_row_block_65536_fast_load_uncompressed_embedded_olap_layout_statistics"
+        } else if vortex_writer_uses_large_source_balanced(decision) {
+            "vortex_write_strategy_row_block_65536_balanced_zstd_embedded_olap_layout_statistics"
+        } else if vortex_writer_uses_large_source_text(decision) {
+            "vortex_write_strategy_row_block_65536_source_text_dictionary_zstd_embedded_olap_layout_statistics"
+        } else {
+            match decision.writer_row_block_size {
+                VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE => {
+                    "vortex_write_strategy_row_block_65536_large_source_embedded_olap_layout_statistics"
+                }
+                VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE => {
+                    "vortex_write_strategy_row_block_4096_embedded_olap_layout_statistics"
+                }
+                _ => "vortex_write_strategy_row_block_dynamic_embedded_olap_layout_statistics",
+            }
+        }
     } else {
         "vortex_write_strategy_upstream_default"
     }
@@ -10809,6 +11278,108 @@ mod tests {
     }
 
     #[test]
+    fn source_text_large_source_writer_profile_covers_clickbench_text_fields() {
+        let fields = source_text_compression_field_names();
+        for expected in [
+            "Title",
+            "URL",
+            "Referer",
+            "FlashMinor2",
+            "UserAgentMinor",
+            "MobilePhoneModel",
+            "Params",
+            "SearchPhrase",
+            "PageCharset",
+            "OriginalURL",
+            "HitColor",
+            "BrowserLanguage",
+            "BrowserCountry",
+            "SocialNetwork",
+            "SocialAction",
+            "SocialSourcePage",
+            "ParamOrderID",
+            "ParamCurrency",
+            "OpenstatServiceName",
+            "OpenstatCampaignID",
+            "OpenstatAdID",
+            "OpenstatSourceID",
+            "UTMSource",
+            "UTMMedium",
+            "UTMCampaign",
+            "UTMContent",
+            "UTMTerm",
+            "FromTag",
+        ] {
+            assert!(
+                fields.contains(&expected),
+                "missing source text writer override for {expected}"
+            );
+        }
+        assert!(
+            !fields.contains(&"MobilePhone"),
+            "MobilePhone is numeric in ClickBench and should not use the text writer override"
+        );
+    }
+
+    #[test]
+    fn local_flat_scalar_rows_use_source_text_large_source_layout_row_blocks_when_advised() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-layout-advisor-large-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let mut advisor_input = layout_advisor_input(true, "none");
+        advisor_input.row_count = VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD;
+        advisor_input.source_byte_count = 1_073_741_824;
+        let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string(), "label".to_string()],
+            vec![vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+            ]],
+        )
+        .layout_write_advisor(advisor);
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert!(report.layout_write_decision.runtime_decision_applied);
+        assert_eq!(
+            report.layout_write_decision.writer_row_block_size,
+            VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE
+        );
+        assert_eq!(
+            report.layout_write_decision.writer_compression_policy,
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
+        );
+        assert_eq!(
+            report.layout_write_decision.writer_compression_concurrency,
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_CONCURRENCY
+        );
+        assert_eq!(
+            report.writer_layout_strategy_applied,
+            "vortex_write_strategy_row_block_65536_source_text_dictionary_zstd_embedded_olap_layout_statistics"
+        );
+        assert_eq!(
+            report.writer_layout_row_block_size,
+            VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE
+        );
+        assert_eq!(
+            report.writer_compression_policy,
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
+        );
+        assert_eq!(
+            report.writer_compression_concurrency,
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_CONCURRENCY
+        );
+        assert_eq!(report.reopen_row_count, 1);
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
     fn local_flat_scalar_rows_block_unsupported_layout_strategy_before_write() {
         let path = std::env::temp_dir().join(format!(
             "shardloom-vortex-ingest-layout-advisor-blocked-{}-{}.vortex",
@@ -11188,6 +11759,231 @@ mod tests {
             "no_scalar_row_decode_for_streamed_batches"
         );
         assert_eq!(report.column_family_summary(), "id:int64,label:utf8");
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_stream_source_prefetches_vortex_arrays_when_parallelism_available() {
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        use arrow_array::{Int64Array, RecordBatch, StringArray};
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl arrow_array::RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-stream-prefetch-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "label".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("label", DataType::Utf8, false),
+        ]));
+        let batch_1 = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(StringArray::from(vec!["alpha", "beta"])),
+            ],
+        )
+        .expect("first record batch");
+        let batch_2 = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![3])),
+                Arc::new(StringArray::from(vec!["gamma"])),
+            ],
+        )
+        .expect("second record batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(DataType::Utf8)],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            row_count_hint: Some(3),
+            record_batch_count_hint: Some(2),
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(2),
+            source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
+            source_stream_policy: "test_source_defined_record_batches".to_string(),
+            source_dictionary_preservation_status: "test_not_applicable".to_string(),
+            ingest_executor_status: "serial_pull_reader_writer_slot_reserved".to_string(),
+            ingest_executor_kind: "single_source_record_batch_reader_with_writer_slot_reserved"
+                .to_string(),
+            ingest_executor_requested_parallelism: 2,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(2),
+            reader: Box::new(TestRecordBatchReader {
+                schema,
+                batches: VecDeque::from([batch_1, batch_2]),
+            }),
+        };
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
+            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
+
+        let report =
+            write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
+
+        assert_eq!(report.row_count, 3);
+        assert_eq!(report.reopen_row_count, 3);
+        assert_eq!(report.array_build_record_batch_count, 2);
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch;streaming ArrayIterator"
+        );
+        assert_eq!(
+            report.array_build_strategy,
+            "capillary_vortex_array_prefetch_from_arrow_record_batch_stream"
+        );
+        assert_eq!(
+            report.array_build_input_layout,
+            "streaming_arrow_record_batch_columnar_source_state"
+        );
+        assert_eq!(report.column_family_summary(), "id:int64,label:utf8");
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn streaming_vortex_write_preserves_compact_embedded_derived_columns() {
+        use arrow_array::{
+            Array as _, ArrayAccessor as _, DictionaryArray, StringArray, UInt32Array,
+            types::Int32Type,
+        };
+        use arrow_schema::DataType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-embedded-derived-stream-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let header = vec![
+            "URL".to_string(),
+            "Referer".to_string(),
+            "SearchPhrase".to_string(),
+        ];
+        let rows = vec![
+            vec![
+                (
+                    "URL".to_string(),
+                    ScalarValue::Utf8("https://shardloom.io/docs".to_string()),
+                ),
+                (
+                    "Referer".to_string(),
+                    ScalarValue::Utf8("http://www.google.com/search".to_string()),
+                ),
+                ("SearchPhrase".to_string(), ScalarValue::Utf8(String::new())),
+            ],
+            vec![
+                (
+                    "URL".to_string(),
+                    ScalarValue::Utf8("https://shardloom.io/blog".to_string()),
+                ),
+                (
+                    "Referer".to_string(),
+                    ScalarValue::Utf8("https://docs.rs/crate".to_string()),
+                ),
+                (
+                    "SearchPhrase".to_string(),
+                    ScalarValue::Utf8("rust".to_string()),
+                ),
+            ],
+        ];
+        let source = crate::universal_format_io::stream_flat_text_rows_columnar_source(
+            header.clone(),
+            vec![None, None, None],
+            vec![None, None, None],
+            header.clone(),
+            header,
+            rows,
+            64,
+            "JSONL",
+        )
+        .expect("text stream with embedded derived columns");
+        let schema = source.reader.schema();
+        assert!(
+            schema
+                .field_with_name("__shardloom_derived_utf8_len_Referer")
+                .is_ok()
+        );
+        assert_eq!(
+            schema
+                .field_with_name("__shardloom_derived_utf8_len_Referer")
+                .expect("referer len")
+                .data_type(),
+            &DataType::UInt32
+        );
+        assert_eq!(
+            schema
+                .field_with_name("__shardloom_derived_url_domain_Referer")
+                .expect("referer domain")
+                .data_type(),
+            &DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8))
+        );
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
+            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
+
+        let report =
+            write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
+
+        assert_eq!(report.row_count, 2);
+        assert_eq!(report.reopen_row_count, 2);
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, schema.as_ref());
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<arrow_array::StructArray>()
+            .expect("arrow struct");
+        let referer_lengths = struct_array
+            .column_by_name("__shardloom_derived_utf8_len_Referer")
+            .expect("referer length column")
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .expect("referer length uint32");
+        assert_eq!(
+            referer_lengths.value(0),
+            u32::try_from("http://www.google.com/search".len()).expect("len")
+        );
+        assert_eq!(
+            referer_lengths.value(1),
+            u32::try_from("https://docs.rs/crate".len()).expect("len")
+        );
+        let referer_domains = struct_array
+            .column_by_name("__shardloom_derived_url_domain_Referer")
+            .expect("referer domain column")
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("referer domain dictionary");
+        let referer_domains = referer_domains
+            .downcast_dict::<StringArray>()
+            .expect("referer domain dictionary values");
+        assert_eq!(referer_domains.value(0), "google.com");
+        assert_eq!(referer_domains.value(1), "docs.rs");
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }

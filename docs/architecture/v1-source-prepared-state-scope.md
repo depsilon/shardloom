@@ -86,11 +86,27 @@ The v1 route ids that require or consume `VortexPreparedState` are:
 | `local_file_prepare_once_batch` | Prepare local compatibility input once, then reuse it across a batch. | `workspace_manifest_local_vortex_artifacts` |
 | `prepared_vortex_warm_query` | Start from an explicit prepared local Vortex state. | `explicit_prepared_state_input` |
 
+Prepared local Vortex artifacts may contain ShardLoom-internal derived columns such as compact
+`UInt32` UTF-8 byte length for high-value URL/search/title text fields and dictionary-encoded
+URL/Referer/URI domain values. These are part of the single `.vortex` artifact and are not adjacent
+manifests, query-answer caches, or public output columns. Native planning may consume them for
+admitted string predicates and aggregate expressions when present. Product columnar source adapters
+must not synthesize those physical columns through a slower per-row preprocessing pass; they should
+report the derived-column posture in source evidence and only embed them when a source-native or
+dictionary-aware generator is admitted.
+
+Large local compatibility-source preparation remains a single-artifact route. Source evidence must
+record the active capillary stream policy, including adaptive large-source batch sizing such as
+`product_columnar_stream_batch_size_262144_rows`, source-unit hints such as Parquet row-group count,
+and the writer/layout profile. Current local 100M UAT retains source-text dictionary-Zstd writer
+coverage for the official ClickBench text-shaped columns and leaves writer profile timing as a
+tuning item; it is not a performance-superiority or load-speed claim.
+
 The source-free generated route id in this scope is:
 
 | Route id | Route meaning | Required reuse scope |
 | --- | --- | --- |
-| `generated_rows_local_output` | Generate local rows and write a local Vortex-preparable artifact. | `artifact_adjacent_manifest_local_vortex_artifacts` |
+| `generated_rows_local_output` | Generate local rows and write a local Vortex-preparable artifact. | `single_vortex_artifact_no_sidecar` |
 
 The internal local-source smoke route id in this scope is:
 
@@ -162,9 +178,9 @@ Vortex-first provider check:
   `vortex-write`, `vortex-file-io`, `vortex-traditional-analytics-benchmark`, and
   `universal-format-io` where relevant.
 - ShardLoom provider/report/certificate surface: route capability reports, local-file benchmark
-  route rows, SourceState id/digest fields, VortexPreparedState id/digest fields, workspace and
-  artifact-adjacent reuse manifests, execution certificates, Native I/O certificates, and
-  materialization/decode boundary fields.
+  route rows, SourceState id/digest fields, VortexPreparedState id/digest fields, workspace reuse
+  evidence where still applicable, single-artifact Vortex output evidence, execution certificates,
+  Native I/O certificates, and materialization/decode boundary fields.
 - Residual handling: supported residuals are ShardLoom-native or not required; unsupported
   residuals are blocked with deterministic diagnostics.
 - Materialization/decode boundary: scoped local preparation, internal local-source smoke scalar runtime, or

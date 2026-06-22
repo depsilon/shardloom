@@ -2527,65 +2527,6 @@ fn generated_source_reuse_context(
     }
 }
 
-#[cfg(feature = "vortex-write")]
-fn generated_vortex_prepared_state_reuse_request(
-    output_path: &Path,
-    context: &GeneratedSourceReuseContext,
-) -> Result<shardloom_vortex::VortexPreparedStateReuseRequest, ShardLoomError> {
-    let manifest_path = shardloom_vortex::vortex_prepared_state_reuse_manifest_path(output_path)?;
-    shardloom_vortex::VortexPreparedStateReuseRequest::new_generated_local(
-        context.source_ref.clone(),
-        output_path,
-        manifest_path,
-        context.source_format.clone(),
-        context.source_content_digest.clone(),
-        context.source_size_bytes,
-        context.source_schema_digest.clone(),
-        context.parse_decode_plan_digest.clone(),
-        context.selected_columns.clone(),
-        context.output_policy.clone(),
-        format!(
-            "shardloom-cli={};shardloom-vortex={};vortex={}",
-            env!("CARGO_PKG_VERSION"),
-            env!("CARGO_PKG_VERSION"),
-            shardloom_vortex::VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION
-        ),
-        "vortex-write",
-        shardloom_vortex::VortexIngestCertificationLevel::IngestCertified.as_str(),
-    )
-}
-
-#[cfg(feature = "vortex-write")]
-fn generated_reuse_workspace_write_report(
-    output_path: &Path,
-    reuse_report: &shardloom_vortex::VortexPreparedStateReuseReport,
-) -> Result<WorkspaceSafeLocalWriteReport, ShardLoomError> {
-    let workspace_root = shardloom_core::infer_local_output_workspace_root(output_path)?;
-    let plan = shardloom_core::plan_workspace_safe_local_output(workspace_root, output_path, true)?;
-    Ok(WorkspaceSafeLocalWriteReport {
-        schema_version: "shardloom.workspace_safe_local_write_report.v1",
-        report_id: "workspace_safe_local_write.local_output".to_string(),
-        operation_label: "generated-source Vortex prepared-state reuse".to_string(),
-        path_safety_report: plan.path_safety_report,
-        target_path: plan.target_path.clone(),
-        staging_path: plan
-            .target_path
-            .with_extension("prepared-state-reuse.no-write"),
-        target_existed_before: plan.target_existed_before,
-        overwrite_allowed: false,
-        overwrite_performed: false,
-        hardlink_count: plan.hardlink_count,
-        commit_mode: "prepared_state_reuse_no_write".to_string(),
-        commit_status: "reused_existing_local_artifact".to_string(),
-        cleanup_status: "not_required_no_staging_artifact".to_string(),
-        rollback_status: "not_required_reuse_hit".to_string(),
-        bytes_written: 0,
-        output_digest: reuse_report.prepared_artifact_digest.clone(),
-        fallback_attempted: false,
-        external_engine_invoked: false,
-    })
-}
-
 #[cfg(not(feature = "vortex-write"))]
 fn write_generated_vortex_output(
     _output_path: &Path,
@@ -2606,25 +2547,9 @@ fn write_generated_vortex_output(
     schema: &[GeneratedColumn],
     rows: &[GeneratedRow],
     allow_overwrite: bool,
-    reuse_context: &GeneratedSourceReuseContext,
+    _reuse_context: &GeneratedSourceReuseContext,
 ) -> Result<GeneratedOutputWriteReport, ShardLoomError> {
     validate_generated_vortex_target(output_path)?;
-    let reuse_request = generated_vortex_prepared_state_reuse_request(output_path, reuse_context)?;
-    let reuse_decision = shardloom_vortex::evaluate_vortex_prepared_state_reuse(&reuse_request)?;
-    if reuse_decision.hit {
-        return Ok(GeneratedOutputWriteReport {
-            output_bytes: reuse_decision.prepared_artifact_size_bytes,
-            output_digest: reuse_decision.prepared_artifact_digest.clone(),
-            write_millis: 0,
-            workspace_write_report: generated_reuse_workspace_write_report(
-                output_path,
-                &reuse_decision,
-            )?,
-            vortex_report: None,
-            prepared_state_reuse: Some(reuse_decision),
-        });
-    }
-
     let start = Instant::now();
     let request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
         output_path.to_path_buf(),
@@ -2633,40 +2558,6 @@ fn write_generated_vortex_output(
     )
     .allow_overwrite(allow_overwrite);
     let report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(request)?;
-    let prepared_state_digest = fnv64_digest(&format!(
-        "{}|{}|{}|{}",
-        reuse_context.source_state_digest,
-        report.artifact_digest,
-        report.column_family_summary(),
-        report.row_count
-    ));
-    let prepared_state_id = format!(
-        "vortex-prepared-state-{}",
-        prepared_state_digest.replace(':', "-")
-    );
-    let certificate_refs = format!(
-        "{};prepared_state={prepared_state_id};artifact={};native_io={}",
-        reuse_context.certificate_refs,
-        report.target_path.display(),
-        report.preparation_spine.native_io_certificate_refs
-    );
-    let prepared_state_reuse = shardloom_vortex::write_vortex_prepared_state_reuse_manifest(
-        &reuse_request,
-        &reuse_decision,
-        shardloom_vortex::VortexPreparedStateReuseWriteEvidence {
-            source_state_id: reuse_context.source_state_id.clone(),
-            source_state_digest: reuse_context.source_state_digest.clone(),
-            source_schema_digest: reuse_context.source_schema_digest.clone(),
-            source_row_count: report.row_count,
-            source_column_family_summary: report.column_family_summary(),
-            prepared_state_id,
-            prepared_state_digest,
-            prepared_artifact_digest: report.artifact_digest.clone(),
-            certificate_refs,
-            fallback_attempted: false,
-            external_engine_invoked: false,
-        },
-    )?;
     let write_millis = start.elapsed().as_millis();
     Ok(GeneratedOutputWriteReport {
         output_bytes: report.bytes_written,
@@ -2674,7 +2565,7 @@ fn write_generated_vortex_output(
         write_millis,
         workspace_write_report: report.workspace_write_report.clone(),
         vortex_report: Some(report),
-        prepared_state_reuse: Some(prepared_state_reuse),
+        prepared_state_reuse: None,
     })
 }
 
@@ -2698,10 +2589,10 @@ fn generated_vortex_output_fields(
     report: Option<&shardloom_vortex::VortexPreparedStateWriteReport>,
     reuse_report: Option<&shardloom_vortex::VortexPreparedStateReuseReport>,
 ) -> Vec<(String, String)> {
-    match (report, reuse_report) {
-        (Some(report), reuse_report) => vortex_output_success_fields(report, reuse_report),
-        (None, Some(reuse_report)) if reuse_report.hit => vortex_output_reuse_fields(reuse_report),
-        _ => default_vortex_output_fields(),
+    let _ = reuse_report;
+    match report {
+        Some(report) => vortex_output_success_fields(report),
+        None => default_vortex_output_fields(),
     }
 }
 
@@ -2735,7 +2626,7 @@ fn generated_vortex_prepared_state_fields(
         ),
         (
             "prepared_state_reuse_policy".to_string(),
-            shardloom_vortex::VORTEX_PREPARED_STATE_REUSE_POLICY.to_string(),
+            generated_prepared_state_reuse_policy(evidence.scope).to_string(),
         ),
         (
             "prepared_state_reuse_reason".to_string(),
@@ -2754,6 +2645,16 @@ fn generated_vortex_prepared_state_fields(
             evidence.invalidation_reason.to_string(),
         ),
     ]
+}
+
+fn generated_prepared_state_reuse_policy(scope: &str) -> &'static str {
+    match scope {
+        "single_vortex_artifact_no_sidecar" => "single_vortex_artifact_no_sidecar.v1",
+        "not_applicable_non_vortex_generated_output" => {
+            "not_applicable_non_vortex_generated_output"
+        }
+        _ => shardloom_vortex::VORTEX_PREPARED_STATE_REUSE_POLICY,
+    }
 }
 
 fn default_vortex_output_fields() -> Vec<(String, String)> {
@@ -2804,36 +2705,17 @@ fn default_vortex_output_fields() -> Vec<(String, String)> {
 
 fn vortex_output_success_fields(
     report: &shardloom_vortex::VortexPreparedStateWriteReport,
-    reuse_report: Option<&shardloom_vortex::VortexPreparedStateReuseReport>,
 ) -> Vec<(String, String)> {
-    let prepared_state_reuse_scope = reuse_report.map_or_else(
-        || "generated_source_vortex_artifact_manifest_not_available".to_string(),
-        |reuse| reuse.scope.clone(),
-    );
-    let prepared_state_reuse_manifest_path = reuse_report.map_or_else(
-        || "not_emitted_generated_source_manifest_not_available".to_string(),
-        |reuse| reuse.manifest_path.display().to_string(),
-    );
-    let prepared_state_reuse_reason = reuse_report.map_or_else(
-        || "generated_source_vortex_prepared_state_created_manifest_not_available".to_string(),
-        |reuse| reuse.reason.clone(),
-    );
-    let prepared_state_reuse_manifest_digest =
-        reuse_report.map_or_else(|| "none".to_string(), |reuse| reuse.manifest_digest.clone());
-    let prepared_state_invalidation_reason = reuse_report.map_or_else(
-        || "not_applicable_generated_source_manifest_not_available".to_string(),
-        |reuse| reuse.invalidation_reason.clone(),
-    );
     let mut fields = generated_vortex_prepared_state_fields(GeneratedPreparedStateEvidence {
         created: true,
         reused: false,
-        reuse_allowed: true,
+        reuse_allowed: false,
         reuse_hit: false,
-        scope: &prepared_state_reuse_scope,
-        manifest_path: &prepared_state_reuse_manifest_path,
-        reason: &prepared_state_reuse_reason,
-        manifest_digest: &prepared_state_reuse_manifest_digest,
-        invalidation_reason: &prepared_state_invalidation_reason,
+        scope: "single_vortex_artifact_no_sidecar",
+        manifest_path: "not_applicable_single_vortex_artifact",
+        reason: "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar",
+        manifest_digest: "not_applicable_single_vortex_artifact",
+        invalidation_reason: "not_applicable_single_vortex_artifact",
     });
     fields.extend(vortex_output_write_success_detail_fields(report));
     fields
@@ -2975,74 +2857,6 @@ fn vortex_output_write_success_detail_fields(
             report.upstream_vortex_scan_called.to_string(),
         ),
     ]
-}
-
-fn vortex_output_reuse_fields(
-    reuse_report: &shardloom_vortex::VortexPreparedStateReuseReport,
-) -> Vec<(String, String)> {
-    let manifest_path = reuse_report.manifest_path.display().to_string();
-    let mut fields = generated_vortex_prepared_state_fields(GeneratedPreparedStateEvidence {
-        created: false,
-        reused: true,
-        reuse_allowed: true,
-        reuse_hit: true,
-        scope: &reuse_report.scope,
-        manifest_path: &manifest_path,
-        reason: &reuse_report.reason,
-        manifest_digest: &reuse_report.manifest_digest,
-        invalidation_reason: &reuse_report.invalidation_reason,
-    });
-    fields.extend([
-        (
-            "vortex_output_runtime_execution".to_string(),
-            "false".to_string(),
-        ),
-        (
-            "vortex_output_reopen_verified".to_string(),
-            "true".to_string(),
-        ),
-        (
-            "vortex_artifact_digest".to_string(),
-            reuse_report.prepared_artifact_digest.clone(),
-        ),
-        (
-            "vortex_artifact_bytes".to_string(),
-            reuse_report.prepared_artifact_size_bytes.to_string(),
-        ),
-        ("vortex_write_millis".to_string(), "0".to_string()),
-        ("vortex_digest_millis".to_string(), "0".to_string()),
-        ("vortex_reopen_verify_millis".to_string(), "0".to_string()),
-        (
-            "vortex_output_timing_scope".to_string(),
-            "prepared_state_reuse_manifest".to_string(),
-        ),
-        (
-            "vortex_output_certification_level".to_string(),
-            reuse_report.certification_level.clone(),
-        ),
-        (
-            "vortex_output_layout_summary".to_string(),
-            "reused_existing_local_vortex_artifact".to_string(),
-        ),
-        (
-            "vortex_output_encoding_summary".to_string(),
-            "reused_existing_local_vortex_artifact".to_string(),
-        ),
-        (
-            "vortex_output_statistics_summary".to_string(),
-            "reused_existing_local_vortex_artifact_digest_verified".to_string(),
-        ),
-        (
-            "upstream_vortex_write_called".to_string(),
-            "false".to_string(),
-        ),
-        (
-            "upstream_vortex_scan_called".to_string(),
-            "false".to_string(),
-        ),
-    ]);
-    fields.extend(reuse_report.evidence_fields());
-    fields
 }
 
 fn generated_output_sink_artifact_fields(

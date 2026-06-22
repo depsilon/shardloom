@@ -21,14 +21,18 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use std::{collections::VecDeque, io::Read};
+use std::{
+    collections::VecDeque,
+    io::{BufRead, BufReader, Read},
+    sync::Arc,
+};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{RecordBatch, RecordBatchReader};
 
 use arrow_schema::DataType;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use arrow_schema::{ArrowError, SchemaRef};
+use arrow_schema::{ArrowError, Field, Schema, SchemaRef, TimeUnit};
 use regex::Regex;
 use shardloom_core::{
     BinaryOp, ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow,
@@ -3471,6 +3475,7 @@ struct VortexIngestSourceData {
 }
 
 impl VortexIngestSourceData {
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     fn from_scalar_source(source: CsvSourceData) -> Self {
         let row_count = source.rows.len();
         Self {
@@ -3758,6 +3763,10 @@ fn single_source_split_row_ranges(row_count: usize) -> Vec<(usize, usize)> {
     }
 }
 
+#[cfg_attr(
+    not(all(feature = "vortex-write", feature = "universal-format-io")),
+    allow(dead_code)
+)]
 fn source_unit_split_row_ranges(
     row_count: usize,
     source_unit_count_hint: Option<usize>,
@@ -3779,6 +3788,699 @@ fn source_unit_split_row_ranges(
             (start < end).then_some((start, end))
         })
         .collect()
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct SchemaDeclaredTextRecordBatchReader {
+    schema: SchemaRef,
+    header: Vec<String>,
+    column_dtypes: Vec<Option<LogicalDType>>,
+    source_format: LocalSourceFormat,
+    reader: BufReader<fs::File>,
+    read_plan: LocalSourceReadPlan,
+    batch_size: usize,
+    max_input_rows: Option<usize>,
+    next_row_number: usize,
+    context: String,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl SchemaDeclaredTextRecordBatchReader {
+    fn new(
+        source_format: LocalSourceFormat,
+        schema: SchemaRef,
+        header: Vec<String>,
+        column_dtypes: Vec<Option<LogicalDType>>,
+        reader: BufReader<fs::File>,
+        max_input_rows: Option<usize>,
+        context: String,
+    ) -> Self {
+        let required_columns = header.iter().cloned().collect::<BTreeSet<_>>();
+        Self {
+            schema,
+            header,
+            column_dtypes,
+            source_format,
+            reader,
+            read_plan: LocalSourceReadPlan::required(
+                required_columns,
+                "schema_declared_text_stream_columns",
+            ),
+            batch_size:
+                shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS,
+            max_input_rows,
+            next_row_number: 0,
+            context,
+        }
+    }
+
+    fn next_record_batch(&mut self) -> Result<Option<RecordBatch>, ShardLoomError> {
+        let mut rows = Vec::<Vec<(String, ScalarValue)>>::with_capacity(self.batch_size.min(1024));
+        let mut line = String::new();
+        while rows.len() < self.batch_size {
+            line.clear();
+            let bytes_read = self.reader.read_line(&mut line).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{} failed to read {} source row {}: {error}; no fallback execution was attempted",
+                    self.context,
+                    self.source_format.row_label(),
+                    self.next_row_number + 1
+                ))
+            })?;
+            if bytes_read == 0 {
+                break;
+            }
+            if line.trim().is_empty() {
+                continue;
+            }
+            self.next_row_number += 1;
+            enforce_local_source_row_budget(
+                self.next_row_number,
+                self.max_input_rows,
+                self.source_format.row_label(),
+            )?;
+            let row = match self.source_format {
+                LocalSourceFormat::Csv => self.csv_row_from_line(&line)?,
+                LocalSourceFormat::JsonLines => self.jsonl_row_from_line(&line)?,
+                LocalSourceFormat::Json
+                | LocalSourceFormat::Parquet
+                | LocalSourceFormat::ArrowIpc
+                | LocalSourceFormat::Avro
+                | LocalSourceFormat::Orc => {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "{} only admits schema-declared CSV/JSONL text streams; no fallback execution was attempted",
+                        self.context
+                    )));
+                }
+            };
+            rows.push(row);
+        }
+        if rows.is_empty() {
+            return Ok(None);
+        }
+        shardloom_vortex::universal_format_io::flat_rows_to_record_batch_with_schema(
+            Arc::clone(&self.schema),
+            &self.header,
+            &rows,
+            &self.context,
+        )
+        .map(Some)
+    }
+
+    fn csv_row_from_line(&self, line: &str) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+        let trimmed = line.trim_end_matches(['\r', '\n']);
+        let fields = split_csv_record(trimmed).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "{} CSV row {} is not admitted: {error}; no fallback execution was attempted",
+                self.context, self.next_row_number
+            ))
+        })?;
+        if fields.len() != self.header.len() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{} CSV row {} has {} fields, expected {}; no fallback execution was attempted",
+                self.context,
+                self.next_row_number,
+                fields.len(),
+                self.header.len()
+            )));
+        }
+        self.header
+            .iter()
+            .zip(fields.iter())
+            .zip(self.column_dtypes.iter())
+            .map(|((column, raw), dtype)| {
+                let dtype = dtype.as_ref().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{} missing declared dtype for CSV column '{column}'; no fallback execution was attempted",
+                        self.context
+                    ))
+                })?;
+                Ok((
+                    column.clone(),
+                    parse_schema_declared_text_scalar(raw, dtype, column, &self.context)?,
+                ))
+            })
+            .collect()
+    }
+
+    fn jsonl_row_from_line(
+        &self,
+        line: &str,
+    ) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+        let line = if self.next_row_number == 1 {
+            line.strip_prefix('\u{feff}').unwrap_or(line)
+        } else {
+            line
+        };
+        let fields =
+            parse_flat_json_object_with_plan(line.trim(), &self.read_plan).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{} JSONL row {} is not admitted: {error}; no fallback execution was attempted",
+                    self.context, self.next_row_number
+                ))
+            })?;
+        let mut values = BTreeMap::<String, ScalarValue>::new();
+        for (column, value) in fields {
+            if self.read_plan.should_materialize(&column) {
+                values.insert(column, value);
+            }
+        }
+        self.header
+            .iter()
+            .zip(self.column_dtypes.iter())
+            .map(|(column, dtype)| {
+                let dtype = dtype.as_ref().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{} missing declared dtype for JSONL column '{column}'; no fallback execution was attempted",
+                        self.context
+                    ))
+                })?;
+                let value = values.remove(column).unwrap_or(ScalarValue::Null);
+                Ok((
+                    column.clone(),
+                    coerce_schema_declared_json_scalar(value, dtype, column, &self.context)?,
+                ))
+            })
+            .collect()
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct SchemaDeclaredTextStreamContract {
+    source_format: LocalSourceFormat,
+    header: Vec<String>,
+    column_dtypes: Vec<Option<LogicalDType>>,
+    column_arrow_dtypes: Vec<Option<DataType>>,
+    reader: BufReader<fs::File>,
+    source_stream_policy: &'static str,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn schema_declared_text_stream_contract(
+    source_path: &Path,
+    source_format: LocalSourceFormat,
+    source_schema_hints: &[(String, LogicalDType)],
+) -> Result<Option<SchemaDeclaredTextStreamContract>, ShardLoomError> {
+    if source_schema_hints.is_empty()
+        || !matches!(
+            source_format,
+            LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
+        )
+        || source_schema_hints
+            .iter()
+            .any(|(_, dtype)| !schema_declared_text_dtype_supported(dtype))
+    {
+        return Ok(None);
+    }
+    let declared_header = source_schema_hints
+        .iter()
+        .map(|(name, _dtype)| name.clone())
+        .collect::<Vec<_>>();
+    let column_dtypes = source_schema_hints
+        .iter()
+        .map(|(_name, dtype)| Some(dtype.clone()))
+        .collect::<Vec<_>>();
+    let context = format!(
+        "{} schema-declared Universal Ingest stream",
+        source_format.row_label()
+    );
+    let column_arrow_dtypes = source_schema_hints
+        .iter()
+        .map(|(name, dtype)| schema_declared_text_arrow_dtype(dtype, name, &context).map(Some))
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let file = fs::File::open(source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "{context} failed to open {} for streaming read: {error}; no fallback execution was attempted",
+            source_path.display()
+        ))
+    })?;
+    let mut reader = BufReader::new(file);
+    match source_format {
+        LocalSourceFormat::Csv => {
+            let mut header_line = String::new();
+            let bytes_read = reader.read_line(&mut header_line).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{context} failed to read CSV header from {}: {error}; no fallback execution was attempted",
+                    source_path.display()
+                ))
+            })?;
+            if bytes_read == 0 {
+                return Err(unsupported_sql_error(
+                    "CSV source must include a header row",
+                ));
+            }
+            let mut header = split_csv_record(header_line.trim_end_matches(['\r', '\n']))?;
+            strip_utf8_bom_from_first_header_cell(&mut header);
+            for column in &header {
+                validate_sql_identifier(column)?;
+            }
+            if header != declared_header {
+                return Ok(None);
+            }
+            Ok(Some(SchemaDeclaredTextStreamContract {
+                source_format,
+                header,
+                column_dtypes,
+                column_arrow_dtypes,
+                reader,
+                source_stream_policy: "schema_declared_csv_record_batch_stream_batch_size_65536_rows",
+            }))
+        }
+        LocalSourceFormat::JsonLines => Ok(Some(SchemaDeclaredTextStreamContract {
+            source_format,
+            header: declared_header,
+            column_dtypes,
+            column_arrow_dtypes,
+            reader,
+            source_stream_policy: "schema_declared_jsonl_record_batch_stream_batch_size_65536_rows",
+        })),
+        LocalSourceFormat::Json
+        | LocalSourceFormat::Parquet
+        | LocalSourceFormat::ArrowIpc
+        | LocalSourceFormat::Avro
+        | LocalSourceFormat::Orc => Ok(None),
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InferredTextColumnKind {
+    Null,
+    Boolean,
+    Int64,
+    UInt64,
+    Float64,
+    Utf8,
+    Binary,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl InferredTextColumnKind {
+    fn observe(self, value: &ScalarValue) -> Self {
+        let candidate = match value {
+            ScalarValue::Null => return self,
+            ScalarValue::Boolean(_) => Self::Boolean,
+            ScalarValue::Int64(_) => Self::Int64,
+            ScalarValue::UInt64(_) => Self::UInt64,
+            ScalarValue::Float64(_) => Self::Float64,
+            ScalarValue::Utf8(_) => Self::Utf8,
+            ScalarValue::Binary(_) => Self::Binary,
+            ScalarValue::Decimal128 { .. }
+            | ScalarValue::Date32(_)
+            | ScalarValue::TimestampMicros(_)
+            | ScalarValue::List(_)
+            | ScalarValue::Struct(_) => Self::Utf8,
+        };
+        match (self, candidate) {
+            (Self::Null, candidate) => candidate,
+            (existing, candidate) if existing == candidate => existing,
+            (
+                Self::Int64 | Self::UInt64 | Self::Float64,
+                Self::Int64 | Self::UInt64 | Self::Float64,
+            ) => Self::Float64,
+            _ => Self::Utf8,
+        }
+    }
+
+    fn logical_dtype(self) -> LogicalDType {
+        match self {
+            Self::Null | Self::Utf8 => LogicalDType::Utf8,
+            Self::Boolean => LogicalDType::Boolean,
+            Self::Int64 => LogicalDType::Int64,
+            Self::UInt64 => LogicalDType::UInt64,
+            Self::Float64 => LogicalDType::Float64,
+            Self::Binary => LogicalDType::Binary,
+        }
+    }
+
+    fn arrow_dtype(self) -> DataType {
+        match self {
+            Self::Null | Self::Utf8 => DataType::Utf8,
+            Self::Boolean => DataType::Boolean,
+            Self::Int64 => DataType::Int64,
+            Self::UInt64 => DataType::UInt64,
+            Self::Float64 => DataType::Float64,
+            Self::Binary => DataType::Binary,
+        }
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn inferred_text_stream_contract(
+    source_path: &Path,
+    source_format: LocalSourceFormat,
+    max_input_rows: Option<usize>,
+) -> Result<Option<SchemaDeclaredTextStreamContract>, ShardLoomError> {
+    if !matches!(
+        source_format,
+        LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
+    ) {
+        return Ok(None);
+    }
+    let context = format!(
+        "{} inferred-schema Universal Ingest stream",
+        source_format.row_label()
+    );
+    let (header, inferred) = match source_format {
+        LocalSourceFormat::Csv => infer_csv_text_stream_schema(source_path, max_input_rows)?,
+        LocalSourceFormat::JsonLines => {
+            infer_jsonl_text_stream_schema(source_path, max_input_rows)?
+        }
+        LocalSourceFormat::Json
+        | LocalSourceFormat::Parquet
+        | LocalSourceFormat::ArrowIpc
+        | LocalSourceFormat::Avro
+        | LocalSourceFormat::Orc => return Ok(None),
+    };
+    let column_dtypes = inferred
+        .iter()
+        .map(|kind| Some(kind.logical_dtype()))
+        .collect::<Vec<_>>();
+    let column_arrow_dtypes = inferred
+        .iter()
+        .map(|kind| Some(kind.arrow_dtype()))
+        .collect::<Vec<_>>();
+    let file = fs::File::open(source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "{context} failed to open {} for streaming read: {error}; no fallback execution was attempted",
+            source_path.display()
+        ))
+    })?;
+    let mut reader = BufReader::new(file);
+    if source_format == LocalSourceFormat::Csv {
+        let mut header_line = String::new();
+        reader.read_line(&mut header_line).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} failed to read CSV header from {}: {error}; no fallback execution was attempted",
+                source_path.display()
+            ))
+        })?;
+    }
+    Ok(Some(SchemaDeclaredTextStreamContract {
+        source_format,
+        header,
+        column_dtypes,
+        column_arrow_dtypes,
+        reader,
+        source_stream_policy: match source_format {
+            LocalSourceFormat::Csv => "inferred_csv_record_batch_stream_batch_size_65536_rows",
+            LocalSourceFormat::JsonLines => {
+                "inferred_jsonl_record_batch_stream_batch_size_65536_rows"
+            }
+            LocalSourceFormat::Json
+            | LocalSourceFormat::Parquet
+            | LocalSourceFormat::ArrowIpc
+            | LocalSourceFormat::Avro
+            | LocalSourceFormat::Orc => "not_applicable",
+        },
+    }))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn infer_csv_text_stream_schema(
+    source_path: &Path,
+    max_input_rows: Option<usize>,
+) -> Result<(Vec<String>, Vec<InferredTextColumnKind>), ShardLoomError> {
+    let context = "CSV inferred-schema Universal Ingest stream";
+    let file = fs::File::open(source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "{context} failed to open {} for schema inference: {error}; no fallback execution was attempted",
+            source_path.display()
+        ))
+    })?;
+    let mut reader = BufReader::new(file);
+    let mut header_line = String::new();
+    let bytes_read = reader.read_line(&mut header_line).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "{context} failed to read CSV header from {}: {error}; no fallback execution was attempted",
+            source_path.display()
+        ))
+    })?;
+    if bytes_read == 0 {
+        return Err(unsupported_sql_error(
+            "CSV source must include a header row",
+        ));
+    }
+    let mut header = split_csv_record(header_line.trim_end_matches(['\r', '\n']))?;
+    strip_utf8_bom_from_first_header_cell(&mut header);
+    if header.is_empty() {
+        return Err(unsupported_sql_error("CSV source header must not be empty"));
+    }
+    for column in &header {
+        validate_sql_identifier(column)?;
+    }
+    let mut inferred = vec![InferredTextColumnKind::Null; header.len()];
+    let mut row_count = 0_usize;
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let bytes_read = reader.read_line(&mut line).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} failed to read CSV row {}: {error}; no fallback execution was attempted",
+                row_count + 1
+            ))
+        })?;
+        if bytes_read == 0 {
+            break;
+        }
+        if line.trim().is_empty() {
+            continue;
+        }
+        row_count += 1;
+        enforce_local_source_row_budget(row_count, max_input_rows, "CSV")?;
+        let record = split_csv_record(line.trim_end_matches(['\r', '\n']))?;
+        if record.len() != header.len() {
+            return Err(unsupported_sql_error(
+                "CSV row width must match the header width for the inferred-schema Universal Ingest stream",
+            ));
+        }
+        for (index, raw) in record.iter().enumerate() {
+            inferred[index] = inferred[index].observe(&parse_csv_scalar(raw));
+        }
+    }
+    Ok((header, inferred))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn infer_jsonl_text_stream_schema(
+    source_path: &Path,
+    max_input_rows: Option<usize>,
+) -> Result<(Vec<String>, Vec<InferredTextColumnKind>), ShardLoomError> {
+    let context = "JSONL inferred-schema Universal Ingest stream";
+    let file = fs::File::open(source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "{context} failed to open {} for schema inference: {error}; no fallback execution was attempted",
+            source_path.display()
+        ))
+    })?;
+    let reader = BufReader::new(file);
+    let read_plan = LocalSourceReadPlan::full("inferred_jsonl_text_stream_schema");
+    let mut header = Vec::<String>::new();
+    let mut inferred = Vec::<InferredTextColumnKind>::new();
+    let mut row_count = 0_usize;
+    for line in reader.lines() {
+        let line = line.map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} failed to read JSONL row {}: {error}; no fallback execution was attempted",
+                row_count + 1
+            ))
+        })?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        row_count += 1;
+        enforce_local_source_row_budget(row_count, max_input_rows, "JSONL")?;
+        let line = if row_count == 1 {
+            line.strip_prefix('\u{feff}').unwrap_or(&line)
+        } else {
+            &line
+        };
+        let fields = parse_flat_json_object_with_plan(line, &read_plan).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} row {row_count} is not admitted: {error}; no fallback execution was attempted"
+            ))
+        })?;
+        for (name, value) in fields {
+            let index = match header.iter().position(|column| column == &name) {
+                Some(index) => index,
+                None => {
+                    validate_sql_identifier(&name)?;
+                    header.push(name);
+                    inferred.push(InferredTextColumnKind::Null);
+                    inferred.len() - 1
+                }
+            };
+            inferred[index] = inferred[index].observe(&value);
+        }
+    }
+    if row_count == 0 {
+        return Err(unsupported_sql_error(
+            "JSONL source must include at least one object row",
+        ));
+    }
+    Ok((header, inferred))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn schema_declared_text_dtype_supported(dtype: &LogicalDType) -> bool {
+    matches!(
+        dtype,
+        LogicalDType::Boolean
+            | LogicalDType::Int64
+            | LogicalDType::UInt64
+            | LogicalDType::Float64
+            | LogicalDType::Utf8
+            | LogicalDType::Binary
+            | LogicalDType::Date32
+            | LogicalDType::TimestampMicros
+    )
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl Iterator for SchemaDeclaredTextRecordBatchReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_record_batch()
+            .transpose()
+            .map(|result| result.map_err(|error| ArrowError::ComputeError(error.to_string())))
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl RecordBatchReader for SchemaDeclaredTextRecordBatchReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn parse_schema_declared_text_scalar(
+    raw: &str,
+    dtype: &LogicalDType,
+    column: &str,
+    context: &str,
+) -> Result<ScalarValue, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("null") {
+        return Ok(ScalarValue::Null);
+    }
+    match dtype {
+        LogicalDType::Boolean => trimmed.parse::<bool>().map(ScalarValue::Boolean).map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} column '{column}' value {raw:?} is not a boolean; no fallback execution was attempted"
+            ))
+        }),
+        LogicalDType::Int64 => trimmed.parse::<i64>().map(ScalarValue::Int64).map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} column '{column}' value {raw:?} is not int64; no fallback execution was attempted"
+            ))
+        }),
+        LogicalDType::UInt64 => trimmed.parse::<u64>().map(ScalarValue::UInt64).map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} column '{column}' value {raw:?} is not uint64; no fallback execution was attempted"
+            ))
+        }),
+        LogicalDType::Float64 => trimmed.parse::<f64>().map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} column '{column}' value {raw:?} is not float64; no fallback execution was attempted"
+            ))
+        }).and_then(|value| {
+            if value.is_finite() {
+                Ok(ScalarValue::Float64(value))
+            } else {
+                Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' value {raw:?} is not a finite float64; no fallback execution was attempted"
+                )))
+            }
+        }),
+        LogicalDType::Utf8 => Ok(ScalarValue::Utf8(raw.to_string())),
+        LogicalDType::Binary => Ok(ScalarValue::Binary(raw.as_bytes().to_vec())),
+        LogicalDType::Date32 => parse_iso_date32(trimmed).map(ScalarValue::Date32),
+        LogicalDType::TimestampMicros => {
+            parse_iso_timestamp_micros(trimmed).map(ScalarValue::TimestampMicros)
+        }
+        LogicalDType::Unknown | LogicalDType::List | LogicalDType::Struct | LogicalDType::Extension(_) => {
+            Err(ShardLoomError::InvalidOperation(format!(
+                "{context} column '{column}' declares unsupported schema dtype {}; no fallback execution was attempted",
+                dtype.as_str()
+            )))
+        }
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn coerce_schema_declared_json_scalar(
+    value: ScalarValue,
+    dtype: &LogicalDType,
+    column: &str,
+    context: &str,
+) -> Result<ScalarValue, ShardLoomError> {
+    if matches!(value, ScalarValue::Null) {
+        return Ok(ScalarValue::Null);
+    }
+    match (dtype, value) {
+        (LogicalDType::Boolean, ScalarValue::Boolean(value)) => Ok(ScalarValue::Boolean(value)),
+        (LogicalDType::Int64, ScalarValue::Int64(value)) => Ok(ScalarValue::Int64(value)),
+        (LogicalDType::UInt64, ScalarValue::UInt64(value)) => Ok(ScalarValue::UInt64(value)),
+        (LogicalDType::UInt64, ScalarValue::Int64(value)) if value >= 0 => {
+            Ok(ScalarValue::UInt64(value as u64))
+        }
+        (LogicalDType::Float64, ScalarValue::Float64(value)) => Ok(ScalarValue::Float64(value)),
+        (LogicalDType::Float64, ScalarValue::Int64(value)) => {
+            Ok(ScalarValue::Float64(value as f64))
+        }
+        (LogicalDType::Utf8, ScalarValue::Utf8(value)) => Ok(ScalarValue::Utf8(value)),
+        (LogicalDType::Utf8, ScalarValue::Boolean(value)) => {
+            Ok(ScalarValue::Utf8(value.to_string()))
+        }
+        (LogicalDType::Utf8, ScalarValue::Int64(value)) => Ok(ScalarValue::Utf8(value.to_string())),
+        (LogicalDType::Utf8, ScalarValue::UInt64(value)) => {
+            Ok(ScalarValue::Utf8(value.to_string()))
+        }
+        (LogicalDType::Utf8, ScalarValue::Float64(value)) if value.is_finite() => {
+            Ok(ScalarValue::Utf8(value.to_string()))
+        }
+        (LogicalDType::Binary, ScalarValue::Utf8(value)) => {
+            Ok(ScalarValue::Binary(value.into_bytes()))
+        }
+        (LogicalDType::Date32, ScalarValue::Utf8(value)) => {
+            parse_iso_date32(&value).map(ScalarValue::Date32)
+        }
+        (LogicalDType::TimestampMicros, ScalarValue::Utf8(value)) => {
+            parse_iso_timestamp_micros(&value).map(ScalarValue::TimestampMicros)
+        }
+        (dtype, value) => Err(ShardLoomError::InvalidOperation(format!(
+            "{context} column '{column}' declared {} but JSONL value was {}; no fallback execution was attempted",
+            dtype.as_str(),
+            value.summary()
+        ))),
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn schema_declared_text_arrow_dtype(
+    dtype: &LogicalDType,
+    column: &str,
+    context: &str,
+) -> Result<DataType, ShardLoomError> {
+    match dtype {
+        LogicalDType::Boolean => Ok(DataType::Boolean),
+        LogicalDType::Int64 => Ok(DataType::Int64),
+        LogicalDType::UInt64 => Ok(DataType::UInt64),
+        LogicalDType::Float64 => Ok(DataType::Float64),
+        LogicalDType::Utf8 => Ok(DataType::Utf8),
+        LogicalDType::Binary => Ok(DataType::Binary),
+        LogicalDType::Date32 => Ok(DataType::Date32),
+        LogicalDType::TimestampMicros => Ok(DataType::Timestamp(TimeUnit::Microsecond, None)),
+        LogicalDType::Unknown
+        | LogicalDType::List
+        | LogicalDType::Struct
+        | LogicalDType::Extension(_) => Err(ShardLoomError::InvalidOperation(format!(
+            "{context} column '{column}' declares unsupported schema dtype {}; no fallback execution was attempted",
+            dtype.as_str()
+        ))),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -4086,38 +4788,12 @@ struct VortexIngestReport {
 #[derive(Debug, Clone, PartialEq)]
 enum VortexIngestOutcome {
     Prepared(Box<VortexIngestReport>),
-    Reused(Box<VortexPreparedStateReuseCliReport>),
-    Refined(Box<VortexPreparedStateRefinementCliReport>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PublicWorkflowVortexPreparation {
     pub(crate) target_path: PathBuf,
     pub(crate) fields: Vec<(String, String)>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct VortexPreparedStateReuseCliReport {
-    request: VortexIngestRequest,
-    source_adapter: LocalInputAdapterSelection,
-    reuse_report: shardloom_vortex::VortexPreparedStateReuseReport,
-    prepared_olap_state: Option<shardloom_vortex::VortexPreparedOlapStateReport>,
-    evaluation_millis: u128,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct VortexPreparedStateRefinementCliReport {
-    request: VortexIngestRequest,
-    source_adapter: LocalInputAdapterSelection,
-    reuse_report: shardloom_vortex::VortexPreparedStateReuseReport,
-    refinement_decision: shardloom_vortex::VortexPreparedStateAppendOnlyRefinementDecision,
-    delta_report: VortexIngestReport,
-    differential_preparation: shardloom_vortex::VortexDifferentialPreparationReport,
-    prepared_olap_state: Option<shardloom_vortex::VortexPreparedOlapStateReport>,
-    refinement_manifest: shardloom_vortex::VortexDifferentialRefinementManifestReport,
-    refined_prepared_state_id: String,
-    refined_prepared_state_digest: String,
-    evaluation_millis: u128,
 }
 
 pub(crate) fn handle_local_source_runtime(
@@ -4392,20 +5068,6 @@ fn apply_vortex_ingest_schema_hints(
         source.column_dtypes[index] = Some(dtype.clone());
     }
     Ok(())
-}
-
-fn schema_hints_digest(hints: &[(String, LogicalDType)]) -> String {
-    if hints.is_empty() {
-        "no_declared_schema_hints".to_string()
-    } else {
-        fnv64_digest(
-            &hints
-                .iter()
-                .map(|(name, dtype)| format!("{name}:{}", dtype.as_str()))
-                .collect::<Vec<_>>()
-                .join("|"),
-        )
-    }
 }
 
 fn vortex_ingest_source_schema_digest(source: &CsvSourceData) -> String {
@@ -4742,39 +5404,6 @@ pub(crate) fn handle_vortex_prepare_with_facade(
                 ExitCode::SUCCESS
             }
         }
-        VortexIngestOutcome::Reused(report) => {
-            emit(
-                emit_command,
-                format,
-                CommandStatus::Success,
-                report.summary(),
-                report.to_text(),
-                Vec::new(),
-                fields_with_extra(report.fields(), extra_fields),
-            );
-            ExitCode::SUCCESS
-        }
-        VortexIngestOutcome::Refined(report) => {
-            let differential_blocked = !report.differential_preparation.is_admitted();
-            emit(
-                emit_command,
-                format,
-                if differential_blocked {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                report.summary(),
-                report.to_text(),
-                Vec::new(),
-                fields_with_extra(report.fields(), extra_fields),
-            );
-            if differential_blocked {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
     }
 }
 
@@ -4831,16 +5460,6 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
             if report.differential_preparation_blocked() {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "prepared Vortex lifecycle for '{}' was blocked by differential preparation policy; no fallback execution was attempted",
-                    report.request.source_path.display()
-                )));
-            }
-            report.fields()
-        }
-        VortexIngestOutcome::Reused(report) => report.fields(),
-        VortexIngestOutcome::Refined(report) => {
-            if !report.differential_preparation.is_admitted() {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "prepared Vortex refinement for '{}' was blocked by differential preparation policy; no fallback execution was attempted",
                     report.request.source_path.display()
                 )));
             }
@@ -5133,67 +5752,8 @@ fn run_vortex_ingest_prepare_once_with_schema(
 ) -> Result<VortexIngestOutcome, ShardLoomError> {
     let source_adapter =
         LocalInputAdapterSelection::select(&request.source_path, request.source_format_override)?;
-    let reuse_start = Instant::now();
-    let reuse_request =
-        vortex_ingest_prepared_state_reuse_request(&request, &source_adapter, source_schema_hints)?;
-    let reuse_decision = shardloom_vortex::evaluate_vortex_prepared_state_reuse(&reuse_request)?;
-    let evaluation_millis = reuse_start.elapsed().as_millis();
-    if reuse_decision.hit {
-        let prepared_olap_state = Some(write_or_evaluate_prepared_olap_state_for_reuse(
-            &reuse_decision,
-        )?);
-        return Ok(VortexIngestOutcome::Reused(Box::new(
-            VortexPreparedStateReuseCliReport {
-                request,
-                source_adapter,
-                reuse_report: reuse_decision,
-                prepared_olap_state,
-                evaluation_millis,
-            },
-        )));
-    }
-
-    if let Some(refined) = run_vortex_ingest_append_only_refinement(
-        &request,
-        source_adapter.clone(),
-        &reuse_request,
-        &reuse_decision,
-        evaluation_millis,
-        source_schema_hints,
-    )? {
-        return Ok(VortexIngestOutcome::Refined(Box::new(refined)));
-    }
-
     let mut report =
         run_vortex_ingest_prepare_once_with_adapter(request, source_adapter, source_schema_hints)?;
-    let certificate_refs = format!(
-        "source_state={};prepared_state={};artifact={};native_io={}",
-        report.source_state_id,
-        report.prepared_state_id,
-        report.vortex_report.target_path.display(),
-        report
-            .vortex_report
-            .preparation_spine
-            .native_io_certificate_refs
-    );
-    let manifest_report = shardloom_vortex::write_vortex_prepared_state_reuse_manifest(
-        &reuse_request,
-        &reuse_decision,
-        shardloom_vortex::VortexPreparedStateReuseWriteEvidence {
-            source_state_id: report.source_state_id.clone(),
-            source_state_digest: report.source_state_digest.clone(),
-            source_schema_digest: report.source_schema_digest.clone(),
-            source_row_count: report.vortex_report.row_count,
-            source_column_family_summary: report.vortex_report.column_family_summary(),
-            prepared_state_id: report.prepared_state_id.clone(),
-            prepared_state_digest: report.prepared_state_digest.clone(),
-            prepared_artifact_digest: report.vortex_report.artifact_digest.clone(),
-            certificate_refs,
-            fallback_attempted: false,
-            external_engine_invoked: false,
-        },
-    )?;
-    report.prepared_state_reuse = Some(manifest_report);
     report.prepared_olap_state = Some(write_prepared_olap_state_for_report(&report)?);
     Ok(VortexIngestOutcome::Prepared(Box::new(report)))
 }
@@ -5219,6 +5779,13 @@ fn write_prepared_olap_state_for_report(
         &report.vortex_report.target_path,
     )?
     .with_prepared_layout_policy("single_vortex_artifact_embedded_vortex_layout_statistics_v1")
+    .with_segment_map_status(
+        report
+            .vortex_report
+            .prepared_olap_layout_inventory
+            .segment_membership_status
+            .clone(),
+    )
     .with_feature_gates(report.vortex_report.preparation_spine.feature_gate.clone())
     .with_certification_level(report.request.certification_level.as_str())
     .with_certificate_refs(format!(
@@ -5232,155 +5799,6 @@ fn write_prepared_olap_state_for_report(
             .native_io_certificate_refs
     ));
     shardloom_vortex::write_vortex_prepared_olap_state_bundle(request)
-}
-
-fn write_or_evaluate_prepared_olap_state_for_reuse(
-    reuse: &shardloom_vortex::VortexPreparedStateReuseReport,
-) -> Result<shardloom_vortex::VortexPreparedOlapStateReport, ShardLoomError> {
-    let request = shardloom_vortex::VortexPreparedOlapStateWriteRequest::new_local(
-        reuse.source_state_id.clone(),
-        reuse.source_state_digest.clone(),
-        reuse.source_format.clone(),
-        reuse.source_content_digest.clone(),
-        reuse.source_size_bytes,
-        reuse.source_schema_digest.clone(),
-        reuse.source_row_count,
-        &reuse.prepared_artifact_ref,
-        &reuse.prepared_artifact_ref,
-    )?
-    .with_prepared_layout_policy("single_vortex_artifact_embedded_vortex_layout_statistics_v1")
-    .with_feature_gates(reuse.feature_gates.clone())
-    .with_certification_level(reuse.certification_level.clone())
-    .with_certificate_refs(reuse.certificate_refs.clone());
-    shardloom_vortex::evaluate_vortex_prepared_olap_single_artifact_state(&request)
-}
-
-#[allow(clippy::too_many_lines)]
-fn run_vortex_ingest_append_only_refinement(
-    request: &VortexIngestRequest,
-    source_adapter: LocalInputAdapterSelection,
-    reuse_request: &shardloom_vortex::VortexPreparedStateReuseRequest,
-    reuse_decision: &shardloom_vortex::VortexPreparedStateReuseReport,
-    evaluation_millis: u128,
-    source_schema_hints: &[(String, LogicalDType)],
-) -> Result<Option<VortexPreparedStateRefinementCliReport>, ShardLoomError> {
-    if !matches!(
-        reuse_decision.reason.as_str(),
-        "source_content_digest_changed" | "source_size_bytes_changed"
-    ) {
-        return Ok(None);
-    }
-    if request.certification_level
-        != shardloom_vortex::VortexIngestCertificationLevel::IngestCertified
-    {
-        return Ok(None);
-    }
-    let refinement_decision =
-        shardloom_vortex::evaluate_vortex_prepared_state_append_only_refinement(reuse_request)?;
-    if !refinement_decision.is_admitted() {
-        return Ok(None);
-    }
-
-    let delta_source_path = write_automatic_append_only_delta_source(
-        &request.source_path,
-        &request.target_path,
-        source_adapter.source_format,
-        &refinement_decision,
-    )?;
-    let delta_target_path = automatic_append_only_delta_target_path(
-        &request.target_path,
-        &refinement_decision.current_source_content_digest,
-    )?;
-    let delta_report = run_vortex_ingest_prepare_once_without_reuse_with_schema(
-        VortexIngestRequest {
-            source_path: delta_source_path,
-            source_format_override: request.source_format_override,
-            target_path: delta_target_path,
-            allow_overwrite: true,
-            certification_level: request.certification_level,
-            runtime_profile: request.runtime_profile,
-            max_parallelism: request.max_parallelism,
-            delta: None,
-        },
-        source_schema_hints,
-    )
-    .map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "vortex_ingest automatic append-only delta refinement failed while preparing delta source for '{}': {error}; no fallback execution was attempted",
-            request.source_path.display()
-        ))
-    })?;
-
-    let differential_preparation = differential_preparation_report_from_refinement(
-        &refinement_decision,
-        &delta_report,
-        request,
-    );
-    ensure_automatic_append_only_refinement_admitted(
-        &differential_preparation,
-        &request.source_path,
-    )?;
-    let refined_prepared_state_digest = fnv64_digest(&format!(
-        "{}|{}|{}|{}|{}",
-        refinement_decision.base_prepared_state_digest,
-        delta_report.prepared_state_digest,
-        differential_preparation.overlay_manifest_digest,
-        refinement_decision.base_source_row_count,
-        delta_report.vortex_report.row_count
-    ));
-    let refined_prepared_state_id = format!(
-        "vortex-prepared-state-refinement-{}",
-        refined_prepared_state_digest.replace(':', "-")
-    );
-    let overlay_consumer_correctness_digest = fnv64_digest(&format!(
-        "count_consumer|base_rows={}|delta_rows={}|refined_rows={}|base={}|delta={}|overlay={}",
-        refinement_decision.base_source_row_count,
-        delta_report.vortex_report.row_count,
-        refinement_decision.base_source_row_count + delta_report.vortex_report.row_count,
-        refinement_decision.base_prepared_state_digest,
-        delta_report.prepared_state_digest,
-        differential_preparation.overlay_manifest_digest
-    ));
-    let refinement_manifest_path =
-        shardloom_vortex::vortex_differential_refinement_manifest_path(&request.target_path)?;
-    let refinement_manifest = shardloom_vortex::write_vortex_differential_refinement_manifest(
-        refinement_manifest_path,
-        &refinement_decision,
-        &differential_preparation,
-        refined_prepared_state_id.clone(),
-        refined_prepared_state_digest.clone(),
-        "count".to_string(),
-        "admitted_base_manifest_plus_delta_reopen_row_count".to_string(),
-        overlay_consumer_correctness_digest,
-    )?;
-
-    Ok(Some(VortexPreparedStateRefinementCliReport {
-        request: request.clone(),
-        source_adapter,
-        reuse_report: reuse_decision.clone(),
-        refinement_decision,
-        delta_report,
-        differential_preparation,
-        prepared_olap_state: None,
-        refinement_manifest,
-        refined_prepared_state_id,
-        refined_prepared_state_digest,
-        evaluation_millis,
-    }))
-}
-
-fn ensure_automatic_append_only_refinement_admitted(
-    differential_preparation: &shardloom_vortex::VortexDifferentialPreparationReport,
-    source_path: &Path,
-) -> Result<(), ShardLoomError> {
-    if differential_preparation.is_admitted() {
-        return Ok(());
-    }
-    Err(ShardLoomError::InvalidOperation(format!(
-        "vortex_ingest automatic append-only refinement for '{}' was rejected by differential preparation status {}; refinement manifest was not written; no fallback execution was attempted",
-        source_path.display(),
-        differential_preparation.status
-    )))
 }
 
 fn run_vortex_ingest_prepare_once_without_reuse_with_schema(
@@ -5410,56 +5828,6 @@ fn run_vortex_ingest_prepare_once_with_adapter(
         }
     }
     run_scalar_vortex_prepare(request, source_adapter, source_schema_hints)
-}
-
-fn vortex_ingest_prepared_state_reuse_request(
-    request: &VortexIngestRequest,
-    source_adapter: &LocalInputAdapterSelection,
-    source_schema_hints: &[(String, LogicalDType)],
-) -> Result<shardloom_vortex::VortexPreparedStateReuseRequest, ShardLoomError> {
-    let manifest_path =
-        shardloom_vortex::vortex_prepared_state_reuse_manifest_path(&request.target_path)?;
-    let parse_decode_plan_digest = fnv64_digest(&format!(
-        "vortex_ingest_prepare_once|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
-        source_adapter.source_format.as_str(),
-        source_adapter.source_format.adapter_id(),
-        source_adapter.source_format.adapter_boundary(),
-        request.certification_level.as_str(),
-        request.runtime_profile.route_id(),
-        request.runtime_profile.input_row_cap_label(),
-        request.runtime_profile.source_byte_cap_label(),
-        request.runtime_profile.output_row_cap_label(),
-        request.runtime_profile.join_candidate_cap_label(),
-        LOCAL_INPUT_ADAPTER_REGISTRY_VERSION,
-        VORTEX_PREPARE_SCHEMA_VERSION,
-        schema_hints_digest(source_schema_hints)
-    ));
-    let feature_gates = if source_adapter.source_format.feature_gate() == "default" {
-        "vortex-write".to_string()
-    } else {
-        format!(
-            "vortex-write,{}",
-            source_adapter.source_format.feature_gate()
-        )
-    };
-    shardloom_vortex::VortexPreparedStateReuseRequest::new_local(
-        &request.source_path,
-        &request.target_path,
-        manifest_path,
-        source_adapter.source_format.as_str(),
-        None,
-        parse_decode_plan_digest,
-        "all_columns",
-        "caller_owned_local_vortex_artifact",
-        format!(
-            "shardloom-cli={};shardloom-vortex={};vortex={}",
-            env!("CARGO_PKG_VERSION"),
-            env!("CARGO_PKG_VERSION"),
-            shardloom_vortex::VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION
-        ),
-        feature_gates,
-        request.certification_level.as_str(),
-    )
 }
 
 fn differential_preparation_report(
@@ -5514,217 +5882,6 @@ fn differential_preparation_report(
             native_io_certificate_refs,
         },
     )
-}
-
-fn differential_preparation_report_from_refinement(
-    refinement: &shardloom_vortex::VortexPreparedStateAppendOnlyRefinementDecision,
-    delta: &VortexIngestReport,
-    request: &VortexIngestRequest,
-) -> shardloom_vortex::VortexDifferentialPreparationReport {
-    let delta_segment_refs = delta.prepared_artifact_segment_refs();
-    let changed_row_range_refs = format!(
-        "{}#rows={}..{}",
-        request.source_path.display(),
-        refinement.base_source_row_count,
-        refinement.base_source_row_count + delta.vortex_report.row_count
-    );
-    let delta_manifest_digest = fnv64_digest(&format!(
-        "{}|{}|{}|{}|{}|automatic_append_only_refinement",
-        delta.source_state_digest,
-        delta.prepared_state_digest,
-        delta.vortex_report.artifact_digest,
-        refinement.changed_byte_range_refs,
-        changed_row_range_refs
-    ));
-    let native_io_certificate_refs = format!(
-        "base_prepared_state={};base_manifest={};delta_prepared_state={};delta_artifact={};refinement=count_consumer",
-        refinement.base_prepared_state_id,
-        refinement.manifest_path.display(),
-        delta.prepared_state_id,
-        delta.request.target_path.display()
-    );
-
-    shardloom_vortex::evaluate_vortex_differential_preparation(
-        shardloom_vortex::VortexDifferentialPreparationInput {
-            update_mode: shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly,
-            base_source_state_id: refinement.base_source_state_id.clone(),
-            base_source_state_digest: refinement.base_source_state_digest.clone(),
-            base_prepared_state_id: refinement.base_prepared_state_id.clone(),
-            base_prepared_state_digest: refinement.base_prepared_state_digest.clone(),
-            base_row_count: refinement.base_source_row_count,
-            base_schema_digest: refinement.base_source_schema_digest.clone(),
-            base_column_family_summary: refinement.base_source_column_family_summary.clone(),
-            delta_source_state_id: delta.source_state_id.clone(),
-            delta_source_state_digest: delta.source_state_digest.clone(),
-            delta_row_count: delta.vortex_report.row_count,
-            delta_schema_digest: delta.source_schema_digest.clone(),
-            delta_column_family_summary: delta.vortex_report.column_family_summary(),
-            delta_manifest_digest,
-            changed_byte_range_refs: refinement.changed_byte_range_refs.clone(),
-            changed_row_range_refs,
-            changed_segment_refs: delta_segment_refs,
-            delta_artifact_ref: delta.request.target_path.display().to_string(),
-            delta_artifact_digest: delta.vortex_report.artifact_digest.clone(),
-            native_io_certificate_refs,
-        },
-    )
-}
-
-fn automatic_append_only_delta_target_path(
-    base_target_path: &Path,
-    current_source_digest: &str,
-) -> Result<PathBuf, ShardLoomError> {
-    let target_path =
-        normalize_local_vortex_ingest_target_path(&base_target_path.display().to_string())?;
-    let file_name = target_path
-        .file_name()
-        .and_then(std::ffi::OsStr::to_str)
-        .ok_or_else(|| {
-            ShardLoomError::InvalidOperation(format!(
-                "automatic append-only delta target requires a local file name for '{}'; no fallback execution was attempted",
-                target_path.display()
-            ))
-        })?;
-    let parent = target_path.parent().unwrap_or_else(|| Path::new("."));
-    Ok(parent.join(".shardloom").join(format!(
-        "{file_name}.append-only-delta-{}.vortex",
-        current_source_digest.replace(':', "-")
-    )))
-}
-
-fn automatic_append_only_delta_source_path(
-    source_path: &Path,
-    base_target_path: &Path,
-    source_format: LocalSourceFormat,
-    current_source_digest: &str,
-) -> Result<PathBuf, ShardLoomError> {
-    let target_path =
-        normalize_local_vortex_ingest_target_path(&base_target_path.display().to_string())?;
-    let file_name = source_path
-        .file_name()
-        .and_then(std::ffi::OsStr::to_str)
-        .ok_or_else(|| {
-            ShardLoomError::InvalidOperation(format!(
-                "automatic append-only delta source requires a local file name for '{}'; no fallback execution was attempted",
-                source_path.display()
-            ))
-        })?;
-    let parent = target_path.parent().unwrap_or_else(|| Path::new("."));
-    let extension = match source_format {
-        LocalSourceFormat::Csv => "csv",
-        LocalSourceFormat::JsonLines => "jsonl",
-        _ => {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "automatic append-only refinement supports CSV/JSONL delta sidecars only for the current slice, not {}; no fallback execution was attempted",
-                source_format.as_str()
-            )));
-        }
-    };
-    Ok(parent.join(".shardloom").join(format!(
-        "{file_name}.append-only-delta-{}.{}",
-        current_source_digest.replace(':', "-"),
-        extension
-    )))
-}
-
-fn write_automatic_append_only_delta_source(
-    source_path: &Path,
-    base_target_path: &Path,
-    source_format: LocalSourceFormat,
-    refinement: &shardloom_vortex::VortexPreparedStateAppendOnlyRefinementDecision,
-) -> Result<PathBuf, ShardLoomError> {
-    let bytes = fs::read(source_path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read automatic append-only refinement source '{}': {error}; no fallback execution was attempted",
-            source_path.display()
-        ))
-    })?;
-    let delta_start = usize::try_from(refinement.delta_byte_start).map_err(|_| {
-        ShardLoomError::InvalidOperation(
-            "automatic append-only delta byte offset does not fit usize; no fallback execution was attempted"
-                .to_string(),
-        )
-    })?;
-    if delta_start >= bytes.len() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "automatic append-only refinement found no delta bytes for '{}'; no fallback execution was attempted",
-            source_path.display()
-        )));
-    }
-    let content = std::str::from_utf8(&bytes).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "automatic append-only refinement requires UTF-8 local text source '{}': {error}; no fallback execution was attempted",
-            source_path.display()
-        ))
-    })?;
-    let delta_text = std::str::from_utf8(&bytes[delta_start..]).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "automatic append-only refinement delta bytes are not UTF-8 for '{}': {error}; no fallback execution was attempted",
-            source_path.display()
-        ))
-    })?;
-    let delta_path = automatic_append_only_delta_source_path(
-        source_path,
-        base_target_path,
-        source_format,
-        &refinement.current_source_content_digest,
-    )?;
-    let parent = delta_path.parent().ok_or_else(|| {
-        ShardLoomError::InvalidOperation(format!(
-            "automatic append-only delta source path '{}' has no parent; no fallback execution was attempted",
-            delta_path.display()
-        ))
-    })?;
-    let delta_payload = match source_format {
-        LocalSourceFormat::Csv => {
-            let header_end = content.find('\n').ok_or_else(|| {
-                ShardLoomError::InvalidOperation(format!(
-                    "automatic CSV append-only refinement requires a header line in '{}'; no fallback execution was attempted",
-                    source_path.display()
-                ))
-            })?;
-            let header = content[..header_end].trim_end_matches('\r');
-            let body = delta_text.trim_start_matches(['\n', '\r']);
-            if body.trim().is_empty() {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "automatic CSV append-only refinement found only empty delta rows in '{}'; no fallback execution was attempted",
-                    source_path.display()
-                )));
-            }
-            format!("{header}\n{body}")
-        }
-        LocalSourceFormat::JsonLines => {
-            let body = delta_text.trim_start_matches(['\n', '\r']);
-            if body.trim().is_empty() {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "automatic JSONL append-only refinement found only empty delta rows in '{}'; no fallback execution was attempted",
-                    source_path.display()
-                )));
-            }
-            body.to_string()
-        }
-        _ => {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "automatic append-only refinement supports CSV/JSONL sources only for this slice, not {}; no fallback execution was attempted",
-                source_format.as_str()
-            )));
-        }
-    };
-    let workspace_root = parent.parent().unwrap_or(parent);
-    shardloom_core::write_workspace_safe_bytes(
-        workspace_root,
-        &delta_path,
-        true,
-        "automatic append-only delta source sidecar",
-        delta_payload.as_bytes(),
-    )
-    .map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write automatic append-only delta source '{}': {error}; no fallback execution was attempted",
-            delta_path.display()
-        ))
-    })?;
-    Ok(delta_path)
 }
 
 fn scout_ingress_report(
@@ -5860,7 +6017,15 @@ fn layout_writer_provider_surface(source: &VortexIngestSourceData) -> &'static s
 }
 
 fn layout_streaming_columnar_source_may_have_batches(source: &VortexIngestSourceData) -> bool {
-    source.materialization_layout == "streaming_arrow_record_batch_columnar_source_state"
+    let streaming_layout = matches!(
+        source.materialization_layout,
+        "streaming_arrow_record_batch_columnar_source_state"
+            | "typed_text_rows_to_streaming_arrow_record_batch_source_state"
+            | "schema_declared_text_to_streaming_arrow_record_batch_source_state"
+    ) || source
+        .source_stream_policy
+        .contains("record_batch_stream_batch_size");
+    streaming_layout
         && (!source.row_count_known || source.row_count > 0 || source.record_batch_count > 0)
 }
 
@@ -6235,6 +6400,21 @@ fn run_scalar_vortex_prepare(
     source_adapter: LocalInputAdapterSelection,
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    if let Some(report) = try_run_schema_declared_text_vortex_prepare(
+        request.clone(),
+        source_adapter.clone(),
+        source_schema_hints,
+    )? {
+        return Ok(report);
+    }
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    if let Some(report) =
+        try_run_inferred_text_vortex_prepare(request.clone(), source_adapter.clone())?
+    {
+        return Ok(report);
+    }
+
     let prepare_start = Instant::now();
     let mut source = read_local_source_with_plan_and_adapter(
         &request.source_path,
@@ -6243,45 +6423,261 @@ fn run_scalar_vortex_prepare(
         request.runtime_profile.read_limits(),
     )?;
     apply_vortex_ingest_schema_hints(&mut source, source_schema_hints)?;
-    let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
-    let source_schema_digest = vortex_ingest_source_schema_digest(&source);
-    let source_state_id = source_state_id_for_source(&source_evidence);
-    let source_state_digest =
-        source_state_digest_for_source(&source_evidence, &source_schema_digest);
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    {
+        return run_text_streaming_vortex_prepare(request, source, prepare_start);
+    }
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+    {
+        let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
+        let source_schema_digest = vortex_ingest_source_schema_digest(&source);
+        let source_state_id = source_state_id_for_source(&source_evidence);
+        let source_state_digest =
+            source_state_digest_for_source(&source_evidence, &source_schema_digest);
+        let scout_ingress = scout_ingress_report(
+            &source_evidence,
+            &request.source_path,
+            &source_state_id,
+            &source_state_digest,
+            &source_schema_digest,
+        );
+        let layout_write_advisor = layout_write_advisor_report(
+            &source_evidence,
+            &source_state_id,
+            &source_state_digest,
+            &source_schema_digest,
+            request.certification_level,
+        );
+        let rows = ordered_source_rows(&source.header, &source.rows)?;
+        let prewrite_input = capillary_prewrite_input(
+            &source_evidence,
+            &request.target_path,
+            request.certification_level,
+            &source_state_id,
+            &source_state_digest,
+            request.max_parallelism,
+        );
+        let vortex_request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
+            &request.target_path,
+            source.header.clone(),
+            rows,
+        )
+        .column_dtypes(source.column_dtypes.clone())
+        .allow_overwrite(request.allow_overwrite)
+        .certification_level(request.certification_level)
+        .layout_write_advisor(layout_write_advisor.clone())
+        .capillary_prewrite_input(prewrite_input);
+        let vortex_report =
+            shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
+        let layout_write_advisor =
+            layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
+        let prepare_once_total_millis = prepare_start.elapsed().as_millis();
+
+        let evidence_start = Instant::now();
+        let prepared_state_digest = fnv64_digest(&format!(
+            "{}|{}|{}|{}",
+            source_state_digest,
+            vortex_report.artifact_digest,
+            vortex_report.column_family_summary(),
+            vortex_report.row_count
+        ));
+        let prepared_state_id = format!(
+            "vortex-prepared-state-{}",
+            prepared_state_digest.replace(':', "-")
+        );
+        let capillary_preparation = capillary_preparation_report(
+            &source_evidence,
+            &vortex_report,
+            request.certification_level,
+            &source_state_id,
+            &source_state_digest,
+            &prepared_state_id,
+            &prepared_state_digest,
+            request.max_parallelism,
+        )?;
+        let copy_budget = copy_budget_report(
+            &source_evidence,
+            &vortex_report,
+            &source_state_id,
+            &source_state_digest,
+            &prepared_state_id,
+            &prepared_state_digest,
+        );
+        let evidence_render_millis = evidence_start.elapsed().as_millis();
+
+        Ok(VortexIngestReport {
+            request,
+            source: source_evidence,
+            source_schema_digest,
+            source_state_id,
+            source_state_digest,
+            prepared_state_id,
+            prepared_state_digest,
+            prepare_once_total_millis,
+            evidence_render_millis,
+            vortex_report,
+            scout_ingress,
+            layout_write_advisor,
+            capillary_preparation,
+            copy_budget,
+            differential_preparation: None,
+            prepared_state_reuse: None,
+            prepared_olap_state: None,
+        })
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
+fn try_run_schema_declared_text_vortex_prepare(
+    request: VortexIngestRequest,
+    source_adapter: LocalInputAdapterSelection,
+    source_schema_hints: &[(String, LogicalDType)],
+) -> Result<Option<VortexIngestReport>, ShardLoomError> {
+    if request.source_path.is_dir()
+        || !matches!(
+            source_adapter.source_format,
+            LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
+        )
+    {
+        return Ok(None);
+    }
+
+    let source_format = source_adapter.source_format;
+    let read_limits = request.runtime_profile.read_limits();
+    let prepare_start = Instant::now();
+    let read_start = Instant::now();
+    let scout = fingerprint_local_source_file_with_budget_report(
+        &request.source_path,
+        source_format.row_label(),
+        read_limits.source_bytes,
+    )?;
+    let read_millis = read_start.elapsed().as_millis();
+    let source_to_columnar_start = Instant::now();
+    let Some(contract) = schema_declared_text_stream_contract(
+        &request.source_path,
+        source_format,
+        source_schema_hints,
+    )?
+    else {
+        return Ok(None);
+    };
+    let context = format!(
+        "{} schema-declared Universal Ingest stream",
+        contract.source_format.row_label()
+    );
+    let fields = contract
+        .header
+        .iter()
+        .zip(contract.column_arrow_dtypes.iter())
+        .map(|(column, dtype)| {
+            let data_type = dtype.clone().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' has no Arrow dtype; no fallback execution was attempted"
+                ))
+            })?;
+            Ok(Field::new(column, data_type, true))
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let schema = Arc::new(Schema::new(fields));
+    let batch_reader = SchemaDeclaredTextRecordBatchReader::new(
+        contract.source_format,
+        Arc::clone(&schema),
+        contract.header.clone(),
+        contract.column_dtypes.clone(),
+        contract.reader,
+        read_limits.input_rows,
+        context,
+    );
+    let batch_size =
+        shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS;
+    let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
+        header: contract.header.clone(),
+        column_dtypes: contract.column_dtypes.clone(),
+        column_arrow_dtypes: contract.column_arrow_dtypes.clone(),
+        materialized_columns: contract.header.clone(),
+        reader_projection_columns: contract.header.clone(),
+        row_count_hint: None,
+        record_batch_count_hint: None,
+        source_stream_batch_size: batch_size,
+        source_stream_unit_count_hint: None,
+        source_stream_unit_hint_kind: "schema_declared_text_record_batch_stream".to_string(),
+        source_stream_policy: contract.source_stream_policy.to_string(),
+        source_dictionary_preservation_status:
+            "schema_declared_text_typed_builders_preserve_declared_scalar_types".to_string(),
+        ingest_executor_status: "lazy_schema_declared_text_record_batch_builder".to_string(),
+        ingest_executor_kind: "schema_declared_text_to_arrow_record_batch_reader".to_string(),
+        ingest_executor_requested_parallelism: 1,
+        ingest_executor_applied_parallelism: 1,
+        ingest_executor_unit_count_hint: None,
+        reader: Box::new(batch_reader),
+    };
+    let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
+        columnar_source,
+        request.max_parallelism,
+    );
+    let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
+    let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
+        source_adapter,
+        &columnar_source,
+        scout,
+        read_millis,
+        source_to_columnar_millis,
+    );
+    prewrite_source.read_plan =
+        LocalSourceReadPlan::full("schema_declared_text_streaming_vortex_ingest_source_state");
+    prewrite_source.projection_pushdown_status =
+        LocalSourceProjectionPushdownStatus::TextParserColumnPruning;
+    prewrite_source.materialization_layout =
+        "schema_declared_text_to_streaming_arrow_record_batch_source_state";
+    prewrite_source.parse_normalization = "schema_declared_text_to_record_batch_stream";
+    prewrite_source.source_dictionary_preservation_status =
+        "schema_declared_text_typed_builders_preserve_declared_scalar_types".to_string();
+
+    let source_schema_digest = fnv64_digest(&vortex_ingest_schema_digest_from_parts(
+        &prewrite_source.header,
+        source_schema_hints,
+    ));
+    let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
+    let prewrite_source_state_digest =
+        source_state_digest_for_source(&prewrite_source, &source_schema_digest);
+    let layout_write_advisor = layout_write_advisor_report(
+        &prewrite_source,
+        &prewrite_source_state_id,
+        &prewrite_source_state_digest,
+        &source_schema_digest,
+        request.certification_level,
+    );
+    let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
+        &request.target_path,
+        columnar_source,
+    )
+    .allow_overwrite(request.allow_overwrite)
+    .certification_level(request.certification_level)
+    .layout_write_advisor(layout_write_advisor.clone())
+    .capillary_prewrite_input(capillary_prewrite_input(
+        &prewrite_source,
+        &request.target_path,
+        request.certification_level,
+        &prewrite_source_state_id,
+        &prewrite_source_state_digest,
+        request.max_parallelism,
+    ));
+    let vortex_report =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
+    let source = prewrite_source.with_observed_streaming_write(
+        vortex_report.row_count,
+        vortex_report.array_build_record_batch_count,
+    );
+    let source_state_id = prewrite_source_state_id;
+    let source_state_digest = prewrite_source_state_digest;
     let scout_ingress = scout_ingress_report(
-        &source_evidence,
+        &source,
         &request.source_path,
         &source_state_id,
         &source_state_digest,
         &source_schema_digest,
     );
-    let layout_write_advisor = layout_write_advisor_report(
-        &source_evidence,
-        &source_state_id,
-        &source_state_digest,
-        &source_schema_digest,
-        request.certification_level,
-    );
-    let rows = ordered_source_rows(&source.header, &source.rows)?;
-    let prewrite_input = capillary_prewrite_input(
-        &source_evidence,
-        &request.target_path,
-        request.certification_level,
-        &source_state_id,
-        &source_state_digest,
-        request.max_parallelism,
-    );
-    let vortex_request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
-        &request.target_path,
-        source.header.clone(),
-        rows,
-    )
-    .column_dtypes(source.column_dtypes.clone())
-    .allow_overwrite(request.allow_overwrite)
-    .certification_level(request.certification_level)
-    .layout_write_advisor(layout_write_advisor.clone())
-    .capillary_prewrite_input(prewrite_input);
-    let vortex_report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
     let layout_write_advisor =
         layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
@@ -6299,7 +6695,7 @@ fn run_scalar_vortex_prepare(
         prepared_state_digest.replace(':', "-")
     );
     let capillary_preparation = capillary_preparation_report(
-        &source_evidence,
+        &source,
         &vortex_report,
         request.certification_level,
         &source_state_id,
@@ -6309,7 +6705,380 @@ fn run_scalar_vortex_prepare(
         request.max_parallelism,
     )?;
     let copy_budget = copy_budget_report(
-        &source_evidence,
+        &source,
+        &vortex_report,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+    );
+    let evidence_render_millis = evidence_start.elapsed().as_millis();
+
+    Ok(Some(VortexIngestReport {
+        request,
+        source,
+        source_schema_digest,
+        source_state_id,
+        source_state_digest,
+        prepared_state_id,
+        prepared_state_digest,
+        prepare_once_total_millis,
+        evidence_render_millis,
+        vortex_report,
+        scout_ingress,
+        layout_write_advisor,
+        capillary_preparation,
+        copy_budget,
+        differential_preparation: None,
+        prepared_state_reuse: None,
+        prepared_olap_state: None,
+    }))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
+fn try_run_inferred_text_vortex_prepare(
+    request: VortexIngestRequest,
+    source_adapter: LocalInputAdapterSelection,
+) -> Result<Option<VortexIngestReport>, ShardLoomError> {
+    if request.source_path.is_dir()
+        || !matches!(
+            source_adapter.source_format,
+            LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
+        )
+    {
+        return Ok(None);
+    }
+
+    let source_format = source_adapter.source_format;
+    let read_limits = request.runtime_profile.read_limits();
+    let prepare_start = Instant::now();
+    let read_start = Instant::now();
+    let scout = fingerprint_local_source_file_with_budget_report(
+        &request.source_path,
+        source_format.row_label(),
+        read_limits.source_bytes,
+    )?;
+    let read_millis = read_start.elapsed().as_millis();
+    let source_to_columnar_start = Instant::now();
+    let Some(contract) =
+        inferred_text_stream_contract(&request.source_path, source_format, read_limits.input_rows)?
+    else {
+        return Ok(None);
+    };
+    let context = format!(
+        "{} inferred-schema Universal Ingest stream",
+        contract.source_format.row_label()
+    );
+    let fields = contract
+        .header
+        .iter()
+        .zip(contract.column_arrow_dtypes.iter())
+        .map(|(column, dtype)| {
+            let data_type = dtype.clone().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' has no Arrow dtype; no fallback execution was attempted"
+                ))
+            })?;
+            Ok(Field::new(column, data_type, true))
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let schema = Arc::new(Schema::new(fields));
+    let batch_reader = SchemaDeclaredTextRecordBatchReader::new(
+        contract.source_format,
+        Arc::clone(&schema),
+        contract.header.clone(),
+        contract.column_dtypes.clone(),
+        contract.reader,
+        read_limits.input_rows,
+        context,
+    );
+    let batch_size =
+        shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS;
+    let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
+        header: contract.header.clone(),
+        column_dtypes: contract.column_dtypes.clone(),
+        column_arrow_dtypes: contract.column_arrow_dtypes.clone(),
+        materialized_columns: contract.header.clone(),
+        reader_projection_columns: contract.header.clone(),
+        row_count_hint: None,
+        record_batch_count_hint: None,
+        source_stream_batch_size: batch_size,
+        source_stream_unit_count_hint: None,
+        source_stream_unit_hint_kind: "inferred_text_record_batch_stream".to_string(),
+        source_stream_policy: contract.source_stream_policy.to_string(),
+        source_dictionary_preservation_status:
+            "inferred_text_typed_builders_preserve_inferred_scalar_types".to_string(),
+        ingest_executor_status: "lazy_inferred_text_record_batch_builder".to_string(),
+        ingest_executor_kind: "inferred_text_to_arrow_record_batch_reader".to_string(),
+        ingest_executor_requested_parallelism: 1,
+        ingest_executor_applied_parallelism: 1,
+        ingest_executor_unit_count_hint: None,
+        reader: Box::new(batch_reader),
+    };
+    let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
+        columnar_source,
+        request.max_parallelism,
+    );
+    let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
+    let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
+        source_adapter,
+        &columnar_source,
+        scout,
+        read_millis,
+        source_to_columnar_millis,
+    );
+    prewrite_source.read_plan =
+        LocalSourceReadPlan::full("inferred_text_streaming_vortex_ingest_source_state");
+    prewrite_source.projection_pushdown_status =
+        LocalSourceProjectionPushdownStatus::TextParserColumnPruning;
+    prewrite_source.materialization_layout =
+        "inferred_text_to_streaming_arrow_record_batch_source_state";
+    prewrite_source.parse_normalization = "inferred_text_to_record_batch_stream";
+    prewrite_source.source_dictionary_preservation_status =
+        "inferred_text_typed_builders_preserve_inferred_scalar_types".to_string();
+
+    let source_schema_hints = contract
+        .header
+        .iter()
+        .zip(contract.column_dtypes.iter())
+        .filter_map(|(name, dtype)| dtype.as_ref().map(|dtype| (name.clone(), dtype.clone())))
+        .collect::<Vec<_>>();
+    let source_schema_digest = fnv64_digest(&vortex_ingest_schema_digest_from_parts(
+        &prewrite_source.header,
+        &source_schema_hints,
+    ));
+    let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
+    let prewrite_source_state_digest =
+        source_state_digest_for_source(&prewrite_source, &source_schema_digest);
+    let layout_write_advisor = layout_write_advisor_report(
+        &prewrite_source,
+        &prewrite_source_state_id,
+        &prewrite_source_state_digest,
+        &source_schema_digest,
+        request.certification_level,
+    );
+    let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
+        &request.target_path,
+        columnar_source,
+    )
+    .allow_overwrite(request.allow_overwrite)
+    .certification_level(request.certification_level)
+    .layout_write_advisor(layout_write_advisor.clone())
+    .capillary_prewrite_input(capillary_prewrite_input(
+        &prewrite_source,
+        &request.target_path,
+        request.certification_level,
+        &prewrite_source_state_id,
+        &prewrite_source_state_digest,
+        request.max_parallelism,
+    ));
+    let vortex_report =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
+    let source = prewrite_source.with_observed_streaming_write(
+        vortex_report.row_count,
+        vortex_report.array_build_record_batch_count,
+    );
+    let source_state_id = prewrite_source_state_id;
+    let source_state_digest = prewrite_source_state_digest;
+    let scout_ingress = scout_ingress_report(
+        &source,
+        &request.source_path,
+        &source_state_id,
+        &source_state_digest,
+        &source_schema_digest,
+    );
+    let layout_write_advisor =
+        layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
+    let prepare_once_total_millis = prepare_start.elapsed().as_millis();
+
+    let evidence_start = Instant::now();
+    let prepared_state_digest = fnv64_digest(&format!(
+        "{}|{}|{}|{}",
+        source_state_digest,
+        vortex_report.artifact_digest,
+        vortex_report.column_family_summary(),
+        vortex_report.row_count
+    ));
+    let prepared_state_id = format!(
+        "vortex-prepared-state-{}",
+        prepared_state_digest.replace(':', "-")
+    );
+    let capillary_preparation = capillary_preparation_report(
+        &source,
+        &vortex_report,
+        request.certification_level,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+        request.max_parallelism,
+    )?;
+    let copy_budget = copy_budget_report(
+        &source,
+        &vortex_report,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+    );
+    let evidence_render_millis = evidence_start.elapsed().as_millis();
+
+    Ok(Some(VortexIngestReport {
+        request,
+        source,
+        source_schema_digest,
+        source_state_id,
+        source_state_digest,
+        prepared_state_id,
+        prepared_state_digest,
+        prepare_once_total_millis,
+        evidence_render_millis,
+        vortex_report,
+        scout_ingress,
+        layout_write_advisor,
+        capillary_preparation,
+        copy_budget,
+        differential_preparation: None,
+        prepared_state_reuse: None,
+        prepared_olap_state: None,
+    }))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn vortex_ingest_schema_digest_from_parts(
+    header: &[String],
+    hints: &[(String, LogicalDType)],
+) -> String {
+    if hints.is_empty() {
+        header.join(",")
+    } else {
+        hints
+            .iter()
+            .map(|(name, dtype)| format!("{name}:{}", dtype.as_str()))
+            .collect::<Vec<_>>()
+            .join("|")
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn run_text_streaming_vortex_prepare(
+    request: VortexIngestRequest,
+    source: CsvSourceData,
+    prepare_start: Instant,
+) -> Result<VortexIngestReport, ShardLoomError> {
+    let source_schema_digest = vortex_ingest_source_schema_digest(&source);
+    let scout = ColumnarSourceScoutEvidence {
+        bytes: source.source_bytes,
+        digest: source.source_digest.clone(),
+        metadata_scout_millis: source.source_metadata_scout_millis,
+        byte_acquisition_millis: source.source_byte_acquisition_millis,
+        full_body_millis: source.source_full_body_millis,
+    };
+    let read_millis = source.read_millis;
+    let compatibility_parse_millis = source.parse_millis;
+    let source_to_columnar_start = Instant::now();
+    let rows = ordered_source_rows(&source.header, &source.rows)?;
+    let columnar_source =
+        shardloom_vortex::universal_format_io::stream_flat_text_rows_columnar_source(
+            source.header.clone(),
+            source.column_dtypes.clone(),
+            source.column_arrow_dtypes.clone(),
+            source.materialized_columns.clone(),
+            source.reader_projection_columns.clone(),
+            rows,
+            shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS,
+            source.source_format.row_label(),
+        )?;
+    let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
+        columnar_source,
+        request.max_parallelism,
+    );
+    let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
+    let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
+        source.source_adapter.clone(),
+        &columnar_source,
+        scout,
+        read_millis,
+        source_to_columnar_millis,
+    );
+    prewrite_source.compatibility_parse_millis = compatibility_parse_millis;
+    prewrite_source.read_plan = source.read_plan.clone();
+    prewrite_source.projection_pushdown_status = source.projection_pushdown_status;
+    prewrite_source.materialization_layout =
+        "typed_text_rows_to_streaming_arrow_record_batch_source_state";
+    prewrite_source.parse_normalization = "text_adapter_to_typed_record_batch_stream";
+    prewrite_source.source_dictionary_preservation_status =
+        "text_typed_column_builders_preserve_declared_types_no_source_dictionary".to_string();
+
+    let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
+    let prewrite_source_state_digest =
+        source_state_digest_for_source(&prewrite_source, &source_schema_digest);
+    let layout_write_advisor = layout_write_advisor_report(
+        &prewrite_source,
+        &prewrite_source_state_id,
+        &prewrite_source_state_digest,
+        &source_schema_digest,
+        request.certification_level,
+    );
+    let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
+        &request.target_path,
+        columnar_source,
+    )
+    .allow_overwrite(request.allow_overwrite)
+    .certification_level(request.certification_level)
+    .layout_write_advisor(layout_write_advisor.clone())
+    .capillary_prewrite_input(capillary_prewrite_input(
+        &prewrite_source,
+        &request.target_path,
+        request.certification_level,
+        &prewrite_source_state_id,
+        &prewrite_source_state_digest,
+        request.max_parallelism,
+    ));
+    let vortex_report =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
+    let source = prewrite_source.with_observed_streaming_write(
+        vortex_report.row_count,
+        vortex_report.array_build_record_batch_count,
+    );
+    let source_state_id = prewrite_source_state_id;
+    let source_state_digest = prewrite_source_state_digest;
+    let scout_ingress = scout_ingress_report(
+        &source,
+        &request.source_path,
+        &source_state_id,
+        &source_state_digest,
+        &source_schema_digest,
+    );
+    let layout_write_advisor =
+        layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
+    let prepare_once_total_millis = prepare_start.elapsed().as_millis();
+
+    let evidence_start = Instant::now();
+    let prepared_state_digest = fnv64_digest(&format!(
+        "{}|{}|{}|{}",
+        source_state_digest,
+        vortex_report.artifact_digest,
+        vortex_report.column_family_summary(),
+        vortex_report.row_count
+    ));
+    let prepared_state_id = format!(
+        "vortex-prepared-state-{}",
+        prepared_state_digest.replace(':', "-")
+    );
+    let capillary_preparation = capillary_preparation_report(
+        &source,
+        &vortex_report,
+        request.certification_level,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+        request.max_parallelism,
+    )?;
+    let copy_budget = copy_budget_report(
+        &source,
         &vortex_report,
         &source_state_id,
         &source_state_digest,
@@ -6320,7 +7089,7 @@ fn run_scalar_vortex_prepare(
 
     Ok(VortexIngestReport {
         request,
-        source: source_evidence,
+        source,
         source_schema_digest,
         source_state_id,
         source_state_digest,
@@ -6510,7 +7279,11 @@ fn stream_columnar_vortex_ingest_source(
     }
     let source =
         stream_columnar_vortex_ingest_file_source(source_format, path, max_rows, max_parallelism)?;
-    if source.ingest_executor_status == "bounded_capillary_row_group_parallel_active" {
+    if matches!(
+        source.ingest_executor_status.as_str(),
+        "bounded_capillary_row_group_parallel_active"
+            | "bounded_capillary_row_group_parallel_writer_budgeted"
+    ) {
         Ok(source)
     } else {
         Ok(
@@ -7146,7 +7919,44 @@ impl VortexIngestReport {
             ),
             ("prepared_state_created".to_string(), "true".to_string()),
             ("prepared_state_reused".to_string(), "false".to_string()),
+            (
+                "prepared_state_reuse_allowed".to_string(),
+                "false".to_string(),
+            ),
             ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+            (
+                "prepared_state_reuse_scope".to_string(),
+                "single_vortex_artifact_no_sidecar".to_string(),
+            ),
+            (
+                "prepared_state_reuse_manifest_path".to_string(),
+                "not_applicable_single_vortex_artifact".to_string(),
+            ),
+            (
+                "prepared_state_reuse_policy".to_string(),
+                "single_vortex_artifact_no_sidecar.v1".to_string(),
+            ),
+            (
+                "prepared_state_reuse_reason".to_string(),
+                "public_prepare_rewrites_or_uses_explicit_vortex_artifact_without_sidecar"
+                    .to_string(),
+            ),
+            (
+                "prepared_state_reuse_manifest_digest".to_string(),
+                "not_applicable_single_vortex_artifact".to_string(),
+            ),
+            (
+                "prepared_state_reuse_manifest_digest_algorithm".to_string(),
+                "not_applicable".to_string(),
+            ),
+            (
+                "prepared_state_invalidation_reason".to_string(),
+                "not_applicable_single_vortex_artifact".to_string(),
+            ),
+            (
+                "invalidation_reason".to_string(),
+                "not_applicable_single_vortex_artifact".to_string(),
+            ),
             (
                 "execution_route_label".to_string(),
                 "Prepared Vortex route".to_string(),
@@ -7640,6 +8450,16 @@ impl VortexIngestReport {
                 self.vortex_report.writer_layout_row_block_size.to_string(),
             ),
             (
+                "vortex_writer_compression_policy".to_string(),
+                self.vortex_report.writer_compression_policy.clone(),
+            ),
+            (
+                "vortex_writer_compression_concurrency".to_string(),
+                self.vortex_report
+                    .writer_compression_concurrency
+                    .to_string(),
+            ),
+            (
                 "vortex_segment_write_millis".to_string(),
                 self.vortex_report
                     .vortex_segment_write_micros
@@ -7982,950 +8802,6 @@ impl VortexIngestReport {
     }
 }
 
-impl VortexPreparedStateReuseCliReport {
-    fn summary(&self) -> String {
-        format!(
-            "vortex_ingest reused prepared Vortex artifact {} from {}",
-            self.reuse_report.prepared_artifact_ref.display(),
-            self.reuse_report.manifest_path.display()
-        )
-    }
-
-    #[allow(clippy::too_many_lines)]
-    fn fields(&self) -> Vec<(String, String)> {
-        let mut fields = vec![
-            (
-                "schema_version".to_string(),
-                VORTEX_PREPARE_SCHEMA_VERSION.to_string(),
-            ),
-            ("execution_mode".to_string(), "prepared_vortex".to_string()),
-            (
-                "selected_execution_mode".to_string(),
-                "prepared_vortex".to_string(),
-            ),
-            ("engine_mode".to_string(), "batch".to_string()),
-            ("runtime_execution".to_string(), "true".to_string()),
-            (
-                "support_status".to_string(),
-                "fixture_smoke_supported".to_string(),
-            ),
-            ("source_io_performed".to_string(), "true".to_string()),
-            (
-                "source_io_scope".to_string(),
-                "fingerprint_only_no_parse_decode".to_string(),
-            ),
-            (
-                "source_kind".to_string(),
-                "local_non_vortex_file".to_string(),
-            ),
-            (
-                "source_format".to_string(),
-                self.source_adapter.source_format.as_str().to_string(),
-            ),
-            (
-                "source_format_inferred".to_string(),
-                self.source_adapter.source_format_inferred().to_string(),
-            ),
-            (
-                "source_format_inference_kind".to_string(),
-                self.source_adapter.inference_kind().to_string(),
-            ),
-            (
-                "source_format_inference_extension".to_string(),
-                self.source_adapter.source_extension_field(),
-            ),
-            (
-                "source_format_inference_registry_route".to_string(),
-                self.source_adapter.inference_registry_route().to_string(),
-            ),
-            (
-                "source_adapter_id".to_string(),
-                self.source_adapter.source_format.adapter_id().to_string(),
-            ),
-            (
-                "source_adapter_registry_entry_id".to_string(),
-                self.source_adapter
-                    .source_format
-                    .adapter_registry_entry_id()
-                    .to_string(),
-            ),
-            (
-                "source_adapter_status".to_string(),
-                "smoke_supported".to_string(),
-            ),
-            (
-                "source_adapter_admitted_extensions".to_string(),
-                self.source_adapter
-                    .source_format
-                    .admitted_extensions()
-                    .to_string(),
-            ),
-            (
-                "source_adapter_feature_gate".to_string(),
-                self.source_adapter.source_format.feature_gate().to_string(),
-            ),
-            (
-                "source_adapter_boundary".to_string(),
-                self.source_adapter
-                    .source_format
-                    .adapter_boundary()
-                    .to_string(),
-            ),
-            (
-                "source_adapter_selection_reason".to_string(),
-                self.source_adapter.selection_reason().to_string(),
-            ),
-            (
-                "source_adapter_blocker_id".to_string(),
-                "none_vortex_prepare".to_string(),
-            ),
-            ("ingress_route".to_string(), "vortex_ingest".to_string()),
-            (
-                "ingress_route_label".to_string(),
-                "Vortex ingest / prepare once route".to_string(),
-            ),
-            ("ingress_status".to_string(), "smoke_supported".to_string()),
-            (
-                "ingress_certification_level".to_string(),
-                self.reuse_report.certification_level.clone(),
-            ),
-            ("vortex_ingest_performed".to_string(), "false".to_string()),
-            (
-                "vortex_ingest_status".to_string(),
-                "prepared_state_reused_from_artifact_adjacent_manifest".to_string(),
-            ),
-            (
-                "vortex_ingest_blocker_id".to_string(),
-                "none_reused_prepared_state_manifest".to_string(),
-            ),
-            (
-                "prepared_state_id".to_string(),
-                self.reuse_report.prepared_state_id.clone(),
-            ),
-            (
-                "prepared_state_digest".to_string(),
-                self.reuse_report.prepared_state_digest.clone(),
-            ),
-            ("prepared_state_created".to_string(), "false".to_string()),
-            ("prepared_state_reused".to_string(), "true".to_string()),
-            (
-                "prepared_state_reuse_allowed".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "execution_route_label".to_string(),
-                "Prepared Vortex route".to_string(),
-            ),
-            (
-                "certification_policy".to_string(),
-                format!(
-                    "scoped_vortex_ingest_lifecycle_{}",
-                    self.reuse_report.certification_level
-                ),
-            ),
-            (
-                "certification_status".to_string(),
-                "fixture_smoke_certified".to_string(),
-            ),
-            (
-                "certification_blocker_id".to_string(),
-                "not_claim_grade_fixture_smoke".to_string(),
-            ),
-            (
-                "source_path".to_string(),
-                self.request.source_path.display().to_string(),
-            ),
-            (
-                "source_bytes".to_string(),
-                self.reuse_report.source_size_bytes.to_string(),
-            ),
-            (
-                "source_read_scout_schema_version".to_string(),
-                "shardloom.local_source_read_scout.v1".to_string(),
-            ),
-            (
-                "source_read_scout_status".to_string(),
-                "not_applicable_manifest_reuse".to_string(),
-            ),
-            (
-                "source_read_scout_timing_split_status".to_string(),
-                "not_applicable_manifest_reuse_skips_source_body_read".to_string(),
-            ),
-            (
-                "source_read_metadata_scout_millis".to_string(),
-                "0".to_string(),
-            ),
-            (
-                "source_read_byte_acquisition_millis".to_string(),
-                "0".to_string(),
-            ),
-            ("source_read_full_body_millis".to_string(), "0".to_string()),
-            (
-                "source_read_buffer_carry_status".to_string(),
-                "not_applicable_manifest_reuse".to_string(),
-            ),
-            (
-                "source_read_mmap_eligibility_status".to_string(),
-                "not_applicable_manifest_reuse".to_string(),
-            ),
-            (
-                "source_read_many_small_file_batching_status".to_string(),
-                "not_applicable_manifest_reuse".to_string(),
-            ),
-            (
-                "source_digest".to_string(),
-                self.reuse_report.source_content_digest.clone(),
-            ),
-            (
-                "source_fingerprint_kind".to_string(),
-                "local_file_content_digest_manifest_reuse".to_string(),
-            ),
-            (
-                "source_state_id".to_string(),
-                self.reuse_report.source_state_id.clone(),
-            ),
-            (
-                "source_state_digest".to_string(),
-                self.reuse_report.source_state_digest.clone(),
-            ),
-            (
-                "source_state_contract_schema_version".to_string(),
-                LOCAL_SOURCE_STATE_SCHEMA_VERSION.to_string(),
-            ),
-            (
-                "local_input_adapter_registry_version".to_string(),
-                LOCAL_INPUT_ADAPTER_REGISTRY_VERSION.to_string(),
-            ),
-            (
-                "source_state_read_plan".to_string(),
-                "manifest_fingerprint_only".to_string(),
-            ),
-            (
-                "source_state_read_plan_reason".to_string(),
-                "prepared_state_reuse_manifest_hit_skips_parse_decode".to_string(),
-            ),
-            (
-                "source_state_requested_columns".to_string(),
-                self.reuse_report.selected_columns.clone(),
-            ),
-            (
-                "source_state_projection_pushdown_status".to_string(),
-                "not_requested_manifest_reuse".to_string(),
-            ),
-            (
-                "source_state_materialization_layout".to_string(),
-                "not_materialized_manifest_reuse".to_string(),
-            ),
-            (
-                "source_state_parse_normalization".to_string(),
-                "skipped_manifest_reuse_source_content_digest_matched".to_string(),
-            ),
-            (
-                "source_state_columnar_preserved".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "source_state_record_batch_count".to_string(),
-                "0".to_string(),
-            ),
-            ("source_state_reuse_allowed".to_string(), "true".to_string()),
-            ("source_state_reuse_hit".to_string(), "true".to_string()),
-            (
-                "source_state_reuse_reason".to_string(),
-                "prepared_state_manifest_reuse_skips_source_parse".to_string(),
-            ),
-            (
-                "source_schema_digest".to_string(),
-                self.reuse_report.source_schema_digest.clone(),
-            ),
-            (
-                "target_vortex_path".to_string(),
-                self.request.target_path.display().to_string(),
-            ),
-            (
-                "vortex_artifact_ref".to_string(),
-                self.reuse_report
-                    .prepared_artifact_ref
-                    .display()
-                    .to_string(),
-            ),
-            (
-                "vortex_artifact_digest".to_string(),
-                self.reuse_report.prepared_artifact_digest.clone(),
-            ),
-            (
-                "prepared_artifact_ref".to_string(),
-                self.reuse_report
-                    .prepared_artifact_ref
-                    .display()
-                    .to_string(),
-            ),
-            (
-                "prepared_artifact_digest".to_string(),
-                self.reuse_report.prepared_artifact_digest.clone(),
-            ),
-            (
-                "prepared_artifact_reuse_eligible".to_string(),
-                "true".to_string(),
-            ),
-            ("vortex_prepare_included".to_string(), "false".to_string()),
-            (
-                "vortex_write_reopen_included".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "compatibility_import_included".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "preparation_included_in_timing".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "query_timing_starts_after_preparation".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "timing_scope".to_string(),
-                "artifact_adjacent_manifest_reuse_skips_prepare".to_string(),
-            ),
-            (
-                "certification_level".to_string(),
-                self.reuse_report.certification_level.clone(),
-            ),
-            (
-                "warm_query_timing_included".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "prepare_once_millis".to_string(),
-                self.evaluation_millis.to_string(),
-            ),
-            ("source_read_millis".to_string(), "0".to_string()),
-            (
-                "source_read_metadata_scout_millis".to_string(),
-                "0".to_string(),
-            ),
-            (
-                "source_read_byte_acquisition_millis".to_string(),
-                "0".to_string(),
-            ),
-            ("source_read_full_body_millis".to_string(), "0".to_string()),
-            ("compatibility_parse_millis".to_string(), "0".to_string()),
-            ("source_to_columnar_millis".to_string(), "0".to_string()),
-            ("vortex_array_build_millis".to_string(), "0".to_string()),
-            ("vortex_ingest_millis".to_string(), "0".to_string()),
-            ("vortex_write_millis".to_string(), "0".to_string()),
-            ("vortex_digest_millis".to_string(), "0".to_string()),
-            ("vortex_reopen_millis".to_string(), "0".to_string()),
-            ("vortex_reopen_verify_millis".to_string(), "0".to_string()),
-            ("vortex_scan_millis".to_string(), "0".to_string()),
-            ("warm_query_millis".to_string(), "0".to_string()),
-            (
-                "evidence_render_millis".to_string(),
-                self.evaluation_millis.to_string(),
-            ),
-            (
-                "total_runtime_millis".to_string(),
-                self.evaluation_millis.to_string(),
-            ),
-            ("writer_row_count".to_string(), "0".to_string()),
-            ("reopen_row_count".to_string(), "0".to_string()),
-            (
-                "reopen_verification_status".to_string(),
-                "skipped_manifest_artifact_fingerprint_verified".to_string(),
-            ),
-            (
-                "vortex_artifact_bytes".to_string(),
-                self.reuse_report.prepared_artifact_size_bytes.to_string(),
-            ),
-            (
-                "source_backed_scan_evidence_status".to_string(),
-                "not_performed_manifest_reuse".to_string(),
-            ),
-            (
-                "materialization_boundary".to_string(),
-                "not_materialized_manifest_reuse".to_string(),
-            ),
-            (
-                "legacy_materialization_boundary".to_string(),
-                "not_materialized_manifest_reuse".to_string(),
-            ),
-            ("data_decoded".to_string(), "false".to_string()),
-            ("data_materialized".to_string(), "false".to_string()),
-            (
-                "source_native_io_certificate_status".to_string(),
-                "manifest_fingerprint_source_certificate".to_string(),
-            ),
-            (
-                "native_io_certificate_status".to_string(),
-                "certified_local_vortex_prepared_state_reuse".to_string(),
-            ),
-            (
-                "output_native_io_certificate_status".to_string(),
-                "not_requested".to_string(),
-            ),
-            (
-                "upstream_vortex_write_called".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "upstream_vortex_scan_called".to_string(),
-                "false".to_string(),
-            ),
-            ("object_store_io".to_string(), "false".to_string()),
-            ("fallback_attempted".to_string(), "false".to_string()),
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("external_engine_invoked".to_string(), "false".to_string()),
-            (
-                "claim_gate_status".to_string(),
-                "fixture_smoke_only".to_string(),
-            ),
-            (
-                "claim_gate_reason".to_string(),
-                "one_scoped_local_vortex_ingest_prepared_state_reuse_smoke".to_string(),
-            ),
-            ("performance_claim_allowed".to_string(), "false".to_string()),
-            ("production_claim_allowed".to_string(), "false".to_string()),
-            (
-                "sql_dataframe_runtime_claim_allowed".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "object_store_lakehouse_claim_allowed".to_string(),
-                "false".to_string(),
-            ),
-        ];
-        apply_prepared_state_reuse_fields(&mut fields, &self.reuse_report);
-        if let Some(report) = &self.prepared_olap_state {
-            apply_prepared_olap_state_fields(&mut fields, report);
-        }
-        fields
-    }
-
-    fn to_text(&self) -> String {
-        format!(
-            "ShardLoom vortex_ingest prepared-state reuse\nsource: {}\ntarget: {}\nmanifest: {}\nprepared state: {}\nreuse reason: {}\nfallback execution: disabled",
-            self.request.source_path.display(),
-            self.request.target_path.display(),
-            self.reuse_report.manifest_path.display(),
-            self.reuse_report.prepared_state_id,
-            self.reuse_report.reason
-        )
-    }
-}
-
-impl VortexPreparedStateRefinementCliReport {
-    fn summary(&self) -> String {
-        format!(
-            "vortex_ingest refined prepared Vortex artifact {} with append-only delta {}",
-            self.refinement_decision.prepared_artifact_ref.display(),
-            self.delta_report.request.target_path.display()
-        )
-    }
-
-    #[allow(clippy::too_many_lines)]
-    fn fields(&self) -> Vec<(String, String)> {
-        let refined_row_count = self.refinement_decision.base_source_row_count
-            + self.delta_report.vortex_report.row_count;
-        let mut fields = vec![
-            (
-                "schema_version".to_string(),
-                VORTEX_PREPARE_SCHEMA_VERSION.to_string(),
-            ),
-            ("execution_mode".to_string(), "prepared_vortex".to_string()),
-            (
-                "selected_execution_mode".to_string(),
-                "prepared_vortex".to_string(),
-            ),
-            ("engine_mode".to_string(), "batch".to_string()),
-            ("runtime_execution".to_string(), "true".to_string()),
-            (
-                "support_status".to_string(),
-                "fixture_smoke_supported".to_string(),
-            ),
-            ("source_io_performed".to_string(), "true".to_string()),
-            (
-                "source_io_scope".to_string(),
-                "append_only_delta_detection_and_delta_prepare".to_string(),
-            ),
-            (
-                "source_kind".to_string(),
-                "local_non_vortex_file".to_string(),
-            ),
-            (
-                "source_format".to_string(),
-                self.source_adapter.source_format.as_str().to_string(),
-            ),
-            (
-                "source_format_inferred".to_string(),
-                self.source_adapter.source_format_inferred().to_string(),
-            ),
-            (
-                "source_format_inference_kind".to_string(),
-                self.source_adapter.inference_kind().to_string(),
-            ),
-            (
-                "source_format_inference_extension".to_string(),
-                self.source_adapter.source_extension_field(),
-            ),
-            (
-                "source_format_inference_registry_route".to_string(),
-                self.source_adapter.inference_registry_route().to_string(),
-            ),
-            (
-                "source_adapter_id".to_string(),
-                self.source_adapter.source_format.adapter_id().to_string(),
-            ),
-            (
-                "source_adapter_registry_entry_id".to_string(),
-                self.source_adapter
-                    .source_format
-                    .adapter_registry_entry_id()
-                    .to_string(),
-            ),
-            (
-                "source_adapter_status".to_string(),
-                "smoke_supported".to_string(),
-            ),
-            (
-                "source_adapter_admitted_extensions".to_string(),
-                self.source_adapter
-                    .source_format
-                    .admitted_extensions()
-                    .to_string(),
-            ),
-            (
-                "source_adapter_feature_gate".to_string(),
-                self.source_adapter.source_format.feature_gate().to_string(),
-            ),
-            (
-                "source_adapter_boundary".to_string(),
-                self.source_adapter
-                    .source_format
-                    .adapter_boundary()
-                    .to_string(),
-            ),
-            (
-                "source_adapter_selection_reason".to_string(),
-                self.source_adapter.selection_reason().to_string(),
-            ),
-            (
-                "source_adapter_blocker_id".to_string(),
-                "none_vortex_prepare".to_string(),
-            ),
-            ("ingress_route".to_string(), "vortex_ingest".to_string()),
-            (
-                "ingress_route_label".to_string(),
-                "Vortex ingest / automatic append-only refinement route".to_string(),
-            ),
-            ("ingress_status".to_string(), "smoke_supported".to_string()),
-            (
-                "ingress_certification_level".to_string(),
-                self.request.certification_level.as_str().to_string(),
-            ),
-            ("vortex_ingest_performed".to_string(), "true".to_string()),
-            (
-                "vortex_ingest_status".to_string(),
-                "prepared_state_refined_from_append_only_delta".to_string(),
-            ),
-            (
-                "vortex_ingest_blocker_id".to_string(),
-                "none_append_only_delta_refinement".to_string(),
-            ),
-            (
-                "vortex_ingest_base_reprepare_performed".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "vortex_ingest_delta_prepare_performed".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "prepared_state_id".to_string(),
-                self.refined_prepared_state_id.clone(),
-            ),
-            (
-                "prepared_state_digest".to_string(),
-                self.refined_prepared_state_digest.clone(),
-            ),
-            ("prepared_state_created".to_string(), "false".to_string()),
-            ("prepared_state_reused".to_string(), "true".to_string()),
-            ("prepared_state_refined".to_string(), "true".to_string()),
-            (
-                "prepared_state_reuse_allowed".to_string(),
-                "true".to_string(),
-            ),
-            ("prepared_state_reuse_hit".to_string(), "false".to_string()),
-            (
-                "prepared_state_reuse_reason".to_string(),
-                self.reuse_report.reason.clone(),
-            ),
-            (
-                "execution_route_label".to_string(),
-                "Prepared Vortex append-only refinement route".to_string(),
-            ),
-            (
-                "certification_policy".to_string(),
-                format!(
-                    "scoped_vortex_ingest_lifecycle_{}",
-                    self.request.certification_level.as_str()
-                ),
-            ),
-            (
-                "certification_status".to_string(),
-                "fixture_smoke_certified".to_string(),
-            ),
-            (
-                "certification_blocker_id".to_string(),
-                "not_claim_grade_fixture_smoke".to_string(),
-            ),
-            (
-                "source_path".to_string(),
-                self.request.source_path.display().to_string(),
-            ),
-            (
-                "source_bytes".to_string(),
-                self.refinement_decision
-                    .current_source_size_bytes
-                    .to_string(),
-            ),
-            (
-                "source_digest".to_string(),
-                self.refinement_decision
-                    .current_source_content_digest
-                    .clone(),
-            ),
-            (
-                "source_fingerprint_kind".to_string(),
-                "local_file_content_digest_append_only_refinement".to_string(),
-            ),
-            (
-                "source_state_id".to_string(),
-                format!(
-                    "source-state-refinement-{}",
-                    self.refined_prepared_state_digest.replace(':', "-")
-                ),
-            ),
-            (
-                "source_state_digest".to_string(),
-                fnv64_digest(&format!(
-                    "{}|{}|{}",
-                    self.refinement_decision.base_source_state_digest,
-                    self.delta_report.source_state_digest,
-                    self.differential_preparation.overlay_manifest_digest
-                )),
-            ),
-            (
-                "source_state_contract_schema_version".to_string(),
-                LOCAL_SOURCE_STATE_SCHEMA_VERSION.to_string(),
-            ),
-            (
-                "local_input_adapter_registry_version".to_string(),
-                LOCAL_INPUT_ADAPTER_REGISTRY_VERSION.to_string(),
-            ),
-            (
-                "source_state_read_plan".to_string(),
-                "base_manifest_plus_delta_source_state".to_string(),
-            ),
-            (
-                "source_state_read_plan_reason".to_string(),
-                "append_only_refinement_reads_delta_only_after_base_manifest_prefix_verification"
-                    .to_string(),
-            ),
-            (
-                "source_state_requested_columns".to_string(),
-                "all_columns".to_string(),
-            ),
-            (
-                "source_state_projection_pushdown_status".to_string(),
-                "not_requested_append_only_delta_refinement".to_string(),
-            ),
-            (
-                "source_state_materialization_layout".to_string(),
-                "base_not_materialized_delta_prepared".to_string(),
-            ),
-            (
-                "source_state_parse_normalization".to_string(),
-                "delta_only_parse_after_append_only_prefix_verification".to_string(),
-            ),
-            (
-                "source_state_columnar_preserved".to_string(),
-                self.delta_report
-                    .source
-                    .columnar_source_preserved
-                    .to_string(),
-            ),
-            (
-                "source_state_record_batch_count".to_string(),
-                self.delta_report.source.record_batch_count.to_string(),
-            ),
-            ("source_state_reuse_allowed".to_string(), "true".to_string()),
-            ("source_state_reuse_hit".to_string(), "true".to_string()),
-            (
-                "source_state_reuse_reason".to_string(),
-                "base_source_state_manifest_reused_delta_source_state_prepared".to_string(),
-            ),
-            (
-                "source_schema_digest".to_string(),
-                self.refinement_decision.base_source_schema_digest.clone(),
-            ),
-            (
-                "target_vortex_path".to_string(),
-                self.request.target_path.display().to_string(),
-            ),
-            (
-                "vortex_artifact_ref".to_string(),
-                self.refinement_decision
-                    .prepared_artifact_ref
-                    .display()
-                    .to_string(),
-            ),
-            (
-                "vortex_artifact_digest".to_string(),
-                self.refinement_decision.prepared_artifact_digest.clone(),
-            ),
-            (
-                "prepared_artifact_ref".to_string(),
-                self.refinement_decision
-                    .prepared_artifact_ref
-                    .display()
-                    .to_string(),
-            ),
-            (
-                "prepared_artifact_digest".to_string(),
-                self.refinement_decision.prepared_artifact_digest.clone(),
-            ),
-            (
-                "prepared_artifact_reuse_eligible".to_string(),
-                "true".to_string(),
-            ),
-            ("vortex_prepare_included".to_string(), "true".to_string()),
-            (
-                "vortex_base_prepare_included".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "vortex_delta_prepare_included".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "vortex_write_reopen_included".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "compatibility_import_included".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "preparation_included_in_timing".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "query_timing_starts_after_preparation".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "timing_scope".to_string(),
-                "automatic_append_only_delta_refinement".to_string(),
-            ),
-            (
-                "certification_level".to_string(),
-                self.request.certification_level.as_str().to_string(),
-            ),
-            (
-                "warm_query_timing_included".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "prepare_once_millis".to_string(),
-                (self.evaluation_millis + self.delta_report.prepare_once_total_millis).to_string(),
-            ),
-            (
-                "source_read_millis".to_string(),
-                self.delta_report.source.read_millis.to_string(),
-            ),
-            (
-                "compatibility_parse_millis".to_string(),
-                self.delta_report
-                    .source
-                    .compatibility_parse_millis
-                    .to_string(),
-            ),
-            (
-                "source_to_columnar_millis".to_string(),
-                self.delta_report
-                    .source
-                    .source_to_columnar_millis
-                    .to_string(),
-            ),
-            (
-                "vortex_array_build_millis".to_string(),
-                micros_to_millis_string(self.delta_report.vortex_report.array_build_micros),
-            ),
-            (
-                "vortex_ingest_millis".to_string(),
-                self.delta_report.prepare_once_total_millis.to_string(),
-            ),
-            (
-                "vortex_write_millis".to_string(),
-                micros_to_millis_string(self.delta_report.vortex_report.write_micros),
-            ),
-            (
-                "vortex_digest_millis".to_string(),
-                micros_to_millis_string(self.delta_report.vortex_report.digest_micros),
-            ),
-            (
-                "vortex_reopen_millis".to_string(),
-                micros_to_millis_string(self.delta_report.vortex_report.reopen_scan_micros),
-            ),
-            (
-                "vortex_reopen_verify_millis".to_string(),
-                micros_to_millis_string(self.delta_report.vortex_report.reopen_scan_micros),
-            ),
-            (
-                "vortex_scan_millis".to_string(),
-                micros_to_millis_string(self.delta_report.vortex_report.reopen_scan_micros),
-            ),
-            ("warm_query_millis".to_string(), "0".to_string()),
-            (
-                "evidence_render_millis".to_string(),
-                self.delta_report.evidence_render_millis.to_string(),
-            ),
-            (
-                "total_runtime_millis".to_string(),
-                (self.evaluation_millis
-                    + self.delta_report.prepare_once_total_millis
-                    + self.delta_report.evidence_render_millis)
-                    .to_string(),
-            ),
-            ("input_row_count".to_string(), refined_row_count.to_string()),
-            (
-                "writer_row_count".to_string(),
-                self.delta_report.vortex_report.writer_row_count.to_string(),
-            ),
-            (
-                "reopen_row_count".to_string(),
-                self.delta_report.vortex_report.reopen_row_count.to_string(),
-            ),
-            (
-                "refined_row_count".to_string(),
-                refined_row_count.to_string(),
-            ),
-            (
-                "overlay_consumer_row_count".to_string(),
-                refined_row_count.to_string(),
-            ),
-            (
-                "reopen_verification_status".to_string(),
-                "base_manifest_verified_delta_reopen_row_count_verified".to_string(),
-            ),
-            (
-                "vortex_artifact_bytes".to_string(),
-                self.refinement_decision
-                    .prepared_artifact_size_bytes
-                    .to_string(),
-            ),
-            (
-                "source_backed_scan_evidence_status".to_string(),
-                "base_manifest_plus_delta_reopen_count_consumer".to_string(),
-            ),
-            (
-                "materialization_boundary".to_string(),
-                "base_not_materialized_delta_only_prepared".to_string(),
-            ),
-            (
-                "legacy_materialization_boundary".to_string(),
-                "base_not_materialized_delta_only_prepared".to_string(),
-            ),
-            ("data_decoded".to_string(), "true".to_string()),
-            ("data_materialized".to_string(), "true".to_string()),
-            (
-                "source_native_io_certificate_status".to_string(),
-                "base_manifest_prefix_verified_delta_source_prepared".to_string(),
-            ),
-            (
-                "native_io_certificate_status".to_string(),
-                "certified_local_vortex_append_only_refinement".to_string(),
-            ),
-            (
-                "output_native_io_certificate_status".to_string(),
-                "not_requested".to_string(),
-            ),
-            (
-                "upstream_vortex_write_called".to_string(),
-                "true".to_string(),
-            ),
-            (
-                "upstream_vortex_scan_called".to_string(),
-                self.delta_report
-                    .vortex_report
-                    .upstream_vortex_scan_called
-                    .to_string(),
-            ),
-            ("object_store_io".to_string(), "false".to_string()),
-            ("fallback_attempted".to_string(), "false".to_string()),
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("external_engine_invoked".to_string(), "false".to_string()),
-            (
-                "claim_gate_status".to_string(),
-                "fixture_smoke_only".to_string(),
-            ),
-            (
-                "claim_gate_reason".to_string(),
-                "one_scoped_local_vortex_ingest_append_only_refinement_smoke".to_string(),
-            ),
-            ("performance_claim_allowed".to_string(), "false".to_string()),
-            ("production_claim_allowed".to_string(), "false".to_string()),
-            (
-                "sql_dataframe_runtime_claim_allowed".to_string(),
-                "false".to_string(),
-            ),
-            (
-                "object_store_lakehouse_claim_allowed".to_string(),
-                "false".to_string(),
-            ),
-        ];
-        apply_prepared_state_reuse_fields(&mut fields, &self.reuse_report);
-        set_cli_field(&mut fields, "prepared_state_reused", "true");
-        set_cli_field(&mut fields, "prepared_state_refined", "true");
-        set_cli_field(
-            &mut fields,
-            "prepared_state_id",
-            self.refined_prepared_state_id.clone(),
-        );
-        set_cli_field(
-            &mut fields,
-            "prepared_state_digest",
-            self.refined_prepared_state_digest.clone(),
-        );
-        fields.extend(self.refinement_decision.evidence_fields());
-        fields.extend(self.differential_preparation.evidence_fields());
-        if let Some(report) = &self.prepared_olap_state {
-            apply_prepared_olap_state_fields(&mut fields, report);
-        }
-        fields.extend(self.refinement_manifest.evidence_fields());
-        fields
-    }
-
-    fn to_text(&self) -> String {
-        format!(
-            "ShardLoom vortex_ingest append-only refinement\nsource: {}\nbase target: {}\ndelta target: {}\nrefined prepared state: {}\noverlay manifest: {}\nfallback execution: disabled",
-            self.request.source_path.display(),
-            self.request.target_path.display(),
-            self.delta_report.request.target_path.display(),
-            self.refined_prepared_state_id,
-            self.refinement_manifest.manifest_path.display()
-        )
-    }
-}
-
 fn apply_prepared_state_reuse_fields(
     fields: &mut Vec<(String, String)>,
     report: &shardloom_vortex::VortexPreparedStateReuseReport,
@@ -9092,10 +8968,6 @@ fn set_cli_field(fields: &mut Vec<(String, String)>, key: &str, value: impl Into
     }
 }
 
-fn micros_to_millis_string(value: u128) -> String {
-    (value / 1_000).to_string()
-}
-
 #[allow(clippy::too_many_lines)]
 fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(String, String)> {
     let mut fields = vec![
@@ -9160,7 +9032,7 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
         ("prepared_state_reuse_hit".to_string(), "false".to_string()),
         (
             "prepared_state_reuse_scope".to_string(),
-            "blocked_before_artifact_adjacent_manifest".to_string(),
+            "blocked_before_single_vortex_artifact_write".to_string(),
         ),
         (
             "prepared_state_reuse_manifest_path".to_string(),
@@ -9168,7 +9040,7 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
         ),
         (
             "prepared_state_reuse_policy".to_string(),
-            shardloom_vortex::VORTEX_PREPARED_STATE_REUSE_POLICY.to_string(),
+            "single_vortex_artifact_no_sidecar.v1".to_string(),
         ),
         (
             "prepared_state_reuse_reason".to_string(),
@@ -9352,7 +9224,7 @@ fn vortex_ingest_scout_blocked_fields(
         ("prepared_state_reuse_hit".to_string(), "false".to_string()),
         (
             "prepared_state_reuse_scope".to_string(),
-            "blocked_before_artifact_adjacent_manifest".to_string(),
+            "blocked_before_single_vortex_artifact_write".to_string(),
         ),
         (
             "prepared_state_reuse_manifest_path".to_string(),
@@ -9360,11 +9232,11 @@ fn vortex_ingest_scout_blocked_fields(
         ),
         (
             "prepared_state_reuse_policy".to_string(),
-            shardloom_vortex::VORTEX_PREPARED_STATE_REUSE_POLICY.to_string(),
+            "single_vortex_artifact_no_sidecar.v1".to_string(),
         ),
         (
             "prepared_state_reuse_reason".to_string(),
-            "scout_ingress_blocked_before_prepared_state_reuse".to_string(),
+            "scout_ingress_blocked_before_single_vortex_artifact_write".to_string(),
         ),
         (
             "prepared_state_reuse_manifest_digest".to_string(),
@@ -9372,11 +9244,11 @@ fn vortex_ingest_scout_blocked_fields(
         ),
         (
             "prepared_state_invalidation_reason".to_string(),
-            "scout_ingress_blocked_before_prepared_state_reuse".to_string(),
+            "scout_ingress_blocked_before_single_vortex_artifact_write".to_string(),
         ),
         (
             "invalidation_reason".to_string(),
-            "scout_ingress_blocked_before_prepared_state_reuse".to_string(),
+            "scout_ingress_blocked_before_single_vortex_artifact_write".to_string(),
         ),
         ("timing_scope".to_string(), "scout_ingress_only".to_string()),
         (
@@ -30534,6 +30406,14 @@ impl SqlLocalSourceReport {
                 self.vortex_writer_layout_row_block_sizes(),
             ),
             (
+                "vortex_writer_compression_policies".to_string(),
+                self.vortex_writer_compression_policies(),
+            ),
+            (
+                "vortex_writer_compression_concurrencies".to_string(),
+                self.vortex_writer_compression_concurrencies(),
+            ),
+            (
                 "vortex_digest_millis".to_string(),
                 self.vortex_digest_millis().to_string(),
             ),
@@ -31515,6 +31395,24 @@ impl SqlLocalSourceReport {
                 .vortex_report
                 .as_ref()
                 .map(|report| report.writer_layout_row_block_size.to_string())
+        }))
+    }
+
+    fn vortex_writer_compression_policies(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_compression_policy.clone())
+        }))
+    }
+
+    fn vortex_writer_compression_concurrencies(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_compression_concurrency.to_string())
         }))
     }
 
@@ -43019,10 +42917,10 @@ mod tests {
             compatibility_parse_millis: 0,
             source_to_columnar_millis: 0,
             record_batch_count: 0,
-            source_stream_batch_size: 65_536,
+            source_stream_batch_size: 262_144,
             source_stream_unit_count_hint: Some(8),
             source_stream_unit_hint_kind: "parquet_row_group_count".to_string(),
-            source_stream_policy: "product_columnar_stream_batch_size_65536_rows".to_string(),
+            source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
             source_dictionary_preservation_status:
                 "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary"
                     .to_string(),
@@ -43067,11 +42965,11 @@ mod tests {
             compatibility_parse_millis: 0,
             source_to_columnar_millis: 0,
             record_batch_count: 0,
-            source_stream_batch_size: 65_536,
+            source_stream_batch_size: 262_144,
             source_stream_unit_count_hint: None,
             source_stream_unit_hint_kind: "orc_stream_record_batches_unknown_before_read"
                 .to_string(),
-            source_stream_policy: "product_columnar_stream_batch_size_65536_rows".to_string(),
+            source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
             source_dictionary_preservation_status:
                 "orc_arrow_reader_typed_batches_preserved_dictionary_contract_not_declared"
                     .to_string(),
@@ -43231,8 +43129,8 @@ mod tests {
 
     #[cfg(feature = "vortex-write")]
     #[test]
-    fn vortex_ingest_reuses_artifact_adjacent_manifest_without_rewrite() {
-        let root = vortex_ingest_reuse_test_root("hit");
+    fn vortex_ingest_public_prepare_writes_only_single_vortex_artifact() {
+        let root = vortex_ingest_reuse_test_root("single-artifact");
         let source = root.join("input.csv");
         let target = root.join("prepared.vortex");
         fs::write(&source, "id,label,amount\n1,alpha,10\n2,beta,20\n").expect("write reuse source");
@@ -43245,8 +43143,6 @@ mod tests {
         .expect("first vortex_ingest run writes artifact");
         let first_report = match first {
             VortexIngestOutcome::Prepared(report) => report,
-            VortexIngestOutcome::Reused(_) => panic!("first run must prepare"),
-            VortexIngestOutcome::Refined(_) => panic!("first run must not refine"),
         };
         let first_fields = field_map(first_report.fields());
         assert_field_eq(&first_fields, "vortex_ingest_performed", "true");
@@ -43254,16 +43150,55 @@ mod tests {
         assert_field_eq(
             &first_fields,
             "prepared_state_invalidation_reason",
-            "no_reuse_manifest",
+            "not_applicable_single_vortex_artifact",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepared_state_reuse_scope",
+            "single_vortex_artifact_no_sidecar",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepared_state_reuse_manifest_path",
+            "not_applicable_single_vortex_artifact",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepared_olap_state_status",
+            "prepared_olap_state_ready",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepared_olap_state_query_time_contract",
+            "single_vortex_artifact_native_runtime_no_query_answer_sidecar",
+        );
+        assert_field_eq(&first_fields, "prepared_olap_state_blocker_id", "none");
+        assert!(
+            first_fields
+                .get("prepared_olap_state_embedded_layout_statistics_contract")
+                .is_some_and(|value| value
+                    .contains("metadata_first_when_vortex_layout_statistics_are_available"))
         );
         assert!(
             first_fields
                 .get("prepared_state_reuse_manifest_digest")
-                .is_some_and(|value| value.starts_with("sha256:"))
+                .is_some_and(|value| value == "not_applicable_single_vortex_artifact")
         );
         let manifest_path = shardloom_vortex::vortex_prepared_state_reuse_manifest_path(&target)
             .expect("manifest path");
-        assert!(manifest_path.exists());
+        assert!(
+            !manifest_path.exists(),
+            "public Vortex prepare must not create artifact-adjacent prepared-state reuse manifest"
+        );
+        assert!(
+            !target
+                .parent()
+                .expect("target parent")
+                .join(".shardloom")
+                .join("prepared.vortex.prepared-olap-state.manifest")
+                .exists(),
+            "public Vortex prepare must not create prepared OLAP sidecar manifests"
+        );
         let artifact_digest = first_fields
             .get("vortex_artifact_digest")
             .expect("artifact digest")
@@ -43272,46 +43207,422 @@ mod tests {
         let second = run_vortex_prepare(vortex_ingest_reuse_request(
             source.clone(),
             target.clone(),
-            false,
+            true,
         ))
-        .expect("second vortex_ingest run reuses artifact");
+        .expect("second vortex_ingest run rewrites artifact when overwrite is explicit");
         let second_report = match second {
-            VortexIngestOutcome::Reused(report) => report,
-            VortexIngestOutcome::Prepared(_) => panic!("second run must reuse"),
-            VortexIngestOutcome::Refined(_) => panic!("second run must not refine"),
+            VortexIngestOutcome::Prepared(report) => report,
         };
         let second_fields = field_map(second_report.fields());
-        assert_field_eq(&second_fields, "vortex_ingest_performed", "false");
+        assert_field_eq(&second_fields, "vortex_ingest_performed", "true");
         assert_field_eq(
             &second_fields,
             "vortex_ingest_status",
-            "prepared_state_reused_from_artifact_adjacent_manifest",
+            "prepared_state_created",
         );
-        assert_field_eq(&second_fields, "prepared_state_created", "false");
-        assert_field_eq(&second_fields, "prepared_state_reused", "true");
-        assert_field_eq(&second_fields, "prepared_state_reuse_hit", "true");
+        assert_field_eq(&second_fields, "prepared_state_created", "true");
+        assert_field_eq(&second_fields, "prepared_state_reused", "false");
+        assert_field_eq(&second_fields, "prepared_state_reuse_hit", "false");
         assert_field_eq(
             &second_fields,
-            "prepared_state_reuse_reason",
-            "manifest_fingerprints_match",
+            "prepared_state_reuse_scope",
+            "single_vortex_artifact_no_sidecar",
         );
-        assert_field_eq(&second_fields, "prepared_state_invalidation_reason", "none");
-        assert_field_eq(&second_fields, "vortex_write_millis", "0");
-        assert_field_eq(&second_fields, "data_materialized", "false");
+        assert_field_eq(
+            &second_fields,
+            "prepared_olap_state_status",
+            "prepared_olap_state_ready",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepared_olap_state_query_time_contract",
+            "single_vortex_artifact_native_runtime_no_query_answer_sidecar",
+        );
+        assert_field_eq(&second_fields, "prepared_olap_state_blocker_id", "none");
         assert_field_eq(&second_fields, "fallback_attempted", "false");
         assert_field_eq(&second_fields, "external_engine_invoked", "false");
         assert_eq!(
             second_fields.get("vortex_artifact_digest"),
             Some(&artifact_digest)
         );
+        assert!(
+            !manifest_path.exists(),
+            "public Vortex overwrite must still leave no prepared-state reuse manifest"
+        );
 
         fs::remove_dir_all(root).expect("remove reuse hit root");
     }
 
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn vortex_ingest_text_sources_use_typed_record_batch_stream() {
+        let root = vortex_ingest_reuse_test_root("text-record-batch-stream");
+        let cases = [
+            (
+                "csv",
+                "input.csv",
+                "id,label,amount\n1,alpha,10\n2,beta,20\n",
+                "inferred_csv_record_batch_stream_batch_size_65536_rows",
+            ),
+            (
+                "jsonl",
+                "input.jsonl",
+                "{\"id\":1,\"label\":\"alpha\",\"amount\":10}\n{\"id\":2,\"label\":\"beta\",\"amount\":20}\n",
+                "inferred_jsonl_record_batch_stream_batch_size_65536_rows",
+            ),
+        ];
+
+        for (label, file_name, body, stream_policy) in cases {
+            let source = root.join(file_name);
+            let target = root.join(format!("{label}.vortex"));
+            fs::write(&source, body).expect("write text source");
+
+            let outcome = run_vortex_prepare(vortex_ingest_reuse_request(source, target, false))
+                .expect("text source writes Vortex artifact through Universal Ingest");
+            let report = match outcome {
+                VortexIngestOutcome::Prepared(report) => report,
+            };
+            let fields = field_map(report.fields());
+
+            assert_field_eq(&fields, "vortex_ingest_performed", "true");
+            assert_field_eq(
+                &fields,
+                "source_state_materialization_layout",
+                "inferred_text_to_streaming_arrow_record_batch_source_state",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_parse_normalization",
+                "inferred_text_to_record_batch_stream",
+            );
+            assert_field_eq(&fields, "source_state_columnar_preserved", "true");
+            assert_field_eq(&fields, "source_state_record_batch_count", "1");
+            assert_field_eq(&fields, "source_state_stream_policy", stream_policy);
+            assert_field_eq(
+                &fields,
+                "source_state_stream_unit_hint_kind",
+                "inferred_text_record_batch_stream",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_dictionary_preservation_status",
+                "inferred_text_typed_builders_preserve_inferred_scalar_types",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_ingest_executor_status",
+                "bounded_capillary_prefetch_active",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_ingest_executor_kind",
+                "source_reader_to_vortex_writer_prefetch_pipeline",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_ingest_executor_requested_parallelism",
+                "2",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_ingest_executor_applied_parallelism",
+                "1",
+            );
+            assert_field_eq(&fields, "source_state_ingest_executor_unit_count_hint", "1");
+            assert_field_eq(
+                &fields,
+                "vortex_array_build_provider_surface",
+                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
+            );
+            assert_field_eq(
+                &fields,
+                "vortex_array_build_strategy",
+                "vortex_from_arrow_record_batch_stream",
+            );
+            assert_field_eq(
+                &fields,
+                "vortex_array_build_input_layout",
+                "streaming_arrow_record_batch_columnar_source_state",
+            );
+            assert_field_eq(&fields, "vortex_array_build_record_batch_count", "1");
+            assert_field_eq(
+                &fields,
+                "vortex_array_build_manual_scalar_copy_avoided",
+                "true",
+            );
+            assert_field_eq(
+                &fields,
+                "vortex_preparation_spine_decode_boundary_status",
+                "no_scalar_row_decode_for_streamed_batches",
+            );
+            assert_field_eq(&fields, "fallback_attempted", "false");
+            assert_field_eq(&fields, "external_engine_invoked", "false");
+        }
+
+        fs::remove_dir_all(root).expect("remove text stream root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn vortex_ingest_inferred_text_sources_stream_without_scalar_row_bridge() {
+        let root = vortex_ingest_reuse_test_root("inferred-text-stream");
+        let cases = [
+            (
+                "csv",
+                "input.csv",
+                "id,label,amount\n1,alpha,10\n2,beta,20\n",
+                "inferred_csv_record_batch_stream_batch_size_65536_rows",
+            ),
+            (
+                "jsonl",
+                "input.jsonl",
+                "{\"id\":1,\"label\":\"alpha\",\"amount\":10}\n{\"id\":2,\"label\":99,\"amount\":20.5}\n",
+                "inferred_jsonl_record_batch_stream_batch_size_65536_rows",
+            ),
+        ];
+
+        for (label, file_name, body, stream_policy) in cases {
+            let source = root.join(file_name);
+            let target = root.join(format!("{label}.vortex"));
+            fs::write(&source, body).expect("write inferred text source");
+
+            let outcome = run_vortex_prepare(vortex_ingest_reuse_request(source, target, false))
+                .expect("inferred text source writes Vortex artifact through direct stream");
+            let report = match outcome {
+                VortexIngestOutcome::Prepared(report) => report,
+            };
+            let fields = field_map(report.fields());
+
+            assert_eq!(report.vortex_report.row_count, 2);
+            assert_field_eq(&fields, "vortex_ingest_performed", "true");
+            assert_field_eq(
+                &fields,
+                "source_state_materialization_layout",
+                "inferred_text_to_streaming_arrow_record_batch_source_state",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_parse_normalization",
+                "inferred_text_to_record_batch_stream",
+            );
+            assert_field_eq(&fields, "source_state_columnar_preserved", "true");
+            assert_field_eq(&fields, "source_state_stream_policy", stream_policy);
+            assert_field_eq(
+                &fields,
+                "source_state_dictionary_preservation_status",
+                "inferred_text_typed_builders_preserve_inferred_scalar_types",
+            );
+            assert_field_eq(&fields, "source_state_record_batch_count", "1");
+            assert_field_eq(&fields, "compatibility_parse_millis", "0");
+            assert_field_eq(
+                &fields,
+                "source_read_buffer_carry_status",
+                "streamed_source_fingerprint_reader_reopens_columnar_source",
+            );
+            assert_field_eq(
+                &fields,
+                "vortex_array_build_provider_surface",
+                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
+            );
+            assert_field_eq(
+                &fields,
+                "vortex_preparation_spine_decode_boundary_status",
+                "no_scalar_row_decode_for_streamed_batches",
+            );
+            assert_field_eq(&fields, "fallback_attempted", "false");
+            assert_field_eq(&fields, "external_engine_invoked", "false");
+        }
+
+        fs::remove_dir_all(root).expect("remove inferred text stream root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn vortex_ingest_schema_declared_text_sources_stream_without_scalar_row_bridge() {
+        let root = vortex_ingest_reuse_test_root("schema-declared-text-stream");
+        let cases = [
+            (
+                "csv",
+                "input.csv",
+                "id,label,amount\n1,alpha,10\n2,beta,20\n",
+                "schema_declared_csv_record_batch_stream_batch_size_65536_rows",
+            ),
+            (
+                "jsonl",
+                "input.jsonl",
+                "{\"id\":1,\"label\":\"alpha\",\"amount\":10}\n{\"id\":2,\"label\":\"beta\",\"amount\":20}\n",
+                "schema_declared_jsonl_record_batch_stream_batch_size_65536_rows",
+            ),
+        ];
+        let hints = vec![
+            ("id".to_string(), LogicalDType::Int64),
+            ("label".to_string(), LogicalDType::Utf8),
+            ("amount".to_string(), LogicalDType::Int64),
+        ];
+
+        for (label, file_name, body, stream_policy) in cases {
+            let source = root.join(file_name);
+            let target = root.join(format!("{label}.vortex"));
+            fs::write(&source, body).expect("write text source");
+
+            let outcome = run_vortex_ingest_prepare_once_with_schema(
+                vortex_ingest_reuse_request(source, target, false),
+                &hints,
+            )
+            .expect("schema-declared text source writes Vortex artifact through direct stream");
+            let report = match outcome {
+                VortexIngestOutcome::Prepared(report) => report,
+            };
+            let fields = field_map(report.fields());
+
+            assert_field_eq(&fields, "vortex_ingest_performed", "true");
+            assert_field_eq(
+                &fields,
+                "source_state_materialization_layout",
+                "schema_declared_text_to_streaming_arrow_record_batch_source_state",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_parse_normalization",
+                "schema_declared_text_to_record_batch_stream",
+            );
+            assert_field_eq(&fields, "source_state_columnar_preserved", "true");
+            assert_field_eq(&fields, "source_state_stream_policy", stream_policy);
+            assert_field_eq(
+                &fields,
+                "source_read_buffer_carry_status",
+                "streamed_source_fingerprint_reader_reopens_columnar_source",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_dictionary_preservation_status",
+                "schema_declared_text_typed_builders_preserve_declared_scalar_types",
+            );
+            assert_field_eq(&fields, "source_state_record_batch_count", "1");
+            assert_field_eq(&fields, "compatibility_parse_millis", "0");
+            assert_field_eq(
+                &fields,
+                "vortex_array_build_provider_surface",
+                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
+            );
+            assert_field_eq(
+                &fields,
+                "vortex_preparation_spine_decode_boundary_status",
+                "no_scalar_row_decode_for_streamed_batches",
+            );
+            assert_field_eq(&fields, "fallback_attempted", "false");
+            assert_field_eq(&fields, "external_engine_invoked", "false");
+        }
+
+        fs::remove_dir_all(root).expect("remove schema declared text stream root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn schema_declared_text_stream_preserves_smoke_cap_and_product_no_cap() {
+        let root = vortex_ingest_reuse_test_root("schema-declared-product-cap");
+        let source = root.join("large.csv");
+        let smoke_target = root.join("smoke.vortex");
+        let product_target = root.join("product.vortex");
+        let inferred_smoke_target = root.join("inferred-smoke.vortex");
+        let inferred_product_target = root.join("inferred-product.vortex");
+        let hints = vec![
+            ("id".to_string(), LogicalDType::Int64),
+            ("label".to_string(), LogicalDType::Utf8),
+        ];
+        let mut body = String::from("id,label\n");
+        for row_id in 0..=MAX_INPUT_ROWS {
+            writeln!(&mut body, "{row_id},label-{row_id}").expect("write csv row");
+        }
+        fs::write(&source, body).expect("write large schema-declared csv");
+
+        let smoke_error = run_vortex_ingest_prepare_once_with_schema(
+            vortex_ingest_reuse_request(source.clone(), smoke_target, false),
+            &hints,
+        )
+        .expect_err("smoke schema-declared stream preserves the diagnostic row cap");
+        assert!(
+            smoke_error
+                .to_string()
+                .contains("supports at most 50000 CSV data rows"),
+            "{smoke_error}"
+        );
+
+        let mut product_request =
+            vortex_ingest_reuse_request(source.clone(), product_target.clone(), false);
+        product_request.runtime_profile = SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
+        let product = run_vortex_ingest_prepare_once_with_schema(product_request, &hints)
+            .expect("product schema-declared stream has no synthetic row cap");
+        let product_report = match product {
+            VortexIngestOutcome::Prepared(report) => report,
+        };
+        let fields = field_map(product_report.fields());
+        assert_eq!(
+            product_report.vortex_report.row_count,
+            u64::try_from(MAX_INPUT_ROWS + 1).expect("test row count fits u64")
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_materialization_layout",
+            "schema_declared_text_to_streaming_arrow_record_batch_source_state",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_buffer_carry_status",
+            "streamed_source_fingerprint_reader_reopens_columnar_source",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert!(product_target.exists());
+
+        let inferred_smoke_error = run_vortex_prepare(vortex_ingest_reuse_request(
+            source.clone(),
+            inferred_smoke_target,
+            false,
+        ))
+        .expect_err("smoke inferred stream preserves the diagnostic row cap");
+        assert!(
+            inferred_smoke_error
+                .to_string()
+                .contains("supports at most 50000 CSV data rows"),
+            "{inferred_smoke_error}"
+        );
+
+        let mut inferred_product_request =
+            vortex_ingest_reuse_request(source.clone(), inferred_product_target.clone(), false);
+        inferred_product_request.runtime_profile =
+            SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
+        let inferred_product = run_vortex_prepare(inferred_product_request)
+            .expect("product inferred stream has no synthetic row cap");
+        let inferred_product_report = match inferred_product {
+            VortexIngestOutcome::Prepared(report) => report,
+        };
+        let inferred_fields = field_map(inferred_product_report.fields());
+        assert_eq!(
+            inferred_product_report.vortex_report.row_count,
+            u64::try_from(MAX_INPUT_ROWS + 1).expect("test row count fits u64")
+        );
+        assert_field_eq(
+            &inferred_fields,
+            "source_state_materialization_layout",
+            "inferred_text_to_streaming_arrow_record_batch_source_state",
+        );
+        assert_field_eq(
+            &inferred_fields,
+            "source_read_buffer_carry_status",
+            "streamed_source_fingerprint_reader_reopens_columnar_source",
+        );
+        assert_field_eq(&inferred_fields, "fallback_attempted", "false");
+        assert_field_eq(&inferred_fields, "external_engine_invoked", "false");
+        assert!(inferred_product_target.exists());
+
+        fs::remove_dir_all(root).expect("remove schema declared product cap root");
+    }
+
     #[cfg(feature = "vortex-write")]
     #[test]
-    fn vortex_ingest_manifest_append_only_source_drift_refines_without_base_reprepare() {
-        let root = vortex_ingest_reuse_test_root("drift");
+    fn vortex_ingest_source_drift_with_overwrite_rewrites_single_artifact_without_sidecars() {
+        let root = vortex_ingest_reuse_test_root("drift-rewrite");
         let source_dir = root.join("source");
         let target_dir = root.join("prepared");
         fs::create_dir_all(&source_dir).expect("create source dir");
@@ -43328,6 +43639,9 @@ mod tests {
         .expect("first vortex_ingest run writes artifact");
         assert!(matches!(first, VortexIngestOutcome::Prepared(_)));
         let base_artifact = fs::read(&target).expect("read base artifact");
+        let manifest_path = shardloom_vortex::vortex_prepared_state_reuse_manifest_path(&target)
+            .expect("manifest path");
+        assert!(!manifest_path.exists());
 
         fs::write(&source, "id,label,amount\n1,alpha,10\n2,beta,99\n").expect("mutate source");
         let second = run_vortex_prepare(vortex_ingest_reuse_request(
@@ -43335,67 +43649,45 @@ mod tests {
             target.clone(),
             true,
         ))
-        .expect("changed append-only source refines without base reprepare");
+        .expect("changed source rewrites single Vortex artifact");
         let second_report = match second {
-            VortexIngestOutcome::Refined(report) => report,
-            VortexIngestOutcome::Prepared(_) => panic!("append-only drift must refine"),
-            VortexIngestOutcome::Reused(_) => panic!("source drift must not reuse"),
+            VortexIngestOutcome::Prepared(report) => report,
         };
-        assert!(
-            second_report
-                .delta_report
-                .request
-                .source_path
-                .starts_with(target_dir.join(".shardloom")),
-            "automatic delta source sidecar must live under the prepared target workspace, got {}",
-            second_report.delta_report.request.source_path.display()
-        );
-        assert!(
-            !second_report
-                .delta_report
-                .request
-                .source_path
-                .starts_with(source_dir.join(".shardloom")),
-            "automatic delta source sidecar must not be source-adjacent"
-        );
         let second_fields = field_map(second_report.fields());
-        assert_eq!(
-            fs::read(&target).expect("read base artifact after refinement"),
-            base_artifact
+        assert_ne!(
+            fs::read(&target).expect("read rewritten artifact"),
+            base_artifact,
+            "changed source with allow_overwrite must replace the single .vortex artifact"
         );
         assert_field_eq(&second_fields, "vortex_ingest_performed", "true");
         assert_field_eq(
             &second_fields,
             "vortex_ingest_status",
-            "prepared_state_refined_from_append_only_delta",
+            "prepared_state_created",
         );
-        assert_field_eq(&second_fields, "prepared_state_created", "false");
-        assert_field_eq(&second_fields, "prepared_state_reused", "true");
-        assert_field_eq(&second_fields, "prepared_state_refined", "true");
+        assert_field_eq(&second_fields, "prepared_state_created", "true");
+        assert_field_eq(&second_fields, "prepared_state_reused", "false");
         assert_field_eq(&second_fields, "prepared_state_reuse_hit", "false");
         assert_field_eq(
             &second_fields,
             "prepared_state_invalidation_reason",
-            "source_content_digest_changed",
-        );
-        assert_field_eq(
-            &second_fields,
-            "vortex_differential_preparation_refinement_status",
-            "admitted_append_only_refinement",
-        );
-        assert_field_eq(
-            &second_fields,
-            "vortex_differential_preparation_overlay_consumer_family",
-            "count",
+            "not_applicable_single_vortex_artifact",
         );
         assert_field_eq(&second_fields, "fallback_attempted", "false");
         assert_field_eq(&second_fields, "external_engine_invoked", "false");
+        assert!(!manifest_path.exists());
+        assert!(
+            fs::read_dir(&target_dir.join(".shardloom"))
+                .map(|mut entries| entries.next().is_none())
+                .unwrap_or(true),
+            "public source drift rewrite must not leave target-adjacent sidecar files"
+        );
 
         fs::remove_dir_all(root).expect("remove reuse drift root");
     }
 
     #[test]
-    fn automatic_refinement_blocks_manifest_when_differential_preparation_rejects_overlay() {
+    fn differential_preparation_schema_mismatch_rejects_overlay_without_fallback() {
         let report = shardloom_vortex::evaluate_vortex_differential_preparation(
             shardloom_vortex::VortexDifferentialPreparationInput {
                 update_mode: shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly,
@@ -43422,24 +43714,14 @@ mod tests {
         );
 
         assert!(!report.is_admitted());
-        let error = ensure_automatic_append_only_refinement_admitted(
-            &report,
-            Path::new("target/input.csv"),
-        )
-        .expect_err("rejected differential preparation must block refinement manifest");
-
-        assert!(
-            error
-                .to_string()
-                .contains("refinement manifest was not written"),
-            "{error}"
+        assert_eq!(report.status, "blocked_schema_mismatch");
+        assert_eq!(
+            report.schema_compatibility_status,
+            "blocked_source_schema_or_column_family_mismatch"
         );
-        assert!(
-            error
-                .to_string()
-                .contains("no fallback execution was attempted"),
-            "{error}"
-        );
+        assert!(!report.overlay_applied);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[cfg(feature = "universal-format-io")]

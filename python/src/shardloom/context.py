@@ -2693,7 +2693,7 @@ class SourcePreparedStateScopeReport:
 
     @property
     def generated_route_ids(self) -> tuple[str, ...]:
-        """Return generated/source-free routes with artifact-adjacent reuse."""
+        """Return generated/source-free routes with single-artifact Vortex output."""
 
         return V1_SOURCE_PREPARED_GENERATED_ROUTE_IDS
 
@@ -2737,7 +2737,7 @@ class SourcePreparedStateScopeReport:
 
     @property
     def generated_user_route_rows(self) -> tuple[UserRouteCapabilityRow, ...]:
-        """Return generated route rows that can emit artifact-adjacent reuse."""
+        """Return generated route rows that can emit single-artifact Vortex output."""
 
         return tuple(self.user_routes.route(route_id) for route_id in self.generated_route_ids)
 
@@ -2785,15 +2785,16 @@ class SourcePreparedStateScopeReport:
         )
 
     @property
-    def all_generated_routes_expose_artifact_adjacent_reuse(self) -> bool:
-        """Whether generated routes expose artifact-adjacent prepared-state reuse."""
+    def all_generated_routes_expose_single_artifact_output(self) -> bool:
+        """Whether generated Vortex routes expose single-artifact/no-sidecar output."""
 
         return all(
             row.prepared_state_reuse_scope
-            == "artifact_adjacent_manifest_local_vortex_artifacts"
-            and "prepared-state-reuse" in row.prepared_state_reuse_manifest_path
-            and "artifact_adjacent_local_prepared_state_reuse.v1"
-            == row.prepared_state_reuse_policy
+            == "single_vortex_artifact_no_sidecar"
+            and row.prepared_state_reuse_manifest_path
+            == "not_applicable_single_vortex_artifact"
+            and row.prepared_state_reuse_policy
+            == "single_vortex_artifact_no_sidecar.v1"
             for row in self.generated_user_route_rows
         )
 
@@ -2832,7 +2833,7 @@ class SourcePreparedStateScopeReport:
         return (
             self.all_no_fallback_no_external_engine
             and self.all_prepared_routes_expose_reuse_contract
-            and self.all_generated_routes_expose_artifact_adjacent_reuse
+            and self.all_generated_routes_expose_single_artifact_output
             and self.all_internal_source_smoke_routes_are_labeled_non_persistent
             and self.all_local_file_prepared_rows_expose_source_and_reuse_evidence
         )
@@ -3232,23 +3233,19 @@ def _route_diagnostic_packet(
         }
     elif generated_prepared_route:
         reuse_packet = {
-            "prepared_state_reuse_scope": "artifact_adjacent_manifest_local_vortex_artifacts",
-            "prepared_state_reuse_manifest_path": (
-                "<target-dir>/.shardloom/<target-name>.prepared-state-reuse.manifest"
-            ),
+            "prepared_state_reuse_scope": "single_vortex_artifact_no_sidecar",
+            "prepared_state_reuse_manifest_path": "not_applicable_single_vortex_artifact",
             "prepared_state_reuse_policy": (
-                "artifact_adjacent_local_prepared_state_reuse.v1"
+                "single_vortex_artifact_no_sidecar.v1"
             ),
-            "prepared_state_reuse_hit": "runtime_evaluated",
+            "prepared_state_reuse_hit": "false",
             "prepared_state_reuse_reason": (
-                "runtime_evaluated_artifact_adjacent_manifest_lookup"
+                "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar"
             ),
             "prepared_state_reuse_manifest_digest": (
-                "runtime_prepared_state_reuse_manifest_digest_pending"
+                "not_applicable_single_vortex_artifact"
             ),
-            "prepared_state_invalidation_reason": (
-                "runtime_evaluated_on_source_schema_plan_policy_or_artifact_drift"
-            ),
+            "prepared_state_invalidation_reason": "not_applicable_single_vortex_artifact",
         }
     else:
         reuse_packet = {
@@ -8611,11 +8608,11 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         execution_mode="generated_source_smoke",
         execution_route="generated-source-* local output smoke family",
         output_route=(
-            "local JSONL/CSV, feature-gated local Vortex output, artifact-adjacent "
-            "prepared-state reuse manifest, and fanout"
+            "local JSONL/CSV, feature-gated local Vortex output, single-artifact "
+            "Vortex output evidence, and fanout"
         ),
         evidence_route=(
-            "generated-source certificate, artifact-adjacent prepared-state reuse manifest for "
+            "generated-source certificate, single-artifact Vortex output evidence for "
             "feature-gated local Vortex output, OutputPlan, output Native I/O, replay evidence, "
             "and no-fallback evidence"
         ),
@@ -8626,7 +8623,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         owner="GAR-RUNTIME-IMPL-6D.generated_rows_local_output",
         required_evidence=(
             "generated_source_certificate",
-            "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output",
+            "single_vortex_artifact_output_for_feature_gated_local_vortex_output",
             "output_native_io_certificate",
             "execution_certificate",
             "result_replay_verified",
