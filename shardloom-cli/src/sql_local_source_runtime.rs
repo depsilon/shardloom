@@ -43462,12 +43462,12 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch;streaming ArrayIterator",
             );
             assert_field_eq(
                 &fields,
                 "vortex_array_build_strategy",
-                "vortex_from_arrow_record_batch_stream",
+                "capillary_vortex_array_prefetch_from_arrow_record_batch_stream",
             );
             assert_field_eq(
                 &fields,
@@ -43550,7 +43550,7 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch;streaming ArrayIterator",
             );
             assert_field_eq(
                 &fields,
@@ -43629,7 +43629,7 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch;streaming ArrayIterator",
             );
             assert_field_eq(
                 &fields,
