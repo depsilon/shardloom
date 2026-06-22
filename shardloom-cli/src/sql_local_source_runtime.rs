@@ -4172,13 +4172,13 @@ impl InferredTextColumnKind {
             ScalarValue::Int64(_) => Self::Int64,
             ScalarValue::UInt64(_) => Self::UInt64,
             ScalarValue::Float64(_) => Self::Float64,
-            ScalarValue::Utf8(_) => Self::Utf8,
-            ScalarValue::Binary(_) => Self::Binary,
-            ScalarValue::Decimal128 { .. }
+            ScalarValue::Utf8(_)
+            | ScalarValue::Decimal128 { .. }
             | ScalarValue::Date32(_)
             | ScalarValue::TimestampMicros(_)
             | ScalarValue::List(_)
             | ScalarValue::Struct(_) => Self::Utf8,
+            ScalarValue::Binary(_) => Self::Binary,
         };
         match (self, candidate) {
             (Self::Null, candidate) => candidate,
@@ -4390,14 +4390,13 @@ fn infer_jsonl_text_stream_schema(
             ))
         })?;
         for (name, value) in fields {
-            let index = match header.iter().position(|column| column == &name) {
-                Some(index) => index,
-                None => {
-                    validate_sql_identifier(&name)?;
-                    header.push(name);
-                    inferred.push(InferredTextColumnKind::Null);
-                    inferred.len() - 1
-                }
+            let index = if let Some(index) = header.iter().position(|column| column == &name) {
+                index
+            } else {
+                validate_sql_identifier(&name)?;
+                header.push(name);
+                inferred.push(InferredTextColumnKind::Null);
+                inferred.len() - 1
             };
             inferred[index] = inferred[index].observe(&value);
         }
@@ -4499,6 +4498,7 @@ fn parse_schema_declared_text_scalar(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::cast_precision_loss)]
 fn coerce_schema_declared_json_scalar(
     value: ScalarValue,
     dtype: &LogicalDType,
@@ -4513,7 +4513,7 @@ fn coerce_schema_declared_json_scalar(
         (LogicalDType::Int64, ScalarValue::Int64(value)) => Ok(ScalarValue::Int64(value)),
         (LogicalDType::UInt64, ScalarValue::UInt64(value)) => Ok(ScalarValue::UInt64(value)),
         (LogicalDType::UInt64, ScalarValue::Int64(value)) if value >= 0 => {
-            Ok(ScalarValue::UInt64(value as u64))
+            Ok(ScalarValue::UInt64(value.cast_unsigned()))
         }
         (LogicalDType::Float64, ScalarValue::Float64(value)) => Ok(ScalarValue::Float64(value)),
         (LogicalDType::Float64, ScalarValue::Int64(value)) => {
@@ -6514,7 +6514,7 @@ fn run_scalar_vortex_prepare(
     apply_vortex_ingest_schema_hints(&mut source, source_schema_hints)?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     {
-        return run_text_streaming_vortex_prepare(request, source, prepare_start);
+        run_text_streaming_vortex_prepare(request, source, prepare_start)
     }
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     {
@@ -6735,9 +6735,9 @@ fn try_run_schema_declared_text_vortex_prepare(
     prewrite_source.materialization_layout =
         "schema_declared_text_to_streaming_arrow_record_batch_source_state";
     prewrite_source.parse_normalization = "schema_declared_text_to_record_batch_stream";
-    prewrite_source.source_dictionary_preservation_status = columnar_source
+    prewrite_source
         .source_dictionary_preservation_status
-        .clone();
+        .clone_from(&columnar_source.source_dictionary_preservation_status);
 
     let source_schema_digest = fnv64_digest(&vortex_ingest_schema_digest_from_parts(
         &prewrite_source.header,
@@ -6946,9 +6946,9 @@ fn try_run_inferred_text_vortex_prepare(
     prewrite_source.materialization_layout =
         "inferred_text_to_streaming_arrow_record_batch_source_state";
     prewrite_source.parse_normalization = "inferred_text_to_record_batch_stream";
-    prewrite_source.source_dictionary_preservation_status = columnar_source
+    prewrite_source
         .source_dictionary_preservation_status
-        .clone();
+        .clone_from(&columnar_source.source_dictionary_preservation_status);
 
     let source_schema_digest = fnv64_digest(&vortex_ingest_schema_digest_from_parts(
         &prewrite_source.header,
@@ -7068,6 +7068,7 @@ fn vortex_ingest_schema_digest_from_parts(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
 fn run_text_streaming_vortex_prepare(
     request: VortexIngestRequest,
     source: CsvSourceData,
@@ -7114,9 +7115,9 @@ fn run_text_streaming_vortex_prepare(
     prewrite_source.materialization_layout =
         "typed_text_rows_to_streaming_arrow_record_batch_source_state";
     prewrite_source.parse_normalization = "text_adapter_to_typed_record_batch_stream";
-    prewrite_source.source_dictionary_preservation_status = columnar_source
+    prewrite_source
         .source_dictionary_preservation_status
-        .clone();
+        .clone_from(&columnar_source.source_dictionary_preservation_status);
 
     let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
     let prewrite_source_state_digest =
@@ -43256,7 +43257,14 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-write")]
+    fn prepared_vortex_ingest_report(outcome: VortexIngestOutcome) -> Box<VortexIngestReport> {
+        let VortexIngestOutcome::Prepared(report) = outcome;
+        report
+    }
+
+    #[cfg(feature = "vortex-write")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn vortex_ingest_public_prepare_writes_only_single_vortex_artifact() {
         let root = vortex_ingest_reuse_test_root("single-artifact");
         let source = root.join("input.csv");
@@ -43269,9 +43277,7 @@ mod tests {
             false,
         ))
         .expect("first vortex_ingest run writes artifact");
-        let first_report = match first {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let first_report = prepared_vortex_ingest_report(first);
         let first_fields = field_map(first_report.fields());
         assert_field_eq(&first_fields, "vortex_ingest_performed", "true");
         assert_field_eq(&first_fields, "prepared_state_reuse_hit", "false");
@@ -43338,9 +43344,7 @@ mod tests {
             true,
         ))
         .expect("second vortex_ingest run rewrites artifact when overwrite is explicit");
-        let second_report = match second {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let second_report = prepared_vortex_ingest_report(second);
         let second_fields = field_map(second_report.fields());
         assert_field_eq(&second_fields, "vortex_ingest_performed", "true");
         assert_field_eq(
@@ -43407,9 +43411,7 @@ mod tests {
 
             let outcome = run_vortex_prepare(vortex_ingest_reuse_request(source, target, false))
                 .expect("text source writes Vortex artifact through Universal Ingest");
-            let report = match outcome {
-                VortexIngestOutcome::Prepared(report) => report,
-            };
+            let report = prepared_vortex_ingest_report(outcome);
             let fields = field_map(report.fields());
 
             assert_field_eq(&fields, "vortex_ingest_performed", "true");
@@ -43516,9 +43518,7 @@ mod tests {
 
             let outcome = run_vortex_prepare(vortex_ingest_reuse_request(source, target, false))
                 .expect("inferred text source writes Vortex artifact through direct stream");
-            let report = match outcome {
-                VortexIngestOutcome::Prepared(report) => report,
-            };
+            let report = prepared_vortex_ingest_report(outcome);
             let fields = field_map(report.fields());
 
             assert_eq!(report.vortex_report.row_count, 2);
@@ -43598,9 +43598,7 @@ mod tests {
                 &hints,
             )
             .expect("schema-declared text source writes Vortex artifact through direct stream");
-            let report = match outcome {
-                VortexIngestOutcome::Prepared(report) => report,
-            };
+            let report = prepared_vortex_ingest_report(outcome);
             let fields = field_map(report.fields());
 
             assert_field_eq(&fields, "vortex_ingest_performed", "true");
@@ -43663,9 +43661,7 @@ mod tests {
             false,
         ))
         .expect("inferred text stream writes Vortex artifact");
-        let inferred_report = match inferred {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let inferred_report = prepared_vortex_ingest_report(inferred);
         let inferred_fields = field_map(inferred_report.fields());
         assert!(
             inferred_report
@@ -43706,9 +43702,7 @@ mod tests {
             &full_hints,
         )
         .expect("schema-declared text stream writes Vortex artifact");
-        let schema_report = match schema_declared {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let schema_report = prepared_vortex_ingest_report(schema_declared);
         let schema_fields = field_map(schema_report.fields());
         assert!(
             schema_report
@@ -43745,9 +43739,7 @@ mod tests {
             &hints,
         )
         .expect("schema-hinted JSONL preserves inferred fields");
-        let report = match outcome {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let report = prepared_vortex_ingest_report(outcome);
         let fields = field_map(report.fields());
         let summary = report.vortex_report.column_family_summary();
         assert!(summary.contains("id:int64"), "{summary}");
@@ -43794,9 +43786,7 @@ mod tests {
             &hints,
         )
         .expect("schema-hinted CSV preserves inferred fields");
-        let report = match outcome {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let report = prepared_vortex_ingest_report(outcome);
         let fields = field_map(report.fields());
         let summary = report.vortex_report.column_family_summary();
         assert!(summary.contains("id:int64"), "{summary}");
@@ -43859,9 +43849,7 @@ mod tests {
         product_request.runtime_profile = SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
         let product = run_vortex_ingest_prepare_once_with_schema(product_request, &hints)
             .expect("product schema-declared stream has no synthetic row cap");
-        let product_report = match product {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let product_report = prepared_vortex_ingest_report(product);
         let fields = field_map(product_report.fields());
         assert_eq!(
             product_report.vortex_report.row_count,
@@ -43900,9 +43888,7 @@ mod tests {
             SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
         let inferred_product = run_vortex_prepare(inferred_product_request)
             .expect("product inferred stream has no synthetic row cap");
-        let inferred_product_report = match inferred_product {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let inferred_product_report = prepared_vortex_ingest_report(inferred_product);
         let inferred_fields = field_map(inferred_product_report.fields());
         assert_eq!(
             inferred_product_report.vortex_report.row_count,
@@ -43956,9 +43942,7 @@ mod tests {
             true,
         ))
         .expect("changed source rewrites single Vortex artifact");
-        let second_report = match second {
-            VortexIngestOutcome::Prepared(report) => report,
-        };
+        let second_report = prepared_vortex_ingest_report(second);
         let second_fields = field_map(second_report.fields());
         assert_ne!(
             fs::read(&target).expect("read rewritten artifact"),
@@ -43983,9 +43967,8 @@ mod tests {
         assert_field_eq(&second_fields, "external_engine_invoked", "false");
         assert!(!manifest_path.exists());
         assert!(
-            fs::read_dir(&target_dir.join(".shardloom"))
-                .map(|mut entries| entries.next().is_none())
-                .unwrap_or(true),
+            fs::read_dir(target_dir.join(".shardloom"))
+                .map_or(true, |mut entries| entries.next().is_none()),
             "public source drift rewrite must not leave target-adjacent sidecar files"
         );
 

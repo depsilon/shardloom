@@ -7490,6 +7490,7 @@ struct StreamingColumnarVortexArrayIterator {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl StreamingColumnarVortexArrayIterator {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         dtype: vortex::array::dtype::DType,
         first_array: vortex::array::ArrayRef,
@@ -7566,12 +7567,11 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
             return Some(Ok(array));
         }
         if let Some(receiver) = self.prefetch_receiver.as_ref() {
-            return match receiver.recv() {
-                Ok(result) => Some(result),
-                Err(_) => {
-                    self.close_prefetch_worker();
-                    None
-                }
+            return if let Ok(result) = receiver.recv() {
+                Some(result)
+            } else {
+                self.close_prefetch_worker();
+                None
             };
         }
         let reader = self.reader.as_mut()?;
@@ -7617,6 +7617,7 @@ impl vortex::array::iter::ArrayIterator for StreamingColumnarVortexArrayIterator
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::needless_pass_by_value)]
 fn stream_arrow_batches_to_vortex_arrays(
     mut reader: Box<dyn arrow_array::RecordBatchReader + Send>,
     reader_projection_columns: Vec<String>,
@@ -9787,7 +9788,7 @@ fn large_source_fast_load_table_strategy(
     use vortex::layout::layouts::buffered::BufferedStrategy;
     use vortex::layout::layouts::chunked::writer::ChunkedLayoutStrategy;
     use vortex::layout::layouts::collect::CollectStrategy;
-    use vortex::layout::layouts::dict::writer::DictStrategy;
+    use vortex::layout::layouts::dict::writer::{DictLayoutOptions, DictStrategy};
     use vortex::layout::layouts::flat::writer::FlatLayoutStrategy;
     use vortex::layout::layouts::repartition::{RepartitionStrategy, RepartitionWriterOptions};
     use vortex::layout::layouts::table::TableStrategy;
@@ -9813,7 +9814,7 @@ fn large_source_fast_load_table_strategy(
         coalescing.clone(),
         std::sync::Arc::clone(&flat),
         coalescing,
-        Default::default(),
+        DictLayoutOptions::default(),
     );
     let stats = ZonedStrategy::new(
         dict,

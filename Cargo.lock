@@ -2420,6 +2420,7 @@ dependencies = [
  "arrow-ipc",
  "arrow-schema",
  "lending-iterator",
+ "memchr",
  "orc-rust",
  "parquet",
  "regex",
