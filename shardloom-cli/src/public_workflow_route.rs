@@ -12192,17 +12192,17 @@ mod tests {
         assert_eq!(plan.status, CommandStatus::Unsupported);
         assert_eq!(
             plan.blocker_id,
-            "py-vortex-route-unify-1.native_vortex_sink_contract_missing"
+            "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
         );
         let fields = route_fields(&request, &plan);
         assert_eq!(field(&fields, "native_vortex_operation_family"), "sink");
         assert_eq!(
             field(&fields, "native_vortex_required_feature_gate"),
-            "not_applicable"
+            "vortex-local-primitives"
         );
         assert_eq!(
             field(&fields, "native_vortex_capability_status"),
-            "blocked_until_native_route_admitted"
+            "feature_gated"
         );
     }
 
