@@ -19,6 +19,7 @@ from shardloom.query import (
     _sql_native_vortex_public_workflow_kwargs,
     _vortex_expression_scalar_payload,
 )
+from shardloom.runtime_defaults import DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
@@ -1420,7 +1421,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--memory-gb",
                     "4",
                     "--max-parallelism",
-                    "2",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -1454,6 +1455,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }))
                 sys.exit(1)
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             ),
             rewrite_public_run=False,
         )
@@ -1507,7 +1511,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--memory-gb",
                     "4",
                     "--max-parallelism",
-                    "2",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -1544,6 +1548,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }))
                 sys.exit(1)
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             ),
             rewrite_public_run=False,
         )
@@ -7985,7 +7992,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--memory-gb",
                     "4",
                     "--max-parallelism",
-                    "1",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -8021,6 +8028,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }))
                 sys.exit(1)
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             ),
             rewrite_public_run=False,
         )
@@ -8133,6 +8143,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             )
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
@@ -14864,7 +14877,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--memory-gb",
                     "4",
                     "--max-parallelism",
-                    "1",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -14900,6 +14913,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }))
                 sys.exit(1)
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             ),
             rewrite_public_run=False,
         )
@@ -14942,7 +14958,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--memory-gb",
                     "4",
                     "--max-parallelism",
-                    "1",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -14985,6 +15001,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [{"key": key, "value": value} for key, value in fields],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             ),
             rewrite_public_run=False,
         )
@@ -15029,7 +15048,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--memory-gb",
                     "4",
                     "--max-parallelism",
-                    "1",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -15069,6 +15088,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [{"key": key, "value": value} for key, value in fields],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             ),
             rewrite_public_run=False,
         )
@@ -19994,7 +20016,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--vortex-predicate",
                     "gte:metric:0",
                     "--max-parallelism",
-                    "1",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], args
@@ -20029,6 +20051,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             )
         )
         fact = sl.read_vortex("fact.vortex", client=ShardLoomClient(binary=binary))
@@ -20095,7 +20120,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--vortex-source-order-limit",
                     "2",
                     "--max-parallelism",
-                    "1",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], args
@@ -20130,6 +20155,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             )
         )
         fact = sl.read_vortex("fact.vortex", client=ShardLoomClient(binary=binary))
