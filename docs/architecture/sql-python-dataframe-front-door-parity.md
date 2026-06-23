@@ -201,7 +201,7 @@ evidence lands.
 
 The benchmark-family native route is separate from those primitive helpers:
 `ctx.native_vortex_route('fact.vortex', 'dim.vortex', execution_mode='native_vortex',
-memory_gb=4, max_parallelism=1)` and the matching session form run
+memory_gb=4, max_parallelism=2)` and the matching session form run
 `traditional-analytics-vortex-run` / `traditional-analytics-vortex-batch-run` with explicit source,
 scenario, execution-mode, resource-policy, result-sink, and no-fallback fields. Use primitive
 helpers for scoped count/filter/project reports; use the native route handle for route-comparable

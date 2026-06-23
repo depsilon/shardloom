@@ -19,6 +19,10 @@ from .client import (
 from .models import RuntimeEnvelopeValidationReport
 from .native_route import NativeVortexRoute
 from .prepared_route import CompatibilityPreparedVortexRoute
+from .runtime_defaults import (
+    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+)
 from .query import (
     GroupedLazyFrame,
     LazyFrame,
@@ -757,8 +761,8 @@ class SessionLazyFrame:
         limit: int | None = None,
         reuse: bool = True,
         check: bool = False,
-        memory_gb: int = 4,
-        max_parallelism: int = 1,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Collect rows through this session's scoped local-source reuse cache."""
 
@@ -781,8 +785,8 @@ class SessionLazyFrame:
         *,
         reuse: bool = True,
         check: bool = False,
-        memory_gb: int = 4,
-        max_parallelism: int = 1,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a scoped row-count report through the session cache when admitted."""
 
@@ -1079,8 +1083,8 @@ class SessionSqlWorkflow:
         limit: int | None = None,
         reuse: bool = True,
         check: bool = False,
-        memory_gb: int = 4,
-        max_parallelism: int = 1,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | SqlLocalSourceSmokeReport
@@ -1106,7 +1110,11 @@ class SessionSqlWorkflow:
         return self.session._sql_result(
             operation="collect",
             statement=self.statement,
-            execute=lambda: self.workflow.collect(check=check),
+            execute=lambda: self.workflow.collect(
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            ),
             output_paths=(),
             reuse=reuse,
         )
@@ -1791,8 +1799,8 @@ class ShardLoomSession:
         *,
         reuse: bool = True,
         check: bool = False,
-        memory_gb: int = 4,
-        max_parallelism: int = 1,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Collect rows for an admitted local query-builder workflow with session reuse."""
 
@@ -1807,7 +1815,11 @@ class ShardLoomSession:
         return self._sql_result(
             operation="collect",
             statement=statement,
-            execute=lambda: frame.collect(check=check),
+            execute=lambda: frame.collect(
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            ),
             output_paths=(),
             reuse=reuse,
         )

@@ -27,6 +27,7 @@ shardloom_session_module = importlib.import_module("shardloom.session")
 
 from shardloom import (
     __version__,
+    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     context as shardloom_context,
     session as shardloom_session,
     ClaimGateCloseoutReport,
@@ -1276,7 +1277,10 @@ class ShardLoomClientTests(unittest.TestCase):
                     {"key": "runtime_execution", "value": "false"},
                     {"key": "source_state_reuse_allowed", "value": "false"},
                     {"key": "source_state_reuse_hit", "value": "false"},
-                    {"key": "public_workflow_max_parallelism", "value": "1"},
+                    {
+                        "key": "public_workflow_max_parallelism",
+                        "value": str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
+                    },
                     {"key": "data_decoded", "value": "false"},
                     {"key": "data_materialized", "value": "false"},
                     {"key": "fallback_attempted", "value": "false"},
@@ -1294,7 +1298,9 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(summary.native_vortex_status, "not_applicable")
         self.assertFalse(summary.native_vortex_enabled)
         self.assertFalse(summary.runtime_execution)
-        self.assertEqual(summary.applied_parallelism, 1)
+        self.assertEqual(
+            summary.applied_parallelism, DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM
+        )
         self.assertIsNone(summary.vortex_read_path)
         self.assertFalse(summary.fallback_attempted)
         self.assertFalse(summary.external_engine_invoked)

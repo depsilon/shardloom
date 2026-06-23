@@ -38,6 +38,11 @@ from .models import (
     RuntimeActivationSummary,
 )
 from .prepared_route import CompatibilityPreparedVortexRoute
+from .runtime_defaults import (
+    DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
+    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+)
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "avro", "orc")
 MAX_DATE_ARITHMETIC_DAYS = 366_000
@@ -1144,7 +1149,7 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
             generated_source_kind=self.source_kind,
             generated_schema=self.schema_arg,
             generated_rows=self.rows_arg,
-            max_parallelism=1,
+            max_parallelism=DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
             check=check,
         )
         return GeneratedSourceWriteReport(execution.envelope)
@@ -1928,8 +1933,8 @@ class SqlWorkflow:
         *,
         limit: int | None = None,
         check: bool = False,
-        memory_gb: int = 4,
-        max_parallelism: int = 1,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SqlLocalSourceSmokeReport
         | VortexWorkflowExecutionReport
@@ -2161,8 +2166,8 @@ class SqlWorkflow:
                 materialization_policy="bounded",
                 evidence_level="production_admitted_local_workflow",
                 bounded=True,
-                memory_gb=4,
-                max_parallelism=1,
+                memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+                max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
                 check=check,
             )
             workflow = self._report_workflow()
@@ -2614,7 +2619,7 @@ class SqlWorkflow:
                 bounded=True,
                 allow_overwrite=allow_overwrite,
                 fanout_outputs=fanout_outputs,
-                max_parallelism=1,
+                max_parallelism=DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
                 check=check,
             )
             return GeneratedSourceWriteReport(execution.envelope)
@@ -2709,7 +2714,7 @@ class SqlWorkflow:
             evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
-            max_parallelism=1,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
             check=check,
         )
         return UnsupportedWorkflowOperationReport(
@@ -3109,7 +3114,7 @@ class SqlWorkflow:
                 evidence_level="runtime_smoke",
                 bounded=True,
                 allow_overwrite=allow_overwrite,
-                max_parallelism=1,
+                max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
                 check=check,
                 **primitive_payload,
             ).envelope
@@ -3135,7 +3140,7 @@ class SqlWorkflow:
             native_vortex_operation_family="sink",
             native_vortex_provider_scenario=shape.provider_scenario,
             native_vortex_right_input=shape.right_input,
-            max_parallelism=1,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
             check=check,
         ).envelope
         return VortexWorkflowExecutionReport(
@@ -6430,8 +6435,8 @@ class LazyFrame:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=normalized_bounded,
-            memory_gb=4,
-            max_parallelism=1,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
             check=check,
             **native_vortex_kwargs,
         )
@@ -6452,8 +6457,8 @@ class LazyFrame:
             output_ref=target_vortex_path,
             plan_summary=self.operation_summary,
             evidence_level=evidence_level,
-            memory_gb=4,
-            max_parallelism=1,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
             check=check,
         )
 
@@ -6521,8 +6526,8 @@ class LazyFrame:
                 else "production_admitted_local_workflow"
             ),
             bounded=True,
-            memory_gb=4,
-            max_parallelism=1,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
             check=check,
             **native_vortex_kwargs,
         )
@@ -6532,8 +6537,8 @@ class LazyFrame:
         *,
         limit: int | None = None,
         check: bool = False,
-        memory_gb: int = 4,
-        max_parallelism: int = 1,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SqlLocalSourceSmokeReport
         | VortexWorkflowExecutionReport
@@ -6578,8 +6583,8 @@ class LazyFrame:
         self,
         *,
         check: bool = False,
-        memory_gb: int = 4,
-        max_parallelism: int = 1,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SqlLocalSourceSmokeReport
         | VortexWorkflowExecutionReport
@@ -7138,8 +7143,12 @@ class LazyFrame:
             bounded=True,
             allow_overwrite=allow_overwrite,
             fanout_outputs=fanout_outputs,
-            memory_gb=4 if requested_output in {"collect", "profile"} else None,
-            max_parallelism=1,
+            memory_gb=(
+                DEFAULT_LOCAL_RUNTIME_MEMORY_GB
+                if requested_output in {"collect", "profile"}
+                else None
+            ),
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
             check=check,
         )
         return UnsupportedWorkflowOperationReport(
@@ -7175,7 +7184,7 @@ class LazyFrame:
             evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
-            max_parallelism=1,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
             check=check,
         )
         return SqlLocalSourceSmokeReport(execution.envelope)
@@ -8559,7 +8568,7 @@ class LazyFrame:
                         evidence_level="runtime_smoke",
                         bounded=True,
                         allow_overwrite=allow_overwrite,
-                        max_parallelism=1,
+                        max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
                         check=check,
                         **primitive_payload,
                     ).envelope
@@ -8587,7 +8596,7 @@ class LazyFrame:
                     evidence_level="runtime_smoke",
                     bounded=True,
                     allow_overwrite=allow_overwrite,
-                    max_parallelism=1,
+                    max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
                     check=check,
                 ).envelope
                 return VortexWorkflowExecutionReport(
@@ -8617,7 +8626,7 @@ class LazyFrame:
             native_vortex_operation_family="sink",
             native_vortex_provider_scenario=shape.provider_scenario,
             native_vortex_right_input=shape.right_input,
-            max_parallelism=1,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
             check=check,
         ).envelope
         return VortexWorkflowExecutionReport(

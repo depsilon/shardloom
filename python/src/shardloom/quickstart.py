@@ -16,6 +16,10 @@ from .client import (
 )
 from .models import OutputEnvelope
 from .query import LazyFrame, UnsupportedWorkflowReport, read_vortex
+from .runtime_defaults import (
+    DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
+    DEFAULT_INTERNAL_SMOKE_MEMORY_GB,
+)
 
 DEFAULT_QUICKSTART_FIXTURE = Path(
     "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex"
@@ -106,8 +110,8 @@ def quickstart_proof(
     predicate: str = "gte:value:3",
     columns: str | Sequence[str] = ("metric",),
     run_local_vortex: bool = False,
-    memory_gb: int = 1,
-    max_parallelism: int = 2,
+    memory_gb: int = DEFAULT_INTERNAL_SMOKE_MEMORY_GB,
+    max_parallelism: int = DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
 ) -> QuickstartProofReport:
     """Run the repository quickstart proof through explicit ShardLoom CLI calls."""
 

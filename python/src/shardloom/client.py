@@ -29,6 +29,12 @@ from .models import (
     OutputEnvelope,
     RuntimeActivationSummary,
 )
+from .runtime_defaults import (
+    DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
+    DEFAULT_INTERNAL_SMOKE_MEMORY_GB,
+    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+)
 
 CommandPart = Union[str, os.PathLike[str]]
 Binary = Union[CommandPart, Sequence[CommandPart]]
@@ -11942,8 +11948,8 @@ class ShardLoomClient:
         dataset_uri: str | os.PathLike[str],
         primitive: str,
         *,
-        memory_gb: int = 4,
-        max_parallelism: int = 1,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit `vortex-run` CLI command and parse its envelope."""
@@ -12203,8 +12209,8 @@ class ShardLoomClient:
         *,
         predicate: str = "gte:value:3",
         columns: str | Sequence[str] = ("metric",),
-        memory_gb: int = 1,
-        max_parallelism: int = 2,
+        memory_gb: int = DEFAULT_INTERNAL_SMOKE_MEMORY_GB,
+        max_parallelism: int = DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
         check: bool = True,
     ) -> LocalVortexPrimitiveSmokeReport:
         """Run the certified local Vortex primitive workflow through explicit CLI flags."""

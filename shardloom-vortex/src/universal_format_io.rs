@@ -32,9 +32,8 @@ use arrow_array::{
     UInt64Array,
     builder::{
         ArrayBuilder, BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder,
-        Float64Builder, Int64Builder, ListBuilder, StringBuilder, StringDictionaryBuilder,
-        StructBuilder, TimestampMicrosecondBuilder, UInt8Builder, UInt32Builder, UInt64Builder,
-        make_builder,
+        Float64Builder, Int32Builder, Int64Builder, ListBuilder, StringBuilder, StructBuilder,
+        TimestampMicrosecondBuilder, UInt8Builder, UInt32Builder, UInt64Builder, make_builder,
     },
     types::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, Int8Type, Int16Type, Int32Type, Int64Type,
@@ -1120,18 +1119,7 @@ fn embedded_derived_column_array(
             if let Some(domains) = embedded_url_domain_array_from_dictionary(source)? {
                 return Ok(domains);
             }
-            let mut domains =
-                StringDictionaryBuilder::<Int32Type>::with_capacity(source.len(), 256, 4096);
-            for row_index in 0..source.len() {
-                if let Some(value) = utf8_array_value(source, row_index)? {
-                    domains
-                        .append(crate::url_domain::shardloom_url_domain(value))
-                        .map_err(|error| embedded_derived_column_arrow_error(&error))?;
-                } else {
-                    domains.append_null();
-                }
-            }
-            Ok(Arc::new(domains.finish()) as ArrayRef)
+            embedded_url_domain_array_from_utf8_rows(source)
         }
         EmbeddedDerivedColumnKind::ExtractMinute => {
             let mut minutes = UInt8Builder::with_capacity(source.len());
@@ -1161,22 +1149,79 @@ fn embedded_utf8_length_and_url_domain_arrays(source: &ArrayRef) -> Result<(Arra
         return Ok(derived);
     }
     let mut lengths = UInt32Builder::with_capacity(source.len());
-    let mut domains = StringDictionaryBuilder::<Int32Type>::with_capacity(source.len(), 256, 4096);
+    let mut domains = EmbeddedUrlDomainInt32Builder::with_source_len(source.len());
     for row_index in 0..source.len() {
         if let Some(value) = utf8_array_value(source, row_index)? {
             lengths.append_value(usize_to_u32(value.len())?);
-            domains
-                .append(crate::url_domain::shardloom_url_domain(value))
-                .map_err(|error| embedded_derived_column_arrow_error(&error))?;
+            domains.append_domain(crate::url_domain::shardloom_url_domain(value))?;
         } else {
             lengths.append_null();
             domains.append_null();
         }
     }
-    Ok((
-        Arc::new(lengths.finish()) as ArrayRef,
-        Arc::new(domains.finish()) as ArrayRef,
-    ))
+    Ok((Arc::new(lengths.finish()) as ArrayRef, domains.finish()?))
+}
+
+fn embedded_url_domain_array_from_utf8_rows(source: &ArrayRef) -> Result<ArrayRef> {
+    let mut domains = EmbeddedUrlDomainInt32Builder::with_source_len(source.len());
+    for row_index in 0..source.len() {
+        if let Some(value) = utf8_array_value(source, row_index)? {
+            domains.append_domain(crate::url_domain::shardloom_url_domain(value))?;
+        } else {
+            domains.append_null();
+        }
+    }
+    domains.finish()
+}
+
+struct EmbeddedUrlDomainInt32Builder<'a> {
+    keys: Int32Builder,
+    domain_code_by_domain: rustc_hash::FxHashMap<&'a str, i32>,
+    domains_by_code: StringBuilder,
+}
+
+impl<'a> EmbeddedUrlDomainInt32Builder<'a> {
+    fn with_source_len(source_len: usize) -> Self {
+        let mut domain_code_by_domain = rustc_hash::FxHashMap::<&'a str, i32>::default();
+        domain_code_by_domain.reserve(embedded_url_domain_code_capacity(source_len));
+        Self {
+            keys: Int32Builder::with_capacity(source_len),
+            domain_code_by_domain,
+            domains_by_code: StringBuilder::with_capacity(
+                source_len.min(4096),
+                embedded_url_domain_bytes_capacity(source_len),
+            ),
+        }
+    }
+
+    fn append_domain(&mut self, domain: &'a str) -> Result<()> {
+        let domain_code = if let Some(domain_code) = self.domain_code_by_domain.get(domain) {
+            *domain_code
+        } else {
+            let domain_code = i32::try_from(self.domain_code_by_domain.len()).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "embedded URL-domain row dictionary exceeded Int32 key width: {error}; no fallback execution was attempted"
+                ))
+            })?;
+            self.domains_by_code.append_value(domain);
+            self.domain_code_by_domain.insert(domain, domain_code);
+            domain_code
+        };
+        self.keys.append_value(domain_code);
+        Ok(())
+    }
+
+    fn append_null(&mut self) {
+        self.keys.append_null();
+    }
+
+    fn finish(mut self) -> Result<ArrayRef> {
+        let keys = self.keys.finish();
+        let domain_values = Arc::new(self.domains_by_code.finish()) as ArrayRef;
+        let domains = DictionaryArray::<Int32Type>::try_new(keys, domain_values)
+            .map_err(|error| embedded_derived_column_arrow_error(&error))?;
+        Ok(Arc::new(domains) as ArrayRef)
+    }
 }
 
 fn embedded_extract_and_date_trunc_minute_arrays(
@@ -1349,9 +1394,12 @@ where
     };
     let mut lengths_by_code = UInt32Builder::with_capacity(values.len());
     let mut domain_code_by_value_code = Vec::with_capacity(values.len());
-    let mut domain_code_by_domain = std::collections::HashMap::<&str, K::Native>::new();
-    let mut domains_by_code =
-        StringBuilder::with_capacity(values.len().min(4096), values.len().saturating_mul(16));
+    let mut domain_code_by_domain = rustc_hash::FxHashMap::<&str, K::Native>::default();
+    domain_code_by_domain.reserve(embedded_url_domain_code_capacity(values.len()));
+    let mut domains_by_code = StringBuilder::with_capacity(
+        values.len().min(4096),
+        embedded_url_domain_bytes_capacity(values.len()),
+    );
     for value_index in 0..values.len() {
         if let Some(value) = utf8_array_value(values, value_index)? {
             if values_have_nulls {
@@ -1529,9 +1577,12 @@ where
         )));
     }
     let mut domain_code_by_value_code = Vec::with_capacity(values.len());
-    let mut domain_code_by_domain = std::collections::HashMap::<&str, K::Native>::new();
-    let mut domains =
-        StringBuilder::with_capacity(values.len().min(4096), values.len().saturating_mul(16));
+    let mut domain_code_by_domain = rustc_hash::FxHashMap::<&str, K::Native>::default();
+    domain_code_by_domain.reserve(embedded_url_domain_code_capacity(values.len()));
+    let mut domains = StringBuilder::with_capacity(
+        values.len().min(4096),
+        embedded_url_domain_bytes_capacity(values.len()),
+    );
     for value_index in 0..values.len() {
         if let Some(value) = utf8_array_value(values, value_index)? {
             let domain = crate::url_domain::shardloom_url_domain(value);
@@ -1558,6 +1609,14 @@ where
     let derived = DictionaryArray::<K>::try_new(domain_keys, domain_values)
         .map_err(|error| embedded_derived_column_arrow_error(&error))?;
     Ok(Arc::new(derived) as ArrayRef)
+}
+
+fn embedded_url_domain_code_capacity(source_dictionary_values: usize) -> usize {
+    source_dictionary_values.min(4096)
+}
+
+fn embedded_url_domain_bytes_capacity(source_dictionary_values: usize) -> usize {
+    embedded_url_domain_code_capacity(source_dictionary_values).saturating_mul(16)
 }
 
 fn dictionary_keys_remapped_to_derived_codes<K>(
@@ -4984,12 +5043,21 @@ fn arrow_list_value_to_shardloom(
 mod tests {
     use super::*;
     use arrow_array::ArrayAccessor as _;
+    use arrow_array::builder::StringDictionaryBuilder;
 
     type FlatSinkRow = Vec<(String, ScalarValue)>;
     type FlatSinkRows = Vec<FlatSinkRow>;
     type BinarySinkEncoder = fn(&[String], &[FlatSinkRow]) -> Result<Vec<u8>>;
     type TypedSinkEncoder =
         fn(&[String], &[Option<LogicalDType>], &[FlatSinkRow]) -> Result<Vec<u8>>;
+
+    #[test]
+    fn embedded_url_domain_capacity_is_bounded_by_expected_domain_cardinality() {
+        assert_eq!(embedded_url_domain_code_capacity(0), 0);
+        assert_eq!(embedded_url_domain_code_capacity(8), 8);
+        assert_eq!(embedded_url_domain_code_capacity(1_000_000), 4096);
+        assert_eq!(embedded_url_domain_bytes_capacity(1_000_000), 65_536);
+    }
 
     fn binary_source_with_column(column: &str, array: ArrayRef) -> FlatLocalColumnarSource {
         let schema = Arc::new(Schema::new(vec![Field::new(
