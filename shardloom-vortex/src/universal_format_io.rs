@@ -24,16 +24,22 @@ use std::{
 
 use arrow_array::{
     Array, ArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array, Decimal128Array,
-    FixedSizeBinaryArray, FixedSizeListArray, Float32Array, Float64Array, Int8Array, Int16Array,
-    Int32Array, Int64Array, LargeBinaryArray, LargeListArray, LargeStringArray, ListArray,
-    RecordBatch, RecordBatchReader, StringArray, StringViewArray, StructArray,
-    TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    DictionaryArray, FixedSizeBinaryArray, FixedSizeListArray, Float32Array, Float64Array,
+    Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray, LargeListArray,
+    LargeStringArray, ListArray, PrimitiveArray, RecordBatch, RecordBatchReader, StringArray,
+    StringViewArray, StructArray, TimestampMicrosecondArray, TimestampMillisecondArray,
+    TimestampNanosecondArray, TimestampSecondArray, UInt8Array, UInt16Array, UInt32Array,
+    UInt64Array,
     builder::{
         ArrayBuilder, BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder,
         Float64Builder, Int64Builder, ListBuilder, StringBuilder, StringDictionaryBuilder,
-        StructBuilder, TimestampMicrosecondBuilder, UInt32Builder, UInt64Builder, make_builder,
+        StructBuilder, TimestampMicrosecondBuilder, UInt8Builder, UInt32Builder, UInt64Builder,
+        make_builder,
     },
-    types::Int32Type,
+    types::{
+        ArrowDictionaryKeyType, ArrowPrimitiveType, Int8Type, Int16Type, Int32Type, Int64Type,
+        UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+    },
 };
 use arrow_schema::{ArrowError, DataType, Field, Fields, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
@@ -43,6 +49,8 @@ pub const PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS: usize = 65_536;
 pub const PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS: usize = 262_144;
 const PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD: usize = 10_000_000;
 const PARQUET_PARALLEL_ROW_GROUPS_PER_TASK: usize = 16;
+const PARQUET_PARALLEL_MAX_ROW_GROUPS_PER_TASK: usize = 64;
+const PARQUET_PARALLEL_TARGET_TASK_BATCH_MULTIPLE: usize = 4;
 const PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER: usize = 2;
 const PRODUCT_COLUMNAR_STREAM_POLICY: &str = "product_columnar_stream_batch_size_65536_rows";
 const PRODUCT_COLUMNAR_LARGE_STREAM_POLICY: &str = "product_columnar_stream_batch_size_262144_rows";
@@ -102,11 +110,20 @@ fn product_columnar_stream_record_batch_rows(max_rows: usize) -> usize {
     }
 }
 
-const fn product_columnar_stream_policy(stream_batch_size: usize) -> &'static str {
+#[must_use]
+pub const fn product_columnar_stream_policy(stream_batch_size: usize) -> &'static str {
     if stream_batch_size == PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS {
         PRODUCT_COLUMNAR_LARGE_STREAM_POLICY
     } else {
         PRODUCT_COLUMNAR_STREAM_POLICY
+    }
+}
+
+const fn typed_text_record_batch_stream_policy(stream_batch_size: usize) -> &'static str {
+    if stream_batch_size == PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS {
+        "typed_text_record_batch_stream_batch_size_262144_rows"
+    } else {
+        "typed_text_record_batch_stream_batch_size_65536_rows"
     }
 }
 /// Materialized scalar rows produced by a scoped local compatibility adapter.
@@ -278,6 +295,14 @@ impl RecordBatchReader for VecRecordBatchReader {
 enum EmbeddedDerivedColumnKind {
     Utf8Length,
     UrlDomain,
+    ExtractMinute,
+    DateTruncMinute,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EmbeddedDerivedColumnMode {
+    FullAdapter,
+    SourceNativeOnly,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -286,6 +311,7 @@ struct EmbeddedDerivedColumnSpec {
     source_column: String,
     output_column: String,
     kind: EmbeddedDerivedColumnKind,
+    output_data_type: DataType,
 }
 
 struct EmbeddedDerivedColumnRecordBatchReader {
@@ -406,22 +432,13 @@ impl ParquetRowGroupParallelRecordBatchReader {
     fn new(
         path: &Path,
         schema: SchemaRef,
-        row_group_count: usize,
+        tasks: Vec<ParquetRowGroupReadTask>,
         batch_size: usize,
         applied_parallelism: usize,
     ) -> Self {
         let path = path.to_path_buf();
-        let mut tasks = VecDeque::new();
-        let chunk_size = PARQUET_PARALLEL_ROW_GROUPS_PER_TASK.max(1);
-        for (task_index, start) in (0..row_group_count).step_by(chunk_size).enumerate() {
-            let end = (start + chunk_size).min(row_group_count);
-            tasks.push_back(ParquetRowGroupReadTask {
-                task_index,
-                row_groups: (start..end).collect(),
-            });
-        }
         let task_count = tasks.len();
-        let shared_tasks = Arc::new(Mutex::new(tasks));
+        let shared_tasks = Arc::new(Mutex::new(VecDeque::from(tasks)));
         let worker_count = applied_parallelism.max(1).min(task_count.max(1));
         let result_queue_capacity =
             worker_count.max(1) * PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER;
@@ -557,8 +574,125 @@ impl Drop for ParquetRowGroupParallelRecordBatchReader {
     }
 }
 
-fn parquet_row_group_parallel_task_count(row_group_count: usize) -> usize {
-    row_group_count.div_ceil(PARQUET_PARALLEL_ROW_GROUPS_PER_TASK)
+fn parquet_row_group_read_tasks(
+    row_group_count: usize,
+    row_group_rows: Option<&[usize]>,
+    stream_batch_size: usize,
+) -> Vec<ParquetRowGroupReadTask> {
+    let Some(row_group_rows) = row_group_rows else {
+        return fixed_parquet_row_group_read_tasks(row_group_count);
+    };
+    if row_group_rows.len() != row_group_count {
+        return fixed_parquet_row_group_read_tasks(row_group_count);
+    }
+    let target_task_rows = stream_batch_size
+        .max(PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS)
+        .saturating_mul(PARQUET_PARALLEL_TARGET_TASK_BATCH_MULTIPLE)
+        .max(1);
+    let mut tasks = Vec::new();
+    let mut start = 0usize;
+    while start < row_group_count {
+        let mut end = start;
+        let mut rows = 0usize;
+        while end < row_group_count {
+            let group_rows = row_group_rows[end].max(1);
+            let group_count = end - start;
+            if group_count > 0
+                && (rows >= target_task_rows
+                    || group_count >= PARQUET_PARALLEL_MAX_ROW_GROUPS_PER_TASK)
+            {
+                break;
+            }
+            rows = rows.saturating_add(group_rows);
+            end += 1;
+            if rows >= target_task_rows {
+                break;
+            }
+        }
+        if end == start {
+            end += 1;
+        }
+        tasks.push(ParquetRowGroupReadTask {
+            task_index: tasks.len(),
+            row_groups: (start..end).collect(),
+        });
+        start = end;
+    }
+    tasks
+}
+
+fn fixed_parquet_row_group_read_tasks(row_group_count: usize) -> Vec<ParquetRowGroupReadTask> {
+    let chunk_size = PARQUET_PARALLEL_ROW_GROUPS_PER_TASK.max(1);
+    let task_count = row_group_count.div_ceil(chunk_size);
+    let mut tasks = Vec::with_capacity(task_count);
+    (0..row_group_count)
+        .step_by(chunk_size)
+        .enumerate()
+        .for_each(|(task_index, start)| {
+            let end = (start + chunk_size).min(row_group_count);
+            tasks.push(ParquetRowGroupReadTask {
+                task_index,
+                row_groups: (start..end).collect(),
+            });
+        });
+    tasks
+}
+
+fn parquet_row_group_task_row_ranges(
+    tasks: &[ParquetRowGroupReadTask],
+    row_group_ranges: Option<&[(usize, usize)]>,
+) -> Option<Vec<(usize, usize)>> {
+    let row_group_ranges = row_group_ranges?;
+    tasks
+        .iter()
+        .map(|task| {
+            let first = *task.row_groups.first()?;
+            let last = *task.row_groups.last()?;
+            let start = row_group_ranges.get(first)?.0;
+            let end = row_group_ranges.get(last)?.1;
+            Some((start, end))
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParquetRowGroupStreamMetadata {
+    total_hint: Option<usize>,
+    group_count: usize,
+    group_rows: Option<Vec<usize>>,
+    ranges: Option<Vec<(usize, usize)>>,
+}
+
+fn parquet_row_group_stream_metadata(
+    metadata: &parquet::file::metadata::ParquetMetaData,
+) -> ParquetRowGroupStreamMetadata {
+    let row_count_hint = usize::try_from(metadata.file_metadata().num_rows()).ok();
+    let row_group_count = metadata.num_row_groups();
+    let mut row_group_offset = 0usize;
+    let mut row_group_row_ranges = Vec::with_capacity(row_group_count);
+    let mut row_group_rows = Vec::with_capacity(row_group_count);
+    let mut row_group_ranges_exact = true;
+    for row_group_index in 0..row_group_count {
+        let Ok(row_group_row_count) =
+            usize::try_from(metadata.row_group(row_group_index).num_rows())
+        else {
+            row_group_ranges_exact = false;
+            break;
+        };
+        let Some(row_group_end) = row_group_offset.checked_add(row_group_row_count) else {
+            row_group_ranges_exact = false;
+            break;
+        };
+        row_group_row_ranges.push((row_group_offset, row_group_end));
+        row_group_rows.push(row_group_row_count);
+        row_group_offset = row_group_end;
+    }
+    ParquetRowGroupStreamMetadata {
+        total_hint: row_count_hint,
+        group_count: row_group_count,
+        group_rows: row_group_ranges_exact.then_some(row_group_rows),
+        ranges: row_group_ranges_exact.then_some(row_group_row_ranges),
+    }
 }
 
 fn parquet_row_group_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
@@ -747,15 +881,32 @@ fn flat_columnar_stream_source_from_reader(
 pub fn with_embedded_derived_columns_columnar_stream_source(
     source: FlatLocalColumnarStreamSource,
 ) -> FlatLocalColumnarStreamSource {
-    attach_embedded_derived_columns_to_stream_source(source)
+    attach_embedded_derived_columns_to_stream_source(source, EmbeddedDerivedColumnMode::FullAdapter)
+}
+
+#[must_use]
+pub fn with_source_native_embedded_derived_columns_columnar_stream_source(
+    source: FlatLocalColumnarStreamSource,
+) -> FlatLocalColumnarStreamSource {
+    attach_embedded_derived_columns_to_stream_source(
+        source,
+        EmbeddedDerivedColumnMode::SourceNativeOnly,
+    )
 }
 
 fn attach_embedded_derived_columns_to_stream_source(
     mut source: FlatLocalColumnarStreamSource,
+    mode: EmbeddedDerivedColumnMode,
 ) -> FlatLocalColumnarStreamSource {
     let input_schema = source.reader.schema();
-    let specs = embedded_derived_column_specs(input_schema.as_ref());
+    let specs = embedded_derived_column_specs(input_schema.as_ref(), mode);
     if specs.is_empty() {
+        if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeOnly) {
+            source.source_dictionary_preservation_status = format!(
+                "{};source_native_embedded_derived_columns=not_available_for_current_arrow_layout",
+                source.source_dictionary_preservation_status
+            );
+        }
         return source;
     }
     let output_schema = embedded_derived_column_schema(input_schema.as_ref(), &specs);
@@ -769,14 +920,24 @@ fn attach_embedded_derived_columns_to_stream_source(
     }
     source.column_dtypes = source_schema_column_dtypes(output_schema.as_ref());
     source.column_arrow_dtypes = source_schema_column_arrow_dtypes(output_schema.as_ref());
+    let base_dictionary_preservation_status =
+        embedded_derived_status_without_not_synthesized_marker(
+            &source.source_dictionary_preservation_status,
+        );
     source.source_dictionary_preservation_status = format!(
-        "{};embedded_derived_columns={}",
-        source.source_dictionary_preservation_status,
+        "{};embedded_derived_columns={};embedded_derived_column_mode={}",
+        base_dictionary_preservation_status,
         specs
             .iter()
             .map(|spec| spec.output_column.as_str())
             .collect::<Vec<_>>()
-            .join("|")
+            .join("|"),
+        match mode {
+            EmbeddedDerivedColumnMode::FullAdapter => "full_adapter",
+            EmbeddedDerivedColumnMode::SourceNativeOnly => {
+                "source_native_dictionary_or_typed_time_only"
+            }
+        }
     );
     source.reader = Box::new(EmbeddedDerivedColumnRecordBatchReader {
         schema: Arc::clone(&output_schema),
@@ -784,6 +945,16 @@ fn attach_embedded_derived_columns_to_stream_source(
         specs,
     });
     source
+}
+
+fn embedded_derived_status_without_not_synthesized_marker(status: &str) -> String {
+    let retained = status
+        .split(';')
+        .filter(|part| {
+            *part != "embedded_derived_columns=not_synthesized_source_native_columnar_adapter"
+        })
+        .collect::<Vec<_>>();
+    retained.join(";")
 }
 
 fn embedded_derived_column_schema(
@@ -796,18 +967,19 @@ fn embedded_derived_column_schema(
         .map(|field| field.as_ref().clone())
         .collect::<Vec<_>>();
     for spec in specs {
-        let data_type = match spec.kind {
-            EmbeddedDerivedColumnKind::Utf8Length => DataType::UInt32,
-            EmbeddedDerivedColumnKind::UrlDomain => {
-                DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8))
-            }
-        };
-        fields.push(Field::new(&spec.output_column, data_type, true));
+        fields.push(Field::new(
+            &spec.output_column,
+            spec.output_data_type.clone(),
+            true,
+        ));
     }
     Schema::new(fields)
 }
 
-fn embedded_derived_column_specs(schema: &Schema) -> Vec<EmbeddedDerivedColumnSpec> {
+fn embedded_derived_column_specs(
+    schema: &Schema,
+    mode: EmbeddedDerivedColumnMode,
+) -> Vec<EmbeddedDerivedColumnSpec> {
     let existing = schema
         .fields()
         .iter()
@@ -816,32 +988,66 @@ fn embedded_derived_column_specs(schema: &Schema) -> Vec<EmbeddedDerivedColumnSp
     let mut specs = Vec::new();
     for (source_index, field) in schema.fields().iter().enumerate() {
         let source_column = field.name();
-        if is_shardloom_hidden_derived_column(source_column)
-            || !is_utf8_arrow_dtype(field.data_type())
-        {
+        if is_shardloom_hidden_derived_column(source_column) {
             continue;
         }
-        let length_column = shardloom_utf8_length_derived_column(source_column);
-        if should_embed_utf8_length_column(source_column)
-            && !existing.contains(length_column.as_str())
+        let is_full_utf8_source = matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
+            && is_utf8_arrow_dtype(field.data_type());
+        let is_source_native_utf8_dictionary = is_dictionary_utf8_arrow_dtype(field.data_type());
+        if is_full_utf8_source || is_source_native_utf8_dictionary {
+            let length_column = shardloom_utf8_length_derived_column(source_column);
+            if should_embed_utf8_length_column(source_column)
+                && !existing.contains(length_column.as_str())
+            {
+                specs.push(EmbeddedDerivedColumnSpec {
+                    source_index,
+                    source_column: source_column.clone(),
+                    output_column: length_column,
+                    kind: EmbeddedDerivedColumnKind::Utf8Length,
+                    output_data_type: embedded_utf8_length_data_type(field.data_type()),
+                });
+            }
+            if is_url_like_column_name(source_column) {
+                let domain_column = shardloom_url_domain_derived_column(source_column);
+                if !existing.contains(domain_column.as_str()) {
+                    let output_data_type = embedded_url_domain_data_type(field.data_type());
+                    specs.push(EmbeddedDerivedColumnSpec {
+                        source_index,
+                        source_column: source_column.clone(),
+                        output_column: domain_column,
+                        kind: EmbeddedDerivedColumnKind::UrlDomain,
+                        output_data_type,
+                    });
+                }
+            }
+        }
+        let minute_column = shardloom_extract_minute_derived_column(source_column);
+        if should_embed_extract_minute_column(source_column, field.data_type())
+            && is_extract_minute_arrow_dtype(field.data_type())
+            && (matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
+                || is_source_native_extract_minute_arrow_dtype(field.data_type()))
+            && !existing.contains(minute_column.as_str())
         {
             specs.push(EmbeddedDerivedColumnSpec {
                 source_index,
                 source_column: source_column.clone(),
-                output_column: length_column,
-                kind: EmbeddedDerivedColumnKind::Utf8Length,
+                output_column: minute_column,
+                kind: EmbeddedDerivedColumnKind::ExtractMinute,
+                output_data_type: DataType::UInt8,
             });
         }
-        if is_url_like_column_name(source_column) {
-            let domain_column = shardloom_url_domain_derived_column(source_column);
-            if !existing.contains(domain_column.as_str()) {
-                specs.push(EmbeddedDerivedColumnSpec {
-                    source_index,
-                    source_column: source_column.clone(),
-                    output_column: domain_column,
-                    kind: EmbeddedDerivedColumnKind::UrlDomain,
-                });
-            }
+        let date_trunc_minute_column = shardloom_date_trunc_minute_derived_column(source_column);
+        if should_embed_date_trunc_minute_column(source_column, field.data_type())
+            && is_date_trunc_minute_arrow_dtype(field.data_type())
+            && !existing.contains(date_trunc_minute_column.as_str())
+        {
+            specs.push(EmbeddedDerivedColumnSpec {
+                source_index,
+                source_column: source_column.clone(),
+                output_column: date_trunc_minute_column,
+                kind: EmbeddedDerivedColumnKind::DateTruncMinute,
+                output_data_type: DataType::Int64,
+            });
         }
     }
     specs
@@ -868,6 +1074,18 @@ fn append_embedded_derived_columns_to_batch(
             spec_index += 2;
             continue;
         }
+        if let Some(next_spec) = specs.get(spec_index + 1)
+            && spec.source_index == next_spec.source_index
+            && spec.kind == EmbeddedDerivedColumnKind::ExtractMinute
+            && next_spec.kind == EmbeddedDerivedColumnKind::DateTruncMinute
+        {
+            let source = batch.column(spec.source_index);
+            let (minutes, minute_buckets) = embedded_extract_and_date_trunc_minute_arrays(source)?;
+            columns.push(minutes);
+            columns.push(minute_buckets);
+            spec_index += 2;
+            continue;
+        }
         let source = batch.column(spec.source_index);
         let derived = embedded_derived_column_array(source, spec)?;
         columns.push(derived);
@@ -886,6 +1104,9 @@ fn embedded_derived_column_array(
 ) -> Result<ArrayRef> {
     match spec.kind {
         EmbeddedDerivedColumnKind::Utf8Length => {
+            if let Some(values) = embedded_utf8_length_array_from_dictionary(source)? {
+                return Ok(values);
+            }
             let mut values = UInt32Builder::with_capacity(source.len());
             for row_index in 0..source.len() {
                 match utf8_array_value(source, row_index)? {
@@ -896,6 +1117,9 @@ fn embedded_derived_column_array(
             Ok(Arc::new(values.finish()) as ArrayRef)
         }
         EmbeddedDerivedColumnKind::UrlDomain => {
+            if let Some(domains) = embedded_url_domain_array_from_dictionary(source)? {
+                return Ok(domains);
+            }
             let mut domains =
                 StringDictionaryBuilder::<Int32Type>::with_capacity(source.len(), 256, 4096);
             for row_index in 0..source.len() {
@@ -909,10 +1133,33 @@ fn embedded_derived_column_array(
             }
             Ok(Arc::new(domains.finish()) as ArrayRef)
         }
+        EmbeddedDerivedColumnKind::ExtractMinute => {
+            let mut minutes = UInt8Builder::with_capacity(source.len());
+            for row_index in 0..source.len() {
+                match extract_minute_array_value(source, row_index)? {
+                    Some(minute) => minutes.append_value(minute),
+                    None => minutes.append_null(),
+                }
+            }
+            Ok(Arc::new(minutes.finish()) as ArrayRef)
+        }
+        EmbeddedDerivedColumnKind::DateTruncMinute => {
+            let mut minute_buckets = Int64Builder::with_capacity(source.len());
+            for row_index in 0..source.len() {
+                match date_trunc_minute_array_value(source, row_index)? {
+                    Some(minute_bucket) => minute_buckets.append_value(minute_bucket),
+                    None => minute_buckets.append_null(),
+                }
+            }
+            Ok(Arc::new(minute_buckets.finish()) as ArrayRef)
+        }
     }
 }
 
 fn embedded_utf8_length_and_url_domain_arrays(source: &ArrayRef) -> Result<(ArrayRef, ArrayRef)> {
+    if let Some(derived) = embedded_utf8_length_and_url_domain_arrays_from_dictionary(source)? {
+        return Ok(derived);
+    }
     let mut lengths = UInt32Builder::with_capacity(source.len());
     let mut domains = StringDictionaryBuilder::<Int32Type>::with_capacity(source.len(), 256, 4096);
     for row_index in 0..source.len() {
@@ -932,10 +1179,477 @@ fn embedded_utf8_length_and_url_domain_arrays(source: &ArrayRef) -> Result<(Arra
     ))
 }
 
+fn embedded_extract_and_date_trunc_minute_arrays(
+    source: &ArrayRef,
+) -> Result<(ArrayRef, ArrayRef)> {
+    if let Some(values) = source.as_any().downcast_ref::<Int8Array>() {
+        return build_embedded_minute_arrays(
+            values,
+            |value| integer_second_minute_i64(i64::from(value)),
+            |value| Ok(integer_second_date_trunc_minute_i64(i64::from(value))),
+        );
+    }
+    if let Some(values) = source.as_any().downcast_ref::<Int16Array>() {
+        return build_embedded_minute_arrays(
+            values,
+            |value| integer_second_minute_i64(i64::from(value)),
+            |value| Ok(integer_second_date_trunc_minute_i64(i64::from(value))),
+        );
+    }
+    if let Some(values) = source.as_any().downcast_ref::<Int32Array>() {
+        return build_embedded_minute_arrays(
+            values,
+            |value| integer_second_minute_i64(i64::from(value)),
+            |value| Ok(integer_second_date_trunc_minute_i64(i64::from(value))),
+        );
+    }
+    if let Some(values) = source.as_any().downcast_ref::<Int64Array>() {
+        return build_embedded_minute_arrays(values, integer_second_minute_i64, |value| {
+            Ok(integer_second_date_trunc_minute_i64(value))
+        });
+    }
+    if let Some(values) = source.as_any().downcast_ref::<UInt8Array>() {
+        return build_embedded_minute_arrays(
+            values,
+            |value| integer_second_minute_u64(u64::from(value)),
+            |value| integer_second_date_trunc_minute_u64(u64::from(value)),
+        );
+    }
+    if let Some(values) = source.as_any().downcast_ref::<UInt16Array>() {
+        return build_embedded_minute_arrays(
+            values,
+            |value| integer_second_minute_u64(u64::from(value)),
+            |value| integer_second_date_trunc_minute_u64(u64::from(value)),
+        );
+    }
+    if let Some(values) = source.as_any().downcast_ref::<UInt32Array>() {
+        return build_embedded_minute_arrays(
+            values,
+            |value| integer_second_minute_u64(u64::from(value)),
+            |value| integer_second_date_trunc_minute_u64(u64::from(value)),
+        );
+    }
+    if let Some(values) = source.as_any().downcast_ref::<UInt64Array>() {
+        return build_embedded_minute_arrays(
+            values,
+            integer_second_minute_u64,
+            integer_second_date_trunc_minute_u64,
+        );
+    }
+    if let Some(values) = source.as_any().downcast_ref::<TimestampSecondArray>() {
+        return build_embedded_minute_arrays(values, integer_second_minute_i64, |value| {
+            Ok(integer_second_date_trunc_minute_i64(value))
+        });
+    }
+    if let Some(values) = source.as_any().downcast_ref::<TimestampMillisecondArray>() {
+        return build_embedded_minute_arrays(values, timestamp_millis_minute, |value| {
+            Ok(timestamp_millis_date_trunc_minute(value))
+        });
+    }
+    if let Some(values) = source.as_any().downcast_ref::<TimestampMicrosecondArray>() {
+        return build_embedded_minute_arrays(values, timestamp_micros_minute, |value| {
+            Ok(timestamp_micros_date_trunc_minute(value))
+        });
+    }
+    if let Some(values) = source.as_any().downcast_ref::<TimestampNanosecondArray>() {
+        return build_embedded_minute_arrays(values, timestamp_nanos_minute, |value| {
+            Ok(timestamp_nanos_date_trunc_minute(value))
+        });
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "embedded minute-pair derived columns require a typed time-like Arrow array, got {:?}; no fallback execution was attempted",
+        source.data_type()
+    )))
+}
+
+fn build_embedded_minute_arrays<T, MinuteFn, BucketFn>(
+    values: &PrimitiveArray<T>,
+    minute: MinuteFn,
+    minute_bucket: BucketFn,
+) -> Result<(ArrayRef, ArrayRef)>
+where
+    T: ArrowPrimitiveType,
+    MinuteFn: Fn(T::Native) -> u8,
+    BucketFn: Fn(T::Native) -> Result<i64>,
+{
+    let mut minutes = UInt8Builder::with_capacity(values.len());
+    let mut minute_buckets = Int64Builder::with_capacity(values.len());
+    for row_index in 0..values.len() {
+        if values.is_null(row_index) {
+            minutes.append_null();
+            minute_buckets.append_null();
+        } else {
+            let value = values.value(row_index);
+            minutes.append_value(minute(value));
+            minute_buckets.append_value(minute_bucket(value)?);
+        }
+    }
+    Ok(finish_embedded_minute_arrays(minutes, minute_buckets))
+}
+
+fn finish_embedded_minute_arrays(
+    mut minutes: UInt8Builder,
+    mut minute_buckets: Int64Builder,
+) -> (ArrayRef, ArrayRef) {
+    (
+        Arc::new(minutes.finish()) as ArrayRef,
+        Arc::new(minute_buckets.finish()) as ArrayRef,
+    )
+}
+
 fn embedded_derived_column_arrow_error(error: &ArrowError) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "embedded derived column dictionary build failed: {error}; no fallback execution was attempted"
     ))
+}
+
+fn embedded_utf8_length_and_url_domain_arrays_from_dictionary(
+    source: &ArrayRef,
+) -> Result<Option<(ArrayRef, ArrayRef)>> {
+    macro_rules! try_dictionary_key_type {
+        ($key_type:ty) => {
+            if let Some(dictionary) = source.as_any().downcast_ref::<DictionaryArray<$key_type>>() {
+                return embedded_utf8_length_and_url_domain_arrays_from_typed_dictionary(
+                    dictionary,
+                )
+                .map(Some);
+            }
+        };
+    }
+    try_dictionary_key_type!(Int8Type);
+    try_dictionary_key_type!(Int16Type);
+    try_dictionary_key_type!(Int32Type);
+    try_dictionary_key_type!(Int64Type);
+    try_dictionary_key_type!(UInt8Type);
+    try_dictionary_key_type!(UInt16Type);
+    try_dictionary_key_type!(UInt32Type);
+    try_dictionary_key_type!(UInt64Type);
+    Ok(None)
+}
+
+fn embedded_utf8_length_and_url_domain_arrays_from_typed_dictionary<K>(
+    dictionary: &DictionaryArray<K>,
+) -> Result<(ArrayRef, ArrayRef)>
+where
+    K: ArrowDictionaryKeyType,
+    K::Native: DictionaryKeyIndex,
+{
+    let values = dictionary.values();
+    if !is_utf8_arrow_dtype(values.data_type()) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "embedded URL metadata dictionary requires UTF-8 dictionary values, got {:?}; no fallback execution was attempted",
+            values.data_type()
+        )));
+    }
+    let values_have_nulls = values.null_count() > 0;
+    let mut null_value_by_code = if values_have_nulls {
+        Vec::with_capacity(values.len())
+    } else {
+        Vec::new()
+    };
+    let mut lengths_by_code = UInt32Builder::with_capacity(values.len());
+    let mut domain_code_by_value_code = Vec::with_capacity(values.len());
+    let mut domain_code_by_domain = std::collections::HashMap::<&str, K::Native>::new();
+    let mut domains_by_code =
+        StringBuilder::with_capacity(values.len().min(4096), values.len().saturating_mul(16));
+    for value_index in 0..values.len() {
+        if let Some(value) = utf8_array_value(values, value_index)? {
+            if values_have_nulls {
+                null_value_by_code.push(false);
+            }
+            lengths_by_code.append_value(usize_to_u32(value.len())?);
+            let domain = crate::url_domain::shardloom_url_domain(value);
+            let domain_code = if let Some(domain_code) = domain_code_by_domain.get(domain) {
+                *domain_code
+            } else {
+                let domain_code =
+                    K::Native::from_dictionary_key_index(domain_code_by_domain.len())?;
+                domains_by_code.append_value(domain);
+                domain_code_by_domain.insert(domain, domain_code);
+                domain_code
+            };
+            domain_code_by_value_code.push(Some(domain_code));
+        } else {
+            null_value_by_code.push(true);
+            lengths_by_code.append_value(0);
+            domain_code_by_value_code.push(None);
+        }
+    }
+    let length_values = Arc::new(lengths_by_code.finish()) as ArrayRef;
+    let domain_values = Arc::new(domains_by_code.finish()) as ArrayRef;
+    let length_keys = if values_have_nulls {
+        dictionary_keys_with_null_value_codes_rewritten_to_null(
+            dictionary,
+            &null_value_by_code,
+            "embedded URL metadata dictionary",
+        )?
+    } else {
+        dictionary.keys().clone()
+    };
+    let lengths = DictionaryArray::<K>::try_new(length_keys, length_values)
+        .map_err(|error| embedded_derived_column_arrow_error(&error))?;
+    let domain_keys = dictionary_keys_remapped_to_derived_codes(
+        dictionary,
+        &domain_code_by_value_code,
+        "embedded URL metadata compact domain dictionary",
+    )?;
+    let domains = DictionaryArray::<K>::try_new(domain_keys, domain_values)
+        .map_err(|error| embedded_derived_column_arrow_error(&error))?;
+    Ok((Arc::new(lengths) as ArrayRef, Arc::new(domains) as ArrayRef))
+}
+
+fn embedded_utf8_length_array_from_dictionary(source: &ArrayRef) -> Result<Option<ArrayRef>> {
+    macro_rules! try_dictionary_key_type {
+        ($key_type:ty) => {
+            if let Some(dictionary) = source.as_any().downcast_ref::<DictionaryArray<$key_type>>() {
+                return embedded_utf8_length_array_from_typed_dictionary(dictionary).map(Some);
+            }
+        };
+    }
+    try_dictionary_key_type!(Int8Type);
+    try_dictionary_key_type!(Int16Type);
+    try_dictionary_key_type!(Int32Type);
+    try_dictionary_key_type!(Int64Type);
+    try_dictionary_key_type!(UInt8Type);
+    try_dictionary_key_type!(UInt16Type);
+    try_dictionary_key_type!(UInt32Type);
+    try_dictionary_key_type!(UInt64Type);
+    Ok(None)
+}
+
+fn embedded_utf8_length_array_from_typed_dictionary<K>(
+    dictionary: &DictionaryArray<K>,
+) -> Result<ArrayRef>
+where
+    K: ArrowDictionaryKeyType,
+    K::Native: DictionaryKeyIndex,
+{
+    let values = dictionary.values();
+    if !is_utf8_arrow_dtype(values.data_type()) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "embedded derived dictionary length requires UTF-8 dictionary values, got {:?}; no fallback execution was attempted",
+            values.data_type()
+        )));
+    }
+    let values_have_nulls = values.null_count() > 0;
+    let mut null_value_by_code = if values_have_nulls {
+        Vec::with_capacity(values.len())
+    } else {
+        Vec::new()
+    };
+    let mut lengths_by_code = UInt32Builder::with_capacity(values.len());
+    for value_index in 0..values.len() {
+        if let Some(value) = utf8_array_value(values, value_index)? {
+            if values_have_nulls {
+                null_value_by_code.push(false);
+            }
+            lengths_by_code.append_value(usize_to_u32(value.len())?);
+        } else {
+            null_value_by_code.push(true);
+            lengths_by_code.append_value(0);
+        }
+    }
+    let length_values = Arc::new(lengths_by_code.finish()) as ArrayRef;
+    let length_keys = if values_have_nulls {
+        dictionary_keys_with_null_value_codes_rewritten_to_null(
+            dictionary,
+            &null_value_by_code,
+            "embedded derived dictionary length",
+        )?
+    } else {
+        dictionary.keys().clone()
+    };
+    let derived = DictionaryArray::<K>::try_new(length_keys, length_values)
+        .map_err(|error| embedded_derived_column_arrow_error(&error))?;
+    Ok(Arc::new(derived) as ArrayRef)
+}
+
+fn dictionary_keys_with_null_value_codes_rewritten_to_null<K>(
+    dictionary: &DictionaryArray<K>,
+    null_value_by_code: &[bool],
+    context: &str,
+) -> Result<PrimitiveArray<K>>
+where
+    K: ArrowDictionaryKeyType,
+    K::Native: DictionaryKeyIndex,
+{
+    let mut rewritten_keys = Vec::with_capacity(dictionary.len());
+    for row_index in 0..dictionary.len() {
+        if dictionary.is_null(row_index) {
+            rewritten_keys.push(None);
+            continue;
+        }
+        let code = dictionary_code_index(dictionary, row_index)?;
+        if code >= null_value_by_code.len() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} code {code} exceeded dictionary value count {}; no fallback execution was attempted",
+                null_value_by_code.len()
+            )));
+        }
+        if null_value_by_code[code] {
+            rewritten_keys.push(None);
+        } else {
+            rewritten_keys.push(Some(dictionary.keys().value(row_index)));
+        }
+    }
+    Ok(PrimitiveArray::<K>::from_iter(rewritten_keys))
+}
+
+fn embedded_url_domain_array_from_dictionary(source: &ArrayRef) -> Result<Option<ArrayRef>> {
+    macro_rules! try_dictionary_key_type {
+        ($key_type:ty) => {
+            if let Some(dictionary) = source.as_any().downcast_ref::<DictionaryArray<$key_type>>() {
+                return embedded_url_domain_array_from_typed_dictionary(dictionary).map(Some);
+            }
+        };
+    }
+    try_dictionary_key_type!(Int8Type);
+    try_dictionary_key_type!(Int16Type);
+    try_dictionary_key_type!(Int32Type);
+    try_dictionary_key_type!(Int64Type);
+    try_dictionary_key_type!(UInt8Type);
+    try_dictionary_key_type!(UInt16Type);
+    try_dictionary_key_type!(UInt32Type);
+    try_dictionary_key_type!(UInt64Type);
+    Ok(None)
+}
+
+fn embedded_url_domain_array_from_typed_dictionary<K>(
+    dictionary: &DictionaryArray<K>,
+) -> Result<ArrayRef>
+where
+    K: ArrowDictionaryKeyType,
+    K::Native: DictionaryKeyIndex,
+{
+    let values = dictionary.values();
+    if !is_utf8_arrow_dtype(values.data_type()) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "embedded URL-domain dictionary requires UTF-8 dictionary values, got {:?}; no fallback execution was attempted",
+            values.data_type()
+        )));
+    }
+    let mut domain_code_by_value_code = Vec::with_capacity(values.len());
+    let mut domain_code_by_domain = std::collections::HashMap::<&str, K::Native>::new();
+    let mut domains =
+        StringBuilder::with_capacity(values.len().min(4096), values.len().saturating_mul(16));
+    for value_index in 0..values.len() {
+        if let Some(value) = utf8_array_value(values, value_index)? {
+            let domain = crate::url_domain::shardloom_url_domain(value);
+            let domain_code = if let Some(domain_code) = domain_code_by_domain.get(domain) {
+                *domain_code
+            } else {
+                let domain_code =
+                    K::Native::from_dictionary_key_index(domain_code_by_domain.len())?;
+                domains.append_value(domain);
+                domain_code_by_domain.insert(domain, domain_code);
+                domain_code
+            };
+            domain_code_by_value_code.push(Some(domain_code));
+        } else {
+            domain_code_by_value_code.push(None);
+        }
+    }
+    let domain_values = Arc::new(domains.finish()) as ArrayRef;
+    let domain_keys = dictionary_keys_remapped_to_derived_codes(
+        dictionary,
+        &domain_code_by_value_code,
+        "embedded URL-domain compact dictionary",
+    )?;
+    let derived = DictionaryArray::<K>::try_new(domain_keys, domain_values)
+        .map_err(|error| embedded_derived_column_arrow_error(&error))?;
+    Ok(Arc::new(derived) as ArrayRef)
+}
+
+fn dictionary_keys_remapped_to_derived_codes<K>(
+    dictionary: &DictionaryArray<K>,
+    derived_code_by_source_code: &[Option<K::Native>],
+    context: &str,
+) -> Result<PrimitiveArray<K>>
+where
+    K: ArrowDictionaryKeyType,
+    K::Native: DictionaryKeyIndex,
+{
+    let mut remapped_keys = Vec::with_capacity(dictionary.len());
+    for row_index in 0..dictionary.len() {
+        if dictionary.is_null(row_index) {
+            remapped_keys.push(None);
+            continue;
+        }
+        let code = dictionary_code_index(dictionary, row_index)?;
+        let derived_code = derived_code_by_source_code.get(code).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} source code {code} exceeded dictionary value count {}; no fallback execution was attempted",
+                derived_code_by_source_code.len()
+            ))
+        })?;
+        remapped_keys.push(*derived_code);
+    }
+    Ok(PrimitiveArray::<K>::from_iter(remapped_keys))
+}
+
+trait DictionaryKeyIndex: Copy {
+    fn dictionary_key_index(self) -> Result<usize>;
+    fn from_dictionary_key_index(index: usize) -> Result<Self>;
+}
+
+macro_rules! impl_signed_dictionary_key_index {
+    ($($key_type:ty),+ $(,)?) => {
+        $(
+            impl DictionaryKeyIndex for $key_type {
+                fn dictionary_key_index(self) -> Result<usize> {
+                    usize::try_from(self).map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "embedded derived column dictionary code was negative or exceeded usize: {error}; no fallback execution was attempted"
+                        ))
+                    })
+                }
+
+                fn from_dictionary_key_index(index: usize) -> Result<Self> {
+                    <$key_type>::try_from(index).map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "embedded derived column dictionary domain code exceeded key width: {error}; no fallback execution was attempted"
+                        ))
+                    })
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_unsigned_dictionary_key_index {
+    ($($key_type:ty),+ $(,)?) => {
+        $(
+            impl DictionaryKeyIndex for $key_type {
+                fn dictionary_key_index(self) -> Result<usize> {
+                    usize::try_from(self).map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "embedded derived column dictionary code exceeded usize: {error}; no fallback execution was attempted"
+                        ))
+                    })
+                }
+
+                fn from_dictionary_key_index(index: usize) -> Result<Self> {
+                    <$key_type>::try_from(index).map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "embedded derived column dictionary domain code exceeded key width: {error}; no fallback execution was attempted"
+                        ))
+                    })
+                }
+            }
+        )+
+    };
+}
+
+impl_signed_dictionary_key_index!(i8, i16, i32, i64);
+impl_unsigned_dictionary_key_index!(u8, u16, u32, u64);
+
+fn dictionary_code_index<K>(dictionary: &DictionaryArray<K>, row_index: usize) -> Result<usize>
+where
+    K: ArrowDictionaryKeyType,
+    K::Native: DictionaryKeyIndex,
+{
+    let code = dictionary.keys().value(row_index);
+    code.dictionary_key_index()
 }
 
 fn utf8_array_value(array: &ArrayRef, row_index: usize) -> Result<Option<&str>> {
@@ -964,9 +1678,107 @@ fn is_utf8_arrow_dtype(data_type: &DataType) -> bool {
     )
 }
 
+fn is_dictionary_utf8_arrow_dtype(data_type: &DataType) -> bool {
+    matches!(
+        data_type,
+        DataType::Dictionary(key, value)
+            if is_arrow_dictionary_key_dtype(key.as_ref()) && is_utf8_arrow_dtype(value.as_ref())
+    )
+}
+
+fn is_arrow_dictionary_key_dtype(data_type: &DataType) -> bool {
+    matches!(
+        data_type,
+        DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+    )
+}
+
+fn embedded_url_domain_data_type(source_data_type: &DataType) -> DataType {
+    if let DataType::Dictionary(key, value) = source_data_type
+        && is_arrow_dictionary_key_dtype(key.as_ref())
+        && is_utf8_arrow_dtype(value.as_ref())
+    {
+        return DataType::Dictionary(key.clone(), Box::new(DataType::Utf8));
+    }
+    DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8))
+}
+
+fn embedded_utf8_length_data_type(source_data_type: &DataType) -> DataType {
+    if let DataType::Dictionary(key, value) = source_data_type
+        && is_arrow_dictionary_key_dtype(key.as_ref())
+        && is_utf8_arrow_dtype(value.as_ref())
+    {
+        return DataType::Dictionary(key.clone(), Box::new(DataType::UInt32));
+    }
+    DataType::UInt32
+}
+
+fn is_extract_minute_arrow_dtype(data_type: &DataType) -> bool {
+    matches!(
+        data_type,
+        DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+            | DataType::Utf8
+            | DataType::LargeUtf8
+            | DataType::Utf8View
+            | DataType::Timestamp(_, _)
+    )
+}
+
+fn is_source_native_extract_minute_arrow_dtype(data_type: &DataType) -> bool {
+    matches!(
+        data_type,
+        DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+            | DataType::Timestamp(_, _)
+    )
+}
+
+fn is_date_trunc_minute_arrow_dtype(data_type: &DataType) -> bool {
+    is_source_native_extract_minute_arrow_dtype(data_type)
+}
+
 fn is_url_like_column_name(column: &str) -> bool {
     let lower = column.to_ascii_lowercase();
     lower.contains("url") || lower.contains("referer") || lower.contains("uri")
+}
+
+fn should_embed_extract_minute_column(column: &str, data_type: &DataType) -> bool {
+    let lower = column.to_ascii_lowercase();
+    let known_clean_event_time = lower == "eventtime" || lower == "event_time";
+    if is_utf8_arrow_dtype(data_type) {
+        return known_clean_event_time;
+    }
+    known_clean_event_time
+        || lower.ends_with("_time")
+        || lower.ends_with("time")
+        || lower.contains("timestamp")
+}
+
+fn should_embed_date_trunc_minute_column(column: &str, data_type: &DataType) -> bool {
+    if is_utf8_arrow_dtype(data_type) {
+        return false;
+    }
+    should_embed_extract_minute_column(column, data_type)
 }
 
 fn should_embed_utf8_length_column(column: &str) -> bool {
@@ -991,6 +1803,20 @@ fn shardloom_utf8_length_derived_column(column: &str) -> String {
 fn shardloom_url_domain_derived_column(column: &str) -> String {
     format!(
         "__shardloom_derived_url_domain_{}",
+        shardloom_derived_column_token(column)
+    )
+}
+
+fn shardloom_extract_minute_derived_column(column: &str) -> String {
+    format!(
+        "__shardloom_derived_extract_minute_{}",
+        shardloom_derived_column_token(column)
+    )
+}
+
+fn shardloom_date_trunc_minute_derived_column(column: &str) -> String {
+    format!(
+        "__shardloom_derived_date_trunc_minute_{}",
         shardloom_derived_column_token(column)
     )
 }
@@ -1022,6 +1848,197 @@ fn usize_to_u32(value: usize) -> Result<u32> {
     })
 }
 
+fn extract_minute_array_value(array: &ArrayRef, row_index: usize) -> Result<Option<u8>> {
+    if array.is_null(row_index) {
+        return Ok(None);
+    }
+    if let Some(values) = array.as_any().downcast_ref::<Int8Array>() {
+        return Ok(Some(integer_second_minute_i64(i64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<Int16Array>() {
+        return Ok(Some(integer_second_minute_i64(i64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<Int32Array>() {
+        return Ok(Some(integer_second_minute_i64(i64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<Int64Array>() {
+        return Ok(Some(integer_second_minute_i64(values.value(row_index))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<UInt8Array>() {
+        return Ok(Some(integer_second_minute_u64(u64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<UInt16Array>() {
+        return Ok(Some(integer_second_minute_u64(u64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<UInt32Array>() {
+        return Ok(Some(integer_second_minute_u64(u64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<UInt64Array>() {
+        return Ok(Some(integer_second_minute_u64(values.value(row_index))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<TimestampSecondArray>() {
+        return Ok(Some(integer_second_minute_i64(values.value(row_index))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<TimestampMillisecondArray>() {
+        return Ok(Some(timestamp_millis_minute(values.value(row_index))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
+        return Ok(Some(timestamp_micros_minute(values.value(row_index))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<TimestampNanosecondArray>() {
+        return Ok(Some(timestamp_nanos_minute(values.value(row_index))));
+    }
+    if let Some(value) = utf8_array_value(array, row_index)? {
+        return parse_timestamp_minute(value).map(Some).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "embedded extract-minute derived column requires parseable timestamp text; no fallback execution was attempted"
+                    .to_string(),
+            )
+        });
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "embedded extract-minute derived column requires a time-like Arrow array, got {:?}; no fallback execution was attempted",
+        array.data_type()
+    )))
+}
+
+fn date_trunc_minute_array_value(array: &ArrayRef, row_index: usize) -> Result<Option<i64>> {
+    if array.is_null(row_index) {
+        return Ok(None);
+    }
+    if let Some(values) = array.as_any().downcast_ref::<Int8Array>() {
+        return Ok(Some(integer_second_date_trunc_minute_i64(i64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<Int16Array>() {
+        return Ok(Some(integer_second_date_trunc_minute_i64(i64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<Int32Array>() {
+        return Ok(Some(integer_second_date_trunc_minute_i64(i64::from(
+            values.value(row_index),
+        ))));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<Int64Array>() {
+        return Ok(Some(integer_second_date_trunc_minute_i64(
+            values.value(row_index),
+        )));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<UInt8Array>() {
+        return Ok(Some(integer_second_date_trunc_minute_u64(u64::from(
+            values.value(row_index),
+        ))?));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<UInt16Array>() {
+        return Ok(Some(integer_second_date_trunc_minute_u64(u64::from(
+            values.value(row_index),
+        ))?));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<UInt32Array>() {
+        return Ok(Some(integer_second_date_trunc_minute_u64(u64::from(
+            values.value(row_index),
+        ))?));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<UInt64Array>() {
+        return Ok(Some(integer_second_date_trunc_minute_u64(
+            values.value(row_index),
+        )?));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<TimestampSecondArray>() {
+        return Ok(Some(integer_second_date_trunc_minute_i64(
+            values.value(row_index),
+        )));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<TimestampMillisecondArray>() {
+        return Ok(Some(timestamp_millis_date_trunc_minute(
+            values.value(row_index),
+        )));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
+        return Ok(Some(timestamp_micros_date_trunc_minute(
+            values.value(row_index),
+        )));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<TimestampNanosecondArray>() {
+        return Ok(Some(timestamp_nanos_date_trunc_minute(
+            values.value(row_index),
+        )));
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "embedded date-trunc-minute derived column requires a typed time-like Arrow array, got {:?}; no fallback execution was attempted",
+        array.data_type()
+    )))
+}
+
+fn integer_second_minute_i64(value: i64) -> u8 {
+    u8::try_from(value.rem_euclid(3600) / 60).expect("minute is in 0..60")
+}
+
+fn integer_second_minute_u64(value: u64) -> u8 {
+    u8::try_from((value % 3600) / 60).expect("minute is in 0..60")
+}
+
+fn timestamp_micros_minute(value: i64) -> u8 {
+    u8::try_from(value.div_euclid(60_000_000).rem_euclid(60)).expect("minute is in 0..60")
+}
+
+fn timestamp_millis_minute(value: i64) -> u8 {
+    u8::try_from(value.div_euclid(60_000).rem_euclid(60)).expect("minute is in 0..60")
+}
+
+fn timestamp_nanos_minute(value: i64) -> u8 {
+    u8::try_from(value.div_euclid(60_000_000_000).rem_euclid(60)).expect("minute is in 0..60")
+}
+
+fn integer_second_date_trunc_minute_i64(value: i64) -> i64 {
+    value.div_euclid(60) * 60
+}
+
+fn integer_second_date_trunc_minute_u64(value: u64) -> Result<i64> {
+    let minute_bucket = (value / 60) * 60;
+    i64::try_from(minute_bucket).map_err(|_| {
+        ShardLoomError::InvalidOperation(
+            "embedded date-trunc-minute derived column exceeded int64 range; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
+}
+
+fn timestamp_micros_date_trunc_minute(value: i64) -> i64 {
+    value.div_euclid(60_000_000) * 60
+}
+
+fn timestamp_millis_date_trunc_minute(value: i64) -> i64 {
+    value.div_euclid(60_000) * 60
+}
+
+fn timestamp_nanos_date_trunc_minute(value: i64) -> i64 {
+    value.div_euclid(60_000_000_000) * 60
+}
+
+fn parse_timestamp_minute(value: &str) -> Option<u8> {
+    let time = value.split_once('T').map_or_else(
+        || value.split_whitespace().nth(1),
+        |(_date, time)| Some(time),
+    )?;
+    let minute = time.split(':').nth(1)?.parse::<u8>().ok()?;
+    (minute < 60).then_some(minute)
+}
+
 /// Wrap a product columnar ingest source in a bounded Capillary prefetch
 /// pipeline when safe.
 ///
@@ -1033,6 +2050,9 @@ pub fn with_capillary_prefetch_columnar_stream_source(
     source: FlatLocalColumnarStreamSource,
     requested_max_parallelism: usize,
 ) -> FlatLocalColumnarStreamSource {
+    if columnar_stream_source_already_has_capillary_executor(&source) {
+        return source;
+    }
     let requested_max_parallelism = requested_max_parallelism.max(1);
     let FlatLocalColumnarStreamSource {
         header,
@@ -1115,6 +2135,17 @@ pub fn with_capillary_prefetch_columnar_stream_source(
     }
 }
 
+fn columnar_stream_source_already_has_capillary_executor(
+    source: &FlatLocalColumnarStreamSource,
+) -> bool {
+    matches!(
+        source.ingest_executor_status.as_str(),
+        "bounded_capillary_prefetch_active"
+            | "bounded_capillary_row_group_parallel_active"
+            | "bounded_capillary_row_group_parallel_writer_budgeted"
+    )
+}
+
 fn columnar_prefetch_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
     // Reserve one lane for the Vortex writer. Even the public default
     // `max_parallelism=2` should keep a bounded source prefetch lane active
@@ -1145,7 +2176,8 @@ pub fn stream_flat_text_rows_columnar_source(
     requested_batch_size: usize,
     source_format_label: &str,
 ) -> Result<FlatLocalColumnarStreamSource> {
-    let batch_size = requested_batch_size.clamp(1, PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS);
+    let batch_size = requested_batch_size.clamp(1, PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS);
+    let stream_policy = typed_text_record_batch_stream_policy(batch_size);
     let row_count = rows.len();
     let context = format!("{source_format_label} Universal Ingest typed text RecordBatch");
     if rows.is_empty() {
@@ -1170,8 +2202,7 @@ pub fn stream_flat_text_rows_columnar_source(
                 source_stream_unit_count_hint: Some(0),
                 source_stream_unit_row_ranges: Some(Vec::new()),
                 source_stream_unit_hint_kind: "text_record_batch_count".to_string(),
-                source_stream_policy: "typed_text_record_batch_stream_batch_size_65536_rows"
-                    .to_string(),
+                source_stream_policy: stream_policy.to_string(),
                 source_dictionary_preservation_status:
                     "text_typed_column_builders_preserve_declared_types_no_source_dictionary"
                         .to_string(),
@@ -1182,6 +2213,7 @@ pub fn stream_flat_text_rows_columnar_source(
                 ingest_executor_unit_count_hint: Some(0),
                 reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::new())),
             },
+            EmbeddedDerivedColumnMode::FullAdapter,
         ));
     }
     let record_batch_count = row_count.div_ceil(batch_size);
@@ -1205,8 +2237,7 @@ pub fn stream_flat_text_rows_columnar_source(
             source_stream_unit_count_hint: Some(record_batch_count),
             source_stream_unit_row_ranges: Some(contiguous_batch_row_ranges(row_count, batch_size)),
             source_stream_unit_hint_kind: "text_record_batch_count".to_string(),
-            source_stream_policy: "typed_text_record_batch_stream_batch_size_65536_rows"
-                .to_string(),
+            source_stream_policy: stream_policy.to_string(),
             source_dictionary_preservation_status:
                 "text_typed_column_builders_preserve_declared_types_no_source_dictionary"
                     .to_string(),
@@ -1219,6 +2250,7 @@ pub fn stream_flat_text_rows_columnar_source(
                 schema, header, rows, batch_size, context,
             )),
         },
+        EmbeddedDerivedColumnMode::FullAdapter,
     ))
 }
 
@@ -1298,42 +2330,35 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         })?;
     let schema = Arc::clone(builder.schema());
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
-    let row_count_hint = usize::try_from(builder.metadata().file_metadata().num_rows()).ok();
-    let row_group_count = builder.metadata().num_row_groups();
-    let row_group_count_hint = Some(row_group_count);
+    let row_group_metadata = parquet_row_group_stream_metadata(builder.metadata());
+    let row_count_hint = row_group_metadata.total_hint;
     validate_known_stream_row_count(path, "Parquet", row_count_hint, max_rows)?;
-    let mut row_group_offset = 0usize;
-    let mut row_group_row_ranges = Vec::with_capacity(row_group_count);
-    let mut row_group_ranges_exact = true;
-    for row_group_index in 0..row_group_count {
-        let Ok(row_group_rows) =
-            usize::try_from(builder.metadata().row_group(row_group_index).num_rows())
-        else {
-            row_group_ranges_exact = false;
-            break;
-        };
-        let Some(row_group_end) = row_group_offset.checked_add(row_group_rows) else {
-            row_group_ranges_exact = false;
-            break;
-        };
-        row_group_row_ranges.push((row_group_offset, row_group_end));
-        row_group_offset = row_group_end;
-    }
-    let row_group_row_ranges = row_group_ranges_exact.then_some(row_group_row_ranges);
+    let row_group_count = row_group_metadata.group_count;
     let mut stream_plan = FlatColumnarStreamSourcePlan::product_batches(
         max_rows,
-        row_group_count_hint,
+        Some(row_group_count),
         "parquet_row_group_count",
         "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary",
     );
-    stream_plan.source_unit_row_ranges = row_group_row_ranges;
+    stream_plan
+        .source_unit_row_ranges
+        .clone_from(&row_group_metadata.ranges);
     let requested_max_parallelism = requested_max_parallelism.max(1);
     let source_parallelism_budget =
         parquet_row_group_source_parallelism_budget(requested_max_parallelism);
     if requested_max_parallelism > 1 && row_group_count > 1 && source_parallelism_budget > 0 {
-        let task_count = parquet_row_group_parallel_task_count(row_group_count);
-        let applied_parallelism = source_parallelism_budget.min(task_count.max(1));
         let stream_batch_size = stream_plan.stream_batch_size;
+        let tasks = parquet_row_group_read_tasks(
+            row_group_count,
+            row_group_metadata.group_rows.as_deref(),
+            stream_batch_size,
+        );
+        let task_count = tasks.len();
+        let applied_parallelism = source_parallelism_budget.min(task_count.max(1));
+        stream_plan.source_unit_count_hint = Some(task_count);
+        stream_plan.source_unit_hint_kind = "parquet_adaptive_row_group_task_count";
+        stream_plan.source_unit_row_ranges =
+            parquet_row_group_task_row_ranges(&tasks, row_group_metadata.ranges.as_deref());
         let mut source = flat_columnar_stream_source_from_reader(
             schema.as_ref(),
             header.clone(),
@@ -1344,7 +2369,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
             Box::new(ParquetRowGroupParallelRecordBatchReader::new(
                 path,
                 Arc::clone(&schema),
-                row_group_count,
+                tasks,
                 stream_batch_size,
                 applied_parallelism,
             )),
@@ -1352,7 +2377,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         source.ingest_executor_status =
             "bounded_capillary_row_group_parallel_writer_budgeted".to_string();
         source.ingest_executor_kind =
-            "parquet_row_group_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
+            "parquet_row_group_adaptive_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
                 .to_string();
         source.ingest_executor_requested_parallelism = requested_max_parallelism;
         source.ingest_executor_applied_parallelism = applied_parallelism;
@@ -4144,6 +5169,47 @@ mod tests {
     }
 
     #[test]
+    fn text_rows_stream_source_admits_large_product_batch_units() {
+        let header = vec!["id".to_string(), "label".to_string()];
+        let rows = (0..3)
+            .map(|id| {
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(id)),
+                    (
+                        "label".to_string(),
+                        ScalarValue::Utf8(format!("label-{id}")),
+                    ),
+                ]
+            })
+            .collect::<Vec<_>>();
+        let source = stream_flat_text_rows_columnar_source(
+            header.clone(),
+            vec![Some(LogicalDType::Int64), Some(LogicalDType::Utf8)],
+            vec![Some(DataType::Int64), Some(DataType::Utf8)],
+            header.clone(),
+            header,
+            rows,
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+            "CSV",
+        )
+        .expect("large product text stream source");
+
+        assert_eq!(
+            source.source_stream_batch_size,
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
+        );
+        assert_eq!(source.record_batch_count_hint, Some(1));
+        assert_eq!(
+            source.source_stream_policy,
+            "typed_text_record_batch_stream_batch_size_262144_rows"
+        );
+        assert_eq!(
+            source.source_stream_unit_row_ranges.as_deref(),
+            Some(&[(0, 3)][..])
+        );
+    }
+
+    #[test]
     fn text_rows_stream_source_embeds_exact_hidden_string_metadata() {
         use arrow_array::DictionaryArray;
 
@@ -4152,6 +5218,7 @@ mod tests {
             "Referer".to_string(),
             "SearchPhrase".to_string(),
             "PlainNote".to_string(),
+            "raw_event_time".to_string(),
         ];
         let rows = vec![
             vec![
@@ -4168,6 +5235,10 @@ mod tests {
                     "PlainNote".to_string(),
                     ScalarValue::Utf8("plain".to_string()),
                 ),
+                (
+                    "raw_event_time".to_string(),
+                    ScalarValue::Utf8("not-a-timestamp".to_string()),
+                ),
             ],
             vec![
                 ("URL".to_string(), ScalarValue::Null),
@@ -4183,12 +5254,16 @@ mod tests {
                     "PlainNote".to_string(),
                     ScalarValue::Utf8("note".to_string()),
                 ),
+                (
+                    "raw_event_time".to_string(),
+                    ScalarValue::Utf8("still dirty".to_string()),
+                ),
             ],
         ];
         let mut source = stream_flat_text_rows_columnar_source(
             header.clone(),
-            vec![None, None, None, None],
-            vec![None, None, None, None],
+            vec![None, None, None, None, None],
+            vec![None, None, None, None, None],
             header.clone(),
             header,
             rows,
@@ -4216,6 +5291,14 @@ mod tests {
         assert!(
             !names.contains(&"__shardloom_derived_url_domain_SearchPhrase".to_string()),
             "non-URL text columns get exact length metadata, not URL-domain metadata"
+        );
+        assert!(
+            !names.contains(&"__shardloom_derived_extract_minute_raw_event_time".to_string()),
+            "dirty timestamp text columns must not get eager minute parsing metadata"
+        );
+        assert!(
+            !names.contains(&"__shardloom_derived_date_trunc_minute_raw_event_time".to_string()),
+            "dirty timestamp text columns must not get eager date-trunc metadata"
         );
         assert!(
             source
@@ -4266,6 +5349,438 @@ mod tests {
             .expect("search lengths");
         assert_eq!(search_lengths.value(0), 0);
         assert_eq!(search_lengths.value(1), 4);
+    }
+
+    #[test]
+    fn source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis() {
+        use arrow_array::DictionaryArray;
+
+        let mut builder = StringDictionaryBuilder::<Int32Type>::new();
+        builder
+            .append("https://www.google.com/search")
+            .expect("append google");
+        builder
+            .append("https://docs.rs/crate")
+            .expect("append docs");
+        builder
+            .append("https://www.google.com/search")
+            .expect("append google repeat");
+        builder.append_null();
+        let url_dictionary = Arc::new(builder.finish()) as ArrayRef;
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "URL",
+            url_dictionary.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(Arc::clone(&schema), vec![url_dictionary])
+            .expect("dictionary batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: vec!["URL".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Utf8)],
+            column_arrow_dtypes: vec![Some(schema.field(0).data_type().clone())],
+            materialized_columns: vec!["URL".to_string()],
+            reader_projection_columns: vec!["URL".to_string()],
+            row_count_hint: Some(4),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size: 4,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 4)]),
+            source_stream_unit_hint_kind: "test_dictionary_record_batch".to_string(),
+            source_stream_policy: "test_dictionary_source_native_units".to_string(),
+            source_dictionary_preservation_status: "test_dictionary_preservation_available"
+                .to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_dictionary_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
+        };
+
+        let mut source = with_source_native_embedded_derived_columns_columnar_stream_source(source);
+
+        assert!(
+            source.source_dictionary_preservation_status.contains(
+                "embedded_derived_column_mode=source_native_dictionary_or_typed_time_only"
+            ),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        assert!(
+            !source
+                .source_dictionary_preservation_status
+                .contains("not_synthesized_source_native_columnar_adapter"),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            vec![
+                "URL".to_string(),
+                "__shardloom_derived_utf8_len_URL".to_string(),
+                "__shardloom_derived_url_domain_URL".to_string()
+            ]
+        );
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        let lengths = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("dictionary-backed lengths");
+        let lengths = lengths
+            .downcast_dict::<UInt32Array>()
+            .expect("length values");
+        assert_eq!(
+            lengths.value(0),
+            u32::try_from("https://www.google.com/search".len()).expect("len")
+        );
+        assert_eq!(
+            lengths.value(1),
+            u32::try_from("https://docs.rs/crate".len()).expect("len")
+        );
+        assert_eq!(lengths.value(2), lengths.value(0));
+        assert!(lengths.is_null(3));
+
+        let domains = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("domains");
+        let domain_values = domains
+            .values()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("domain values");
+        assert_eq!(
+            domain_values.len(),
+            2,
+            "hidden domain dictionary should collapse repeated URL domains"
+        );
+        assert_eq!(
+            domain_values.value(dictionary_code_index(domains, 0).expect("row 0 domain code")),
+            "google.com"
+        );
+        assert_eq!(
+            domain_values.value(dictionary_code_index(domains, 1).expect("row 1 domain code")),
+            "docs.rs"
+        );
+        assert_eq!(
+            domain_values.value(dictionary_code_index(domains, 2).expect("row 2 domain code")),
+            "google.com"
+        );
+        assert!(domains.is_null(3));
+        assert!(source.reader.next().is_none());
+    }
+
+    #[test]
+    fn source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata() {
+        use arrow_array::DictionaryArray;
+
+        let mut builder = StringDictionaryBuilder::<UInt8Type>::new();
+        builder
+            .append("https://example.com/a")
+            .expect("append example");
+        builder
+            .append("https://docs.rs/crate")
+            .expect("append docs");
+        builder
+            .append("https://example.com/a")
+            .expect("append example repeat");
+        let url_dictionary = Arc::new(builder.finish()) as ArrayRef;
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "URL",
+            url_dictionary.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(Arc::clone(&schema), vec![url_dictionary])
+            .expect("dictionary batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: vec!["URL".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Utf8)],
+            column_arrow_dtypes: vec![Some(schema.field(0).data_type().clone())],
+            materialized_columns: vec!["URL".to_string()],
+            reader_projection_columns: vec!["URL".to_string()],
+            row_count_hint: Some(3),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size: 3,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 3)]),
+            source_stream_unit_hint_kind: "test_u8_dictionary_record_batch".to_string(),
+            source_stream_policy: "test_u8_dictionary_source_native_units".to_string(),
+            source_dictionary_preservation_status: "test_dictionary_preservation_available"
+                .to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_dictionary_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
+        };
+
+        let mut source = with_source_native_embedded_derived_columns_columnar_stream_source(source);
+
+        assert_eq!(
+            source
+                .reader
+                .schema()
+                .field_with_name("__shardloom_derived_utf8_len_URL")
+                .expect("length field")
+                .data_type(),
+            &DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::UInt32))
+        );
+        assert_eq!(
+            source
+                .reader
+                .schema()
+                .field_with_name("__shardloom_derived_url_domain_URL")
+                .expect("domain field")
+                .data_type(),
+            &DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8))
+        );
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        let lengths = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<DictionaryArray<UInt8Type>>()
+            .expect("u8 length dictionary");
+        let lengths = lengths
+            .downcast_dict::<UInt32Array>()
+            .expect("length values");
+        assert_eq!(
+            lengths.value(0),
+            u32::try_from("https://example.com/a".len()).expect("len")
+        );
+        assert_eq!(
+            lengths.value(1),
+            u32::try_from("https://docs.rs/crate".len()).expect("len")
+        );
+        assert_eq!(lengths.value(2), lengths.value(0));
+
+        let domains = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<DictionaryArray<UInt8Type>>()
+            .expect("u8 domain dictionary");
+        let domain_values = domains
+            .values()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("domain values");
+        assert_eq!(domain_values.len(), 2);
+        assert_eq!(
+            domain_values.value(dictionary_code_index(domains, 0).expect("row 0 domain code")),
+            "example.com"
+        );
+        assert_eq!(
+            domain_values.value(dictionary_code_index(domains, 1).expect("row 1 domain code")),
+            "docs.rs"
+        );
+        assert_eq!(
+            domain_values.value(dictionary_code_index(domains, 2).expect("row 2 domain code")),
+            "example.com"
+        );
+        assert!(source.reader.next().is_none());
+    }
+
+    #[test]
+    fn source_native_typed_time_stream_embeds_compact_minute_metadata() {
+        let event_time = Arc::new(Int64Array::from(vec![0_i64, 60, 3599, 3600])) as ArrayRef;
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "EventTime",
+            DataType::Int64,
+            true,
+        )]));
+        let batch =
+            RecordBatch::try_new(Arc::clone(&schema), vec![event_time]).expect("time batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: vec!["EventTime".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Int64)],
+            column_arrow_dtypes: vec![Some(DataType::Int64)],
+            materialized_columns: vec!["EventTime".to_string()],
+            reader_projection_columns: vec!["EventTime".to_string()],
+            row_count_hint: Some(4),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size: 4,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 4)]),
+            source_stream_unit_hint_kind: "test_typed_time_record_batch".to_string(),
+            source_stream_policy: "test_typed_time_source_native_units".to_string(),
+            source_dictionary_preservation_status: "test_typed_time_source_native".to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_typed_time_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
+        };
+
+        let mut source = with_source_native_embedded_derived_columns_columnar_stream_source(source);
+
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            vec![
+                "EventTime".to_string(),
+                "__shardloom_derived_extract_minute_EventTime".to_string(),
+                "__shardloom_derived_date_trunc_minute_EventTime".to_string()
+            ]
+        );
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        let minutes = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<UInt8Array>()
+            .expect("minute keys");
+        assert_eq!(minutes.value(0), 0);
+        assert_eq!(minutes.value(1), 1);
+        assert_eq!(minutes.value(2), 59);
+        assert_eq!(minutes.value(3), 0);
+        let minute_buckets = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .expect("minute bucket keys");
+        assert_eq!(minute_buckets.value(0), 0);
+        assert_eq!(minute_buckets.value(1), 60);
+        assert_eq!(minute_buckets.value(2), 3_540);
+        assert_eq!(minute_buckets.value(3), 3_600);
+        assert!(source.reader.next().is_none());
+    }
+
+    #[test]
+    fn source_native_timestamp_units_embed_compact_minute_metadata() {
+        let seconds =
+            Arc::new(TimestampSecondArray::from(vec![0_i64, 60, 3_599, 3_600])) as ArrayRef;
+        let millis = Arc::new(TimestampMillisecondArray::from(vec![
+            0_i64, 60_000, 3_599_000, 3_600_000,
+        ])) as ArrayRef;
+        let nanos = Arc::new(TimestampNanosecondArray::from(vec![
+            0_i64,
+            60_000_000_000,
+            3_599_000_000_000,
+            3_600_000_000_000,
+        ])) as ArrayRef;
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                "EventTime",
+                DataType::Timestamp(TimeUnit::Second, None),
+                true,
+            ),
+            Field::new(
+                "event_time",
+                DataType::Timestamp(TimeUnit::Millisecond, None),
+                true,
+            ),
+            Field::new(
+                "click_timestamp",
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
+                true,
+            ),
+        ]));
+        let batch = RecordBatch::try_new(Arc::clone(&schema), vec![seconds, millis, nanos])
+            .expect("timestamp batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: vec![
+                "EventTime".to_string(),
+                "event_time".to_string(),
+                "click_timestamp".to_string(),
+            ],
+            column_dtypes: vec![
+                Some(LogicalDType::TimestampMicros),
+                Some(LogicalDType::TimestampMicros),
+                Some(LogicalDType::TimestampMicros),
+            ],
+            column_arrow_dtypes: vec![
+                Some(DataType::Timestamp(TimeUnit::Second, None)),
+                Some(DataType::Timestamp(TimeUnit::Millisecond, None)),
+                Some(DataType::Timestamp(TimeUnit::Nanosecond, None)),
+            ],
+            materialized_columns: vec![
+                "EventTime".to_string(),
+                "event_time".to_string(),
+                "click_timestamp".to_string(),
+            ],
+            reader_projection_columns: vec![
+                "EventTime".to_string(),
+                "event_time".to_string(),
+                "click_timestamp".to_string(),
+            ],
+            row_count_hint: Some(4),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size: 4,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 4)]),
+            source_stream_unit_hint_kind: "test_timestamp_units_record_batch".to_string(),
+            source_stream_policy: "test_timestamp_units_source_native_units".to_string(),
+            source_dictionary_preservation_status: "test_timestamp_units_source_native".to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_timestamp_units_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
+        };
+
+        let mut source = with_source_native_embedded_derived_columns_columnar_stream_source(source);
+
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            vec![
+                "EventTime".to_string(),
+                "event_time".to_string(),
+                "click_timestamp".to_string(),
+                "__shardloom_derived_extract_minute_EventTime".to_string(),
+                "__shardloom_derived_date_trunc_minute_EventTime".to_string(),
+                "__shardloom_derived_extract_minute_event_time".to_string(),
+                "__shardloom_derived_date_trunc_minute_event_time".to_string(),
+                "__shardloom_derived_extract_minute_click_timestamp".to_string(),
+                "__shardloom_derived_date_trunc_minute_click_timestamp".to_string(),
+            ]
+        );
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        for column_index in [3, 5, 7] {
+            let minutes = batch
+                .column(column_index)
+                .as_any()
+                .downcast_ref::<UInt8Array>()
+                .expect("minute keys");
+            assert_eq!(minutes.value(0), 0);
+            assert_eq!(minutes.value(1), 1);
+            assert_eq!(minutes.value(2), 59);
+            assert_eq!(minutes.value(3), 0);
+        }
+        for column_index in [4, 6, 8] {
+            let minute_buckets = batch
+                .column(column_index)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .expect("minute bucket keys");
+            assert_eq!(minute_buckets.value(0), 0);
+            assert_eq!(minute_buckets.value(1), 60);
+            assert_eq!(minute_buckets.value(2), 3_540);
+            assert_eq!(minute_buckets.value(3), 3_600);
+        }
+        assert!(source.reader.next().is_none());
     }
 
     #[test]
@@ -4481,6 +5996,127 @@ mod tests {
     }
 
     #[test]
+    fn capillary_prefetch_does_not_double_wrap_existing_capillary_source() {
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int64Array::from(vec![1, 2, 3]))],
+        )
+        .expect("batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: vec!["id".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Int64)],
+            column_arrow_dtypes: vec![Some(DataType::Int64)],
+            materialized_columns: vec!["id".to_string()],
+            reader_projection_columns: vec!["id".to_string()],
+            row_count_hint: Some(3),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 3)]),
+            source_stream_unit_hint_kind: "test_record_batch_count".to_string(),
+            source_stream_policy: "test_source_defined_record_batches".to_string(),
+            source_dictionary_preservation_status: "test_not_applicable".to_string(),
+            ingest_executor_status: "bounded_capillary_prefetch_active".to_string(),
+            ingest_executor_kind: "source_reader_to_vortex_writer_prefetch_pipeline".to_string(),
+            ingest_executor_requested_parallelism: 2,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            reader: Box::new(TestRecordBatchReader {
+                schema,
+                batches: std::collections::VecDeque::from([batch]),
+            }),
+        };
+
+        let mut source = with_capillary_prefetch_columnar_stream_source(source, 8);
+
+        assert_eq!(
+            source.ingest_executor_status,
+            "bounded_capillary_prefetch_active"
+        );
+        assert_eq!(
+            source.ingest_executor_kind,
+            "source_reader_to_vortex_writer_prefetch_pipeline"
+        );
+        assert_eq!(source.ingest_executor_requested_parallelism, 2);
+        assert_eq!(source.ingest_executor_applied_parallelism, 1);
+        assert_eq!(source.ingest_executor_unit_count_hint, Some(1));
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        assert_eq!(batch.num_rows(), 3);
+        assert!(source.reader.next().is_none());
+    }
+
+    #[test]
+    fn parquet_row_group_task_builder_coalesces_tiny_groups_by_row_budget() {
+        let rows = vec![1_024; 128];
+        let tasks = parquet_row_group_read_tasks(
+            rows.len(),
+            Some(&rows),
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+        );
+
+        assert_eq!(tasks.len(), 2);
+        assert_eq!(tasks[0].task_index, 0);
+        assert_eq!(tasks[0].row_groups, (0..64).collect::<Vec<_>>());
+        assert_eq!(tasks[1].task_index, 1);
+        assert_eq!(tasks[1].row_groups, (64..128).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn parquet_row_group_task_builder_splits_large_groups_by_row_budget() {
+        let rows = vec![PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS; 12];
+        let tasks = parquet_row_group_read_tasks(
+            rows.len(),
+            Some(&rows),
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+        );
+
+        assert_eq!(tasks.len(), 3);
+        assert_eq!(tasks[0].row_groups, vec![0, 1, 2, 3]);
+        assert_eq!(tasks[1].row_groups, vec![4, 5, 6, 7]);
+        assert_eq!(tasks[2].row_groups, vec![8, 9, 10, 11]);
+    }
+
+    #[test]
+    fn parquet_row_group_task_builder_falls_back_to_fixed_groups_without_metadata() {
+        let tasks = parquet_row_group_read_tasks(
+            PARQUET_PARALLEL_ROW_GROUPS_PER_TASK + 1,
+            None,
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+        );
+
+        assert_eq!(tasks.len(), 2);
+        assert_eq!(
+            tasks[0].row_groups,
+            (0..PARQUET_PARALLEL_ROW_GROUPS_PER_TASK).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            tasks[1].row_groups,
+            vec![PARQUET_PARALLEL_ROW_GROUPS_PER_TASK]
+        );
+    }
+
+    #[test]
+    fn parquet_row_group_task_row_ranges_report_adaptive_source_units() {
+        let tasks = vec![
+            ParquetRowGroupReadTask {
+                task_index: 0,
+                row_groups: vec![0, 1, 2],
+            },
+            ParquetRowGroupReadTask {
+                task_index: 1,
+                row_groups: vec![3, 4],
+            },
+        ];
+        let row_group_ranges = vec![(0, 2), (2, 5), (5, 8), (8, 11), (11, 12)];
+
+        let task_ranges = parquet_row_group_task_row_ranges(&tasks, Some(&row_group_ranges))
+            .expect("task ranges");
+
+        assert_eq!(task_ranges, vec![(0, 8), (8, 12)]);
+    }
+
+    #[test]
     fn parquet_row_group_parallel_stream_preserves_order_and_records_executor() {
         let path = std::env::temp_dir().join(format!(
             "shardloom-parquet-row-group-parallel-{}-{}.parquet",
@@ -4516,33 +6152,26 @@ mod tests {
         );
         assert_eq!(
             source.ingest_executor_kind,
-            "parquet_row_group_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
+            "parquet_row_group_adaptive_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 3);
-        assert_eq!(source.ingest_executor_applied_parallelism, 2);
-        assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
-        assert_eq!(source.source_stream_unit_count_hint, Some(20));
+        assert_eq!(source.ingest_executor_applied_parallelism, 1);
+        assert_eq!(source.ingest_executor_unit_count_hint, Some(1));
+        assert_eq!(source.source_stream_unit_count_hint, Some(1));
         assert_eq!(
             source.source_stream_unit_row_ranges.as_ref().map(Vec::len),
-            Some(20)
+            Some(1)
         );
         assert_eq!(
             source
                 .source_stream_unit_row_ranges
                 .as_ref()
                 .and_then(|ranges| ranges.first().copied()),
-            Some((0, 2))
-        );
-        assert_eq!(
-            source
-                .source_stream_unit_row_ranges
-                .as_ref()
-                .and_then(|ranges| ranges.last().copied()),
-            Some((38, 40))
+            Some((0, 40))
         );
         assert_eq!(
             source.source_stream_unit_hint_kind,
-            "parquet_row_group_count"
+            "parquet_adaptive_row_group_task_count"
         );
         assert_eq!(
             source.source_stream_policy,
@@ -4601,10 +6230,27 @@ mod tests {
         );
         assert_eq!(
             source.ingest_executor_kind,
-            "parquet_row_group_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
+            "parquet_row_group_adaptive_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 2);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
+        assert_eq!(source.ingest_executor_unit_count_hint, Some(1));
+        assert_eq!(source.source_stream_unit_count_hint, Some(1));
+        assert_eq!(
+            source.source_stream_unit_row_ranges.as_ref().map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            source
+                .source_stream_unit_row_ranges
+                .as_ref()
+                .and_then(|ranges| ranges.first().copied()),
+            Some((0, 4))
+        );
+        assert_eq!(
+            source.source_stream_unit_hint_kind,
+            "parquet_adaptive_row_group_task_count"
+        );
         let first = source
             .reader
             .next()

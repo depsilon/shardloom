@@ -7380,6 +7380,7 @@ fn vortex_run_fields(
     append_vortex_run_metadata_fields(&mut fields, report);
     append_vortex_run_effect_fields(&mut fields, report);
     append_vortex_run_local_primitive_fields(&mut fields, report);
+    append_vortex_run_timing_surface_fields(&mut fields);
     fields.push((
         "execution".to_string(),
         if report.data_read {
@@ -7399,6 +7400,32 @@ fn vortex_run_fields(
     );
     append_vortex_local_engine_why_fields(&mut fields, context.why_report);
     fields
+}
+
+fn append_vortex_run_timing_surface_fields(fields: &mut Vec<(String, String)>) {
+    fields.extend([
+        ("timing_surface".to_string(), "hot_runtime".to_string()),
+        (
+            "actual_evidence_tier".to_string(),
+            "metadata_sink".to_string(),
+        ),
+        (
+            "route_total_timing_reported".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "result_sink_timing_included_in_route_total".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "evidence_render_timing_included_in_route_total".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "timing_claim_boundary".to_string(),
+            "runtime_route_evidence_only_no_benchmark_or_publication_claim".to_string(),
+        ),
+    ]);
 }
 
 fn append_vortex_run_identity_fields(
@@ -7658,6 +7685,13 @@ fn append_vortex_run_local_primitive_execution_fields(
             ),
         ),
         (
+            "local_primitive_state_pressure_class".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.state_budget.state_pressure_class.clone(),
+            ),
+        ),
+        (
             "local_primitive_state_family".to_string(),
             local.map_or_else(
                 || "none".to_string(),
@@ -7696,6 +7730,13 @@ fn append_vortex_run_local_primitive_execution_fields(
             ),
         ),
         (
+            "local_primitive_budget_scope".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.state_budget.budget_scope.clone(),
+            ),
+        ),
+        (
             "local_primitive_spill_policy".to_string(),
             local.map_or_else(
                 || "none".to_string(),
@@ -7715,6 +7756,12 @@ fn append_vortex_run_local_primitive_execution_fields(
                 .to_string(),
         ),
         (
+            "local_primitive_spill_io_performed".to_string(),
+            local
+                .is_some_and(|local| local.state_budget.spill_io_performed)
+                .to_string(),
+        ),
+        (
             "local_primitive_fail_closed_if_spill_required".to_string(),
             local
                 .is_some_and(|local| local.state_budget.fail_closed_if_spill_required)
@@ -7725,6 +7772,13 @@ fn append_vortex_run_local_primitive_execution_fields(
             local.map_or_else(
                 || "none".to_string(),
                 |local| local.state_budget.diagnostic_code.clone(),
+            ),
+        ),
+        (
+            "local_primitive_state_budget_next_action".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.state_budget.next_action.clone(),
             ),
         ),
     ]);
@@ -8421,6 +8475,36 @@ fn handle_vortex_count_local_encoded(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_field(fields: &[(String, String)], key: &str) -> String {
+        fields
+            .iter()
+            .find_map(|(field_key, value)| (field_key == key).then_some(value.clone()))
+            .unwrap_or_else(|| panic!("missing field {key}"))
+    }
+
+    #[test]
+    fn vortex_run_timing_surface_fields_stay_hot_runtime_only() {
+        let mut fields = Vec::new();
+
+        append_vortex_run_timing_surface_fields(&mut fields);
+
+        assert_eq!(test_field(&fields, "timing_surface"), "hot_runtime");
+        assert_eq!(test_field(&fields, "actual_evidence_tier"), "metadata_sink");
+        assert_eq!(test_field(&fields, "route_total_timing_reported"), "false");
+        assert_eq!(
+            test_field(&fields, "result_sink_timing_included_in_route_total"),
+            "false"
+        );
+        assert_eq!(
+            test_field(&fields, "evidence_render_timing_included_in_route_total"),
+            "false"
+        );
+        assert_eq!(
+            test_field(&fields, "timing_claim_boundary"),
+            "runtime_route_evidence_only_no_benchmark_or_publication_claim"
+        );
+    }
 
     #[test]
     fn parse_grouped_aggregate_payload_preserves_group_columns() {

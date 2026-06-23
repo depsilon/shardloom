@@ -79,10 +79,11 @@ blanket performance claims:
     from the artifact instead of a query sidecar.
   - Universal Ingest can persist exact hidden derived columns inside the same `.vortex` file when
     the admitted source adapter can do so without adding a slower per-row preprocessing pass. The
-    retained compact family is `UInt32` UTF-8 byte length for high-value URL/search/title text fields
-    plus dictionary-encoded URL/Referer/URI domain values. Native SQL/DataFrame-style routes consume
-    those columns automatically when present while keeping hidden fields out of normal `select *`
-    output.
+    retained compact family is `UInt32` UTF-8 byte length for high-value URL/search/title text
+    fields, dictionary-encoded URL/Referer/URI domain values, compact minute-of-hour keys, and
+    epoch-minute date-trunc buckets for admitted typed time-like fields. Native SQL/DataFrame-style
+    routes consume those columns automatically when present while keeping hidden fields out of
+    normal `select *` output.
   - Scalar and grouped OLAP routes use typed/dictionary state where available before row export:
     direct scalar `count`/`sum`/`avg`/`min`/`max`, exact scalar distinct over used dictionary codes,
     repeated numeric SUM/AVG expression fusion, compact grouped count/sum/avg, URL-domain/length

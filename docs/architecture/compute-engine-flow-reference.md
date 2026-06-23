@@ -160,10 +160,10 @@ call PulseWeave, capillary, or metadata-first APIs by hand.
 
 | Operator family | Current hot-path posture | Required evidence |
 | --- | --- | --- |
-| Aggregate/distinct | Direct typed/dictionary scalar `count`/`sum`/`avg`/`min`/`max` and `count_distinct`, repeated numeric SUM/AVG expression fusion over shared accessors, exact dictionary distinct over used codes rather than unused dictionary values, compact count/sum/avg grouped state including exact UTF-8 `length(...)` measures, typed numeric-pair state, typed numeric/minute/string count state, transformed dictionary URL-domain/length grouping, exact chunk-local UTF-8 dictionary grouping when Vortex dictionary codes are not surfaced, and streaming count-star top-K finalization for exact count-only ordered groups. Accessor evidence separates true Vortex dictionary codes from chunk-local UTF-8 dictionaries and materialized values. | `aggregate_update_strategy`, `aggregate_accessor_summary`, `aggregate_accessor_materialization_status`, `aggregate_accessor_blockers`, `expression_fusion_strategy`, `expression_plan_fingerprint_status`, `aggregate_key_encoding_mode`, `compact_group_state_strategy`, `distinct_state_strategy`, `group_output_strategy`, `group_state_mode`, `capillary_work_units`, `pulseweave_pressure_signals`, `decoded_string_count`, `estimated_group_key_storage_bytes` |
-| String predicates | Safe Vortex pushdown first, ShardLoom residual UTF-8 byte predicates where needed, selected-row masks before materialization. | `filter_pushdown_applied`, `residual_predicate_materialization`, selected/materialized row counts |
-| Bounded top-K/order | Capillary select-nth retained windows, source ordinals, dynamic row-reference candidate scans for large bounded payload projections, final retained-row materialization from the single `.vortex` artifact. | `bounded_topk_strategy`, `retention_selection_strategy`, `candidate_rows_seen`, `retained_candidate_rows`, `late_output_materialization`, `row_ref_topk_materialization_policy` |
-| Metadata/layout | Vortex footer/statistics pruning before scan where available; prepared `.vortex` artifacts now expose single-artifact OLAP posture from the artifact itself: writer/layout strategy, row-block sizing, root/layout encodings, segment-map membership, dictionary/domain status, derived layout-stat posture, row-position locality, and layout-reader cache status. Richer domain-specific indexes still require measured proof before any speed claim. | `embedded_layout_planner_consumption_status`, selected/skipped segments, `layout_encoding_inventory`, `segment_membership_status`, `domain_dictionary_status`, `row_position_locality_status`, no-query-answer-cache posture |
+| Aggregate/distinct | Direct typed/dictionary scalar `count`/`sum`/`avg`/`min`/`max` and `count_distinct`, direct nullable primitive accessors with typed validity masks, FxHash exact distinct state for scalar/direct routes, dense-ID per-chunk exact distinct pre-union for compact integer ranges, repeated numeric SUM/AVG expression fusion over shared accessors, exact dictionary distinct over used codes rather than unused dictionary values, null-aware Vortex and chunk-local UTF-8 dictionary grouping without row materialization, compact count/sum/avg grouped state including exact UTF-8 `length(...)` measures, typed numeric-pair state, typed numeric/minute/string count state, transformed dictionary URL-domain/length grouping, exact chunk-local UTF-8 dictionary grouping when Vortex dictionary codes are not surfaced, streaming count-star top-K finalization for exact count-only ordered groups, and residual-free pushdown-filtered admission into the same heavy-hitter/late-measure aggregate families. Accessor evidence separates true Vortex dictionary codes, direct nullable primitive masks, dense integer pre-union, chunk-local UTF-8 dictionaries, and materialized values; packed/proof-bound key paths require non-null proof when their key representation cannot encode nulls. State-budget evidence classifies observed in-memory pressure before any spill claim is made; `spill_supported=false` remains explicit until a real native spill-backed exact merge exists. | `aggregate_update_strategy`, `aggregate_accessor_summary`, `aggregate_accessor_materialization_status`, `aggregate_accessor_blockers`, `expression_fusion_strategy`, `expression_plan_fingerprint_status`, `aggregate_key_encoding_mode`, `compact_group_state_strategy`, `distinct_state_strategy`, `group_output_strategy`, `group_state_mode`, `state_pressure_class`, `state_budget_status`, `state_budget_diagnostic_code`, `capillary_work_units`, `pulseweave_pressure_signals`, `decoded_string_count`, `estimated_group_key_storage_bytes` |
+| String predicates | Safe Vortex pushdown first, embedded derived-column rewrites for exact non-empty string predicates when available, ShardLoom residual UTF-8 byte predicates where needed, null-aware host/Vortex/chunk-dictionary contains over encoded or direct UTF-8 values, selected-row masks and row references before materialization. Nullable string rows are skipped for positive and negated contains semantics rather than forcing materialized fallback. | `filter_pushdown_applied`, `residual_predicate_materialization`, `embedded_derived_column_rewrite_status`, selected/materialized row counts, `aggregate_accessor_summary`, `data_materialized` |
+| Bounded top-K/order | Capillary select-nth retained windows, source ordinals, embedded predicate rewrites before candidate scans, dynamic row-reference candidate scans for large bounded payload projections, final retained-row materialization from the single `.vortex` artifact. | `bounded_topk_strategy`, `retention_selection_strategy`, `candidate_rows_seen`, `retained_candidate_rows`, `late_output_materialization`, `row_ref_topk_materialization_policy`, `embedded_derived_column_rewrites` |
+| Metadata/layout | Vortex footer/statistics pruning before scan where available; expression-project collect, row-transform collect, materializing filter, filter-project, distinct, drop-duplicate, sample, and schema-known structured row exports can return or write an empty result without opening a scan when footer stats prove no rows match. Transform families apply source predicates before expression rewrite, melt/explode expansion, pivot state updates, or rolling-window state, while predicate-only columns stay out of visible output. Prepared `.vortex` artifacts now expose single-artifact OLAP posture from the artifact itself: writer/layout strategy, row-block sizing, root/layout encodings, segment-map membership, dictionary/domain status, derived layout-stat posture, row-position locality, and layout-reader cache status. Richer domain-specific indexes still require measured proof before any speed claim. | `embedded_layout_planner_consumption_status`, selected/skipped segments, `layout_encoding_inventory`, `segment_membership_status`, `domain_dictionary_status`, `row_position_locality_status`, `upstream_scan_called`, `data_read`, `data_decoded`, `data_materialized`, no-query-answer-cache posture |
 
 Universal Ingest source-state evidence now separates source-native units from emitted batches:
 `source_state_stream_batch_size`, `source_state_stream_unit_count_hint`,
@@ -186,21 +186,49 @@ over the same safety window, so the default product route does not switch to ups
 writer behavior. The active ingest optimization instead uses Capillary/PulseWeave-style source and
 writer overlap plus a source-text dictionary-Zstd writer profile: Parquet row-group workers emit
 ordered `RecordBatch` units as soon as they are read instead of buffering an entire coalesced task
-before the writer can proceed, while known source text fields use Vortex dictionary-Zstd
-compression and typed/numeric fields stay on the faster flat/zoned/stat path. Rejected variants
-include physical hidden derived-column synthesis for large Parquet streams, separate physical
-batch coalescing ahead of the source stream, and upstream-default writer substitution.
+before the writer can proceed, and the Arrow-to-Vortex normalization layer uses a bounded
+`capillary_vortex_array_prefetch_window` when requested parallelism leaves a lane available. Known
+source text fields use Vortex dictionary-Zstd compression and typed/numeric fields stay on the
+faster flat/zoned/stat path. The layout advisor exposes source scale, profile family,
+text-domain/time-bucket/counter posture, prepared-layout family, high-cardinality/text/time key
+profile, dictionary profile, and source-profile-specific read/write tradeoff labels as first-class
+evidence rather than requiring downstream route checks to parse `workload_constitution`. Rejected
+variants include physical hidden derived-column synthesis for large Parquet streams, separate
+physical batch coalescing ahead of the source stream, and
+upstream-default writer substitution.
 
 Universal Ingest can also embed exact reusable derived columns in that same `.vortex` artifact when
 the source adapter can produce them without making large preparation slower. The retained derived
-families are compact `UInt32` UTF-8 byte length for high-value URL/search/title text fields and
-dictionary-encoded URL/Referer/URI domain extraction for URL-like fields. These columns are internal
-storage/layout features: user `select *` output hides `__shardloom_derived_*` fields, while native
-predicate and aggregate planning can consume them for `length(...)`, URL-domain grouping, and
-non-empty string predicates before row export. For URL-like fields, the admitted typed-text bridge
-derives byte length and domain in one pass over the source strings. Product columnar adapters report
-`embedded_derived_columns=not_synthesized_source_native_columnar_adapter` until a source-native or
-dictionary-aware generator is proven faster than the baseline.
+families are compact `UInt32` UTF-8 byte length for high-value URL/search/title text fields,
+dictionary-encoded URL/Referer/URI domain extraction for URL-like fields, and compact `UInt8`
+minute-of-hour keys plus `Int64` epoch-minute date-trunc buckets for admitted typed time-like
+fields. These columns are internal storage/layout features: user `select *` output hides
+`__shardloom_derived_*` fields, while native predicate, aggregate, bounded sort/top-K, and admitted
+row-export/sample planning can consume them for `length(...)`, URL-domain grouping,
+`extract(minute ...)`, `DATE_TRUNC('minute', ...)`, and non-empty string predicates before row
+export. Filter,
+filter-project, distinct, drop-duplicate, and sample row-export routes apply residual selected-row
+filters before deterministic sampling, exact row-key state, or compatibility writes; nested/list row
+keys stay encoded row-key state instead of being decoded as output columns. When footer statistics
+prove a filtered materializing route cannot match, expression-project and row-transform collect can
+return an empty bounded result and filter, filter-project, distinct, drop-duplicate, sample, and
+schema-known structured export routes write the requested empty sink without opening a Vortex scan
+or decoding rows. Expression-project source predicates are applied before typed rewrites so
+replacement, mask, and row-number transforms do not silently redefine source filtering. Melt,
+explode, pivot, and rolling-window routes now share the same Vortex-normalized predicate planning:
+source filters are pushed down or materialized before expansion/window/state updates, and
+predicate-only columns stay out of user-visible collect/export output. Row-expansion and window
+families remain separate semantic contracts because filtering before/after expansion changes
+cardinality and order. For URL-like fields, the admitted typed-text bridge derives byte length and
+domain in one pass over the source strings. Product columnar adapters keep the rejected broad
+per-row synthesis disabled, but public columnar preparation now applies a source-native
+dictionary/typed-time wrapper when the source already exposes a safe layout: dictionary-backed
+URL-like fields derive byte length and domain by transforming dictionary values once and remapping
+existing codes while preserving the source Arrow dictionary key width, and typed numeric/time
+fields plus Arrow timestamp columns across second/millisecond/microsecond/nanosecond units may
+derive compact minute keys. Plain UTF-8 columnar batches still report
+`source_native_embedded_derived_columns=not_available_for_current_arrow_layout` rather than paying a
+large preparation-time string scan.
 
 Common local prepared route:
 

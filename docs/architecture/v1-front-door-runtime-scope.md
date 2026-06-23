@@ -122,11 +122,16 @@ supported routes from planned operator families without probing data or invoking
 Materializing native primitive collect routes and primitive row-export routes also emit the same
 state-budget evidence fields automatically:
 `local_primitive_state_budget_schema_version`, `local_primitive_state_budget_required`,
+`local_primitive_state_budget_status`, `local_primitive_state_pressure_class`,
 `local_primitive_state_family`, `local_primitive_capillary_work_units`,
-`local_primitive_pulseweave_pressure_signals`, `local_primitive_spill_policy`, and
-`local_primitive_fail_closed_if_spill_required`. Users should not need to call a separate
-PulseWeave, capillary, or dynamic-work-shaping command to get the admitted route-control evidence
-for normal Python/SQL/DataFrame execution.
+`local_primitive_pulseweave_pressure_signals`, `local_primitive_budget_scope`,
+`local_primitive_spill_policy`, `local_primitive_spill_io_performed`,
+`local_primitive_fail_closed_if_spill_required`, and
+`local_primitive_state_budget_next_action`. Runtime envelopes also state their timing surface:
+public run routes are `hot_runtime`/`metadata_sink`, route inspection remains no-timing evidence,
+and no result-sink or human evidence-render timing is folded into a query-runtime claim. Users
+should not need to call a separate PulseWeave, capillary, or dynamic-work-shaping command to get the
+admitted route-control evidence for normal Python/SQL/DataFrame execution.
 `ShardLoomContext.native_vortex_provider_route_certificate_report()` is the side-effect-free
 certificate inventory for those exact provider-backed Python and SQL shapes.
 The DataFrame method capability matrix also exposes `future_contract_blocker_ids` for scoped method
