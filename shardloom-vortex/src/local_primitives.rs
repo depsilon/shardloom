@@ -25293,7 +25293,7 @@ impl<'a> GroupedAggregateStates<'a> {
             dictionary_string_ids,
             candidate_ids,
             "string top-K late-measure candidate code prefilter",
-        )?;
+        );
         match row_indices {
             Some(row_indices) => {
                 for &row_index in row_indices {
@@ -25724,7 +25724,7 @@ impl<'a> GroupedAggregateStates<'a> {
             &dictionary_string_ids,
             candidate_ids,
             "string count-distinct top-K candidate code prefilter",
-        )?;
+        );
         for row_index in 0..row_ids.len() {
             let code = row_ids.get(row_index).copied().ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
@@ -34926,19 +34926,13 @@ fn aggregate_direct_utf8_dictionary_bound_id(
 fn string_topk_candidate_code_flags(
     dictionary_string_ids: &[u64],
     candidate_ids: &rustc_hash::FxHashSet<u64>,
-    label: &str,
-) -> Result<Vec<bool>> {
+    _label: &str,
+) -> Vec<bool> {
     let mut flags = Vec::with_capacity(dictionary_string_ids.len());
     for value_id in dictionary_string_ids {
         flags.push(candidate_ids.contains(value_id));
     }
-    if flags.iter().any(|flag| *flag) {
-        Ok(flags)
-    } else {
-        Err(ShardLoomError::InvalidOperation(format!(
-            "local Vortex {label} had no retained dictionary-code candidates; no fallback execution was attempted"
-        )))
-    }
+    flags
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -37705,8 +37699,8 @@ fn predicate_exact_row_filter_supported(predicate: &PredicateExpr) -> bool {
         | PredicateExpr::IsNull { .. }
         | PredicateExpr::IsNotNull { .. }
         | PredicateExpr::Compare { .. }
-        | PredicateExpr::StringContains { .. }
         | PredicateExpr::InList { .. } => true,
+        PredicateExpr::StringContains { .. } => false,
         PredicateExpr::And(predicates) => {
             predicates.iter().all(predicate_exact_row_filter_supported)
         }
@@ -49716,6 +49710,12 @@ mod tests {
             &string_late_measure_request,
             false,
         ));
+        assert!(!predicate_exact_row_filter_supported(
+            string_late_measure_request
+                .predicate
+                .as_ref()
+                .expect("string contains residual predicate")
+        ));
 
         let numeric_utf8_aggregate = VortexSimpleAggregateRequest::grouped(
             vec![
@@ -49792,6 +49792,40 @@ mod tests {
             &numeric_pair_request,
             false,
         ));
+    }
+
+    #[test]
+    fn exact_row_filter_classifier_rejects_string_contains_residuals() {
+        let compare = PredicateExpr::Compare {
+            column: ColumnRef::new("event_day").expect("column"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(1),
+        };
+        let contains = PredicateExpr::StringContains {
+            column: ColumnRef::new("URL").expect("column"),
+            needle: "google".to_string(),
+            negated: false,
+        };
+
+        assert!(predicate_exact_row_filter_supported(&compare));
+        assert!(!predicate_exact_row_filter_supported(&contains));
+        assert!(!predicate_exact_row_filter_supported(&PredicateExpr::And(
+            vec![compare, contains]
+        )));
+    }
+
+    #[test]
+    fn string_topk_candidate_code_flags_allow_candidate_free_chunks() {
+        let mut candidates = rustc_hash::FxHashSet::default();
+        candidates.insert(99);
+
+        let flags = string_topk_candidate_code_flags(
+            &[10, 11, 12],
+            &candidates,
+            "string top-K candidate-free chunk",
+        );
+
+        assert_eq!(flags, vec![false, false, false]);
     }
 
     #[test]
