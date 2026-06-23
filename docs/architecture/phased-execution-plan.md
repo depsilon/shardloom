@@ -1190,22 +1190,22 @@ Current autonomous execution order:
     architecture review identified high-cardinality aggregate state, string predicate/string-derived
     grouping, bounded top-N materialization, exact distinct, prepared Vortex layout shape, and
     expression fusion/reuse as the significant levers.
-  - Current state: the native Vortex route is functionally broad and the current full local 100M
-    UAT pass records zero failed or unsupported ClickBench rows after the materialized string-partial
-    admission fix. Evidence:
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_current_20260621T222424Z/targeted-summary.json`.
+  - Current state: the native Vortex route is functionally broad and the post-merge full local
+    100M UAT pass records zero failed or unsupported ClickBench rows. Evidence:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_1356_replaced_20260623T151523Z/summary.json`.
     The replacement load uses one prepared `.vortex` artifact generated from official
-    `hits.parquet`; the prepare transcript reports 99,997,497 rows, 70,503 segments, 14G output,
-    `exact_sidecar_family_count=0`, and no adjacent query-summary/OLAP sidecar. Correctness/routing
-    is now ahead of performance: all 43 rows execute through native Vortex routes with
-    `fallback_attempted=false` and `external_engine_invoked=false`, but the slow side is still
-    dominated by full high-cardinality state rebuilds and string scan/materialization:
-    `CB-Q33` 173.236s, `CB-Q35` 157.799s, `CB-Q34` 154.694s, `CB-Q23` 50.124s, `CB-Q17` 50.072s,
-    `CB-Q24` 38.666s, `CB-Q29` 23.456s, `CB-Q19` 19.103s, `CB-Q22` 16.380s, `CB-Q21` 13.370s,
-    `CB-Q28` 12.982s, `CB-Q14` 12.887s, and `CB-Q18` 10.579s. The next pass must reduce dominant
-    data work through reusable single-artifact layout/statistics, encoded dictionaries, segment
-    pruning, capillary partial state, and row-ref late materialization rather than one-query
-    rewrites, query-answer sidecars, or hot-loop instrumentation.
+    `hits.parquet`; the prepare transcript reports 99,997,497 rows, 36,103 segments, 29,508,762,296
+    bytes, `exact_sidecar_family_count=0`, no external manifest, and no adjacent query-summary/OLAP
+    sidecar. Correctness/routing is now ahead of performance: all 43 rows execute through native
+    Vortex routes with `fallback_attempted=false` and `external_engine_invoked=false`, but the slow
+    side is still dominated by high-cardinality state, string scan/materialization, and bounded
+    payload/top-K work: `CB-Q35` 95.240s, `CB-Q33` 58.808s, `CB-Q17` 42.736s, `CB-Q34` 41.734s,
+    `CB-Q29` 37.141s, `CB-Q28` 33.998s, `CB-Q23` 24.414s, `CB-Q19` 23.435s, `CB-Q24` 22.925s,
+    `CB-Q18` 21.070s, `CB-Q21` 19.440s, `CB-Q22` 16.081s, `CB-Q15` 15.776s, `CB-Q13` 12.860s,
+    `CB-Q14` 11.865s, and `CB-Q10` 10.170s. The next pass must reduce dominant data work through
+    reusable single-artifact layout/statistics, encoded dictionaries, segment pruning, capillary
+    partial state, and row-ref late materialization rather than one-query rewrites, query-answer
+    sidecars, or hot-loop instrumentation.
   - Intake review: accepted all listed optimization targets as feasible runtime work because they
     improve shared OLAP operator families and public SQL/Python/DataFrame wrappers once route
     unification is verified. Rows are grouped by architectural lever rather than query number so
@@ -1999,17 +1999,17 @@ Current autonomous execution order:
     Current six-row targeted follow-up:
     `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_former_timeouts_current_20260621T025936/summary.json`.
     Current full-43 replacement-artifact UAT:
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_current_20260621T222424Z/targeted-summary.json`.
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_1356_replaced_20260623T151523Z/summary.json`.
   - Current state: the 100M native Vortex route now has 43/43 successful local ClickBench rows with
     zero runtime errors, zero unsupported rows, zero timeouts at the 180-second local UAT cap, and
-    zero fallback/external-engine violations. `CB-Q01` is confirmed as a metadata-preserving
-    native Vortex count route after using the checked-in comment-safe ClickBench statement splitter;
-    `CB-Q08` and `CB-Q36` were corrected by narrowing materialized string-partial admission so
-    numeric identity group keys fall through to numeric/generic aggregate paths instead of failing
-    with an invalid UTF-8 key diagnostic. The remaining slow family is performance, not route
-    coverage: `CB-Q33` 173.236s, `CB-Q35` 157.799s, `CB-Q34` 154.694s, `CB-Q23` 50.124s,
-    `CB-Q17` 50.072s, `CB-Q24` 38.666s, `CB-Q29` 23.456s, `CB-Q19` 19.103s, `CB-Q22` 16.380s,
-    `CB-Q21` 13.370s, `CB-Q28` 12.982s, `CB-Q14` 12.887s, and `CB-Q18` 10.579s.
+    zero fallback/external-engine violations. The post-merge run totals 563.581s across successful
+    rows with a 3.063971s geomean. `CB-Q01` is confirmed as a metadata-preserving native Vortex
+    count route, and every row reports either `global_runtime_supported` or
+    `production_admitted_local_workflow`. The remaining slow family is performance, not route
+    coverage: `CB-Q35` 95.240s, `CB-Q33` 58.808s, `CB-Q17` 42.736s, `CB-Q34` 41.734s,
+    `CB-Q29` 37.141s, `CB-Q28` 33.998s, `CB-Q23` 24.414s, `CB-Q19` 23.435s, `CB-Q24` 22.925s,
+    `CB-Q18` 21.070s, `CB-Q21` 19.440s, `CB-Q22` 16.081s, `CB-Q15` 15.776s, `CB-Q13` 12.860s,
+    `CB-Q14` 11.865s, and `CB-Q10` 10.170s.
   - Intake review: accepted every >1s UAT row into this burndown rather than preserving them as
     advisory notes. Rows are grouped by shared runtime family so the fix converges public SQL,
     DataFrame, Python, and CLI wrappers into reusable native Vortex operators instead of adding

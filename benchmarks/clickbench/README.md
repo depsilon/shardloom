@@ -63,22 +63,23 @@ claim gates.
 
 The current local Desktop 100M full-query UAT artifact is:
 
-`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_combined_summary.json`
+`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_1356_replaced_20260623T151523Z/summary.json`
 
 The checked-in burndown intake is:
 
 `docs/benchmarks/clickbench-100m-uat-burndown.json`
 
-This is implementation/UAT evidence only, not an official ClickBench submission. The run used the
-prepared 100M Vortex artifact, `execution_policy=native_vortex`, observed `max_parallelism=2`, and
-sequential query execution. It attempted all 43 rows: 34 completed successfully, 9 hit the
-180-second UAT cap, and completed rows reported no fallback or external-engine execution.
+This is implementation/UAT evidence only, not an official ClickBench submission. The run replaced
+the local 100M `.vortex` artifact from official Parquet input, used
+`execution_policy=native_vortex`, observed `max_parallelism=2`, and executed queries sequentially.
+It attempted all 43 rows: 43 completed successfully, 0 hit the 180-second UAT cap, and every
+successful row reported no fallback or external-engine execution. Successful query wall time totaled
+563.581 seconds with a 3.063971-second geomean.
 
-Remaining above-1s and timeout rows are optimization candidates, not fallback permission. Current
-work focuses on capillary bounded-sort retention, typed exact distinct state, direct
-typed/dictionary scalar aggregates, compact grouped count/sum/avg state, source-order limited group
-output, high-cardinality group keys, and string/domain grouped-aggregate reductions while
-preserving the shared native Vortex runtime family.
+Remaining above-1s rows are optimization candidates, not fallback permission. Current work focuses
+on deeper consumption of embedded Vortex layout/statistics, string/domain metadata, encoded
+dictionaries, capillary aggregate state, and row-reference top-K materialization while preserving the
+shared native Vortex runtime family and single-artifact `.vortex` contract.
 
 The first burndown batch implements direct UTF-8 contains counting for count-only predicates, mixed
 predicate splitting so safe conjuncts still push into Vortex scans, typed exact distinct/group keys,
@@ -89,8 +90,8 @@ encoded-layout admission guards, bounded top-K retention evidence, row-reference
 materialization for large bounded payload projections, direct scalar aggregate updates for
 `count`/`sum`/`avg`/`min`/`max` and exact `count_distinct`, repeated numeric SUM/AVG expression
 fusion, transformed chunk-dictionary grouping for URL-domain/length expressions, and compact exact
-`length(...)` grouped measures. The timing impact is not a public claim until the local 100M UAT is
-rerun after merge.
+`length(...)` grouped measures. The post-merge local UAT retained functional coverage and no-fallback
+evidence; its timing remains local implementation evidence rather than a public performance claim.
 
 ## State And Spill Fields
 
