@@ -404,9 +404,10 @@ Current autonomous execution order:
         and
         `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
       - [x] Reserve exact recount hash-map capacity from retained candidate cardinality for
-        proof-bound string top-K, string count-distinct top-K, and numeric+UTF8 top-K routes before
-        their second-pass updates. This reduces exact proof-state growth churn without adding route
-        branches, sidecars, or approximate answers. Focused validation:
+        proof-bound string top-K, string count-distinct top-K, and numeric+UTF8 top-K routes at the
+        second-pass prepare boundary before any exact recount updates run. This reduces exact
+        proof-state growth churn without adding route branches, sidecars, or approximate answers.
+        Focused validation:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount -- --nocapture`,
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount -- --nocapture`,
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_utf8_count_topk_uses_proofbound_recount -- --nocapture`,
@@ -507,6 +508,18 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib partitioned_sort_rows_wide_output_materializes_selected_partition_ordinals -- --nocapture`,
         `cargo test -q -p shardloom-cli --features release-user-surfaces local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`,
         and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
+      - [x] Promote safe root-source final-K materialization from chunk-internal selected-row export
+        to upstream Vortex `ScanBuilder::with_row_indices`, and carry Vortex `row_idx()` through
+        pure pushdown-filtered candidate scans so filtered top-K can still materialize final rows by
+        root source ID. Residual-filtered paths remain conservative until their candidate ordinals
+        are proven as root row IDs. Public evidence now reports row-index selection admission,
+        requested row-index counts, source-row-id projection use, and PulseWeave/capillary work units
+        `vortex_row_idx_projection` plus `row_index_selected_payload_scan`. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib sort_rows_late_materialization_policy_uses_row_refs_for_large_payload_topk -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib sort_rows_wide_projection_with_pushdown_keeps_filtered_ordinals -- --nocapture`,
+        `cargo test -q -p shardloom-cli --features release-user-surfaces --bin shardloom local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`,
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
+        and `cargo clippy -q -p shardloom-cli --features release-user-surfaces --bin shardloom -- -D warnings`.
       - [ ] Add prepared predicate posting-list/row-position locality metadata inside the Vortex
         layout when Vortex exposes a safe single-artifact contract for it.
     - [x] For exact distinct costs, compose per-segment dictionary unions or dense-ID bitsets with
@@ -2140,6 +2153,15 @@ Current autonomous execution order:
         dictionary-code route exact while reducing interner rehash/growth work under
         high-cardinality state pressure. Focused validation:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_minute_string_uses_streaming_topk_compact_state -- --nocapture`.
+      - [x] Extend the fast-map candidate to materializing row-state operators that still used the
+        default hasher: distinct row keys, duplicate masks, and drop-duplicate count/position maps
+        now use the same `FxHashMap`/`FxHashSet` family as grouped aggregate state while output
+        order remains governed by existing scan-order and first/last-position vectors. Focused
+        validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib duplicate_mask_row_export -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib drop_duplicate_row_export -- --nocapture`,
+        and
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib distinct_rows_ -- --nocapture`.
       - [ ] Evaluate the current exact hash-state fast-map candidate before retaining it for
         release: grouped aggregate general state, UTF-8 interning, materialized string partials,
         and direct UTF-8 dictionary builders now use `FxHashMap`, with deterministic output still
@@ -2273,6 +2295,15 @@ Current autonomous execution order:
         keeps URL/search predicates aligned with the null-aware aggregate dictionary contract above.
         Focused validation:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_skips_nulls_without_materialized_string_fallback -- --nocapture`.
+      - [x] Reuse a compiled ASCII substring matcher across host UTF-8, masked UTF-8, dictionary, and
+        chunk-dictionary value loops instead of rebuilding `memmem` search state per row/value.
+        Split all-valid/all-invalid/nullable validity lanes so non-null host and masked UTF-8 scans
+        avoid per-row validity branching while null rows still skip under both positive and negated
+        contains semantics. Empty, negated, and non-ASCII semantics remain exact; non-ASCII bytes
+        still fail closed to the materialized fallback boundary where required. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib utf8_contains_matcher_preserves_ascii_unicode_negated_and_empty_semantics -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains -- --nocapture`,
+        and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
       - [x] Add exact residual candidate narrowing for comparison, null, and `IN`-list predicates
         over typed, dictionary, and materialized single-column Vortex accessors, then feed exact
         candidates directly into scalar/grouped aggregate accessors when every residual predicate
@@ -2330,6 +2361,22 @@ Current autonomous execution order:
         pushdown for fully pushable predicates via the same filtered source-ordinal stream. Evidence
         reports `late_output_materialization`, `row_ref_topk_materialization_policy`,
         `late_materialization_payload_columns`, and `late_materialization_retained_cap`.
+      - [x] Promote root-source final-K payload materialization to upstream Vortex row-index
+        selection for safe row-ref paths, so the second pass asks Vortex for only retained source
+        rows instead of iterating prefix chunks and discarding them in ShardLoom. Pure
+        pushdown-filtered first passes now project Vortex `row_idx()` as hidden candidate metadata,
+        allowing filtered top-K to preserve root row IDs without exposing internal columns. Evidence reports
+        `late_materialization_row_index_selection_applied`,
+        `late_materialization_requested_row_indices`, min/max selected source ordinals, and
+        `late_materialization_source_row_id_projection_applied` through the public route evidence
+        lift, plus state-budget work units `vortex_row_idx_projection` and
+        `row_index_selected_payload_scan`. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib sort_rows_late_materialization_policy_uses_row_refs_for_large_payload_topk -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib sort_rows_wide_projection_with_pushdown_keeps_filtered_ordinals -- --nocapture`,
+        `cargo test -q -p shardloom-cli --features release-user-surfaces --bin shardloom local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`,
+        `cargo fmt --all -- --check`,
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
+        and `cargo clippy -q -p shardloom-cli --features release-user-surfaces --bin shardloom -- -D warnings`.
     - [ ] Apply PulseWeave work shaping in the optimized routes: record `FlowInventory`-style
       source/execution/writer work, `ScarcityLedger` memory/decode/sink pressure, `EndoPulse`
       run-local feedback, and `ProofBound` evidence so adaptive behavior remains certificate-gated.

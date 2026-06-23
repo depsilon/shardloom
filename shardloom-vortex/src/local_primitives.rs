@@ -40,6 +40,9 @@ use crate::{
 #[cfg(all(feature = "vortex-local-primitives", feature = "universal-format-io"))]
 use crate::{VortexStructuredProjectionExpr, VortexStructuredProjectionRequest};
 
+#[cfg(feature = "vortex-local-primitives")]
+const SHARDLOOM_SOURCE_ROW_ID_COLUMN: &str = "__shardloom_source_row_id";
+
 /// Feature-gated local Vortex primitive execution status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalPrimitiveExecutionStatus {
@@ -3012,13 +3015,13 @@ fn execute_vortex_local_primitive_row_export_enabled(
         let mut arrays_read_count = 0usize;
         let mut max_chunk_rows = 0usize;
         let distinct_requested = request.kind == VortexQueryPrimitiveKind::DistinctRows;
-        let mut distinct_keys = std::collections::HashSet::new();
-        let mut duplicate_keys = std::collections::HashSet::new();
+        let mut distinct_keys = rustc_hash::FxHashSet::default();
+        let mut duplicate_keys = rustc_hash::FxHashSet::default();
         let duplicate_keep = request.duplicate_keep;
         let duplicate_needs_full_scan =
             duplicate_mask_requested && duplicate_keep != VortexDuplicateKeepPolicy::First;
-        let mut duplicate_counts = std::collections::HashMap::<String, usize>::new();
-        let mut duplicate_last_positions = std::collections::HashMap::<String, usize>::new();
+        let mut duplicate_counts = rustc_hash::FxHashMap::<String, usize>::default();
+        let mut duplicate_last_positions = rustc_hash::FxHashMap::<String, usize>::default();
         let mut duplicate_output_keys = Vec::<(usize, String)>::new();
         let mut duplicate_global_index = 0usize;
         let drop_duplicate_key_columns = if drop_duplicate_requested {
@@ -3026,9 +3029,9 @@ fn execute_vortex_local_primitive_row_export_enabled(
         } else {
             Vec::new()
         };
-        let mut drop_duplicate_counts = std::collections::HashMap::<String, usize>::new();
-        let mut drop_duplicate_first_positions = std::collections::HashMap::<String, usize>::new();
-        let mut drop_duplicate_last_positions = std::collections::HashMap::<String, usize>::new();
+        let mut drop_duplicate_counts = rustc_hash::FxHashMap::<String, usize>::default();
+        let mut drop_duplicate_first_positions = rustc_hash::FxHashMap::<String, usize>::default();
+        let mut drop_duplicate_last_positions = rustc_hash::FxHashMap::<String, usize>::default();
         let mut drop_duplicate_rows = Vec::<(usize, String, Vec<StatValue>)>::new();
         let mut drop_duplicate_global_index = 0usize;
         let drop_duplicate_materialization_columns = if drop_duplicate_requested {
@@ -8773,23 +8776,57 @@ fn fast_utf8_contains_count_from_chunk(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn utf8_contains_effective_match_str(value: &str, needle: &str, negated: bool) -> bool {
-    let matched = if needle.is_ascii() {
-        memchr::memmem::find(value.as_bytes(), needle.as_bytes()).is_some()
-    } else {
-        value.contains(needle)
-    };
-    if negated { !matched } else { matched }
+enum Utf8ContainsNeedle<'a> {
+    Empty,
+    Ascii(memchr::memmem::Finder<'a>),
+    Utf8(&'a str),
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn utf8_contains_effective_match_bytes(bytes: &[u8], needle: &str, negated: bool) -> Option<bool> {
-    let matched = if needle.is_ascii() {
-        memchr::memmem::find(bytes, needle.as_bytes()).is_some()
-    } else {
-        std::str::from_utf8(bytes).ok()?.contains(needle)
-    };
-    Some(if negated { !matched } else { matched })
+struct Utf8ContainsMatcher<'a> {
+    needle: Utf8ContainsNeedle<'a>,
+    negated: bool,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl<'a> Utf8ContainsMatcher<'a> {
+    fn new(needle: &'a str, negated: bool) -> Self {
+        let needle = if needle.is_empty() {
+            Utf8ContainsNeedle::Empty
+        } else if needle.is_ascii() {
+            Utf8ContainsNeedle::Ascii(memchr::memmem::Finder::new(needle.as_bytes()))
+        } else {
+            Utf8ContainsNeedle::Utf8(needle)
+        };
+        Self { needle, negated }
+    }
+
+    fn apply_negation(&self, matched: bool) -> bool {
+        if self.negated { !matched } else { matched }
+    }
+
+    fn matches_str(&self, value: &str) -> bool {
+        let matched = match &self.needle {
+            Utf8ContainsNeedle::Empty => true,
+            Utf8ContainsNeedle::Ascii(finder) => finder.find(value.as_bytes()).is_some(),
+            Utf8ContainsNeedle::Utf8(needle) => value.contains(needle),
+        };
+        self.apply_negation(matched)
+    }
+
+    fn matches_bytes(&self, bytes: &[u8]) -> Option<bool> {
+        let matched = match &self.needle {
+            Utf8ContainsNeedle::Empty => true,
+            Utf8ContainsNeedle::Ascii(finder) => finder.find(bytes).is_some(),
+            Utf8ContainsNeedle::Utf8(needle) => std::str::from_utf8(bytes).ok()?.contains(needle),
+        };
+        Some(self.apply_negation(matched))
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn utf8_contains_effective_match_str(value: &str, needle: &str, negated: bool) -> bool {
+    Utf8ContainsMatcher::new(needle, negated).matches_str(value)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -9569,30 +9606,47 @@ fn fast_utf8_contains_count_from_array(
     };
     let validity = utf8.varbinview_validity();
     let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut selected = 0usize;
-    for index in 0..utf8.len() {
-        let row_is_valid = match &validity {
-            Validity::NonNullable | Validity::AllValid => true,
-            Validity::AllInvalid => false,
-            Validity::Array(_) => validity
-                .execute_is_valid(index, &mut validity_ctx)
-                .map_err(vortex_error)?,
-        };
-        if !row_is_valid {
-            continue;
+    match &validity {
+        Validity::NonNullable | Validity::AllValid => {
+            for index in 0..utf8.len() {
+                let bytes = utf8.bytes_at(index);
+                let Some(matched) = matcher.matches_bytes(bytes.as_slice()) else {
+                    return Ok(None);
+                };
+                if matched {
+                    selected = selected.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex fast UTF-8 contains selected row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                }
+            }
         }
-        let bytes = utf8.bytes_at(index);
-        let Some(matched) = utf8_contains_effective_match_bytes(bytes.as_slice(), needle, negated)
-        else {
-            return Ok(None);
-        };
-        if matched {
-            selected = selected.checked_add(1).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex fast UTF-8 contains selected row count overflowed usize"
-                        .to_string(),
-                )
-            })?;
+        Validity::AllInvalid => return Ok(Some(0)),
+        Validity::Array(_) => {
+            for index in 0..utf8.len() {
+                if !validity
+                    .execute_is_valid(index, &mut validity_ctx)
+                    .map_err(vortex_error)?
+                {
+                    continue;
+                }
+                let bytes = utf8.bytes_at(index);
+                let Some(matched) = matcher.matches_bytes(bytes.as_slice()) else {
+                    return Ok(None);
+                };
+                if matched {
+                    selected = selected.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex fast UTF-8 contains selected row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                }
+            }
         }
     }
     Ok(Some(selected))
@@ -9674,29 +9728,45 @@ fn fast_utf8_contains_row_indices_from_array(
     };
     let validity = utf8.varbinview_validity();
     let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut selected = Vec::new();
-    for index in 0..utf8.len() {
-        let row_is_valid = match &validity {
-            Validity::NonNullable | Validity::AllValid => true,
-            Validity::AllInvalid => false,
-            Validity::Array(_) => validity
-                .execute_is_valid(index, &mut validity_ctx)
-                .map_err(vortex_error)?,
-        };
-        if !row_is_valid {
-            continue;
+    match &validity {
+        Validity::NonNullable | Validity::AllValid => {
+            for index in 0..utf8.len() {
+                let bytes = utf8.bytes_at(index);
+                let Some(matched) = matcher.matches_bytes(bytes.as_slice()) else {
+                    return Ok(None);
+                };
+                if matched {
+                    selected.push(base_offset.checked_add(index).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex UTF-8 contains row index overflowed usize".to_string(),
+                        )
+                    })?);
+                }
+            }
         }
-        let bytes = utf8.bytes_at(index);
-        let Some(matched) = utf8_contains_effective_match_bytes(bytes.as_slice(), needle, negated)
-        else {
-            return Ok(None);
-        };
-        if matched {
-            selected.push(base_offset.checked_add(index).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex UTF-8 contains row index overflowed usize".to_string(),
-                )
-            })?);
+        Validity::AllInvalid => return Ok(Some(selected)),
+        Validity::Array(_) => {
+            for index in 0..utf8.len() {
+                if !validity
+                    .execute_is_valid(index, &mut validity_ctx)
+                    .map_err(vortex_error)?
+                {
+                    continue;
+                }
+                let bytes = utf8.bytes_at(index);
+                let Some(matched) = matcher.matches_bytes(bytes.as_slice()) else {
+                    return Ok(None);
+                };
+                if matched {
+                    selected.push(base_offset.checked_add(index).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex UTF-8 contains row index overflowed usize".to_string(),
+                        )
+                    })?);
+                }
+            }
         }
     }
     Ok(Some(selected))
@@ -9823,34 +9893,54 @@ fn fast_utf8_contains_count_from_masked_array(
         return Ok(None);
     }
     let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut selected = 0usize;
-    for (index, mask_selected) in mask.iter().enumerate() {
-        if !mask_selected {
-            continue;
+    match &validity {
+        Validity::NonNullable | Validity::AllValid => {
+            for (index, mask_selected) in mask.iter().enumerate() {
+                if !mask_selected {
+                    continue;
+                }
+                let bytes = utf8.bytes_at(index);
+                let Some(matched) = matcher.matches_bytes(bytes.as_slice()) else {
+                    return Ok(None);
+                };
+                if matched {
+                    selected = selected.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex masked UTF-8 contains selected row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                }
+            }
         }
-        let row_is_valid = match &validity {
-            Validity::NonNullable | Validity::AllValid => true,
-            Validity::AllInvalid => false,
-            Validity::Array(_) => validity
-                .execute_is_valid(index, &mut validity_ctx)
-                .map_err(vortex_error)?,
-        };
-        if !row_is_valid {
-            continue;
-        }
-        let bytes = utf8.bytes_at(index);
-        let Some(matched) = utf8_contains_effective_match_bytes(bytes.as_slice(), needle, negated)
-        else {
-            return Ok(None);
-        };
-        if matched {
-            selected = selected.checked_add(1).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex masked UTF-8 contains selected row count overflowed usize"
-                        .to_string(),
-                )
-            })?;
+        Validity::AllInvalid => return Ok(Some(0)),
+        Validity::Array(_) => {
+            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            for (index, mask_selected) in mask.iter().enumerate() {
+                if !mask_selected {
+                    continue;
+                }
+                if !validity
+                    .execute_is_valid(index, &mut validity_ctx)
+                    .map_err(vortex_error)?
+                {
+                    continue;
+                }
+                let bytes = utf8.bytes_at(index);
+                let Some(matched) = matcher.matches_bytes(bytes.as_slice()) else {
+                    return Ok(None);
+                };
+                if matched {
+                    selected = selected.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex masked UTF-8 contains selected row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                }
+            }
         }
     }
     Ok(Some(selected))
@@ -9883,43 +9973,64 @@ fn fast_utf8_contains_row_indices_from_masked_array(
         return Ok(None);
     }
     let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut filtered_row_index = 0usize;
     let mut selected = Vec::new();
-    for (source_row_index, mask_selected) in mask.iter().enumerate() {
-        if !mask_selected {
-            continue;
+    match &validity {
+        Validity::NonNullable | Validity::AllValid => {
+            for (source_row_index, mask_selected) in mask.iter().enumerate() {
+                if !mask_selected {
+                    continue;
+                }
+                let bytes = utf8.bytes_at(source_row_index);
+                let Some(matched) = matcher.matches_bytes(bytes.as_slice()) else {
+                    return Ok(None);
+                };
+                if matched {
+                    selected.push(filtered_row_index);
+                }
+                filtered_row_index = filtered_row_index.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex masked UTF-8 contains filtered row index overflowed usize"
+                            .to_string(),
+                    )
+                })?;
+            }
         }
-        let row_is_valid = match &validity {
-            Validity::NonNullable | Validity::AllValid => true,
-            Validity::AllInvalid => false,
-            Validity::Array(_) => validity
-                .execute_is_valid(source_row_index, &mut validity_ctx)
-                .map_err(vortex_error)?,
-        };
-        if !row_is_valid {
-            filtered_row_index = filtered_row_index.checked_add(1).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex masked UTF-8 contains filtered row index overflowed usize"
-                        .to_string(),
-                )
-            })?;
-            continue;
+        Validity::AllInvalid => return Ok(Some(selected)),
+        Validity::Array(_) => {
+            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            for (source_row_index, mask_selected) in mask.iter().enumerate() {
+                if !mask_selected {
+                    continue;
+                }
+                if !validity
+                    .execute_is_valid(source_row_index, &mut validity_ctx)
+                    .map_err(vortex_error)?
+                {
+                    filtered_row_index = filtered_row_index.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex masked UTF-8 contains filtered row index overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                    continue;
+                }
+                let bytes = utf8.bytes_at(source_row_index);
+                let Some(matched) = matcher.matches_bytes(bytes.as_slice()) else {
+                    return Ok(None);
+                };
+                if matched {
+                    selected.push(filtered_row_index);
+                }
+                filtered_row_index = filtered_row_index.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex masked UTF-8 contains filtered row index overflowed usize"
+                            .to_string(),
+                    )
+                })?;
+            }
         }
-        let bytes = utf8.bytes_at(source_row_index);
-        let Some(matched) = utf8_contains_effective_match_bytes(bytes.as_slice(), needle, negated)
-        else {
-            return Ok(None);
-        };
-        if matched {
-            selected.push(filtered_row_index);
-        }
-        filtered_row_index = filtered_row_index.checked_add(1).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "local Vortex masked UTF-8 contains filtered row index overflowed usize"
-                    .to_string(),
-            )
-        })?;
     }
     Ok(Some(selected))
 }
@@ -10404,6 +10515,7 @@ fn utf8_dictionary_value_match_flags(
                 .to_string(),
         ));
     }
+    let matcher = Utf8ContainsMatcher::new(needle, negated);
     Ok(values
         .iter()
         .enumerate()
@@ -10415,7 +10527,7 @@ fn utf8_dictionary_value_match_flags(
             {
                 false
             } else {
-                utf8_contains_effective_match_str(value, needle, negated)
+                matcher.matches_str(value)
             }
         })
         .collect())
@@ -10458,12 +10570,13 @@ fn fast_utf8_contains_dictionary_matches_and_codes(
 
     let dictionary_array = array.as_opt::<vortex::array::arrays::Dict>()?;
     let dictionary = direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())?;
+    let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut dictionary_matches = Vec::with_capacity(dictionary.len());
     for value in dictionary {
         let StatValue::Utf8(text) = value else {
             return None;
         };
-        dictionary_matches.push(utf8_contains_effective_match_str(&text, needle, negated));
+        dictionary_matches.push(matcher.matches_str(&text));
     }
     let codes = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())?;
     Some((dictionary_matches, codes))
@@ -10613,7 +10726,7 @@ fn coerce_rewrite_value_for_column(
 #[cfg(feature = "vortex-local-primitives")]
 fn distinct_row_indices_from_candidates<I>(
     row_key_columns: &[Vec<String>],
-    seen: &mut std::collections::HashSet<String>,
+    seen: &mut rustc_hash::FxHashSet<String>,
     candidate_indices: I,
     remaining_limit: Option<usize>,
 ) -> Result<Vec<usize>>
@@ -10639,7 +10752,7 @@ where
 #[cfg(feature = "vortex-local-primitives")]
 fn duplicate_mask_values(
     row_key_columns: &[Vec<String>],
-    seen: &mut std::collections::HashSet<String>,
+    seen: &mut rustc_hash::FxHashSet<String>,
     rows: usize,
 ) -> Result<Vec<StatValue>> {
     let available_rows = row_key_materialized_row_count(row_key_columns)?;
@@ -10677,8 +10790,8 @@ fn row_key_materialized_row_count(row_key_columns: &[Vec<String>]) -> Result<usi
 #[cfg(feature = "vortex-local-primitives")]
 fn duplicate_mask_values_from_policy(
     output_keys: &[(usize, String)],
-    counts: &std::collections::HashMap<String, usize>,
-    last_positions: &std::collections::HashMap<String, usize>,
+    counts: &rustc_hash::FxHashMap<String, usize>,
+    last_positions: &rustc_hash::FxHashMap<String, usize>,
     keep: VortexDuplicateKeepPolicy,
 ) -> Result<Vec<StatValue>> {
     output_keys
@@ -10711,9 +10824,9 @@ fn duplicate_mask_values_from_policy(
 #[cfg(feature = "vortex-local-primitives")]
 fn retain_drop_duplicate_rows_from_policy(
     rows: &[(usize, String, Vec<StatValue>)],
-    counts: &std::collections::HashMap<String, usize>,
-    first_positions: &std::collections::HashMap<String, usize>,
-    last_positions: &std::collections::HashMap<String, usize>,
+    counts: &rustc_hash::FxHashMap<String, usize>,
+    first_positions: &rustc_hash::FxHashMap<String, usize>,
+    last_positions: &rustc_hash::FxHashMap<String, usize>,
     keep: VortexDuplicateKeepPolicy,
     source_order_limit: Option<usize>,
 ) -> Result<Vec<Vec<StatValue>>> {
@@ -11625,6 +11738,17 @@ fn sort_rows_state_budget_report(
         pulseweave_pressure_signals.push("selected_row_refs");
         pulseweave_pressure_signals.push("payload_materialization_boundary");
         pulseweave_pressure_signals.push("retained_row_cap");
+    }
+    if scan
+        .embedded_layout
+        .late_materialization_status
+        .contains("source_row_id_projection=vortex_row_idx")
+    {
+        family.push_str("+vortex_row_idx");
+        capillary_work_units.push("vortex_row_idx_projection");
+        capillary_work_units.push("row_index_selected_payload_scan");
+        pulseweave_pressure_signals.push("root_source_row_ids");
+        pulseweave_pressure_signals.push("row_index_selection_rows");
     }
     if has_offset {
         family.push_str("+offset");
@@ -15040,7 +15164,7 @@ fn read_local_vortex_distinct_scan(
         })
         .transpose()?;
 
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = rustc_hash::FxHashSet::default();
     let mut result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
@@ -15227,9 +15351,9 @@ fn read_local_vortex_drop_duplicate_scan(
         })
         .transpose()?;
 
-    let mut counts = std::collections::HashMap::<String, usize>::new();
-    let mut first_positions = std::collections::HashMap::<String, usize>::new();
-    let mut last_positions = std::collections::HashMap::<String, usize>::new();
+    let mut counts = rustc_hash::FxHashMap::<String, usize>::default();
+    let mut first_positions = rustc_hash::FxHashMap::<String, usize>::default();
+    let mut last_positions = rustc_hash::FxHashMap::<String, usize>::default();
     let mut rows = Vec::<(usize, String, Vec<StatValue>)>::new();
     let mut global_index = 0usize;
     let mut arrays_read_count = 0usize;
@@ -15389,7 +15513,7 @@ fn read_local_vortex_duplicate_mask_scan(
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = rustc_hash::FxHashSet::default();
     let duplicate_keep = request.duplicate_keep;
     let duplicate_needs_full_scan = duplicate_keep != VortexDuplicateKeepPolicy::First;
     let mut result_row_count = 0usize;
@@ -18491,12 +18615,15 @@ fn read_local_vortex_sort_rows_scan(
     } else {
         (candidate_pushdown_predicate, candidate_residual_predicate)
     };
-    let materialization_filter_predicate =
-        if wide_output_second_pass && residual_predicate.is_none() {
-            pushdown_predicate.clone()
-        } else {
-            None
-        };
+    let source_row_id_projection_applied =
+        wide_output_second_pass && residual_predicate.is_none() && pushdown_predicate.is_some();
+    let materialization_filter_predicate = if source_row_id_projection_applied {
+        None
+    } else if wide_output_second_pass && residual_predicate.is_none() {
+        pushdown_predicate.clone()
+    } else {
+        None
+    };
     let mut projected_columns = Vec::<ColumnRef>::new();
     if !wide_output_second_pass {
         projected_columns.extend(
@@ -18522,6 +18649,13 @@ fn read_local_vortex_sort_rows_scan(
             request.kind,
         )?);
     }
+    if source_row_id_projection_applied {
+        plan.projection = Some(sort_rows_source_row_id_projection_expr(
+            &plan.projected_columns,
+        )?);
+        plan.projected_columns
+            .push(SHARDLOOM_SOURCE_ROW_ID_COLUMN.to_string());
+    }
     let declared_columns = plan.projected_columns.clone();
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
@@ -18536,9 +18670,14 @@ fn read_local_vortex_sort_rows_scan(
         embedded_layout.mark_pruning_consulted(metadata_pruned);
     }
 
+    let source_row_id_projection_status = if source_row_id_projection_applied {
+        ";source_row_id_projection=vortex_row_idx"
+    } else {
+        ""
+    };
     embedded_layout.late_materialization_status = if wide_output_second_pass {
         format!(
-            "row_ref_final_k_materialization;reason={};payload_columns={};retained_cap={retained_cap}",
+            "row_ref_final_k_materialization;reason={};payload_columns={};retained_cap={retained_cap}{source_row_id_projection_status}",
             late_materialization_policy.reason, late_materialization_policy.payload_column_count
         )
     } else {
@@ -18557,6 +18696,9 @@ fn read_local_vortex_sort_rows_scan(
     };
     let order_column_indices =
         sort_row_order_column_indices(&declared_columns, &sort_rows.order_by)?;
+    let source_row_id_column_index = source_row_id_projection_applied
+        .then(|| sort_row_column_index(&declared_columns, SHARDLOOM_SOURCE_ROW_ID_COLUMN))
+        .transpose()?;
     let residual_evaluator = residual_predicate
         .as_ref()
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
@@ -18620,14 +18762,13 @@ fn read_local_vortex_sort_rows_scan(
                         candidates.push(SortRowCandidate {
                             ordinal,
                             source_partition_index: 0,
-                            source_ordinal: source_rows_seen
-                                .checked_add(source_row_index)
-                                .ok_or_else(|| {
-                                    ShardLoomError::InvalidOperation(
-                                        "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
-                                            .to_string(),
-                                    )
-                                })?,
+                            source_ordinal: sort_candidate_source_ordinal(
+                                &columns,
+                                compact_index,
+                                source_rows_seen,
+                                source_row_index,
+                                source_row_id_column_index,
+                            )?,
                             values: materialized_sort_row_values(&columns, compact_index)?,
                         });
                     }
@@ -18648,13 +18789,12 @@ fn read_local_vortex_sort_rows_scan(
                         candidates.push(SortRowCandidate {
                             ordinal,
                             source_partition_index: 0,
-                            source_ordinal: source_rows_seen.checked_add(row_index).ok_or_else(
-                                || {
-                                    ShardLoomError::InvalidOperation(
-                                        "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
-                                            .to_string(),
-                                    )
-                                },
+                            source_ordinal: sort_candidate_source_ordinal(
+                                &columns,
+                                row_index,
+                                source_rows_seen,
+                                row_index,
+                                source_row_id_column_index,
                             )?,
                             values: materialized_sort_row_values(&columns, row_index)?,
                         });
@@ -18674,12 +18814,13 @@ fn read_local_vortex_sort_rows_scan(
                     candidates.push(SortRowCandidate {
                         ordinal,
                         source_partition_index: 0,
-                        source_ordinal: source_rows_seen.checked_add(row_index).ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
-                                    .to_string(),
-                            )
-                        })?,
+                        source_ordinal: sort_candidate_source_ordinal(
+                            &columns,
+                            row_index,
+                            source_rows_seen,
+                            row_index,
+                            source_row_id_column_index,
+                        )?,
                         values: materialized_sort_row_values(&columns, row_index)?,
                     });
                 }
@@ -18719,6 +18860,9 @@ fn read_local_vortex_sort_rows_scan(
     );
     let mut late_materialization_chunks_scanned = 0usize;
     let mut late_materialization_early_stop_applied = false;
+    let mut late_materialization_row_index_selection_applied = false;
+    let mut late_materialization_requested_row_indices = 0usize;
+    let mut late_materialization_min_selected_source_ordinal = None::<usize>;
     let mut late_materialization_max_selected_source_ordinal = None::<usize>;
     let mut late_materialization_selected_row_refs_used = false;
     let result_rows = if let Some(output_column_indices) = output_column_indices.as_ref() {
@@ -18753,6 +18897,11 @@ fn read_local_vortex_sort_rows_scan(
         )?;
         late_materialization_chunks_scanned = materialization.chunks_scanned;
         late_materialization_early_stop_applied = materialization.early_stop_applied;
+        late_materialization_row_index_selection_applied =
+            materialization.row_index_selection_applied;
+        late_materialization_requested_row_indices = materialization.requested_row_indices;
+        late_materialization_min_selected_source_ordinal =
+            materialization.min_selected_source_ordinal;
         late_materialization_max_selected_source_ordinal =
             materialization.max_selected_source_ordinal;
         late_materialization_selected_row_refs_used =
@@ -18793,10 +18942,16 @@ fn read_local_vortex_sort_rows_scan(
         "late_materialization_source_row_count": source_row_count,
         "late_materialization_chunks_scanned": late_materialization_chunks_scanned,
         "late_materialization_early_stop_applied": late_materialization_early_stop_applied,
+        "late_materialization_row_index_selection_applied": late_materialization_row_index_selection_applied,
+        "late_materialization_requested_row_indices": late_materialization_requested_row_indices,
+        "late_materialization_min_selected_source_ordinal": late_materialization_min_selected_source_ordinal,
         "late_materialization_max_selected_source_ordinal": late_materialization_max_selected_source_ordinal,
         "late_materialization_selected_row_refs_used": late_materialization_selected_row_refs_used,
+        "late_materialization_source_row_id_projection_applied": source_row_id_projection_applied,
         "sort_predicate_strategy": if force_residual_predicate_for_source_ordinals {
             "residual_predicate_source_ordinals"
+        } else if source_row_id_projection_applied {
+            "vortex_filter_pushdown_with_row_idx"
         } else if filter_pushdown_applied {
             "vortex_filter_pushdown"
         } else if residual_predicate.is_some() {
@@ -18966,12 +19121,15 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     } else {
         (candidate_pushdown_predicate, candidate_residual_predicate)
     };
-    let materialization_filter_predicate =
-        if wide_output_second_pass && residual_predicate.is_none() {
-            pushdown_predicate.clone()
-        } else {
-            None
-        };
+    let source_row_id_projection_applied =
+        wide_output_second_pass && residual_predicate.is_none() && pushdown_predicate.is_some();
+    let materialization_filter_predicate = if source_row_id_projection_applied {
+        None
+    } else if wide_output_second_pass && residual_predicate.is_none() {
+        pushdown_predicate.clone()
+    } else {
+        None
+    };
     if let Some(predicate) = residual_predicate.as_ref() {
         append_predicate_columns(predicate, &mut projected_columns);
     }
@@ -19032,6 +19190,13 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 file.dtype(),
                 request.kind,
             )?);
+        }
+        if source_row_id_projection_applied {
+            plan.projection = Some(sort_rows_source_row_id_projection_expr(
+                &plan.projected_columns,
+            )?);
+            plan.projected_columns
+                .push(SHARDLOOM_SOURCE_ROW_ID_COLUMN.to_string());
         }
         match &expected_declared_columns {
             None => {
@@ -19096,6 +19261,9 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             .as_ref()
             .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, declared_columns))
             .transpose()?;
+        let source_row_id_column_index = source_row_id_projection_applied
+            .then(|| sort_row_column_index(declared_columns, SHARDLOOM_SOURCE_ROW_ID_COLUMN))
+            .transpose()?;
         let mut source_local_rows_seen = 0usize;
         for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
@@ -19139,13 +19307,12 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                         candidates.push(SortRowCandidate {
                             ordinal,
                             source_partition_index: source_index,
-                            source_ordinal: source_local_rows_seen.checked_add(source_row_index).ok_or_else(
-                                || {
-                                    ShardLoomError::InvalidOperation(
-                                        "partitioned local Vortex sort local source row ordinal overflowed usize; no fallback execution was attempted"
-                                            .to_string(),
-                                    )
-                                },
+                            source_ordinal: sort_candidate_source_ordinal(
+                                &columns,
+                                compact_index,
+                                source_local_rows_seen,
+                                source_row_index,
+                                source_row_id_column_index,
                             )?,
                             values: materialized_sort_row_values(&columns, compact_index)?,
                         });
@@ -19167,13 +19334,12 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                         candidates.push(SortRowCandidate {
                             ordinal,
                             source_partition_index: source_index,
-                            source_ordinal: source_local_rows_seen.checked_add(row_index).ok_or_else(
-                                || {
-                                    ShardLoomError::InvalidOperation(
-                                        "partitioned local Vortex sort local source row ordinal overflowed usize; no fallback execution was attempted"
-                                            .to_string(),
-                                    )
-                                },
+                            source_ordinal: sort_candidate_source_ordinal(
+                                &columns,
+                                row_index,
+                                source_local_rows_seen,
+                                row_index,
+                                source_row_id_column_index,
                             )?,
                             values: materialized_sort_row_values(&columns, row_index)?,
                         });
@@ -19191,18 +19357,17 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                         )
                 })?;
                     candidates.push(SortRowCandidate {
-                    ordinal,
-                    source_partition_index: source_index,
-                    source_ordinal: source_local_rows_seen.checked_add(row_index).ok_or_else(
-                        || {
-                            ShardLoomError::InvalidOperation(
-                                "partitioned local Vortex sort local source row ordinal overflowed usize; no fallback execution was attempted"
-                                    .to_string(),
-                            )
-                        },
-                    )?,
-                    values: materialized_sort_row_values(&columns, row_index)?,
-                });
+                        ordinal,
+                        source_partition_index: source_index,
+                        source_ordinal: sort_candidate_source_ordinal(
+                            &columns,
+                            row_index,
+                            source_local_rows_seen,
+                            row_index,
+                            source_row_id_column_index,
+                        )?,
+                        values: materialized_sort_row_values(&columns, row_index)?,
+                    });
                 }
             }
             if sort_rows.tie_policy != VortexSortTiePolicy::All
@@ -19237,9 +19402,14 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             arrays_read_count += 1;
         }
     }
+    let source_row_id_projection_status = if source_row_id_projection_applied {
+        ";source_row_id_projection=vortex_row_idx"
+    } else {
+        ""
+    };
     embedded_layout.late_materialization_status = if wide_output_second_pass {
         format!(
-            "partitioned_row_ref_final_k_materialization;reason={};payload_columns={};retained_cap={retained_cap}",
+            "partitioned_row_ref_final_k_materialization;reason={};payload_columns={};retained_cap={retained_cap}{source_row_id_projection_status}",
             late_materialization_policy.reason, late_materialization_policy.payload_column_count
         )
     } else {
@@ -19269,6 +19439,9 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     );
     let mut late_materialization_chunks_scanned = 0usize;
     let mut late_materialization_early_stop_applied = false;
+    let mut late_materialization_row_index_selection_applied = false;
+    let mut late_materialization_requested_row_indices = 0usize;
+    let mut late_materialization_min_selected_source_ordinal = None::<usize>;
     let mut late_materialization_max_selected_source_ordinal = None::<usize>;
     let mut late_materialization_selected_row_refs_used = false;
     let result_rows = if let Some(output_column_indices) = output_column_indices.as_ref() {
@@ -19300,6 +19473,11 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             )?;
         late_materialization_chunks_scanned = materialization.chunks_scanned;
         late_materialization_early_stop_applied = materialization.early_stop_applied;
+        late_materialization_row_index_selection_applied =
+            materialization.row_index_selection_applied;
+        late_materialization_requested_row_indices = materialization.requested_row_indices;
+        late_materialization_min_selected_source_ordinal =
+            materialization.min_selected_source_ordinal;
         late_materialization_max_selected_source_ordinal =
             materialization.max_selected_source_ordinal;
         late_materialization_selected_row_refs_used =
@@ -19340,10 +19518,16 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         "late_materialization_source_row_count": source_row_count,
         "late_materialization_chunks_scanned": late_materialization_chunks_scanned,
         "late_materialization_early_stop_applied": late_materialization_early_stop_applied,
+        "late_materialization_row_index_selection_applied": late_materialization_row_index_selection_applied,
+        "late_materialization_requested_row_indices": late_materialization_requested_row_indices,
+        "late_materialization_min_selected_source_ordinal": late_materialization_min_selected_source_ordinal,
         "late_materialization_max_selected_source_ordinal": late_materialization_max_selected_source_ordinal,
         "late_materialization_selected_row_refs_used": late_materialization_selected_row_refs_used,
+        "late_materialization_source_row_id_projection_applied": source_row_id_projection_applied,
         "sort_predicate_strategy": if force_residual_predicate_for_source_ordinals {
             "residual_predicate_source_ordinals"
+        } else if source_row_id_projection_applied {
+            "vortex_filter_pushdown_with_row_idx"
         } else if filter_pushdown_applied {
             "vortex_filter_pushdown"
         } else if residual_predicate.is_some() {
@@ -19401,8 +19585,20 @@ struct SortRowsMaterializationResult {
     rows: Vec<serde_json::Value>,
     chunks_scanned: usize,
     early_stop_applied: bool,
+    row_index_selection_applied: bool,
+    requested_row_indices: usize,
+    min_selected_source_ordinal: Option<usize>,
     max_selected_source_ordinal: Option<usize>,
     selected_row_materialization_used: bool,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn min_optional_usize(left: Option<usize>, right: Option<usize>) -> Option<usize> {
+    match (left, right) {
+        (Some(existing), Some(next)) => Some(existing.min(next)),
+        (None, Some(next)) => Some(next),
+        (existing, None) => existing,
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -19418,6 +19614,9 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
     let mut by_partition = std::collections::BTreeMap::<usize, Vec<(usize, usize)>>::new();
     let mut chunks_scanned = 0usize;
     let mut early_stop_applied = false;
+    let mut row_index_selection_applied = false;
+    let mut requested_row_indices = 0usize;
+    let mut min_selected_source_ordinal = None::<usize>;
     let mut max_selected_source_ordinal = None::<usize>;
     let mut selected_row_materialization_used = false;
     for (position, candidate) in selected_candidates.iter().enumerate() {
@@ -19458,8 +19657,21 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
                     "partitioned local Vortex sort materializer chunk count overflowed; no fallback execution was attempted"
                         .to_string(),
                 )
-            })?;
+        })?;
         early_stop_applied |= materialization.early_stop_applied;
+        row_index_selection_applied |= materialization.row_index_selection_applied;
+        requested_row_indices = requested_row_indices
+            .checked_add(materialization.requested_row_indices)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex sort materializer requested row-index count overflowed; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        min_selected_source_ordinal = min_optional_usize(
+            min_selected_source_ordinal,
+            materialization.min_selected_source_ordinal,
+        );
         max_selected_source_ordinal =
             max_selected_source_ordinal.max(materialization.max_selected_source_ordinal);
         selected_row_materialization_used |= materialization.selected_row_materialization_used;
@@ -19489,6 +19701,9 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
         rows,
         chunks_scanned,
         early_stop_applied,
+        row_index_selection_applied,
+        requested_row_indices,
+        min_selected_source_ordinal,
         max_selected_source_ordinal,
         selected_row_materialization_used,
     })
@@ -19547,15 +19762,20 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
             rows: Vec::new(),
             chunks_scanned: 0,
             early_stop_applied: false,
+            row_index_selection_applied: false,
+            requested_row_indices: 0,
+            min_selected_source_ordinal: None,
             max_selected_source_ordinal: None,
             selected_row_materialization_used: false,
         });
     }
+    let min_selected_source_ordinal = selected_source_ordinals.iter().copied().min();
     let max_selected_source_ordinal = selected_source_ordinals.iter().copied().max();
     let mut ordinal_positions = std::collections::BTreeMap::<usize, Vec<usize>>::new();
     for (position, &ordinal) in selected_source_ordinals.iter().enumerate() {
         ordinal_positions.entry(ordinal).or_default().push(position);
     }
+    let selected_unique_source_ordinals = ordinal_positions.keys().copied().collect::<Vec<_>>();
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
@@ -19592,6 +19812,22 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     if let Some(projection) = plan.projection {
         scan = scan.with_projection(projection);
     }
+    let row_index_selection_applied = materialization_filter_predicate.is_none();
+    if row_index_selection_applied {
+        use vortex::buffer::Buffer;
+
+        let selected_row_indices = selected_unique_source_ordinals
+            .iter()
+            .map(|&ordinal| {
+                u64::try_from(ordinal).map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "local Vortex wide sort selected source ordinal exceeded u64: {error}; no fallback execution was attempted"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        scan = scan.with_row_indices(Buffer::from_iter(selected_row_indices));
+    }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
     let mut rows_out = vec![None; selected_source_ordinals.len()];
@@ -19605,90 +19841,176 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     let mut chunks_scanned = 0usize;
     let mut early_stop_applied = false;
     let mut selected_row_materialization_used = false;
-    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
-        let chunk = chunk.map_err(vortex_error)?;
-        let rows = chunk.len();
-        chunks_scanned = chunks_scanned.checked_add(1).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "local Vortex wide sort output materializer chunk count overflowed; no fallback execution was attempted"
-                    .to_string(),
-            )
-        })?;
-        let chunk_start = source_rows_seen;
-        let chunk_end = chunk_start.checked_add(rows).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "local Vortex wide sort output source row ordinal overflowed usize; no fallback execution was attempted"
-                    .to_string(),
-            )
-        })?;
-        if ordinal_positions
-            .range(chunk_start..chunk_end)
-            .next()
-            .is_none()
-        {
-            source_rows_seen = chunk_end;
-            continue;
-        }
-        let mut chunk_targets = Vec::<(usize, &Vec<usize>)>::new();
-        for (&source_ordinal, positions) in ordinal_positions.range(chunk_start..chunk_end) {
-            let row_index = source_ordinal.checked_sub(chunk_start).ok_or_else(|| {
+    if row_index_selection_applied {
+        let mut selected_unique_rows_seen = 0usize;
+        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+            let chunk = chunk.map_err(vortex_error)?;
+            let rows = chunk.len();
+            chunks_scanned = chunks_scanned.checked_add(1).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
-                    "local Vortex wide sort output source ordinal underflowed; no fallback execution was attempted"
+                    "local Vortex wide sort output materializer chunk count overflowed; no fallback execution was attempted"
                         .to_string(),
                 )
             })?;
-            if row_index >= rows {
+            if rows == 0 {
+                continue;
+            }
+            let unique_end = selected_unique_rows_seen.checked_add(rows).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex wide sort selected row-index count overflowed; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            if unique_end > selected_unique_source_ordinals.len() {
                 return Err(ShardLoomError::InvalidOperation(
-                    "local Vortex wide sort output ordinal exceeded materialized chunk rows; no fallback execution was attempted"
+                    "local Vortex wide sort row-index materializer returned more rows than requested; no fallback execution was attempted"
                         .to_string(),
                 ));
             }
-            chunk_targets.push((row_index, positions));
-        }
-        let selected_row_indices = chunk_targets
-            .iter()
-            .map(|(row_index, _positions)| *row_index)
-            .collect::<Vec<_>>();
-        let columns = row_export_selected_columns_from_chunk(
-            &chunk,
-            &declared_columns,
-            &selected_row_indices,
-        )?;
-        selected_row_materialization_used = true;
-        for (selected_index, (_row_index, positions)) in chunk_targets.iter().enumerate() {
-            let mut row = serde_json::Map::with_capacity(output_columns.len());
-            for (column_index, column) in output_columns.iter().enumerate() {
-                let value = columns
-                    .get(column_index)
-                    .and_then(|values| values.get(selected_index))
+            let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+            let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+            if materialized_rows != rows {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex wide sort row-index materializer produced mismatched column lengths; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+            selected_row_materialization_used = true;
+            for row_index in 0..materialized_rows {
+                let source_ordinal = *selected_unique_source_ordinals
+                    .get(selected_unique_rows_seen + row_index)
                     .ok_or_else(|| {
                         ShardLoomError::InvalidOperation(
-                            "local Vortex wide sort output row had mismatched column lengths; no fallback execution was attempted"
+                            "local Vortex wide sort row-index materializer lost a selected source ordinal; no fallback execution was attempted"
                                 .to_string(),
                         )
                     })?;
-                row.insert(column.clone(), stat_value_to_json_value(value)?);
-            }
-            let value = serde_json::Value::Object(row);
-            for &position in *positions {
-                if rows_out[position].is_none() {
-                    rows_found = rows_found.checked_add(1).ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex wide sort output found row count overflowed; no fallback execution was attempted"
-                                .to_string(),
-                        )
-                    })?;
+                let positions = ordinal_positions.get(&source_ordinal).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex wide sort row-index materializer referenced an unknown source ordinal; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+                let mut row = serde_json::Map::with_capacity(output_columns.len());
+                for (column_index, column) in output_columns.iter().enumerate() {
+                    let value = columns
+                        .get(column_index)
+                        .and_then(|values| values.get(row_index))
+                        .ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex wide sort output row had mismatched column lengths; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                    row.insert(column.clone(), stat_value_to_json_value(value)?);
                 }
-                rows_out[position] = Some(value.clone());
+                let value = serde_json::Value::Object(row);
+                for &position in positions {
+                    if rows_out[position].is_none() {
+                        rows_found = rows_found.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex wide sort output found row count overflowed; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                    }
+                    rows_out[position] = Some(value.clone());
+                }
             }
+            selected_unique_rows_seen = unique_end;
         }
-        source_rows_seen = chunk_end;
-        if rows_found == rows_out.len()
-            && max_selected_source_ordinal.is_some_and(|max_ordinal| chunk_end > max_ordinal)
-            && chunk_end < materialization_source_row_count
-        {
-            early_stop_applied = true;
-            break;
+        if selected_unique_rows_seen != selected_unique_source_ordinals.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex wide sort row-index materializer did not return every requested source ordinal; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+    } else {
+        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+            let chunk = chunk.map_err(vortex_error)?;
+            let rows = chunk.len();
+            chunks_scanned = chunks_scanned.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex wide sort output materializer chunk count overflowed; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            let chunk_start = source_rows_seen;
+            let chunk_end = chunk_start.checked_add(rows).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex wide sort output source row ordinal overflowed usize; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            if ordinal_positions
+                .range(chunk_start..chunk_end)
+                .next()
+                .is_none()
+            {
+                source_rows_seen = chunk_end;
+                continue;
+            }
+            let mut chunk_targets = Vec::<(usize, &Vec<usize>)>::new();
+            for (&source_ordinal, positions) in ordinal_positions.range(chunk_start..chunk_end) {
+                let row_index = source_ordinal.checked_sub(chunk_start).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex wide sort output source ordinal underflowed; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+                if row_index >= rows {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex wide sort output ordinal exceeded materialized chunk rows; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+                chunk_targets.push((row_index, positions));
+            }
+            let selected_row_indices = chunk_targets
+                .iter()
+                .map(|(row_index, _positions)| *row_index)
+                .collect::<Vec<_>>();
+            let columns = row_export_selected_columns_from_chunk(
+                &chunk,
+                &declared_columns,
+                &selected_row_indices,
+            )?;
+            selected_row_materialization_used = true;
+            for (selected_index, (_row_index, positions)) in chunk_targets.iter().enumerate() {
+                let mut row = serde_json::Map::with_capacity(output_columns.len());
+                for (column_index, column) in output_columns.iter().enumerate() {
+                    let value = columns
+                        .get(column_index)
+                        .and_then(|values| values.get(selected_index))
+                        .ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex wide sort output row had mismatched column lengths; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                    row.insert(column.clone(), stat_value_to_json_value(value)?);
+                }
+                let value = serde_json::Value::Object(row);
+                for &position in *positions {
+                    if rows_out[position].is_none() {
+                        rows_found = rows_found.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex wide sort output found row count overflowed; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                    }
+                    rows_out[position] = Some(value.clone());
+                }
+            }
+            source_rows_seen = chunk_end;
+            if rows_found == rows_out.len()
+                && max_selected_source_ordinal.is_some_and(|max_ordinal| chunk_end > max_ordinal)
+                && chunk_end < materialization_source_row_count
+            {
+                early_stop_applied = true;
+                break;
+            }
         }
     }
     let rows = rows_out
@@ -19706,6 +20028,9 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
         rows,
         chunks_scanned,
         early_stop_applied,
+        row_index_selection_applied,
+        requested_row_indices: selected_unique_source_ordinals.len(),
+        min_selected_source_ordinal,
         max_selected_source_ordinal,
         selected_row_materialization_used,
     })
@@ -19785,6 +20110,46 @@ fn sort_row_column_index(declared_columns: &[String], column: &str) -> Result<us
                 "local Vortex materialized sort column '{column}' was not projected; no fallback execution was attempted"
             ))
         })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn sort_candidate_source_ordinal(
+    column_values: &[Vec<StatValue>],
+    materialized_row_index: usize,
+    fallback_rows_seen: usize,
+    fallback_row_index: usize,
+    source_row_id_column_index: Option<usize>,
+) -> Result<usize> {
+    let Some(column_index) = source_row_id_column_index else {
+        return fallback_rows_seen
+            .checked_add(fallback_row_index)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex sort source row ordinal overflowed usize; no fallback execution was attempted"
+                        .to_string(),
+                )
+            });
+    };
+    let value = column_values
+        .get(column_index)
+        .and_then(|values| values.get(materialized_row_index))
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex sort hidden row-id projection had mismatched column lengths; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+    let StatValue::UInt64(source_ordinal) = value else {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex sort hidden row-id projection produced a non-u64 value; no fallback execution was attempted"
+                .to_string(),
+        ));
+    };
+    usize::try_from(*source_ordinal).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex sort hidden row-id projection exceeded usize: {error}; no fallback execution was attempted"
+        ))
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -23095,8 +23460,14 @@ impl<'a> GroupedAggregateStates<'a> {
                     .to_string(),
             ));
         }
+        let mut exact_counts = rustc_hash::FxHashMap::default();
+        reserve_hash_map_capacity(
+            &mut exact_counts,
+            candidates.len(),
+            "numeric-UTF8 top-K exact counts",
+        )?;
         self.numeric_utf8_topk_candidate_keys = Some(candidates);
-        self.numeric_utf8_topk_exact_counts = Some(rustc_hash::FxHashMap::default());
+        self.numeric_utf8_topk_exact_counts = Some(exact_counts);
         Ok(())
     }
 
@@ -24113,8 +24484,14 @@ impl<'a> GroupedAggregateStates<'a> {
         }
         self.string_count_topk_candidate_signatures =
             Some(string_candidate_signatures(&candidates)?);
+        let mut exact_counts = rustc_hash::FxHashMap::default();
+        reserve_hash_map_capacity(
+            &mut exact_counts,
+            candidates.len(),
+            "string top-K heavy-hitter exact counts",
+        )?;
         self.string_count_topk_candidate_values = Some(candidates);
-        self.string_count_topk_exact_counts = Some(rustc_hash::FxHashMap::default());
+        self.string_count_topk_exact_counts = Some(exact_counts);
         self.string_count_topk_exact_counts_source = Some("candidate_recount_second_pass");
         Ok(())
     }
@@ -24411,8 +24788,14 @@ impl<'a> GroupedAggregateStates<'a> {
         }
         self.string_count_distinct_topk_candidate_signatures =
             Some(string_candidate_signatures(&candidates)?);
+        let mut exact_sets = rustc_hash::FxHashMap::default();
+        reserve_hash_map_capacity(
+            &mut exact_sets,
+            candidates.len(),
+            "string count-distinct top-K exact sets",
+        )?;
         self.string_count_distinct_topk_candidate_values = Some(candidates);
-        self.string_count_distinct_topk_exact_sets = Some(rustc_hash::FxHashMap::default());
+        self.string_count_distinct_topk_exact_sets = Some(exact_sets);
         Ok(())
     }
 
@@ -35042,6 +35425,30 @@ fn projection_scan_plan(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn sort_rows_source_row_id_projection_expr(
+    projected_columns: &[String],
+) -> Result<vortex::array::expr::Expression> {
+    use vortex::array::dtype::Nullability;
+    use vortex::array::expr::{col, pack};
+    use vortex::layout::layouts::row_idx::row_idx;
+
+    if projected_columns
+        .iter()
+        .any(|column| column == SHARDLOOM_SOURCE_ROW_ID_COLUMN)
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex sort cannot reserve internal row-id projection column '{SHARDLOOM_SOURCE_ROW_ID_COLUMN}' because the source already exposes that name; no fallback execution was attempted"
+        )));
+    }
+    let mut elements = Vec::with_capacity(projected_columns.len() + 1);
+    for column in projected_columns {
+        elements.push((column.clone(), col(column.clone())));
+    }
+    elements.push((SHARDLOOM_SOURCE_ROW_ID_COLUMN.to_string(), row_idx()));
+    Ok(pack(elements, Nullability::NonNullable))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn attach_predicate_to_scan_plan(
     plan: &mut LocalVortexScanPlan,
     predicate: &PredicateExpr,
@@ -37704,6 +38111,26 @@ mod tests {
             fast_utf8_contains_count_from_chunk(&encoded, &columns, 0, "google", true)
                 .expect("encoded negated count decision");
         assert_eq!(encoded_negated, Some(1));
+    }
+
+    #[test]
+    fn utf8_contains_matcher_preserves_ascii_unicode_negated_and_empty_semantics() {
+        let ascii = Utf8ContainsMatcher::new("google", false);
+        assert!(ascii.matches_str("https://google.example"));
+        assert!(!ascii.matches_str("https://example.test"));
+        assert_eq!(ascii.matches_bytes(b"https://google.example"), Some(true));
+
+        let negated = Utf8ContainsMatcher::new("google", true);
+        assert!(!negated.matches_str("https://google.example"));
+        assert!(negated.matches_str("https://example.test"));
+
+        let unicode = Utf8ContainsMatcher::new("cafe\u{301}", false);
+        assert!(unicode.matches_str("https://example.test/cafe\u{301}"));
+        assert_eq!(unicode.matches_bytes(b"\xff"), None);
+
+        let empty = Utf8ContainsMatcher::new("", false);
+        assert!(empty.matches_str(""));
+        assert_eq!(empty.matches_bytes(b"\xff"), Some(true));
     }
 
     #[test]
@@ -50245,6 +50672,9 @@ mod tests {
         );
         assert!(summary.contains("\"late_materialization_chunks_scanned\":1"));
         assert!(summary.contains("\"late_materialization_early_stop_applied\":false"));
+        assert!(summary.contains("\"late_materialization_row_index_selection_applied\":true"));
+        assert!(summary.contains("\"late_materialization_requested_row_indices\":1"));
+        assert!(summary.contains("\"late_materialization_min_selected_source_ordinal\":1"));
         assert!(summary.contains("\"late_materialization_max_selected_source_ordinal\":1"));
         assert!(summary.contains("\"late_materialization_selected_row_refs_used\":true"));
         assert!(summary.contains("\"id\":2"));
@@ -50292,12 +50722,38 @@ mod tests {
         assert!(report.data_materialized);
         assert!(report.materialization_boundary_reported);
         assert_eq!(report.rows_selected, Some(1));
+        assert!(report.state_budget.state_family.contains("vortex_row_idx"));
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"vortex_row_idx_projection".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"row_index_selected_payload_scan".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"root_source_row_ids".to_string())
+        );
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("\"wide_output_second_pass\":true"));
-        assert!(summary.contains("\"sort_predicate_strategy\":\"vortex_filter_pushdown\""));
+        assert!(
+            summary.contains("\"sort_predicate_strategy\":\"vortex_filter_pushdown_with_row_idx\"")
+        );
         assert!(summary.contains("\"late_materialization_chunks_scanned\":1"));
-        assert!(summary.contains("\"late_materialization_early_stop_applied\":true"));
+        assert!(summary.contains("\"late_materialization_early_stop_applied\":false"));
+        assert!(summary.contains("\"late_materialization_row_index_selection_applied\":true"));
+        assert!(summary.contains("\"late_materialization_requested_row_indices\":1"));
+        assert!(summary.contains("\"late_materialization_min_selected_source_ordinal\":2"));
+        assert!(summary.contains("\"late_materialization_max_selected_source_ordinal\":2"));
         assert!(summary.contains("\"late_materialization_selected_row_refs_used\":true"));
+        assert!(summary.contains("\"late_materialization_source_row_id_projection_applied\":true"));
         assert!(summary.contains("\"id\":3"));
         assert!(summary.contains("\"metric\":20"));
         assert!(summary.contains("\"c7\":307"));
