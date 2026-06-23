@@ -3811,6 +3811,13 @@ struct SchemaDeclaredTextRecordBatchReader {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[derive(Clone, Copy)]
+struct TextRecordBatchReaderConfig {
+    max_input_rows: Option<usize>,
+    batch_size: usize,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl SchemaDeclaredTextRecordBatchReader {
     fn new(
         source_format: LocalSourceFormat,
@@ -3818,7 +3825,7 @@ impl SchemaDeclaredTextRecordBatchReader {
         header: Vec<String>,
         column_dtypes: Vec<Option<LogicalDType>>,
         reader: BufReader<fs::File>,
-        max_input_rows: Option<usize>,
+        config: TextRecordBatchReaderConfig,
         context: String,
     ) -> Self {
         let required_columns = header.iter().cloned().collect::<BTreeSet<_>>();
@@ -3832,9 +3839,8 @@ impl SchemaDeclaredTextRecordBatchReader {
                 required_columns,
                 "schema_declared_text_stream_columns",
             ),
-            batch_size:
-                shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS,
-            max_input_rows,
+            batch_size: config.batch_size,
+            max_input_rows: config.max_input_rows,
             next_row_number: 0,
             context,
         }
@@ -3978,7 +3984,33 @@ struct SchemaDeclaredTextStreamContract {
     column_dtypes: Vec<Option<LogicalDType>>,
     column_arrow_dtypes: Vec<Option<DataType>>,
     reader: BufReader<fs::File>,
-    source_stream_policy: &'static str,
+    source_stream_policy: String,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn text_stream_record_batch_size(max_input_rows: Option<usize>) -> usize {
+    max_input_rows.map_or(
+        shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+        |_| shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS,
+    )
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn text_stream_policy_token(
+    source_format: LocalSourceFormat,
+    schema_kind: &str,
+    batch_size: usize,
+) -> String {
+    let format = match source_format {
+        LocalSourceFormat::Csv => "csv",
+        LocalSourceFormat::JsonLines => "jsonl",
+        LocalSourceFormat::Json
+        | LocalSourceFormat::Parquet
+        | LocalSourceFormat::ArrowIpc
+        | LocalSourceFormat::Avro
+        | LocalSourceFormat::Orc => "not_applicable",
+    };
+    format!("{schema_kind}_{format}_record_batch_stream_batch_size_{batch_size}_rows")
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -4055,7 +4087,11 @@ fn schema_declared_text_stream_contract(
                 column_dtypes,
                 column_arrow_dtypes,
                 reader,
-                source_stream_policy: "schema_declared_csv_record_batch_stream_batch_size_65536_rows",
+                source_stream_policy: text_stream_policy_token(
+                    source_format,
+                    "schema_declared",
+                    text_stream_record_batch_size(max_input_rows),
+                ),
             }))
         }
         LocalSourceFormat::JsonLines => schema_hinted_inferred_text_stream_contract(
@@ -4094,28 +4130,16 @@ fn schema_hinted_inferred_text_stream_contract(
             .iter()
             .any(|(hint, _dtype)| hint == column)
     });
-    contract.source_stream_policy = match (source_format, complete_declared_schema) {
-        (LocalSourceFormat::Csv, true) => {
-            "schema_declared_csv_record_batch_stream_batch_size_65536_rows"
-        }
-        (LocalSourceFormat::JsonLines, true) => {
-            "schema_declared_jsonl_record_batch_stream_batch_size_65536_rows"
-        }
-        (LocalSourceFormat::Csv, false) => {
-            "schema_hinted_csv_record_batch_stream_batch_size_65536_rows"
-        }
-        (LocalSourceFormat::JsonLines, false) => {
-            "schema_hinted_jsonl_record_batch_stream_batch_size_65536_rows"
-        }
-        (
-            LocalSourceFormat::Json
-            | LocalSourceFormat::Parquet
-            | LocalSourceFormat::ArrowIpc
-            | LocalSourceFormat::Avro
-            | LocalSourceFormat::Orc,
-            _,
-        ) => "not_applicable",
+    let schema_kind = if complete_declared_schema {
+        "schema_declared"
+    } else {
+        "schema_hinted"
     };
+    contract.source_stream_policy = text_stream_policy_token(
+        source_format,
+        schema_kind,
+        text_stream_record_batch_size(max_input_rows),
+    );
     Ok(Some(contract))
 }
 
@@ -4271,17 +4295,11 @@ fn inferred_text_stream_contract(
         column_dtypes,
         column_arrow_dtypes,
         reader,
-        source_stream_policy: match source_format {
-            LocalSourceFormat::Csv => "inferred_csv_record_batch_stream_batch_size_65536_rows",
-            LocalSourceFormat::JsonLines => {
-                "inferred_jsonl_record_batch_stream_batch_size_65536_rows"
-            }
-            LocalSourceFormat::Json
-            | LocalSourceFormat::Parquet
-            | LocalSourceFormat::ArrowIpc
-            | LocalSourceFormat::Avro
-            | LocalSourceFormat::Orc => "not_applicable",
-        },
+        source_stream_policy: text_stream_policy_token(
+            source_format,
+            "inferred",
+            text_stream_record_batch_size(max_input_rows),
+        ),
     }))
 }
 
@@ -5629,6 +5647,16 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "vortex_capillary_preparation_max_parallelism",
         "vortex_capillary_preparation_prewrite_execution_window_size",
         "vortex_capillary_preparation_prewrite_external_engine_invoked",
+        "vortex_layout_write_advisor_source_scale",
+        "vortex_layout_write_advisor_profile_family",
+        "vortex_layout_write_advisor_prepared_layout_family",
+        "vortex_layout_write_advisor_text_domain_columns",
+        "vortex_layout_write_advisor_time_bucket_columns",
+        "vortex_layout_write_advisor_counter_columns",
+        "vortex_layout_write_advisor_key_profile",
+        "vortex_layout_write_advisor_dictionary_profile",
+        "vortex_layout_write_advisor_expected_read_tradeoff",
+        "vortex_layout_write_advisor_expected_write_tradeoff",
         "vortex_prepared_state_reuse_index_schema_version",
         "vortex_prepared_state_reuse_index_lookup_status",
         "vortex_prepared_state_reuse_index_cache_scope",
@@ -6035,7 +6063,7 @@ fn layout_write_advisor_report(
             row_count: u64::try_from(source.row_count).unwrap_or(u64::MAX),
             source_byte_count: source.source_bytes,
             column_count: source.header.len(),
-            workload_constitution: "vortex_ingest_prepare_once_local_fixture".to_string(),
+            workload_constitution: layout_workload_constitution(source),
             source_statistics_status: layout_source_statistics_status(source),
             requested_pushdown_requirements: "none_prepare_once_full_source".to_string(),
             sink_requirements: "workspace_safe_local_vortex_file_sink".to_string(),
@@ -6053,8 +6081,8 @@ fn layout_write_advisor_report(
                 .to_string(),
             materialization_boundary_status: source.materialization_layout.to_string(),
             decode_boundary_status: source.parse_normalization.to_string(),
-            expected_read_tradeoff: "not_claimed_requires_benchmark_refresh".to_string(),
-            expected_write_tradeoff: "not_claimed_requires_benchmark_refresh".to_string(),
+            expected_read_tradeoff: layout_expected_read_tradeoff(source).to_string(),
+            expected_write_tradeoff: layout_expected_write_tradeoff(source).to_string(),
             strategy_admitted: true,
             unsupported_diagnostic_code: "none".to_string(),
             correctness_refs: "writer_row_count,reopen_row_count,artifact_digest".to_string(),
@@ -6063,6 +6091,185 @@ fn layout_write_advisor_report(
             external_engine_invoked: false,
         },
     )
+}
+
+fn layout_workload_constitution(source: &VortexIngestSourceData) -> String {
+    format!(
+        "product_vortex_prepare_once;format={};scale={};adapter={};profile={};layout_family={};text_domain={};time_bucket={};counter={};key_profile={};dictionary={}",
+        source.source_format.as_str(),
+        layout_source_scale(source),
+        if source.columnar_source_preserved {
+            "streaming_columnar_source_state"
+        } else {
+            "typed_scalar_source_bridge"
+        },
+        layout_source_profile(source),
+        layout_prepared_layout_family(source),
+        layout_source_has_text_domain_columns(source),
+        layout_source_has_time_bucket_columns(source),
+        layout_source_has_counter_columns(source),
+        layout_key_profile(source),
+        layout_dictionary_profile(source),
+    )
+}
+
+fn layout_source_scale(source: &VortexIngestSourceData) -> &'static str {
+    if source.row_count >= 10_000_000 || source.source_bytes >= 1_073_741_824 {
+        "large_olap"
+    } else if source.row_count >= 1_000_000 || source.source_bytes >= 64 * 1024 * 1024 {
+        "medium_olap"
+    } else {
+        "small_local"
+    }
+}
+
+fn layout_source_profile(source: &VortexIngestSourceData) -> &'static str {
+    match (
+        layout_source_has_text_domain_columns(source),
+        layout_source_has_time_bucket_columns(source),
+        layout_source_has_counter_columns(source),
+    ) {
+        (true, true, true) => "url_time_counter_olap",
+        (true, true, false) => "url_time_olap",
+        (true, false, _) => "url_text_olap",
+        (false, true, true) => "time_counter_olap",
+        (false, true, false) => "time_olap",
+        (false, false, true) => "counter_olap",
+        (false, false, false) => "generic_columnar_olap",
+    }
+}
+
+fn layout_source_has_text_domain_columns(source: &VortexIngestSourceData) -> bool {
+    source.header.iter().any(|column| {
+        let lower = column.to_ascii_lowercase();
+        lower.contains("url")
+            || lower.contains("referer")
+            || lower.contains("search")
+            || lower.contains("phrase")
+            || lower.contains("title")
+            || lower.contains("utm")
+            || lower.contains("param")
+            || lower.contains("useragent")
+    })
+}
+
+fn layout_source_has_time_bucket_columns(source: &VortexIngestSourceData) -> bool {
+    source.header.iter().any(|column| {
+        let lower = column.to_ascii_lowercase();
+        lower == "eventtime"
+            || lower == "event_time"
+            || lower.ends_with("_time")
+            || lower.ends_with("time")
+            || lower.contains("timestamp")
+            || lower.contains("date")
+    })
+}
+
+fn layout_source_has_counter_columns(source: &VortexIngestSourceData) -> bool {
+    source.header.iter().any(|column| {
+        let lower = column.to_ascii_lowercase();
+        lower.contains("id")
+            || lower.contains("counter")
+            || lower.contains("userid")
+            || lower.contains("watchid")
+            || lower.contains("clientip")
+            || lower.contains("region")
+            || lower.contains("browser")
+    })
+}
+
+fn layout_prepared_layout_family(source: &VortexIngestSourceData) -> &'static str {
+    match layout_source_profile(source) {
+        "url_time_counter_olap" => "url_time_counter_dictionary_stats_layout",
+        "url_time_olap" => "url_time_dictionary_stats_layout",
+        "url_text_olap" => "url_domain_dictionary_length_layout",
+        "time_counter_olap" => "time_counter_typed_stats_layout",
+        "time_olap" => "time_bucket_typed_stats_layout",
+        "counter_olap" => "counter_typed_stats_layout",
+        _ => "generic_columnar_stats_layout",
+    }
+}
+
+fn layout_key_profile(source: &VortexIngestSourceData) -> &'static str {
+    match (
+        layout_source_has_high_cardinality_key_columns(source),
+        layout_source_has_text_domain_columns(source),
+        layout_source_has_time_bucket_columns(source),
+    ) {
+        (true, true, true) => "high_cardinality_numeric_text_time_keys",
+        (true, true, false) => "high_cardinality_numeric_text_keys",
+        (true, false, true) => "high_cardinality_numeric_time_keys",
+        (true, false, false) => "high_cardinality_numeric_keys",
+        (false, true, true) => "dictionary_text_time_keys",
+        (false, true, false) => "dictionary_text_keys",
+        (false, false, true) => "typed_time_keys",
+        (false, false, false) => "generic_typed_keys",
+    }
+}
+
+fn layout_source_has_high_cardinality_key_columns(source: &VortexIngestSourceData) -> bool {
+    source.header.iter().any(|column| {
+        let lower = column.to_ascii_lowercase();
+        matches!(
+            lower.as_str(),
+            "userid"
+                | "watchid"
+                | "clientip"
+                | "urlhash"
+                | "refererhash"
+                | "titlehash"
+                | "windowclientwidth"
+                | "windowclientheight"
+        ) || lower.ends_with("_id")
+            || lower.ends_with("id")
+    })
+}
+
+fn layout_dictionary_profile(source: &VortexIngestSourceData) -> &'static str {
+    if source
+        .source_dictionary_preservation_status
+        .contains("dictionary")
+    {
+        "source_dictionary_or_derived_dictionary_evidence"
+    } else if source.columnar_source_preserved {
+        "columnar_dictionary_status_provider_dependent"
+    } else {
+        "text_typed_builders_no_source_dictionary"
+    }
+}
+
+fn layout_expected_read_tradeoff(source: &VortexIngestSourceData) -> &'static str {
+    match (layout_source_scale(source), layout_source_profile(source)) {
+        ("large_olap", "url_time_counter_olap" | "url_time_olap" | "url_text_olap") => {
+            "prefer_metadata_pruning_dictionary_domain_length_and_time_bucket_execution"
+        }
+        ("large_olap", "time_counter_olap" | "time_olap") => {
+            "prefer_typed_time_bucket_counter_stats_and_late_materialization"
+        }
+        ("large_olap", "counter_olap") => {
+            "prefer_typed_counter_stats_fast_load_and_late_materialization"
+        }
+        ("large_olap", _) => "prefer_large_source_typed_stats_and_late_materialization",
+        ("medium_olap", "url_time_counter_olap" | "url_time_olap" | "url_text_olap") => {
+            "prefer_medium_source_embedded_text_domain_metadata_when_exact"
+        }
+        ("medium_olap", _) => "prefer_medium_source_typed_stats_without_extra_layout_overhead",
+        _ => "prefer_small_local_correctness_and_low_setup_overhead",
+    }
+}
+
+fn layout_expected_write_tradeoff(source: &VortexIngestSourceData) -> &'static str {
+    match (layout_source_scale(source), layout_source_profile(source)) {
+        ("large_olap", "url_time_counter_olap" | "url_time_olap" | "url_text_olap") => {
+            "accept_text_dictionary_zstd_and_embedded_metadata_write_cost_for_lower_scan_cost"
+        }
+        ("large_olap", _) => "prefer_fast_load_uncompressed_layout_to_reduce_ingest_wall_time",
+        ("medium_olap", "url_time_counter_olap" | "url_time_olap" | "url_text_olap") => {
+            "balance_embedded_text_metadata_with_bounded_writer_overhead"
+        }
+        ("medium_olap", _) => "prefer_default_writer_layout_with_profile_evidence",
+        _ => "prefer_small_local_default_writer_layout",
+    }
 }
 
 fn layout_source_statistics_status(source: &VortexIngestSourceData) -> String {
@@ -6679,17 +6886,19 @@ fn try_run_schema_declared_text_vortex_prepare(
         })
         .collect::<Result<Vec<_>, ShardLoomError>>()?;
     let schema = Arc::new(Schema::new(fields));
+    let reader_config = TextRecordBatchReaderConfig {
+        max_input_rows: read_limits.input_rows,
+        batch_size: text_stream_record_batch_size(read_limits.input_rows),
+    };
     let batch_reader = SchemaDeclaredTextRecordBatchReader::new(
         contract.source_format,
         Arc::clone(&schema),
         contract.header.clone(),
         contract.column_dtypes.clone(),
         contract.reader,
-        read_limits.input_rows,
+        reader_config,
         context,
     );
-    let batch_size =
-        shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS;
     let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
         header: contract.header.clone(),
         column_dtypes: contract.column_dtypes.clone(),
@@ -6698,11 +6907,11 @@ fn try_run_schema_declared_text_vortex_prepare(
         reader_projection_columns: contract.header.clone(),
         row_count_hint: None,
         record_batch_count_hint: None,
-        source_stream_batch_size: batch_size,
+        source_stream_batch_size: reader_config.batch_size,
         source_stream_unit_count_hint: None,
         source_stream_unit_row_ranges: None,
         source_stream_unit_hint_kind: "schema_declared_text_record_batch_stream".to_string(),
-        source_stream_policy: contract.source_stream_policy.to_string(),
+        source_stream_policy: contract.source_stream_policy.clone(),
         source_dictionary_preservation_status:
             "schema_declared_text_typed_builders_preserve_declared_scalar_types".to_string(),
         ingest_executor_status: "lazy_schema_declared_text_record_batch_builder".to_string(),
@@ -6890,17 +7099,19 @@ fn try_run_inferred_text_vortex_prepare(
         })
         .collect::<Result<Vec<_>, ShardLoomError>>()?;
     let schema = Arc::new(Schema::new(fields));
+    let reader_config = TextRecordBatchReaderConfig {
+        max_input_rows: read_limits.input_rows,
+        batch_size: text_stream_record_batch_size(read_limits.input_rows),
+    };
     let batch_reader = SchemaDeclaredTextRecordBatchReader::new(
         contract.source_format,
         Arc::clone(&schema),
         contract.header.clone(),
         contract.column_dtypes.clone(),
         contract.reader,
-        read_limits.input_rows,
+        reader_config,
         context,
     );
-    let batch_size =
-        shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS;
     let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
         header: contract.header.clone(),
         column_dtypes: contract.column_dtypes.clone(),
@@ -6909,11 +7120,11 @@ fn try_run_inferred_text_vortex_prepare(
         reader_projection_columns: contract.header.clone(),
         row_count_hint: None,
         record_batch_count_hint: None,
-        source_stream_batch_size: batch_size,
+        source_stream_batch_size: reader_config.batch_size,
         source_stream_unit_count_hint: None,
         source_stream_unit_row_ranges: None,
         source_stream_unit_hint_kind: "inferred_text_record_batch_stream".to_string(),
-        source_stream_policy: contract.source_stream_policy.to_string(),
+        source_stream_policy: contract.source_stream_policy.clone(),
         source_dictionary_preservation_status:
             "inferred_text_typed_builders_preserve_inferred_scalar_types".to_string(),
         ingest_executor_status: "lazy_inferred_text_record_batch_builder".to_string(),
@@ -7094,7 +7305,7 @@ fn run_text_streaming_vortex_prepare(
             source.materialized_columns.clone(),
             source.reader_projection_columns.clone(),
             rows,
-            shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS,
+            text_stream_record_batch_size(request.runtime_profile.read_limits().input_rows),
             source.source_format.row_label(),
         )?;
     let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
@@ -7387,20 +7598,11 @@ fn stream_columnar_vortex_ingest_source(
     }
     let source =
         stream_columnar_vortex_ingest_file_source(source_format, path, max_rows, max_parallelism)?;
-    if matches!(
-        source.ingest_executor_status.as_str(),
-        "bounded_capillary_row_group_parallel_active"
-            | "bounded_capillary_row_group_parallel_writer_budgeted"
-    ) {
-        Ok(source)
-    } else {
-        Ok(
-            shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
-                source,
-                max_parallelism,
-            ),
-        )
-    }
+    let source =
+        shardloom_vortex::universal_format_io::with_source_native_embedded_derived_columns_columnar_stream_source(
+            source,
+        );
+    Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -7613,6 +7815,10 @@ fn stream_columnar_vortex_ingest_partition_source(
             failed: false,
         }),
     };
+    let source =
+        shardloom_vortex::universal_format_io::with_source_native_embedded_derived_columns_columnar_stream_source(
+            source,
+        );
     Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
 }
 
@@ -8513,6 +8719,10 @@ impl VortexIngestReport {
             (
                 "vortex_array_build_strategy".to_string(),
                 self.vortex_report.array_build_strategy.clone(),
+            ),
+            (
+                "vortex_array_build_prefetch_window".to_string(),
+                self.vortex_report.array_build_prefetch_window.to_string(),
             ),
             (
                 "vortex_array_build_input_layout".to_string(),
@@ -42853,18 +43063,18 @@ mod tests {
     #[test]
     fn public_workflow_preparation_fields_keep_product_stream_source_evidence() {
         let fields = public_workflow_preparation_fields(vec![
-            ("source_state_stream_batch_size".to_string(), "65536".to_string()),
+            ("source_state_stream_batch_size".to_string(), "262144".to_string()),
             (
                 "source_state_stream_unit_count_hint".to_string(),
                 "8".to_string(),
             ),
             (
                 "source_state_stream_unit_hint_kind".to_string(),
-                "parquet_row_group_count".to_string(),
+                "parquet_adaptive_row_group_task_count".to_string(),
             ),
             (
                 "source_state_stream_policy".to_string(),
-                "product_columnar_stream_batch_size_65536_rows".to_string(),
+                "product_columnar_stream_batch_size_262144_rows".to_string(),
             ),
             (
                 "source_state_dictionary_preservation_status".to_string(),
@@ -42881,7 +43091,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "public_workflow_preparation_source_state_stream_batch_size",
-            "65536",
+            "262144",
         );
         assert_field_eq(
             &fields,
@@ -42891,12 +43101,12 @@ mod tests {
         assert_field_eq(
             &fields,
             "public_workflow_preparation_source_state_stream_unit_hint_kind",
-            "parquet_row_group_count",
+            "parquet_adaptive_row_group_task_count",
         );
         assert_field_eq(
             &fields,
             "public_workflow_preparation_source_state_stream_policy",
-            "product_columnar_stream_batch_size_65536_rows",
+            "product_columnar_stream_batch_size_262144_rows",
         );
         assert_field_eq(
             &fields,
@@ -43048,7 +43258,7 @@ mod tests {
             record_batch_count: 0,
             source_stream_batch_size: 262_144,
             source_stream_unit_count_hint: Some(8),
-            source_stream_unit_hint_kind: "parquet_row_group_count".to_string(),
+            source_stream_unit_hint_kind: "parquet_adaptive_row_group_task_count".to_string(),
             source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
             source_dictionary_preservation_status:
                 "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary"
@@ -43067,6 +43277,117 @@ mod tests {
         assert_eq!(
             layout_writer_provider_surface(&source),
             "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator;VortexSession::write_options().write(ArrayStream)"
+        );
+        assert_eq!(
+            layout_workload_constitution(&source),
+            "product_vortex_prepare_once;format=parquet;scale=large_olap;adapter=streaming_columnar_source_state;profile=url_text_olap;layout_family=url_domain_dictionary_length_layout;text_domain=true;time_bucket=false;counter=false;key_profile=dictionary_text_keys;dictionary=source_dictionary_or_derived_dictionary_evidence"
+        );
+        assert_eq!(
+            layout_expected_read_tradeoff(&source),
+            "prefer_metadata_pruning_dictionary_domain_length_and_time_bucket_execution"
+        );
+        assert_eq!(
+            layout_expected_write_tradeoff(&source),
+            "accept_text_dictionary_zstd_and_embedded_metadata_write_cost_for_lower_scan_cost"
+        );
+    }
+
+    #[test]
+    fn public_workflow_preparation_keeps_layout_profile_fields() {
+        let fields = field_map(public_workflow_preparation_fields(vec![
+            (
+                "vortex_layout_write_advisor_source_scale".to_string(),
+                "large_olap".to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_profile_family".to_string(),
+                "url_time_counter_olap".to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_prepared_layout_family".to_string(),
+                "url_time_counter_dictionary_stats_layout".to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_text_domain_columns".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_time_bucket_columns".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_counter_columns".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_key_profile".to_string(),
+                "high_cardinality_numeric_text_time_keys".to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_dictionary_profile".to_string(),
+                "source_dictionary_or_derived_dictionary_evidence".to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_expected_read_tradeoff".to_string(),
+                "prefer_metadata_pruning_dictionary_domain_length_and_time_bucket_execution"
+                    .to_string(),
+            ),
+            (
+                "vortex_layout_write_advisor_expected_write_tradeoff".to_string(),
+                "accept_text_dictionary_zstd_and_embedded_metadata_write_cost_for_lower_scan_cost"
+                    .to_string(),
+            ),
+        ]));
+
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_source_scale",
+            "large_olap",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_profile_family",
+            "url_time_counter_olap",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_prepared_layout_family",
+            "url_time_counter_dictionary_stats_layout",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_text_domain_columns",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_time_bucket_columns",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_counter_columns",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_key_profile",
+            "high_cardinality_numeric_text_time_keys",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_dictionary_profile",
+            "source_dictionary_or_derived_dictionary_evidence",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_expected_read_tradeoff",
+            "prefer_metadata_pruning_dictionary_domain_length_and_time_bucket_execution",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_expected_write_tradeoff",
+            "accept_text_dictionary_zstd_and_embedded_metadata_write_cost_for_lower_scan_cost",
         );
     }
 
@@ -43462,13 +43783,14 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch;streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator",
             );
             assert_field_eq(
                 &fields,
                 "vortex_array_build_strategy",
-                "capillary_vortex_array_prefetch_from_arrow_record_batch_stream",
+                "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
             );
+            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "1");
             assert_field_eq(
                 &fields,
                 "vortex_array_build_input_layout",
@@ -43490,6 +43812,133 @@ mod tests {
         }
 
         fs::remove_dir_all(root).expect("remove text stream root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn vortex_ingest_max_parallelism_propagates_to_public_prepare_evidence() {
+        let root = vortex_ingest_reuse_test_root("max-parallelism-propagation");
+        let source = root.join("input.csv");
+        let target = root.join("prepared.vortex");
+        fs::write(&source, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
+
+        let mut request = vortex_ingest_reuse_request(source, target, false);
+        request.max_parallelism = 4;
+
+        let outcome = run_vortex_prepare(request)
+            .expect("csv source writes Vortex artifact with explicit max parallelism");
+        let report = prepared_vortex_ingest_report(outcome);
+        let fields = field_map(report.fields());
+
+        assert_field_eq(&fields, "vortex_ingest_requested_max_parallelism", "4");
+        assert_field_eq(
+            &fields,
+            "source_state_ingest_executor_status",
+            "bounded_capillary_prefetch_active",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ingest_executor_requested_parallelism",
+            "4",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ingest_executor_applied_parallelism",
+            "1",
+        );
+        assert_field_eq(&fields, "vortex_array_build_prefetch_window", "3");
+        assert_field_eq(
+            &fields,
+            "vortex_array_build_strategy",
+            "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
+        );
+        assert_field_eq(&fields, "vortex_capillary_preparation_max_parallelism", "4");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_dir_all(root).expect("remove max parallelism root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn vortex_ingest_parquet_public_prepare_uses_row_group_capillary_executor() {
+        use arrow_array::{Int64Array, RecordBatch, StringArray};
+        use arrow_schema::{DataType, Field, Schema};
+        use parquet::arrow::ArrowWriter;
+        use parquet::file::properties::WriterProperties;
+        use std::sync::Arc;
+
+        let root = vortex_ingest_reuse_test_root("parquet-row-group-public-prepare");
+        let source = root.join("input.parquet");
+        let target = root.join("prepared.vortex");
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("URL", DataType::Utf8, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
+                Arc::new(StringArray::from(vec![
+                    Some("https://example.com/a"),
+                    Some("https://example.com/b"),
+                    Some("https://example.net/c"),
+                    None,
+                ])),
+            ],
+        )
+        .expect("parquet batch");
+        let props = WriterProperties::builder()
+            .set_max_row_group_row_count(Some(1))
+            .build();
+        let file = fs::File::create(&source).expect("create parquet source");
+        let mut writer =
+            ArrowWriter::try_new(file, Arc::clone(&schema), Some(props)).expect("parquet writer");
+        writer.write(&batch).expect("write parquet batch");
+        writer.close().expect("close parquet writer");
+
+        let mut request = vortex_ingest_reuse_request(source, target, false);
+        request.max_parallelism = 2;
+        let outcome = run_vortex_prepare(request)
+            .expect("parquet source writes Vortex artifact through public prepare");
+        let report = prepared_vortex_ingest_report(outcome);
+        let fields = field_map(report.fields());
+
+        assert_field_eq(&fields, "vortex_ingest_requested_max_parallelism", "2");
+        assert_field_eq(
+            &fields,
+            "source_state_stream_unit_hint_kind",
+            "parquet_adaptive_row_group_task_count",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ingest_executor_status",
+            "bounded_capillary_row_group_parallel_writer_budgeted",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ingest_executor_kind",
+            "parquet_row_group_adaptive_coalesced_reader_to_vortex_writer_with_writer_slot_reserved",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ingest_executor_requested_parallelism",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ingest_executor_applied_parallelism",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_array_build_strategy",
+            "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_dir_all(root).expect("remove parquet public prepare root");
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -43550,8 +43999,9 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch;streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator",
             );
+            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "1");
             assert_field_eq(
                 &fields,
                 "vortex_preparation_spine_decode_boundary_status",
@@ -43629,8 +44079,9 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch;streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator",
             );
+            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "1");
             assert_field_eq(
                 &fields,
                 "vortex_preparation_spine_decode_boundary_status",
@@ -43860,6 +44311,12 @@ mod tests {
             "source_state_materialization_layout",
             "schema_declared_text_to_streaming_arrow_record_batch_source_state",
         );
+        assert_field_eq(&fields, "source_state_stream_batch_size", "262144");
+        assert_field_eq(
+            &fields,
+            "source_state_stream_policy",
+            "schema_declared_csv_record_batch_stream_batch_size_262144_rows",
+        );
         assert_field_eq(
             &fields,
             "source_read_buffer_carry_status",
@@ -43898,6 +44355,12 @@ mod tests {
             &inferred_fields,
             "source_state_materialization_layout",
             "inferred_text_to_streaming_arrow_record_batch_source_state",
+        );
+        assert_field_eq(&inferred_fields, "source_state_stream_batch_size", "262144");
+        assert_field_eq(
+            &inferred_fields,
+            "source_state_stream_policy",
+            "inferred_csv_record_batch_stream_batch_size_262144_rows",
         );
         assert_field_eq(
             &inferred_fields,

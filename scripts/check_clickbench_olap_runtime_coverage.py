@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_QUERY_MANIFEST = ROOT / "benchmarks" / "clickbench" / "queries.sql"
 DEFAULT_OUTPUT = ROOT / "target" / "clickbench-olap-runtime-coverage.json"
 SCHEMA_VERSION = "shardloom.clickbench_olap_runtime_coverage.v1"
-STATE_BUDGET_SCHEMA_VERSION = "shardloom.clickbench_olap_state_budget.v1"
+STATE_BUDGET_SCHEMA_VERSION = "shardloom.clickbench_olap_state_budget.v2"
 SCALE_FIXTURE_STRATEGY_SCHEMA_VERSION = "shardloom.clickbench_scale_fixture_strategy.v1"
 CANONICAL_SOURCE_URL = (
     "https://raw.githubusercontent.com/ClickHouse/ClickBench/main/clickhouse/queries.sql"
@@ -290,12 +290,13 @@ def state_budget_profile(tags: list[str], route_family: str) -> dict[str, Any]:
         capillary_work_units.append("having_filter")
         pulseweave_pressure_signals.append("having_selectivity")
 
+    pressure_class = state_pressure_class(tags, route_family, required)
     if not required and len(capillary_work_units) == 1:
         status = "not_required"
         spill_policy = "not_applicable"
         fail_closed = False
     else:
-        status = "bounded_in_memory_route_budget_declared_spill_not_certified"
+        status = state_budget_status_for_pressure(pressure_class)
         spill_policy = "fail_closed_before_uncertified_spill"
         fail_closed = True
 
@@ -303,6 +304,7 @@ def state_budget_profile(tags: list[str], route_family: str) -> dict[str, Any]:
         "state_budget_schema_version": STATE_BUDGET_SCHEMA_VERSION,
         "state_budget_required": required,
         "state_budget_status": status,
+        "state_pressure_class": pressure_class,
         "state_family": state_family,
         "capillary_work_units": unique(capillary_work_units),
         "pulseweave_pressure_signals": unique(pulseweave_pressure_signals),
@@ -311,13 +313,65 @@ def state_budget_profile(tags: list[str], route_family: str) -> dict[str, Any]:
         "spill_io_performed": False,
         "spill_policy": spill_policy,
         "fail_closed_if_spill_required": fail_closed,
-        "state_budget_diagnostic_code": "none",
-        "state_budget_next_action": (
-            "certify native spill before admitting spill-required ClickBench scale shapes"
-            if fail_closed
-            else "none"
-        ),
+        "state_budget_diagnostic_code": state_budget_diagnostic_code_for_pressure(pressure_class),
+        "state_budget_next_action": state_budget_next_action_for_pressure(pressure_class),
     }
+
+
+def state_pressure_class(
+    tags: list[str], route_family: str, state_budget_required: bool
+) -> str:
+    if not state_budget_required:
+        return "none"
+    if "group_by" in tags and (
+        "multi_key_group_by" in tags
+        or "distinct_aggregate" in tags
+        or "like_predicate" in tags
+        or "not_like_predicate" in tags
+        or route_family.endswith("_topk")
+    ):
+        return "near_input_cardinality_high_pressure"
+    if "group_by" in tags or "top_k" in tags or "offset" in tags:
+        return "high_cardinality_pressure"
+    if "wide_repeated_aggregate_projection" in tags or "distinct_aggregate" in tags:
+        return "moderate_cardinality_pressure"
+    return "low_cardinality_pressure"
+
+
+def state_budget_status_for_pressure(pressure_class: str) -> str:
+    return {
+        "none": "not_required",
+        "low_cardinality_pressure": "bounded_in_memory_low_pressure_spill_not_required",
+        "moderate_cardinality_pressure": "bounded_in_memory_moderate_pressure_spill_not_certified",
+        "high_cardinality_pressure": "bounded_in_memory_high_pressure_spill_not_certified",
+        "near_input_cardinality_high_pressure": (
+            "bounded_in_memory_near_input_cardinality_spill_not_certified"
+        ),
+    }.get(pressure_class, "bounded_in_memory_route_budget_declared_spill_not_certified")
+
+
+def state_budget_diagnostic_code_for_pressure(pressure_class: str) -> str:
+    if pressure_class == "near_input_cardinality_high_pressure":
+        return "SL_STATE_BUDGET_HIGH_PRESSURE_NATIVE_SPILL_PENDING"
+    if pressure_class == "high_cardinality_pressure":
+        return "SL_STATE_BUDGET_HIGH_CARDINALITY_REVIEW"
+    return "none"
+
+
+def state_budget_next_action_for_pressure(pressure_class: str) -> str:
+    if pressure_class == "near_input_cardinality_high_pressure":
+        return (
+            "prefer embedded layout pruning, partitioned exact merge, or certified native spill "
+            "before broad scale or sub-second performance claims"
+        )
+    if pressure_class == "high_cardinality_pressure":
+        return (
+            "review layout/state evidence and retain only reusable exact optimizations that reduce "
+            "dominant state work"
+        )
+    if pressure_class == "moderate_cardinality_pressure":
+        return "continue with in-memory exact route and monitor pressure evidence in targeted UAT"
+    return "none"
 
 
 def scale_fixture_strategy() -> dict[str, Any]:
@@ -480,6 +534,7 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
     blocker_counts: dict[str, int] = {}
     tag_counts: dict[str, int] = {}
     state_family_counts: dict[str, int] = {}
+    state_pressure_class_counts: dict[str, int] = {}
     route_family_counts: dict[str, int] = {}
     capillary_work_unit_counts: dict[str, int] = {}
     pulseweave_pressure_signal_counts: dict[str, int] = {}
@@ -492,6 +547,9 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
         for tag in row["operator_tags"]:
             tag_counts[tag] = tag_counts.get(tag, 0) + 1
         state_family_counts[row["state_family"]] = state_family_counts.get(row["state_family"], 0) + 1
+        state_pressure_class_counts[row["state_pressure_class"]] = (
+            state_pressure_class_counts.get(row["state_pressure_class"], 0) + 1
+        )
         spill_policy_counts[row["spill_policy"]] = spill_policy_counts.get(row["spill_policy"], 0) + 1
         for unit in row["capillary_work_units"]:
             capillary_work_unit_counts[unit] = capillary_work_unit_counts.get(unit, 0) + 1
@@ -516,6 +574,7 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
         "state_budget_schema_version": STATE_BUDGET_SCHEMA_VERSION,
         "state_budget_required_count": sum(1 for row in rows if row["state_budget_required"]),
         "state_family_counts": state_family_counts,
+        "state_pressure_class_counts": state_pressure_class_counts,
         "capillary_work_unit_counts": capillary_work_unit_counts,
         "pulseweave_pressure_signal_counts": pulseweave_pressure_signal_counts,
         "spill_policy_counts": spill_policy_counts,
@@ -562,6 +621,8 @@ def validate(report: dict[str, Any]) -> list[str]:
         blockers.append("ClickBench report missing route_family_counts")
     if report.get("clickbench_olap_readiness_status") != "all_queries_admitted_route_readiness":
         blockers.append("ClickBench report missing all-query route-readiness status")
+    if not report.get("state_pressure_class_counts"):
+        blockers.append("ClickBench report missing state pressure class counts")
     if (
         report.get("memory_spill_diagnostic_status")
         != "state_budget_declared_spill_fail_closed_no_spill_io"
@@ -589,6 +650,12 @@ def validate(report: dict[str, Any]) -> list[str]:
             blockers.append(f"{row['query_id']} admitted row still has blocker_id")
         if row["state_budget_schema_version"] != STATE_BUDGET_SCHEMA_VERSION:
             blockers.append(f"{row['query_id']} has stale state-budget schema")
+        if not row.get("state_pressure_class"):
+            blockers.append(f"{row['query_id']} missing state pressure classification")
+        if row["state_budget_required"] and row["state_pressure_class"] == "none":
+            blockers.append(f"{row['query_id']} requires state but reports no pressure class")
+        if not row["state_budget_required"] and row["state_pressure_class"] != "none":
+            blockers.append(f"{row['query_id']} reports pressure class without state budget")
         if row["benchmark_site_readiness_status"] != "ready_route_readiness_not_performance":
             blockers.append(f"{row['query_id']} has invalid benchmark site readiness status")
         if row["timing_surface"] != "route_readiness_no_timing":

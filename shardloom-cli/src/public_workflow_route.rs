@@ -907,6 +907,7 @@ fn append_native_vortex_primitive_row_export_fields(
     fields: &mut Vec<(String, String)>,
     report: &shardloom_vortex::VortexLocalPrimitiveRowExportReport,
 ) {
+    append_hot_runtime_timing_surface_fields(fields);
     push_field(fields, "mode", "native_vortex_primitive_row_export");
     push_field(
         fields,
@@ -1006,6 +1007,11 @@ fn append_local_primitive_state_budget_fields(
         fields,
         "local_primitive_state_budget_status",
         &state_budget.state_budget_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_state_pressure_class",
+        &state_budget.state_pressure_class,
     );
     push_field(
         fields,
@@ -1140,6 +1146,11 @@ fn append_local_primitive_embedded_layout_fields(
     );
     push_field(
         fields,
+        "local_primitive_per_column_metadata_contract",
+        &embedded_layout.per_column_metadata_contract,
+    );
+    push_field(
+        fields,
         "local_primitive_segment_membership_status",
         &embedded_layout.segment_membership_status,
     );
@@ -1202,6 +1213,11 @@ fn append_local_primitive_embedded_layout_fields(
         fields,
         "local_primitive_planner_consumption_status",
         &embedded_layout.planner_consumption_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_operator_selection_metadata_status",
+        &embedded_layout.operator_selection_metadata_status,
     );
     push_field(
         fields,
@@ -2110,6 +2126,7 @@ fn append_native_vortex_materializing_primitive_fields(
     native_io_certificate: Option<&shardloom_core::NativeIoCertificate>,
     execution_certificate: Option<&shardloom_core::ExecutionCertificate>,
 ) {
+    append_hot_runtime_timing_surface_fields(fields);
     append_native_vortex_materializing_identity_fields(fields, report, primitive_arg);
     append_native_vortex_materializing_row_fields(fields, report);
     append_native_vortex_materializing_side_effect_fields(fields, report);
@@ -2373,6 +2390,22 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_aggregate_update_strategy",
         ),
         (
+            "expression_fusion_strategy",
+            "local_primitive_expression_fusion_strategy",
+        ),
+        (
+            "expression_plan_fingerprint_status",
+            "local_primitive_expression_plan_fingerprint_status",
+        ),
+        (
+            "embedded_derived_column_rewrite_status",
+            "local_primitive_embedded_derived_column_rewrite_status",
+        ),
+        (
+            "embedded_derived_column_rewrites",
+            "local_primitive_embedded_derived_column_rewrites",
+        ),
+        (
             "aggregate_accessor_summary",
             "local_primitive_aggregate_accessor_summary",
         ),
@@ -2399,6 +2432,26 @@ fn append_local_primitive_result_summary_evidence_fields(
         (
             "aggregate_accessor_blockers",
             "local_primitive_aggregate_accessor_blockers",
+        ),
+        (
+            "aggregate_accessor_layout_correlation_status",
+            "local_primitive_aggregate_accessor_layout_correlation_status",
+        ),
+        (
+            "aggregate_accessor_layout_correlation_columns",
+            "local_primitive_aggregate_accessor_layout_correlation_columns",
+        ),
+        (
+            "aggregate_accessor_layout_correlation_blockers",
+            "local_primitive_aggregate_accessor_layout_correlation_blockers",
+        ),
+        (
+            "aggregate_accessor_layout_correlation_dictionary_status",
+            "local_primitive_aggregate_accessor_layout_correlation_dictionary_status",
+        ),
+        (
+            "aggregate_accessor_layout_correlation_encoding_inventory",
+            "local_primitive_aggregate_accessor_layout_correlation_encoding_inventory",
         ),
         (
             "compact_group_state_strategy",
@@ -2455,6 +2508,10 @@ fn append_local_primitive_result_summary_evidence_fields(
         (
             "late_materialization_max_selected_source_ordinal",
             "local_primitive_late_materialization_max_selected_source_ordinal",
+        ),
+        (
+            "late_materialization_selected_row_refs_used",
+            "local_primitive_late_materialization_selected_row_refs_used",
         ),
         (
             "sort_predicate_strategy",
@@ -3428,6 +3485,16 @@ fn local_prepared_olap_query_attachment_fields(
         "layout_footer_dtype_summary",
         "not_reported",
     );
+    let layout_per_column_metadata_contract = preparation_olap_field_value(
+        preparation_fields,
+        "layout_per_column_metadata_contract",
+        "not_reported",
+    );
+    let layout_operator_selection_metadata_status = preparation_olap_field_value(
+        preparation_fields,
+        "layout_operator_selection_metadata_status",
+        "not_reported",
+    );
     let layout_metadata_persisted_in_artifact = preparation_olap_field_value(
         preparation_fields,
         "layout_metadata_persisted_in_artifact",
@@ -3528,6 +3595,15 @@ fn local_prepared_olap_query_attachment_fields(
         (
             "public_workflow_prepared_olap_state_layout_footer_dtype_summary".to_string(),
             layout_footer_dtype_summary.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_per_column_metadata_contract".to_string(),
+            layout_per_column_metadata_contract.to_string(),
+        ),
+        (
+            "public_workflow_prepared_olap_state_layout_operator_selection_metadata_status"
+                .to_string(),
+            layout_operator_selection_metadata_status.to_string(),
         ),
         (
             "public_workflow_prepared_olap_state_layout_metadata_persisted_in_artifact".to_string(),
@@ -10555,6 +10631,30 @@ fn execution_attachment_fields(
             effective_evidence_level(&effective_request, plan).to_string(),
         ),
         (
+            "public_workflow_timing_surface".to_string(),
+            public_workflow_timing_surface(command, plan).to_string(),
+        ),
+        (
+            "public_workflow_actual_evidence_tier".to_string(),
+            public_workflow_actual_evidence_tier(command, plan).to_string(),
+        ),
+        (
+            "public_workflow_route_total_timing_reported".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "public_workflow_result_sink_timing_included_in_route_total".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "public_workflow_evidence_render_timing_included_in_route_total".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "public_workflow_timing_claim_boundary".to_string(),
+            public_workflow_timing_claim_boundary(command, plan).to_string(),
+        ),
+        (
             "public_workflow_bounded_request".to_string(),
             effective_request.bounded.to_string(),
         ),
@@ -10720,6 +10820,56 @@ fn execution_attachment_fields(
     ];
     push_native_vortex_contract_fields(&mut fields, "public_workflow_", &effective_request, plan);
     fields
+}
+
+fn public_workflow_timing_surface(command: &str, plan: &PublicWorkflowRoutePlan) -> &'static str {
+    if plan.status != CommandStatus::Success {
+        return "route_inspection_no_timing";
+    }
+    match command {
+        "run" => "hot_runtime",
+        "prepare" => "prepare_runtime",
+        _ => "route_inspection_no_timing",
+    }
+}
+
+fn public_workflow_actual_evidence_tier(
+    command: &str,
+    plan: &PublicWorkflowRoutePlan,
+) -> &'static str {
+    if plan.status != CommandStatus::Success || command == "route" {
+        "diagnostic_only"
+    } else {
+        "metadata_sink"
+    }
+}
+
+fn public_workflow_timing_claim_boundary(
+    command: &str,
+    plan: &PublicWorkflowRoutePlan,
+) -> &'static str {
+    if plan.status != CommandStatus::Success || command == "route" {
+        "route_readiness_only_no_benchmark_runtime_claim"
+    } else {
+        "runtime_route_evidence_only_no_benchmark_or_publication_claim"
+    }
+}
+
+fn append_hot_runtime_timing_surface_fields(fields: &mut Vec<(String, String)>) {
+    push_field(fields, "timing_surface", "hot_runtime");
+    push_field(fields, "actual_evidence_tier", "metadata_sink");
+    push_bool_field(fields, "route_total_timing_reported", false);
+    push_bool_field(fields, "result_sink_timing_included_in_route_total", false);
+    push_bool_field(
+        fields,
+        "evidence_render_timing_included_in_route_total",
+        false,
+    );
+    push_field(
+        fields,
+        "timing_claim_boundary",
+        "runtime_route_evidence_only_no_benchmark_or_publication_claim",
+    );
 }
 
 #[cfg(test)]
@@ -11507,17 +11657,27 @@ mod tests {
     #[test]
     #[allow(clippy::too_many_lines)]
     fn local_primitive_result_summary_lifts_runtime_strategy_fields() {
-        let payload = serde_json::json!({
+        let mut payload = serde_json::json!({
             "group_output_strategy": "source_order_limited_group_admission_no_sort",
             "group_admission_strategy": "first_k_source_order_groups_then_existing_key_updates",
             "candidate_groups": 10,
             "retained_candidate_groups": 10,
             "aggregate_key_encoding_mode": "typed_hash_exact",
+            "aggregate_update_strategy": "transformed_dictionary_general_measure_group_update",
+            "expression_fusion_strategy": "dictionary_weighted_transform_fusion",
+            "expression_plan_fingerprint_status": "shared_dictionary_value_transform_update",
+            "embedded_derived_column_rewrite_status": "applied",
+            "embedded_derived_column_rewrites": ["__shardloom_derived_utf8_len_SearchPhrase"],
             "aggregate_accessor_summary": "URL:vortex_utf8_dictionary",
             "aggregate_accessor_materialization_status": "vortex_dictionary_or_primitive_only",
             "aggregate_vortex_dictionary_accessor_columns": "URL",
             "aggregate_materialized_accessor_columns": "none",
             "aggregate_accessor_blockers": "none",
+            "aggregate_accessor_layout_correlation_status": "not_required_no_materialized_accessors",
+            "aggregate_accessor_layout_correlation_columns": "none",
+            "aggregate_accessor_layout_correlation_blockers": "none",
+            "aggregate_accessor_layout_correlation_dictionary_status": "vortex_dictionary_layout_present",
+            "aggregate_accessor_layout_correlation_encoding_inventory": "chunked,dict",
             "distinct_state_strategy": "proofbound_candidate_exact_distinct_sets",
             "uniqueness_proof_status": "proofbound_string_count_distinct_exact_topk",
             "candidate_rows_seen": 15_911,
@@ -11539,8 +11699,12 @@ mod tests {
             "string_count_distinct_topk_heavy_hitter_threshold": 200,
             "string_count_distinct_topk_heavy_hitter_exact_proof": true,
             "string_count_distinct_topk_candidate_signature_prefilter": true,
-        })
-        .to_string();
+        });
+        payload.as_object_mut().expect("payload object").insert(
+            "late_materialization_selected_row_refs_used".to_string(),
+            serde_json::Value::Bool(true),
+        );
+        let payload = payload.to_string();
         for summary in [
             payload.clone(),
             format!("simple_aggregate input_rows=100 output_rows=10 values={payload}"),
@@ -11566,6 +11730,26 @@ mod tests {
                         "typed_hash_exact",
                     ),
                     (
+                        "local_primitive_aggregate_update_strategy",
+                        "transformed_dictionary_general_measure_group_update",
+                    ),
+                    (
+                        "local_primitive_expression_fusion_strategy",
+                        "dictionary_weighted_transform_fusion",
+                    ),
+                    (
+                        "local_primitive_expression_plan_fingerprint_status",
+                        "shared_dictionary_value_transform_update",
+                    ),
+                    (
+                        "local_primitive_embedded_derived_column_rewrite_status",
+                        "applied",
+                    ),
+                    (
+                        "local_primitive_embedded_derived_column_rewrites",
+                        r#"["__shardloom_derived_utf8_len_SearchPhrase"]"#,
+                    ),
+                    (
                         "local_primitive_aggregate_accessor_summary",
                         "URL:vortex_utf8_dictionary",
                     ),
@@ -11582,6 +11766,26 @@ mod tests {
                         "none",
                     ),
                     ("local_primitive_aggregate_accessor_blockers", "none"),
+                    (
+                        "local_primitive_aggregate_accessor_layout_correlation_status",
+                        "not_required_no_materialized_accessors",
+                    ),
+                    (
+                        "local_primitive_aggregate_accessor_layout_correlation_columns",
+                        "none",
+                    ),
+                    (
+                        "local_primitive_aggregate_accessor_layout_correlation_blockers",
+                        "none",
+                    ),
+                    (
+                        "local_primitive_aggregate_accessor_layout_correlation_dictionary_status",
+                        "vortex_dictionary_layout_present",
+                    ),
+                    (
+                        "local_primitive_aggregate_accessor_layout_correlation_encoding_inventory",
+                        "chunked,dict",
+                    ),
                     (
                         "local_primitive_distinct_state_strategy",
                         "proofbound_candidate_exact_distinct_sets",
@@ -11606,6 +11810,10 @@ mod tests {
                     (
                         "local_primitive_late_materialization_max_selected_source_ordinal",
                         "98655788",
+                    ),
+                    (
+                        "local_primitive_late_materialization_selected_row_refs_used",
+                        "true",
                     ),
                     (
                         "local_primitive_sort_predicate_strategy",
@@ -11677,6 +11885,11 @@ mod tests {
         embedded_layout.vortex_file_stats_reader_available = true;
         embedded_layout.planner_consumption_status =
             "metadata_first_pruning_consulted_pruned".to_string();
+        embedded_layout.per_column_metadata_contract =
+            "value:logical=primitive_u32:encoding=typed_encoded_scan:derived=source:stats=file_stats_available:roles=statistics_pruning|encoded_execution|late_materialization"
+                .to_string();
+        embedded_layout.operator_selection_metadata_status =
+            "per_column_footer_metadata_available_for_diagnostic_and_pruning".to_string();
         embedded_layout.dictionary_encoding_policy =
             "preserve_vortex_dictionary_encoding_when_present".to_string();
         embedded_layout.late_materialization_status =
@@ -11711,6 +11924,17 @@ mod tests {
         assert_eq!(
             field(&fields, "local_primitive_planner_consumption_status"),
             "metadata_first_pruning_consulted_pruned"
+        );
+        assert_eq!(
+            field(&fields, "local_primitive_per_column_metadata_contract"),
+            "value:logical=primitive_u32:encoding=typed_encoded_scan:derived=source:stats=file_stats_available:roles=statistics_pruning|encoded_execution|late_materialization"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "local_primitive_operator_selection_metadata_status"
+            ),
+            "per_column_footer_metadata_available_for_diagnostic_and_pruning"
         );
         assert_eq!(
             field(&fields, "local_primitive_no_query_answer_cache"),
@@ -11801,6 +12025,16 @@ mod tests {
                 "public_workflow_preparation_vortex_prepared_olap_state_layout_footer_dtype_summary"
                     .to_string(),
                 "Struct".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_per_column_metadata_contract"
+                    .to_string(),
+                "URL:logical=utf8:encoding=dictionary_or_code_available:derived=source:stats=file_stats_available:roles=predicate_candidate|group_key_candidate|late_materialization".to_string(),
+            ),
+            (
+                "public_workflow_preparation_vortex_prepared_olap_state_layout_operator_selection_metadata_status"
+                    .to_string(),
+                "per_column_dictionary_metadata_available_for_operator_selection".to_string(),
             ),
             (
                 "public_workflow_preparation_vortex_prepared_olap_state_layout_metadata_persisted_in_artifact"
@@ -11937,6 +12171,20 @@ mod tests {
                 "public_workflow_prepared_olap_state_layout_footer_dtype_summary"
             ),
             "Struct"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_per_column_metadata_contract"
+            ),
+            "URL:logical=utf8:encoding=dictionary_or_code_available:derived=source:stats=file_stats_available:roles=predicate_candidate|group_key_candidate|late_materialization"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "public_workflow_prepared_olap_state_layout_operator_selection_metadata_status"
+            ),
+            "per_column_dictionary_metadata_available_for_operator_selection"
         );
         assert_eq!(
             field(

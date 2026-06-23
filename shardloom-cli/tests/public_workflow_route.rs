@@ -96,22 +96,50 @@ fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence
         "public_workflow_route_id",
         "native_vortex_aggregate"
     )));
+    assert!(stdout.contains(&field("public_workflow_timing_surface", "hot_runtime")));
+    assert!(stdout.contains(&field(
+        "public_workflow_actual_evidence_tier",
+        "metadata_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_timing_claim_boundary",
+        "runtime_route_evidence_only_no_benchmark_or_publication_claim"
+    )));
+    assert!(stdout.contains(&field("timing_surface", "hot_runtime")));
+    assert!(stdout.contains(&field("actual_evidence_tier", "metadata_sink")));
+    assert!(stdout.contains(&field("route_total_timing_reported", "false")));
+    assert!(stdout.contains(&field(
+        "result_sink_timing_included_in_route_total",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "evidence_render_timing_included_in_route_total",
+        "false"
+    )));
     assert!(stdout.contains(&field(
         "local_primitive_state_budget_schema_version",
-        "shardloom.local_vortex_state_budget.v1"
+        "shardloom.local_vortex_state_budget.v2"
     )));
     assert!(stdout.contains(&field("local_primitive_state_budget_required", "true")));
     assert!(stdout.contains(&field(
         "local_primitive_state_family",
-        "scalar_aggregate_state"
+        "scalar_aggregate_state+direct_dictionary_or_typed"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_state_pressure_class",
+        "low_cardinality_pressure"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_state_budget_status",
+        "bounded_in_memory_low_pressure_spill_not_required"
     )));
     assert!(stdout.contains(&field(
         "local_primitive_capillary_work_units",
-        "vortex_scan,aggregate_state"
+        "vortex_scan,aggregate_state,dictionary_or_typed_direct_scalar_aggregate"
     )));
     assert!(stdout.contains(&field(
         "local_primitive_pulseweave_pressure_signals",
-        "aggregate_measure_count,aggregate_input_rows"
+        "aggregate_measure_count,aggregate_input_rows,row_materialization_bypass"
     )));
     assert!(stdout.contains(&field(
         "local_primitive_spill_policy",
@@ -959,6 +987,56 @@ fn public_route_admits_provider_backed_native_vortex_jsonl_result_sink() {
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-production-runtime")]
+#[test]
+fn public_route_admits_provider_backed_native_vortex_cast_collect_shapes() {
+    for (plan, scenario) in [
+        (
+            "read_vortex(target/fact.vortex) -> with_column(amount_float,CAST(dirty_numeric AS float64)) -> filter(amount_float >= 0) -> limit(1000)",
+            "clean-cast-filter-write",
+        ),
+        (
+            "read_vortex(target/fact.vortex) -> with_column(event_day,CAST(raw_event_time AS date32)) -> limit(1000)",
+            "malformed-timestamp-dirty-csv",
+        ),
+    ] {
+        let stdout = run_route(&[
+            "route",
+            "dataframe",
+            "--input",
+            "target/fact.vortex",
+            "--input-format",
+            "vortex",
+            "--plan",
+            plan,
+            "--request",
+            "collect",
+            "--bounded",
+            "true",
+            "--execution-policy",
+            "native_vortex",
+            "--format",
+            "json",
+        ]);
+
+        assert!(stdout.contains("\"command\":\"route\""));
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_user_cast")));
+        assert!(stdout.contains(&field(
+            "resolved_internal_command",
+            "vortex-production-runtime-run"
+        )));
+        assert!(stdout.contains(&field("native_vortex_operation_family", "cast")));
+        assert!(stdout.contains(&field("native_vortex_provider_scenario", scenario)));
+        assert!(stdout.contains(&field(
+            "route_support_status",
+            "production_admitted_local_workflow"
+        )));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    }
 }
 
 #[test]
