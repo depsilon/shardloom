@@ -2506,12 +2506,28 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_late_materialization_early_stop_applied",
         ),
         (
+            "late_materialization_row_index_selection_applied",
+            "local_primitive_late_materialization_row_index_selection_applied",
+        ),
+        (
+            "late_materialization_requested_row_indices",
+            "local_primitive_late_materialization_requested_row_indices",
+        ),
+        (
+            "late_materialization_min_selected_source_ordinal",
+            "local_primitive_late_materialization_min_selected_source_ordinal",
+        ),
+        (
             "late_materialization_max_selected_source_ordinal",
             "local_primitive_late_materialization_max_selected_source_ordinal",
         ),
         (
             "late_materialization_selected_row_refs_used",
             "local_primitive_late_materialization_selected_row_refs_used",
+        ),
+        (
+            "late_materialization_source_row_id_projection_applied",
+            "local_primitive_late_materialization_source_row_id_projection_applied",
         ),
         (
             "sort_predicate_strategy",
