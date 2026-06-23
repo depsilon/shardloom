@@ -43,6 +43,10 @@ from .client import (
 from .models import Diagnostic, OutputEnvelope
 from .native_route import NativeVortexRoute
 from .prepared_route import CompatibilityPreparedVortexRoute
+from .runtime_defaults import (
+    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+)
 from .query import (
     GeneratedRangeSource,
     GeneratedRowsSource,
@@ -1902,7 +1906,7 @@ class UserRouteCapabilityReport:
                     "prepared_state_id",
                     "prepared_state_digest",
                     "public_workflow_prepared_olap_state_attached",
-                    "public_workflow_prepared_olap_state_query_answer_sidecar_consumed",
+                    "public_workflow_prepared_olap_embedded_layout_metadata_consumed",
                     "native_vortex_plan_route_family",
                     "native_vortex_operation_family",
                     "typed_result_contract",
@@ -8527,7 +8531,11 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         input_examples=("orders.vortex", "local .vortex artifact"),
         front_doors=_ALL_USER_FRONT_DOORS,
         desired_outputs=("machine_readable_report", "count_report", "filter_report", "project_report", "bounded_preview"),
-        recommended_user_surface="ctx.native_vortex_route('fact.vortex', 'dim.vortex', execution_mode='native_vortex', memory_gb=4, max_parallelism=1).query(...).collect()/write_vortex(...)",
+        recommended_user_surface=(
+            "ctx.native_vortex_route('fact.vortex', 'dim.vortex', execution_mode='native_vortex', "
+            f"memory_gb={DEFAULT_LOCAL_RUNTIME_MEMORY_GB}, "
+            f"max_parallelism={DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM}).query(...).collect()/write_vortex(...)"
+        ),
         start_state="native_vortex_file",
         vortex_normalization_point="native_vortex_boundary",
         source_route="Vortex-native local file/source",

@@ -3521,6 +3521,8 @@ fn local_prepared_olap_query_attachment_fields(
         "prepared_olap_state_ready" | "prepared_olap_state_read_through_hit"
     ) && query_time_contract
         == "single_vortex_artifact_native_runtime_no_query_answer_sidecar";
+    let embedded_layout_metadata_consumed =
+        admitted && layout_metadata_persisted_in_artifact == "true";
     vec![
         (
             "public_workflow_prepared_olap_state_attached".to_string(),
@@ -3533,20 +3535,20 @@ fn local_prepared_olap_query_attachment_fields(
         (
             "public_workflow_prepared_olap_state_consumption_status".to_string(),
             if admitted {
-                "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"
+                "attached_to_prepared_native_vortex_route_embedded_layout_metadata_available"
             } else {
                 "not_admitted_for_query_time_attachment"
             }
             .to_string(),
         ),
         (
-            "public_workflow_prepared_olap_state_query_answer_sidecar_consumed".to_string(),
-            "false".to_string(),
+            "public_workflow_prepared_olap_embedded_layout_metadata_consumed".to_string(),
+            embedded_layout_metadata_consumed.to_string(),
         ),
         (
             "public_workflow_prepared_olap_state_read_through_status".to_string(),
             if admitted {
-                "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"
+                "attached_to_prepared_native_vortex_route_embedded_layout_metadata_available"
             } else {
                 "not_admitted_for_query_time_read_through"
             }
@@ -11960,7 +11962,7 @@ mod tests {
 
     #[test]
     #[allow(clippy::too_many_lines)]
-    fn prepared_local_route_marks_admitted_olap_state_attached_not_sidecar_consumed() {
+    fn prepared_local_route_marks_admitted_olap_state_attached_to_embedded_layout_metadata() {
         let preparation_fields = vec![
             (
                 "public_workflow_preparation_vortex_prepared_olap_state_status".to_string(),
@@ -12072,23 +12074,23 @@ mod tests {
         assert_eq!(
             field(
                 &fields,
-                "public_workflow_prepared_olap_state_query_answer_sidecar_consumed"
+                "public_workflow_prepared_olap_embedded_layout_metadata_consumed"
             ),
-            "false"
+            "true"
         );
         assert_eq!(
             field(
                 &fields,
                 "public_workflow_prepared_olap_state_consumption_status"
             ),
-            "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"
+            "attached_to_prepared_native_vortex_route_embedded_layout_metadata_available"
         );
         assert_eq!(
             field(
                 &fields,
                 "public_workflow_prepared_olap_state_read_through_status"
             ),
-            "attached_to_prepared_native_vortex_route_no_query_answer_sidecar_consumed"
+            "attached_to_prepared_native_vortex_route_embedded_layout_metadata_available"
         );
         assert_eq!(
             field(

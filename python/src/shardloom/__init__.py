@@ -58,6 +58,12 @@ from .client import (
     WorkflowReadinessPlan,
     WorkflowReadinessSmokeReport,
 )
+from .runtime_defaults import (
+    DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
+    DEFAULT_INTERNAL_SMOKE_MEMORY_GB,
+    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+)
 from .context import (
     CapabilityPosture,
     CapabilityView,

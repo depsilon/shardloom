@@ -52,6 +52,10 @@
   or other external benchmark submissions should time the ShardLoom CLI/runtime path unless a
   separate wrapper-specific entry is intentionally declared; Python UAT proves public API parity,
   no-fallback evidence, and wrapper overhead, not the primary engine ranking by default.
+- Heavy local replacement-ingest UAT, full 43-query ClickBench UAT, and full workspace/release
+  gates run at the end of a cohesive implementation batch, not after every intermediate
+  optimization. While runtime rows are still changing, use focused unit/integration checks and
+  targeted probes only when they are needed to ship/drop a specific technique.
 - Focused validation entries must use exact test targets before broad gates. Rust unit filters must
   target the exact crate surface: `cargo test -p <crate> --bin <name> <filter>` for binary crates
   and `cargo test -p <crate> --lib <filter>` for library crates. Rust integration filters must use
@@ -232,9 +236,10 @@ Current autonomous execution order:
 3. Run focused PR validation only; do not run the full workspace suite or full ClickBench UAT while
    implementation rows are still changing.
 4. Create/merge the cohesive PR when required checks are green.
-5. After merge, run the heavy local Desktop UAT on the merged build/artifact, replacing the existing
-   prepared `.vortex` file rather than creating duplicate massive artifacts.
-6. Start any version/release train only after the post-merge UAT result is acceptable.
+5. After the current optimization batch is complete, run the heavy local Desktop UAT once on the
+   merged build/artifact, replacing the existing prepared `.vortex` file rather than creating
+   duplicate massive artifacts.
+6. Start any version/release train only after that end-of-batch UAT result is acceptable.
 
 - [ ] `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` Add zero-overhead nested technique
   composition for slow native/prepared runtime families.
@@ -439,6 +444,56 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_applies_expression_groups_value_transforms_and_having_without_fallback -- --nocapture`,
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_missing_having_or_order_column_fails_closed -- --nocapture`,
         and `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_having_can_filter_scalar_result_without_fallback -- --nocapture`.
+      - [x] Defer generic count-star top-K group-key cloning until a candidate survives the
+        retained window: the shared grouped aggregate route now compares non-retained candidates
+        against the current worst retained count/key by reference, clones only surviving retained
+        keys for the small-window streaming path, and reports
+        `topk_candidate_key_clone_strategy=clone_only_surviving_retained_candidates`. The
+        select-nth large-window path keeps its bulk candidate materialization evidence separate.
+        Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_count_star_ordered_topk_uses_compact_counts_without_fallback -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_count_star_offset_topk_uses_select_nth_retention -- --nocapture`,
+        and
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
+      - [x] Defer proof-bound string top-K candidate `Arc<str>` cloning until a string candidate
+        survives the retained window: string count top-K and string count-distinct top-K now compare
+        borrowed candidate values against the current worst retained candidate, clone only retained
+        survivors, and report clone-deferred candidate strategy fields while preserving exact
+        recount/proof semantics. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount -- --nocapture`,
+        and
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
+      - [x] Defer proof-bound numeric+UTF8 top-K composite-key cloning until a candidate survives
+        the retained window: `UserID/SearchPhrase`-style count top-K routes now compare borrowed
+        composite keys against the retained worst candidate, clone only retained survivors, and
+        report `numeric_utf8_topk_candidate_clone_strategy` while preserving exact late recount.
+        Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_utf8_count_topk_uses_proofbound_recount -- --nocapture`
+        and
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
+      - [x] Move proof-bound numeric+UTF8 top-K first-pass state onto dictionary/interner IDs
+        instead of full string-backed composite keys: the shared heavy-hitter route now reuses
+        dictionary-bound interned string IDs during the first scan, converts to normal string keys
+        only at the retained candidate/exact proof boundary, and reports
+        `numeric_utf8_topk_dictionary_code_reuse=true`. This composes encoded dictionary
+        execution, capillary retained-candidate proof, and late string materialization without
+        changing public SQL/Python/DataFrame semantics. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_utf8_count_topk_uses_proofbound_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_utf8_topk_preserves_declared_group_key_ties -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib numeric_utf8_dictionary_interner_reuses_prepared_dictionary_arc -- --nocapture`,
+        and
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
+      - [x] Carry proof-bound numeric+UTF8 top-K exact recount state as interned
+        `(numeric, utf8_id)` keys through the second pass, expanding UTF-8 strings only for
+        retained output candidates. The route now reports
+        `numeric_utf8_topk_candidate_id_prefilter=true` and
+        `numeric_utf8_topk_exact_count_key_storage=interned_numeric_utf8_id`, preserving exact
+        proof semantics while reducing second-pass string-key pressure for shared
+        `UserID/SearchPhrase`-style SQL/Python/DataFrame routes. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib numeric_utf8 -- --nocapture`
+        and
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
       - [x] Add a generic direct-accessor grouped aggregate update path for non-compact grouped
         measures when group keys and measure columns are already available as typed primitive or
         dictionary accessors. This promotes grouped `count_distinct` and other direct-measure
@@ -548,13 +603,12 @@ Current autonomous execution order:
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_count_distinct_topk_q14_20260622T_now/summary.json`
         and
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_count_distinct_topk_q14_field_lift_20260622T_now/summary.json`.
-      - [x] Move the string `count_distinct` top-K exact recount candidate test from per-row string
-        signature/hash probes to a per-dictionary-code candidate map: the retained exact recount
-        still scans rows for the distinct column, but dictionary group-code lookup now decides
-        whether a row can update an exact retained candidate before the distinct-value update. This
-        keeps exact SQL semantics, avoids query-answer caches or sidecars, and reuses prepared
-        dictionary `Arc<str>` values. Focused validation:
-        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib string_count_distinct_candidate_prefilter_reuses_dictionary_code_candidates -- --nocapture`,
+      - [x] Move the string `count_distinct` top-K exact recount candidate filter from per-row
+        string signature/hash probes to route-local interner IDs: the retained exact recount still
+        scans rows for the distinct column, but dictionary group-code lookup maps to an interned
+        candidate ID before the distinct-value update. This keeps exact SQL semantics, avoids
+        query-answer caches or sidecars, and reuses the same ShardLoom interner key space as the
+        count-only string top-K route. Focused validation:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount -- --nocapture`,
         and
         `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
@@ -807,6 +861,26 @@ Current autonomous execution order:
           `__shardloom_derived_utf8_len_URL`, executes against `Dictionary<UInt8, UInt32>`
           metadata, and keeps no-decode/no-materialization evidence. Focused validation:
           `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib count_where_rewrites_non_empty_string_predicate_to_dictionary_backed_length_column -- --nocapture`.
+      - [x] Bound hidden URL-domain derivation allocation to expected domain cardinality rather
+        than source URL dictionary cardinality: Universal Ingest now uses ShardLoom's hot-state
+        hash profile for source-native domain-code assignment and caps initial domain string/code
+        reserves, preserving exact dictionary remapping while avoiding large upfront allocations
+        for URL-heavy prepared Vortex artifacts. Focused validation:
+        `cargo test -q -p shardloom-vortex --features universal-format-io --lib embedded_url_domain_capacity_is_bounded_by_expected_domain_cardinality -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata -- --nocapture`,
+        and
+        `cargo clippy -q -p shardloom-vortex --features universal-format-io --lib -- -D warnings`.
+      - [x] Reuse the same bounded ShardLoom domain-code builder for non-dictionary URL-like
+        source batches: plain UTF-8 row streams now build compact `Dictionary<Int32, Utf8>` domain
+        metadata through a source-borrowed `FxHashMap` and append row keys directly, while the
+        fused length/domain path computes length and domain in one pass. This keeps URL-domain
+        metadata inside the single `.vortex` artifact and avoids Arrow's generic row dictionary
+        builder on the hot Universal Ingest path. Focused validation:
+        `cargo test -q -p shardloom-vortex --features universal-format-io --lib text_rows_stream_source_embeds_exact_hidden_string_metadata -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis -- --nocapture`,
+        and
+        `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata -- --nocapture`.
     - [x] Reuse one writer/runtime context per prepare job, coalesce small source units when
       scheduling overhead dominates, and split large units when decode/write pressure requires it.
       - [x] Preserve one `LocalVortexWriteContext` per prepared-artifact write and report
@@ -1013,7 +1087,28 @@ Current autonomous execution order:
         source reader. Focused validation:
         `cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom
         vortex_ingest_parquet_public_prepare_uses_row_group_capillary_executor -- --nocapture`.
-    - [ ] Run a targeted UAT replacement ingest over the official 100M Parquet source and record
+      - [x] Centralize public-runtime resource defaults so the `max_parallelism=2` local public
+        runtime policy is declared in `python/src/shardloom/runtime_defaults.py`, re-exported by
+        the Python package/client, mirrored as a named Rust public-prepare parser constant, and
+        consumed by the ClickBench route-readiness validator instead of duplicated as route-local
+        literals. Internal smoke helpers keep a separate named one-lane diagnostic default.
+        Focused validation:
+        `PYTHONPATH=python/src python - <<'PY'
+        import shardloom as sl
+        from shardloom.client import DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM as client_default
+        from shardloom.runtime_defaults import DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM as source_default
+        assert sl.DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM == source_default == client_default == 2
+        PY`,
+        `PYTHONPATH=python/src python -m unittest
+        python.tests.test_query_builder.LazyWorkflowBuilderTests.test_read_json_jsonl_collect_passes_jsonl_to_public_facade
+        python.tests.test_query_builder.LazyWorkflowBuilderTests.test_workflow_prepare_uses_public_facade_with_attached_route
+        python.tests.test_query_builder.LazyWorkflowBuilderTests.test_vortex_query_builder_filter_limit_uses_local_primitive_runtime
+        python.tests.test_query_builder.LazyWorkflowBuilderTests.test_sql_vortex_project_and_star_limits_use_local_primitive_runtime
+        python.tests.test_query_builder.LazyWorkflowBuilderTests.test_python_and_session_vortex_star_and_filter_project_limits_use_local_runtime`
+        and
+        `PYTHONPATH=python/src python -m unittest
+        python.tests.test_cli_client.ShardLoomClientTests.test_runtime_activation_summary_labels_blocked_local_file_middle`.
+    - [x] Run a targeted UAT replacement ingest over the official 100M Parquet source and record
       elapsed time, output size, CPU utilization, sidecar absence, and route evidence before
       retaining the approach.
       - [x] Resolve the local CPU-safety interpretation before replacement UAT:
@@ -1035,7 +1130,7 @@ Current autonomous execution order:
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/current_branch_replacement_uat_20260622T051151Z/prepare_guard_summary.json`
         stopped after `2.096s` at `100.0%` CPU. The existing 14G `.vortex` artifact was preserved
         byte-for-byte, no temp files remained, and no prepared-OLAP sidecars were observed.
-      - [ ] Re-run replacement UAT with the corrected two-lane safety interpretation, replacing the
+      - [x] Re-run replacement UAT with the corrected two-lane safety interpretation, replacing the
         Desktop `.vortex` artifact in place and verifying no hidden temp files or prepared sidecars
         remain.
         - [x] Reject the first corrected-safety replacement attempt before artifact swap:
@@ -1331,11 +1426,19 @@ Current autonomous execution order:
           `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_url_domain_measures_to_embedded_vortex_column -- --nocapture`,
           `cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib prepared_olap_state_admits_plain_vortex_artifact_with_embedded_layout_status -- --nocapture`,
           `cargo test -q -p shardloom-cli --features release-user-surfaces --bin shardloom local_primitive_embedded_layout_lifts_footer_pruning_fields -- --nocapture`,
-          `cargo test -q -p shardloom-cli --features release-user-surfaces --bin shardloom prepared_local_route_marks_admitted_olap_state_attached_not_sidecar_consumed -- --nocapture`,
+          `cargo test -q -p shardloom-cli --features release-user-surfaces --bin shardloom prepared_local_route_marks_admitted_olap_state_attached_to_embedded_layout_metadata -- --nocapture`,
           `cargo clippy -q -p shardloom-vortex --features vortex-write,universal-format-io --lib -- -D warnings`,
           `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
           `cargo clippy -q -p shardloom-cli --features release-user-surfaces --bin shardloom -- -D warnings`,
           and `cargo fmt --all -- --check`.
+        - [x] Rename the public prepared-OLAP attachment field away from
+          `query_answer_sidecar_consumed` and toward
+          `public_workflow_prepared_olap_embedded_layout_metadata_consumed`, so CLI/Python/agent
+          evidence describes single-artifact metadata consumption instead of an obsolete rejected
+          sidecar concept. Focused validation:
+          `cargo test -q -p shardloom-cli prepared_local_route_marks_admitted_olap_state_attached_to_embedded_layout_metadata -- --nocapture`
+          and
+          `PYTHONPATH=python/src python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_single_artifact_native_vortex_evidence_converges_across_public_surfaces`.
       - [x] Thread that metadata into operator selection before row export so
         `domain_dictionary_status` and `layout_encoding_inventory` are not just report fields. The
         aggregate planner must choose `Utf8Dictionary`/dictionary-code accessors, dictionary unions,
@@ -2066,6 +2169,17 @@ Current autonomous execution order:
         local 100M UAT
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_archopt_retained_20260621T075312/summary.json`
         recorded `CB-Q16` at 2.965s with no fallback or external engine invocation.
+      - [x] Extend the single-numeric and numeric-pair retained top-K paths with a capillary
+        select-nth retention split for larger retained windows: small limits keep the existing
+        streaming retained-candidate path, while larger `offset + limit` windows bulk-select the
+        retained candidate boundary once and avoid repeated worst-candidate scans. Evidence now
+        reports `topk_retention_strategy=select_nth_single_numeric_retained_window` or
+        `select_nth_numeric_pair_retained_window` when that branch is used. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_single_numeric_large_retained_window_uses_select_nth_topk -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_pair_large_retained_window_uses_select_nth_topk -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_single_numeric_count_uses_streaming_topk_compact_state -- --nocapture`,
+        and
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_pair_uses_streaming_topk_compact_state -- --nocapture`.
       - [x] Add source-order limited group admission for unordered `GROUP BY ... LIMIT K` shapes so
         admitted routes retain only the first source-order group window plus existing-key updates
         instead of building full high-cardinality state when SQL semantics do not request ordering.
@@ -2148,6 +2262,14 @@ Current autonomous execution order:
         same exact single-artifact native Vortex route while pushing the public/runtime path closer
         to true dictionary-code execution. Focused validation:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib numeric_utf8_dictionary_key_reuses_prepared_dictionary_arc -- --nocapture`.
+      - [x] Carry numeric+UTF8 top-K exact recount counts as interned numeric/string-ID keys rather
+        than string-backed composite keys, and expose the state-shape evidence in the route
+        payload. This keeps the proof-bound heavy-hitter route exact while making the retained
+        candidate path cheaper for `CB-Q33`/`UserID, SearchPhrase`-style groups. Focused
+        validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib numeric_utf8 -- --nocapture`
+        and
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
       - [x] Reserve string interner map/vector capacity from the prepared dictionary cardinality
         before numeric/minute/string compact-state hot updates. This keeps the retained
         dictionary-code route exact while reducing interner rehash/growth work under
@@ -2209,6 +2331,75 @@ Current autonomous execution order:
 	        `.vortex` artifact, and existing exact native Vortex dictionary fallback when proof is not
 	        possible. Targeted 100M UAT retained exact row parity and moved `CB-Q34` to 33.958s and
 	        `CB-Q35` to 34.064s with `fallback_attempted=false` and `external_engine_invoked=false`.
+      - [x] Replace string and string-count-distinct top-K heavy-hitter first-pass sketch keys with
+        route-local interner IDs rather than retained `Arc<str>` keys, and apply the same
+        dictionary-bound key model to numeric+UTF8 top-K candidates. This keeps chunk dictionary
+        codes local, uses ShardLoom's route-local interner as the stable cross-chunk key space, and
+        expands strings only at exact-proof/recount/output boundaries. Evidence fields now report
+        `string_count_topk_dictionary_code_reuse`,
+        `string_count_distinct_topk_dictionary_code_reuse`,
+        `numeric_utf8_topk_dictionary_code_reuse`, and dictionary-code capillary work units.
+        Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_skips_recount_when_first_pass_is_exact -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_skips_recount_when_retained_exact_boundary_is_proved -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_utf8_count_topk_uses_proofbound_recount -- --nocapture`,
+        and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
+      - [x] Carry count-only string top-K retained candidates and exact recount counts as
+        route-local interner IDs through the second pass, not `Arc<str>` keys. The exact recount now
+        maps chunk dictionary codes to route IDs once, updates `u64 -> count` state, and expands
+        strings only for retained output ordering/materialization. Evidence reports
+        `string_count_topk_candidate_id_prefilter` plus
+        `string_topk_candidate_id_prefilter`, reducing string hashing/cloning in the
+        `CB-Q34`/`CB-Q35` family without adding sidecars, query-answer caches, or facade-specific
+        routes. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_skips_recount_when_first_pass_is_exact -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_skips_recount_when_retained_exact_boundary_is_proved -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount -- --nocapture`,
+        and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
+      - [x] Extend the proof-bound string count top-K route to mixed retained measures such as
+        `MIN(URL)` and `COUNT(DISTINCT UserID)` without building full group state for every string
+        key. The first pass still tracks dictionary/interner IDs and count lower bounds; the second
+        pass reapplies exact ShardLoom residual row filters, updates exact counts, and materializes
+        full aggregate state only for candidate IDs that survived the proof set. Evidence reports
+        `proofbound_heavy_hitter_string_count_topk_late_measure_recount`,
+        `string_dictionary_code_count_topk_late_measure_recount`,
+        `string_dictionary_code_heavy_hitter_candidate_late_measure_group_state`,
+        `proofbound_candidate_late_measure_exact`, and
+        `string_topk_candidate_late_measure_recount`. This targets `CB-Q22`/`CB-Q23`-class
+        filtered phrase groups with late URL/distinct measures through the shared native Vortex
+        aggregate route, not a ClickBench-only route or query-answer sidecar.
+      - [x] Add a chunk-local dictionary-code candidate prefilter inside the same mixed
+        late-measure route: retained candidate IDs are converted once to dictionary-code flags for
+        the second pass, so retained `MIN(URL)` / `COUNT(DISTINCT UserID)` measure updates avoid a
+        per-row candidate hash lookup while preserving exact residual row filtering and candidate
+        recount semantics. Evidence reports `string_count_topk_candidate_code_prefilter` plus the
+        `string_topk_candidate_dictionary_code_prefilter` capillary unit; this is focused-runtime
+        evidence only until the end-of-batch UAT rerun. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_late_measures_use_candidate_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_skips_recount_when_first_pass_is_exact -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib heavy_hitter_routes_admit_pushdown_only_predicates -- --nocapture`,
+        and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
+      - [x] Carry string count-distinct top-K retained candidates and exact distinct sets as
+        route-local interner IDs through the second pass, not `Arc<str>` group keys. The route still
+        stores exact distinct values for each retained group, but the group side of the exact set is
+        `u64 -> distinct_value_set`, and final string materialization happens only after retained
+        candidate ordering. Evidence reports `string_count_distinct_topk_candidate_id_prefilter`
+        and `string_count_distinct_candidate_id_prefilter`, preserving exact no-fallback semantics
+        while reducing string-key hashing in the `CB-Q14` family.
+      - [x] Add the same chunk-local dictionary-code candidate prefilter to string
+        count-distinct top-K exact recount: candidate IDs are converted once to dictionary-code
+        flags, so exact distinct updates skip non-candidate rows without a per-row candidate hash
+        lookup while preserving exact distinct sets and no-fallback semantics. Evidence reports
+        `string_count_distinct_topk_candidate_code_prefilter` plus
+        `string_count_distinct_candidate_dictionary_code_prefilter`; this remains focused-runtime
+        evidence until the end-of-batch UAT rerun. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount -- --nocapture`,
+        and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
     - [ ] Implement faster string predicate and URL expression kernels for `CB-Q21`, `CB-Q22`,
       `CB-Q23`, `CB-Q24`, `CB-Q28`, and `CB-Q29`: exact prepared literal membership indexes for
       `LIKE '%literal%'`, shared positive/negative string predicate masks, prepared string length
@@ -2240,6 +2431,84 @@ Current autonomous execution order:
       - [x] Route file-scan FSST UTF-8 contains predicates through Vortex's FSST DFA `LIKE` kernel for
         count and selected-row masks, with escaped literal patterns and nullable/unsupported shapes
         still falling back to explicit materialized ShardLoom evaluation evidence.
+      - [x] Add a non-null UTF-8 dictionary row-selection fast path for contains and IN-list
+        residual filters. Prepared Vortex dictionaries now convert dictionary-value match flags
+        directly to row-index masks when row/value nulls are absent, while nullable dictionaries
+        keep the exact existing null-aware path. This reduces per-row null/check dispatch for
+        shared SQL/Python/DataFrame residual predicate routes and remains focused-runtime evidence
+        until the end-of-batch UAT rerun. Focused validation is the local primitive string
+        predicate test family plus the later end-of-batch UAT; no broad rerun was performed here by
+        design.
+      - [x] Avoid owned `String` allocation in UTF-8 dictionary IN-list match flags when the RHS is
+        a string/null literal list. Dictionary values are compared as borrowed `&str` values; mixed
+        typed lists keep the existing coercion path.
+      - [x] Remove the extra dictionary-frequency pass from UTF-8 comparison row-index selection.
+        `SearchPhrase != ''` and similar residual filters now build dictionary value match flags
+        once, then emit row-index masks directly over dictionary codes; count-only comparison still
+        uses value counts. This targets shared string predicate work in `CB-Q21`-`CB-Q23` and keeps
+        nullable semantics on the existing null-aware branch.
+      - [x] Avoid owned `String` allocation while building UTF-8 dictionary comparison match flags
+        for common string-literal predicates. Dictionary value flags now compare borrowed `&str`
+        values directly for `Eq`/`NotEq`/range comparisons and reserve the generic `StatValue`
+        coercion path for non-string literals.
+      - [x] Add metadata-first UTF-8 dictionary null-predicate shortcuts. When value and row nulls
+        are absent, `IS NULL`/`IS NOT NULL` returns from dictionary null posture without scanning
+        row codes; nullable dictionaries still use the exact existing per-row null checks.
+      - [x] Add metadata-first UTF-8 dictionary all/none count shortcuts for count-only contains,
+        comparison, and `IN`/`NOT IN` predicates. Non-null dictionaries now build dictionary-value
+        match flags first and return immediately when those flags prove no row or every row can
+        match; mixed cases still scan row codes once, and nullable dictionaries keep the existing
+        exact null-aware frequency path. This targets shared SQL/Python/DataFrame string predicate
+        families without adding query sidecars, answer caches, or facade-specific routes. Focused
+        validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib non_null_utf8_dictionary_match_count_shortcuts_preserve_masks -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_reuses_chunk_dictionary_counts -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_masked_dictionary_count_reuses_value_counts -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_compare_utf8_dictionary_counts_dictionary_values_once -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_compare_utf8_dictionary_preserves_null_semantics -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_in_list_count_utf8_dictionary_counts_dictionary_values_once -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_in_list_count_utf8_dictionary_preserves_null_and_negated_semantics -- --nocapture`,
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
+        and `cargo fmt --all -- --check`. No broad UAT rerun was performed here; save it for the
+        end-of-batch pass.
+      - [x] Apply the same metadata-first all/none proof to non-null UTF-8 dictionary row-index
+        selection, including the IN-list-specific helper. Count/filter/export routes now return an
+        empty selection or full row/masked-row index range directly when dictionary match flags
+        prove all rows or no rows match, instead of scanning dictionary codes only to discover the
+        same result. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib non_null_utf8_dictionary_match_count_shortcuts_preserve_masks -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_in_list_count_utf8_dictionary_counts_dictionary_values_once -- --nocapture`,
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
+        and `cargo fmt --all -- --check`. End-of-batch UAT remains deferred by design.
+      - [x] Extend the all/none row-index proof to nullable UTF-8 dictionary comparison predicates
+        where exact row-null semantics are still preserved: if dictionary value flags prove no
+        value can match, residual candidate selection returns an empty row set immediately; if all
+        dictionary values match, the route emits the exact non-null row indices from dictionary
+        null posture instead of scanning row codes and match flags. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_compare_utf8_dictionary_preserves_null_semantics -- --nocapture`.
+      - [x] Extend the same all/none proof to nullable UTF-8 dictionary `IN`/`NOT IN` row-index
+        predicates. The shared proof maps dictionary-value selection plus null-selection posture to
+        exact all-row, empty-row, null-row, or non-null-row selections before scanning row codes;
+        mixed dictionary selections keep the existing null-aware exact row loop. This preserves
+        SQL/Python/DataFrame null semantics while reducing residual predicate work for shared
+        prepared Vortex string filters. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_in_list_count_utf8_dictionary_preserves_null_and_negated_semantics -- --nocapture`.
+      - [x] Add a shared non-null dictionary frequency fast path beneath predicate and aggregate
+        helpers. When dictionary values and row codes are already proven non-null, exact frequency
+        builders now count dictionary codes directly for full, selected-row, and masked scans
+        instead of calling the null-aware row checker for every row; nullable dictionaries keep the
+        existing exact path. This composes with count-only string predicates, comparison/`IN`
+        predicates, chunk-dictionary grouping, and exact aggregate updates without adding a
+        parallel route. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib non_null_dictionary_frequency_counts_use_direct_code_path -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_reuses_chunk_dictionary_counts -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_masked_dictionary_count_reuses_value_counts -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_compare_utf8_dictionary_counts_dictionary_values_once -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_in_list_count_utf8_dictionary_counts_dictionary_values_once -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_in_list_count_utf8_dictionary_preserves_null_and_negated_semantics -- --nocapture`,
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
+        and `cargo fmt --all -- --check`. End-of-batch UAT will decide whether this exact
+        hash/dictionary-state candidate is retained for release performance claims.
       - [x] Add a generic mask-first contains helper for Vortex `Filter` arrays so admitted mixed
         predicates can scan only selected rows for host UTF-8 and dictionary UTF-8 children before
         falling back to the older child-scan/intersection path. Focused validation:
@@ -2262,6 +2531,17 @@ Current autonomous execution order:
         The broader row-index chunk-dictionary contains variant was tested and removed because it
         regressed `CB-Q22`/`CB-Q24`; keep this optimization count-only until prepared predicate
         row indexes or exact segment/block pruning exist.
+      - [x] Add a masked FSST contains helper for filtered string predicates. Vortex `Filter`
+        arrays over FSST UTF-8 children now consume the FSST LIKE result directly with the filter
+        mask for count and row-index selection, avoiding the older child row-index allocation plus
+        mask-intersection path when the upstream FSST kernel is available. This remains a shared
+        string-predicate optimization for SQL/Python/DataFrame routes, not a benchmark-specific
+        path. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_count_only_admits_host_varbinview_without_decode -- --nocapture`,
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_skips_nulls_without_materialized_string_fallback -- --nocapture`,
+        `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
+        and `cargo fmt --all -- --check`; end-of-batch UAT must confirm whether the current
+        prepared artifact exposes this FSST/filter shape in slow ClickBench rows.
       - [x] Replace UTF-8 dictionary `contains` count and selected-row accessors with
         dictionary-value match flags plus masked code counts, so mixed predicate rows that already
         produced a filter mask do not re-run substring matching per selected row. This is a shared

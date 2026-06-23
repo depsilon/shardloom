@@ -79,6 +79,7 @@ const OUTPUT_CAPILLARY_ACTIVATION_POLICY: &str = "dynamic_output_size_fanout_gat
 const OUTPUT_CAPILLARY_ACTIVATION_THRESHOLD_BYTES: u64 = 16 * 1024 * 1024;
 const OUTPUT_CAPILLARY_MEMORY_BUDGET_BYTES: u64 = 64 * 1024 * 1024;
 const OUTPUT_CAPILLARY_MAX_PARALLELISM: usize = 4;
+const DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM: usize = 2;
 const OUTPUT_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION: &str =
     "shardloom.output_layout_write_advisor.local_sink.v1";
 const OUTPUT_LAYOUT_WRITE_ADVISOR_POLICY: &str = "format_aware_output_sink_advisor.v1";
@@ -5238,7 +5239,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     let mut delta_target_path = None;
     let mut delta_update_mode = shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly;
     let mut runtime_profile = SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
-    let mut max_parallelism = 2usize;
+    let mut max_parallelism = DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--allow-overwrite" => allow_overwrite = true,
