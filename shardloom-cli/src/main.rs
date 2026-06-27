@@ -37,6 +37,7 @@ mod packaging_deployment;
 mod prepared_source_backed_execution;
 mod public_workflow_route;
 mod rest_api_planning;
+mod runtime_defaults;
 mod semantic_conformance;
 mod sql_local_source_runtime;
 mod sqlite_local_runtime;

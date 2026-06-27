@@ -434,6 +434,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
         tasks: Vec<ParquetRowGroupReadTask>,
         batch_size: usize,
         applied_parallelism: usize,
+        schema_hint: Option<&SchemaRef>,
     ) -> Self {
         let path = path.to_path_buf();
         let task_count = tasks.len();
@@ -447,6 +448,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
             let worker_path = path.clone();
             let worker_tasks = Arc::clone(&shared_tasks);
             let worker_sender = sender.clone();
+            let worker_schema_hint = schema_hint.cloned();
             workers.push(thread::spawn(move || {
                 loop {
                     let task = {
@@ -461,6 +463,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
                         task.task_index,
                         task.row_groups,
                         batch_size,
+                        worker_schema_hint.as_ref(),
                         &worker_sender,
                     ) {
                         let _ = worker_sender.send(ParquetRowGroupReadResult::TaskError {
@@ -706,11 +709,21 @@ fn stream_parquet_row_group_batches(
     task_index: usize,
     row_groups: Vec<usize>,
     batch_size: usize,
+    schema_hint: Option<&SchemaRef>,
     sender: &SyncSender<ParquetRowGroupReadResult>,
 ) -> std::result::Result<(), ArrowError> {
     let file = File::open(path).map_err(ArrowError::from)?;
-    let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
-        .map_err(|error| ArrowError::ParquetError(error.to_string()))?
+    let builder = if let Some(schema_hint) = schema_hint {
+        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new_with_options(
+            file,
+            parquet::arrow::arrow_reader::ArrowReaderOptions::new()
+                .with_schema(Arc::clone(schema_hint)),
+        )
+    } else {
+        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+    }
+    .map_err(|error| ArrowError::ParquetError(error.to_string()))?;
+    let reader = builder
         .with_batch_size(batch_size.max(1))
         .with_row_groups(row_groups)
         .build()
@@ -874,6 +887,66 @@ fn flat_columnar_stream_source_from_reader(
         source.source_dictionary_preservation_status
     );
     source
+}
+
+struct ParquetDictionarySchemaPlan {
+    stream_schema: SchemaRef,
+    schema_hint: Option<SchemaRef>,
+    dictionary_preservation_status: &'static str,
+}
+
+fn parquet_dictionary_schema_plan(schema: &SchemaRef) -> ParquetDictionarySchemaPlan {
+    let schema_hint = parquet_dictionary_preserving_schema_hint(schema.as_ref());
+    let stream_schema = schema_hint
+        .as_ref()
+        .map_or_else(|| Arc::clone(schema), Arc::clone);
+    let dictionary_preservation_status = if schema_hint.is_some() {
+        "parquet_arrow_reader_requested_dictionary_preservation_for_string_derived_columns"
+    } else {
+        "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary"
+    };
+    ParquetDictionarySchemaPlan {
+        stream_schema,
+        schema_hint,
+        dictionary_preservation_status,
+    }
+}
+
+fn parquet_dictionary_preserving_schema_hint(schema: &Schema) -> Option<SchemaRef> {
+    let mut changed = false;
+    let fields = schema
+        .fields()
+        .iter()
+        .map(|field| {
+            let source_column = field.name();
+            let should_request_dictionary = is_utf8_arrow_dtype(field.data_type())
+                && (should_embed_utf8_length_column(source_column)
+                    || is_url_like_column_name(source_column));
+            if should_request_dictionary {
+                changed = true;
+                let value_type = parquet_dictionary_hint_utf8_value_type(field.data_type());
+                Arc::new(
+                    Field::new(
+                        source_column,
+                        DataType::Dictionary(Box::new(DataType::Int32), Box::new(value_type)),
+                        field.is_nullable(),
+                    )
+                    .with_metadata(field.metadata().clone()),
+                )
+            } else {
+                Arc::clone(field)
+            }
+        })
+        .collect::<Vec<_>>();
+    changed.then(|| Arc::new(Schema::new(fields).with_metadata(schema.metadata().clone())))
+}
+
+fn parquet_dictionary_hint_utf8_value_type(source_data_type: &DataType) -> DataType {
+    if matches!(source_data_type, DataType::LargeUtf8) {
+        DataType::LargeUtf8
+    } else {
+        DataType::Utf8
+    }
 }
 
 #[must_use]
@@ -2425,6 +2498,46 @@ pub fn stream_flat_parquet_columnar_source(
     stream_flat_parquet_columnar_source_with_parallelism(path, max_rows, 1)
 }
 
+fn parquet_stream_record_batch_reader(
+    path: &Path,
+    schema_hint: Option<&SchemaRef>,
+    batch_size: usize,
+) -> Result<Box<dyn RecordBatchReader + Send>> {
+    let file = open_local_source_file(path, "Parquet")?;
+    let builder = if let Some(schema_hint) = schema_hint {
+        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new_with_options(
+            file,
+            parquet::arrow::arrow_reader::ArrowReaderOptions::new()
+                .with_schema(Arc::clone(schema_hint)),
+        )
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create dictionary-preserving streaming local Parquet source reader for '{}': {error}",
+                path.display()
+            ))
+        })?
+    } else {
+        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file).map_err(
+            |error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to create streaming local Parquet source reader for '{}': {error}",
+                    path.display()
+                ))
+            },
+        )?
+    };
+    let reader = builder
+        .with_batch_size(batch_size)
+        .build()
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to build streaming local Parquet source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+    Ok(Box::new(reader))
+}
+
 /// Stream a local Parquet file as Arrow batches using source-native row-group
 /// work units when product ingest requests parallelism.
 ///
@@ -2447,6 +2560,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         })?;
     let schema = Arc::clone(builder.schema());
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
+    let schema_plan = parquet_dictionary_schema_plan(&schema);
     let row_group_metadata = parquet_row_group_stream_metadata(builder.metadata());
     let row_count_hint = row_group_metadata.total_hint;
     validate_known_stream_row_count(path, "Parquet", row_count_hint, max_rows)?;
@@ -2455,7 +2569,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         max_rows,
         Some(row_group_count),
         "parquet_row_group_count",
-        "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary",
+        schema_plan.dictionary_preservation_status,
     );
     stream_plan
         .source_unit_row_ranges
@@ -2477,7 +2591,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         stream_plan.source_unit_row_ranges =
             parquet_row_group_task_row_ranges(&tasks, row_group_metadata.ranges.as_deref());
         let mut source = flat_columnar_stream_source_from_reader(
-            schema.as_ref(),
+            schema_plan.stream_schema.as_ref(),
             header.clone(),
             header.clone(),
             header,
@@ -2485,10 +2599,11 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
             &stream_plan,
             Box::new(ParquetRowGroupParallelRecordBatchReader::new(
                 path,
-                Arc::clone(&schema),
+                Arc::clone(&schema_plan.stream_schema),
                 tasks,
                 stream_batch_size,
                 applied_parallelism,
+                schema_plan.schema_hint.as_ref(),
             )),
         );
         source.ingest_executor_status =
@@ -2501,23 +2616,19 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         source.ingest_executor_unit_count_hint = Some(task_count);
         return Ok(source);
     }
-    let reader = builder
-        .with_batch_size(stream_plan.stream_batch_size)
-        .build()
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to build streaming local Parquet source reader for '{}': {error}",
-                path.display()
-            ))
-        })?;
+    let reader = parquet_stream_record_batch_reader(
+        path,
+        schema_plan.schema_hint.as_ref(),
+        stream_plan.stream_batch_size,
+    )?;
     let source = flat_columnar_stream_source_from_reader(
-        schema.as_ref(),
+        schema_plan.stream_schema.as_ref(),
         header.clone(),
         header.clone(),
         header,
         row_count_hint,
         &stream_plan,
-        Box::new(reader),
+        reader,
     );
     Ok(with_capillary_prefetch_columnar_stream_source(
         source,
@@ -6462,6 +6573,166 @@ mod tests {
             .expect("first parquet batch")
             .expect("first parquet batch ok");
         assert_eq!(batch.num_columns(), 1);
+
+        std::fs::remove_file(path).expect("remove parquet test file");
+    }
+
+    #[test]
+    fn parquet_product_stream_requests_dictionary_for_string_derived_columns() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-parquet-dictionary-derived-{}-{}.parquet",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("URL", DataType::Utf8, true),
+            Field::new("PlainNote", DataType::Utf8, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(StringArray::from(vec![
+                    Some("https://www.google.com/search"),
+                    Some("https://docs.rs/crate"),
+                    Some("https://www.google.com/search"),
+                    None,
+                ])) as ArrayRef,
+                Arc::new(StringArray::from(vec![
+                    Some("ordinary row text"),
+                    Some("ordinary row text"),
+                    Some("different row text"),
+                    None,
+                ])) as ArrayRef,
+            ],
+        )
+        .expect("test batch");
+        let file = File::create(&path).expect("create parquet");
+        let mut writer = parquet::arrow::ArrowWriter::try_new(file, Arc::clone(&schema), None)
+            .expect("parquet writer");
+        writer.write(&batch).expect("write parquet batch");
+        writer.close().expect("close parquet writer");
+
+        let source = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
+            .expect("stream parquet");
+
+        assert!(
+            source.source_dictionary_preservation_status.contains(
+                "parquet_arrow_reader_requested_dictionary_preservation_for_string_derived_columns"
+            ),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        assert_eq!(
+            source
+                .reader
+                .schema()
+                .field_with_name("URL")
+                .expect("URL field")
+                .data_type(),
+            &DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8))
+        );
+        assert_eq!(
+            source
+                .reader
+                .schema()
+                .field_with_name("PlainNote")
+                .expect("plain field")
+                .data_type(),
+            &DataType::Utf8,
+            "non-derived text columns should not request dictionary preservation"
+        );
+
+        let mut source = with_source_native_embedded_derived_columns_columnar_stream_source(source);
+        assert!(
+            source.source_dictionary_preservation_status.contains(
+                "embedded_derived_column_mode=source_native_dictionary_or_typed_time_only"
+            ),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            vec![
+                "URL".to_string(),
+                "PlainNote".to_string(),
+                "__shardloom_derived_utf8_len_URL".to_string(),
+                "__shardloom_derived_url_domain_URL".to_string(),
+            ]
+        );
+
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        let url = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("URL dictionary from Parquet reader");
+        let url_values = url
+            .values()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("URL dictionary values");
+        assert_eq!(
+            url_values.len(),
+            2,
+            "Parquet string dictionary should be preserved before derived metadata is built"
+        );
+        let lengths = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("dictionary-backed URL lengths");
+        let length_values = lengths
+            .values()
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .expect("URL length dictionary values");
+        assert_eq!(
+            length_values.value(dictionary_code_index(lengths, 0).expect("row 0 length code")),
+            u32::try_from("https://www.google.com/search".len()).expect("len")
+        );
+        assert_eq!(
+            length_values.value(dictionary_code_index(lengths, 1).expect("row 1 length code")),
+            u32::try_from("https://docs.rs/crate".len()).expect("len")
+        );
+        assert_eq!(
+            dictionary_code_index(lengths, 2).expect("row 2 length code"),
+            dictionary_code_index(lengths, 0).expect("row 0 length code")
+        );
+        assert!(lengths.is_null(3));
+        let domains = batch
+            .column(3)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("dictionary-backed URL domains");
+        let domain_values = domains
+            .values()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("URL domain dictionary values");
+        assert_eq!(
+            domain_values.value(dictionary_code_index(domains, 0).expect("row 0 domain code")),
+            "google.com"
+        );
+        assert_eq!(
+            domain_values.value(dictionary_code_index(domains, 1).expect("row 1 domain code")),
+            "docs.rs"
+        );
+        assert_eq!(
+            dictionary_code_index(domains, 2).expect("row 2 domain code"),
+            dictionary_code_index(domains, 0).expect("row 0 domain code")
+        );
+        assert!(domains.is_null(3));
+        assert!(source.reader.next().is_none());
 
         std::fs::remove_file(path).expect("remove parquet test file");
     }

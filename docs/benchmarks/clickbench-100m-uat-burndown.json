@@ -193,7 +193,10 @@
         "CB-Q10",
         10.17
       ]
-    ]
+    ],
+    "status": "superseded_by_full43_sourcefusion_lane_verify",
+    "superseded_by_full43_run_id": "full43_sourcefusion_lane_verify_20260627T161550Z",
+    "superseded_by_full43_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_sourcefusion_lane_verify_20260627T161550Z/summary.json"
   },
   "command_shape": "target/release/shardloom run dataframe --input <hits.vortex> --input-format vortex --execution-policy native_vortex --request collect --bounded true --format json",
   "current_replacement_artifact_uat": {
@@ -201,29 +204,29 @@
     "status": "replacement_ingest_success_single_vortex_artifact_no_sidecars",
     "source_format": "parquet",
     "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
-    "prepared_output_size_bytes": 29508762296,
-    "prepared_output_size": "27GiB",
+    "prepared_output_size_bytes": 34933241344,
+    "prepared_output_size": "33GiB",
     "prepared_rows": 99997497,
-    "prepared_segments": 36103,
+    "prepared_segments": 36660,
     "prepared_record_batches": null,
     "source_stream_batch_size": 262144,
     "source_stream_policy": "product_columnar_stream_batch_size_262144_rows",
-    "source_stream_unit_count_hint": 226,
-    "source_stream_unit_hint_kind": "parquet_row_group_count",
-    "prepare_once_millis": 801716,
+    "source_stream_unit_count_hint": 78,
+    "source_stream_unit_hint_kind": "parquet_adaptive_row_group_task_count",
+    "prepare_once_millis": 477811,
     "source_read_byte_acquisition_millis": 14783,
-    "vortex_write_millis": 786730,
-    "vortex_segment_write_millis": 784569,
-    "vortex_reopen_verify_millis": 75,
-    "layout_footer_approx_bytes": 1636216,
+    "vortex_write_millis": 455636,
+    "vortex_segment_write_millis": 454059,
+    "vortex_reopen_verify_millis": 23,
+    "layout_footer_approx_bytes": 1693704,
     "sidecar_family_count": 0,
     "external_manifest_written": false,
     "fallback_attempted": false,
     "external_engine_invoked": false,
     "leftover_temp_files_after_cleanup": [],
-    "prepare_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/post_merge_1356_replace_fullfeatures_20260623T145820Z/prepare_replace_from_parquet.status.json",
-    "prepare_stdout": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/post_merge_1356_replace_fullfeatures_20260623T145820Z/prepare_replace_from_parquet.stdout.json",
-    "artifact_shape_tradeoff": "Post-merge #1356 replacement UAT produced one 29.5GB .vortex artifact with 36,103 footer segments and no query-answer sidecars. Prepare wall time was 828s; engine evidence attributes 801,716ms to prepare, 14,783ms to source byte acquisition, and 786,730ms to Vortex write/encode. Treat this as current single-artifact evidence, not a load-speed closeout.",
+    "prepare_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_arch_replace_budgeted_20260627T153401Z/prepare_summary.json",
+    "prepare_stdout": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_arch_replace_budgeted_20260627T153401Z/stdout.json",
+    "artifact_shape_tradeoff": "2026-06-27 replacement UAT produced one 34.9GB .vortex artifact with 36,660 footer segments and no query-answer sidecars. Prepare wall time was 515.47s; engine evidence attributes 477,811ms to prepare, 455,636ms to Vortex write, and 454,059ms to segment write. Treat this as local UAT evidence, not a load-speed closeout or official ClickBench submission.",
     "prior_source_text_success": {
       "prepare_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T115230Z/prepare_summary.json",
       "prepare_stdout": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/single_artifact_ingest_replace_full_20260622T115230Z/stdout.json",
@@ -234,8 +237,9 @@
       "prepare_once_millis": 834654,
       "vortex_write_millis": 819753
     },
-    "vortex_workspace_stage_millis": 2162,
-    "prepared_artifact_digest": "sha256:b4aa808ce3303329994a335ed4d4d5600b8f4672215f009fd50e2662cac8e72c"
+    "vortex_workspace_stage_millis": 1577,
+    "prepared_artifact_digest": "sha256:ad697555dd0723fd0688cd3442eae94255adece96f39c98c046d51d5a24f426f",
+    "prepare_wall_seconds": 515.47
   },
   "dataset": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
   "execution_surface": "cli_native_vortex",
@@ -252,25 +256,27 @@
     ]
   },
   "observed": {
-    "elapsed_seconds_total": 563.581,
-    "geomean_elapsed_seconds": 3.063971,
+    "elapsed_seconds_total": 320.295,
+    "geomean_elapsed_seconds": 2.245738,
     "error_count": 0,
     "fallback_or_external_engine_violations": 0,
-    "fast_rows_le_1s": 13,
+    "fast_rows_le_1s": 11,
     "observed_max_parallelism": 2,
     "prepared_artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
     "query_count": 43,
-    "slow_rows_over_10s": 16,
-    "slow_rows_over_1s": 30,
-    "slow_rows_over_60s": 1,
+    "slow_rows_over_10s": 12,
+    "slow_rows_over_1s": 32,
+    "slow_rows_over_60s": 0,
     "success_count": 43,
-    "successful_elapsed_seconds_max": 95.24,
-    "successful_elapsed_seconds_mean": 13.107,
-    "successful_elapsed_seconds_median": 7.539,
-    "successful_elapsed_seconds_min": 0.048,
+    "successful_elapsed_seconds_max": 37.431,
+    "successful_elapsed_seconds_mean": 7.449,
+    "successful_elapsed_seconds_median": 4.147,
+    "successful_elapsed_seconds_min": 0.016,
     "timeout_count": 0,
     "timeout_seconds_per_query": 180,
-    "unsupported_count": 0
+    "unsupported_count": 0,
+    "source_full43_run_id": "full43_sourcefusion_lane_verify_20260627T161550Z",
+    "source_full43_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_sourcefusion_lane_verify_20260627T161550Z/summary.json"
   },
   "optimization_families": [
     {
@@ -994,35 +1000,35 @@
         "status": "rejected_after_exactness_and_targeted_uat_check"
       }
     ],
-  "retained_changes": [
-    {
-      "change": "layout_advised_full_embedded_text_metadata_for_medium_large_columnar_ingest",
-      "status": "retained_after_focused_validation_pending_replacement_uat",
-      "affected_queries_expected": [
-        "CB-Q29",
-        "CB-Q34",
-        "CB-Q35",
-        "URL/domain/length grouped aggregate families"
-      ],
-      "route_family": "universal_ingest_to_native_vortex_aggregate",
-      "artifact_contract": "single_vortex_artifact_no_sidecars",
-      "fallback_or_external_engine_violations": 0,
-      "focused_validation": [
-        "cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom large_text_domain_columnar_source_embeds_full_url_metadata -- --nocapture",
-        "cargo test -q -p shardloom-vortex --features universal-format-io --lib text_rows_stream_source_embeds_exact_hidden_string_metadata -- --nocapture",
-        "cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis -- --nocapture",
-        "cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata -- --nocapture",
-        "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_length_and_domain_to_embedded_vortex_columns -- --nocapture",
-        "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_compact_measures_embedded_dictionary_group_reuses_group_codes -- --nocapture",
-        "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_dictionary_backed_domain_and_length_to_code_group_partials -- --nocapture",
-        "cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib large_source -- --nocapture",
-        "cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom vortex_ingest_public_prepare_writes_only_single_vortex_artifact -- --nocapture"
-      ],
-      "reason": "Medium/large URL/text columnar Universal Ingest sources now choose the full embedded derived-column wrapper instead of the source-native-only wrapper, so prepared .vortex artifacts can carry exact hidden length and URL-domain columns even when the Parquet/Arrow/ORC reader surfaces plain UTF-8. The full adapter now emits compact dictionary/code length metadata plus dictionary URL-domain metadata in one source-string pass rather than raw per-row hidden length values. Native Vortex aggregate rewrites consume those hidden columns for url_domain/length groups and measures, and dictionary-backed hidden domain groups with direct numeric hidden length measures now aggregate by dictionary-code partials before final group materialization. This is not counted as a timing win until replacement ingest and targeted URL-domain UAT prove that the added write cost reduces query cost."
-    },
-    {
-      "change": "numeric_utf8_chunk_compacted_heavy_hitter_updates",
-      "query_ids": [
+    "retained_changes": [
+      {
+        "change": "layout_advised_full_embedded_text_metadata_for_medium_large_columnar_ingest",
+        "status": "retained_after_focused_validation_pending_replacement_uat",
+        "affected_queries_expected": [
+          "CB-Q29",
+          "CB-Q34",
+          "CB-Q35",
+          "URL/domain/length grouped aggregate families"
+        ],
+        "route_family": "universal_ingest_to_native_vortex_aggregate",
+        "artifact_contract": "single_vortex_artifact_no_sidecars",
+        "fallback_or_external_engine_violations": 0,
+        "focused_validation": [
+          "cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom large_text_domain_columnar_source_embeds_full_url_metadata -- --nocapture",
+          "cargo test -q -p shardloom-vortex --features universal-format-io --lib text_rows_stream_source_embeds_exact_hidden_string_metadata -- --nocapture",
+          "cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis -- --nocapture",
+          "cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata -- --nocapture",
+          "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_length_and_domain_to_embedded_vortex_columns -- --nocapture",
+          "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_compact_measures_embedded_dictionary_group_reuses_group_codes -- --nocapture",
+          "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_dictionary_backed_domain_and_length_to_code_group_partials -- --nocapture",
+          "cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib large_source -- --nocapture",
+          "cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom vortex_ingest_public_prepare_writes_only_single_vortex_artifact -- --nocapture"
+        ],
+        "reason": "Medium/large URL/text columnar Universal Ingest sources now choose the full embedded derived-column wrapper instead of the source-native-only wrapper, so prepared .vortex artifacts can carry exact hidden length and URL-domain columns even when the Parquet/Arrow/ORC reader surfaces plain UTF-8. The full adapter now emits compact dictionary/code length metadata plus dictionary URL-domain metadata in one source-string pass rather than raw per-row hidden length values. Native Vortex aggregate rewrites consume those hidden columns for url_domain/length groups and measures, and dictionary-backed hidden domain groups with direct numeric hidden length measures now aggregate by dictionary-code partials before final group materialization. This is not counted as a timing win until replacement ingest and targeted URL-domain UAT prove that the added write cost reduces query cost."
+      },
+      {
+        "change": "numeric_utf8_chunk_compacted_heavy_hitter_updates",
+        "query_ids": [
           "CB-Q15",
           "CB-Q17"
         ],
@@ -1449,5 +1455,108 @@
     "timeout_count": 0,
     "timeout_seconds_per_query": 180
   },
-  "timeout_rows": []
+  "timeout_rows": [],
+  "current_branch_full43_lane_verify": {
+    "run_id": "full43_sourcefusion_lane_verify_20260627T161550Z",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_sourcefusion_lane_verify_20260627T161550Z/summary.json",
+    "not_official_clickbench_submission": true,
+    "source_format": "parquet",
+    "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
+    "prepared_output_size_bytes": 34933241344,
+    "prepared_rows": 99997497,
+    "prepared_segments": 36660,
+    "prepared_artifact_digest": "sha256:ad697555dd0723fd0688cd3442eae94255adece96f39c98c046d51d5a24f426f",
+    "prepared_artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
+    "sidecar_family_count": 0,
+    "external_manifest_written": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false,
+    "max_parallelism": 2,
+    "query_count": 43,
+    "success_count": 43,
+    "error_count": 0,
+    "unsupported_count": 0,
+    "timeout_count": 0,
+    "fallback_or_external_engine_violations": 0,
+    "elapsed_seconds_total": 320.295,
+    "geomean_elapsed_seconds": 2.245738,
+    "fast_rows_le_1s": 11,
+    "slow_rows_over_1s": 32,
+    "slow_rows_over_10s": 12,
+    "slow_rows_over_60s": 0,
+    "slow_rows_desc": [
+      [
+        "CB-Q34",
+        37.431
+      ],
+      [
+        "CB-Q35",
+        36.21
+      ],
+      [
+        "CB-Q17",
+        22.663
+      ],
+      [
+        "CB-Q29",
+        21.16
+      ],
+      [
+        "CB-Q24",
+        21.062
+      ],
+      [
+        "CB-Q23",
+        16.729
+      ],
+      [
+        "CB-Q19",
+        16.082
+      ],
+      [
+        "CB-Q10",
+        14.234
+      ],
+      [
+        "CB-Q33",
+        13.587
+      ],
+      [
+        "CB-Q21",
+        12.596
+      ],
+      [
+        "CB-Q15",
+        11.061
+      ],
+      [
+        "CB-Q09",
+        10.748
+      ],
+      [
+        "CB-Q14",
+        8.824
+      ],
+      [
+        "CB-Q22",
+        8.351
+      ],
+      [
+        "CB-Q13",
+        8.186
+      ],
+      [
+        "CB-Q36",
+        6.887
+      ]
+    ],
+    "route_counts": {
+      "native_vortex_aggregate": 35,
+      "native_vortex_count_all": 1,
+      "native_vortex_count_where": 2,
+      "native_vortex_filter_project": 1,
+      "native_vortex_sort_rows": 4
+    },
+    "timing_note": "current branch local Desktop UAT after source-dictionary URL/domain lane selection; not official ClickBench submission"
+  }
 }
