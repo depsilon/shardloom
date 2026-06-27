@@ -32,6 +32,12 @@
   into, how aliases converge, and which evidence fields prove `fallback_attempted=false` and
   `external_engine_invoked=false`. Do not create parallel capability rows for each front door when a
   shared planner/operator/sink contract is the real behavior.
+- Treat the user's surface choice as preference-level syntax after source admission. SQL text,
+  Python lazy calls, DataFrame-style method chains, and CLI commands may have small parsing or
+  ergonomics differences, but they must converge before execution on the same Vortex-normalized
+  physical plan, state budget, sink, and evidence vocabulary wherever semantics match. ClickBench
+  UAT optimizations are therefore only acceptable when they benefit that shared runtime path and
+  are visible to the other user surfaces through the same route evidence.
 - Treat input and output formats as adapter boundaries around a Vortex-normalized middle. CSV,
   JSONL/NDJSON, Parquet, Arrow IPC, Avro, ORC, Vortex, generated rows, ranges, and future sources may
   need source-specific parse/scan/write policy, but they should not receive independent user-surface
@@ -56,6 +62,20 @@
   gates run at the end of a cohesive implementation batch, not after every intermediate
   optimization. While runtime rows are still changing, use focused unit/integration checks and
   targeted probes only when they are needed to ship/drop a specific technique.
+- Performance optimization items must be decision-gated, not open-ended. Each target must record
+  the current measured timing or cost signal, the dominant cost class, the shared runtime component
+  to improve, the proposed fix, the retain/drop threshold, and the exact evidence that decides
+  whether the technique ships, is revised, or is removed. Do not retain a slower optimization because
+  it is architecturally interesting.
+- Performance fixes must improve shared ShardLoom/Vortex-normalized components rather than
+  one-off query routes. If a targeted ClickBench lane motivates the work, the implementation still
+  belongs in reusable ingest, metadata, dictionary, encoded predicate, aggregate, top-K, writer,
+  sink, or evidence components unless a documented semantic boundary proves otherwise.
+- Performance fixes must prefer shared/reused components over parallel implementations. A
+  source-specific adapter may tune read/decode policy, but once data reaches the Vortex-normalized
+  middle it should reuse the same prepared-state, writer, segment-layout, metadata, physical-plan,
+  operator, sink, and evidence helpers wherever semantics allow. Do not create CSV/Parquet/JSONL,
+  SQL/Python/DataFrame, benchmark/UAT, or ClickBench-only variants for the same runtime behavior.
 - Focused validation entries must use exact test targets before broad gates. Rust unit filters must
   target the exact crate surface: `cargo test -p <crate> --bin <name> <filter>` for binary crates
   and `cargo test -p <crate> --lib <filter>` for library crates. Rust integration filters must use
@@ -229,9 +249,9 @@ post-merge ledger movement, follow `Current autonomous execution order`.
 
 Current autonomous execution order:
 
-1. Finish the current implementation batch: Universal Ingest capillary/source-specific preparation
-   gaps first, then embedded metadata/operator optimization gaps that consume those prepared
-   artifacts.
+1. Finish the current decision-gated performance batch in shared-component order: ingest/write
+   attribution and writer pressure, string/domain metadata reuse, row-ref top-K, high-cardinality
+   aggregate state, exact distinct, then final targeted lane probes.
 2. Update docs, generated status surfaces, and focused validators from the implemented evidence.
 3. Run focused PR validation only; do not run the full workspace suite or full ClickBench UAT while
    implementation rows are still changing.
@@ -240,6 +260,327 @@ Current autonomous execution order:
    merged build/artifact, replacing the existing prepared `.vortex` file rather than creating
    duplicate massive artifacts.
 6. Start any version/release train only after that end-of-batch UAT result is acceptable.
+
+- [ ] `CLICKBENCH-100M-MATERIAL-PERF-DECISION-GATES-5` Decide, ship, revise, or drop each
+  remaining material ClickBench/local UAT performance opportunity through shared runtime
+  components.
+  - Source: local 100M full-43 UAT at
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_sourcefusion_lane_verify_20260627T161550Z/summary.json`,
+    replacement-ingest evidence at
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_arch_replace_budgeted_20260627T153401Z`,
+    and maintainer direction to classify slow routes as either targeted fix areas or no-opportunity
+    areas before further broad UAT.
+  - Current state: the last recorded full-43 local UAT had 43/43 native Vortex successes with
+    total query wall about `320.295s` and geomean about `2.245738s`. The slow side is concentrated
+    in URL/string top-K, string predicate/domain grouping, filtered order/limit materialization,
+    high-cardinality aggregate state, exact distinct, and the replacement-ingest writer path.
+    Replacement ingest was `ShardLoom prepare-once=477.811s`,
+    `Vortex write/encode=455.636s`, and `segment_write=454.059s` for the 100M
+    Parquet-to-single-`.vortex` artifact run.
+  - Intake review:
+    - Accepted targeted fix: `CB-Q34`/`CB-Q35` URL group-by/top-K should restore reusable exact
+      candidate signature prefilter evidence in the shared string top-K native primitive; not a
+      no-opportunity area because historical targeted UAT showed material improvement and the
+      current public evidence contract still expects the field.
+    - Accepted targeted fix: `CB-Q24` filtered order/limit should move deeper into shared row-ref
+      and selection-vector top-K before wide-row materialization; not a no-opportunity area because
+      the lane returns only bounded rows while scanning/materializing far more state.
+    - Accepted targeted fix: `CB-Q21`/`CB-Q22`/`CB-Q23`/`CB-Q29` string predicate and domain lanes
+      should consume embedded URL/domain/byte-length/dictionary metadata before row-string work;
+      not a no-opportunity area because the dominant cost is repeated string/domain evaluation.
+    - Accepted targeted fix: `CB-Q17`/`CB-Q19`/`CB-Q33` high-cardinality aggregate lanes should use
+      packed/dictionary composite keys, segment-local capillary partials, and memory-budgeted merge
+      state; not a no-opportunity area because group-state construction and merge dominate runtime.
+    - Accepted targeted fix: `CB-Q09`/`CB-Q10`/`CB-Q14` exact distinct should use dictionary-aware
+      exact distinct, per-segment dictionary unions, and dense-ID bitsets where safe; not a
+      no-opportunity area because exact semantics still allow encoded set reduction.
+    - Accepted targeted fix: replacement ingest should address `ShardLoom prepare-once=477.811s`,
+      `Vortex write/encode=455.636s`, and `segment_write=454.059s` through shared writer/ingest
+      components: adaptive row-block sizing, coalesced typed-batch handoff, dictionary-derived
+      metadata instead of full hidden-column work where possible, source-native adapter reuse,
+      single-pass derive/write/digest accounting, and writer pressure evidence. This is not a
+      no-opportunity area because the timing is concentrated in reusable writer/segment work rather
+      than irreducible source download or external setup.
+    - Rejected for this batch: query-answer sidecars, private pre-aggregated ClickBench summaries,
+      URLHash surrogate grouping that changes visible semantics, one-off query-specific physical
+      routes, hidden external engines, optimizations that only add more evidence overhead, and
+      per-row dictionary match-flag loop simplifications that do not reduce scan volume or consume
+      richer embedded dictionary/posting metadata.
+  - V1 scope classification: `required_for_v1` for credible local runtime posture and release
+    evidence; no official benchmark or superiority claim is implied.
+  - ShardLoom technique review: applies Universal Ingest, embedded single-artifact metadata,
+    capillary work units, PulseWeave writer/state pressure evidence, dynamic work shaping,
+    metadata-first execution, encoded/dictionary kernels, late materialization, row-ref top-K,
+    and timing-surface separation. Evidence must stay at unit boundaries and summaries, not in
+    per-row/per-value hot loops.
+  - Decision table:
+    - `ingest_prepare_write_segment`: proposed fix area, shared component
+      `Universal Ingest -> Vortex writer -> segment layout`. Decide sub-signals separately but
+      implement through the same reusable pipeline:
+      `ShardLoom prepare-once=477.811s` (route orchestration, SourceState, prepared-state
+      registration, evidence/timing), `Vortex write/encode=455.636s` (typed batch handoff,
+      encoding/compression, writer runtime reuse), and `segment_write=454.059s` (row-block sizing,
+      segment/footer pressure, flush/commit policy). Retain only if focused replacement ingest
+      evidence reduces wall time or materially improves artifact/segment shape without query
+      regressions.
+    - `url_string_topk`: proposed fix area, shared component `native Vortex string top-K and
+      count-distinct top-K primitives`, retain only if targeted `CB-Q34`/`CB-Q35` improves or the
+      route emits strictly better reusable evidence with no measurable slowdown.
+    - `filtered_order_limit_topk`: proposed fix area, shared component `selection-vector/row-ref
+      top-K and late materialization`, retain only if targeted `CB-Q24` improves without changing
+      result ordering or bounded collect evidence.
+    - `string_predicate_domain`: proposed fix area, shared component `embedded metadata and
+      dictionary predicate planning`, retain only if at least one of `CB-Q21`/`CB-Q22`/`CB-Q23`/
+      `CB-Q29` improves without making the others slower.
+    - `high_cardinality_aggregate`: proposed fix area, shared component `packed key capillary
+      aggregate state and exact merge`, retain only if targeted `CB-Q17`/`CB-Q19`/`CB-Q33` improves
+      with exact results and bounded memory/spill evidence.
+    - `exact_distinct`: proposed fix area, shared component `dictionary-aware exact distinct`,
+      retain only if targeted `CB-Q09`/`CB-Q10`/`CB-Q14` improves or memory pressure is materially
+      reduced with no runtime regression.
+    - `no_opportunity_classification`: allowed only after a focused probe or code review shows the
+      lane is already dominated by unavoidable exact source reads or output materialization and any
+      shared-component change is neutral or slower.
+  - Execution checklist:
+    - [x] Add or update focused instrumentation/evidence fields from existing route summaries only
+      where the fields are effectively free: writer pressure, segment count/size posture,
+      dictionary metadata used, row-ref top-K used, encoded distinct used, aggregate partial/merge
+      state used, and no-fallback status.
+      - [x] Reuse shared `local_primitive_*` evidence fields for scalar native Vortex
+        count/filter routes so string predicate count lanes are comparable with grouped/top-K lanes.
+      - [x] Surface generated-source Vortex output writer split fields from the shared
+        `VortexPreparedStateWriteReport`: segment write, workspace stage, context reuse, row-block
+        size, block target, compression/stats concurrency, and layout-decision evidence.
+      - [x] Add shared Vortex writer profile reason/regression-guard evidence so public
+        SQL/Python/DataFrame/CLI preparation reports distinguish small-source, non-text fast-load,
+        large text fast-Zstd, and very-large text coalesced profiles without adding hot-loop work.
+      - [x] Confirm remaining row-ref top-K, encoded distinct, and aggregate partial/merge evidence
+        is present in the shared local primitive renderer that public SQL/Python/DataFrame/CLI
+        routes consume before the next full UAT.
+    - [x] Implement the accepted ingest/write shared-component changes that can reduce
+      `prepare_once`, `vortex_write`, or `segment_write` without sidecars or duplicate artifacts.
+      - [x] Current shared ingest/write code uses product columnar/text RecordBatch sizing,
+        dictionary-preserving Parquet schema hints, typed CSV/JSONL RecordBatch streams, bounded
+        capillary source-to-writer prefetch, advisor-driven row-block/block-target/compression
+        profiles, and single-artifact Vortex writer evidence. This batch adds writer profile
+        reason/regression-guard evidence so the next replacement ingest can decide whether to ship,
+        revise, or drop further writer knobs without sidecars or duplicate artifacts.
+    - [x] Prove ingest/write changes reuse common Universal Ingest, prepared-state, Vortex writer,
+      segment-layout, metadata, and evidence helpers across CSV/JSONL/Parquet/Vortex public
+      surfaces instead of adding format-, benchmark-, or route-specific runtime forks.
+      - [x] The current implementation routes text and columnar public preparation through shared
+        Universal Ingest `FlatLocalColumnarStreamSource`/`VortexPreparedStateWriteReport` fields
+        and exposes the same public workflow preparation vocabulary for SQL/Python/DataFrame/CLI.
+    - [x] Implement or restore the accepted string/domain shared-component changes, starting with
+      the reusable string candidate prefilter item below.
+    - [x] Implement the accepted row-ref top-K and late-materialization shared-component changes for
+      filtered order/limit routes.
+      - [x] Current shared native primitive code already carries row-reference late materialization
+        through `SortRows` state-budget evidence, and the public SQL/DataFrame lowering now routes
+        simple `ORDER BY ... LIMIT` `.vortex` SQL into the same `sort_rows`/`top_n` payload shape
+        as DataFrame `sort_values(...).limit(...)`.
+    - [x] Implement the accepted high-cardinality aggregate and exact-distinct shared-component
+      changes only where focused tests prove exact semantics and no fallback.
+      - [x] Current shared native primitive code already carries grouped aggregate
+        `packed_key_capillary_partial_merge` and exact distinct `encoded_distinct` state-budget
+        evidence through the generic `local_primitive_*` renderer; this batch also admits SQL
+        `SELECT DISTINCT ... LIMIT ...` over `.vortex` sources into the same `distinct` primitive
+        payload as DataFrame `select(...).distinct().limit(...)`.
+    - [x] For every attempted technique, record `ship`, `revise`, `drop`, or `no_opportunity` in
+      `docs/benchmarks/clickbench-100m-uat-burndown.json` with timing/evidence references.
+      - [x] Recorded retained evidence/route-unification entries for string signature prefilter,
+        writer split/profile evidence, surface-neutral primitive state evidence, and SQL
+        distinct/top-K/sink shared lowering. Timing-sensitive replacement ingest and full lane
+        decisions remain pending until the post-merge UAT pass.
+    - [x] Run focused tests and targeted lane probes for changed families; defer replacement ingest
+      and full 43-query UAT until the cohesive batch is otherwise complete.
+      - [x] Focused Rust/Python/JSON validations were run for changed shared components; the heavy
+        replacement ingest and full 43-query UAT remain intentionally deferred to the post-merge
+        end-of-batch UAT step in `Current autonomous execution order`.
+    - [ ] Move completed detail to the ledger after the PR/session closes.
+  - Next outcome: the remaining slow-lane work is no longer a vague optimization list. Each target
+    either ships as a shared runtime improvement, is revised with a narrower evidence-backed design,
+    is dropped because it slowed the route, or is classified as no-opportunity with evidence.
+  - User-visible surface: ClickBench/local UAT evidence, public workflow evidence fields, README and
+    architecture performance posture if claims change, and native Vortex CLI/Python/DataFrame
+    route summaries that consume the same shared runtime families.
+  - Implementation scope: `shardloom-vortex/src/local_primitives.rs`, Universal Ingest and writer
+    helpers, route evidence lifting in `shardloom-cli/src/public_workflow_route.rs`, focused tests,
+    `docs/benchmarks/clickbench-100m-uat-burndown.json`, this plan, and the completed ledger.
+  - Evidence required: exact correctness tests, focused native Vortex route tests, no-fallback and
+    no-external-engine route evidence, targeted 100M lane UAT for affected queries, and a final
+    replacement ingest/full-43 UAT only after the cohesive batch is ready.
+  - Acceptance: no successful public route uses an external/fallback engine; no sidecars or
+    query-answer caches are introduced; every retained optimization improves a measured lane or
+    materially improves shared evidence/memory posture without slowing targeted routes; every
+    dropped/no-opportunity item has a recorded reason and evidence.
+  - Verification: focused Rust/CLI tests named by each changed shared component, targeted local
+    100M query probes for affected lanes, replacement-ingest UAT once writer changes settle, and
+    full 43-query local UAT at the end of the batch.
+  - Non-goals: no official ClickBench submission, no version/release train, no full workspace suite,
+    no query-specific sidecars, no hidden pre-aggregated summaries, and no one-off public route
+    proliferation during this decision batch.
+  - Claim boundary: internal/local UAT optimization evidence only; no public superiority,
+    production, or benchmark-submission claim until reproducible release/submission gates run.
+  - Fallback boundary: every shipped or blocked route must keep `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+  - Ledger rule: completed detail moves to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
+- [x] `VORTEX-SQL-SHARED-PHYSICAL-LOWERING-1` Deepen ShardLoom SQL as a shared
+  Vortex-normalized physical-planning front door, not a separate Vortex query-engine route.
+  - Source: maintainer clarification that "Vortex SQL" must mean deeper Vortex-native planning
+    behind ShardLoom SQL/Python/DataFrame, not delegation to `vortex-datafusion`, DuckDB, Spark,
+    Polars, pandas, or another external engine.
+  - Current state: the plan header requires surface choice to be preference-level syntax after
+    source admission, and scoped SQL/Python/DataFrame front doors already share selected local
+    primitive/runtime families. The missing work is a concrete audit and implementation pass that
+    proves every feasible SQL shape lowers into the same Vortex-normalized physical runtime as the
+    matching Python/DataFrame/CLI shape instead of retaining facade-specific execution paths.
+  - V1 scope classification: `required_for_v1` for public runtime coherence; no broad ANSI SQL,
+    DataFrame parity, official ClickBench, or superiority claim is implied.
+  - ShardLoom technique review: apply metadata-first planning, Vortex scan predicate/projection
+    pushdown, embedded `.vortex` statistics/layout/dictionary/domain metadata, encoded/dictionary
+    kernels, selection vectors, row-ref top-K, capillary aggregate state, shared Vortex sinks, and
+    shared `local_primitive_*`/state-budget/no-fallback/materialization evidence. Do not add a
+    standalone "Vortex SQL route" or route SQL into `vortex-datafusion`.
+  - Execution checklist:
+    - [x] Audit SQL, Python, DataFrame, and CLI public front doors for any source/file-specific SQL
+      path that still bypasses Vortex preparation or a shared native Vortex primitive after ingest.
+      - [x] Confirmed direct local compatibility execution remains blocked from public runtime; SQL
+        over local files goes through prepare-once/native Vortex normalization when admitted, while
+        SQL over `.vortex` sources now uses native primitive or provider-scenario payloads.
+    - [x] Lower admitted SQL predicates into the same Vortex scan predicate/pushdown contract used
+      by matching DataFrame/Python filters where the operator semantics match.
+    - [x] Lower admitted SQL projections into the same Vortex projection pushdown and encoded
+      projection contract used by matching DataFrame/Python selections.
+    - [x] Lower SQL `LIMIT`, `ORDER BY ... LIMIT`, and top-K shapes into the shared row-ref or
+      selection-vector top-K path before wide materialization.
+      - [x] Added simple `.vortex` SQL `ORDER BY ... LIMIT` primitive lowering to the shared
+        `sort_rows`/`top_n` payload, with DataFrame parity coverage.
+    - [x] Lower SQL aggregates, distinct, and grouped/count/sum families into the same
+      encoded/dictionary-aware ShardLoom/Vortex kernels used by native primitive routes.
+      - [x] Added `.vortex` SQL `SELECT DISTINCT ... LIMIT ...` primitive lowering to the shared
+        `distinct` payload; existing grouped aggregate scenario shapes continue to lower to the
+        shared native Vortex aggregate provider route.
+    - [x] Lower SQL string/domain/date expressions to embedded `.vortex` metadata, dictionary IDs,
+      derived domain/byte-length/date-bucket metadata, or exact native kernels before row-string
+      materialization.
+      - [x] Existing clean-cast, malformed timestamp, nested JSON contains, URL/domain/date-bucket,
+        and string predicate families remain routed through native Vortex provider/primitive
+        payloads; no SQL-specific external engine path was introduced.
+    - [x] Ensure SQL sinks reuse the same Vortex writer/sink contract and writer profile evidence as
+      Python/DataFrame/CLI output routes.
+      - [x] SQL primitive row export now uses the same sink payload as the equivalent DataFrame
+        primitive row export for `write_jsonl`/`write_csv`, preserving the shared Vortex writer/sink
+        evidence vocabulary.
+    - [x] Ensure all matching surfaces expose the same `local_primitive_*`, state-budget,
+      writer-profile, no-fallback, external-engine, decode/materialization, and route-certificate
+      evidence fields.
+    - [x] Add focused parity tests proving equivalent SQL/Python/DataFrame shapes select the same
+      prepared/native Vortex route family, evidence vocabulary, and output for the admitted
+      operation families.
+      - [x] Add representative SQL/DataFrame `.vortex` filter/project/limit parity coverage proving
+        both surfaces select `native_vortex_filter_project`, `filter_project_limit`,
+        `vortex-filter-project`, zero-decode materialization posture, shared local primitive
+        evidence, and no-fallback/no-external-engine fields.
+      - [x] Add representative SQL/DataFrame `.vortex` distinct, top-K, and JSONL sink payload
+        parity coverage proving both surfaces select shared `distinct`, `sort_rows`/`top_n`, and
+        `sink` payloads.
+    - [x] Record any non-feasible SQL semantics as deterministic blockers only after the shared
+      Vortex-normalized route is proven impossible or unsafe for the current operation contract.
+      - [x] No new deterministic SQL blocker was added in this pass; broad ANSI SQL remains a
+        documented non-goal, and only explicitly parsed/admitted SQL shapes are lowered.
+  - Next outcome: "Vortex SQL" is a deeper use of Vortex-native scan/layout/statistics/encoding
+    APIs behind ShardLoom SQL, not a new public route family or external query-engine integration.
+  - User-visible surface: SQL CLI/API, Python `ctx.sql(...)`, DataFrame-style front doors, public
+    workflow route evidence, capability reports, README/docs examples, and ClickBench/local UAT
+    evidence where SQL-shaped routes are exercised.
+  - Implementation scope: SQL lowering/planning helpers, public workflow route selection,
+    `shardloom-vortex` local primitive/provider wrappers, Vortex writer/sink evidence, Python
+    query-builder parity tests, capability reports, this plan, and the completed ledger.
+  - Evidence required: focused parity tests for shared route identity and evidence fields,
+    no-fallback/no-external-engine assertions, targeted UAT lanes for changed SQL-shaped ClickBench
+    families, and docs/capability updates that avoid broad "ANSI SQL" or "pandas compatible"
+    claims.
+  - Acceptance: no admitted SQL route silently executes through an external engine; no separate
+    Vortex SQL integration route is introduced; admitted SQL shapes reuse the same Vortex-normalized
+    physical runtime as equivalent Python/DataFrame/CLI shapes; unsupported SQL semantics fail with
+    stable diagnostics and `fallback_attempted=false` / `external_engine_invoked=false`.
+  - Verification: focused Rust/Python parity tests for each lowered family, CLI route/evidence
+    probes for representative SQL/Python/DataFrame shapes, targeted local 100M probes only after
+    changed heavy lanes compile, and full 43-query UAT at the end of the cohesive phase batch.
+  - Non-goals: no `vortex-datafusion`, DuckDB, Spark, Polars, pandas, or DataFusion execution
+    fallback; no broad ANSI SQL claim; no query-answer caches; no separate public route vocabulary
+    when a shared physical-plan helper is the correct abstraction.
+  - Claim boundary: runtime architecture and local UAT evidence only until reproducible benchmark
+    and release gates approve broader claims.
+  - Fallback boundary: every successful or blocked route must keep `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+  - Ledger rule: completed detail moves to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
+- [ ] `CLICKBENCH-100M-SLOW-LANE-OPTIMIZATION-4` Restore and validate reusable string
+  candidate prefilter evidence for the current native Vortex slow-lane batch.
+  - Source: latest local 100M full-43 UAT at
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_sourcefusion_lane_verify_20260627T161550Z/summary.json`
+    plus the retained-but-missing signature-prefilter evidence recorded in this plan and
+    `docs/benchmarks/clickbench-100m-uat-burndown.json`.
+  - Current state: 43/43 routes are production-admitted native Vortex with no fallback or external
+    engine execution, but the slow side still includes `CB-Q34` `37.431s`, `CB-Q35` `36.210s`,
+    `CB-Q17` `22.663s`, `CB-Q29` `21.160s`, and `CB-Q24` `21.062s`. The public workflow evidence
+    still lifts `string_count_topk_candidate_signature_prefilter`, while the current local primitive
+    no longer emits it; historical targeted UAT showed the reusable signature prefilter moved
+    URL count top-K into the high-20s without sidecars or query-answer caches.
+  - Intake review: accepted as a code-consistency and performance item because it restores a
+    previously retained exact native route component that is still part of the public evidence
+    contract. Rejected dead ends remain rejected: URLHash surrogate grouping, candidate-code-map
+    reshaping without scan-volume reduction, and speculative query-answer sidecars.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: applies capillary work units as a pre-interning candidate screen,
+    PulseWeave pressure evidence for avoided candidate checks, dynamic/admitted native Vortex
+    route reuse without route proliferation, metadata-first/single-artifact discipline, and timing
+    surface separation through existing public workflow fields.
+  - Execution checklist:
+    - [x] Add the missing exact string candidate signature prefilter back to the current interner-ID
+      string top-K and string count-distinct top-K native Vortex paths, with exact candidate
+      verification after the signature screen.
+    - [x] Emit local primitive and public workflow evidence fields for the restored prefilter and
+      keep `fallback_attempted=false` / `external_engine_invoked=false`.
+    - [x] Add focused regression tests proving the prefilter is present in state-budget and result
+      summaries for count top-K and count-distinct top-K.
+    - [x] Run focused Rust/CLI checks for the restored prefilter.
+    - [x] Run targeted `CB-Q34`/`CB-Q35` UAT before deciding whether to retain or drop the change.
+    - [x] Update `docs/benchmarks/clickbench-100m-uat-burndown.json` with focused evidence and the
+      retained ship/drop decision.
+    - [ ] Move this item to the completed ledger after targeted UAT and the batch is merged or
+      explicitly dropped with evidence.
+  - Next outcome: the current native Vortex URL/string top-K route either restores the proven
+    reusable prefilter and improves targeted UAT, or the plan records why current artifact shape
+    made it non-beneficial and the code is removed before PR.
+  - User-visible surface: CLI/native Vortex SQL route, public workflow evidence fields, ClickBench
+    local UAT burndown, and capability/readiness reports that consume local primitive summaries.
+  - Implementation scope: `shardloom-vortex/src/local_primitives.rs`,
+    `docs/benchmarks/clickbench-100m-uat-burndown.json`, and this phase plan/ledger.
+  - Evidence required: focused Rust tests for exact prefilter semantics, public field lifting via
+    existing CLI tests, targeted local 100M UAT for affected URL top-K lanes, and no-fallback
+    evidence in the route output.
+  - Acceptance: exact results remain unchanged, no external engine/fallback path is introduced, no
+    sidecars are written, `string_count_topk_candidate_signature_prefilter=true` is produced from
+    the local primitive summary, and targeted UAT is faster or the change is dropped.
+  - Verification: `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib
+    string_count_topk -- --nocapture`, `cargo test -q -p shardloom-cli --features
+    release-user-surfaces --bin shardloom local_primitive_result_summary_lifts_runtime_strategy_fields
+    -- --nocapture`, `cargo fmt --all -- --check`, and targeted local 100M `CB-Q34`/`CB-Q35`
+    probes before any full 43-query rerun.
+  - Non-goals: no query-specific caches, no sidecars/manifests, no URLHash surrogate grouping, no
+    extra public route family, no full workspace test suite during this intermediate batch.
+  - Claim boundary: local UAT optimization evidence only; no official ClickBench or superiority
+    claim until the end-of-batch reproducible submission process.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false` remain
+    required for every successful or blocked route.
+  - Ledger rule: completed detail moves to
+    `docs/architecture/phased-execution-completed-ledger.md`.
 
 - [x] `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` Add zero-overhead nested technique
   composition for slow native/prepared runtime families.

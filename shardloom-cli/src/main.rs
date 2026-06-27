@@ -6231,6 +6231,124 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-local-primitives")]
+    fn synthetic_stateful_local_primitive_report(
+        kind: VortexQueryPrimitiveKind,
+        state_family: &str,
+        capillary_units: Vec<&str>,
+        pressure_signals: Vec<&str>,
+    ) -> VortexLocalPrimitiveExecutionReport {
+        let mut report = VortexLocalPrimitiveExecutionReport::feature_disabled(kind);
+        report.status = VortexLocalPrimitiveExecutionStatus::Executed;
+        report.mode = VortexLocalPrimitiveExecutionMode::VortexScanPushdown;
+        report.result_summary = Some("surface-neutral shared runtime evidence".to_string());
+        report.rows_scanned = 100;
+        report.rows_selected = Some(10);
+        report.rows_projected = Some(10);
+        report.projected_columns = vec!["metric".to_string()];
+        report.arrays_read_count = 1;
+        report.max_chunk_rows = 100;
+        report.streaming_scan_used = true;
+        report.full_stream_collected = true;
+        report.max_parallelism_requested = 2;
+        report.scan_concurrency_per_worker = 1;
+        report.upstream_scan_called = true;
+        report.data_read = true;
+        report.materialization_boundary_reported = true;
+        report.state_budget = VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+            state_family,
+            capillary_units,
+            pressure_signals,
+            10,
+            Some(100),
+            "local_vortex_primitive",
+        );
+        report
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn local_primitive_shared_renderer_lifts_surface_neutral_optimization_evidence() {
+        let cases = [
+            (
+                synthetic_stateful_local_primitive_report(
+                    VortexQueryPrimitiveKind::SortRows,
+                    "raw_row_topk_sort_state+row_ref_late_materialization",
+                    vec![
+                        "row_ref_candidate_scan",
+                        "order_key_only_topk_candidate_state",
+                        "selected_row_ref_materialization",
+                    ],
+                    vec!["selected_row_refs", "payload_materialization_boundary"],
+                ),
+                "row_ref_late_materialization",
+                "order_key_only_topk_candidate_state",
+                "selected_row_refs",
+            ),
+            (
+                synthetic_stateful_local_primitive_report(
+                    VortexQueryPrimitiveKind::DistinctRows,
+                    "distinct_row_key_state+encoded_distinct",
+                    vec![
+                        "encoded_distinct_key_set",
+                        "dictionary_or_typed_direct_distinct",
+                    ],
+                    vec!["distinct_value_cardinality"],
+                ),
+                "encoded_distinct",
+                "dictionary_or_typed_direct_distinct",
+                "distinct_value_cardinality",
+            ),
+            (
+                synthetic_stateful_local_primitive_report(
+                    VortexQueryPrimitiveKind::SimpleAggregate,
+                    "grouped_aggregate_state+packed_key_capillary_partial_merge",
+                    vec![
+                        "segment_local_partial_group_state",
+                        "partitioned_exact_merge",
+                    ],
+                    vec!["aggregate_state_pressure"],
+                ),
+                "packed_key_capillary_partial_merge",
+                "segment_local_partial_group_state",
+                "aggregate_state_pressure",
+            ),
+        ];
+
+        for (report, state_family, capillary_unit, pressure_signal) in cases {
+            let mut fields = Vec::new();
+            append_vortex_local_primitive_execution_report_fields(&mut fields, Some(&report));
+
+            assert_eq!(output_field(&fields, "local_primitive_status"), "executed");
+            assert_eq!(
+                output_field(&fields, "local_primitive_mode"),
+                "vortex_scan_pushdown"
+            );
+            assert!(
+                output_field(&fields, "local_primitive_state_family").contains(state_family),
+                "state family should lift shared optimized route evidence"
+            );
+            assert!(
+                output_field(&fields, "local_primitive_capillary_work_units")
+                    .contains(capillary_unit),
+                "capillary units should remain shared across SQL/Python/DataFrame/CLI surfaces"
+            );
+            assert!(
+                output_field(&fields, "local_primitive_pulseweave_pressure_signals")
+                    .contains(pressure_signal),
+                "PulseWeave pressure evidence should stay in the generic route summary"
+            );
+            assert_eq!(
+                output_field(&fields, "local_primitive_state_budget_required"),
+                "true"
+            );
+            assert_eq!(
+                output_field(&fields, "local_primitive_spill_io_performed"),
+                "false"
+            );
+        }
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
     fn assert_project_scan_pushdown_route_fields(
         request: &VortexQueryPrimitiveRequest,
         evidence: &VortexLocalPrimitiveCliExecutionEvidence,
@@ -6609,6 +6727,17 @@ mod tests {
             output_field(&fields, "filtered_count_local_execution_status"),
             "executed"
         );
+        assert_eq!(
+            output_field(&fields, "local_primitive_report_present"),
+            "true"
+        );
+        assert_eq!(output_field(&fields, "local_primitive_status"), "executed");
+        assert_eq!(
+            output_field(&fields, "local_primitive_mode"),
+            "vortex_scan_pushdown"
+        );
+        assert_eq!(output_field(&fields, "local_primitive_rows_scanned"), "5");
+        assert_eq!(output_field(&fields, "local_primitive_rows_selected"), "3");
         assert_eq!(
             output_field(
                 &fields,

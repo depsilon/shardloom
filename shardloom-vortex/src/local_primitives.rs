@@ -21904,6 +21904,7 @@ struct GroupedAggregateStates<'a> {
     string_count_topk_heavy_hitter_enabled: bool,
     string_count_topk_heavy_hitter_sketch: Option<StringCountTopKHeavyHitterSketch>,
     string_count_topk_candidate_ids: Option<rustc_hash::FxHashSet<u64>>,
+    string_count_topk_candidate_signatures: Option<rustc_hash::FxHashSet<StringCandidateSignature>>,
     string_count_topk_candidate_id_prefilter: bool,
     string_count_topk_candidate_code_prefilter: bool,
     string_count_topk_exact_counts: Option<rustc_hash::FxHashMap<u64, u64>>,
@@ -21916,6 +21917,8 @@ struct GroupedAggregateStates<'a> {
     string_count_distinct_topk_heavy_hitter_enabled: bool,
     string_count_distinct_topk_heavy_hitter_sketch: Option<StringCountTopKHeavyHitterSketch>,
     string_count_distinct_topk_candidate_ids: Option<rustc_hash::FxHashSet<u64>>,
+    string_count_distinct_topk_candidate_signatures:
+        Option<rustc_hash::FxHashSet<StringCandidateSignature>>,
     string_count_distinct_topk_candidate_id_prefilter: bool,
     string_count_distinct_topk_candidate_code_prefilter: bool,
     string_count_distinct_topk_exact_sets:
@@ -22088,6 +22091,38 @@ struct StringCountTopKCandidate {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+struct StringCandidateSignature {
+    len: usize,
+    prefix: u64,
+    suffix: u64,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl StringCandidateSignature {
+    fn from_str(value: &str) -> Self {
+        let bytes = value.as_bytes();
+        let len = bytes.len();
+        let prefix = signature_word(bytes.iter().copied().take(8));
+        let suffix_start = len.saturating_sub(8);
+        let suffix = signature_word(bytes[suffix_start..].iter().copied());
+        Self {
+            len,
+            prefix,
+            suffix,
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn signature_word(bytes: impl IntoIterator<Item = u8>) -> u64 {
+    bytes
+        .into_iter()
+        .take(8)
+        .fold(0_u64, |word, byte| (word << 8) | u64::from(byte))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct NumericMinuteStringGroupRoles {
     numeric_group: usize,
@@ -22164,6 +22199,10 @@ impl AggregateStringInterner {
         Ok(id)
     }
 
+    fn id(&self, value: &str) -> Option<u64> {
+        self.ids.get(value).copied()
+    }
+
     fn value(&self, id: u64) -> Result<&str> {
         let index = usize::try_from(id).map_err(|_| {
             ShardLoomError::InvalidOperation(
@@ -22192,10 +22231,6 @@ impl AggregateStringInterner {
                     .to_string(),
             )
         })
-    }
-
-    fn id(&self, value: &str) -> Option<u64> {
-        self.ids.get(value).copied()
     }
 
     fn len(&self) -> usize {
@@ -24004,6 +24039,7 @@ impl<'a> GroupedAggregateStates<'a> {
             string_count_topk_heavy_hitter_enabled,
             string_count_topk_heavy_hitter_sketch: None,
             string_count_topk_candidate_ids: None,
+            string_count_topk_candidate_signatures: None,
             string_count_topk_candidate_id_prefilter: false,
             string_count_topk_candidate_code_prefilter: false,
             string_count_topk_exact_counts: None,
@@ -24016,6 +24052,7 @@ impl<'a> GroupedAggregateStates<'a> {
             string_count_distinct_topk_heavy_hitter_enabled: false,
             string_count_distinct_topk_heavy_hitter_sketch: None,
             string_count_distinct_topk_candidate_ids: None,
+            string_count_distinct_topk_candidate_signatures: None,
             string_count_distinct_topk_candidate_id_prefilter: false,
             string_count_distinct_topk_candidate_code_prefilter: false,
             string_count_distinct_topk_exact_sets: None,
@@ -25630,6 +25667,11 @@ impl<'a> GroupedAggregateStates<'a> {
             candidate_ids.len(),
             "string top-K heavy-hitter exact counts",
         )?;
+        self.string_count_topk_candidate_signatures = Some(string_candidate_signatures_from_ids(
+            &candidate_ids,
+            &self.string_interner,
+            "string top-K candidate signature prefilter",
+        )?);
         self.string_count_topk_candidate_ids = Some(candidate_ids);
         self.string_count_topk_candidate_id_prefilter = true;
         self.string_count_topk_exact_counts = Some(exact_counts);
@@ -25646,6 +25688,41 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_string_count_topk_heavy_hitter_exact_from_accessors(&accessors, row_indices)
+    }
+
+    fn update_string_count_topk_exact_counts_from_candidate_codes(
+        &mut self,
+        candidate_code_ids: Vec<Option<u64>>,
+        counts: Vec<u64>,
+        candidate_count: usize,
+    ) -> Result<()> {
+        let exact_counts = self.string_count_topk_exact_counts.as_mut().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex string top-K heavy-hitter exact count state was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        reserve_hash_map_capacity(
+            exact_counts,
+            candidate_count,
+            "string top-K heavy-hitter exact counts",
+        )?;
+        for (value_id, count) in candidate_code_ids.into_iter().zip(counts) {
+            let Some(value_id) = value_id else {
+                continue;
+            };
+            if count == 0 {
+                continue;
+            }
+            let entry = exact_counts.entry(value_id).or_insert(0);
+            *entry = entry.checked_add(count).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex string top-K heavy-hitter exact count overflowed u64".to_string(),
+                )
+            })?;
+        }
+        self.string_count_topk_candidate_code_prefilter = true;
+        Ok(())
     }
 
     fn update_string_count_topk_heavy_hitter_exact_from_accessors(
@@ -25691,6 +25768,21 @@ impl<'a> GroupedAggregateStates<'a> {
             ));
         }
         let counts = dictionary_value_counts_for_rows(row_ids, values.len(), row_indices)?;
+        if !self.string_count_topk_has_late_measures() {
+            let candidate_count = candidate_ids.len();
+            let candidate_code_ids = string_topk_candidate_code_ids_from_values(
+                values,
+                candidate_ids,
+                self.string_count_topk_candidate_signatures.as_ref(),
+                &self.string_interner,
+            );
+            self.update_string_count_topk_exact_counts_from_candidate_codes(
+                candidate_code_ids,
+                counts,
+                candidate_count,
+            )?;
+            return Ok(true);
+        }
         let dictionary_string_ids =
             aggregate_direct_utf8_dictionary_interner_ids(group_accessor, &mut self.string_interner)?
                 .ok_or_else(|| {
@@ -26088,6 +26180,12 @@ impl<'a> GroupedAggregateStates<'a> {
             candidate_ids.len(),
             "string count-distinct top-K exact sets",
         )?;
+        self.string_count_distinct_topk_candidate_signatures =
+            Some(string_candidate_signatures_from_ids(
+                &candidate_ids,
+                &self.string_interner,
+                "string count-distinct top-K candidate signature prefilter",
+            )?);
         self.string_count_distinct_topk_candidate_ids = Some(candidate_ids);
         self.string_count_distinct_topk_candidate_id_prefilter = true;
         self.string_count_distinct_topk_exact_sets = Some(exact_sets);
@@ -26163,6 +26261,20 @@ impl<'a> GroupedAggregateStates<'a> {
                     .to_string(),
             ));
         }
+        let candidate_count = candidate_ids.len();
+        let candidate_code_ids = string_topk_candidate_code_ids_from_values(
+            values,
+            candidate_ids,
+            self.string_count_distinct_topk_candidate_signatures
+                .as_ref(),
+            &self.string_interner,
+        );
+        if candidate_code_ids.len() != dictionary_value_count {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex string count-distinct top-K heavy-hitter candidate id count did not match dictionary values; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
         let exact_sets = self
             .string_count_distinct_topk_exact_sets
             .as_mut()
@@ -26174,28 +26286,9 @@ impl<'a> GroupedAggregateStates<'a> {
             })?;
         reserve_hash_map_capacity(
             exact_sets,
-            candidate_ids.len(),
+            candidate_count,
             "string count-distinct top-K exact sets",
         )?;
-        let dictionary_string_ids =
-            aggregate_direct_utf8_dictionary_interner_ids(group_accessor, &mut self.string_interner)?
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex string count-distinct top-K heavy-hitter exact recount requires dictionary-coded UTF-8 keys; no fallback execution was attempted"
-                            .to_string(),
-                    )
-                })?;
-        if dictionary_string_ids.len() != dictionary_value_count {
-            return Err(ShardLoomError::InvalidOperation(
-                "local Vortex string count-distinct top-K heavy-hitter dictionary interner id count did not match dictionary values; no fallback execution was attempted"
-                    .to_string(),
-            ));
-        }
-        let candidate_code_flags = string_topk_candidate_code_flags(
-            &dictionary_string_ids,
-            candidate_ids,
-            "string count-distinct top-K candidate code prefilter",
-        );
         for row_index in 0..row_ids.len() {
             let code = row_ids.get(row_index).copied().ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
@@ -26208,21 +26301,14 @@ impl<'a> GroupedAggregateStates<'a> {
                     "local Vortex string count-distinct top-K heavy-hitter dictionary code overflowed usize: {error}; no fallback execution was attempted"
                 ))
             })?;
-            let is_candidate = candidate_code_flags.get(code_index).copied().ok_or_else(|| {
+            let Some(value_id) = candidate_code_ids.get(code_index).copied().ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
-                    "local Vortex string count-distinct top-K heavy-hitter candidate code exceeded candidate flag count; no fallback execution was attempted"
+                    "local Vortex string count-distinct top-K heavy-hitter candidate code exceeded candidate id count; no fallback execution was attempted"
                         .to_string(),
                 )
-            })?;
-            if !is_candidate {
+            })? else {
                 continue;
-            }
-            let value_id = *dictionary_string_ids.get(code_index).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex string count-distinct top-K heavy-hitter dictionary value was missing; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })?;
+            };
             let distinct_value = aggregate_direct_distinct_value(distinct_accessor, row_index)?;
             if matches!(distinct_value, AggregateDistinctValue::Null) {
                 continue;
@@ -28604,6 +28690,11 @@ impl<'a> GroupedAggregateStates<'a> {
         }
         json_object_insert_bool(
             &mut payload,
+            "string_count_topk_candidate_signature_prefilter",
+            self.string_count_topk_candidate_signatures.is_some(),
+        )?;
+        json_object_insert_bool(
+            &mut payload,
             "string_count_topk_late_measure_second_pass",
             has_late_measures,
         )?;
@@ -28811,6 +28902,12 @@ impl<'a> GroupedAggregateStates<'a> {
             "string_count_distinct_topk_candidate_id_prefilter": self.string_count_distinct_topk_candidate_id_prefilter,
             "values": rows,
         });
+        json_object_insert_bool(
+            &mut payload,
+            "string_count_distinct_topk_candidate_signature_prefilter",
+            self.string_count_distinct_topk_candidate_signatures
+                .is_some(),
+        )?;
         json_object_insert_bool(
             &mut payload,
             "string_count_distinct_topk_dictionary_code_reuse",
@@ -31012,6 +31109,10 @@ impl<'a> GroupedAggregateStates<'a> {
                     capillary_work_units.push("string_topk_candidate_id_prefilter");
                     pulseweave_pressure_signals.push("string_candidate_id_prefilter_hits");
                 }
+                if self.string_count_topk_candidate_signatures.is_some() {
+                    capillary_work_units.push("string_topk_candidate_signature_prefilter");
+                    pulseweave_pressure_signals.push("string_candidate_signature_prefilter_hits");
+                }
                 if self.string_count_topk_candidate_code_prefilter {
                     capillary_work_units.push("string_topk_candidate_dictionary_code_prefilter");
                     pulseweave_pressure_signals
@@ -31045,6 +31146,14 @@ impl<'a> GroupedAggregateStates<'a> {
                 capillary_work_units.push("string_count_distinct_candidate_id_prefilter");
                 pulseweave_pressure_signals
                     .push("string_count_distinct_candidate_id_prefilter_hits");
+            }
+            if self
+                .string_count_distinct_topk_candidate_signatures
+                .is_some()
+            {
+                capillary_work_units.push("string_count_distinct_candidate_signature_prefilter");
+                pulseweave_pressure_signals
+                    .push("string_count_distinct_candidate_signature_prefilter_hits");
             }
             if self.string_count_distinct_topk_candidate_code_prefilter {
                 capillary_work_units
@@ -35827,6 +35936,46 @@ fn string_topk_candidate_code_flags(
         flags.push(candidate_ids.contains(value_id));
     }
     flags
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn string_candidate_signatures_from_ids(
+    candidate_ids: &rustc_hash::FxHashSet<u64>,
+    string_interner: &AggregateStringInterner,
+    label: &str,
+) -> Result<rustc_hash::FxHashSet<StringCandidateSignature>> {
+    let mut signatures = rustc_hash::FxHashSet::default();
+    reserve_hash_set_capacity(&mut signatures, candidate_ids.len(), label)?;
+    for value_id in candidate_ids {
+        signatures.insert(StringCandidateSignature::from_str(
+            string_interner.value(*value_id)?,
+        ));
+    }
+    Ok(signatures)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn string_topk_candidate_code_ids_from_values(
+    values: &[std::sync::Arc<str>],
+    candidate_ids: &rustc_hash::FxHashSet<u64>,
+    candidate_signatures: Option<&rustc_hash::FxHashSet<StringCandidateSignature>>,
+    string_interner: &AggregateStringInterner,
+) -> Vec<Option<u64>> {
+    let mut ids = Vec::with_capacity(values.len());
+    for value in values {
+        if let Some(candidate_signatures) = candidate_signatures
+            && !candidate_signatures.contains(&StringCandidateSignature::from_str(value.as_ref()))
+        {
+            ids.push(None);
+            continue;
+        }
+        let Some(value_id) = string_interner.id(value.as_ref()) else {
+            ids.push(None);
+            continue;
+        };
+        ids.push(candidate_ids.contains(&value_id).then_some(value_id));
+    }
+    ids
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -50426,12 +50575,22 @@ mod tests {
         assert!(
             budget
                 .capillary_work_units
+                .contains(&"string_topk_candidate_signature_prefilter".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
                 .contains(&"dictionary_code_bound_string_topk_key".to_string())
         );
         assert!(
             budget
                 .pulseweave_pressure_signals
                 .contains(&"string_candidate_id_prefilter_hits".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"string_candidate_signature_prefilter_hits".to_string())
         );
         assert!(
             budget
@@ -50466,6 +50625,14 @@ mod tests {
         );
         assert_eq!(
             payload["string_count_topk_candidate_id_prefilter"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_topk_candidate_signature_prefilter"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_topk_candidate_code_prefilter"],
             serde_json::json!(true)
         );
         assert_eq!(
@@ -51181,6 +51348,11 @@ mod tests {
         assert!(
             budget
                 .capillary_work_units
+                .contains(&"string_count_distinct_candidate_signature_prefilter".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
                 .contains(&"string_count_distinct_candidate_dictionary_code_prefilter".to_string())
         );
         let (row_count, summary) = states
@@ -51223,6 +51395,10 @@ mod tests {
         );
         assert_eq!(
             payload["string_count_distinct_topk_candidate_id_prefilter"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_distinct_topk_candidate_signature_prefilter"],
             serde_json::json!(true)
         );
         assert_eq!(

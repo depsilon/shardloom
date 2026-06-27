@@ -3006,6 +3006,12 @@ class SqlWorkflow:
         if shape.count:
             primitive = "count_where" if shape.predicate else "count"
             columns = None
+        elif shape.sort_rows is not None:
+            primitive = "sort_rows"
+            columns = shape.columns
+        elif shape.distinct:
+            primitive = "distinct"
+            columns = shape.columns
         elif shape.predicate and shape.columns:
             primitive = "filter_project"
             columns = shape.columns
@@ -3035,6 +3041,7 @@ class SqlWorkflow:
             vortex_predicate=shape.predicate,
             vortex_columns=columns,
             vortex_source_order_limit=shape.limit,
+            vortex_sort_rows=shape.sort_rows,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
             check=check,
@@ -3584,6 +3591,8 @@ class _VortexSqlPrimitiveWorkflowShape:
     columns: tuple[str, ...] | None = None
     limit: int | None = None
     count: bool = False
+    distinct: bool = False
+    sort_rows: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3820,6 +3829,12 @@ def _sql_native_vortex_public_workflow_kwargs(
         if primitive_shape.count:
             primitive = "count_where" if primitive_shape.predicate else "count"
             columns = None
+        elif primitive_shape.sort_rows is not None:
+            primitive = "sort_rows"
+            columns = primitive_shape.columns
+        elif primitive_shape.distinct:
+            primitive = "distinct"
+            columns = primitive_shape.columns
         elif primitive_shape.predicate and primitive_shape.columns:
             primitive = "filter_project"
             columns = primitive_shape.columns
@@ -3843,6 +3858,7 @@ def _sql_native_vortex_public_workflow_kwargs(
                 "vortex_predicate": primitive_shape.predicate,
                 "vortex_columns": columns,
                 "vortex_source_order_limit": primitive_shape.limit,
+                "vortex_sort_rows": primitive_shape.sort_rows,
             }
     provider_shape = _vortex_sql_user_route_shape(statement)
     if provider_shape is None:
@@ -15217,18 +15233,23 @@ def _vortex_sql_primitive_shape(
     source_ref, tail = parsed_ref
     if source_ref != refs[0] or not _is_local_vortex_source_ref(source_ref):
         return None
-    parsed_tail = _parse_vortex_sql_tail(tail)
+    parsed_tail = _parse_vortex_sql_primitive_tail(tail)
     if parsed_tail is None:
         return None
-    predicate_sql, limit = parsed_tail
+    predicate_sql, order_by_sql, limit = parsed_tail
     predicate = None
     if predicate_sql is not None:
         predicate = _vortex_sql_predicate_to_tiny(predicate_sql)
         if predicate is None:
             return None
+    distinct = _starts_with_sql_keyword(projection, "distinct")
+    if distinct:
+        projection = projection[len("distinct") :].strip()
+        if not projection:
+            return None
     count = _is_sql_count_star_projection(projection)
     if count:
-        if limit is not None:
+        if distinct or order_by_sql is not None or limit is not None:
             return None
         return _VortexSqlPrimitiveWorkflowShape(
             uri=source_ref,
@@ -15248,6 +15269,30 @@ def _vortex_sql_primitive_shape(
             return None
         if not columns:
             return None
+    if order_by_sql is not None:
+        if distinct or limit is None:
+            return None
+        sort_rows = _vortex_sql_order_by_to_sort_payload(order_by_sql, limit)
+        if sort_rows is None:
+            return None
+        return _VortexSqlPrimitiveWorkflowShape(
+            uri=source_ref,
+            predicate=predicate,
+            columns=columns,
+            limit=limit,
+            distinct=distinct,
+            sort_rows=sort_rows,
+        )
+    if distinct:
+        if columns == ("*",):
+            return None
+        return _VortexSqlPrimitiveWorkflowShape(
+            uri=source_ref,
+            predicate=predicate,
+            columns=columns,
+            limit=limit,
+            distinct=True,
+        )
     if predicate is None:
         return _VortexSqlPrimitiveWorkflowShape(
             uri=source_ref,
@@ -15639,39 +15684,82 @@ def _parse_sql_single_quoted_prefix(value: str) -> tuple[str, str] | None:
     return None
 
 
-def _parse_vortex_sql_tail(value: str) -> tuple[str | None, int | None] | None:
+def _parse_vortex_sql_primitive_tail(
+    value: str,
+) -> tuple[str | None, str | None, int | None] | None:
     tail = value.strip()
     if not tail:
-        return None, None
-    where_position = _find_sql_keyword_outside_quotes(tail, "where")
-    limit_position = _find_sql_keyword_outside_quotes(tail, "limit")
-    positions = tuple(
-        position
-        for position in (where_position, limit_position)
-        if position is not None
-    )
-    if not positions:
+        return None, None, None
+    spans: list[tuple[int, int, str]] = []
+    for clause in ("where", "order by", "limit"):
+        span = _find_top_level_sql_phrase_span_outside_quotes(tail, clause)
+        if span is not None:
+            spans.append((span[0], span[1], clause))
+    if not spans:
         return None
-    if where_position is not None and limit_position is not None and limit_position < where_position:
+    spans.sort()
+    canonical_order = {"where": 0, "order by": 1, "limit": 2}
+    ordered_positions = [canonical_order[clause] for _, _, clause in spans]
+    if ordered_positions != sorted(ordered_positions):
         return None
-    if tail[: min(positions)].strip():
+    if tail[: spans[0][0]].strip():
         return None
-    predicate: str | None = None
-    if where_position is not None:
-        predicate_end = limit_position if limit_position is not None else len(tail)
-        predicate = tail[where_position + len("where") : predicate_end].strip()
-        if not predicate:
+    seen: set[str] = set()
+    values: dict[str, str] = {}
+    previous_position = -1
+    for index, (start, end, clause) in enumerate(spans):
+        if start <= previous_position or clause in seen:
             return None
+        seen.add(clause)
+        next_start = spans[index + 1][0] if index + 1 < len(spans) else len(tail)
+        body = tail[end:next_start].strip()
+        if not body:
+            return None
+        values[clause] = body
+        previous_position = start
     limit: int | None = None
-    if limit_position is not None:
-        limit_text = tail[limit_position + len("limit") :].strip()
+    if "limit" in values:
+        limit_text = values["limit"]
         if not limit_text or not limit_text.isdecimal():
             return None
         parsed_limit = int(limit_text)
         if parsed_limit <= 0:
             return None
         limit = parsed_limit
-    return predicate, limit
+    if "order by" in values and limit is None:
+        return None
+    return values.get("where"), values.get("order by"), limit
+
+
+def _vortex_sql_order_by_to_sort_payload(value: str, limit: int) -> str | None:
+    try:
+        items = tuple(_split_projection_function_args(value))
+    except ValueError:
+        return None
+    if not items:
+        return None
+    columns: list[str] = []
+    direction: str | None = None
+    for item in items:
+        parts = item.strip().split()
+        if len(parts) == 1:
+            item_direction = "asc"
+            column = parts[0]
+        elif len(parts) == 2 and parts[1].lower() in {"asc", "desc"}:
+            item_direction = parts[1].lower()
+            column = parts[0]
+        else:
+            return None
+        try:
+            normalized_column = _normalize_output_column_name(column)
+        except ValueError:
+            return None
+        if direction is None:
+            direction = item_direction
+        elif direction != item_direction:
+            return None
+        columns.append(normalized_column)
+    return _vortex_sort_rows_payload(direction or "asc", tuple(columns), limit)
 
 
 def _is_sql_count_star_projection(value: str) -> bool:

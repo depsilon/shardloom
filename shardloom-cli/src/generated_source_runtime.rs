@@ -2690,6 +2690,10 @@ fn default_vortex_output_fields() -> Vec<(String, String)> {
             "vortex_artifact_digest".to_string(),
             "not_applicable".to_string(),
         ),
+        (
+            "vortex_artifact_digest_source".to_string(),
+            "not_applicable".to_string(),
+        ),
         ("vortex_artifact_bytes".to_string(), "0".to_string()),
         (
             "upstream_vortex_write_called".to_string(),
@@ -2700,7 +2704,83 @@ fn default_vortex_output_fields() -> Vec<(String, String)> {
             "false".to_string(),
         ),
     ]);
+    fields.extend(default_vortex_output_writer_evidence_fields());
     fields
+}
+
+fn default_vortex_output_writer_evidence_fields() -> Vec<(String, String)> {
+    vec![
+        (
+            "vortex_write_timing_split_schema_version".to_string(),
+            "shardloom.vortex_write_timing_split.v1".to_string(),
+        ),
+        ("vortex_segment_write_millis".to_string(), "0".to_string()),
+        ("vortex_workspace_stage_millis".to_string(), "0".to_string()),
+        (
+            "vortex_writer_context_open_millis".to_string(),
+            "0".to_string(),
+        ),
+        (
+            "vortex_writer_context_reuse_status".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_writer_layout_strategy_applied".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_writer_coalescing_policy_status".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_writer_layout_row_block_size".to_string(),
+            "0".to_string(),
+        ),
+        (
+            "vortex_writer_layout_block_target_bytes".to_string(),
+            "0".to_string(),
+        ),
+        (
+            "vortex_writer_compression_policy".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_writer_compression_concurrency".to_string(),
+            "0".to_string(),
+        ),
+        (
+            "vortex_writer_stats_concurrency".to_string(),
+            "0".to_string(),
+        ),
+        (
+            "vortex_writer_profile_selection_reason".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_writer_profile_regression_guard".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_layout_write_decision_applied".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "vortex_layout_write_decision_strategy".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_layout_write_decision_digest".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_layout_write_decision_provider_admitted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "vortex_layout_write_decision_blocker".to_string(),
+            "not_applicable".to_string(),
+        ),
+    ]
 }
 
 fn vortex_output_success_fields(
@@ -2755,6 +2835,10 @@ fn vortex_output_write_success_detail_fields(
             report.bytes_written.to_string(),
         ),
         (
+            "vortex_artifact_digest_source".to_string(),
+            report.artifact_digest_source.clone(),
+        ),
+        (
             "vortex_writer_row_count".to_string(),
             report.writer_row_count.to_string(),
         ),
@@ -2765,6 +2849,88 @@ fn vortex_output_write_success_detail_fields(
         (
             "vortex_write_millis".to_string(),
             micros_to_millis(report.write_micros).to_string(),
+        ),
+        (
+            "vortex_write_timing_split_schema_version".to_string(),
+            "shardloom.vortex_write_timing_split.v1".to_string(),
+        ),
+        (
+            "vortex_segment_write_millis".to_string(),
+            micros_to_millis(report.vortex_segment_write_micros).to_string(),
+        ),
+        (
+            "vortex_workspace_stage_millis".to_string(),
+            micros_to_millis(report.workspace_stage_micros).to_string(),
+        ),
+        (
+            "vortex_writer_context_open_millis".to_string(),
+            micros_to_millis(report.writer_context_open_micros).to_string(),
+        ),
+        (
+            "vortex_writer_context_reuse_status".to_string(),
+            report.writer_context_reuse_status.clone(),
+        ),
+        (
+            "vortex_writer_layout_strategy_applied".to_string(),
+            report.writer_layout_strategy_applied.clone(),
+        ),
+        (
+            "vortex_writer_coalescing_policy_status".to_string(),
+            report.writer_coalescing_policy_status.clone(),
+        ),
+        (
+            "vortex_writer_layout_row_block_size".to_string(),
+            report.writer_layout_row_block_size.to_string(),
+        ),
+        (
+            "vortex_writer_layout_block_target_bytes".to_string(),
+            report.writer_layout_block_target_bytes.to_string(),
+        ),
+        (
+            "vortex_writer_compression_policy".to_string(),
+            report.writer_compression_policy.clone(),
+        ),
+        (
+            "vortex_writer_compression_concurrency".to_string(),
+            report.writer_compression_concurrency.to_string(),
+        ),
+        (
+            "vortex_writer_stats_concurrency".to_string(),
+            report.writer_stats_concurrency.to_string(),
+        ),
+        (
+            "vortex_writer_profile_selection_reason".to_string(),
+            report.writer_profile_selection_reason.clone(),
+        ),
+        (
+            "vortex_writer_profile_regression_guard".to_string(),
+            report.writer_profile_regression_guard.clone(),
+        ),
+        (
+            "vortex_layout_write_decision_applied".to_string(),
+            report
+                .layout_write_decision
+                .runtime_decision_applied
+                .to_string(),
+        ),
+        (
+            "vortex_layout_write_decision_strategy".to_string(),
+            report.layout_write_decision.selected_strategy.clone(),
+        ),
+        (
+            "vortex_layout_write_decision_digest".to_string(),
+            report
+                .layout_write_decision
+                .strategy_decision_digest
+                .clone(),
+        ),
+        (
+            "vortex_layout_write_decision_provider_admitted".to_string(),
+            report.layout_write_decision.provider_admitted.to_string(),
+        ),
+        (
+            "vortex_layout_write_decision_blocker".to_string(),
+            report.layout_write_decision.blocker.clone(),
         ),
         (
             "vortex_digest_millis".to_string(),

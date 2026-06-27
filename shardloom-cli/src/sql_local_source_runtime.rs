@@ -5677,6 +5677,8 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "vortex_writer_compression_policy",
         "vortex_writer_compression_concurrency",
         "vortex_writer_stats_concurrency",
+        "vortex_writer_profile_selection_reason",
+        "vortex_writer_profile_regression_guard",
         "vortex_prepared_state_reuse_index_schema_version",
         "vortex_prepared_state_reuse_index_lookup_status",
         "vortex_prepared_state_reuse_index_cache_scope",
@@ -8903,6 +8905,14 @@ impl VortexIngestReport {
             (
                 "vortex_writer_stats_concurrency".to_string(),
                 self.vortex_report.writer_stats_concurrency.to_string(),
+            ),
+            (
+                "vortex_writer_profile_selection_reason".to_string(),
+                self.vortex_report.writer_profile_selection_reason.clone(),
+            ),
+            (
+                "vortex_writer_profile_regression_guard".to_string(),
+                self.vortex_report.writer_profile_regression_guard.clone(),
             ),
             (
                 "vortex_segment_write_millis".to_string(),
@@ -30866,6 +30876,14 @@ impl SqlLocalSourceReport {
                 self.vortex_writer_compression_concurrencies(),
             ),
             (
+                "vortex_writer_profile_selection_reasons".to_string(),
+                self.vortex_writer_profile_selection_reasons(),
+            ),
+            (
+                "vortex_writer_profile_regression_guards".to_string(),
+                self.vortex_writer_profile_regression_guards(),
+            ),
+            (
                 "vortex_digest_millis".to_string(),
                 self.vortex_digest_millis().to_string(),
             ),
@@ -31874,6 +31892,24 @@ impl SqlLocalSourceReport {
                 .vortex_report
                 .as_ref()
                 .map(|report| report.writer_compression_concurrency.to_string())
+        }))
+    }
+
+    fn vortex_writer_profile_selection_reasons(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_profile_selection_reason.clone())
+        }))
+    }
+
+    fn vortex_writer_profile_regression_guards(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_profile_regression_guard.clone())
         }))
     }
 
@@ -44195,6 +44231,16 @@ mod tests {
             public_fields
                 .contains_key("public_workflow_preparation_vortex_writer_stats_concurrency"),
             "public workflow preparation projection should expose writer stats concurrency"
+        );
+        assert!(
+            public_fields
+                .contains_key("public_workflow_preparation_vortex_writer_profile_selection_reason"),
+            "public workflow preparation projection should expose writer profile reason"
+        );
+        assert!(
+            public_fields
+                .contains_key("public_workflow_preparation_vortex_writer_profile_regression_guard"),
+            "public workflow preparation projection should expose writer profile regression guard"
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");

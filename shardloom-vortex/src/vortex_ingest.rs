@@ -4500,6 +4500,8 @@ pub struct VortexLayoutWriteRuntimeDecision {
     pub writer_compression_policy: String,
     pub writer_compression_concurrency: usize,
     pub writer_stats_concurrency: usize,
+    pub writer_profile_selection_reason: String,
+    pub writer_profile_regression_guard: String,
     pub blocker: String,
 }
 
@@ -4521,6 +4523,8 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_compression_concurrency:
                 VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY,
             writer_stats_concurrency: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY,
+            writer_profile_selection_reason: "not_requested".to_string(),
+            writer_profile_regression_guard: "not_applicable".to_string(),
             blocker,
         }
     }
@@ -4539,8 +4543,12 @@ impl VortexLayoutWriteRuntimeDecision {
         let writer_compression_concurrency =
             admitted_layout_writer_compression_concurrency(advisor);
         let writer_stats_concurrency = admitted_layout_writer_stats_concurrency(advisor);
+        let writer_profile_selection_reason =
+            admitted_layout_writer_profile_selection_reason(advisor);
+        let writer_profile_regression_guard =
+            admitted_layout_writer_profile_regression_guard(advisor);
         let strategy_decision_digest = fnv64_digest_text(&format!(
-            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             advisor.schema_version,
             advisor.source_state_digest,
             advisor.source_schema_digest,
@@ -4554,6 +4562,8 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_compression_policy,
             writer_compression_concurrency,
             writer_stats_concurrency,
+            writer_profile_selection_reason,
+            writer_profile_regression_guard,
             target_path.display()
         ));
         Self {
@@ -4566,6 +4576,8 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_compression_policy: writer_compression_policy.to_string(),
             writer_compression_concurrency,
             writer_stats_concurrency,
+            writer_profile_selection_reason: writer_profile_selection_reason.to_string(),
+            writer_profile_regression_guard: writer_profile_regression_guard.to_string(),
             blocker: "none".to_string(),
         }
     }
@@ -4631,6 +4643,37 @@ fn admitted_layout_writer_stats_concurrency(advisor: &VortexLayoutWriteAdvisorRe
         advisor.writer_parallelism_budget.max(1)
     } else {
         VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_profile_selection_reason(
+    advisor: &VortexLayoutWriteAdvisorReport,
+) -> &'static str {
+    if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
+        "small_source_fine_row_blocks_default_writer_profile"
+    } else if !layout_advisor_has_text_domain_profile(advisor) {
+        "large_non_text_source_fast_load_uncompressed_layout_statistics"
+    } else if advisor.source_byte_count
+        >= VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES
+        && layout_advisor_has_high_cardinality_profile(advisor)
+    {
+        "large_text_high_cardinality_source_coalesced_fast_zstd_profile"
+    } else {
+        "large_text_source_fast_zstd_profile"
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_profile_regression_guard(
+    advisor: &VortexLayoutWriteAdvisorReport,
+) -> &'static str {
+    if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
+        "small_source_default_profile_preserves_fixture_latency"
+    } else if !layout_advisor_has_text_domain_profile(advisor) {
+        "non_text_large_source_allows_uncompressed_fast_load"
+    } else {
+        "text_large_source_avoids_uncompressed_artifact_size_regression_and_dictionary_training_cpu"
     }
 }
 
@@ -6915,6 +6958,8 @@ pub struct VortexPreparedStateWriteReport {
     pub writer_compression_policy: String,
     pub writer_compression_concurrency: usize,
     pub writer_stats_concurrency: usize,
+    pub writer_profile_selection_reason: String,
+    pub writer_profile_regression_guard: String,
     pub vortex_segment_write_micros: u128,
     pub workspace_stage_micros: u128,
     pub reopen_scan_micros: u128,
@@ -6963,7 +7008,7 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn encoding_summary(&self) -> String {
         format!(
-            "upstream_vortex_writer={};coalescing_policy={};row_block_size={};block_target_bytes={};compression_policy={};compression_concurrency={};stats_concurrency={};{}",
+            "upstream_vortex_writer={};coalescing_policy={};row_block_size={};block_target_bytes={};compression_policy={};compression_concurrency={};stats_concurrency={};profile_reason={};regression_guard={};{}",
             self.writer_layout_strategy_applied,
             self.writer_coalescing_policy_status,
             self.writer_layout_row_block_size,
@@ -6971,6 +7016,8 @@ impl VortexPreparedStateWriteReport {
             self.writer_compression_policy,
             self.writer_compression_concurrency,
             self.writer_stats_concurrency,
+            self.writer_profile_selection_reason,
+            self.writer_profile_regression_guard,
             self.column_family_summary()
         )
     }
@@ -8097,6 +8144,8 @@ fn finalize_vortex_prepared_state_write(
         writer_compression_policy: write_result.writer_compression_policy,
         writer_compression_concurrency: write_result.writer_compression_concurrency,
         writer_stats_concurrency: write_result.writer_stats_concurrency,
+        writer_profile_selection_reason: write_result.writer_profile_selection_reason,
+        writer_profile_regression_guard: write_result.writer_profile_regression_guard,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
         workspace_stage_micros: write_result.workspace_stage_micros,
         reopen_scan_micros,
@@ -8230,6 +8279,8 @@ where
         writer_compression_policy: write_result.writer_compression_policy,
         writer_compression_concurrency: write_result.writer_compression_concurrency,
         writer_stats_concurrency: write_result.writer_stats_concurrency,
+        writer_profile_selection_reason: write_result.writer_profile_selection_reason,
+        writer_profile_regression_guard: write_result.writer_profile_regression_guard,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
         workspace_stage_micros: write_result.workspace_stage_micros,
         reopen_scan_micros,
@@ -9776,6 +9827,8 @@ struct LocalVortexWriteResult {
     writer_compression_policy: String,
     writer_compression_concurrency: usize,
     writer_stats_concurrency: usize,
+    writer_profile_selection_reason: String,
+    writer_profile_regression_guard: String,
     vortex_segment_write_micros: u128,
     workspace_stage_micros: u128,
     workspace_write_report: WorkspaceSafeLocalWriteReport,
@@ -9843,6 +9896,10 @@ impl LocalVortexWriteContext {
         let writer_compression_concurrency =
             vortex_writer_compression_concurrency(layout_write_decision);
         let writer_stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
+        let writer_profile_selection_reason =
+            vortex_writer_profile_selection_reason(layout_write_decision).to_string();
+        let writer_profile_regression_guard =
+            vortex_writer_profile_regression_guard(layout_write_decision).to_string();
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -9889,6 +9946,8 @@ impl LocalVortexWriteContext {
             writer_compression_policy,
             writer_compression_concurrency,
             writer_stats_concurrency,
+            writer_profile_selection_reason,
+            writer_profile_regression_guard,
             vortex_segment_write_micros,
             workspace_stage_micros,
             workspace_write_report,
@@ -9923,6 +9982,10 @@ impl LocalVortexWriteContext {
         let writer_compression_concurrency =
             vortex_writer_compression_concurrency(layout_write_decision);
         let writer_stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
+        let writer_profile_selection_reason =
+            vortex_writer_profile_selection_reason(layout_write_decision).to_string();
+        let writer_profile_regression_guard =
+            vortex_writer_profile_regression_guard(layout_write_decision).to_string();
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -9970,6 +10033,8 @@ impl LocalVortexWriteContext {
             writer_compression_policy,
             writer_compression_concurrency,
             writer_stats_concurrency,
+            writer_profile_selection_reason,
+            writer_profile_regression_guard,
             vortex_segment_write_micros,
             workspace_stage_micros,
             workspace_write_report,
@@ -10084,6 +10149,24 @@ fn vortex_writer_stats_concurrency(decision: &VortexLayoutWriteRuntimeDecision) 
         decision.writer_stats_concurrency.max(1)
     } else {
         VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_profile_selection_reason(decision: &VortexLayoutWriteRuntimeDecision) -> &str {
+    if vortex_layout_write_strategy_applies(decision) {
+        &decision.writer_profile_selection_reason
+    } else {
+        "upstream_vortex_default_writer_profile"
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_profile_regression_guard(decision: &VortexLayoutWriteRuntimeDecision) -> &str {
+    if vortex_layout_write_strategy_applies(decision) {
+        &decision.writer_profile_regression_guard
+    } else {
+        "not_applicable"
     }
 }
 
@@ -11807,6 +11890,14 @@ mod tests {
             report.writer_layout_block_target_bytes,
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES
         );
+        assert_eq!(
+            report.writer_profile_selection_reason,
+            "small_source_fine_row_blocks_default_writer_profile"
+        );
+        assert_eq!(
+            report.writer_profile_regression_guard,
+            "small_source_default_profile_preserves_fixture_latency"
+        );
         assert_eq!(report.reopen_row_count, 1);
         assert_ne!(
             report.prepared_olap_layout_inventory.root_layout_encoding,
@@ -11954,6 +12045,14 @@ mod tests {
         );
         assert_eq!(report.writer_compression_concurrency, 2);
         assert_eq!(report.writer_stats_concurrency, 2);
+        assert_eq!(
+            report.writer_profile_selection_reason,
+            "large_text_source_fast_zstd_profile"
+        );
+        assert_eq!(
+            report.writer_profile_regression_guard,
+            "text_large_source_avoids_uncompressed_artifact_size_regression_and_dictionary_training_cpu"
+        );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
@@ -12008,6 +12107,14 @@ mod tests {
         assert_eq!(
             report.writer_layout_block_target_bytes,
             VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
+        );
+        assert_eq!(
+            report.writer_profile_selection_reason,
+            "large_text_high_cardinality_source_coalesced_fast_zstd_profile"
+        );
+        assert_eq!(
+            report.writer_profile_regression_guard,
+            "text_large_source_avoids_uncompressed_artifact_size_regression_and_dictionary_training_cpu"
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());
@@ -12065,6 +12172,14 @@ mod tests {
         assert_eq!(
             report.writer_layout_block_target_bytes,
             VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES
+        );
+        assert_eq!(
+            report.writer_profile_selection_reason,
+            "large_non_text_source_fast_load_uncompressed_layout_statistics"
+        );
+        assert_eq!(
+            report.writer_profile_regression_guard,
+            "non_text_large_source_allows_uncompressed_fast_load"
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());

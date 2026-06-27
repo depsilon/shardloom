@@ -758,6 +758,7 @@ fn append_vortex_count_where_local_execution_absent_fields(fields: &mut Vec<(Str
     push_bool_field(fields, "filtered_count_local_execution_result_known", false);
     push_field(fields, "filtered_count_local_execution_count", "unknown");
     append_vortex_count_where_local_execution_absent_effect_fields(fields);
+    append_vortex_local_primitive_execution_report_fields(fields, None);
     append_vortex_count_where_local_execution_claim_fields(fields, false, false, false);
     append_vortex_local_primitive_native_io_certificate_fields(fields, None);
     append_vortex_local_primitive_execution_certificate_fields(fields, None);
@@ -769,6 +770,7 @@ fn append_vortex_count_where_local_execution_present_fields(
 ) {
     append_vortex_count_where_local_execution_report_fields(fields, local);
     append_vortex_count_where_local_execution_effect_fields(fields, local);
+    append_vortex_local_primitive_execution_report_fields(fields, Some(&local.report));
     append_vortex_count_where_local_execution_claim_fields(
         fields,
         local.selection_vector_guaranteed(),
@@ -7537,7 +7539,16 @@ fn append_vortex_run_local_primitive_fields(
     fields: &mut Vec<(String, String)>,
     report: &VortexLocalEngineReport,
 ) {
-    let local = report.local_primitive_execution_report.as_ref();
+    append_vortex_local_primitive_execution_report_fields(
+        fields,
+        report.local_primitive_execution_report.as_ref(),
+    );
+}
+
+pub(crate) fn append_vortex_local_primitive_execution_report_fields(
+    fields: &mut Vec<(String, String)>,
+    local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
+) {
     append_vortex_run_local_primitive_status_fields(fields, local);
     append_vortex_run_local_primitive_row_fields(fields, local);
     append_vortex_run_local_primitive_execution_fields(fields, local);
