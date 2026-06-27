@@ -2037,7 +2037,15 @@
     "run_id": "targeted_runtime_driver_final_changed_routes_20260627T204943Z",
     "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_runtime_driver_final_changed_routes_20260627T204943Z/summary.json",
     "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
-    "purpose": "validate the shared Vortex current-thread worker-pool runtime driver on changed count/filter and bounded sort/top-K route families without running full 43-query UAT",
+    "purpose": "validate the shared Vortex current-thread worker-pool runtime driver on changed bounded sort/top-K route families, with count/filter rows retained only as control comparisons, without running full 43-query UAT",
+    "worker_pool_validated_route_families": [
+      "bounded_sort_top_k"
+    ],
+    "comparison_control_route_families": [
+      "metadata_count",
+      "count_where",
+      "filter_project"
+    ],
     "query_count": 6,
     "success_count": 6,
     "fallback_or_external_engine_violations": 0,

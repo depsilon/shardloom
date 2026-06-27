@@ -1376,8 +1376,21 @@ impl vortex::io::runtime::BlockingRuntime for LocalVortexRuntime {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn local_vortex_worker_capacity() -> usize {
+    std::thread::available_parallelism()
+        .map_or(1, |parallelism| parallelism.get().saturating_sub(1))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn bounded_local_vortex_worker_count(requested_max_parallelism: usize) -> usize {
+    requested_max_parallelism
+        .saturating_sub(1)
+        .min(local_vortex_worker_capacity())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn local_vortex_runtime(policy: VortexLocalPrimitiveExecutionPolicy) -> LocalVortexRuntime {
-    let worker_count = policy.resource_envelope.max_parallelism.saturating_sub(1);
+    let worker_count = bounded_local_vortex_worker_count(policy.resource_envelope.max_parallelism);
     if worker_count == 0 {
         return LocalVortexRuntime::Single(
             vortex::io::runtime::single::SingleThreadRuntime::default(),
@@ -39650,6 +39663,19 @@ mod tests {
             "shardloom-{name}-{}-{nanos}.vortex",
             std::process::id()
         ))
+    }
+
+    #[test]
+    fn local_vortex_worker_count_is_bounded_before_spawning() {
+        let capacity = local_vortex_worker_capacity();
+
+        assert_eq!(bounded_local_vortex_worker_count(0), 0);
+        assert_eq!(bounded_local_vortex_worker_count(1), 0);
+        assert_eq!(
+            bounded_local_vortex_worker_count(capacity.saturating_add(1)),
+            capacity
+        );
+        assert!(bounded_local_vortex_worker_count(usize::MAX) <= capacity);
     }
 
     #[test]

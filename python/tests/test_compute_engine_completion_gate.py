@@ -349,6 +349,7 @@ class ComputeEngineCompletionGateTests(unittest.TestCase):
                     "acceptance_summary": {
                         "all_unchecked_global_review_rows_mapped": True,
                         "all_families_have_phase_items": True,
+                        "all_families_have_active_phase_owner": True,
                         "all_families_have_evidence_and_validators": True,
                         "all_no_fallback_invariants_named": True,
                         "all_claim_boundaries_named": True,

@@ -17,6 +17,7 @@ SCHEMA_VERSION = "shardloom.runtime_gap_family_burn_down.v1"
 GATE_ID = "gar-runtime-impl-6d.runtime_gap_family_burn_down"
 PHASE_PLAN = Path("docs/architecture/phased-execution-plan.md")
 PHASE_COMPLETED_LEDGER = Path("docs/architecture/phased-execution-completed-ledger.md")
+ACTIVE_GLOBAL_GAP_PHASE_OWNER = "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1"
 
 
 @dataclass(frozen=True)
@@ -463,6 +464,10 @@ def family_by_id() -> dict[str, GapFamily]:
     return {family.family_id: family for family in GAP_FAMILIES}
 
 
+def phase_items_for_family(family: GapFamily) -> tuple[str, ...]:
+    return tuple(dict.fromkeys((ACTIVE_GLOBAL_GAP_PHASE_OWNER, *family.phase_items)))
+
+
 def command_script_exists(repo_root: Path, command: str) -> bool:
     match = re.match(r"^(?:PYTHONPATH=[^ ]+\s+)?python3?\s+(scripts/[^ ]+\.py)\b", command)
     if not match:
@@ -476,7 +481,7 @@ def row_payload(review_row: dict[str, Any], mapping: GapMapping, family: GapFami
         "global_review_title": review_row["title"],
         "runtime_gap_family": family.family_id,
         "family_display_name": family.display_name,
-        "phase_items": list(family.phase_items),
+        "phase_items": list(phase_items_for_family(family)),
         "public_surfaces": list(family.public_surfaces),
         "owning_modules": list(family.owning_modules),
         "required_evidence": list(family.required_evidence),
@@ -551,7 +556,10 @@ def build_report(
         ]:
             if not getattr(family, field_name):
                 blockers.append(f"{family.family_id}: {field_name} is required")
-        for phase_item in family.phase_items:
+        phase_items = phase_items_for_family(family)
+        if not any(phase_item in phase_plan_text for phase_item in phase_items):
+            blockers.append(f"{family.family_id}: unchecked gap family lacks active phase owner")
+        for phase_item in phase_items:
             if phase_item not in phase_registry_text:
                 blockers.append(
                     f"{family.family_id}: phase item not present in phase registry: {phase_item}"
@@ -587,6 +595,9 @@ def build_report(
             "all_unchecked_global_review_rows_mapped": not missing and not extra,
             "all_families_have_phase_items": not any(
                 "phase item not present" in blocker for blocker in blockers
+            ),
+            "all_families_have_active_phase_owner": not any(
+                "active phase owner" in blocker for blocker in blockers
             ),
             "all_families_have_evidence_and_validators": not any(
                 "required_evidence is required" in blocker

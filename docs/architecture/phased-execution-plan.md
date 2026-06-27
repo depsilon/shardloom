@@ -249,26 +249,85 @@ post-merge ledger movement, follow `Current autonomous execution order`.
 
 Current autonomous execution order:
 
-1. Implement `CLICKBENCH-100M-PHYSICAL-POLICY-PLANNER-6` first so shared resource/runtime
+1. Resolve `PR-CODEX-COMMENT-RESOLUTION-1361-1363` before returning to the performance queue.
+2. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
+   architecture runtime-gap families until those rows are closed or promoted into concrete runtime
+   work.
+3. Implement `CLICKBENCH-100M-PHYSICAL-POLICY-PLANNER-6` first so shared resource/runtime
    settings are route-aware and cannot improve one lane while regressing another.
-2. Implement `CLICKBENCH-100M-SINGLE-ARTIFACT-LAYOUT-ADVISOR-9` next so ingest layout,
+4. Implement `CLICKBENCH-100M-SINGLE-ARTIFACT-LAYOUT-ADVISOR-9` next so ingest layout,
    compression, segment stats, and storage-size choices improve query locality inside the single
    `.vortex` artifact.
-3. Implement `CLICKBENCH-100M-HIGH-CARDINALITY-AGGREGATE-7` for the remaining exact
+5. Implement `CLICKBENCH-100M-HIGH-CARDINALITY-AGGREGATE-7` for the remaining exact
    high-cardinality grouped lanes.
-4. Implement `CLICKBENCH-100M-STRING-DOMAIN-PREDICATE-8` so URL/domain/length/search phrase
+6. Implement `CLICKBENCH-100M-STRING-DOMAIN-PREDICATE-8` so URL/domain/length/search phrase
    predicates and grouping consume embedded dictionary/domain metadata before row-string scans.
-5. Implement `CLICKBENCH-100M-INGEST-WRITER-COALESCING-10` after layout choices settle, then run
+7. Implement `CLICKBENCH-100M-INGEST-WRITER-COALESCING-10` after layout choices settle, then run
    one replacement ingest UAT that records load time, artifact size, segment shape, and query
    impact together.
-6. Update docs, generated status surfaces, and focused validators from the implemented evidence.
-7. Run focused PR validation only while implementation rows are still changing; do not run the full
+8. Update docs, generated status surfaces, and focused validators from the implemented evidence.
+9. Run focused PR validation only while implementation rows are still changing; do not run the full
    workspace suite or full ClickBench UAT until the cohesive batch is ready.
-8. Create/merge the cohesive PR when required checks are green.
-9. After the current optimization batch is complete, run the heavy local Desktop UAT once on the
+10. Create/merge the cohesive PR when required checks are green.
+11. After the current optimization batch is complete, run the heavy local Desktop UAT once on the
    merged build/artifact, replacing the existing prepared `.vortex` file rather than creating
    duplicate massive artifacts.
-10. Start any version/release train only after that end-of-batch UAT result is acceptable.
+12. Start any version/release train only after that end-of-batch UAT result is acceptable.
+
+- [ ] `PR-CODEX-COMMENT-RESOLUTION-1361-1363` Resolve recent Codex review findings before
+  returning to the ClickBench optimization queue.
+  - V1 scope classification: `required_for_v1`.
+  - Source: thread-aware review sweep for PRs `#1354` through `#1363`, with unresolved Codex
+    threads found on `#1361`, `#1362`, and `#1363`.
+  - Current state: the `DISTINCT ... ORDER BY ... LIMIT` sort lowering and direct primitive
+    memory-envelope comments are already addressed in merged `main`; the worker-count bound,
+    active phase-owner validation, and targeted-UAT evidence wording still need follow-up.
+  - ShardLoom technique review: ResourceEnvelope/PulseWeave worker admission applies to the Vortex
+    runtime-driver fix; timing-surface discipline applies to the UAT evidence wording; active
+    phase ownership applies to evidence-tier controls. No new route family or external execution is
+    allowed.
+  - Execution checklist:
+    - [x] Confirm `#1361` `DISTINCT ... ORDER BY ... LIMIT` no longer lowers into `sort_rows`.
+    - [x] Confirm `#1362` direct primitive execution evidence honors requested `memory_gb`.
+    - [x] Bound local Vortex current-thread worker count by local CPU availability before spawning
+      workers.
+    - [x] Require an active phase-plan owner for unchecked global architecture runtime-gap
+      families instead of accepting completed-ledger history as active ownership.
+    - [x] Clarify targeted runtime-driver UAT evidence so count/filter control rows are not
+      claimed as worker-pool validation.
+    - [x] Run focused validation for the Vortex worker-count unit, runtime gap-family validator,
+      JSON report syntax, and formatter.
+    - [ ] Open and merge the follow-up PR when required checks are green, then move this
+      completed review-fix item to the completed ledger.
+  - Acceptance: all still-actionable Codex review findings from the recent PR train are addressed
+    in source, docs/evidence, and focused validation without creating route proliferation or
+    weakening no-fallback evidence.
+  - Status: implementation validated; follow-up PR/merge and ledger movement pending.
+
+- [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
+  gaps.
+  - V1 scope classification: `required_for_v1`.
+  - Source: `scripts/check_runtime_gap_family_burn_down.py`, `docs/architecture/global-architecture-review.md`,
+    and the `#1363` review finding that completed-ledger items must not count as active owners for
+    unchecked global review rows.
+  - Current state: runtime gap-family mappings preserve provenance back to completed GAR items, but
+    unchecked global architecture review rows need a current active owner while concrete runtime
+    work remains open.
+  - ShardLoom technique review: evidence-tier controls and no-fallback discipline apply. This row
+    is ownership/governance only; concrete implementation still belongs in shared Vortex-normalized
+    runtime, ingest, operator, sink, or evidence components, not one-off route splits.
+  - Execution checklist:
+    - [ ] Keep this active owner present while any mapped global architecture review runtime gap
+      remains unchecked.
+    - [ ] For each mapped gap family, either close the global review row with runtime evidence or
+      promote the next concrete shared-runtime implementation item before removing this owner.
+    - [ ] Run `python3 scripts/check_runtime_gap_family_burn_down.py` whenever this owner,
+      global-review rows, or runtime gap-family mappings change.
+    - [ ] Move this item to the completed ledger only after all mapped unchecked global review rows
+      are closed or replaced by more specific active phase-plan owners.
+  - Acceptance: runtime gap-family reports always show both historical provenance and at least one
+    active phase-plan owner for unchecked global architecture review rows.
+  - Status: active carry-forward owner.
 
 - [ ] `CLICKBENCH-100M-PHYSICAL-POLICY-PLANNER-6` Add a route-aware native Vortex physical policy
   planner so shared ResourceEnvelope/PulseWeave settings improve the right lanes without slowing
