@@ -19390,7 +19390,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
 
-    def test_sql_vortex_user_operator_shapes_route_to_native_provider(self) -> None:
+    def test_sql_vortex_user_operator_shapes_route_to_shared_native_runtime(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
@@ -19531,28 +19531,53 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
 
         expected = (
-            ("aggregate", "group-by-aggregation"),
-            ("aggregate", "null-heavy-aggregate"),
-            ("join", "hash-join"),
-            ("top_n", "sort-and-top-k"),
-            ("cast", "clean-cast-filter-write"),
-            ("cast", "malformed-timestamp-dirty-csv"),
-            ("contains", "nested-json-field-scan"),
-            ("sink", "clean-cast-filter-write"),
-            ("sink", "clean-cast-filter-write"),
+            ("provider", "aggregate", "group-by-aggregation"),
+            ("provider", "aggregate", "null-heavy-aggregate"),
+            ("provider", "join", "hash-join"),
+            ("primitive", "sort_rows", "10"),
+            ("provider", "cast", "clean-cast-filter-write"),
+            ("provider", "cast", "malformed-timestamp-dirty-csv"),
+            ("provider", "contains", "nested-json-field-scan"),
+            ("provider", "sink", "clean-cast-filter-write"),
+            ("provider", "sink", "clean-cast-filter-write"),
         )
-        for report, (family, scenario) in zip(reports, expected):
+        for report, (runtime_kind, family_or_primitive, scenario_or_limit) in zip(
+            reports, expected
+        ):
             self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
             self.assertEqual(report.envelope.command, "run")
-            self.assertEqual(report.command, "vortex-production-runtime-run")
-            self.assertEqual(
-                report.envelope.field("public_workflow_native_vortex_operation_family"),
-                family,
-            )
-            self.assertEqual(
-                report.envelope.field("public_workflow_native_vortex_provider_scenario"),
-                scenario,
-            )
+            if runtime_kind == "primitive":
+                self.assertEqual(report.command, "vortex-local-primitive")
+                self.assertEqual(
+                    report.envelope.field("public_workflow_vortex_primitive"),
+                    family_or_primitive,
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_vortex_sort_rows_present"),
+                    "true",
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_vortex_source_order_limit"),
+                    scenario_or_limit,
+                )
+                self.assertEqual(
+                    report.envelope.field("local_primitive_source_order_limit_applied"),
+                    "true",
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_resolved_internal_command"),
+                    "vortex-local-primitive",
+                )
+            else:
+                self.assertEqual(report.command, "vortex-production-runtime-run")
+                self.assertEqual(
+                    report.envelope.field("public_workflow_native_vortex_operation_family"),
+                    family_or_primitive,
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_native_vortex_provider_scenario"),
+                    scenario_or_limit,
+                )
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
 
@@ -19871,18 +19896,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             {},
         )
 
-    def test_sql_vortex_provider_shape_rejects_noncanonical_top_n_limit(self) -> None:
+    def test_sql_vortex_top_n_limit_uses_general_sort_rows_primitive(self) -> None:
         top_one_sql = (
             "SELECT id, group_key, metric FROM 'fact.vortex' "
             "ORDER BY metric DESC LIMIT 1"
         )
 
+        kwargs = _sql_native_vortex_public_workflow_kwargs(
+            top_one_sql,
+            requested_output="collect",
+        )
+        self.assertEqual(kwargs["vortex_primitive"], "sort_rows")
+        self.assertEqual(kwargs["native_vortex_operation_family"], "top_n")
+        self.assertEqual(kwargs["vortex_source_order_limit"], 1)
+        self.assertEqual(kwargs["vortex_columns"], ("id", "group_key", "metric"))
         self.assertEqual(
-            _sql_native_vortex_public_workflow_kwargs(
-                top_one_sql,
-                requested_output="collect",
-            ),
-            {},
+            json.loads(kwargs["vortex_sort_rows"]),
+            {
+                "order_by": [{"column": "metric", "descending": True}],
+                "limit": 1,
+                "tie_policy": "first",
+            },
         )
 
     def test_sql_vortex_provider_shape_limit_zero_fails_closed(self) -> None:

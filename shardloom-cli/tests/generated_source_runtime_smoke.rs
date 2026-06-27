@@ -24,6 +24,7 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+#[cfg(feature = "vortex-write")]
 fn assert_generated_vortex_writer_pressure_fields(stdout: &str) {
     assert!(stdout.contains(&field(
         "vortex_write_timing_split_schema_version",
