@@ -15270,7 +15270,7 @@ def _vortex_sql_primitive_shape(
         if not columns:
             return None
     if order_by_sql is not None:
-        if limit is None:
+        if distinct or limit is None:
             return None
         sort_rows = _vortex_sql_order_by_to_sort_payload(order_by_sql, limit)
         if sort_rows is None:

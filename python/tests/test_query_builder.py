@@ -19919,6 +19919,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             },
         )
 
+    def test_sql_vortex_distinct_order_by_limit_requires_combined_semantics(self) -> None:
+        distinct_top_sql = (
+            "SELECT DISTINCT UserID FROM 'hits.vortex' ORDER BY UserID ASC LIMIT 10"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                distinct_top_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
+
     def test_sql_vortex_provider_shape_limit_zero_fails_closed(self) -> None:
         limit_zero_sql = (
             "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
