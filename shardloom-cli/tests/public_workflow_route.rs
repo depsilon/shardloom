@@ -1926,7 +1926,7 @@ fn public_route_admits_native_vortex_filter_project_payload() {
         "--vortex-source-order-limit",
         "2",
         "--memory-gb",
-        "1",
+        "3",
         "--max-parallelism",
         "2",
         "--format",
@@ -1951,7 +1951,7 @@ fn public_route_admits_native_vortex_filter_project_payload() {
     assert!(stdout.contains(&field("vortex_predicate", "gte:value:3")));
     assert!(stdout.contains(&field("vortex_columns", "metric,value")));
     assert!(stdout.contains(&field("vortex_source_order_limit", "2")));
-    assert!(stdout.contains(&field("memory_gb", "1")));
+    assert!(stdout.contains(&field("memory_gb", "3")));
     assert!(stdout.contains(&field("max_parallelism", "2")));
     assert!(stdout.contains(&field("runtime_execution", "false")));
     assert!(stdout.contains(&field("source_io_performed", "false")));
@@ -2099,7 +2099,7 @@ fn public_run_executes_native_vortex_tail_payload_with_attached_route_envelope()
         "--vortex-source-order-limit",
         "2",
         "--memory-gb",
-        "1",
+        "3",
         "--max-parallelism",
         "1",
         "--format",
@@ -2122,6 +2122,8 @@ fn public_run_executes_native_vortex_tail_payload_with_attached_route_envelope()
     assert!(stdout.contains(&field("execution", "local_vortex_tail_primitive_performed")));
     assert!(stdout.contains(&field("local_primitive_source_order_limit_requested", "2")));
     assert!(stdout.contains(&field("local_primitive_source_order_limit_applied", "true")));
+    assert!(stdout.contains(&field("public_workflow_memory_gb", "3")));
+    assert!(stdout.contains(&field("local_primitive_resource_memory_gb", "3")));
     assert!(stdout.contains(&field("data_decoded", "true")));
     assert!(stdout.contains(&field("data_materialized", "true")));
     assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));

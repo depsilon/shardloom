@@ -1451,7 +1451,8 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     }
 
     assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
-    assert!(plan.contains("Global Architecture Review Carry-Forward"));
+    let phase_registry = format!("{plan}\n{completed_ledger}");
+    assert!(phase_registry.contains("Global Architecture Review Carry-Forward"));
     assert!(plan.contains("docs/architecture/global-architecture-review.md"));
     assert!(plan.contains("Planned Item Detail Standard"));
     assert!(

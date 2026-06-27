@@ -15,6 +15,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.runtime_gap_family_burn_down.v1"
 GATE_ID = "gar-runtime-impl-6d.runtime_gap_family_burn_down"
+PHASE_PLAN = Path("docs/architecture/phased-execution-plan.md")
+PHASE_COMPLETED_LEDGER = Path("docs/architecture/phased-execution-completed-ledger.md")
 
 
 @dataclass(frozen=True)
@@ -496,7 +498,9 @@ def build_report(
     mappings: tuple[GapMapping, ...] = GLOBAL_REVIEW_MAPPINGS,
 ) -> dict[str, Any]:
     global_review_text = read_text(repo_root / "docs/architecture/global-architecture-review.md")
-    phase_plan_text = read_text(repo_root / "docs/architecture/phased-execution-plan.md")
+    phase_plan_text = read_text(repo_root / PHASE_PLAN)
+    phase_completed_ledger_text = read_text(repo_root / PHASE_COMPLETED_LEDGER)
+    phase_registry_text = "\n".join((phase_plan_text, phase_completed_ledger_text))
     burn_down_doc_text = read_text(repo_root / "docs/architecture/runtime-gap-family-burn-down.md")
     unchecked = unchecked_items(global_review_text)
     unchecked_by_title = {str(row["title"]): row for row in unchecked}
@@ -548,8 +552,10 @@ def build_report(
             if not getattr(family, field_name):
                 blockers.append(f"{family.family_id}: {field_name} is required")
         for phase_item in family.phase_items:
-            if phase_item not in phase_plan_text:
-                blockers.append(f"{family.family_id}: phase item not present in plan: {phase_item}")
+            if phase_item not in phase_registry_text:
+                blockers.append(
+                    f"{family.family_id}: phase item not present in phase registry: {phase_item}"
+                )
         for command in family.validators:
             if not command_script_exists(repo_root, command):
                 blockers.append(f"{family.family_id}: validator command references missing script: {command}")

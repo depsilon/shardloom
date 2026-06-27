@@ -539,7 +539,7 @@ pub(crate) fn parse_vortex_local_primitive_cli_execution_args(
     let max_parallelism = max_parallelism_text.parse::<usize>().map_err(|_| {
         ShardLoomError::InvalidOperation("max_parallelism must be an unsigned integer".to_string())
     })?;
-    VortexLocalPrimitiveExecutionPolicy::new(max_parallelism)?;
+    VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(max_parallelism, memory_gb)?;
     Ok(Some(VortexLocalPrimitiveCliExecutionRequest {
         memory_gb,
         max_parallelism,
@@ -571,8 +571,10 @@ pub(crate) fn vortex_local_primitive_cli_execution_evidence(
     request: &VortexQueryPrimitiveRequest,
     local_request: &VortexLocalPrimitiveCliExecutionRequest,
 ) -> shardloom_core::Result<VortexLocalPrimitiveCliExecutionEvidence> {
-    let _memory_budget = MemoryBudget::from_gib(local_request.memory_gb)?;
-    let policy = VortexLocalPrimitiveExecutionPolicy::new(local_request.max_parallelism)?;
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(
+        local_request.max_parallelism,
+        local_request.memory_gb,
+    )?;
     let report = execute_vortex_local_primitive_with_policy(request, policy)?;
     let native_io_certificate = local_primitive_native_io_certificate(request, &report)?;
     let execution_certificate = local_primitive_correctness_fixture_for_request(request, &report)
@@ -8224,7 +8226,10 @@ fn parse_vortex_filter_project_options(
                         "max_parallelism must be an unsigned integer".to_string(),
                     )
                 })?;
-                VortexLocalPrimitiveExecutionPolicy::new(max_parallelism)?;
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(
+                    max_parallelism,
+                    memory_gb,
+                )?;
                 local_execution_request = Some(VortexLocalPrimitiveCliExecutionRequest {
                     memory_gb,
                     max_parallelism,

@@ -2419,6 +2419,7 @@ dependencies = [
  "arrow-avro",
  "arrow-ipc",
  "arrow-schema",
+ "futures",
  "lending-iterator",
  "memchr",
  "orc-rust",
