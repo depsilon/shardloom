@@ -29,8 +29,9 @@ use crate::{
     VortexEncodedValuePredicateBatch, VortexExplodeProjectionRequest,
     VortexExpressionProjectionRequest, VortexExpressionRewrite, VortexMeltProjectionRequest,
     VortexPivotProjectionRequest, VortexReaderGeneratedEncodedKernelInput,
-    VortexRollingWindowRequest, VortexSimpleAggregateRequest, VortexSortRowsRequest,
-    VortexSortTiePolicy, plan_vortex_reader_generated_prepared_batch_envelopes,
+    VortexRollingWindowRequest, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
+    VortexSortRowsRequest, VortexSortTiePolicy,
+    plan_vortex_reader_generated_prepared_batch_envelopes,
     plan_vortex_reader_generated_prepared_batch_kernel_inputs,
 };
 use crate::{
@@ -936,6 +937,7 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub streaming_scan_used: bool,
     pub full_stream_collected: bool,
     pub resource_envelope: VortexLocalPrimitiveResourceEnvelope,
+    pub physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
     pub max_parallelism_requested: usize,
     pub scan_concurrency_per_worker: usize,
     pub filter_pushdown_applied: bool,
@@ -980,6 +982,7 @@ impl VortexLocalPrimitiveExecutionReport {
             streaming_scan_used: false,
             full_stream_collected: false,
             resource_envelope: VortexLocalPrimitiveResourceEnvelope::default_single_threaded(),
+            physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
             max_parallelism_requested: 1,
             scan_concurrency_per_worker: 1,
             filter_pushdown_applied: false,
@@ -1023,6 +1026,15 @@ impl VortexLocalPrimitiveExecutionReport {
 
     pub const fn has_errors(&self) -> bool {
         self.status.is_error()
+    }
+
+    #[must_use]
+    pub fn with_physical_policy(
+        mut self,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
+    ) -> Self {
+        self.physical_policy = physical_policy;
+        self
     }
 
     pub fn to_human_text(&self) -> String {
@@ -1079,6 +1091,11 @@ impl VortexLocalPrimitiveExecutionReport {
             out,
             "resource envelope: {}",
             self.resource_envelope.compact_summary()
+        );
+        let _ = writeln!(
+            out,
+            "physical policy: {}",
+            self.physical_policy.compact_summary()
         );
         let _ = writeln!(
             out,
@@ -1251,6 +1268,104 @@ impl VortexLocalPrimitiveResourceEnvelope {
     }
 }
 
+/// Route-aware physical policy selected for a local native Vortex primitive.
+///
+/// The policy is intentionally derived from the normalized primitive request,
+/// not from a front-door spelling or benchmark query ID. It lets SQL, Python,
+/// DataFrame-style, and CLI calls share one Vortex-normalized runtime policy
+/// while preserving evidence for why a state-heavy lane did or did not receive
+/// heavy-hitter, row-ref, writer, or scan-concurrency settings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexLocalPrimitivePhysicalPolicyReport {
+    pub schema_version: String,
+    pub policy_id: String,
+    pub route_family: String,
+    pub state_pressure_reason: String,
+    pub requested_max_parallelism: usize,
+    pub selected_max_parallelism: usize,
+    pub selected_scan_concurrency_per_worker: usize,
+    pub selected_group_state_soft_item_budget: usize,
+    pub selected_string_topk_heavy_hitter_capacity: usize,
+    pub selected_numeric_utf8_topk_heavy_hitter_capacity: usize,
+    pub row_ref_retention_enabled: bool,
+    pub writer_coalescing_enabled: bool,
+    pub rejected_alternatives: Vec<String>,
+}
+
+impl VortexLocalPrimitivePhysicalPolicyReport {
+    pub const SCHEMA_VERSION: &'static str = "shardloom.local_vortex_physical_policy.v1";
+
+    #[must_use]
+    pub fn not_selected() -> Self {
+        Self {
+            schema_version: Self::SCHEMA_VERSION.to_string(),
+            policy_id: "not_selected".to_string(),
+            route_family: "not_selected".to_string(),
+            state_pressure_reason: "not_selected".to_string(),
+            requested_max_parallelism: 0,
+            selected_max_parallelism: 0,
+            selected_scan_concurrency_per_worker: 0,
+            selected_group_state_soft_item_budget: 0,
+            selected_string_topk_heavy_hitter_capacity: 0,
+            selected_numeric_utf8_topk_heavy_hitter_capacity: 0,
+            row_ref_retention_enabled: false,
+            writer_coalescing_enabled: false,
+            rejected_alternatives: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    fn selected(
+        route_family: &'static str,
+        state_pressure_reason: &'static str,
+        requested_max_parallelism: usize,
+        envelope: VortexLocalPrimitiveResourceEnvelope,
+        row_ref_retention_enabled: bool,
+        writer_coalescing_enabled: bool,
+        rejected_alternatives: Vec<&'static str>,
+    ) -> Self {
+        Self {
+            schema_version: Self::SCHEMA_VERSION.to_string(),
+            policy_id: format!("local_vortex_physical_policy.{route_family}.v1"),
+            route_family: route_family.to_string(),
+            state_pressure_reason: state_pressure_reason.to_string(),
+            requested_max_parallelism,
+            selected_max_parallelism: envelope.max_parallelism,
+            selected_scan_concurrency_per_worker: envelope.scan_concurrency_per_worker,
+            selected_group_state_soft_item_budget: envelope.group_state_soft_item_budget,
+            selected_string_topk_heavy_hitter_capacity: envelope.string_topk_heavy_hitter_capacity,
+            selected_numeric_utf8_topk_heavy_hitter_capacity: envelope
+                .numeric_utf8_topk_heavy_hitter_capacity,
+            row_ref_retention_enabled,
+            writer_coalescing_enabled,
+            rejected_alternatives: rejected_alternatives
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+        }
+    }
+
+    #[must_use]
+    pub fn compact_summary(&self) -> String {
+        format!(
+            "schema={};policy_id={};route_family={};state_pressure_reason={};requested_max_parallelism={};selected_max_parallelism={};scan_concurrency_per_worker={};group_state_soft_item_budget={};string_topk_heavy_hitter_capacity={};numeric_utf8_topk_heavy_hitter_capacity={};row_ref_retention_enabled={};writer_coalescing_enabled={};rejected_alternatives={}",
+            self.schema_version,
+            self.policy_id,
+            self.route_family,
+            self.state_pressure_reason,
+            self.requested_max_parallelism,
+            self.selected_max_parallelism,
+            self.selected_scan_concurrency_per_worker,
+            self.selected_group_state_soft_item_budget,
+            self.selected_string_topk_heavy_hitter_capacity,
+            self.selected_numeric_utf8_topk_heavy_hitter_capacity,
+            self.row_ref_retention_enabled,
+            self.writer_coalescing_enabled,
+            self.rejected_alternatives.join(",")
+        )
+    }
+}
+
 /// Bounded execution policy applied to local Vortex primitive scans.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VortexLocalPrimitiveExecutionPolicy {
@@ -1299,6 +1414,269 @@ impl VortexLocalPrimitiveExecutionPolicy {
     pub const fn scan_concurrency_per_worker(&self) -> usize {
         self.resource_envelope.scan_concurrency_per_worker
     }
+
+    #[must_use]
+    pub fn with_physical_policy_for_request(
+        self,
+        request: &VortexQueryPrimitiveRequest,
+    ) -> (Self, VortexLocalPrimitivePhysicalPolicyReport) {
+        let mut envelope = self.resource_envelope;
+        let requested_max_parallelism = self.max_parallelism;
+        let mut row_ref_retention_enabled = false;
+        let mut writer_coalescing_enabled = false;
+        let mut rejected_alternatives = Vec::new();
+        let (route_family, state_pressure_reason) = local_vortex_physical_policy_family(request);
+
+        match route_family {
+            "stateless_scan_count" => {
+                envelope.scan_concurrency_per_worker = envelope.max_parallelism;
+                rejected_alternatives.push("state_heavy_hitter_capacity");
+                rejected_alternatives.push("row_ref_retention");
+            }
+            "row_ref_sort_topk" => {
+                row_ref_retention_enabled = true;
+                envelope.sort_retention_flush_multiplier =
+                    envelope.sort_retention_flush_multiplier.max(64);
+                envelope.sort_retention_flush_slack_rows =
+                    envelope.sort_retention_flush_slack_rows.max(4096);
+                rejected_alternatives.push("full_payload_materialization_before_topk");
+            }
+            "string_heavy_hitter_topk" => {
+                envelope.string_topk_heavy_hitter_capacity = envelope
+                    .string_topk_heavy_hitter_capacity
+                    .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+                rejected_alternatives.push("near_input_cardinality_numeric_pair_late_measure");
+            }
+            "numeric_utf8_heavy_hitter_topk" => {
+                envelope.numeric_utf8_topk_heavy_hitter_capacity = envelope
+                    .numeric_utf8_topk_heavy_hitter_capacity
+                    .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+                rejected_alternatives.push("string_only_candidate_state");
+            }
+            "near_input_cardinality_numeric_pair_aggregate" => {
+                envelope.string_topk_heavy_hitter_capacity = 0;
+                envelope.numeric_utf8_topk_heavy_hitter_capacity = 0;
+                rejected_alternatives.push("heavy_hitter_candidate_window");
+                rejected_alternatives.push("string_dictionary_candidate_recount");
+            }
+            "transformed_dictionary_aggregate" => {
+                envelope.string_topk_heavy_hitter_capacity = envelope
+                    .string_topk_heavy_hitter_capacity
+                    .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+                rejected_alternatives
+                    .push("per_row_string_transform_when_embedded_metadata_exists");
+            }
+            "materializing_rows" => {
+                row_ref_retention_enabled = request.kind == VortexQueryPrimitiveKind::SortRows;
+                rejected_alternatives.push("external_engine_materialization");
+            }
+            "writer_sink" => {
+                writer_coalescing_enabled = true;
+                envelope.writer_coalescing_target_bytes = envelope
+                    .writer_coalescing_target_bytes
+                    .max(
+                    VortexLocalPrimitiveResourceEnvelope::DEFAULT_WRITER_COALESCING_TARGET_BYTES,
+                );
+            }
+            _ => {}
+        }
+
+        let report = VortexLocalPrimitivePhysicalPolicyReport::selected(
+            route_family,
+            state_pressure_reason,
+            requested_max_parallelism,
+            envelope,
+            row_ref_retention_enabled,
+            writer_coalescing_enabled,
+            rejected_alternatives,
+        );
+        (
+            Self {
+                max_parallelism: envelope.max_parallelism,
+                resource_envelope: envelope,
+            },
+            report,
+        )
+    }
+}
+
+fn local_vortex_physical_policy_family(
+    request: &VortexQueryPrimitiveRequest,
+) -> (&'static str, &'static str) {
+    match request.kind {
+        VortexQueryPrimitiveKind::CountAll
+        | VortexQueryPrimitiveKind::CountWhere
+        | VortexQueryPrimitiveKind::FilterPredicate
+        | VortexQueryPrimitiveKind::ProjectColumns
+        | VortexQueryPrimitiveKind::FilterAndProject => (
+            "stateless_scan_count",
+            "metadata_or_scan_pushdown_without_unbounded_state",
+        ),
+        VortexQueryPrimitiveKind::SortRows => (
+            "row_ref_sort_topk",
+            "bounded_order_state_prefers_row_refs_until_final_materialization",
+        ),
+        VortexQueryPrimitiveKind::SimpleAggregate => request.simple_aggregate.as_ref().map_or(
+            ("general_grouped_aggregate", "aggregate_payload_missing"),
+            |aggregate| local_vortex_simple_aggregate_physical_policy_family(request, aggregate),
+        ),
+        VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::DropDuplicateRows
+        | VortexQueryPrimitiveKind::DuplicateMaskRows
+        | VortexQueryPrimitiveKind::TailRows
+        | VortexQueryPrimitiveKind::SampleRows
+        | VortexQueryPrimitiveKind::ExpressionProjectRows
+        | VortexQueryPrimitiveKind::MeltRows
+        | VortexQueryPrimitiveKind::ExplodeRows
+        | VortexQueryPrimitiveKind::PivotRows
+        | VortexQueryPrimitiveKind::RollingWindowRows => (
+            "materializing_rows",
+            "declared_materialization_boundary_reuses_native_vortex_scan",
+        ),
+        VortexQueryPrimitiveKind::Unsupported => ("unsupported", "deterministic_blocker"),
+    }
+}
+
+fn local_vortex_simple_aggregate_physical_policy_family(
+    request: &VortexQueryPrimitiveRequest,
+    aggregate: &VortexSimpleAggregateRequest,
+) -> (&'static str, &'static str) {
+    if aggregate.group_by.is_empty() && aggregate.group_expressions.is_empty() {
+        return (
+            "stateless_scan_count",
+            "scalar_aggregate_without_group_state",
+        );
+    }
+    if simple_aggregate_near_input_numeric_pair_shape(aggregate, request) {
+        return (
+            "near_input_cardinality_numeric_pair_aggregate",
+            "two_key_numeric_pair_exact_state_avoids_candidate_window_regression",
+        );
+    }
+    if simple_aggregate_transformed_dictionary_shape(aggregate) {
+        return (
+            "transformed_dictionary_aggregate",
+            "embedded_dictionary_or_derived_metadata_can_replace_per_row_transform",
+        );
+    }
+    if simple_aggregate_numeric_utf8_heavy_hitter_shape(aggregate, request) {
+        return (
+            "numeric_utf8_heavy_hitter_topk",
+            "numeric_plus_utf8_group_state_prefers_compact_candidate_recount",
+        );
+    }
+    if simple_aggregate_string_heavy_hitter_shape(aggregate, request) {
+        return (
+            "string_heavy_hitter_topk",
+            "string_dictionary_count_topk_prefers_candidate_recount",
+        );
+    }
+    (
+        "general_grouped_aggregate",
+        "exact_group_state_without_specialized_topk_policy",
+    )
+}
+
+fn simple_aggregate_near_input_numeric_pair_shape(
+    aggregate: &VortexSimpleAggregateRequest,
+    request: &VortexQueryPrimitiveRequest,
+) -> bool {
+    aggregate.group_by.len() == 2
+        && aggregate.group_expressions.is_empty()
+        && request.source_order_limit.is_some()
+        && !aggregate.order_by.is_empty()
+        && aggregate.measures.iter().any(is_count_measure)
+        && aggregate.measures.iter().any(is_numeric_measure)
+        && !aggregate.measures.iter().any(is_count_distinct_measure)
+        && aggregate
+            .group_by
+            .iter()
+            .all(|column| !column_name_looks_textual(column.as_str()))
+}
+
+fn simple_aggregate_numeric_utf8_heavy_hitter_shape(
+    aggregate: &VortexSimpleAggregateRequest,
+    request: &VortexQueryPrimitiveRequest,
+) -> bool {
+    aggregate.group_by.len() >= 2
+        && request.source_order_limit.is_some()
+        && !aggregate.order_by.is_empty()
+        && aggregate
+            .group_by
+            .iter()
+            .any(|column| column_name_looks_textual(column.as_str()))
+        && aggregate
+            .group_by
+            .iter()
+            .any(|column| !column_name_looks_textual(column.as_str()))
+        && aggregate.measures.iter().any(is_count_measure)
+}
+
+fn simple_aggregate_string_heavy_hitter_shape(
+    aggregate: &VortexSimpleAggregateRequest,
+    request: &VortexQueryPrimitiveRequest,
+) -> bool {
+    request.source_order_limit.is_some()
+        && !aggregate.order_by.is_empty()
+        && aggregate.measures.iter().any(is_count_measure)
+        && (aggregate
+            .group_by
+            .iter()
+            .any(|column| column_name_looks_textual(column.as_str()))
+            || aggregate.group_expressions.iter().any(|expression| {
+                column_name_looks_textual(expression.column.as_str())
+                    || expression_function_looks_string_transform(&expression.function)
+            }))
+}
+
+fn simple_aggregate_transformed_dictionary_shape(aggregate: &VortexSimpleAggregateRequest) -> bool {
+    aggregate
+        .group_expressions
+        .iter()
+        .any(|expression| expression_function_looks_string_transform(&expression.function))
+        || aggregate.measures.iter().any(|measure| {
+            measure.value_transform.as_deref().is_some_and(|transform| {
+                matches!(
+                    transform.trim().to_ascii_lowercase().as_str(),
+                    "length" | "url_domain" | "extract_minute" | "date_trunc_minute"
+                )
+            })
+        })
+}
+
+fn expression_function_looks_string_transform(function: &str) -> bool {
+    matches!(
+        function.trim().to_ascii_lowercase().as_str(),
+        "length" | "url_domain"
+    )
+}
+
+fn is_count_measure(measure: &VortexSimpleAggregateMeasure) -> bool {
+    measure.function.trim().eq_ignore_ascii_case("count")
+}
+
+fn is_count_distinct_measure(measure: &VortexSimpleAggregateMeasure) -> bool {
+    measure
+        .function
+        .trim()
+        .eq_ignore_ascii_case("count_distinct")
+}
+
+fn is_numeric_measure(measure: &VortexSimpleAggregateMeasure) -> bool {
+    matches!(
+        measure.function.trim().to_ascii_lowercase().as_str(),
+        "sum" | "avg" | "min" | "max"
+    ) && measure.column.is_some()
+}
+
+fn column_name_looks_textual(column: &str) -> bool {
+    let lower = column.to_ascii_lowercase();
+    [
+        "url", "domain", "search", "phrase", "title", "referer", "referrer", "text", "string",
+        "utf8", "path", "query",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -1457,6 +1835,7 @@ pub struct VortexLocalPrimitiveRowExportReport {
     pub arrays_read_count: usize,
     pub max_chunk_rows: usize,
     pub resource_envelope: VortexLocalPrimitiveResourceEnvelope,
+    pub physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
     pub max_parallelism_requested: usize,
     pub scan_concurrency_per_worker: usize,
     pub source_order_limit_requested: Option<u64>,
@@ -1586,6 +1965,7 @@ impl VortexLocalPrimitiveRowExportReport {
             arrays_read_count: 0,
             max_chunk_rows: 0,
             resource_envelope: VortexLocalPrimitiveResourceEnvelope::default_single_threaded(),
+            physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
             max_parallelism_requested: 1,
             scan_concurrency_per_worker: 1,
             source_order_limit_requested: None,
@@ -1623,6 +2003,15 @@ impl VortexLocalPrimitiveRowExportReport {
                     DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
                 )
             })
+    }
+
+    #[must_use]
+    pub fn with_physical_policy(
+        mut self,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
+    ) -> Self {
+        self.physical_policy = physical_policy;
+        self
     }
 }
 
@@ -2993,6 +3382,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
+    let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     if request.kind == VortexQueryPrimitiveKind::PivotRows {
         return execute_vortex_local_pivot_row_export_enabled(
             request,
@@ -3000,7 +3390,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
             output_format,
             allow_overwrite,
             policy,
-        );
+        )
+        .map(|report| report.with_physical_policy(physical_policy));
     }
     if request.kind == VortexQueryPrimitiveKind::SimpleAggregate {
         return execute_vortex_local_simple_aggregate_row_export_enabled(
@@ -3009,7 +3400,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
             output_format,
             allow_overwrite,
             policy,
-        );
+        )
+        .map(|report| report.with_physical_policy(physical_policy));
     }
     if request.kind == VortexQueryPrimitiveKind::SortRows {
         return execute_vortex_local_sort_rows_row_export_enabled(
@@ -3018,7 +3410,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
             output_format,
             allow_overwrite,
             policy,
-        );
+        )
+        .map(|report| report.with_physical_policy(physical_policy));
     }
     if !matches!(
         request.kind,
@@ -3046,7 +3439,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
                 "local Vortex primitive row export supports filter, project, filter-project, distinct, drop-duplicates, duplicate-mask, tail, sample, expression-project, melt, explode, pivot, and rolling-window row streams only",
                 Some("use scalar collect for count primitives, or an admitted provider sink for provider-backed result summaries".to_string()),
             ),
-        ));
+        )
+        .with_physical_policy(physical_policy));
     }
     let Some(uri) = request.source_uri.as_ref() else {
         return Ok(VortexLocalPrimitiveRowExportReport::blocked(
@@ -3058,7 +3452,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
                 "local Vortex primitive row export requires a source URI",
                 "provide a local `.vortex` source URI",
             ),
-        ));
+        )
+        .with_physical_policy(physical_policy));
     };
     let Some(path) = local_vortex_path(uri, request.kind)? else {
         return Ok(VortexLocalPrimitiveRowExportReport::blocked(
@@ -3073,7 +3468,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
                 ),
                 "provide an existing local path or file:// `.vortex` target",
             ),
-        ));
+        )
+        .with_physical_policy(physical_policy));
     };
     if output_format.is_structured_projection_export() {
         return execute_vortex_local_structured_binary_row_export_enabled(
@@ -3083,7 +3479,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
             output_format,
             allow_overwrite,
             policy,
-        );
+        )
+        .map(|report| report.with_physical_policy(physical_policy));
     }
 
     let runtime = local_vortex_runtime(policy);
@@ -3213,6 +3610,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                 arrays_read_count: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
+                physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 source_order_limit_requested: source_order_limit.map(usize_to_u64).transpose()?,
@@ -3223,7 +3621,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
                     source_order_limit.is_some(),
                 ),
                 diagnostics: Vec::new(),
-            });
+            }
+            .with_physical_policy(physical_policy));
         }
         let residual_predicate = plan.residual_predicate.clone();
         let residual_evaluator_columns = if drop_duplicate_requested {
@@ -3984,6 +4383,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
             arrays_read_count,
             max_chunk_rows,
             resource_envelope: policy.resource_envelope(),
+            physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             source_order_limit_requested: source_order_limit.map(usize_to_u64).transpose()?,
@@ -3998,7 +4398,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
                 source_order_limit.is_some(),
             ),
             diagnostics: Vec::new(),
-        })
+        }
+        .with_physical_policy(physical_policy))
     })();
     if write_result.is_err() {
         let _ = std::fs::remove_file(&temp_path);
@@ -4178,6 +4579,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
                     arrays_read_count: 0,
                     max_chunk_rows: 0,
                     resource_envelope: policy.resource_envelope(),
+                    physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
                     max_parallelism_requested: policy.max_parallelism,
                     scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                     source_order_limit_requested: plan
@@ -4315,6 +4717,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
                 arrays_read_count,
                 max_chunk_rows,
                 resource_envelope: policy.resource_envelope(),
+                physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 source_order_limit_requested: plan
@@ -4413,6 +4816,7 @@ fn execute_vortex_local_structured_vortex_row_export_enabled(
             arrays_read_count,
             max_chunk_rows,
             resource_envelope: policy.resource_envelope(),
+            physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             source_order_limit_requested: source_order_limit.map(usize_to_u64).transpose()?,
@@ -4776,6 +5180,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
                 arrays_read_count: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
+                physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 source_order_limit_requested: plan
@@ -4905,6 +5310,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
             arrays_read_count,
             max_chunk_rows,
             resource_envelope: policy.resource_envelope(),
+            physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             source_order_limit_requested: plan.source_order_limit.map(usize_to_u64).transpose()?,
@@ -5012,6 +5418,7 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
             arrays_read_count: scan.scan.arrays_read_count,
             max_chunk_rows: scan.scan.max_chunk_rows,
             resource_envelope: scan.scan.resource_envelope,
+            physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
             max_parallelism_requested: scan.scan.max_parallelism_requested,
             scan_concurrency_per_worker: scan.scan.scan_concurrency_per_worker,
             source_order_limit_requested: scan
@@ -5118,6 +5525,7 @@ fn execute_vortex_local_sort_rows_row_export_enabled(
             arrays_read_count: scan.scan.arrays_read_count,
             max_chunk_rows: scan.scan.max_chunk_rows,
             resource_envelope: scan.scan.resource_envelope,
+            physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
             max_parallelism_requested: scan.scan.max_parallelism_requested,
             scan_concurrency_per_worker: scan.scan.scan_concurrency_per_worker,
             source_order_limit_requested: scan
@@ -11971,6 +12379,7 @@ fn execute_vortex_local_primitive_enabled(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     let Some(uri) = request.source_uri.as_ref() else {
         return Ok(VortexLocalPrimitiveExecutionReport::blocked(
             request.kind,
@@ -11980,7 +12389,8 @@ fn execute_vortex_local_primitive_enabled(
                 "local primitive execution requires a source URI",
                 "provide a local `.vortex` source URI",
             ),
-        ));
+        )
+        .with_physical_policy(physical_policy));
     };
     let Some(path) = local_vortex_path(uri, request.kind)? else {
         return Ok(VortexLocalPrimitiveExecutionReport::blocked(
@@ -11994,9 +12404,10 @@ fn execute_vortex_local_primitive_enabled(
                 ),
                 "provide an existing local path or file:// `.vortex` target",
             ),
-        ));
+        )
+        .with_physical_policy(physical_policy));
     };
-    match request.kind {
+    let report = match request.kind {
         VortexQueryPrimitiveKind::CountAll => count_all_metadata_report(uri, &path, policy),
         VortexQueryPrimitiveKind::CountWhere | VortexQueryPrimitiveKind::FilterPredicate => {
             let Some(predicate) = request.predicate.as_ref() else {
@@ -12008,7 +12419,8 @@ fn execute_vortex_local_primitive_enabled(
                         "predicate primitive was missing its predicate",
                         "use count-where:<predicate> or filter:<predicate>",
                     ),
-                ));
+                )
+                .with_physical_policy(physical_policy));
             };
             let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
                 let mut plan = LocalVortexScanPlan::passthrough();
@@ -12046,7 +12458,8 @@ fn execute_vortex_local_primitive_enabled(
                         "filter-and-project primitive was missing its predicate",
                         "use filter-project:<predicate>|<columns>",
                     ),
-                ));
+                )
+                .with_physical_policy(physical_policy));
             };
             let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
                 let mut plan = projection_scan_plan(dtype, &request.projection, request.kind)?;
@@ -12117,7 +12530,8 @@ fn execute_vortex_local_primitive_enabled(
                 Some("Fallback attempted: false".to_string()),
             ),
         )),
-    }
+    }?;
+    Ok(report.with_physical_policy(physical_policy))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -12127,6 +12541,7 @@ fn execute_vortex_local_partitioned_primitive_enabled(
     source_uris: &[DatasetUri],
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     if source_uris.is_empty() {
         return Ok(VortexLocalPrimitiveExecutionReport::blocked(
             request.kind,
@@ -12136,7 +12551,8 @@ fn execute_vortex_local_partitioned_primitive_enabled(
                 "partitioned local primitive execution requires at least one source URI",
                 "provide one or more local `.vortex` source files",
             ),
-        ));
+        )
+        .with_physical_policy(physical_policy));
     }
     if source_uris.len() == 1 {
         let mut single = request.clone();
@@ -12144,7 +12560,7 @@ fn execute_vortex_local_partitioned_primitive_enabled(
         return execute_vortex_local_primitive_enabled(&single, policy);
     }
     let sources = partitioned_local_vortex_source_paths(source_uris, request.kind)?;
-    match request.kind {
+    let report = match request.kind {
         VortexQueryPrimitiveKind::CountAll => {
             Ok(partitioned_report(
                 partitioned_count_all_metadata_report(&sources, policy)?,
@@ -12161,7 +12577,8 @@ fn execute_vortex_local_partitioned_primitive_enabled(
                         "predicate primitive was missing its predicate",
                         "use count-where:<predicate> or filter:<predicate>",
                     ),
-                ));
+                )
+                .with_physical_policy(physical_policy));
             };
             let scan =
                 read_local_vortex_partitioned_scan(&sources, request.kind, policy, |dtype| {
@@ -12203,7 +12620,8 @@ fn execute_vortex_local_partitioned_primitive_enabled(
                         "filter-and-project primitive was missing its predicate",
                         "use filter-project:<predicate>|<columns>",
                     ),
-                ));
+                )
+                .with_physical_policy(physical_policy));
             };
             let scan =
                 read_local_vortex_partitioned_scan(&sources, request.kind, policy, |dtype| {
@@ -12245,7 +12663,8 @@ fn execute_vortex_local_partitioned_primitive_enabled(
                 Some("use a single local `.vortex` source for this primitive until partitioned semantics are certified".to_string()),
             ),
         )),
-    }
+    }?;
+    Ok(report.with_physical_policy(physical_policy))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -14221,6 +14640,7 @@ fn count_all_metadata_report(
         streaming_scan_used: false,
         full_stream_collected: false,
         resource_envelope: policy.resource_envelope(),
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         filter_pushdown_applied: false,
@@ -14308,6 +14728,7 @@ fn partitioned_count_all_metadata_report(
         streaming_scan_used: false,
         full_stream_collected: false,
         resource_envelope: policy.resource_envelope(),
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         filter_pushdown_applied: false,
@@ -14371,6 +14792,7 @@ fn count_where_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14455,6 +14877,7 @@ fn predicate_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14511,6 +14934,7 @@ fn projection_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14567,6 +14991,7 @@ fn filter_and_project_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14626,6 +15051,7 @@ fn distinct_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14701,6 +15127,7 @@ fn drop_duplicate_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: scan.data_read(),
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14770,6 +15197,7 @@ fn duplicate_mask_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14833,6 +15261,7 @@ fn tail_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: true,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14896,6 +15325,7 @@ fn sample_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: scan.data_read(),
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14960,6 +15390,7 @@ fn expression_project_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15028,6 +15459,7 @@ fn melt_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15092,6 +15524,7 @@ fn explode_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15156,6 +15589,7 @@ fn pivot_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15699,6 +16133,7 @@ fn rolling_window_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15765,6 +16200,7 @@ fn simple_aggregate_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15831,6 +16267,7 @@ fn sort_rows_report(
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: scan.streaming_scan_used(),
         resource_envelope: scan.resource_envelope,
+        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -39642,7 +40079,7 @@ mod tests {
     #[cfg(feature = "universal-format-io")]
     use crate::VortexStructuredProjectionColumn;
     use crate::{
-        VortexEncodedValuePredicateBatch, VortexExplodeProjectionRequest,
+        VortexAggregateOrderExpr, VortexEncodedValuePredicateBatch, VortexExplodeProjectionRequest,
         VortexExpressionProjectionRequest, VortexExpressionRewrite,
         VortexReaderBackedEncodedExecutionStatus, VortexReaderGeneratedPreparedBatchStatus,
         VortexSourceBackedEncodedValuePredicateBatch,
@@ -39676,6 +40113,145 @@ mod tests {
             capacity
         );
         assert!(bounded_local_vortex_worker_count(usize::MAX) <= capacity);
+    }
+
+    #[test]
+    fn physical_policy_classifies_stateless_count_without_state_knobs() {
+        let uri = DatasetUri::new("file:///tmp/policy-count.vortex").expect("uri");
+        let request = VortexQueryPrimitiveRequest::count_all(uri);
+        let policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("resource policy");
+        let (_effective, report) = policy.with_physical_policy_for_request(&request);
+
+        assert_eq!(report.route_family, "stateless_scan_count");
+        assert_eq!(
+            report.state_pressure_reason,
+            "metadata_or_scan_pushdown_without_unbounded_state"
+        );
+        assert!(
+            report
+                .rejected_alternatives
+                .contains(&"state_heavy_hitter_capacity".to_string())
+        );
+        assert!(!report.row_ref_retention_enabled);
+    }
+
+    #[test]
+    fn physical_policy_classifies_bounded_sort_as_row_ref_topk() {
+        let uri = DatasetUri::new("file:///tmp/policy-sort.vortex").expect("uri");
+        let request = VortexQueryPrimitiveRequest::sort_rows(
+            uri,
+            ProjectionRequest::all(),
+            None,
+            VortexSortRowsRequest::new(vec![VortexAggregateOrderExpr::new("EventTime", true)]),
+            100,
+        );
+        let policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("resource policy");
+        let (_effective, report) = policy.with_physical_policy_for_request(&request);
+
+        assert_eq!(report.route_family, "row_ref_sort_topk");
+        assert!(report.row_ref_retention_enabled);
+        assert!(
+            report
+                .rejected_alternatives
+                .contains(&"full_payload_materialization_before_topk".to_string())
+        );
+    }
+
+    #[test]
+    fn physical_policy_classifies_string_and_numeric_utf8_heavy_hitters() {
+        let uri = DatasetUri::new("file:///tmp/policy-heavy-hitter.vortex").expect("uri");
+        let string_aggregate = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("URL").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("rows", true)]);
+        let string_request =
+            VortexQueryPrimitiveRequest::simple_aggregate(uri.clone(), string_aggregate)
+                .with_source_order_limit(10);
+        let policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("resource policy");
+        let (_effective, string_report) = policy.with_physical_policy_for_request(&string_request);
+        assert_eq!(string_report.route_family, "string_heavy_hitter_topk");
+
+        let numeric_utf8_aggregate = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("UserID").expect("column"),
+                ColumnRef::new("SearchPhrase").expect("column"),
+            ],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("rows", true)]);
+        let numeric_utf8_request =
+            VortexQueryPrimitiveRequest::simple_aggregate(uri, numeric_utf8_aggregate)
+                .with_source_order_limit(10);
+        let (_effective, numeric_utf8_report) =
+            policy.with_physical_policy_for_request(&numeric_utf8_request);
+        assert_eq!(
+            numeric_utf8_report.route_family,
+            "numeric_utf8_heavy_hitter_topk"
+        );
+    }
+
+    #[test]
+    fn physical_policy_classifies_numeric_pair_aggregate_without_candidate_window() {
+        let uri = DatasetUri::new("file:///tmp/policy-numeric-pair.vortex").expect("uri");
+        let aggregate = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("WatchID").expect("column"),
+                ColumnRef::new("ClientIP").expect("column"),
+            ],
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "sum",
+                    Some(ColumnRef::new("ResolutionWidth").expect("column")),
+                    "sum_width".to_string(),
+                ),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(ColumnRef::new("ResolutionWidth").expect("column")),
+                    "avg_width".to_string(),
+                ),
+            ],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("rows", true)]);
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(uri, aggregate)
+            .with_source_order_limit(10);
+        let policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("resource policy");
+        let (effective, report) = policy.with_physical_policy_for_request(&request);
+
+        assert_eq!(
+            report.route_family,
+            "near_input_cardinality_numeric_pair_aggregate"
+        );
+        assert_eq!(
+            effective
+                .resource_envelope
+                .string_topk_heavy_hitter_capacity,
+            0
+        );
+        assert_eq!(
+            effective
+                .resource_envelope
+                .numeric_utf8_topk_heavy_hitter_capacity,
+            0
+        );
+        assert!(
+            report
+                .rejected_alternatives
+                .contains(&"heavy_hitter_candidate_window".to_string())
+        );
     }
 
     #[test]

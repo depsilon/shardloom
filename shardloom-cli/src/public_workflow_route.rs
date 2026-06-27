@@ -981,6 +981,7 @@ fn append_native_vortex_primitive_row_export_fields(
         report.evidence.materialization_boundary_reported,
     );
     append_local_primitive_resource_envelope_fields(fields, &report.resource_envelope);
+    append_local_primitive_physical_policy_fields(fields, &report.physical_policy);
     append_local_primitive_state_budget_fields(fields, &report.state_budget);
     push_field(fields, "claim_gate_status", "not_claim_grade");
 }
@@ -1072,6 +1073,47 @@ fn append_local_primitive_resource_envelope_fields(
         fields,
         "local_primitive_resource_writer_coalescing_target_bytes",
         resource_envelope.writer_coalescing_target_bytes.to_string(),
+    );
+}
+
+fn append_local_primitive_physical_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    physical_policy: &shardloom_vortex::VortexLocalPrimitivePhysicalPolicyReport,
+) {
+    push_field(
+        fields,
+        "local_primitive_physical_policy_schema_version",
+        &physical_policy.schema_version,
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_id",
+        &physical_policy.policy_id,
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_route_family",
+        &physical_policy.route_family,
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_state_pressure_reason",
+        &physical_policy.state_pressure_reason,
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_rejected_alternatives",
+        physical_policy.rejected_alternatives.join(","),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_physical_policy_row_ref_retention_enabled",
+        physical_policy.row_ref_retention_enabled,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_physical_policy_writer_coalescing_enabled",
+        physical_policy.writer_coalescing_enabled,
     );
 }
 
@@ -2235,6 +2277,7 @@ fn append_native_vortex_materializing_primitive_fields(
     append_native_vortex_materializing_limit_fields(fields, report);
     append_local_primitive_result_summary_evidence_fields(fields, report.result_summary.as_deref());
     append_local_primitive_resource_envelope_fields(fields, &report.resource_envelope);
+    append_local_primitive_physical_policy_fields(fields, &report.physical_policy);
     append_local_primitive_state_budget_fields(fields, &report.state_budget);
     append_local_primitive_embedded_layout_fields(fields, &report.embedded_layout);
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
