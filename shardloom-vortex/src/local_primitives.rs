@@ -29,14 +29,14 @@ use crate::{
     VortexEncodedValuePredicateBatch, VortexExplodeProjectionRequest,
     VortexExpressionProjectionRequest, VortexExpressionRewrite, VortexMeltProjectionRequest,
     VortexPivotProjectionRequest, VortexReaderGeneratedEncodedKernelInput,
-    VortexRollingWindowRequest, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
-    VortexSortRowsRequest, VortexSortTiePolicy,
+    VortexRollingWindowRequest, VortexSortRowsRequest, VortexSortTiePolicy,
     plan_vortex_reader_generated_prepared_batch_envelopes,
     plan_vortex_reader_generated_prepared_batch_kernel_inputs,
 };
 use crate::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexReaderBackedSplitEvidence,
-    VortexReaderGeneratedPreparedBatchReport,
+    VortexReaderGeneratedPreparedBatchReport, VortexSimpleAggregateMeasure,
+    VortexSimpleAggregateRequest,
 };
 #[cfg(all(feature = "vortex-local-primitives", feature = "universal-format-io"))]
 use crate::{VortexStructuredProjectionExpr, VortexStructuredProjectionRequest};
