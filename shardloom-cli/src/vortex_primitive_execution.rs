@@ -7614,10 +7614,172 @@ fn append_vortex_run_local_primitive_row_fields(
 }
 
 #[allow(clippy::too_many_lines)]
+fn append_vortex_run_local_primitive_resource_envelope_fields(
+    fields: &mut Vec<(String, String)>,
+    local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
+) {
+    fields.extend([
+        (
+            "local_primitive_resource_envelope_schema_version".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |_| {
+                    shardloom_vortex::VortexLocalPrimitiveResourceEnvelope::SCHEMA_VERSION
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_envelope_summary".to_string(),
+            local.map_or_else(String::new, |local| {
+                local.resource_envelope.compact_summary()
+            }),
+        ),
+        (
+            "local_primitive_resource_memory_gb".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.resource_envelope.memory_gb.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_resource_memory_budget_bytes".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.resource_envelope.memory_budget_bytes.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_resource_max_parallelism".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.resource_envelope.max_parallelism.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_resource_scan_concurrency_per_worker".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .scan_concurrency_per_worker
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_capillary_unit_target_rows".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .capillary_unit_target_rows
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_group_state_soft_item_budget".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .group_state_soft_item_budget
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_string_topk_heavy_hitter_capacity".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .string_topk_heavy_hitter_capacity
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_numeric_utf8_topk_heavy_hitter_capacity".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .numeric_utf8_topk_heavy_hitter_capacity
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_spill_threshold_bytes".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.resource_envelope.spill_threshold_bytes.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_resource_sort_retention_flush_multiplier".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .sort_retention_flush_multiplier
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_sort_retention_flush_slack_rows".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .sort_retention_flush_slack_rows
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_writer_row_block_target_rows".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .writer_row_block_target_rows
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_resource_writer_coalescing_target_bytes".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .resource_envelope
+                        .writer_coalescing_target_bytes
+                        .to_string()
+                },
+            ),
+        ),
+    ]);
+}
+
+#[allow(clippy::too_many_lines)]
 fn append_vortex_run_local_primitive_execution_fields(
     fields: &mut Vec<(String, String)>,
     local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
 ) {
+    append_vortex_run_local_primitive_resource_envelope_fields(fields, local);
     fields.extend([
         (
             "local_primitive_streaming_scan_used".to_string(),

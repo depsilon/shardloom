@@ -1467,11 +1467,13 @@ Current autonomous execution order:
         source reader. Focused validation:
         `cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom
         vortex_ingest_parquet_public_prepare_uses_row_group_capillary_executor -- --nocapture`.
-      - [x] Centralize public-runtime resource defaults so the `max_parallelism=2` local public
-        runtime policy is declared in `python/src/shardloom/runtime_defaults.py`, re-exported by
-        the Python package/client, mirrored as a named Rust public-prepare parser constant, and
-        consumed by the ClickBench route-readiness validator instead of duplicated as route-local
-        literals. Internal smoke helpers keep a separate named one-lane diagnostic default.
+      - [x] Centralize public-runtime resource defaults so the `max_parallelism=2` and
+        `memory_gb=4` local public runtime policy is declared in
+        `python/src/shardloom/runtime_defaults.py`, re-exported by the Python package/client,
+        mirrored in `shardloom-cli/src/runtime_defaults.rs`, and consumed by public
+        workflow/native Vortex route planning instead of duplicated as route-local literals.
+        `SHARDLOOM_MAX_PARALLELISM` and `SHARDLOOM_MEMORY_GB` are the shared environment
+        overrides; internal smoke helpers keep a separate named one-lane diagnostic default.
         Focused validation:
         `PYTHONPATH=python/src python - <<'PY'
         import shardloom as sl
@@ -1488,6 +1490,11 @@ Current autonomous execution order:
         and
         `PYTHONPATH=python/src python -m unittest
         python.tests.test_cli_client.ShardLoomClientTests.test_runtime_activation_summary_labels_blocked_local_file_middle`.
+      - [x] Promote the shared public resource policy into
+        `VortexLocalPrimitiveResourceEnvelope` so native Vortex scans, grouped aggregate state,
+        bounded top-K/sort retention, writer/coalescing policy evidence, public workflow output,
+        and direct primitive output report the same memory, parallelism, capillary, state-budget,
+        spill-threshold, and writer row-block/coalescing envelope.
     - [x] Run a targeted UAT replacement ingest over the official 100M Parquet source and record
       elapsed time, output size, CPU utilization, sidecar absence, and route evidence before
       retaining the approach.
