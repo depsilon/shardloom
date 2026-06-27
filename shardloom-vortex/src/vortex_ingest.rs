@@ -118,6 +118,14 @@ const VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE: usize = 262_144;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD: u64 = 10_000_000;
 #[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_ONE_MIB: u64 = 1 << 20;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES: u64 =
+    VORTEX_PREPARED_OLAP_WRITER_ONE_MIB;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES: u64 =
+    8 * VORTEX_PREPARED_OLAP_WRITER_ONE_MIB;
+#[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY: usize = 0;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY: usize = 0;
@@ -4476,6 +4484,7 @@ pub struct VortexLayoutWriteRuntimeDecision {
     pub strategy_decision_digest: String,
     pub provider_admitted: bool,
     pub writer_row_block_size: usize,
+    pub writer_block_target_bytes: u64,
     pub writer_compression_policy: String,
     pub writer_compression_concurrency: usize,
     pub blocker: String,
@@ -4493,6 +4502,7 @@ impl VortexLayoutWriteRuntimeDecision {
             )),
             provider_admitted: false,
             writer_row_block_size: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE,
+            writer_block_target_bytes: 0,
             writer_compression_policy: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY
                 .to_string(),
             writer_compression_concurrency:
@@ -4510,11 +4520,12 @@ impl VortexLayoutWriteRuntimeDecision {
     ) -> Self {
         let selected_strategy = advisor.layout_strategy.clone();
         let writer_row_block_size = admitted_layout_writer_row_block_size(advisor);
+        let writer_block_target_bytes = admitted_layout_writer_block_target_bytes(advisor);
         let writer_compression_policy = admitted_layout_writer_compression_policy(advisor);
         let writer_compression_concurrency =
             admitted_layout_writer_compression_concurrency(advisor);
         let strategy_decision_digest = fnv64_digest_text(&format!(
-            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             advisor.schema_version,
             advisor.source_state_digest,
             advisor.source_schema_digest,
@@ -4524,6 +4535,7 @@ impl VortexLayoutWriteRuntimeDecision {
             advisor.writer_admission_policy,
             certification_level.as_str(),
             writer_row_block_size,
+            writer_block_target_bytes,
             writer_compression_policy,
             writer_compression_concurrency,
             target_path.display()
@@ -4534,6 +4546,7 @@ impl VortexLayoutWriteRuntimeDecision {
             strategy_decision_digest,
             provider_admitted: true,
             writer_row_block_size,
+            writer_block_target_bytes,
             writer_compression_policy: writer_compression_policy.to_string(),
             writer_compression_concurrency,
             blocker: "none".to_string(),
@@ -4547,6 +4560,17 @@ fn admitted_layout_writer_row_block_size(advisor: &VortexLayoutWriteAdvisorRepor
         VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE
     } else {
         VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_block_target_bytes(advisor: &VortexLayoutWriteAdvisorReport) -> u64 {
+    if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD
+        && !layout_advisor_has_text_domain_profile(advisor)
+    {
+        VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES
+    } else {
+        VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES
     }
 }
 
@@ -6835,6 +6859,7 @@ pub struct VortexPreparedStateWriteReport {
     pub writer_context_reuse_status: String,
     pub writer_layout_strategy_applied: String,
     pub writer_layout_row_block_size: usize,
+    pub writer_layout_block_target_bytes: u64,
     pub writer_compression_policy: String,
     pub writer_compression_concurrency: usize,
     pub vortex_segment_write_micros: u128,
@@ -6885,9 +6910,10 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn encoding_summary(&self) -> String {
         format!(
-            "upstream_vortex_writer={};row_block_size={};compression_policy={};compression_concurrency={};{}",
+            "upstream_vortex_writer={};row_block_size={};block_target_bytes={};compression_policy={};compression_concurrency={};{}",
             self.writer_layout_strategy_applied,
             self.writer_layout_row_block_size,
+            self.writer_layout_block_target_bytes,
             self.writer_compression_policy,
             self.writer_compression_concurrency,
             self.column_family_summary()
@@ -7928,6 +7954,7 @@ fn finalize_vortex_prepared_state_write(
         writer_context_reuse_status: write_result.writer_context_reuse_status,
         writer_layout_strategy_applied: write_result.writer_layout_strategy_applied,
         writer_layout_row_block_size: write_result.writer_layout_row_block_size,
+        writer_layout_block_target_bytes: write_result.writer_layout_block_target_bytes,
         writer_compression_policy: write_result.writer_compression_policy,
         writer_compression_concurrency: write_result.writer_compression_concurrency,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
@@ -8054,6 +8081,7 @@ where
         writer_context_reuse_status: write_result.writer_context_reuse_status,
         writer_layout_strategy_applied: write_result.writer_layout_strategy_applied,
         writer_layout_row_block_size: write_result.writer_layout_row_block_size,
+        writer_layout_block_target_bytes: write_result.writer_layout_block_target_bytes,
         writer_compression_policy: write_result.writer_compression_policy,
         writer_compression_concurrency: write_result.writer_compression_concurrency,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
@@ -9597,6 +9625,7 @@ struct LocalVortexWriteResult {
     writer_context_reuse_status: String,
     writer_layout_strategy_applied: String,
     writer_layout_row_block_size: usize,
+    writer_layout_block_target_bytes: u64,
     writer_compression_policy: String,
     writer_compression_concurrency: usize,
     vortex_segment_write_micros: u128,
@@ -9657,6 +9686,8 @@ impl LocalVortexWriteContext {
         let writer_layout_strategy_applied =
             vortex_writer_layout_strategy_applied(layout_write_decision).to_string();
         let writer_layout_row_block_size = vortex_writer_row_block_size(layout_write_decision);
+        let writer_layout_block_target_bytes =
+            vortex_writer_block_target_bytes(layout_write_decision);
         let writer_compression_policy =
             vortex_writer_compression_policy(layout_write_decision).to_string();
         let writer_compression_concurrency =
@@ -9702,6 +9733,7 @@ impl LocalVortexWriteContext {
             writer_context_reuse_status: writer_context_reuse_status.into(),
             writer_layout_strategy_applied,
             writer_layout_row_block_size,
+            writer_layout_block_target_bytes,
             writer_compression_policy,
             writer_compression_concurrency,
             vortex_segment_write_micros,
@@ -9729,6 +9761,8 @@ impl LocalVortexWriteContext {
         let writer_layout_strategy_applied =
             vortex_writer_layout_strategy_applied(layout_write_decision).to_string();
         let writer_layout_row_block_size = vortex_writer_row_block_size(layout_write_decision);
+        let writer_layout_block_target_bytes =
+            vortex_writer_block_target_bytes(layout_write_decision);
         let writer_compression_policy =
             vortex_writer_compression_policy(layout_write_decision).to_string();
         let writer_compression_concurrency =
@@ -9775,6 +9809,7 @@ impl LocalVortexWriteContext {
             writer_context_reuse_status: writer_context_reuse_status.into(),
             writer_layout_strategy_applied,
             writer_layout_row_block_size,
+            writer_layout_block_target_bytes,
             writer_compression_policy,
             writer_compression_concurrency,
             vortex_segment_write_micros,
@@ -9793,8 +9828,9 @@ impl LocalVortexWriteContext {
         let options = self.session.write_options();
         if vortex_layout_write_strategy_applies(layout_write_decision) {
             let row_block_size = vortex_writer_row_block_size(layout_write_decision);
+            let block_target_bytes = vortex_writer_block_target_bytes(layout_write_decision);
             let strategy = if vortex_writer_uses_large_source_fast_load(layout_write_decision) {
-                large_source_fast_load_vortex_write_strategy(row_block_size)
+                large_source_fast_load_vortex_write_strategy(row_block_size, block_target_bytes)
             } else if vortex_writer_uses_large_source_balanced(layout_write_decision) {
                 WriteStrategyBuilder::default()
                     .with_row_block_size(row_block_size)
@@ -9805,6 +9841,7 @@ impl LocalVortexWriteContext {
             } else if vortex_writer_uses_large_source_text(layout_write_decision) {
                 large_source_text_vortex_write_strategy(
                     row_block_size,
+                    block_target_bytes,
                     vortex_writer_compression_concurrency(layout_write_decision),
                 )
             } else {
@@ -9833,6 +9870,15 @@ fn vortex_writer_row_block_size(decision: &VortexLayoutWriteRuntimeDecision) -> 
         decision.writer_row_block_size
     } else {
         VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_block_target_bytes(decision: &VortexLayoutWriteRuntimeDecision) -> u64 {
+    if vortex_layout_write_strategy_applies(decision) {
+        decision.writer_block_target_bytes
+    } else {
+        0
     }
 }
 
@@ -9884,13 +9930,18 @@ fn vortex_writer_uses_large_source_text(decision: &VortexLayoutWriteRuntimeDecis
 #[cfg(feature = "vortex-write")]
 fn large_source_fast_load_vortex_write_strategy(
     row_block_size: usize,
+    block_target_bytes: u64,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
-    std::sync::Arc::new(large_source_fast_load_table_strategy(row_block_size))
+    std::sync::Arc::new(large_source_fast_load_table_strategy(
+        row_block_size,
+        block_target_bytes,
+    ))
 }
 
 #[cfg(feature = "vortex-write")]
 fn large_source_fast_load_table_strategy(
     row_block_size: usize,
+    block_target_bytes: u64,
 ) -> vortex::layout::layouts::table::TableStrategy {
     use vortex::file::ALLOWED_ENCODINGS;
     use vortex::layout::layouts::buffered::BufferedStrategy;
@@ -9901,20 +9952,20 @@ fn large_source_fast_load_table_strategy(
     use vortex::layout::layouts::repartition::{RepartitionStrategy, RepartitionWriterOptions};
     use vortex::layout::layouts::table::TableStrategy;
     use vortex::layout::layouts::zoned::writer::{ZonedLayoutOptions, ZonedStrategy};
-
-    const ONE_MEG: u64 = 1 << 20;
-
     let flat: std::sync::Arc<dyn vortex::layout::LayoutStrategy> = std::sync::Arc::new(
         FlatLayoutStrategy::default().with_allow_encodings((*ALLOWED_ENCODINGS).clone()),
     );
     let chunked = ChunkedLayoutStrategy::new(std::sync::Arc::clone(&flat));
-    let buffered = BufferedStrategy::new(chunked, 2 * ONE_MEG);
+    let buffered = BufferedStrategy::new(
+        chunked,
+        vortex_writer_buffered_target_bytes(block_target_bytes),
+    );
     let coalescing = RepartitionStrategy::new(
         buffered,
         RepartitionWriterOptions {
-            block_size_minimum: ONE_MEG,
+            block_size_minimum: VORTEX_PREPARED_OLAP_WRITER_ONE_MIB,
             block_len_multiple: row_block_size,
-            block_size_target: Some(ONE_MEG),
+            block_size_target: Some(block_target_bytes),
             canonicalize: true,
         },
     );
@@ -9952,13 +10003,14 @@ fn large_source_fast_load_table_strategy(
 #[cfg(feature = "vortex-write")]
 fn large_source_text_vortex_write_strategy(
     row_block_size: usize,
+    block_target_bytes: u64,
     compression_concurrency: usize,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
     use vortex::array::dtype::FieldPath;
 
     let text_strategy =
         large_source_dictionary_zstd_text_leaf_strategy(row_block_size, compression_concurrency);
-    let mut strategy = large_source_fast_load_table_strategy(row_block_size);
+    let mut strategy = large_source_fast_load_table_strategy(row_block_size, block_target_bytes);
     for field in source_text_compression_field_names() {
         strategy = strategy.with_field_writer(
             FieldPath::from_name(*field),
@@ -9966,6 +10018,15 @@ fn large_source_text_vortex_write_strategy(
         );
     }
     std::sync::Arc::new(strategy)
+}
+
+#[cfg(feature = "vortex-write")]
+fn vortex_writer_buffered_target_bytes(block_target_bytes: u64) -> u64 {
+    if block_target_bytes <= VORTEX_PREPARED_OLAP_WRITER_ONE_MIB {
+        2 * VORTEX_PREPARED_OLAP_WRITER_ONE_MIB
+    } else {
+        block_target_bytes
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -10029,8 +10090,6 @@ fn source_text_compression_field_names() -> &'static [&'static str] {
         "UTMTerm",
         "URL",
         "UserAgentMinor",
-        "__shardloom_derived_url_domain_URL",
-        "__shardloom_derived_url_domain_Referer",
     ]
 }
 
@@ -10040,11 +10099,11 @@ fn vortex_writer_layout_strategy_applied(
 ) -> &'static str {
     if vortex_layout_write_strategy_applies(decision) {
         if vortex_writer_uses_large_source_fast_load(decision) {
-            "vortex_write_strategy_row_block_262144_fast_load_uncompressed_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_8mb_fast_load_uncompressed_embedded_olap_layout_statistics"
         } else if vortex_writer_uses_large_source_balanced(decision) {
-            "vortex_write_strategy_row_block_262144_balanced_zstd_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_1mb_balanced_zstd_embedded_olap_layout_statistics"
         } else if vortex_writer_uses_large_source_text(decision) {
-            "vortex_write_strategy_row_block_262144_source_text_dictionary_zstd_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_1mb_source_text_dictionary_zstd_embedded_olap_layout_statistics"
         } else {
             match decision.writer_row_block_size {
                 VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE => {
@@ -11538,6 +11597,10 @@ mod tests {
             report.writer_layout_row_block_size,
             VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE
         );
+        assert_eq!(
+            report.writer_layout_block_target_bytes,
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES
+        );
         assert_eq!(report.reopen_row_count, 1);
         assert_ne!(
             report.prepared_olap_layout_inventory.root_layout_encoding,
@@ -11611,6 +11674,14 @@ mod tests {
             !fields.contains(&"__shardloom_derived_utf8_len_URL"),
             "hidden length metadata is numeric/dictionary metadata and should stay on the typed layout path"
         );
+        assert!(
+            !fields.contains(&"__shardloom_derived_url_domain_URL"),
+            "hidden URL-domain metadata is generated dictionary metadata and should stay on the typed layout path"
+        );
+        assert!(
+            !fields.contains(&"__shardloom_derived_url_domain_Referer"),
+            "hidden Referer-domain metadata is generated dictionary metadata and should stay on the typed layout path"
+        );
     }
 
     #[test]
@@ -11646,6 +11717,10 @@ mod tests {
             VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE
         );
         assert_eq!(
+            report.layout_write_decision.writer_block_target_bytes,
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES
+        );
+        assert_eq!(
             report.layout_write_decision.writer_compression_policy,
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
         );
@@ -11655,11 +11730,15 @@ mod tests {
         );
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_source_text_dictionary_zstd_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_1mb_source_text_dictionary_zstd_embedded_olap_layout_statistics"
         );
         assert_eq!(
             report.writer_layout_row_block_size,
             VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE
+        );
+        assert_eq!(
+            report.writer_layout_block_target_bytes,
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES
         );
         assert_eq!(
             report.writer_compression_policy,
@@ -11707,6 +11786,10 @@ mod tests {
             VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE
         );
         assert_eq!(
+            report.layout_write_decision.writer_block_target_bytes,
+            VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES
+        );
+        assert_eq!(
             report.layout_write_decision.writer_compression_policy,
             VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_POLICY
         );
@@ -11716,7 +11799,11 @@ mod tests {
         );
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_fast_load_uncompressed_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_8mb_fast_load_uncompressed_embedded_olap_layout_statistics"
+        );
+        assert_eq!(
+            report.writer_layout_block_target_bytes,
+            VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());
@@ -12301,7 +12388,7 @@ mod tests {
                 .field_with_name("__shardloom_derived_utf8_len_Referer")
                 .expect("referer len")
                 .data_type(),
-            &DataType::UInt32
+            &DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::UInt32))
         );
         assert_eq!(
             schema
@@ -12347,8 +12434,11 @@ mod tests {
             .column_by_name("__shardloom_derived_utf8_len_Referer")
             .expect("referer length column")
             .as_any()
-            .downcast_ref::<UInt32Array>()
-            .expect("referer length uint32");
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("referer length dictionary");
+        let referer_lengths = referer_lengths
+            .downcast_dict::<UInt32Array>()
+            .expect("referer length dictionary values");
         assert_eq!(
             referer_lengths.value(0),
             u32::try_from("http://www.google.com/search".len()).expect("len")

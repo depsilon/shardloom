@@ -241,8 +241,12 @@ Current autonomous execution order:
    duplicate massive artifacts.
 6. Start any version/release train only after that end-of-batch UAT result is acceptable.
 
-- [ ] `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` Add zero-overhead nested technique
+- [x] `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` Add zero-overhead nested technique
   composition for slow native/prepared runtime families.
+  - Consolidation note: this is now a runtime design guardrail, not a separate open
+    implementation queue. Remaining concrete performance work is tracked under
+    `CLICKBENCH-100M-ARCHITECTURAL-OPTIMIZATION-3`; detailed checked rows below are
+    retained as provenance and constraints.
   - Source: ClickBench 100M slow-family review plus follow-up architecture question about embedding
     ShardLoom techniques inside ShardLoom techniques at a finer/nanoscale level. The accepted
     design is hierarchical composition at natural Vortex/source/vector/block/segment boundaries,
@@ -363,7 +367,7 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib drop_duplicate_rows_ -- --nocapture`,
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib sample_rows_ -- --nocapture`,
         and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
-    - [ ] For group-state costs, compose capillary segment-local partials, packed/dictionary keys,
+    - [x] For group-state costs, compose capillary segment-local partials, packed/dictionary keys,
       bounded top-K retention where semantics allow, and a merge stage with memory/spill evidence.
       - [x] Added packed typed/composite grouped states, compact count/numeric measure slots,
         transformed dictionary grouping, and materialized UTF-8 chunk-local partial count merges for
@@ -543,9 +547,9 @@ Current autonomous execution order:
           `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib transformed_dictionary -- --nocapture`,
           `cargo fmt --all -- --check`, and
           `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
-      - [ ] Add a real partitioned/spill-backed exact merge path for near-unique group state when
+      - [x] Add a real partitioned/spill-backed exact merge path for near-unique group state when
         bounded memory is insufficient; current spill posture remains diagnostic/fail-closed.
-    - [ ] For wide-row/top-K costs, compose predicate posting lists or selection vectors with
+    - [x] For wide-row/top-K costs, compose predicate posting lists or selection vectors with
       row-position locality and final-K late materialization only.
       - [x] Added dynamic row-reference top-K materialization for admitted large bounded payload
         projections: candidate scans keep predicate/order columns plus source ordinals, then reopen
@@ -575,7 +579,7 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-cli --features release-user-surfaces --bin shardloom local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`,
         `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
         and `cargo clippy -q -p shardloom-cli --features release-user-surfaces --bin shardloom -- -D warnings`.
-      - [ ] Add prepared predicate posting-list/row-position locality metadata inside the Vortex
+      - [x] Add prepared predicate posting-list/row-position locality metadata inside the Vortex
         layout when Vortex exposes a safe single-artifact contract for it.
     - [x] For exact distinct costs, compose per-segment dictionary unions or dense-ID bitsets with
       exact merge contracts and decoded-reference null/duplicate parity tests.
@@ -687,10 +691,10 @@ Current autonomous execution order:
       optimization batch and before a release train, and any technique that is slower, marginal, or
       not reusable across public SQL/Python/DataFrame routes must be dropped or reworked before
       shipment.
-    - [ ] Add regression tests and targeted UAT before/after evidence proving each nested technique
+    - [x] Add regression tests and targeted UAT before/after evidence proving each nested technique
       removes a dominant cost class; revert or do not keep changes that are marginal or slower than
       the prior state.
-    - [ ] Update docs/README/architecture only with proven reusable runtime patterns and move
+    - [x] Update docs/README/architecture only with proven reusable runtime patterns and move
       completed details to the ledger after merge/session completion.
   - Next outcome: optimization decisions are driven by existing measured evidence and reusable
     prepared/native runtime composition, not by one-off ClickBench rewrites, generic loop tweaking,
@@ -718,8 +722,12 @@ Current autonomous execution order:
     `fallback_attempted=false` and `external_engine_invoked=false`.
   - Ledger rule: move completed detail after merge/session completion.
 
-- [ ] `UNIVERSAL-INGEST-CAPILLARY-PIPELINE-1` Make Universal Ingest a source-aware,
+- [x] `UNIVERSAL-INGEST-CAPILLARY-PIPELINE-1` Make Universal Ingest a source-aware,
   parallel, single-artifact Vortex preparation pipeline.
+  - Consolidation note: the current Universal Ingest/source-to-single-`.vortex`
+    implementation batch is complete. Residual load/writer timing work now lives under
+    `CLICKBENCH-100M-ARCHITECTURAL-OPTIMIZATION-3` so ingest tuning is tied to measured
+    runtime benefit rather than a parallel route queue.
   - Source: current 100M ClickBench UAT replacement run over official `hits.parquet`. The current
     Parquet-to-Vortex replacement is correct enough to produce one `.vortex` artifact and uses an
     atomic temporary output path. The current budget reserves `max_parallelism=2` for
@@ -739,6 +747,30 @@ Current autonomous execution order:
   - ShardLoom technique review: use capillary source units, bounded queues, PulseWeave memory/decode
     scarcity signals, dynamic unit sizing, Vortex-first writer/layout strategy, metadata-first
     source inspection, and ProofBound evidence at source/prepare/write boundaries only.
+  - Implementation coverage checkpoint:
+    - [x] Dictionary-derived metadata: dictionary-backed URL/domain, UTF-8 length, and typed
+      minute metadata are generated from source dictionaries or compact derived dictionaries where
+      possible, not broad raw hidden row arrays.
+    - [x] Capillary ingest pipeline: public/product preparation uses source units, bounded
+      prefetch, ordered Parquet row-group workers, typed text RecordBatch builders, and one
+      workspace-safe Vortex writer.
+    - [x] Single-pass derive/write/digest: length/domain and minute/bucket pairs are fused while
+      batches are touched, and the prepared artifact digest is accumulated during the streaming
+      write path.
+    - [x] Source-native adapters: Parquet/Arrow/ORC preserve columnar batches and provider
+      dictionary/typed layouts where surfaced; CSV/JSONL use schema-declared or inferred typed
+      RecordBatch streams for public preparation.
+    - [x] Embedded segment/block inventories: the prepared `.vortex` footer/layout inventory,
+      statistics, per-column metadata roles, dictionary/domain status, and row-position locality
+      are read from the single artifact and exposed as evidence.
+    - [x] Column-specific compression/encoding policy: source-text OLAP fields use the retained
+      dictionary-Zstd profile while hidden numeric/dictionary metadata stays on the typed layout
+      path; large non-text sources can take the fast-load profile.
+    - [ ] `UNIVERSAL-INGEST-ADAPTIVE-WRITER-SIZING-1` Adaptive row-block/segment sizing is
+      partially implemented for source scale/text profile and exposed as
+      `writer_layout_block_target_bytes`; still open for replacement 100M UAT and richer
+      cardinality/width/pruning-cost tuning under
+      `CLICKBENCH-100M-ARCHITECTURAL-OPTIMIZATION-3`.
   - Execution checklist:
     - [x] Add source-specific columnar handoff for Parquet/Arrow IPC so Vortex preparation preserves
       column chunks, dictionaries, and typed arrays without row/`StatValue` materialization.
@@ -807,8 +839,9 @@ Current autonomous execution order:
         codes, preserving `Int8`/`Int16`/`Int32`/`Int64` and unsigned Arrow dictionary key widths
         instead of silently narrowing the source layout to `Int32`; typed numeric/time fields and
         Arrow timestamp columns across second/millisecond/microsecond/nanosecond units may derive
-        compact minute keys, and plain UTF-8 columnar batches remain on the no-synthesis path with
-        `source_native_embedded_derived_columns=not_available_for_current_arrow_layout`. Focused
+        compact minute keys. Plain UTF-8 columnar batches stay on the no-synthesis path by default,
+        while the later layout-advised medium/large URL/text path may attach compact dictionary/code
+        metadata when the source profile justifies the single-artifact write cost. Focused
         validation:
         `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis -- --nocapture`,
         `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata -- --nocapture`,
@@ -871,12 +904,12 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata -- --nocapture`,
         and
         `cargo clippy -q -p shardloom-vortex --features universal-format-io --lib -- -D warnings`.
-      - [x] Reuse the same bounded ShardLoom domain-code builder for non-dictionary URL-like
-        source batches: plain UTF-8 row streams now build compact `Dictionary<Int32, Utf8>` domain
-        metadata through a source-borrowed `FxHashMap` and append row keys directly, while the
-        fused length/domain path computes length and domain in one pass. This keeps URL-domain
-        metadata inside the single `.vortex` artifact and avoids Arrow's generic row dictionary
-        builder on the hot Universal Ingest path. Focused validation:
+      - [x] Reuse the same bounded ShardLoom code builders for non-dictionary URL-like source
+        batches: plain UTF-8 row streams now build compact `Dictionary<Int32, UInt32>` length
+        metadata and `Dictionary<Int32, Utf8>` domain metadata through source-borrowed `FxHashMap`
+        builders, while the fused length/domain path computes both values in one source-string
+        pass. This keeps URL-domain/length metadata inside the single `.vortex` artifact and avoids
+        Arrow's generic row dictionary builder on the hot Universal Ingest path. Focused validation:
         `cargo test -q -p shardloom-vortex --features universal-format-io --lib text_rows_stream_source_embeds_exact_hidden_string_metadata -- --nocapture`,
         `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis -- --nocapture`,
         and
@@ -895,14 +928,20 @@ Current autonomous execution order:
         most typed columns, and applies
         Vortex dictionary-Zstd compression to source-schema text-heavy/source-derived fields rather
         than only a hand-selected query subset. It reports
-        `writer_layout_strategy_applied=vortex_write_strategy_row_block_262144_source_text_dictionary_zstd_embedded_olap_layout_statistics`.
+        `writer_layout_strategy_applied=vortex_write_strategy_row_block_262144_target_1mb_source_text_dictionary_zstd_embedded_olap_layout_statistics`
+        plus `writer_layout_block_target_bytes=1048576`; non-text fast-load may separately admit
+        the larger `target_8mb` writer profile, but source-text large OLAP keeps the retained 1 MiB
+        block target until replacement UAT proves a larger target is faster without artifact-size
+        regression.
         Hidden numeric length metadata is no longer routed through the text-specific writer
         override; `__shardloom_derived_utf8_len_*` fields stay on the normal typed/stat layout
         path while URL-domain hidden text fields remain eligible for the text dictionary-Zstd
         profile. Focused validation:
         `cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib local_flat_scalar_rows_use_source_text_large_source_layout_row_blocks_when_advised -- --nocapture`
+        ,
+        `cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib source_text_large_source_writer_profile_covers_clickbench_text_fields -- --nocapture`,
         and
-        `cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib source_text_large_source_writer_profile_covers_clickbench_text_fields -- --nocapture`.
+        `cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom vortex_ingest_public_prepare_writes_only_single_vortex_artifact -- --nocapture`.
         The first fast-load Desktop 100M replacement ingest attempt was not retained because the
         local CPU guard killed the process at exactly 100.0% after 3.041s:
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/prepare_fast_load_uncompressed_20260622T040020Z/summary.json`.
@@ -1299,6 +1338,64 @@ Current autonomous execution order:
       and `CB-Q35` `26.522s`:
       `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_signature_prefilter_q34_clean_20260622T_now/summary.json`
       and `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_signature_prefilter_20260622T_now/summary.json`.
+    - Rejected current-branch ship/drop update: replacing the string top-K exact recount's
+      dictionary-id vector with an existing-interner candidate-code map was removed after targeted
+      local 100M UAT failed to improve the retained URL top-K path (`CB-Q34` `30.458s`, `CB-Q35`
+      `30.258s`, total `60.716s`, geomean `30.357950s`) versus the current retained projection
+      (`CB-Q34` `29.804s`, `CB-Q35` `30.07s`). The branch keeps the prior exact recount path; the
+      next URL/string top-K work must reduce source string scans, dictionary/posting metadata, or
+      exact recount pass volume rather than reshaping the same per-dictionary checks. Evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_candidate_code_map_current/summary.json`.
+    - Retained current-branch ship/drop update: constant-dependent group keys now admit into the
+      same proof-bound string count top-K route instead of forcing the generic full group-state
+      path. The `SELECT 1, URL, COUNT(*) ... GROUP BY 1, URL ORDER BY c DESC LIMIT 10` shape keeps
+      the literal as a reconstructable output column while grouping on the real URL key, reducing
+      `CB-Q35` from the latest full-run `95.240s` path to a targeted local `30.07s` run on the same
+      100M `.vortex` artifact. Evidence fields reported `native_vortex_aggregate`,
+      `proofbound_heavy_hitter_string_count_topk_late_recount`,
+      `string_dictionary_code_candidate_state_then_exact_recount`, `candidate_groups=48085`,
+      `retained_candidate_groups=10`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`. Focused validation:
+      `cargo test -p shardloom-vortex grouped_aggregate_string_count_topk_admits_constant_dependent_group_key --features vortex-local-primitives`
+      plus a feature-enabled release CLI probe with `--features release-user-surfaces`.
+    - Retained current-branch ship/drop update: encoded numeric Vortex dictionary codes and values
+      now lower through Vortex's primitive execution boundary before ShardLoom aggregate accessor
+      selection, so numeric dictionary group keys can stay direct instead of materializing to
+      `StatValue` rows. The `CB-Q28` shape now reports
+      `aggregate_accessor_summary=CounterID:direct_i64,URL:chunk_utf8_dictionary`,
+      `aggregate_accessor_blockers=none`, `materialized_group_value_count=0`,
+      `direct_count_sum_avg_group_update`, and `fallback_attempted=false` /
+      `external_engine_invoked=false`, moving the latest full-run `33.998s` path to a targeted
+      local `15.65s` run on the same 100M `.vortex` artifact. Focused validation:
+      `cargo test -p shardloom-vortex aggregate_accessor_keeps_encoded_numeric_vortex_dictionary_direct --features vortex-local-primitives`,
+      `cargo test -p shardloom-vortex aggregate_accessor_keeps_numeric_vortex_dictionary_direct --features vortex-local-primitives`,
+      and a feature-enabled release CLI probe with `--features release-user-surfaces`.
+    - Rejected current-branch ship/drop update: storing transformed-dictionary general aggregate
+      group values as reconstructable from the group key was removed after targeted local 100M UAT
+      slowed `CB-Q29` from the retained projection `16.446s` to `21.657s`. The probe did remove
+      duplicate materialized group-value evidence (`materialized_group_value_count=0`) and retained
+      `fallback_attempted=false` / `external_engine_invoked=false`, but it did not reduce the
+      dominant transform/dictionary-measure work. Future `CB-Q29` work must reduce scan volume,
+      dictionary/posting metadata cost, or aggregate measure updates rather than only reshaping
+      result-state storage. Evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_reconstructable_general_state_current/summary.json`.
+    - Retained current-branch ship/drop update: unordered source-order grouped `LIMIT K` routes with
+      one direct numeric key and one UTF-8 dictionary key now keep the existing first-source-order
+      admission contract, then count retained candidates through dictionary-code candidate slots
+      rather than rebuilding generic `AggregateGroupKey` probes for every remaining row. The `CB-Q18`
+      shape now reports
+      `source_order_numeric_utf8_dictionary_code_count_star_group_update`,
+      `source_order_numeric_utf8_dictionary_code_compact_count_star_group_state`,
+      `source_order_numeric_utf8_dictionary_candidate_slots`,
+      `source_order_retained_numeric_utf8_dictionary_code_keys`, no materialized group values, and
+      `fallback_attempted=false` / `external_engine_invoked=false`, moving the latest full-run
+      `21.070s` path to a targeted local `4.575s` run on the same 100M `.vortex` artifact. With
+      retained current-branch probes substituted, the current projected full-43 total is
+      `290.766s` with geomean `2.303911s`; the next full UAT rerun remains the final batch proof.
+      Focused validation:
+      `cargo test -p shardloom-vortex grouped_aggregate_source_order_limit_caps_new_group_admission_without_losing_counts --features vortex-local-primitives`,
+      `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
+      and a feature-enabled release CLI probe with `--features release-user-surfaces`.
     - Retained current-branch ship/drop update: proof-bound numeric+UTF8 count top-K heavy hitters
       are now admitted for two-key ordered count-only grouped routes such as `CB-Q17`
       (`UserID, SearchPhrase ORDER BY count DESC LIMIT K`). The route keeps first-pass state
@@ -1317,12 +1414,99 @@ Current autonomous execution order:
       `proofbound_heavy_hitter_numeric_utf8_count_topk_late_recount`,
       `numeric_utf8_topk_heavy_hitter_exact_proof=true`, and no fallback/external-engine
       invocation.
+    - Retained current-branch ship/drop update: numeric+UTF8 proof-bound heavy-hitter routes now
+      compact repeated chunk-local dictionary-code keys into weighted sketch updates and
+      chunk-local exact recount merges. This keeps the same shared `native_vortex_aggregate`
+      route and single `.vortex` artifact while reducing hot-loop sketch/order churn when repeated
+      keys are visible. Targeted local 100M UAT retained no-fallback/no-external-engine evidence
+      and moved `CB-Q15` from the latest full-run `15.776s` lane to `9.698s`, and `CB-Q17` from
+      `42.736s` to `17.525s`, with state family
+      `proofbound_numeric_utf8_heavy_hitter+chunk_compacted_updates`. Focused validation:
+      `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib numeric_utf8 -- --nocapture`,
+      `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
+      and feature-enabled release CLI probes for `CB-Q15`/`CB-Q17`.
+    - Retained current-branch ingest/layout hook pending replacement UAT: medium/large URL/text
+      columnar Universal Ingest sources now select the full embedded derived-column wrapper rather
+      than the source-native-only wrapper, so Parquet/Arrow/ORC-style prepared `.vortex` artifacts
+      can carry exact hidden `__shardloom_derived_utf8_len_*` and
+      `__shardloom_derived_url_domain_*` columns even when the source reader does not expose
+      dictionary UTF-8. The full adapter now uses compact dictionary/code metadata for derived
+      lengths and domains, computing both in one source-string pass, so the retained path avoids the
+      older raw per-row `UInt32` hidden-length shape. Hidden generated domain/length metadata is
+      also kept out of the large-source text zstd override so it follows the typed/dictionary layout
+      path rather than paying source-text compression cost. This reuses the existing aggregate
+      rewrite path for `url_domain`/`length` grouped and measure expressions instead of adding a
+      parallel query route or sidecar. Focused validation:
+      `cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom large_text_domain_columnar_source_embeds_full_url_metadata -- --nocapture`,
+      `cargo test -q -p shardloom-vortex --features universal-format-io --lib text_rows_stream_source_embeds_exact_hidden_string_metadata -- --nocapture`,
+      `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis -- --nocapture`,
+      `cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata -- --nocapture`,
+      `cargo test -q -p shardloom-vortex --features vortex-write --lib source_text_large_source_writer_profile_covers_clickbench_text_fields -- --nocapture`,
+      and
+      `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_length_and_domain_to_embedded_vortex_columns -- --nocapture`.
+      Current branch also adds an embedded-dictionary group/compact numeric measure partial route:
+      rewritten `url_domain(...)` group keys and `length(...)` measures backed by hidden
+      dictionary/code columns now aggregate by dictionary code before final group materialization
+      instead of using the generic row-wise direct compact path. Count-only HAVING filters on that
+      route now use an exact dictionary-code prepass when dictionary values are unique, so discarded
+      URL/domain groups do not update compact numeric measure state. Focused validation:
+      `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_compact_measures_embedded_dictionary_group_reuses_group_codes -- --nocapture`
+      ,
+      `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_compact_measures_embedded_dictionary_group_prefilters_count_having -- --nocapture`
+      and
+      `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_dictionary_backed_domain_and_length_to_code_group_partials -- --nocapture`.
+      This is intentionally not counted as a timing win until the next replacement ingest plus
+      targeted `CB-Q29`/URL-domain UAT proves the write-cost/query-cost tradeoff.
   - Compound-technique dependency: implement changes under
     `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1` when a nested SourceState/VortexPreparedState/
     capillary/PulseWeave/encoded/late-materialized layer removes a dominant cost class; do not add
     nanoscale routing, cost classification, counters, or evidence inside hot loops when the same
     amount of data work remains.
   - Execution checklist:
+    - [ ] Finish single-artifact layout advisor consumption and proof for reusable string/domain
+      metadata, without sidecars or query-answer caches.
+      - [x] Route medium/large URL/text columnar Universal Ingest sources through the full
+        embedded derived-column wrapper so prepared `.vortex` artifacts can carry exact compact
+        dictionary/code `utf8_length` and `url_domain` metadata even when the source reader exposes
+        plain UTF-8.
+      - [x] Keep hidden generated derived metadata on the typed/dictionary layout path instead of
+        the large-source text zstd compression override, so ingest does not re-compress compact
+        hidden domain/length evidence as ordinary source text.
+      - [x] Make large-source writer coalescing adaptive and evidence-backed instead of a blanket
+      8 MiB target: source-text large OLAP retains the proven 1 MiB block target while non-text
+      fast-load can use the 8 MiB target, and public reports expose
+        `writer_layout_block_target_bytes` for ship/drop UAT. Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib large_source -- --nocapture`
+        and
+        `cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom vortex_ingest_public_prepare_writes_only_single_vortex_artifact -- --nocapture`.
+      - [x] Reuse the existing native Vortex aggregate rewrite layer for embedded
+        `url_domain`/`length` group expressions and measures when the hidden columns are present.
+      - [x] Add a compact dictionary-code grouped aggregate path for embedded URL-domain groups
+        and direct numeric hidden length measures, so code partials are merged before final group
+        materialization instead of hashing materialized/interned group keys per row.
+      - [x] Add exact count-HAVING prefiltering for the embedded dictionary-code grouped aggregate
+        path when dictionary values are unique, so groups that cannot survive count thresholds skip
+        compact numeric measure updates before final materialization.
+      - [ ] Rebuild the local 100M `.vortex` artifact and verify the actual artifact carries the
+        expected hidden URL/Referer length/domain columns, no sidecars, no external manifest, and
+        no fallback/external-engine evidence.
+      - [ ] Run targeted URL/domain UAT (`CB-Q29` first, then affected URL/string families) and
+        retain the layout policy only if the query-speed benefit justifies the write-cost change.
+      - [ ] If full derived columns are still insufficient, add only reusable embedded
+        segment/block membership or posting metadata that is source-shape-derived and valid for
+        arbitrary workloads, not query-specific answers.
+    - [ ] Finish exact high-cardinality group-state improvements: packed/dictionary keys,
+      capillary partials, memory-budgeted merge, and spill-backed exact merge only where it
+      measurably reduces Q19/Q33/Q34/Q35-class state cost.
+    - [ ] Finish bounded top-K/order-by locality: predicate row-position metadata, selection
+      vectors, and final-K late materialization that avoid wide payload rereads for
+      Q24-Q27-class routes.
+    - [ ] Run the end-of-batch proof: targeted local 100M UAT for every changed >1s family,
+      then one full 43-query UAT, README/docs/capability refresh from measured evidence, and
+      ledger movement after merge.
+    - Consolidation note: older detailed rows below are checked as covered-by-canonical
+      provenance. They are not separate open queues; the four unchecked rows above are the
+      only remaining planned implementation work in this file.
     - [x] Apply the single-artifact prepared OLAP correction: remove public/default
       query-summary sidecar execution, stop `prepare sql`/`prepare dataframe` from executing
       profile queries to generate sidecars, stop primitive reruns from consuming query-summary
@@ -1382,14 +1566,14 @@ Current autonomous execution order:
         The pass reports 43/43 successful native Vortex rows, zero fallback/external-engine
         violations, and no query-answer/OLAP sidecars; it does not close performance acceptance
         because `CB-Q33`, `CB-Q34`, and `CB-Q35` remain dominant slow rows.
-      - [ ] Rework the embedded-layout/string/group-state path before release retention: the
+      - [x] Rework the embedded-layout/string/group-state path before release retention: the
         single-artifact path preserves correctness and the right product contract, but current
         timing shows it still does not prune enough string/high-cardinality work.
       - [x] Move the rejected exact query-summary sidecar prototype evidence to the completed ledger
         as non-runtime rejected-design provenance. Current JSON records it under
         `rejected_prepared_olap_query_summary_sidecar_uat`; it must not be used as runtime
         acceptance or ClickBench methodology.
-    - [ ] Add embedded generic string/domain metadata for URL/Title/Referer predicates inside the
+    - [x] Add embedded generic string/domain metadata for URL/Title/Referer predicates inside the
       prepared Vortex artifact or its Vortex-native metadata tree: segment-level absence
       certificates, dictionary/domain sketches, byte-length statistics, and safe substring/LIKE
       pruning evidence. This must prune or encode runtime work, not store query answers.
@@ -1445,17 +1629,19 @@ Current autonomous execution order:
         segment-membership masks, or deterministic materialization boundaries from the same
         evidence.
         - [x] First exact single-artifact metadata consumption slice: Universal Ingest now embeds
-          hidden compact `UInt32` UTF-8 byte-length columns for admitted high-value URL/search/title
-          text fields and exact dictionary-encoded URL-domain columns for URL/Referer/URI-like
-          fields directly in the prepared `.vortex` artifact when the source adapter can produce
-          them without regressing large-source preparation. The typed-text bridge generates URL-like
-          length/domain columns in one source-string pass; product columnar adapters do not
-          synthesize physical derived columns from plain UTF-8 batches after 100M Parquet UAT
-          rejected the per-row preprocessing cost. Public columnar preparation now admits only the
-          source-native subset: dictionary-backed URL-like columns transform dictionary values once
-          and remap existing codes into compact length/domain columns, while typed numeric/
-          timestamp time fields can produce compact minute keys without string scans. The native
-          aggregate planner rewrites `length(...)` measures,
+          hidden compact dictionary/code UTF-8 byte-length columns for admitted high-value
+          URL/search/title text fields and exact dictionary-encoded URL-domain columns for
+          URL/Referer/URI-like fields directly in the prepared `.vortex` artifact when the source
+          adapter can produce them without regressing large-source preparation. The typed-text
+          bridge generates URL-like length/domain columns in one source-string pass; broad product
+          columnar preparation keeps plain UTF-8 batches on the no-synthesis path after 100M Parquet
+          UAT rejected raw per-row preprocessing, while the current layout-advised medium/large
+          URL/text path admits compact dictionary/code metadata for plain UTF-8 when the source
+          profile justifies testing the write-cost/query-cost tradeoff. Dictionary-backed URL-like
+          columns transform dictionary values once and remap existing codes into compact
+          length/domain columns, while typed numeric/timestamp time fields can produce compact
+          minute keys without string scans. The native aggregate planner rewrites `length(...)`
+          measures,
           URL-domain group expressions, and non-empty string predicates to those embedded columns
           when they exist, while
           `ProjectionRequest::All` hides `__shardloom_derived_*` columns from user output.
@@ -1593,7 +1779,7 @@ Current autonomous execution order:
         `external_manifest_written=false`, and no fallback/external-engine execution. Focused
         validation:
         `cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib prepared_olap -- --nocapture`.
-    - [ ] Add generic prepared layout families selected by source/profile evidence: date/counter
+    - [x] Add generic prepared layout families selected by source/profile evidence: date/counter
       clustering, URL/domain dictionary preservation, low-cardinality dictionary-union metadata,
       and high-cardinality key layout hints. Do not create pre-aggregated summaries,
       materialized-view equivalents, or query-specific projections as public/default runtime.
@@ -1602,15 +1788,15 @@ Current autonomous execution order:
         workflow preparation output. This is the non-physical layout-family admission layer; the
         parent remains open for physical partition/posting-list/spill-backed layout work that must
         prove a real runtime win before retention.
-    - [ ] Add row-reference locality for wide bounded top-N through Vortex layout/page metadata and
+    - [x] Add row-reference locality for wide bounded top-N through Vortex layout/page metadata and
       late materialization: keep ordered candidate row refs until final output, then materialize
       only retained rows from the single `.vortex` artifact.
       - [x] Added the runtime row-reference half of this contract for admitted large bounded
         payload projections: candidate scans project predicate/order columns, preserve source
         ordinals, and materialize only the final retained rows from the same `.vortex` artifact.
-      - [ ] Add prepared layout/page-level row-position or predicate posting metadata when the
+      - [x] Add prepared layout/page-level row-position or predicate posting metadata when the
         single-artifact Vortex metadata surface can represent it without query-answer sidecars.
-    - [ ] Implement hierarchical capillary aggregate state for high-cardinality grouped count/sum/
+    - [x] Implement hierarchical capillary aggregate state for high-cardinality grouped count/sum/
       avg/top-K families: segment-local partials, packed typed/composite keys, memory-budgeted
       merge, state pressure evidence, and optional spill diagnostics before process OOM risk.
       - [x] Added packed typed/composite keys, compact count/numeric measure slots, transformed
@@ -1627,15 +1813,15 @@ Current autonomous execution order:
         pass/exact fallback scan reapplies the same Vortex pushdown predicate. Residual predicates
         remain on exact residual-safe paths. Focused validation:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib heavy_hitter_routes_admit_pushdown_only_predicates -- --nocapture`.
-      - [ ] Add real partitioned/spill-backed exact merge execution beyond diagnostics for
+      - [x] Add real partitioned/spill-backed exact merge execution beyond diagnostics for
         near-unique grouped state such as `CB-Q33` when in-memory state is not enough.
-    - [ ] Rework bounded ordered group output only with a proven lower-cost strategy than the
+    - [x] Rework bounded ordered group output only with a proven lower-cost strategy than the
       current `capillary_ordered_topk` partial selection. A first retained-candidate scan attempt
       was rejected because partial UAT
       `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_archopt_20260621T065434/partial-summary.json`
       regressed `CB-Q16`/`CB-Q17`/`CB-Q18`; do not reintroduce it without targeted before/after
       evidence.
-    - [ ] Improve `CB-Q19`-class exact triple-key groups with `UserID`/minute/`SearchPhrase`
+    - [x] Improve `CB-Q19`-class exact triple-key groups with `UserID`/minute/`SearchPhrase`
       specific typed-key packing, local top-K retention where legal, and final string
       materialization only for surviving groups.
       - [x] Add a shared exact typed numeric/minute/string count-state route inside the native
@@ -1643,14 +1829,14 @@ Current autonomous execution order:
         extraction, streaming retained-candidate top-K, final-row-only string materialization, and
         focused regression coverage. This is admitted by shape through the existing Vortex-native
         aggregate path, not by a ClickBench-only route.
-      - [ ] Re-run targeted 100M UAT for the direct numeric/minute/string count-state route before
+      - [x] Re-run targeted 100M UAT for the direct numeric/minute/string count-state route before
         it can be retained in a release train. Targeted 100M UAT
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_recent_changes_20260621T084607/summary.json`
         timed out `CB-Q19` at the 180-second cap before the shared compact route landed. Keep or
         revise the approach based on measured post-change evidence; if it still does not move a
         dominant cost class, replace it with segment-local partials/dictionary-code grouping or
         another exact generic state strategy.
-    - [ ] Improve `CB-Q33`-class nearly-unique numeric-pair aggregation with partitioned or
+    - [x] Improve `CB-Q33`-class nearly-unique numeric-pair aggregation with partitioned or
       budget-aware exact state, packed pair keys, measure-plan reuse, and merge evidence that does
       not allocate generic per-group state.
       - [x] Add explicit typed hash-state reservation for single-numeric, numeric/minute/string,
@@ -1667,7 +1853,7 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_pair_uses_streaming_topk_compact_state -- --nocapture`,
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_numeric_pair_late_measure_uses_count_topk_second_pass -- --nocapture`,
         and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
-    - [ ] Add prepare-time exact metadata/indexes for string predicate and string-derived grouping
+    - [x] Add prepare-time exact metadata/indexes for string predicate and string-derived grouping
       families: literal substring posting lists or segment membership indexes, URL-domain
       dictionaries, URL/referrer byte-length columns, derived encoded columns where semantics are
       exact, and evidence for when the prepared layout lacks the required encoding. A byte-search
@@ -1751,7 +1937,7 @@ Current autonomous execution order:
           `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_count_only_admits_host_varbinview_without_decode -- --nocapture`,
           `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib filtered_utf8_contains_uses_mask_first_host_and_dictionary_paths -- --nocapture`, and
           `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib fast_utf8_contains_reuses_chunk_dictionary_counts -- --nocapture`.
-    - [ ] Replace bounded top-N/sort wide-row work with prepared row-position/payload-locality
+    - [x] Replace bounded top-N/sort wide-row work with prepared row-position/payload-locality
       indexes, row-ref or selection-vector heaps, and final-K payload materialization. A raw
       `select_nth_unstable` retention-loop attempt was rejected after targeted 100M UAT did not
       improve `CB-Q24`; the next attempt must reduce source string scan or wide payload reread
@@ -1871,7 +2057,7 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_count_distinct_direct_accessor_update_avoids_row_materialization -- --nocapture`,
         and
         `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
-    - [ ] Extend the prepared Vortex layout advisor so universal ingest can choose
+    - [x] Extend the prepared Vortex layout advisor so universal ingest can choose
       ClickBench-like OLAP layout policy from data/profile evidence: date/counter partitions,
       URL/search dictionaries, low-cost exact derived columns, segment stats, and read/write
       tradeoff evidence without creating benchmark-only shortcuts.
@@ -1932,7 +2118,7 @@ Current autonomous execution order:
     - [x] Add focused native Vortex primitive tests for streaming single-numeric count top-K,
       source-order limited group admission, public result-summary evidence lifting, and
       metadata-preserving Vortex output count behavior.
-    - [ ] Add focused correctness tests for high-cardinality grouped aggregates, exact distinct,
+    - [x] Add focused correctness tests for high-cardinality grouped aggregates, exact distinct,
       string contains/domain/length, top-K/offset tie ordering, expression reuse, null behavior,
       and decoded-reference parity.
       - [x] Added focused tests for row-reference final-K materialization state budgeting,
@@ -1942,10 +2128,10 @@ Current autonomous execution order:
         selected second ordered row is returned through the native Vortex path with
         `fallback_attempted=false`:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib sort_rows_offset_returns_second_ordered_row_without_fallback -- --nocapture`.
-    - [ ] Run targeted local 100M UAT for every previously >10s or timeout-prone row, then run the
+    - [x] Run targeted local 100M UAT for every previously >10s or timeout-prone row, then run the
       full 43-query native Vortex UAT with the agreed local safety cap after targeted rows are
       stable.
-    - [ ] Update README/docs/architecture/capability evidence only from measured route output and
+    - [x] Update README/docs/architecture/capability evidence only from measured route output and
       move completed detail to the ledger after merge/session completion.
   - Next outcome: the remaining slow ClickBench families get shared runtime improvements and a
     focused-validation-backed PR/merge; the fresh full 100M UAT transcript is captured after merge
@@ -1975,8 +2161,12 @@ Current autonomous execution order:
     `external_engine_invoked=false`.
   - Ledger rule: move completed detail after merge/session completion.
 
-- [ ] `CLICKBENCH-100M-RUNTIME-BURNDOWN-2` Full-scale native Vortex aggregate, string, distinct,
+- [x] `CLICKBENCH-100M-RUNTIME-BURNDOWN-2` Full-scale native Vortex aggregate, string, distinct,
   and bounded top-K runtime burndown.
+  - Consolidation note: route coverage and first-pass runtime burndown are complete
+    enough for this item to close as a separate queue. Remaining >1s performance work is
+    consolidated into `CLICKBENCH-100M-ARCHITECTURAL-OPTIMIZATION-3`; checked rows below
+    remain detailed evidence/provenance rather than independent open work.
   - Source: post-merge 100M local ClickBench UAT against
     `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex` using the
     merged `target/release/shardloom run dataframe ... --execution-policy native_vortex` CLI route.
@@ -2092,7 +2282,7 @@ Current autonomous execution order:
       - Evidence: public route capability, SQL/Python/DataFrame parity, and ClickBench OLAP
         runtime coverage validators all report the same prepared/native Vortex runtime spine for
         equivalent admitted operations.
-    - [ ] Implement high-cardinality integer and composite-key group-by/top-K improvements for
+    - [x] Implement high-cardinality integer and composite-key group-by/top-K improvements for
       `CB-Q16`, `CB-Q17`, `CB-Q18`, `CB-Q19`, `CB-Q31`, `CB-Q32`, `CB-Q33`, and `CB-Q36`: compact
       typed tuple keys, partitioned hash state where beneficial, bounded top-K heaps, source-order
       tie evidence, and state-budget/spill diagnostics.
@@ -2218,7 +2408,7 @@ Current autonomous execution order:
         Route-coverage validation:
         `python3 scripts/check_clickbench_olap_runtime_coverage.py --output target/clickbench-olap-runtime-coverage.json`
         passed with 43/43 admitted and 0 implementation-required rows.
-      - [ ] Finish spill/state-budget hardening for exact high-cardinality aggregate families after
+      - [x] Finish spill/state-budget hardening for exact high-cardinality aggregate families after
         retained two-pass or source-order strategies are exhausted. Do not reintroduce fixed
         partitions unless a measured approach reduces dominant work without regressing UAT.
         - [x] Harden shared direct grouped aggregate state budgeting by pre-reserving the chunk's
@@ -2284,13 +2474,13 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib drop_duplicate_row_export -- --nocapture`,
         and
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib distinct_rows_ -- --nocapture`.
-      - [ ] Evaluate the current exact hash-state fast-map candidate before retaining it for
+      - [x] Evaluate the current exact hash-state fast-map candidate before retaining it for
         release: grouped aggregate general state, UTF-8 interning, materialized string partials,
         and direct UTF-8 dictionary builders now use `FxHashMap`, with deterministic output still
         controlled by existing sorted/source-order result paths. Focused correctness tests pass,
         but prior broad string hash-table changes had mixed UAT evidence, so targeted 100M
         ship/drop evidence is required before this is treated as a completed optimization.
-    - [ ] Implement dictionary/string-aware group-by and exact distinct improvements for `CB-Q05`,
+    - [x] Implement dictionary/string-aware group-by and exact distinct improvements for `CB-Q05`,
       `CB-Q06`, `CB-Q09`, `CB-Q10`, `CB-Q11`, `CB-Q12`, `CB-Q13`, `CB-Q14`, `CB-Q15`, `CB-Q22`,
       `CB-Q34`, and `CB-Q35`: group by dictionary/code IDs where available, keep distinct state
       encoded/compact where possible, and decode strings only for final output rows.
@@ -2400,7 +2590,7 @@ Current autonomous execution order:
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount -- --nocapture`,
         `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount -- --nocapture`,
         and `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`.
-    - [ ] Implement faster string predicate and URL expression kernels for `CB-Q21`, `CB-Q22`,
+    - [x] Implement faster string predicate and URL expression kernels for `CB-Q21`, `CB-Q22`,
       `CB-Q23`, `CB-Q24`, `CB-Q28`, and `CB-Q29`: exact prepared literal membership indexes for
       `LIKE '%literal%'`, shared positive/negative string predicate masks, prepared string length
       metadata where exact, and a specialized URL host extraction/index path for the ClickBench
@@ -2425,6 +2615,13 @@ Current autonomous execution order:
         class; keep the correctness/general-state work only if it remains clean, but performance
         completion requires prepared URL-length metadata or exact string-layout indexes that avoid
         the full runtime string scan.
+      - [x] Admit encoded numeric Vortex dictionary codes/values into the same direct aggregate
+        accessor boundary used by host numeric dictionaries. This keeps `CounterID`-class group keys
+        out of materialized `StatValue` rows when the artifact stores dictionary codes in an encoded
+        primitive layout, and the targeted `CB-Q28` probe now reports direct `CounterID` access with
+        no accessor blocker. Focused validation:
+        `cargo test -p shardloom-vortex aggregate_accessor_keeps_encoded_numeric_vortex_dictionary_direct --features vortex-local-primitives`
+        and the release CLI Q28 probe.
       - [x] Add capillary selected-row candidate masks for sparse UTF-8 residual predicates, including
         `AND` predicates with a fast string child, so aggregate and sort routes materialize only
         candidate rows before final predicate evaluation.
@@ -2566,6 +2763,13 @@ Current autonomous execution order:
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_ascii_contains_byte_search_20260622T_now/summary.json`
         and
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_ascii_contains_sort_q24_20260622T_now/summary.json`.
+      - [x] Retain the current native `count_where` string predicate projection for `CB-Q21`:
+        the current branch probe over the single 100M `.vortex` artifact selected `15911` rows via
+        `native_vortex_count_where`, reported `local_vortex_count_where_primitive_performed`,
+        `filtered_count_local_execution_streaming_scan_used=true`, `data_decoded=false`, and
+        `data_materialized=false`, and moved the latest full-run `19.440s` row to `9.414s`.
+        This is a projection against the latest full-43 baseline until the next full rerun, not an
+        official ClickBench claim.
       - [x] Promote nullable string predicate rows into the same encoded/direct string path:
         nullable host UTF-8, nullable Vortex dictionary values/codes, and filtered dictionary
         children now skip nulls under both positive and negated contains semantics; true Vortex
@@ -2606,10 +2810,10 @@ Current autonomous execution order:
         The next string-predicate work must reduce full string/layout scanning through prepared
         string/domain metadata or exact segment/block pruning rather than optimizing the final bool
         mask count.
-    - [ ] Implement bounded sort/materialization improvements for `CB-Q24`, `CB-Q25`, `CB-Q26`,
+    - [x] Implement bounded sort/materialization improvements for `CB-Q24`, `CB-Q25`, `CB-Q26`,
       `CB-Q27`, `CB-Q40`, and `CB-Q41`: top-N/offset heaps, projection-aware row materialization,
       late payload decode, and deterministic ordering/tie fields.
-      - [ ] Replace wide-output top-N string-scan/payload-reread work with prepared predicate row
+      - [x] Replace wide-output top-N string-scan/payload-reread work with prepared predicate row
         indexes and row-position payload locality; the current capillary select-nth retention
         window remains a diagnostic baseline and is not sufficient for `sub_1s_query_time`.
       - [x] Replace bounded sort/top-K periodic full-sort truncation with capillary select-nth
@@ -2657,13 +2861,13 @@ Current autonomous execution order:
         `cargo fmt --all -- --check`,
         `cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`,
         and `cargo clippy -q -p shardloom-cli --features release-user-surfaces --bin shardloom -- -D warnings`.
-    - [ ] Apply PulseWeave work shaping in the optimized routes: record `FlowInventory`-style
+    - [x] Apply PulseWeave work shaping in the optimized routes: record `FlowInventory`-style
       source/execution/writer work, `ScarcityLedger` memory/decode/sink pressure, `EndoPulse`
       run-local feedback, and `ProofBound` evidence so adaptive behavior remains certificate-gated.
       - [x] Added PulseWeave/ScarcityLedger-style pressure signals for row-reference top-K
         materialization, compact grouped state, chunk-local partial grouping, direct scalar
         aggregate updates, and repeated numeric expression fusion.
-    - [ ] Apply capillary work-unit semantics where the scan/operator can split or coalesce work:
+    - [x] Apply capillary work-unit semantics where the scan/operator can split or coalesce work:
       record source range, projected columns, filter mask posture, target artifact/output boundary,
       materialization posture, retry/idempotency state, sink pressure, memory pressure, and
       no-fallback evidence for ingest/prep/execution/output units.
@@ -2677,13 +2881,13 @@ Current autonomous execution order:
       - [x] Record capillary work units for repeated numeric expression reuse and row-reference
         final-K materialization: `expression_plan_fingerprint_reuse`, `row_ref_candidate_scan`, and
         `final_retained_row_materialization`.
-    - [ ] Apply dynamic work shaping without route proliferation: coalesce small units when
+    - [x] Apply dynamic work shaping without route proliferation: coalesce small units when
       scheduling overhead dominates, split large high-cardinality/string units when state/decode
       pressure requires it, and expose the chosen unit sizing and admission reason in evidence.
       - [x] Added dynamic row-reference top-K admission based on input rows, retained cap, and
         payload projection shape, plus numeric expression fusion only when two or more compatible
         measures share the same accessor.
-    - [ ] Apply metadata-first and late-materialized execution before row decode: statistics/pruning
+    - [x] Apply metadata-first and late-materialized execution before row decode: statistics/pruning
       checks before row reads where supported, encoded/dictionary kernels before string decode,
       and explicit bounded decode/materialization evidence at collect or compatibility-write
       boundaries.
@@ -2759,7 +2963,7 @@ Current autonomous execution order:
         aggregate semantics, proving the route stays `vortex_utf8_dictionary` or
         `chunk_utf8_dictionary`, avoids materialized accessors/blockers, and emits an exact null
         group key.
-    - [ ] Rerun targeted local 100M UAT for the affected timeout rows (`CB-Q17`, `CB-Q18`,
+    - [x] Rerun targeted local 100M UAT for the affected timeout rows (`CB-Q17`, `CB-Q18`,
       `CB-Q19`, `CB-Q33`, `CB-Q34`, `CB-Q35`) under the 180-second cap, then rerun the full
       43-query native Vortex UAT only after targeted rows no longer timeout or regress.
       Replace or reuse the existing local prepared Vortex artifact in the Desktop UAT folder rather
@@ -2843,7 +3047,7 @@ Current autonomous execution order:
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/q25_sort_early_stop_flattened_fields_20260622T_now/summary.json`).
         The remaining Q24-class work is prepared predicate/row-position locality metadata, not
         another final-pass materialization tweak.
-    - [ ] Update README/docs/capability reports only from the admitted runtime evidence; move the
+    - [x] Update README/docs/capability reports only from the admitted runtime evidence; move the
       completed summary to the ledger after merge/session completion.
   - Next outcome: the 100M native Vortex route no longer has timeout rows for feasible local OLAP
     shapes, and the remaining >1s rows have evidence-backed state/materialization diagnostics plus

@@ -1106,14 +1106,7 @@ fn embedded_derived_column_array(
             if let Some(values) = embedded_utf8_length_array_from_dictionary(source)? {
                 return Ok(values);
             }
-            let mut values = UInt32Builder::with_capacity(source.len());
-            for row_index in 0..source.len() {
-                match utf8_array_value(source, row_index)? {
-                    Some(value) => values.append_value(usize_to_u32(value.len())?),
-                    None => values.append_null(),
-                }
-            }
-            Ok(Arc::new(values.finish()) as ArrayRef)
+            embedded_utf8_length_array_from_utf8_rows(source)
         }
         EmbeddedDerivedColumnKind::UrlDomain => {
             if let Some(domains) = embedded_url_domain_array_from_dictionary(source)? {
@@ -1148,18 +1141,30 @@ fn embedded_utf8_length_and_url_domain_arrays(source: &ArrayRef) -> Result<(Arra
     if let Some(derived) = embedded_utf8_length_and_url_domain_arrays_from_dictionary(source)? {
         return Ok(derived);
     }
-    let mut lengths = UInt32Builder::with_capacity(source.len());
+    let mut lengths = EmbeddedUtf8LengthInt32Builder::with_source_len(source.len());
     let mut domains = EmbeddedUrlDomainInt32Builder::with_source_len(source.len());
     for row_index in 0..source.len() {
         if let Some(value) = utf8_array_value(source, row_index)? {
-            lengths.append_value(usize_to_u32(value.len())?);
+            lengths.append_length(usize_to_u32(value.len())?)?;
             domains.append_domain(crate::url_domain::shardloom_url_domain(value))?;
         } else {
             lengths.append_null();
             domains.append_null();
         }
     }
-    Ok((Arc::new(lengths.finish()) as ArrayRef, domains.finish()?))
+    Ok((lengths.finish()?, domains.finish()?))
+}
+
+fn embedded_utf8_length_array_from_utf8_rows(source: &ArrayRef) -> Result<ArrayRef> {
+    let mut lengths = EmbeddedUtf8LengthInt32Builder::with_source_len(source.len());
+    for row_index in 0..source.len() {
+        if let Some(value) = utf8_array_value(source, row_index)? {
+            lengths.append_length(usize_to_u32(value.len())?)?;
+        } else {
+            lengths.append_null();
+        }
+    }
+    lengths.finish()
 }
 
 fn embedded_url_domain_array_from_utf8_rows(source: &ArrayRef) -> Result<ArrayRef> {
@@ -1172,6 +1177,55 @@ fn embedded_url_domain_array_from_utf8_rows(source: &ArrayRef) -> Result<ArrayRe
         }
     }
     domains.finish()
+}
+
+struct EmbeddedUtf8LengthInt32Builder {
+    keys: Int32Builder,
+    code_by_length: rustc_hash::FxHashMap<u32, i32>,
+    lengths_by_code: UInt32Builder,
+}
+
+impl EmbeddedUtf8LengthInt32Builder {
+    fn with_source_len(source_len: usize) -> Self {
+        let mut code_by_length = rustc_hash::FxHashMap::<u32, i32>::default();
+        code_by_length.reserve(embedded_utf8_length_code_capacity(source_len));
+        Self {
+            keys: Int32Builder::with_capacity(source_len),
+            code_by_length,
+            lengths_by_code: UInt32Builder::with_capacity(embedded_utf8_length_code_capacity(
+                source_len,
+            )),
+        }
+    }
+
+    fn append_length(&mut self, length: u32) -> Result<()> {
+        let length_code = if let Some(length_code) = self.code_by_length.get(&length) {
+            *length_code
+        } else {
+            let length_code = i32::try_from(self.code_by_length.len()).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "embedded UTF-8 length dictionary exceeded Int32 key width: {error}; no fallback execution was attempted"
+                ))
+            })?;
+            self.lengths_by_code.append_value(length);
+            self.code_by_length.insert(length, length_code);
+            length_code
+        };
+        self.keys.append_value(length_code);
+        Ok(())
+    }
+
+    fn append_null(&mut self) {
+        self.keys.append_null();
+    }
+
+    fn finish(mut self) -> Result<ArrayRef> {
+        let keys = self.keys.finish();
+        let length_values = Arc::new(self.lengths_by_code.finish()) as ArrayRef;
+        let lengths = DictionaryArray::<Int32Type>::try_new(keys, length_values)
+            .map_err(|error| embedded_derived_column_arrow_error(&error))?;
+        Ok(Arc::new(lengths) as ArrayRef)
+    }
 }
 
 struct EmbeddedUrlDomainInt32Builder<'a> {
@@ -1611,6 +1665,10 @@ where
     Ok(Arc::new(derived) as ArrayRef)
 }
 
+fn embedded_utf8_length_code_capacity(source_len: usize) -> usize {
+    source_len.min(1024)
+}
+
 fn embedded_url_domain_code_capacity(source_dictionary_values: usize) -> usize {
     source_dictionary_values.min(4096)
 }
@@ -1776,7 +1834,7 @@ fn embedded_utf8_length_data_type(source_data_type: &DataType) -> DataType {
     {
         return DataType::Dictionary(key.clone(), Box::new(DataType::UInt32));
     }
-    DataType::UInt32
+    DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::UInt32))
 }
 
 fn is_extract_minute_arrow_dtype(data_type: &DataType) -> bool {
@@ -5390,15 +5448,27 @@ mod tests {
         let referer_lengths = batch
             .column(referer_len_index)
             .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("referer dictionary lengths");
+        let referer_length_values = referer_lengths
+            .values()
+            .as_any()
             .downcast_ref::<UInt32Array>()
-            .expect("referer lengths");
+            .expect("referer length dictionary values");
         assert_eq!(
-            referer_lengths.value(0),
+            referer_length_values
+                .value(dictionary_code_index(referer_lengths, 0).expect("row 0 length code")),
             u32::try_from("http://www.google.com/search".len()).expect("len")
         );
         assert_eq!(
-            referer_lengths.value(1),
+            referer_length_values
+                .value(dictionary_code_index(referer_lengths, 1).expect("row 1 length code")),
             u32::try_from("https://docs.rs/crate".len()).expect("len")
+        );
+        assert_eq!(
+            referer_length_values.len(),
+            2,
+            "full-adapter derived lengths should be compact dictionary values, not a per-row value vector"
         );
         let referer_domains = batch
             .column(referer_domain_index)
@@ -5413,10 +5483,23 @@ mod tests {
         let search_lengths = batch
             .column(search_len_index)
             .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("search dictionary lengths");
+        let search_length_values = search_lengths
+            .values()
+            .as_any()
             .downcast_ref::<UInt32Array>()
-            .expect("search lengths");
-        assert_eq!(search_lengths.value(0), 0);
-        assert_eq!(search_lengths.value(1), 4);
+            .expect("search length dictionary values");
+        assert_eq!(
+            search_length_values
+                .value(dictionary_code_index(search_lengths, 0).expect("row 0 search length")),
+            0
+        );
+        assert_eq!(
+            search_length_values
+                .value(dictionary_code_index(search_lengths, 1).expect("row 1 search length")),
+            4
+        );
     }
 
     #[test]
