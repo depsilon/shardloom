@@ -48,7 +48,7 @@ use shardloom_exec::{
 use crate::{
     cli_output::{emit, emit_error, emit_error_with_fields},
     cli_unknown_arg_error,
-    runtime_defaults::DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM,
+    runtime_defaults::default_public_local_runtime_max_parallelism,
 };
 
 const COMMAND: &str = "local-source-runtime";
@@ -5241,7 +5241,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     let mut delta_target_path = None;
     let mut delta_update_mode = shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly;
     let mut runtime_profile = SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
-    let mut max_parallelism = DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM;
+    let mut max_parallelism = default_public_local_runtime_max_parallelism();
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--allow-overwrite" => allow_overwrite = true,
@@ -42951,6 +42951,7 @@ fn unsupported_sql_error(reason: &str) -> ShardLoomError {
 }
 
 #[cfg(test)]
+#[allow(clippy::too_many_lines)]
 mod tests {
     use super::*;
 
@@ -43564,7 +43565,7 @@ mod tests {
             .schema()
             .fields()
             .iter()
-            .map(|field| field.name().to_string())
+            .map(|field| field.name().clone())
             .collect::<Vec<_>>();
         assert_eq!(
             names,

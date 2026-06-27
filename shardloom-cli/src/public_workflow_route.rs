@@ -22,7 +22,8 @@ use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error, generated_source_runtime,
     runtime_defaults::{
-        DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM, MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM,
+        MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM, default_public_local_runtime_max_parallelism,
+        default_public_local_runtime_memory_gb,
     },
     sql_local_source_runtime, vortex_planning, vortex_primitive_execution,
 };
@@ -986,8 +987,99 @@ fn append_native_vortex_primitive_row_export_fields(
         "materialization_boundary_reported",
         report.evidence.materialization_boundary_reported,
     );
+    append_local_primitive_resource_envelope_fields(fields, &report.resource_envelope);
     append_local_primitive_state_budget_fields(fields, &report.state_budget);
     push_field(fields, "claim_gate_status", "not_claim_grade");
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_local_primitive_resource_envelope_fields(
+    fields: &mut Vec<(String, String)>,
+    resource_envelope: &shardloom_vortex::VortexLocalPrimitiveResourceEnvelope,
+) {
+    push_field(
+        fields,
+        "local_primitive_resource_envelope_schema_version",
+        shardloom_vortex::VortexLocalPrimitiveResourceEnvelope::SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_envelope_summary",
+        resource_envelope.compact_summary(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_memory_gb",
+        resource_envelope.memory_gb.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_memory_budget_bytes",
+        resource_envelope.memory_budget_bytes.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_max_parallelism",
+        resource_envelope.max_parallelism.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_scan_concurrency_per_worker",
+        resource_envelope.scan_concurrency_per_worker.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_capillary_unit_target_rows",
+        resource_envelope.capillary_unit_target_rows.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_group_state_soft_item_budget",
+        resource_envelope.group_state_soft_item_budget.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_string_topk_heavy_hitter_capacity",
+        resource_envelope
+            .string_topk_heavy_hitter_capacity
+            .to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_numeric_utf8_topk_heavy_hitter_capacity",
+        resource_envelope
+            .numeric_utf8_topk_heavy_hitter_capacity
+            .to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_spill_threshold_bytes",
+        resource_envelope.spill_threshold_bytes.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_sort_retention_flush_multiplier",
+        resource_envelope
+            .sort_retention_flush_multiplier
+            .to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_sort_retention_flush_slack_rows",
+        resource_envelope
+            .sort_retention_flush_slack_rows
+            .to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_writer_row_block_target_rows",
+        resource_envelope.writer_row_block_target_rows.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_resource_writer_coalescing_target_bytes",
+        resource_envelope.writer_coalescing_target_bytes.to_string(),
+    );
 }
 
 fn append_local_primitive_state_budget_fields(
@@ -2079,8 +2171,25 @@ fn native_vortex_materializing_policy(
     request: &PublicWorkflowRouteRequest,
 ) -> Result<shardloom_vortex::VortexLocalPrimitiveExecutionPolicy, ShardLoomError> {
     let max_parallelism = public_workflow_effective_max_parallelism(request)?;
-    positive_u64_arg("memory_gb", request.memory_gb.as_deref().unwrap_or("1"))?;
-    shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new(max_parallelism)
+    let memory_gb = public_workflow_effective_memory_gb(request)?;
+    shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(
+        max_parallelism,
+        memory_gb,
+    )
+}
+
+fn public_workflow_effective_memory_gb(
+    request: &PublicWorkflowRouteRequest,
+) -> Result<u64, ShardLoomError> {
+    match request.memory_gb.as_deref() {
+        Some(value) => positive_u64_arg("memory_gb", value),
+        None => Ok(default_public_local_runtime_memory_gb()),
+    }
+}
+
+fn public_workflow_effective_memory_gb_label(request: &PublicWorkflowRouteRequest) -> String {
+    public_workflow_effective_memory_gb(request)
+        .map_or_else(|_| "invalid".to_string(), |value| value.to_string())
 }
 
 fn public_workflow_requested_max_parallelism(request: &PublicWorkflowRouteRequest) -> usize {
@@ -2088,7 +2197,7 @@ fn public_workflow_requested_max_parallelism(request: &PublicWorkflowRouteReques
         .max_parallelism
         .as_deref()
         .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM)
+        .unwrap_or_else(default_public_local_runtime_max_parallelism)
 }
 
 fn public_workflow_effective_max_parallelism(
@@ -2096,7 +2205,7 @@ fn public_workflow_effective_max_parallelism(
 ) -> Result<usize, ShardLoomError> {
     let requested = match request.max_parallelism.as_deref() {
         Some(value) => positive_usize_arg("max_parallelism", value)?,
-        None => DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM,
+        None => default_public_local_runtime_max_parallelism(),
     };
     Ok(requested.max(MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM))
 }
@@ -2132,6 +2241,7 @@ fn append_native_vortex_materializing_primitive_fields(
     append_native_vortex_materializing_side_effect_fields(fields, report);
     append_native_vortex_materializing_limit_fields(fields, report);
     append_local_primitive_result_summary_evidence_fields(fields, report.result_summary.as_deref());
+    append_local_primitive_resource_envelope_fields(fields, &report.resource_envelope);
     append_local_primitive_state_budget_fields(fields, &report.state_budget);
     append_local_primitive_embedded_layout_fields(fields, &report.embedded_layout);
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
@@ -9514,7 +9624,7 @@ fn add_route_native_vortex_resource_fields(
     push_field(
         fields,
         "memory_gb",
-        request.memory_gb.clone().unwrap_or_else(|| "1".to_string()),
+        public_workflow_effective_memory_gb_label(request),
     );
     push_field(
         fields,
@@ -10794,10 +10904,7 @@ fn execution_attachment_fields(
         ),
         (
             "public_workflow_memory_gb".to_string(),
-            effective_request
-                .memory_gb
-                .clone()
-                .unwrap_or_else(|| "1".to_string()),
+            public_workflow_effective_memory_gb_label(&effective_request),
         ),
         (
             "public_workflow_max_parallelism".to_string(),
@@ -11040,7 +11147,7 @@ fn native_vortex_primitive_runtime_args(
             "public native Vortex run requires --input with a Vortex dataset".to_string(),
         )
     })?;
-    let memory_gb = positive_u64_arg("memory_gb", request.memory_gb.as_deref().unwrap_or("1"))?;
+    let memory_gb = public_workflow_effective_memory_gb(request)?;
     let max_parallelism = public_workflow_effective_max_parallelism(request)?;
     let mut args = match primitive {
         PublicVortexPrimitive::Count => vec![

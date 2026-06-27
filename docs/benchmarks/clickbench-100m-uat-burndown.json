@@ -1,105 +1,97 @@
 {
   "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
   "latest_post_merge_uat": {
-    "run_id": "full43_post_merge_1356_replaced_20260623T151523Z",
-    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_1356_replaced_20260623T151523Z/summary.json",
-    "prepare_transcript": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/post_merge_1356_replace_fullfeatures_20260623T145820Z/prepare_replace_from_parquet.stdout.json",
+    "run_id": "full43_resource_envelope_20260627T195812Z",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_resource_envelope_20260627T195812Z/summary.json",
     "not_official_clickbench_submission": true,
     "source_format": "parquet",
     "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
-    "prepared_output_size_bytes": 29508762296,
+    "prepared_output_size_bytes": 34933241344,
     "prepared_rows": 99997497,
-    "prepared_segments": 36103,
-    "prepare_wall_seconds": 828,
-    "prepare_once_millis": 801716,
-    "source_read_byte_acquisition_millis": 14783,
-    "vortex_write_millis": 786730,
-    "vortex_segment_write_millis": 784569,
-    "vortex_reopen_verify_millis": 75,
-    "layout_footer_approx_bytes": 1636216,
-    "prepared_artifact_digest": "sha256:b4aa808ce3303329994a335ed4d4d5600b8f4672215f009fd50e2662cac8e72c",
+    "prepared_segments": 36660,
     "prepared_artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
     "sidecar_family_count": 0,
     "external_manifest_written": false,
     "fallback_attempted": false,
     "external_engine_invoked": false,
     "max_parallelism": 2,
+    "memory_gb": 8,
     "query_count": 43,
     "success_count": 43,
     "error_count": 0,
     "unsupported_count": 0,
     "timeout_count": 0,
     "fallback_or_external_engine_violations": 0,
-    "elapsed_seconds_total": 563.581,
-    "geomean_elapsed_seconds": 3.063971,
-    "fast_rows_le_1s": 13,
-    "slow_rows_over_1s": 30,
-    "slow_rows_over_10s": 16,
-    "slow_rows_over_60s": 1,
+    "elapsed_seconds_total": 288.555,
+    "geomean_elapsed_seconds": 1.869188,
+    "fast_rows_le_1s": 15,
+    "slow_rows_over_1s": 28,
+    "slow_rows_over_10s": 10,
+    "slow_rows_over_60s": 0,
     "slow_rows_desc": [
       [
-        "CB-Q35",
-        95.24
-      ],
-      [
-        "CB-Q33",
-        58.808
-      ],
-      [
-        "CB-Q17",
-        42.736
-      ],
-      [
         "CB-Q34",
-        41.734
+        34.699
       ],
       [
-        "CB-Q29",
-        37.141
-      ],
-      [
-        "CB-Q28",
-        33.998
-      ],
-      [
-        "CB-Q23",
-        24.414
-      ],
-      [
-        "CB-Q19",
-        23.435
+        "CB-Q35",
+        30.698
       ],
       [
         "CB-Q24",
-        22.925
+        21.349
       ],
       [
-        "CB-Q18",
-        21.07
+        "CB-Q29",
+        20.522
+      ],
+      [
+        "CB-Q17",
+        20.269
+      ],
+      [
+        "CB-Q23",
+        16.343
+      ],
+      [
+        "CB-Q33",
+        15.109
+      ],
+      [
+        "CB-Q19",
+        13.195
       ],
       [
         "CB-Q21",
-        19.44
-      ],
-      [
-        "CB-Q22",
-        16.081
-      ],
-      [
-        "CB-Q15",
-        15.776
-      ],
-      [
-        "CB-Q13",
-        12.86
-      ],
-      [
-        "CB-Q14",
-        11.865
+        12.732
       ],
       [
         "CB-Q10",
-        10.17
+        10.996
+      ],
+      [
+        "CB-Q09",
+        9.91
+      ],
+      [
+        "CB-Q15",
+        9.185
+      ],
+      [
+        "CB-Q22",
+        8.718
+      ],
+      [
+        "CB-Q14",
+        7.749
+      ],
+      [
+        "CB-Q13",
+        7.511
+      ],
+      [
+        "CB-Q36",
+        6.81
       ]
     ],
     "route_counts": {
@@ -109,7 +101,10 @@
       "native_vortex_filter_project": 1,
       "native_vortex_sort_rows": 4
     },
-    "next_optimization_focus": "consume embedded Vortex layout and string/domain metadata more deeply for high-cardinality aggregate, string predicate/grouping, and bounded top-K families; preserve one .vortex artifact, no query-answer sidecars, no fallback, and no external engine execution"
+    "timing_note": "ResourceEnvelope full 43-query local Desktop UAT after shared memory/parallelism/capillary/state/top-K/writer policy evidence was wired through native Vortex routes; not official ClickBench submission",
+    "prepared_artifact_digest": "sha256:ad697555dd0723fd0688cd3442eae94255adece96f39c98c046d51d5a24f426f",
+    "prepare_transcript": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_arch_replace_budgeted_20260627T153401Z/stdout.json",
+    "next_optimization_focus": "remaining >10s local UAT rows are high-cardinality/string top-K, transformed URL/domain grouping, bounded wide-row top-K, string predicate count, and exact distinct; preserve shared Vortex-normalized physical runtime, ResourceEnvelope policy, single .vortex artifact, no sidecars, no fallback, and no external engine execution"
   },
   "current_retained_targeted_projection": {
     "claim_boundary": "local_desktop_targeted_uat_projection_until_next_full_43_rerun",
@@ -194,11 +189,11 @@
         10.17
       ]
     ],
-    "status": "superseded_by_full43_sourcefusion_lane_verify",
-    "superseded_by_full43_run_id": "full43_sourcefusion_lane_verify_20260627T161550Z",
-    "superseded_by_full43_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_sourcefusion_lane_verify_20260627T161550Z/summary.json"
+    "status": "superseded_by_full43_resource_envelope",
+    "superseded_by_full43_run_id": "full43_resource_envelope_20260627T195812Z",
+    "superseded_by_full43_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_resource_envelope_20260627T195812Z/summary.json"
   },
-  "command_shape": "target/release/shardloom run dataframe --input <hits.vortex> --input-format vortex --execution-policy native_vortex --request collect --bounded true --format json",
+  "command_shape": "target/release/shardloom run sql --input <hits.vortex> --input-format vortex --sql <clickbench-query> --request collect --bounded true --memory-gb 8 --max-parallelism 2 --format json",
   "current_replacement_artifact_uat": {
     "not_official_clickbench_submission": true,
     "status": "replacement_ingest_success_single_vortex_artifact_no_sidecars",
@@ -256,27 +251,28 @@
     ]
   },
   "observed": {
-    "elapsed_seconds_total": 320.295,
-    "geomean_elapsed_seconds": 2.245738,
+    "elapsed_seconds_total": 288.555,
+    "geomean_elapsed_seconds": 1.869188,
     "error_count": 0,
     "fallback_or_external_engine_violations": 0,
-    "fast_rows_le_1s": 11,
+    "fast_rows_le_1s": 15,
+    "observed_memory_gb": 8,
     "observed_max_parallelism": 2,
     "prepared_artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
     "query_count": 43,
-    "slow_rows_over_10s": 12,
-    "slow_rows_over_1s": 32,
+    "slow_rows_over_10s": 10,
+    "slow_rows_over_1s": 28,
     "slow_rows_over_60s": 0,
     "success_count": 43,
-    "successful_elapsed_seconds_max": 37.431,
-    "successful_elapsed_seconds_mean": 7.449,
-    "successful_elapsed_seconds_median": 4.147,
-    "successful_elapsed_seconds_min": 0.016,
+    "successful_elapsed_seconds_max": 34.699,
+    "successful_elapsed_seconds_mean": 6.711,
+    "successful_elapsed_seconds_median": 3.373,
+    "successful_elapsed_seconds_min": 0.018,
     "timeout_count": 0,
-    "timeout_seconds_per_query": 180,
+    "timeout_seconds_per_query": 300,
     "unsupported_count": 0,
-    "source_full43_run_id": "full43_sourcefusion_lane_verify_20260627T161550Z",
-    "source_full43_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_sourcefusion_lane_verify_20260627T161550Z/summary.json"
+    "source_full43_run_id": "full43_resource_envelope_20260627T195812Z",
+    "source_full43_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_resource_envelope_20260627T195812Z/summary.json"
   },
   "optimization_families": [
     {
@@ -546,274 +542,452 @@
   "schema_version": "shardloom.clickbench_100m_uat_burndown.v1",
   "slow_success_rows_over_1s": [
     {
-      "aggregate_update_strategy": "chunk_dictionary_count_star_group_update",
-      "decoded_string_count": "18342019",
-      "elapsed_seconds": 95.24,
-      "family": "string_grouping",
-      "group_state_mode": "chunk_dictionary_code_map",
-      "query_id": "CB-Q35",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 58.808,
-      "family": "high_cardinality_grouped_aggregate",
-      "group_state_mode": "numeric_pair_count_state_then_retained_measure_state",
-      "query_id": "CB-Q33",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "numeric_utf8_dictionary_code_count_topk_heavy_hitter_late_recount",
-      "decoded_string_count": "59813",
-      "elapsed_seconds": 42.736,
-      "family": "high_cardinality_grouped_aggregate",
-      "group_state_mode": "numeric_utf8_dictionary_code_candidate_state_then_exact_recount",
-      "query_id": "CB-Q17",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_late_recount",
-      "decoded_string_count": "48085",
-      "elapsed_seconds": 41.734,
-      "family": "string_grouping",
-      "group_state_mode": "string_dictionary_code_candidate_state_then_exact_recount",
       "query_id": "CB-Q34",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "transformed_dictionary_general_measure_group_update",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 37.141,
-      "family": "string_predicate_expression",
-      "group_state_mode": "transformed_chunk_dictionary_general_measure_code_map",
-      "query_id": "CB-Q29",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "direct_count_sum_avg_group_update",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 33.998,
-      "family": "string_predicate_expression",
-      "group_state_mode": "all_hot_hash_map",
-      "query_id": "CB-Q28",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "row_state_update",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 24.414,
-      "family": "string_predicate_expression",
-      "group_state_mode": "all_hot_hash_map",
-      "query_id": "CB-Q23",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "numeric_minute_string_dictionary_code_direct_group_update",
-      "decoded_string_count": "6019103",
-      "elapsed_seconds": 23.435,
-      "family": "high_cardinality_grouped_aggregate",
-      "group_state_mode": "numeric_minute_string_dictionary_code_hot_hash_map",
-      "query_id": "CB-Q19",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": null,
-      "decoded_string_count": null,
-      "elapsed_seconds": 22.925,
-      "family": "bounded_sort",
-      "group_state_mode": null,
-      "query_id": "CB-Q24",
-      "route_id": "native_vortex_sort_rows"
-    },
-    {
-      "aggregate_update_strategy": "count_star_direct_group_update",
-      "decoded_string_count": "3",
-      "elapsed_seconds": 21.07,
-      "family": "high_cardinality_grouped_aggregate",
-      "group_state_mode": "all_hot_hash_map",
-      "query_id": "CB-Q18",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": null,
-      "decoded_string_count": null,
-      "elapsed_seconds": 19.44,
-      "family": "string_predicate_expression",
-      "group_state_mode": null,
-      "query_id": "CB-Q21",
-      "route_id": "native_vortex_count_where"
-    },
-    {
-      "aggregate_update_strategy": "row_state_update",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 16.081,
-      "family": "string_predicate_expression",
-      "group_state_mode": "all_hot_hash_map",
-      "query_id": "CB-Q22",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "numeric_utf8_dictionary_code_count_topk_heavy_hitter_late_recount",
-      "decoded_string_count": "42885",
-      "elapsed_seconds": 15.776,
+      "elapsed_seconds": 34.699,
+      "route_id": "native_vortex_aggregate",
       "family": "string_grouping",
-      "group_state_mode": "numeric_utf8_dictionary_code_candidate_state_then_exact_recount",
-      "query_id": "CB-Q15",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
       "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_late_recount",
-      "decoded_string_count": "25520",
-      "elapsed_seconds": 12.86,
-      "family": "string_grouping",
       "group_state_mode": "string_dictionary_code_candidate_state_then_exact_recount",
-      "query_id": "CB-Q13",
-      "route_id": "native_vortex_aggregate"
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
     },
     {
-      "aggregate_update_strategy": "string_dictionary_code_count_distinct_topk_heavy_hitter_late_recount",
-      "decoded_string_count": "25503",
-      "elapsed_seconds": 11.865,
-      "family": "grouped_exact_distinct",
-      "group_state_mode": "string_dictionary_code_count_distinct_candidate_state_then_exact_recount",
-      "query_id": "CB-Q14",
-      "route_id": "native_vortex_aggregate"
+      "query_id": "CB-Q35",
+      "elapsed_seconds": 30.698,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_late_recount",
+      "group_state_mode": "string_dictionary_code_candidate_state_then_exact_recount",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
     },
     {
-      "aggregate_update_strategy": "direct_accessor_count_distinct_group_update",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 10.17,
-      "family": "grouped_exact_distinct",
-      "group_state_mode": "direct_accessor_hot_hash_map",
+      "query_id": "CB-Q24",
+      "elapsed_seconds": 21.349,
+      "route_id": "native_vortex_sort_rows",
+      "family": "bounded_topk_materialization",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q29",
+      "elapsed_seconds": 20.522,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "transformed_dictionary_general_measure_group_update",
+      "group_state_mode": "transformed_chunk_dictionary_general_measure_code_map",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_high_pressure_spill_not_certified",
+      "state_pressure_class": "high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q17",
+      "elapsed_seconds": 20.269,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "numeric_utf8_dictionary_code_count_topk_heavy_hitter_late_recount",
+      "group_state_mode": "numeric_utf8_dictionary_code_candidate_state_then_exact_recount",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q23",
+      "elapsed_seconds": 16.343,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "row_state_update",
+      "group_state_mode": "all_hot_hash_map",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q33",
+      "elapsed_seconds": 15.109,
+      "route_id": "native_vortex_aggregate",
+      "family": "high_cardinality_grouped_aggregate",
+      "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+      "group_state_mode": "numeric_pair_count_state_then_retained_measure_state",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_near_input_cardinality_spill_not_certified",
+      "state_pressure_class": "near_input_cardinality_high_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q19",
+      "elapsed_seconds": 13.195,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "numeric_minute_string_dictionary_code_direct_group_update",
+      "group_state_mode": "numeric_minute_string_dictionary_code_hot_hash_map",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_critical_pressure_spill_not_certified",
+      "state_pressure_class": "critical_high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q21",
+      "elapsed_seconds": 12.732,
+      "route_id": "native_vortex_count_where",
+      "family": "string_predicate",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "not_required",
+      "state_pressure_class": "none",
+      "resource_memory_gb": "4",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "33554432",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
       "query_id": "CB-Q10",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 9.619,
+      "elapsed_seconds": 10.996,
+      "route_id": "native_vortex_aggregate",
       "family": "high_cardinality_grouped_aggregate",
-      "group_state_mode": "numeric_pair_count_state_then_retained_measure_state",
-      "query_id": "CB-Q32",
-      "route_id": "native_vortex_aggregate"
+      "aggregate_update_strategy": "direct_accessor_count_distinct_group_update",
+      "group_state_mode": "direct_accessor_hot_hash_map",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_critical_pressure_spill_not_certified",
+      "state_pressure_class": "critical_high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
     },
     {
-      "aggregate_update_strategy": "direct_accessor_count_distinct_group_update",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 9.222,
-      "family": "grouped_exact_distinct",
-      "group_state_mode": "direct_accessor_hot_hash_map",
       "query_id": "CB-Q09",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 8.964,
+      "elapsed_seconds": 9.91,
+      "route_id": "native_vortex_aggregate",
       "family": "high_cardinality_grouped_aggregate",
-      "group_state_mode": "numeric_pair_count_state_then_retained_measure_state",
-      "query_id": "CB-Q31",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": null,
-      "decoded_string_count": null,
-      "elapsed_seconds": 8.58,
-      "family": "bounded_sort",
-      "group_state_mode": null,
-      "query_id": "CB-Q27",
-      "route_id": "native_vortex_sort_rows"
-    },
-    {
-      "aggregate_update_strategy": null,
-      "decoded_string_count": null,
-      "elapsed_seconds": 7.837,
-      "family": "bounded_sort",
-      "group_state_mode": null,
-      "query_id": "CB-Q26",
-      "route_id": "native_vortex_sort_rows"
-    },
-    {
-      "aggregate_update_strategy": "count_star_direct_group_update",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 7.539,
-      "family": "high_cardinality_grouped_aggregate",
-      "group_state_mode": "all_hot_hash_map",
-      "query_id": "CB-Q36",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
-      "decoded_string_count": null,
-      "elapsed_seconds": 4.184,
-      "family": "scalar_exact_distinct",
-      "group_state_mode": null,
-      "query_id": "CB-Q06",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": null,
-      "decoded_string_count": null,
-      "elapsed_seconds": 3.645,
-      "family": "bounded_sort",
-      "group_state_mode": null,
-      "query_id": "CB-Q25",
-      "route_id": "native_vortex_sort_rows"
-    },
-    {
-      "aggregate_update_strategy": "single_numeric_count_direct_group_update",
-      "decoded_string_count": "0",
-      "elapsed_seconds": 3.383,
-      "family": "high_cardinality_grouped_aggregate",
-      "group_state_mode": "single_numeric_hot_hash_map",
-      "query_id": "CB-Q16",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "string_dictionary_code_count_distinct_topk_heavy_hitter_late_recount",
-      "decoded_string_count": "165",
-      "elapsed_seconds": 2.474,
-      "family": "grouped_exact_distinct",
-      "group_state_mode": "string_dictionary_code_count_distinct_candidate_state_then_exact_recount",
-      "query_id": "CB-Q11",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
       "aggregate_update_strategy": "direct_accessor_count_distinct_group_update",
-      "decoded_string_count": "165",
-      "elapsed_seconds": 2.331,
-      "family": "grouped_exact_distinct",
       "group_state_mode": "direct_accessor_hot_hash_map",
-      "query_id": "CB-Q12",
-      "route_id": "native_vortex_aggregate"
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_critical_pressure_spill_not_certified",
+      "state_pressure_class": "critical_high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
     },
     {
-      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
-      "decoded_string_count": null,
-      "elapsed_seconds": 2.197,
-      "family": "scalar_or_low_cardinality_aggregate",
-      "group_state_mode": null,
-      "query_id": "CB-Q07",
-      "route_id": "native_vortex_aggregate"
+      "query_id": "CB-Q15",
+      "elapsed_seconds": 9.185,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "numeric_utf8_dictionary_code_count_topk_heavy_hitter_late_recount",
+      "group_state_mode": "numeric_utf8_dictionary_code_candidate_state_then_exact_recount",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
     },
     {
-      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
-      "decoded_string_count": null,
-      "elapsed_seconds": 1.584,
-      "family": "scalar_exact_distinct",
-      "group_state_mode": null,
-      "query_id": "CB-Q05",
-      "route_id": "native_vortex_aggregate"
-    },
-    {
-      "aggregate_update_strategy": "count_star_direct_group_update",
-      "decoded_string_count": "581903",
-      "elapsed_seconds": 1.18,
-      "family": "high_cardinality_grouped_aggregate",
+      "query_id": "CB-Q22",
+      "elapsed_seconds": 8.718,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "row_state_update",
       "group_state_mode": "all_hot_hash_map",
-      "query_id": "CB-Q40",
-      "route_id": "native_vortex_aggregate"
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q14",
+      "elapsed_seconds": 7.749,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "string_dictionary_code_count_distinct_topk_heavy_hitter_late_recount",
+      "group_state_mode": "string_dictionary_code_count_distinct_candidate_state_then_exact_recount",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_high_pressure_spill_not_certified",
+      "state_pressure_class": "high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q13",
+      "elapsed_seconds": 7.511,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_late_recount",
+      "group_state_mode": "string_dictionary_code_candidate_state_then_exact_recount",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q36",
+      "elapsed_seconds": 6.81,
+      "route_id": "native_vortex_aggregate",
+      "family": "high_cardinality_grouped_aggregate",
+      "aggregate_update_strategy": "count_star_direct_group_update",
+      "group_state_mode": "all_hot_hash_map",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_high_pressure_spill_not_certified",
+      "state_pressure_class": "high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q18",
+      "elapsed_seconds": 4.975,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "source_order_numeric_utf8_dictionary_code_count_star_group_update",
+      "group_state_mode": "source_order_numeric_utf8_dictionary_candidate_slots",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q06",
+      "elapsed_seconds": 4.237,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
+      "group_state_mode": null,
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_high_pressure_spill_not_certified",
+      "state_pressure_class": "high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q27",
+      "elapsed_seconds": 4.119,
+      "route_id": "native_vortex_sort_rows",
+      "family": "bounded_topk_materialization",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_near_input_cardinality_spill_not_certified",
+      "state_pressure_class": "near_input_cardinality_high_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q26",
+      "elapsed_seconds": 4.039,
+      "route_id": "native_vortex_sort_rows",
+      "family": "bounded_topk_materialization",
+      "aggregate_update_strategy": null,
+      "group_state_mode": null,
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_near_input_cardinality_spill_not_certified",
+      "state_pressure_class": "near_input_cardinality_high_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q31",
+      "elapsed_seconds": 3.569,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+      "group_state_mode": "numeric_pair_count_state_then_retained_measure_state",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_high_pressure_spill_not_certified",
+      "state_pressure_class": "high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q28",
+      "elapsed_seconds": 3.373,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+      "group_state_mode": "all_hot_hash_map",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q32",
+      "elapsed_seconds": 3.359,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+      "group_state_mode": "numeric_pair_count_state_then_retained_measure_state",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_near_input_cardinality_spill_not_certified",
+      "state_pressure_class": "near_input_cardinality_high_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q07",
+      "elapsed_seconds": 2.61,
+      "route_id": "native_vortex_aggregate",
+      "family": "aggregate",
+      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
+      "group_state_mode": null,
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+      "state_pressure_class": "low_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q11",
+      "elapsed_seconds": 2.292,
+      "route_id": "native_vortex_aggregate",
+      "family": "string_grouping",
+      "aggregate_update_strategy": "string_dictionary_code_count_distinct_topk_heavy_hitter_late_recount",
+      "group_state_mode": "string_dictionary_code_count_distinct_candidate_state_then_exact_recount",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_high_pressure_spill_not_certified",
+      "state_pressure_class": "high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q12",
+      "elapsed_seconds": 2.132,
+      "route_id": "native_vortex_aggregate",
+      "family": "high_cardinality_grouped_aggregate",
+      "aggregate_update_strategy": "direct_accessor_count_distinct_group_update",
+      "group_state_mode": "direct_accessor_hot_hash_map",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_high_pressure_spill_not_certified",
+      "state_pressure_class": "high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q16",
+      "elapsed_seconds": 2.067,
+      "route_id": "native_vortex_aggregate",
+      "family": "high_cardinality_grouped_aggregate",
+      "aggregate_update_strategy": "single_numeric_count_direct_group_update",
+      "group_state_mode": "single_numeric_hot_hash_map",
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_critical_pressure_spill_not_certified",
+      "state_pressure_class": "critical_high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
+    },
+    {
+      "query_id": "CB-Q05",
+      "elapsed_seconds": 1.583,
+      "route_id": "native_vortex_aggregate",
+      "family": "high_cardinality_grouped_aggregate",
+      "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update",
+      "group_state_mode": null,
+      "row_ref_topk_materialization_policy": null,
+      "state_budget_status": "bounded_in_memory_critical_pressure_spill_not_certified",
+      "state_pressure_class": "critical_high_cardinality_pressure",
+      "resource_memory_gb": "8",
+      "resource_max_parallelism": "2",
+      "resource_group_state_soft_item_budget": "67108864",
+      "resource_string_topk_heavy_hitter_capacity": "65536",
+      "resource_numeric_utf8_topk_heavy_hitter_capacity": "65536"
     }
   ],
   "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_1356_replaced_20260623T151523Z/summary.json",
@@ -1637,97 +1811,97 @@
   },
   "timeout_rows": [],
   "current_branch_full43_lane_verify": {
-    "run_id": "full43_sourcefusion_lane_verify_20260627T161550Z",
-    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_sourcefusion_lane_verify_20260627T161550Z/summary.json",
+    "run_id": "full43_resource_envelope_20260627T195812Z",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_resource_envelope_20260627T195812Z/summary.json",
     "not_official_clickbench_submission": true,
     "source_format": "parquet",
     "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
     "prepared_output_size_bytes": 34933241344,
     "prepared_rows": 99997497,
     "prepared_segments": 36660,
-    "prepared_artifact_digest": "sha256:ad697555dd0723fd0688cd3442eae94255adece96f39c98c046d51d5a24f426f",
     "prepared_artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
     "sidecar_family_count": 0,
     "external_manifest_written": false,
     "fallback_attempted": false,
     "external_engine_invoked": false,
     "max_parallelism": 2,
+    "memory_gb": 8,
     "query_count": 43,
     "success_count": 43,
     "error_count": 0,
     "unsupported_count": 0,
     "timeout_count": 0,
     "fallback_or_external_engine_violations": 0,
-    "elapsed_seconds_total": 320.295,
-    "geomean_elapsed_seconds": 2.245738,
-    "fast_rows_le_1s": 11,
-    "slow_rows_over_1s": 32,
-    "slow_rows_over_10s": 12,
+    "elapsed_seconds_total": 288.555,
+    "geomean_elapsed_seconds": 1.869188,
+    "fast_rows_le_1s": 15,
+    "slow_rows_over_1s": 28,
+    "slow_rows_over_10s": 10,
     "slow_rows_over_60s": 0,
     "slow_rows_desc": [
       [
         "CB-Q34",
-        37.431
+        34.699
       ],
       [
         "CB-Q35",
-        36.21
-      ],
-      [
-        "CB-Q17",
-        22.663
-      ],
-      [
-        "CB-Q29",
-        21.16
+        30.698
       ],
       [
         "CB-Q24",
-        21.062
+        21.349
+      ],
+      [
+        "CB-Q29",
+        20.522
+      ],
+      [
+        "CB-Q17",
+        20.269
       ],
       [
         "CB-Q23",
-        16.729
-      ],
-      [
-        "CB-Q19",
-        16.082
-      ],
-      [
-        "CB-Q10",
-        14.234
+        16.343
       ],
       [
         "CB-Q33",
-        13.587
+        15.109
+      ],
+      [
+        "CB-Q19",
+        13.195
       ],
       [
         "CB-Q21",
-        12.596
+        12.732
       ],
       [
-        "CB-Q15",
-        11.061
+        "CB-Q10",
+        10.996
       ],
       [
         "CB-Q09",
-        10.748
+        9.91
       ],
       [
-        "CB-Q14",
-        8.824
+        "CB-Q15",
+        9.185
       ],
       [
         "CB-Q22",
-        8.351
+        8.718
+      ],
+      [
+        "CB-Q14",
+        7.749
       ],
       [
         "CB-Q13",
-        8.186
+        7.511
       ],
       [
         "CB-Q36",
-        6.887
+        6.81
       ]
     ],
     "route_counts": {
@@ -1737,6 +1911,126 @@
       "native_vortex_filter_project": 1,
       "native_vortex_sort_rows": 4
     },
-    "timing_note": "current branch local Desktop UAT after source-dictionary URL/domain lane selection; not official ClickBench submission"
+    "timing_note": "ResourceEnvelope full 43-query local Desktop UAT after shared memory/parallelism/capillary/state/top-K/writer policy evidence was wired through native Vortex routes; not official ClickBench submission",
+    "prepared_artifact_digest": "sha256:ad697555dd0723fd0688cd3442eae94255adece96f39c98c046d51d5a24f426f",
+    "prepare_transcript": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_arch_replace_budgeted_20260627T153401Z/stdout.json",
+    "next_optimization_focus": "remaining >10s local UAT rows are high-cardinality/string top-K, transformed URL/domain grouping, bounded wide-row top-K, string predicate count, and exact distinct; preserve shared Vortex-normalized physical runtime, ResourceEnvelope policy, single .vortex artifact, no sidecars, no fallback, and no external engine execution"
+  },
+  "latest_resource_envelope_decision": {
+    "status": "ship_current_batch_with_followup_optimization_focus",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_resource_envelope_20260627T195812Z/summary.json",
+    "comparison_source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_post_merge_1361_20260627T185401Z/summary.json",
+    "total_elapsed_success_seconds": 288.555,
+    "geomean_success_seconds": 1.869188,
+    "fallback_or_external_engine_violations": 0,
+    "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
+    "artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
+    "remaining_material_slow_rows_over_10s": [
+      [
+        "CB-Q21",
+        10.627
+      ],
+      [
+        "CB-Q23",
+        11.326
+      ],
+      [
+        "CB-Q24",
+        14.443
+      ],
+      [
+        "CB-Q29",
+        15.59
+      ],
+      [
+        "CB-Q33",
+        12.156
+      ],
+      [
+        "CB-Q34",
+        27.076
+      ],
+      [
+        "CB-Q35",
+        26.226
+      ],
+      [
+        "CB-Q17",
+        17.735
+      ],
+      [
+        "CB-Q19",
+        10.894
+      ]
+    ],
+    "targeted_delta_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_resource_envelope_delta_20260627T200813Z/summary.json",
+    "targeted_delta_interpretation": "Targeted repeat shows the slower full43 ResourceEnvelope total was concentrated in run variance/cold-cache effects: Q34/Q35/Q29/Q24/Q19 improved versus post-merge #1361, Q17/Q23 were flat, and Q21/Q33 remain the only material slower candidates in this repeated set."
+  },
+  "latest_resource_envelope_targeted_delta": {
+    "run_id": "targeted_resource_envelope_delta_20260627T200813Z",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_resource_envelope_delta_20260627T200813Z/summary.json",
+    "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
+    "purpose": "repeat the full43 ResourceEnvelope run's largest apparent regressions to separate route slowdown from run/cache variance before PR",
+    "query_count": 10,
+    "success_count": 10,
+    "fallback_or_external_engine_violations": 0,
+    "improved_vs_post_merge_1361": [
+      [
+        "CB-Q24",
+        15.136,
+        14.443
+      ],
+      [
+        "CB-Q29",
+        16.255,
+        15.59
+      ],
+      [
+        "CB-Q34",
+        31.455,
+        27.076
+      ],
+      [
+        "CB-Q35",
+        32.481,
+        26.226
+      ],
+      [
+        "CB-Q19",
+        11.418,
+        10.894
+      ]
+    ],
+    "flat_vs_post_merge_1361": [
+      [
+        "CB-Q23",
+        11.281,
+        11.326
+      ],
+      [
+        "CB-Q17",
+        17.69,
+        17.735
+      ]
+    ],
+    "regressed_vs_post_merge_1361": [
+      [
+        "CB-Q21",
+        9.29,
+        10.627
+      ],
+      [
+        "CB-Q22",
+        6.05,
+        6.473
+      ],
+      [
+        "CB-Q33",
+        11.256,
+        12.156
+      ]
+    ],
+    "readout": "Targeted repeat shows the slower full43 ResourceEnvelope total was concentrated in run variance/cold-cache effects: Q34/Q35/Q29/Q24/Q19 improved versus post-merge #1361, Q17/Q23 were flat, and Q21/Q33 remain the only material slower candidates in this repeated set.",
+    "remaining_pre_merge_optimization_decision": "No revert. Ship ResourceEnvelope evidence plumbing and lazy top-K path, then continue optimizing Q21 string predicate pruning and Q33 high-cardinality numeric-pair retained-measure state in follow-up performance work."
   }
 }

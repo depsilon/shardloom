@@ -63,6 +63,8 @@ from .runtime_defaults import (
     DEFAULT_INTERNAL_SMOKE_MEMORY_GB,
     DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+    SHARDLOOM_MAX_PARALLELISM_ENV,
+    SHARDLOOM_MEMORY_GB_ENV,
 )
 from .context import (
     CapabilityPosture,
@@ -295,7 +297,13 @@ __all__ = [
     "ComputeCapabilityMatrix",
     "ComputeCapabilityRow",
     "DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS",
+    "DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM",
+    "DEFAULT_INTERNAL_SMOKE_MEMORY_GB",
+    "DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM",
+    "DEFAULT_LOCAL_RUNTIME_MEMORY_GB",
     "ETL_INPUT_FORMATS",
+    "SHARDLOOM_MAX_PARALLELISM_ENV",
+    "SHARDLOOM_MEMORY_GB_ENV",
     "EngineCapabilityMatrix",
     "EngineSelectionPlan",
     "EvidenceSchemaRegistryReport",

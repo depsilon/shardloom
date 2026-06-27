@@ -935,6 +935,7 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub max_chunk_rows: usize,
     pub streaming_scan_used: bool,
     pub full_stream_collected: bool,
+    pub resource_envelope: VortexLocalPrimitiveResourceEnvelope,
     pub max_parallelism_requested: usize,
     pub scan_concurrency_per_worker: usize,
     pub filter_pushdown_applied: bool,
@@ -978,6 +979,7 @@ impl VortexLocalPrimitiveExecutionReport {
             max_chunk_rows: 0,
             streaming_scan_used: false,
             full_stream_collected: false,
+            resource_envelope: VortexLocalPrimitiveResourceEnvelope::default_single_threaded(),
             max_parallelism_requested: 1,
             scan_concurrency_per_worker: 1,
             filter_pushdown_applied: false,
@@ -1075,6 +1077,11 @@ impl VortexLocalPrimitiveExecutionReport {
         let _ = writeln!(out, "full stream collected: {}", self.full_stream_collected);
         let _ = writeln!(
             out,
+            "resource envelope: {}",
+            self.resource_envelope.compact_summary()
+        );
+        let _ = writeln!(
+            out,
             "max parallelism requested: {}",
             self.max_parallelism_requested
         );
@@ -1144,27 +1151,153 @@ impl VortexLocalPrimitiveExecutionReport {
 
 /// Bounded execution policy applied to local Vortex primitive scans.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct VortexLocalPrimitiveExecutionPolicy {
+pub struct VortexLocalPrimitiveResourceEnvelope {
+    pub memory_gb: u64,
+    pub memory_budget_bytes: u64,
     pub max_parallelism: usize,
+    pub scan_concurrency_per_worker: usize,
+    pub capillary_unit_target_rows: usize,
+    pub group_state_soft_item_budget: usize,
+    pub string_topk_heavy_hitter_capacity: usize,
+    pub numeric_utf8_topk_heavy_hitter_capacity: usize,
+    pub spill_threshold_bytes: u64,
+    pub sort_retention_flush_multiplier: usize,
+    pub sort_retention_flush_slack_rows: usize,
+    pub writer_row_block_target_rows: usize,
+    pub writer_coalescing_target_bytes: usize,
 }
-impl VortexLocalPrimitiveExecutionPolicy {
+
+impl VortexLocalPrimitiveResourceEnvelope {
+    pub const SCHEMA_VERSION: &'static str = "shardloom.local_vortex_resource_envelope.v1";
+    pub const DEFAULT_MEMORY_GB: u64 = 4;
+    pub const DEFAULT_MAX_PARALLELISM: usize = 2;
+    pub const DEFAULT_CAPILLARY_UNIT_TARGET_ROWS: usize = 262_144;
+    pub const DEFAULT_HEAVY_HITTER_CAPACITY: usize = 65_536;
+    pub const DEFAULT_SORT_RETENTION_FLUSH_MULTIPLIER: usize = 64;
+    pub const DEFAULT_SORT_RETENTION_FLUSH_SLACK_ROWS: usize = 4096;
+    pub const DEFAULT_WRITER_ROW_BLOCK_TARGET_ROWS: usize = 262_144;
+    pub const DEFAULT_WRITER_COALESCING_TARGET_BYTES: usize = 8 * 1024 * 1024;
+
     /// # Errors
-    /// Returns an error when max parallelism is zero.
-    pub fn new(max_parallelism: usize) -> Result<Self> {
+    /// Returns an error when memory or parallelism is zero.
+    pub fn new(memory_gb: u64, max_parallelism: usize) -> Result<Self> {
+        if memory_gb == 0 {
+            return Err(ShardLoomError::InvalidOperation(
+                "memory_gb must be >= 1".to_string(),
+            ));
+        }
         if max_parallelism == 0 {
             return Err(ShardLoomError::InvalidOperation(
                 "max_parallelism must be >= 1".to_string(),
             ));
         }
-        Ok(Self { max_parallelism })
+        let memory_budget_bytes = memory_gb
+            .saturating_mul(1024)
+            .saturating_mul(1024)
+            .saturating_mul(1024);
+        let group_state_soft_item_budget = usize::try_from(memory_budget_bytes / 128)
+            .unwrap_or(usize::MAX)
+            .max(Self::DEFAULT_HEAVY_HITTER_CAPACITY);
+        let spill_threshold_bytes = memory_budget_bytes.saturating_mul(4) / 5;
+        Ok(Self {
+            memory_gb,
+            memory_budget_bytes,
+            max_parallelism,
+            scan_concurrency_per_worker: max_parallelism,
+            capillary_unit_target_rows: Self::DEFAULT_CAPILLARY_UNIT_TARGET_ROWS,
+            group_state_soft_item_budget,
+            string_topk_heavy_hitter_capacity: Self::DEFAULT_HEAVY_HITTER_CAPACITY,
+            numeric_utf8_topk_heavy_hitter_capacity: Self::DEFAULT_HEAVY_HITTER_CAPACITY,
+            spill_threshold_bytes,
+            sort_retention_flush_multiplier: Self::DEFAULT_SORT_RETENTION_FLUSH_MULTIPLIER,
+            sort_retention_flush_slack_rows: Self::DEFAULT_SORT_RETENTION_FLUSH_SLACK_ROWS,
+            writer_row_block_target_rows: Self::DEFAULT_WRITER_ROW_BLOCK_TARGET_ROWS,
+            writer_coalescing_target_bytes: Self::DEFAULT_WRITER_COALESCING_TARGET_BYTES,
+        })
     }
 
-    pub const fn single_threaded() -> Self {
-        Self { max_parallelism: 1 }
+    /// # Errors
+    /// Returns an error when `max_parallelism` is zero.
+    pub fn default_for_parallelism(max_parallelism: usize) -> Result<Self> {
+        Self::new(Self::DEFAULT_MEMORY_GB, max_parallelism)
+    }
+
+    /// # Panics
+    /// Panics only if the built-in single-threaded default constants are invalid.
+    #[must_use]
+    pub fn default_single_threaded() -> Self {
+        Self::new(Self::DEFAULT_MEMORY_GB, 1).expect("default resource envelope is valid")
+    }
+
+    #[must_use]
+    pub fn compact_summary(&self) -> String {
+        format!(
+            "schema={};memory_gb={};memory_budget_bytes={};max_parallelism={};scan_concurrency_per_worker={};capillary_unit_target_rows={};group_state_soft_item_budget={};string_topk_heavy_hitter_capacity={};numeric_utf8_topk_heavy_hitter_capacity={};spill_threshold_bytes={};sort_retention_flush_multiplier={};sort_retention_flush_slack_rows={};writer_row_block_target_rows={};writer_coalescing_target_bytes={}",
+            Self::SCHEMA_VERSION,
+            self.memory_gb,
+            self.memory_budget_bytes,
+            self.max_parallelism,
+            self.scan_concurrency_per_worker,
+            self.capillary_unit_target_rows,
+            self.group_state_soft_item_budget,
+            self.string_topk_heavy_hitter_capacity,
+            self.numeric_utf8_topk_heavy_hitter_capacity,
+            self.spill_threshold_bytes,
+            self.sort_retention_flush_multiplier,
+            self.sort_retention_flush_slack_rows,
+            self.writer_row_block_target_rows,
+            self.writer_coalescing_target_bytes,
+        )
+    }
+}
+
+/// Bounded execution policy applied to local Vortex primitive scans.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VortexLocalPrimitiveExecutionPolicy {
+    pub max_parallelism: usize,
+    pub resource_envelope: VortexLocalPrimitiveResourceEnvelope,
+}
+impl VortexLocalPrimitiveExecutionPolicy {
+    /// # Errors
+    /// Returns an error when max parallelism is zero.
+    pub fn new(max_parallelism: usize) -> Result<Self> {
+        Self::new_with_memory_gb(
+            max_parallelism,
+            VortexLocalPrimitiveResourceEnvelope::DEFAULT_MEMORY_GB,
+        )
+    }
+
+    /// # Errors
+    /// Returns an error when memory or max parallelism is zero.
+    pub fn new_with_memory_gb(max_parallelism: usize, memory_gb: u64) -> Result<Self> {
+        if max_parallelism == 0 {
+            return Err(ShardLoomError::InvalidOperation(
+                "max_parallelism must be >= 1".to_string(),
+            ));
+        }
+        Ok(Self {
+            max_parallelism,
+            resource_envelope: VortexLocalPrimitiveResourceEnvelope::new(
+                memory_gb,
+                max_parallelism,
+            )?,
+        })
+    }
+
+    #[must_use]
+    pub fn single_threaded() -> Self {
+        Self {
+            max_parallelism: 1,
+            resource_envelope: VortexLocalPrimitiveResourceEnvelope::default_single_threaded(),
+        }
+    }
+
+    pub const fn resource_envelope(&self) -> VortexLocalPrimitiveResourceEnvelope {
+        self.resource_envelope
     }
 
     pub const fn scan_concurrency_per_worker(&self) -> usize {
-        self.max_parallelism
+        self.resource_envelope.scan_concurrency_per_worker
     }
 }
 
@@ -1219,6 +1352,7 @@ pub struct VortexLocalPrimitiveRowExportReport {
     pub projected_columns: Vec<String>,
     pub arrays_read_count: usize,
     pub max_chunk_rows: usize,
+    pub resource_envelope: VortexLocalPrimitiveResourceEnvelope,
     pub max_parallelism_requested: usize,
     pub scan_concurrency_per_worker: usize,
     pub source_order_limit_requested: Option<u64>,
@@ -1347,6 +1481,7 @@ impl VortexLocalPrimitiveRowExportReport {
             projected_columns: Vec::new(),
             arrays_read_count: 0,
             max_chunk_rows: 0,
+            resource_envelope: VortexLocalPrimitiveResourceEnvelope::default_single_threaded(),
             max_parallelism_requested: 1,
             scan_concurrency_per_worker: 1,
             source_order_limit_requested: None,
@@ -2974,6 +3109,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                 projected_columns: output_columns,
                 arrays_read_count: 0,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 source_order_limit_requested: source_order_limit.map(usize_to_u64).transpose()?,
@@ -3744,6 +3880,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
             projected_columns: output_columns,
             arrays_read_count,
             max_chunk_rows,
+            resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             source_order_limit_requested: source_order_limit.map(usize_to_u64).transpose()?,
@@ -3938,6 +4075,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
                     projected_columns: output_columns,
                     arrays_read_count: 0,
                     max_chunk_rows: 0,
+                    resource_envelope: policy.resource_envelope(),
                     max_parallelism_requested: policy.max_parallelism,
                     scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                     source_order_limit_requested: plan
@@ -4074,6 +4212,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
                 projected_columns: output_columns,
                 arrays_read_count,
                 max_chunk_rows,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 source_order_limit_requested: plan
@@ -4171,6 +4310,7 @@ fn execute_vortex_local_structured_vortex_row_export_enabled(
             projected_columns: output_columns,
             arrays_read_count,
             max_chunk_rows,
+            resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             source_order_limit_requested: source_order_limit.map(usize_to_u64).transpose()?,
@@ -4534,6 +4674,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
                 projected_columns: output_columns,
                 arrays_read_count: 0,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 source_order_limit_requested: plan
@@ -4662,6 +4803,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
             projected_columns: output_columns,
             arrays_read_count,
             max_chunk_rows,
+            resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             source_order_limit_requested: plan.source_order_limit.map(usize_to_u64).transpose()?,
@@ -4768,6 +4910,7 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
             projected_columns: output_columns,
             arrays_read_count: scan.scan.arrays_read_count,
             max_chunk_rows: scan.scan.max_chunk_rows,
+            resource_envelope: scan.scan.resource_envelope,
             max_parallelism_requested: scan.scan.max_parallelism_requested,
             scan_concurrency_per_worker: scan.scan.scan_concurrency_per_worker,
             source_order_limit_requested: scan
@@ -4873,6 +5016,7 @@ fn execute_vortex_local_sort_rows_row_export_enabled(
             projected_columns: output_columns,
             arrays_read_count: scan.scan.arrays_read_count,
             max_chunk_rows: scan.scan.max_chunk_rows,
+            resource_envelope: scan.scan.resource_envelope,
             max_parallelism_requested: scan.scan.max_parallelism_requested,
             scan_concurrency_per_worker: scan.scan.scan_concurrency_per_worker,
             source_order_limit_requested: scan
@@ -12087,6 +12231,7 @@ struct LocalVortexScan {
     reader_splits: Vec<VortexReaderBackedSplitEvidence>,
     reader_generated_prepared_batch_report: VortexReaderGeneratedPreparedBatchReport,
     max_chunk_rows: usize,
+    resource_envelope: VortexLocalPrimitiveResourceEnvelope,
     max_parallelism_requested: usize,
     scan_concurrency_per_worker: usize,
     projected_columns: Vec<String>,
@@ -12583,6 +12728,7 @@ fn read_local_vortex_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: output_columns,
@@ -12704,6 +12850,7 @@ fn read_local_vortex_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: output_columns,
@@ -12941,6 +13088,7 @@ fn read_local_vortex_partitioned_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: output_columns.unwrap_or_else(|| projected_columns.unwrap_or_default()),
@@ -13971,6 +14119,7 @@ fn count_all_metadata_report(
         max_chunk_rows: 0,
         streaming_scan_used: false,
         full_stream_collected: false,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         filter_pushdown_applied: false,
@@ -14057,6 +14206,7 @@ fn partitioned_count_all_metadata_report(
         max_chunk_rows: 0,
         streaming_scan_used: false,
         full_stream_collected: false,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         filter_pushdown_applied: false,
@@ -14119,6 +14269,7 @@ fn count_where_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14202,6 +14353,7 @@ fn predicate_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14257,6 +14409,7 @@ fn projection_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14312,6 +14465,7 @@ fn filter_and_project_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14370,6 +14524,7 @@ fn distinct_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14444,6 +14599,7 @@ fn drop_duplicate_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: scan.data_read(),
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14512,6 +14668,7 @@ fn duplicate_mask_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14574,6 +14731,7 @@ fn tail_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: true,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14636,6 +14794,7 @@ fn sample_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: scan.data_read(),
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14699,6 +14858,7 @@ fn expression_project_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14766,6 +14926,7 @@ fn melt_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14829,6 +14990,7 @@ fn explode_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -14892,6 +15054,7 @@ fn pivot_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15434,6 +15597,7 @@ fn rolling_window_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15499,6 +15663,7 @@ fn simple_aggregate_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: false,
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15564,6 +15729,7 @@ fn sort_rows_report(
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
         full_stream_collected: scan.streaming_scan_used(),
+        resource_envelope: scan.resource_envelope,
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -15667,6 +15833,7 @@ fn read_local_vortex_distinct_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: output_columns,
@@ -15771,6 +15938,7 @@ fn read_local_vortex_distinct_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: output_columns,
@@ -15854,6 +16022,7 @@ fn read_local_vortex_drop_duplicate_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: output_columns,
@@ -15981,6 +16150,7 @@ fn read_local_vortex_drop_duplicate_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: output_columns,
@@ -16133,6 +16303,7 @@ fn read_local_vortex_duplicate_mask_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: declared_columns,
@@ -16257,6 +16428,7 @@ fn read_local_vortex_tail_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: declared_columns,
@@ -16362,6 +16534,7 @@ fn read_local_vortex_sample_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: output_columns,
@@ -16499,6 +16672,7 @@ fn read_local_vortex_sample_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: output_columns,
@@ -16603,6 +16777,7 @@ fn read_local_vortex_expression_project_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: expression_projection_output_columns(
@@ -16731,6 +16906,7 @@ fn read_local_vortex_expression_project_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: expression_projection_output_columns(
@@ -16822,6 +16998,7 @@ fn read_local_vortex_melt_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: melt_projection.output_columns(),
@@ -16929,6 +17106,7 @@ fn read_local_vortex_melt_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: melt_projection.output_columns(),
@@ -17025,6 +17203,7 @@ fn read_local_vortex_pivot_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: vec![pivot_projection.index_column.as_str().to_string()],
@@ -17141,6 +17320,7 @@ fn read_local_vortex_pivot_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns,
@@ -17234,6 +17414,7 @@ fn read_local_vortex_explode_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: output_columns,
@@ -17345,6 +17526,7 @@ fn read_local_vortex_explode_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: output_columns,
@@ -17435,6 +17617,7 @@ fn read_local_vortex_rolling_window_scan(
                 reader_splits,
                 reader_generated_prepared_batch_report,
                 max_chunk_rows: 0,
+                resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
                 scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
                 projected_columns: rolling_window.output_columns(),
@@ -17583,6 +17766,7 @@ fn read_local_vortex_rolling_window_scan(
         reader_splits,
         reader_generated_prepared_batch_report,
         max_chunk_rows,
+        resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: rolling_window.output_columns(),
@@ -17707,12 +17891,13 @@ fn read_local_vortex_simple_aggregate_scan(
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
     let mut grouped_states = if aggregate_has_grouping {
-        let mut states = GroupedAggregateStates::new(
+        let mut states = GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
             request.source_order_limit,
             &declared_columns,
             numeric_pair_late_measure_enabled,
             string_count_topk_heavy_hitter_enabled,
+            policy.resource_envelope(),
         )?;
         if numeric_utf8_topk_heavy_hitter_enabled {
             states.enable_numeric_utf8_topk_heavy_hitter();
@@ -17988,70 +18173,78 @@ fn read_local_vortex_simple_aggregate_scan(
     let numeric_utf8_topk_needs_exact_fallback = if let Some(states) = grouped_states.as_mut()
         && states.needs_numeric_utf8_topk_heavy_hitter_second_pass()
     {
-        states.prepare_numeric_utf8_topk_heavy_hitter_second_pass()?;
-        let projection = ProjectionRequest::columns(aggregate.projected_columns());
-        let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
-        if second_plan.projected_columns != declared_columns {
-            return Err(ShardLoomError::InvalidOperation(
-                "local Vortex numeric-UTF8 top-K heavy-hitter route saw inconsistent second-pass projection; no fallback execution was attempted"
-                    .to_string(),
-            ));
-        }
-        let mut second_scan = file.scan().map_err(vortex_error)?;
-        if let Some(filter) = pushdown_predicate.as_ref() {
-            second_scan = second_scan.with_filter(predicate_to_vortex_expr(
-                filter,
-                file.dtype(),
-                request.kind,
-            )?);
-        }
-        if let Some(projection) = second_plan.projection.take() {
-            second_scan = second_scan.with_projection(projection);
-        }
-        second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
-        for chunk in second_scan
-            .into_array_iter(&runtime)
-            .map_err(vortex_error)?
-        {
-            let chunk = chunk.map_err(vortex_error)?;
-            let rows = chunk.len();
-            let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
-                source_uri.clone(),
-                arrays_read_count,
-                rows,
-                chunk.dtype().to_string(),
-                chunk.encoding_id().to_string(),
-                chunk.nchildren(),
-                chunk.nbuffers(),
-            )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
-            reader_splits.push(split);
-            if !states
-                .update_numeric_utf8_topk_heavy_hitter_exact_from_chunk(&chunk, &declared_columns)?
-            {
+        if states.promote_numeric_utf8_topk_exact_first_pass_if_possible(result_limit)? {
+            false
+        } else {
+            states.prepare_numeric_utf8_topk_heavy_hitter_second_pass()?;
+            let projection = ProjectionRequest::columns(aggregate.projected_columns());
+            let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
+            if second_plan.projected_columns != declared_columns {
                 return Err(ShardLoomError::InvalidOperation(
-                    "local Vortex numeric-UTF8 top-K heavy-hitter exact recount lost its direct accessor contract; no fallback execution was attempted"
+                    "local Vortex numeric-UTF8 top-K heavy-hitter route saw inconsistent second-pass projection; no fallback execution was attempted"
                         .to_string(),
                 ));
             }
-            max_chunk_rows = max_chunk_rows.max(rows);
-            arrays_read_count += 1;
+            let mut second_scan = file.scan().map_err(vortex_error)?;
+            if let Some(filter) = pushdown_predicate.as_ref() {
+                second_scan = second_scan.with_filter(predicate_to_vortex_expr(
+                    filter,
+                    file.dtype(),
+                    request.kind,
+                )?);
+            }
+            if let Some(projection) = second_plan.projection.take() {
+                second_scan = second_scan.with_projection(projection);
+            }
+            second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
+            for chunk in second_scan
+                .into_array_iter(&runtime)
+                .map_err(vortex_error)?
+            {
+                let chunk = chunk.map_err(vortex_error)?;
+                let rows = chunk.len();
+                let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+                    source_uri.clone(),
+                    arrays_read_count,
+                    rows,
+                    chunk.dtype().to_string(),
+                    chunk.encoding_id().to_string(),
+                    chunk.nchildren(),
+                    chunk.nbuffers(),
+                )?;
+                encoded_kernel_inputs.extend(
+                    reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+                        source_uri,
+                        &split.split_ref,
+                        &chunk,
+                    )?,
+                );
+                reader_splits.push(split);
+                if !states.update_numeric_utf8_topk_heavy_hitter_exact_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                )? {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex numeric-UTF8 top-K heavy-hitter exact recount lost its direct accessor contract; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+                max_chunk_rows = max_chunk_rows.max(rows);
+                arrays_read_count += 1;
+            }
+            !states.numeric_utf8_topk_exact_proved(result_limit)?
         }
-        !states.numeric_utf8_topk_exact_proved(result_limit)?
     } else {
         false
     };
     if numeric_utf8_topk_needs_exact_fallback {
-        let mut exact_states = GroupedAggregateStates::new(
+        let mut exact_states = GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
             request.source_order_limit,
             &declared_columns,
             false,
             false,
+            policy.resource_envelope(),
         )?;
         let projection = ProjectionRequest::columns(aggregate.projected_columns());
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
@@ -18273,12 +18466,13 @@ fn read_local_vortex_simple_aggregate_scan(
         false
     };
     if string_topk_needs_exact_fallback {
-        let mut exact_states = GroupedAggregateStates::new(
+        let mut exact_states = GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
             request.source_order_limit,
             &declared_columns,
             false,
             false,
+            policy.resource_envelope(),
         )?;
         let projection = ProjectionRequest::columns(aggregate.projected_columns());
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
@@ -18401,12 +18595,13 @@ fn read_local_vortex_simple_aggregate_scan(
         false
     };
     if string_count_distinct_topk_needs_exact_fallback {
-        let mut exact_states = GroupedAggregateStates::new(
+        let mut exact_states = GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
             request.source_order_limit,
             &declared_columns,
             false,
             false,
+            policy.resource_envelope(),
         )?;
         let projection = ProjectionRequest::columns(aggregate.projected_columns());
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
@@ -18508,6 +18703,7 @@ fn read_local_vortex_simple_aggregate_scan(
             reader_splits,
             reader_generated_prepared_batch_report,
             max_chunk_rows,
+            resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             projected_columns: aggregate.output_columns(),
@@ -18756,12 +18952,13 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
     let mut grouped_states = if aggregate_has_grouping {
-        Some(GroupedAggregateStates::new(
+        Some(GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
             request.source_order_limit,
             &declared_columns,
             false,
             false,
+            policy.resource_envelope(),
         )?)
     } else {
         None
@@ -19091,6 +19288,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
             reader_splits,
             reader_generated_prepared_batch_report,
             max_chunk_rows,
+            resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             projected_columns: aggregate.output_columns(),
@@ -19110,10 +19308,22 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(test)]
 fn sort_retention_flush_threshold(retained_cap: usize) -> usize {
+    sort_retention_flush_threshold_for_envelope(
+        retained_cap,
+        VortexLocalPrimitiveResourceEnvelope::default_single_threaded(),
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn sort_retention_flush_threshold_for_envelope(
+    retained_cap: usize,
+    resource_envelope: VortexLocalPrimitiveResourceEnvelope,
+) -> usize {
     retained_cap
-        .saturating_add(4096)
-        .max(retained_cap.saturating_mul(64))
+        .saturating_add(resource_envelope.sort_retention_flush_slack_rows)
+        .max(retained_cap.saturating_mul(resource_envelope.sort_retention_flush_multiplier))
         .max(retained_cap.saturating_add(1))
 }
 
@@ -19358,7 +19568,8 @@ fn read_local_vortex_sort_rows_scan(
         .as_ref()
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
         .transpose()?;
-    let retention_flush_threshold = sort_retention_flush_threshold(retained_cap);
+    let retention_flush_threshold =
+        sort_retention_flush_threshold_for_envelope(retained_cap, policy.resource_envelope());
     let mut candidates = Vec::<SortRowCandidate>::new();
     let mut selected_rows = 0usize;
     let mut source_rows_seen = 0usize;
@@ -19659,6 +19870,7 @@ fn read_local_vortex_sort_rows_scan(
             reader_splits,
             reader_generated_prepared_batch_report,
             max_chunk_rows,
+            resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             projected_columns: output_columns.clone(),
@@ -19813,7 +20025,8 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     }
     let expected_projection = ProjectionRequest::columns(projected_columns);
     let mut source_row_count = 0_u64;
-    let retention_flush_threshold = sort_retention_flush_threshold(retained_cap);
+    let retention_flush_threshold =
+        sort_retention_flush_threshold_for_envelope(retained_cap, policy.resource_envelope());
     let mut candidates = Vec::<SortRowCandidate>::new();
     let mut selected_rows = 0_usize;
     let mut source_rows_seen = 0_usize;
@@ -20296,6 +20509,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             reader_splits,
             reader_generated_prepared_batch_report,
             max_chunk_rows,
+            resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             projected_columns: output_columns,
@@ -21887,6 +22101,7 @@ impl SimpleAggregateStates {
 struct GroupedAggregateStates<'a> {
     request: &'a VortexSimpleAggregateRequest,
     result_limit: Option<usize>,
+    resource_envelope: VortexLocalPrimitiveResourceEnvelope,
     group_columns: Vec<AggregateGroupRuntimeColumn>,
     group_key_indices: Vec<usize>,
     state_template: SimpleAggregateStates,
@@ -21936,6 +22151,8 @@ struct GroupedAggregateStates<'a> {
         Option<rustc_hash::FxHashSet<AggregateNumericUtf8InternedKey>>,
     numeric_utf8_topk_exact_counts:
         Option<rustc_hash::FxHashMap<AggregateNumericUtf8InternedKey, u64>>,
+    numeric_utf8_topk_first_pass_exact_counts: bool,
+    numeric_utf8_topk_exact_counts_source: Option<&'static str>,
     numeric_utf8_topk_group_roles: Option<NumericUtf8GroupRoles>,
     numeric_utf8_topk_total_weight: u64,
     numeric_utf8_topk_dictionary_code_reuse: bool,
@@ -22233,6 +22450,16 @@ impl AggregateStringInterner {
         })
     }
 
+    fn forget_id(&mut self, id: u64, label: &str) -> Result<()> {
+        let value = self.value_arc(id)?;
+        self.ids.remove(value.as_ref()).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "local Vortex {label} active string id was missing from the interner; no fallback execution was attempted"
+            ))
+        })?;
+        Ok(())
+    }
+
     fn len(&self) -> usize {
         self.values.len()
     }
@@ -22446,6 +22673,24 @@ impl NumericUtf8TopKHeavyHitterSketch {
         self.keys.values().copied().collect()
     }
 
+    fn exact_counts_if_no_eviction(
+        &self,
+    ) -> Result<Option<rustc_hash::FxHashMap<AggregateNumericUtf8InternedKey, u64>>> {
+        if self.offset != 0 {
+            return Ok(None);
+        }
+        let mut counts = rustc_hash::FxHashMap::default();
+        reserve_hash_map_capacity(
+            &mut counts,
+            self.slots.len(),
+            "numeric-UTF8 top-K heavy-hitter first-pass exact counts",
+        )?;
+        for (key, slot) in &self.slots {
+            counts.insert(*key, slot.stored_count);
+        }
+        Ok(Some(counts))
+    }
+
     fn capacity(&self) -> usize {
         self.capacity
     }
@@ -22461,6 +22706,81 @@ impl StringCountTopKHeavyHitterSketch {
             slots: rustc_hash::FxHashMap::default(),
             keys: rustc_hash::FxHashMap::default(),
             order: std::collections::BTreeSet::new(),
+        }
+    }
+
+    fn update_lazy_utf8_value(
+        &mut self,
+        value: &std::sync::Arc<str>,
+        weight: u64,
+        string_interner: &mut AggregateStringInterner,
+    ) -> Result<()> {
+        if weight == 0 || self.capacity == 0 {
+            return Ok(());
+        }
+        if let Some(value_id) = string_interner.id(value.as_ref())
+            && self.slots.contains_key(&value_id)
+        {
+            return self.update(value_id, weight);
+        }
+        let mut remaining = weight;
+        loop {
+            self.remove_expired_and_forget(string_interner)?;
+            if self.slots.len() < self.capacity {
+                let value_id = string_interner.intern_arc(std::sync::Arc::clone(value))?;
+                let id = self.next_id;
+                self.next_id = self.next_id.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex string top-K heavy-hitter id overflowed u64".to_string(),
+                    )
+                })?;
+                let stored_count = self.offset.checked_add(remaining).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex string top-K heavy-hitter stored count overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+                self.keys.insert(id, value_id);
+                self.slots.insert(
+                    value_id,
+                    StringCountTopKHeavyHitterSlot {
+                        id,
+                        stored_count,
+                        exact_from_first_pass: self.offset == 0,
+                    },
+                );
+                self.order
+                    .insert(StringCountTopKHeavyHitterOrder { stored_count, id });
+                return Ok(());
+            }
+            let Some(minimum) = self.order.iter().next().copied() else {
+                continue;
+            };
+            let minimum_actual = minimum.stored_count.saturating_sub(self.offset);
+            if minimum_actual == 0 {
+                self.offset = minimum.stored_count;
+                self.remove_expired_and_forget(string_interner)?;
+                continue;
+            }
+            if remaining < minimum_actual {
+                self.offset = self.offset.checked_add(remaining).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex string top-K heavy-hitter offset overflowed u64".to_string(),
+                    )
+                })?;
+                self.remove_expired_and_forget(string_interner)?;
+                return Ok(());
+            }
+            self.offset = self.offset.checked_add(minimum_actual).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex string top-K heavy-hitter offset overflowed u64".to_string(),
+                )
+            })?;
+            remaining -= minimum_actual;
+            self.remove_expired_and_forget(string_interner)?;
+            if remaining == 0 {
+                return Ok(());
+            }
         }
     }
 
@@ -22545,6 +22865,23 @@ impl StringCountTopKHeavyHitterSketch {
                 return Ok(());
             }
         }
+    }
+
+    fn remove_expired_and_forget(
+        &mut self,
+        string_interner: &mut AggregateStringInterner,
+    ) -> Result<()> {
+        while let Some(entry) = self.order.iter().next().copied() {
+            if entry.stored_count > self.offset {
+                break;
+            }
+            self.order.remove(&entry);
+            if let Some(value_id) = self.keys.remove(&entry.id) {
+                self.slots.remove(&value_id);
+                string_interner.forget_id(value_id, "string top-K lazy heavy-hitter eviction")?;
+            }
+        }
+        Ok(())
     }
 
     fn remove_expired(&mut self) {
@@ -23940,6 +24277,7 @@ fn aggregate_group_key_indices(columns: &[AggregateGroupRuntimeColumn]) -> Vec<u
 
 #[cfg(feature = "vortex-local-primitives")]
 impl<'a> GroupedAggregateStates<'a> {
+    #[cfg(test)]
     #[allow(clippy::too_many_lines)]
     fn new(
         request: &'a VortexSimpleAggregateRequest,
@@ -23947,6 +24285,28 @@ impl<'a> GroupedAggregateStates<'a> {
         declared_columns: &'a [String],
         numeric_pair_late_measure_enabled: bool,
         string_count_topk_heavy_hitter_enabled: bool,
+    ) -> Result<Self> {
+        Self::new_with_resource_envelope(
+            request,
+            result_limit,
+            declared_columns,
+            numeric_pair_late_measure_enabled,
+            string_count_topk_heavy_hitter_enabled,
+            VortexLocalPrimitiveResourceEnvelope::new(
+                VortexLocalPrimitiveResourceEnvelope::DEFAULT_MEMORY_GB,
+                VortexLocalPrimitiveResourceEnvelope::DEFAULT_MAX_PARALLELISM,
+            )?,
+        )
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn new_with_resource_envelope(
+        request: &'a VortexSimpleAggregateRequest,
+        result_limit: Option<usize>,
+        declared_columns: &'a [String],
+        numeric_pair_late_measure_enabled: bool,
+        string_count_topk_heavy_hitter_enabled: bool,
+        resource_envelope: VortexLocalPrimitiveResourceEnvelope,
     ) -> Result<Self> {
         let mut group_columns = request
             .group_by
@@ -24024,6 +24384,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(Self {
             request,
             result_limit,
+            resource_envelope,
             group_columns,
             group_key_indices,
             state_template,
@@ -24066,6 +24427,8 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_utf8_topk_heavy_hitter_sketch: None,
             numeric_utf8_topk_candidate_keys: None,
             numeric_utf8_topk_exact_counts: None,
+            numeric_utf8_topk_first_pass_exact_counts: false,
+            numeric_utf8_topk_exact_counts_source: None,
             numeric_utf8_topk_group_roles: None,
             numeric_utf8_topk_total_weight: 0,
             numeric_utf8_topk_dictionary_code_reuse: false,
@@ -24349,13 +24712,10 @@ impl<'a> GroupedAggregateStates<'a> {
         count: u64,
     ) -> Result<()> {
         {
+            let capacity = self.numeric_utf8_topk_heavy_hitter_capacity();
             let sketch = self
                 .numeric_utf8_topk_heavy_hitter_sketch
-                .get_or_insert_with(|| {
-                    NumericUtf8TopKHeavyHitterSketch::new(
-                        Self::numeric_utf8_topk_heavy_hitter_capacity(),
-                    )
-                });
+                .get_or_insert_with(|| NumericUtf8TopKHeavyHitterSketch::new(capacity));
             sketch.update_weighted(key, count)?;
         }
         self.numeric_utf8_topk_total_weight = self
@@ -24438,6 +24798,29 @@ impl<'a> GroupedAggregateStates<'a> {
             && self.numeric_utf8_topk_candidate_keys.is_none()
     }
 
+    fn promote_numeric_utf8_topk_exact_first_pass_if_possible(
+        &mut self,
+        _limit: Option<usize>,
+    ) -> Result<bool> {
+        let Some(sketch) = self.numeric_utf8_topk_heavy_hitter_sketch.as_ref() else {
+            return Ok(false);
+        };
+        if let Some(counts) = sketch.exact_counts_if_no_eviction()? {
+            if counts.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-UTF8 top-K heavy-hitter first pass produced no exact candidates; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+            self.numeric_utf8_topk_candidate_keys = Some(counts.keys().copied().collect());
+            self.numeric_utf8_topk_exact_counts = Some(counts);
+            self.numeric_utf8_topk_first_pass_exact_counts = true;
+            self.numeric_utf8_topk_exact_counts_source = Some("first_pass_no_eviction");
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
     fn prepare_numeric_utf8_topk_heavy_hitter_second_pass(&mut self) -> Result<()> {
         let Some(sketch) = self.numeric_utf8_topk_heavy_hitter_sketch.as_ref() else {
             return Ok(());
@@ -24457,6 +24840,7 @@ impl<'a> GroupedAggregateStates<'a> {
         )?;
         self.numeric_utf8_topk_candidate_keys = Some(candidates);
         self.numeric_utf8_topk_exact_counts = Some(exact_counts);
+        self.numeric_utf8_topk_exact_counts_source = Some("candidate_recount_second_pass");
         Ok(())
     }
 
@@ -24580,8 +24964,9 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(self.numeric_utf8_topk_total_weight / denominator)
     }
 
-    const fn numeric_utf8_topk_heavy_hitter_capacity() -> usize {
-        65_536
+    const fn numeric_utf8_topk_heavy_hitter_capacity(&self) -> usize {
+        self.resource_envelope
+            .numeric_utf8_topk_heavy_hitter_capacity
     }
 
     fn update_source_order_numeric_utf8_count_from_accessors(
@@ -25512,26 +25897,15 @@ impl<'a> GroupedAggregateStates<'a> {
             row_indices,
         ));
         let counts = dictionary_value_counts_for_rows(row_ids, values.len(), row_indices)?;
-        let dictionary_string_ids =
-            aggregate_direct_utf8_dictionary_interner_ids(group_accessor, &mut self.string_interner)?
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex string top-K heavy-hitter route requires dictionary-coded UTF-8 keys; no fallback execution was attempted"
-                            .to_string(),
-                    )
-                })?;
+        let capacity = self.string_count_topk_heavy_hitter_capacity();
         let sketch = self
             .string_count_topk_heavy_hitter_sketch
-            .get_or_insert_with(|| {
-                StringCountTopKHeavyHitterSketch::new(
-                    Self::string_count_topk_heavy_hitter_capacity(),
-                )
-            });
-        for (value_id, count) in dictionary_string_ids.into_iter().zip(counts) {
+            .get_or_insert_with(|| StringCountTopKHeavyHitterSketch::new(capacity));
+        for (value, count) in values.iter().zip(counts) {
             if count == 0 {
                 continue;
             }
-            sketch.update(value_id, count)?;
+            sketch.update_lazy_utf8_value(value, count, &mut self.string_interner)?;
             self.string_count_topk_total_weight = self
                 .string_count_topk_total_weight
                 .checked_add(count)
@@ -26015,8 +26389,8 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(self.string_count_topk_total_weight / denominator)
     }
 
-    const fn string_count_topk_heavy_hitter_capacity() -> usize {
-        65_536
+    const fn string_count_topk_heavy_hitter_capacity(&self) -> usize {
+        self.resource_envelope.string_topk_heavy_hitter_capacity
     }
 
     fn enable_string_count_distinct_topk_heavy_hitter(&mut self) {
@@ -26079,14 +26453,11 @@ impl<'a> GroupedAggregateStates<'a> {
                         "local Vortex string count-distinct top-K heavy-hitter route requires dictionary-coded UTF-8 keys; no fallback execution was attempted"
                             .to_string(),
                     )
-                })?;
+        })?;
+        let capacity = self.string_count_topk_heavy_hitter_capacity();
         let sketch = self
             .string_count_distinct_topk_heavy_hitter_sketch
-            .get_or_insert_with(|| {
-                StringCountTopKHeavyHitterSketch::new(
-                    Self::string_count_topk_heavy_hitter_capacity(),
-                )
-            });
+            .get_or_insert_with(|| StringCountTopKHeavyHitterSketch::new(capacity));
         for (value_id, count) in dictionary_string_ids.into_iter().zip(counts) {
             if count == 0 {
                 continue;
@@ -28348,6 +28719,24 @@ impl<'a> GroupedAggregateStates<'a> {
             .transpose()?
             .unwrap_or(0);
         let functions = self.state_template.functions_summary();
+        let group_output_strategy = if self.numeric_utf8_topk_first_pass_exact_counts {
+            "proofbound_heavy_hitter_numeric_utf8_count_topk_first_pass_exact"
+        } else {
+            "proofbound_heavy_hitter_numeric_utf8_count_topk_late_recount"
+        };
+        let uniqueness_proof_status = if self.numeric_utf8_topk_first_pass_exact_counts {
+            match self.numeric_utf8_topk_exact_counts_source {
+                Some("first_pass_retained_boundary_proof") => {
+                    "proofbound_numeric_utf8_heavy_hitter_exact_first_pass_retained_boundary"
+                }
+                _ => "proofbound_numeric_utf8_heavy_hitter_exact_first_pass_no_eviction",
+            }
+        } else {
+            "proofbound_numeric_utf8_heavy_hitter_exact_topk"
+        };
+        let exact_counts_source = self
+            .numeric_utf8_topk_exact_counts_source
+            .unwrap_or("candidate_recount_second_pass");
         let mut payload = serde_json::json!({
             "rows": rows.len(),
             "group_by": group_by.join(","),
@@ -28364,7 +28753,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "aggregate_materialized_accessor_columns": self.aggregate_materialized_accessor_columns(),
             "aggregate_accessor_blockers": self.aggregate_accessor_blockers(),
             "distinct_state_strategy": "none",
-            "group_output_strategy": "proofbound_heavy_hitter_numeric_utf8_count_topk_late_recount",
+            "group_output_strategy": group_output_strategy,
             "candidate_groups": counts.len(),
             "retained_candidate_groups": retained_cap.min(counts.len()),
             "evicted_or_spilled_group_count": 0,
@@ -28378,7 +28767,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "decoded_string_count": counts.len(),
             "estimated_group_key_storage_bytes": self.estimated_group_key_storage_bytes(),
             "estimated_group_string_storage_bytes": self.estimated_group_string_storage_bytes(),
-            "uniqueness_proof_status": "proofbound_numeric_utf8_heavy_hitter_exact_topk",
+            "uniqueness_proof_status": uniqueness_proof_status,
             "spill_state": "not_spilled",
             "order_by": self
                 .request
@@ -28388,15 +28777,36 @@ impl<'a> GroupedAggregateStates<'a> {
                 .collect::<Vec<_>>()
                 .join(","),
             "offset": self.request.offset,
-            "numeric_utf8_topk_heavy_hitter_second_pass": true,
             "numeric_utf8_topk_heavy_hitter_candidate_groups": counts.len(),
-            "numeric_utf8_topk_heavy_hitter_capacity": Self::numeric_utf8_topk_heavy_hitter_capacity(),
+            "numeric_utf8_topk_heavy_hitter_capacity": self.numeric_utf8_topk_heavy_hitter_capacity(),
             "numeric_utf8_topk_heavy_hitter_threshold": threshold,
-            "numeric_utf8_topk_heavy_hitter_exact_proof": true,
-            "numeric_utf8_topk_dictionary_code_reuse": self.numeric_utf8_topk_dictionary_code_reuse,
-            "numeric_utf8_topk_chunk_compacted_updates": self.numeric_utf8_topk_chunk_compacted_updates,
             "values": rows,
         });
+        json_object_insert_bool(
+            &mut payload,
+            "numeric_utf8_topk_heavy_hitter_second_pass",
+            !self.numeric_utf8_topk_first_pass_exact_counts,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "numeric_utf8_topk_heavy_hitter_exact_proof",
+            true,
+        )?;
+        json_object_insert_str(
+            &mut payload,
+            "numeric_utf8_topk_heavy_hitter_exact_counts_source",
+            exact_counts_source,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "numeric_utf8_topk_dictionary_code_reuse",
+            self.numeric_utf8_topk_dictionary_code_reuse,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "numeric_utf8_topk_chunk_compacted_updates",
+            self.numeric_utf8_topk_chunk_compacted_updates,
+        )?;
         json_object_insert_bool(
             &mut payload,
             "numeric_utf8_topk_candidate_id_prefilter",
@@ -28674,7 +29084,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "offset": self.request.offset,
             "string_count_topk_heavy_hitter_second_pass": !self.string_count_topk_first_pass_exact_counts,
             "string_count_topk_heavy_hitter_candidate_groups": counts.len(),
-            "string_count_topk_heavy_hitter_capacity": Self::string_count_topk_heavy_hitter_capacity(),
+            "string_count_topk_heavy_hitter_capacity": self.string_count_topk_heavy_hitter_capacity(),
             "string_count_topk_heavy_hitter_threshold": threshold,
             "string_count_topk_heavy_hitter_exact_proof": true,
             "string_count_topk_heavy_hitter_exact_counts_source": exact_counts_source,
@@ -28896,7 +29306,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "offset": self.request.offset,
             "string_count_distinct_topk_heavy_hitter_second_pass": true,
             "string_count_distinct_topk_heavy_hitter_candidate_groups": counts.len(),
-            "string_count_distinct_topk_heavy_hitter_capacity": Self::string_count_topk_heavy_hitter_capacity(),
+            "string_count_distinct_topk_heavy_hitter_capacity": self.string_count_topk_heavy_hitter_capacity(),
             "string_count_distinct_topk_heavy_hitter_threshold": threshold,
             "string_count_distinct_topk_heavy_hitter_exact_proof": true,
             "string_count_distinct_topk_candidate_id_prefilter": self.string_count_distinct_topk_candidate_id_prefilter,
@@ -29997,7 +30407,13 @@ impl<'a> GroupedAggregateStates<'a> {
         } else if self.numeric_utf8_topk_heavy_hitter_sketch.is_some()
             || self.numeric_utf8_topk_exact_counts.is_some()
         {
-            if self.numeric_utf8_topk_dictionary_code_reuse {
+            if self.numeric_utf8_topk_first_pass_exact_counts
+                && self.numeric_utf8_topk_dictionary_code_reuse
+            {
+                "numeric_utf8_dictionary_code_count_topk_heavy_hitter_first_pass_exact"
+            } else if self.numeric_utf8_topk_first_pass_exact_counts {
+                "numeric_utf8_count_topk_heavy_hitter_first_pass_exact"
+            } else if self.numeric_utf8_topk_dictionary_code_reuse {
                 "numeric_utf8_dictionary_code_count_topk_heavy_hitter_late_recount"
             } else {
                 "numeric_utf8_count_topk_heavy_hitter_late_recount"
@@ -30085,7 +30501,13 @@ impl<'a> GroupedAggregateStates<'a> {
         } else if self.numeric_pair_compact_direct_updates {
             "numeric_pair_compact_count_sum_avg_group_state"
         } else if self.numeric_utf8_topk_exact_counts.is_some() {
-            if self.numeric_utf8_topk_dictionary_code_reuse {
+            if self.numeric_utf8_topk_first_pass_exact_counts
+                && self.numeric_utf8_topk_dictionary_code_reuse
+            {
+                "numeric_utf8_dictionary_code_heavy_hitter_exact_count_star_group_state"
+            } else if self.numeric_utf8_topk_first_pass_exact_counts {
+                "numeric_utf8_heavy_hitter_exact_count_star_group_state"
+            } else if self.numeric_utf8_topk_dictionary_code_reuse {
                 "numeric_utf8_dictionary_code_heavy_hitter_candidate_count_star_group_state"
             } else {
                 "numeric_utf8_heavy_hitter_candidate_count_star_group_state"
@@ -30209,7 +30631,13 @@ impl<'a> GroupedAggregateStates<'a> {
         } else if self.numeric_pair_compact_direct_updates {
             "numeric_pair_hot_hash_map"
         } else if self.numeric_utf8_topk_exact_counts.is_some() {
-            if self.numeric_utf8_topk_dictionary_code_reuse {
+            if self.numeric_utf8_topk_first_pass_exact_counts
+                && self.numeric_utf8_topk_dictionary_code_reuse
+            {
+                "numeric_utf8_dictionary_code_heavy_hitter_exact_first_pass"
+            } else if self.numeric_utf8_topk_first_pass_exact_counts {
+                "numeric_utf8_heavy_hitter_exact_first_pass"
+            } else if self.numeric_utf8_topk_dictionary_code_reuse {
                 "numeric_utf8_dictionary_code_candidate_state_then_exact_recount"
             } else {
                 "numeric_utf8_heavy_hitter_candidate_state_then_exact_recount"
@@ -31167,10 +31595,25 @@ impl<'a> GroupedAggregateStates<'a> {
         {
             capillary_work_units.push("numeric_utf8_heavy_hitter_sketch_update");
             capillary_work_units.push("proofbound_numeric_utf8_topk_retention");
-            capillary_work_units.push("numeric_utf8_topk_candidate_exact_recount");
             pulseweave_pressure_signals.push("numeric_utf8_heavy_hitter_candidate_groups");
             pulseweave_pressure_signals.push("numeric_utf8_heavy_hitter_threshold");
-            pulseweave_pressure_signals.push("numeric_utf8_topk_exact_recount_scan");
+            if self.numeric_utf8_topk_first_pass_exact_counts {
+                capillary_work_units.push("numeric_utf8_heavy_hitter_first_pass_exact_counts");
+                if self.numeric_utf8_topk_exact_counts_source
+                    == Some("first_pass_retained_boundary_proof")
+                {
+                    capillary_work_units
+                        .push("numeric_utf8_heavy_hitter_retained_boundary_exact_proof");
+                    pulseweave_pressure_signals
+                        .push("numeric_utf8_heavy_hitter_retained_boundary_upper_bound");
+                } else {
+                    pulseweave_pressure_signals
+                        .push("numeric_utf8_heavy_hitter_no_eviction_exact_proof");
+                }
+            } else {
+                capillary_work_units.push("numeric_utf8_topk_candidate_exact_recount");
+                pulseweave_pressure_signals.push("numeric_utf8_topk_exact_recount_scan");
+            }
             if self.numeric_utf8_topk_dictionary_code_reuse {
                 capillary_work_units.push("dictionary_code_bound_numeric_utf8_key");
                 pulseweave_pressure_signals.push("dictionary_code_string_key_reuse");
@@ -39100,6 +39543,12 @@ fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
 }
 
 #[cfg(all(test, feature = "vortex-local-primitives"))]
+#[allow(
+    clippy::bool_assert_comparison,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::too_many_lines
+)]
 mod tests {
     use super::*;
     #[cfg(feature = "universal-format-io")]
@@ -51576,6 +52025,118 @@ mod tests {
     }
 
     #[test]
+    fn grouped_aggregate_numeric_utf8_topk_skips_recount_when_first_pass_is_exact() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("user_id").expect("column"),
+                ColumnRef::new("search_phrase").expect("column"),
+            ],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let declared_columns = vec!["user_id".to_string(), "search_phrase".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        states.enable_numeric_utf8_topk_heavy_hitter();
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Int64(vec![1, 1, 1, 2, 2, 3, 1]),
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 0, 0, 1, 1, 2, 0],
+                values: vec![
+                    std::sync::Arc::<str>::from("hot"),
+                    std::sync::Arc::<str>::from("warm"),
+                    std::sync::Arc::<str>::from("cold"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+        ];
+
+        assert!(
+            states
+                .update_numeric_utf8_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("heavy-hitter count pass")
+        );
+        assert!(states.needs_numeric_utf8_topk_heavy_hitter_second_pass());
+        assert!(
+            states
+                .promote_numeric_utf8_topk_exact_first_pass_if_possible(Some(2))
+                .expect("promote exact first pass")
+        );
+        assert!(!states.needs_numeric_utf8_topk_heavy_hitter_second_pass());
+        assert!(
+            states
+                .numeric_utf8_topk_exact_proved(Some(2))
+                .expect("exact proof")
+        );
+        let budget = states
+            .state_budget_report(&request, 7, 2)
+            .expect("state budget");
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"numeric_utf8_heavy_hitter_first_pass_exact_counts".to_string())
+        );
+        assert!(
+            !budget
+                .capillary_work_units
+                .contains(&"numeric_utf8_topk_candidate_exact_recount".to_string())
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["group_output_strategy"],
+            "proofbound_heavy_hitter_numeric_utf8_count_topk_first_pass_exact"
+        );
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "numeric_utf8_dictionary_code_count_topk_heavy_hitter_first_pass_exact"
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "numeric_utf8_dictionary_code_heavy_hitter_exact_count_star_group_state"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "numeric_utf8_dictionary_code_heavy_hitter_exact_first_pass"
+        );
+        assert_eq!(
+            payload["numeric_utf8_topk_heavy_hitter_second_pass"],
+            serde_json::json!(false)
+        );
+        assert_eq!(
+            payload["numeric_utf8_topk_heavy_hitter_exact_counts_source"],
+            serde_json::json!("first_pass_no_eviction")
+        );
+        assert_eq!(
+            payload["numeric_utf8_topk_dictionary_code_reuse"],
+            serde_json::json!(true)
+        );
+        assert_eq!(payload["values"][0]["user_id"], serde_json::json!(1));
+        assert_eq!(
+            payload["values"][0]["search_phrase"],
+            serde_json::json!("hot")
+        );
+        assert_eq!(payload["values"][0]["rows"], serde_json::json!(4));
+        assert_eq!(payload["values"][1]["user_id"], serde_json::json!(2));
+        assert_eq!(
+            payload["values"][1]["search_phrase"],
+            serde_json::json!("warm")
+        );
+        assert_eq!(payload["values"][1]["rows"], serde_json::json!(2));
+    }
+
+    #[test]
     fn grouped_aggregate_numeric_utf8_topk_compacts_repeated_chunk_keys() {
         let request = VortexSimpleAggregateRequest::grouped(
             vec![
@@ -51712,6 +52273,25 @@ mod tests {
             &hot,
             &interner.values[usize::try_from(first).expect("id")]
         ));
+    }
+
+    #[test]
+    fn string_topk_lazy_update_skips_unretained_values_without_interning() {
+        let hot = std::sync::Arc::<str>::from("hot");
+        let cold = std::sync::Arc::<str>::from("cold");
+        let mut interner = AggregateStringInterner::default();
+        let mut sketch = StringCountTopKHeavyHitterSketch::new(1);
+
+        sketch
+            .update_lazy_utf8_value(&hot, 100, &mut interner)
+            .expect("hot update");
+        sketch
+            .update_lazy_utf8_value(&cold, 1, &mut interner)
+            .expect("cold update");
+
+        assert!(interner.id("hot").is_some());
+        assert_eq!(interner.id("cold"), None);
+        assert_eq!(sketch.candidate_len(), 1);
     }
 
     #[test]

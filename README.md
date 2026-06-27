@@ -140,6 +140,9 @@ Format-specific helpers such as
 `read_csv(...)` and explicit schemas remain available for benchmark, CI, and reproducibility flows.
 Normal Python contexts reuse a local ShardLoom worker transport when available, so repeated admitted
 queries avoid per-call CLI process startup while preserving the same route/evidence envelopes.
+Public local workflows default to `SHARDLOOM_MAX_PARALLELISM=2` and `SHARDLOOM_MEMORY_GB=4`; set
+those environment variables or pass explicit `max_parallelism` / `memory_gb` values when a larger
+local resource envelope is appropriate.
 SQL workflows can also bind a declared input when the query uses a logical table name:
 
 ```python
