@@ -68,6 +68,8 @@ const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
 const MAX_LOCAL_SOURCE_BYTES: u64 = 128 * 1024 * 1024;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+const LOCAL_OLAP_MEDIUM_SOURCE_ROW_THRESHOLD: usize = 1_000_000;
 const MAX_IN_LIST_VALUES: usize = 32;
 const OUTER_CORRELATION_ALIAS: &str = "outer";
 const MAX_DATE_ARITHMETIC_DAYS: i32 = 366_000;
@@ -6141,17 +6143,22 @@ fn layout_source_profile(source: &VortexIngestSourceData) -> &'static str {
 }
 
 fn layout_source_has_text_domain_columns(source: &VortexIngestSourceData) -> bool {
-    source.header.iter().any(|column| {
-        let lower = column.to_ascii_lowercase();
-        lower.contains("url")
-            || lower.contains("referer")
-            || lower.contains("search")
-            || lower.contains("phrase")
-            || lower.contains("title")
-            || lower.contains("utm")
-            || lower.contains("param")
-            || lower.contains("useragent")
-    })
+    source
+        .header
+        .iter()
+        .any(|column| layout_text_domain_column_name(column))
+}
+
+fn layout_text_domain_column_name(column: &str) -> bool {
+    let lower = column.to_ascii_lowercase();
+    lower.contains("url")
+        || lower.contains("referer")
+        || lower.contains("search")
+        || lower.contains("phrase")
+        || lower.contains("title")
+        || lower.contains("utm")
+        || lower.contains("param")
+        || lower.contains("useragent")
 }
 
 fn layout_source_has_time_bucket_columns(source: &VortexIngestSourceData) -> bool {
@@ -7599,11 +7606,39 @@ fn stream_columnar_vortex_ingest_source(
     }
     let source =
         stream_columnar_vortex_ingest_file_source(source_format, path, max_rows, max_parallelism)?;
-    let source =
+    let source = with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
+    Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn with_layout_advised_embedded_derived_columns_columnar_stream_source(
+    source: shardloom_vortex::FlatLocalColumnarStreamSource,
+) -> shardloom_vortex::FlatLocalColumnarStreamSource {
+    if columnar_stream_source_prefers_full_embedded_text_metadata(&source) {
+        shardloom_vortex::universal_format_io::with_embedded_derived_columns_columnar_stream_source(
+            source,
+        )
+    } else {
         shardloom_vortex::universal_format_io::with_source_native_embedded_derived_columns_columnar_stream_source(
             source,
-        );
-    Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
+        )
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_stream_source_prefers_full_embedded_text_metadata(
+    source: &shardloom_vortex::FlatLocalColumnarStreamSource,
+) -> bool {
+    let medium_or_larger = source
+        .row_count_hint
+        .is_some_and(|rows| rows >= LOCAL_OLAP_MEDIUM_SOURCE_ROW_THRESHOLD)
+        || source.source_stream_batch_size
+            >= shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS;
+    medium_or_larger
+        && source
+            .header
+            .iter()
+            .any(|column| layout_text_domain_column_name(column))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -7816,10 +7851,7 @@ fn stream_columnar_vortex_ingest_partition_source(
             failed: false,
         }),
     };
-    let source =
-        shardloom_vortex::universal_format_io::with_source_native_embedded_derived_columns_columnar_stream_source(
-            source,
-        );
+    let source = with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
     Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
 }
 
@@ -8769,6 +8801,12 @@ impl VortexIngestReport {
             (
                 "vortex_writer_layout_row_block_size".to_string(),
                 self.vortex_report.writer_layout_row_block_size.to_string(),
+            ),
+            (
+                "vortex_writer_layout_block_target_bytes".to_string(),
+                self.vortex_report
+                    .writer_layout_block_target_bytes
+                    .to_string(),
             ),
             (
                 "vortex_writer_compression_policy".to_string(),
@@ -30727,6 +30765,10 @@ impl SqlLocalSourceReport {
                 self.vortex_writer_layout_row_block_sizes(),
             ),
             (
+                "vortex_writer_layout_block_target_bytes".to_string(),
+                self.vortex_writer_layout_block_target_bytes(),
+            ),
+            (
                 "vortex_writer_compression_policies".to_string(),
                 self.vortex_writer_compression_policies(),
             ),
@@ -31716,6 +31758,15 @@ impl SqlLocalSourceReport {
                 .vortex_report
                 .as_ref()
                 .map(|report| report.writer_layout_row_block_size.to_string())
+        }))
+    }
+
+    fn vortex_writer_layout_block_target_bytes(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_layout_block_target_bytes.to_string())
         }))
     }
 
@@ -43293,6 +43344,147 @@ mod tests {
         );
     }
 
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn large_text_domain_columnar_source_embeds_full_url_metadata() {
+        use arrow_array::types::Int32Type;
+        use arrow_array::{Array as _, Int64Array, RecordBatch, RecordBatchReader, StringArray};
+        use arrow_array::{DictionaryArray, UInt32Array};
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("Referer", DataType::Utf8, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3])),
+                Arc::new(StringArray::from(vec![
+                    Some("https://www.google.com/search"),
+                    Some("https://example.com/page"),
+                    None,
+                ])),
+            ],
+        )
+        .expect("record batch");
+        let source = shardloom_vortex::FlatLocalColumnarStreamSource {
+            header: vec!["id".to_string(), "Referer".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Int64), Some(LogicalDType::Utf8)],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(DataType::Utf8)],
+            materialized_columns: vec!["id".to_string(), "Referer".to_string()],
+            reader_projection_columns: vec!["id".to_string(), "Referer".to_string()],
+            row_count_hint: Some(100_000_000),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size:
+                shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 3)]),
+            source_stream_unit_hint_kind: "test_large_text_domain_record_batch".to_string(),
+            source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
+            source_dictionary_preservation_status:
+                "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary"
+                    .to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_large_text_domain_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            reader: Box::new(TestRecordBatchReader {
+                schema,
+                batches: VecDeque::from([batch]),
+            }),
+        };
+
+        let mut source =
+            with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
+
+        assert!(
+            source
+                .source_dictionary_preservation_status
+                .contains("embedded_derived_column_mode=full_adapter"),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        assert!(
+            source
+                .source_dictionary_preservation_status
+                .contains("__shardloom_derived_url_domain_Referer"),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            vec![
+                "id".to_string(),
+                "Referer".to_string(),
+                "__shardloom_derived_utf8_len_Referer".to_string(),
+                "__shardloom_derived_url_domain_Referer".to_string(),
+            ]
+        );
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        let lengths = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("length dictionary");
+        let length_values = lengths
+            .values()
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .expect("length dictionary values");
+        assert_eq!(
+            length_values.value(0),
+            u32::try_from("https://www.google.com/search".len()).expect("length")
+        );
+        assert_eq!(
+            length_values.value(1),
+            u32::try_from("https://example.com/page".len()).expect("length")
+        );
+        assert!(lengths.is_null(2));
+        let domains = batch
+            .column(3)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("domain dictionary");
+        let domain_values = domains
+            .values()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("domain values");
+        assert_eq!(domain_values.value(0), "google.com");
+        assert_eq!(domain_values.value(1), "example.com");
+        assert!(domains.is_null(2));
+    }
+
     #[test]
     fn public_workflow_preparation_keeps_layout_profile_fields() {
         let fields = field_map(public_workflow_preparation_fields(vec![
@@ -43602,6 +43794,11 @@ mod tests {
         let first_report = prepared_vortex_ingest_report(first);
         let first_fields = field_map(first_report.fields());
         assert_field_eq(&first_fields, "vortex_ingest_performed", "true");
+        assert_field_eq(
+            &first_fields,
+            "vortex_writer_layout_block_target_bytes",
+            "1048576",
+        );
         assert_field_eq(&first_fields, "prepared_state_reuse_hit", "false");
         assert_field_eq(
             &first_fields,

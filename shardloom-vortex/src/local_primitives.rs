@@ -13692,12 +13692,26 @@ fn direct_u32_codes_with_nulls_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Option<(Vec<u32>, Option<Vec<bool>>)> {
     use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::PrimitiveArray;
+
+    if let Some(primitive) = direct_host_primitive(array) {
+        return primitive_u32_codes_with_nulls(&primitive);
+    }
+    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
+    primitive_u32_codes_with_nulls(&primitive)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn primitive_u32_codes_with_nulls(
+    primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
+) -> Option<(Vec<u32>, Option<Vec<bool>>)> {
+    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::primitive::PrimitiveArrayExt;
     use vortex::array::validity::Validity;
 
-    let primitive = direct_host_primitive(array)?;
-    let codes = primitive_u32_codes_from_primitive_values(&primitive)?;
-    let validity = PrimitiveArrayExt::validity(&primitive);
+    let codes = primitive_u32_codes_from_primitive_values(primitive)?;
+    let validity = PrimitiveArrayExt::validity(primitive);
     let row_nulls = match validity {
         Validity::NonNullable | Validity::AllValid => None,
         Validity::AllInvalid => Some(vec![true; codes.len()]),
@@ -18570,7 +18584,7 @@ fn string_count_topk_heavy_hitter_route_enabled(
         || !aggregate.having.is_empty()
         || aggregate.order_by.len() != 1
         || aggregate.group_by.len() != 1
-        || !aggregate.group_expressions.is_empty()
+        || !aggregate_group_expressions_are_reconstructable_constants(aggregate)
     {
         return false;
     }
@@ -18605,7 +18619,7 @@ fn string_count_distinct_topk_heavy_hitter_route_enabled(
         || !aggregate.having.is_empty()
         || aggregate.order_by.len() != 1
         || aggregate.group_by.len() != 1
-        || !aggregate.group_expressions.is_empty()
+        || !aggregate_group_expressions_are_reconstructable_constants(aggregate)
     {
         return false;
     }
@@ -18625,6 +18639,20 @@ fn string_count_distinct_topk_heavy_hitter_route_enabled(
         aggregate.order_by.as_slice(),
         [order] if order.descending && order.column == alias
     )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_group_expressions_are_reconstructable_constants(
+    aggregate: &VortexSimpleAggregateRequest,
+) -> bool {
+    aggregate.group_expressions.iter().all(|expression| {
+        expression.extra_columns.is_empty()
+            && matches!(
+                expression.function.trim().to_ascii_lowercase().as_str(),
+                "constant_int" | "literal_int"
+            )
+            && expression.argument_offset.is_some()
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -21776,6 +21804,7 @@ struct GroupedAggregateStates<'a> {
     numeric_utf8_topk_group_roles: Option<NumericUtf8GroupRoles>,
     numeric_utf8_topk_total_weight: u64,
     numeric_utf8_topk_dictionary_code_reuse: bool,
+    numeric_utf8_topk_chunk_compacted_updates: bool,
     group_order: Vec<AggregateGroupKey>,
     string_interner: AggregateStringInterner,
     count_star_direct_updates: bool,
@@ -21792,6 +21821,8 @@ struct GroupedAggregateStates<'a> {
     transformed_dictionary_direct_updates: bool,
     transformed_dictionary_compact_direct_updates: bool,
     transformed_dictionary_compact_code_pair_partials: bool,
+    dictionary_group_compact_measure_direct_updates: bool,
+    dictionary_group_count_having_prefilter: bool,
     transformed_dictionary_count_having_prefilter: bool,
     transformed_dictionary_general_direct_updates: bool,
     transformed_dictionary_general_transform_fusion: bool,
@@ -21799,6 +21830,7 @@ struct GroupedAggregateStates<'a> {
     transformed_materialized_partial_updates: bool,
     numeric_minute_string_count_direct_updates: bool,
     numeric_minute_string_dictionary_code_reuse: bool,
+    source_order_numeric_utf8_dictionary_direct_updates: bool,
     source_order_limited_group_admission: bool,
     general_direct_group_state_pre_reserved: bool,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
@@ -21944,6 +21976,14 @@ struct NumericUtf8GroupRoles {
     numeric_column: usize,
     utf8_group: usize,
     utf8_column: usize,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy)]
+struct SourceOrderNumericUtf8Candidate {
+    numeric_bits: u64,
+    numeric_signed: bool,
+    group_order_index: usize,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -22144,8 +22184,8 @@ impl NumericUtf8TopKHeavyHitterSketch {
         }
     }
 
-    fn update(&mut self, key: AggregateNumericUtf8InternedKey) -> Result<()> {
-        if self.capacity == 0 {
+    fn update_weighted(&mut self, key: AggregateNumericUtf8InternedKey, weight: u64) -> Result<()> {
+        if weight == 0 || self.capacity == 0 {
             return Ok(());
         }
         if let Some(slot) = self.slots.get(&key).copied() {
@@ -22153,7 +22193,7 @@ impl NumericUtf8TopKHeavyHitterSketch {
                 stored_count: slot.stored_count,
                 id: slot.id,
             });
-            let stored_count = slot.stored_count.checked_add(1).ok_or_else(|| {
+            let stored_count = slot.stored_count.checked_add(weight).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex numeric-UTF8 top-K heavy-hitter counter overflowed u64"
                         .to_string(),
@@ -22168,6 +22208,7 @@ impl NumericUtf8TopKHeavyHitterSketch {
             });
             return Ok(());
         }
+        let mut remaining = weight;
         loop {
             self.remove_expired();
             if self.slots.len() < self.capacity {
@@ -22178,7 +22219,7 @@ impl NumericUtf8TopKHeavyHitterSketch {
                             .to_string(),
                     )
                 })?;
-                let stored_count = self.offset.checked_add(1).ok_or_else(|| {
+                let stored_count = self.offset.checked_add(remaining).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
                         "local Vortex numeric-UTF8 top-K heavy-hitter stored count overflowed u64"
                             .to_string(),
@@ -22194,18 +22235,33 @@ impl NumericUtf8TopKHeavyHitterSketch {
             let Some(minimum) = self.order.iter().next().copied() else {
                 continue;
             };
-            if minimum.stored_count <= self.offset {
+            let minimum_actual = minimum.stored_count.saturating_sub(self.offset);
+            if minimum_actual == 0 {
+                self.offset = minimum.stored_count;
                 self.remove_expired();
                 continue;
             }
-            self.offset = self.offset.checked_add(1).ok_or_else(|| {
+            if remaining < minimum_actual {
+                self.offset = self.offset.checked_add(remaining).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex numeric-UTF8 top-K heavy-hitter offset overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+                self.remove_expired();
+                return Ok(());
+            }
+            self.offset = self.offset.checked_add(minimum_actual).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex numeric-UTF8 top-K heavy-hitter offset overflowed u64"
                         .to_string(),
                 )
             })?;
+            remaining -= minimum_actual;
             self.remove_expired();
-            return Ok(());
+            if remaining == 0 {
+                return Ok(());
+            }
         }
     }
 
@@ -23073,6 +23129,49 @@ impl CompactAggregateMeasures {
         Ok(())
     }
 
+    fn merge_same_specs(
+        &mut self,
+        specs: &[CompactAggregateMeasureSpec],
+        other: &Self,
+    ) -> Result<()> {
+        if specs.len() != self.values().len() || specs.len() != other.values().len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex dictionary-group aggregate compact measure width mismatch; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        for ((spec, target), source) in specs.iter().zip(self.values_mut()).zip(other.values()) {
+            match spec.function {
+                SimpleAggregateFunction::Count
+                | SimpleAggregateFunction::Sum
+                | SimpleAggregateFunction::Avg => {
+                    target.count = target.count.checked_add(source.count).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex dictionary-group aggregate compact count overflowed u64"
+                                .to_string(),
+                        )
+                    })?;
+                    target.sum += source.sum;
+                    if !target.sum.is_finite() {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex dictionary-group aggregate compact sum became non-finite; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    }
+                }
+                SimpleAggregateFunction::CountDistinct
+                | SimpleAggregateFunction::Min
+                | SimpleAggregateFunction::Max => {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex dictionary-group aggregate compact merge only admits count/sum/avg; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn result_value_pairs(
         &self,
         specs: &[CompactAggregateMeasureSpec],
@@ -23481,6 +23580,40 @@ fn compact_aggregate_direct_measure_value(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn dictionary_group_compact_measure_spec_admitted(
+    spec: &CompactAggregateMeasureSpec,
+    accessors: &[AggregateDirectColumnAccessor],
+) -> bool {
+    match spec.function {
+        SimpleAggregateFunction::Count if spec.column_index.is_none() => {
+            matches!(spec.value_transform, AggregateValueTransform::Identity)
+        }
+        SimpleAggregateFunction::Count
+        | SimpleAggregateFunction::Sum
+        | SimpleAggregateFunction::Avg => {
+            let Some(column_index) = spec.column_index else {
+                return false;
+            };
+            matches!(spec.value_transform, AggregateValueTransform::Identity)
+                && accessors.get(column_index).is_some_and(|accessor| {
+                    matches!(
+                        accessor,
+                        AggregateDirectColumnAccessor::UInt64(_)
+                            | AggregateDirectColumnAccessor::NullableUInt64 { .. }
+                            | AggregateDirectColumnAccessor::Int64(_)
+                            | AggregateDirectColumnAccessor::NullableInt64 { .. }
+                            | AggregateDirectColumnAccessor::Float64(_)
+                            | AggregateDirectColumnAccessor::NullableFloat64 { .. }
+                    )
+                })
+        }
+        SimpleAggregateFunction::CountDistinct
+        | SimpleAggregateFunction::Min
+        | SimpleAggregateFunction::Max => false,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::cast_precision_loss)]
 fn compact_aggregate_materialized_measure_value(
     spec: &CompactAggregateMeasureSpec,
@@ -23769,6 +23902,7 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_utf8_topk_group_roles: None,
             numeric_utf8_topk_total_weight: 0,
             numeric_utf8_topk_dictionary_code_reuse: false,
+            numeric_utf8_topk_chunk_compacted_updates: false,
             group_order: Vec::new(),
             string_interner: AggregateStringInterner::default(),
             count_star_direct_updates: false,
@@ -23785,6 +23919,8 @@ impl<'a> GroupedAggregateStates<'a> {
             transformed_dictionary_direct_updates: false,
             transformed_dictionary_compact_direct_updates: false,
             transformed_dictionary_compact_code_pair_partials: false,
+            dictionary_group_compact_measure_direct_updates: false,
+            dictionary_group_count_having_prefilter: false,
             transformed_dictionary_count_having_prefilter: false,
             transformed_dictionary_general_direct_updates: false,
             transformed_dictionary_general_transform_fusion: false,
@@ -23792,6 +23928,7 @@ impl<'a> GroupedAggregateStates<'a> {
             transformed_materialized_partial_updates: false,
             numeric_minute_string_count_direct_updates: false,
             numeric_minute_string_dictionary_code_reuse: false,
+            source_order_numeric_utf8_dictionary_direct_updates: false,
             source_order_limited_group_admission: false,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
@@ -23900,6 +24037,9 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.update_numeric_utf8_topk_heavy_hitter_from_accessors(&accessors, row_indices)? {
             return Ok(true);
         }
+        if self.update_source_order_numeric_utf8_count_from_accessors(&accessors, row_indices)? {
+            return Ok(true);
+        }
         if self.update_count_star_direct_from_chunk_dictionary(&accessors, row_indices)? {
             self.count_star_direct_updates = true;
             self.chunk_dictionary_direct_updates = true;
@@ -23989,38 +24129,80 @@ impl<'a> GroupedAggregateStates<'a> {
                             .to_string(),
                     )
                 })?;
-        let sketch = self
-            .numeric_utf8_topk_heavy_hitter_sketch
-            .get_or_insert_with(|| {
-                NumericUtf8TopKHeavyHitterSketch::new(
-                    Self::numeric_utf8_topk_heavy_hitter_capacity(),
-                )
-            });
-        for row_index in 0..numeric_accessor.len() {
-            let numeric =
-                aggregate_direct_integer_key_part(numeric_accessor, row_index, "numeric-UTF8")?;
-            let utf8_id = aggregate_direct_utf8_dictionary_bound_id(
-                utf8_accessor,
-                &dictionary_string_ids,
-                row_index,
-            )?;
-            let key = AggregateNumericUtf8InternedKey::new(numeric, utf8_id);
-            sketch.update(key)?;
-            self.numeric_utf8_topk_total_weight = self
-                .numeric_utf8_topk_total_weight
-                .checked_add(1)
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex numeric-UTF8 top-K heavy-hitter total count overflowed u64"
-                            .to_string(),
-                    )
-                })?;
-        }
+        self.update_numeric_utf8_topk_heavy_hitter_sketch_from_accessors(
+            numeric_accessor,
+            utf8_accessor,
+            &dictionary_string_ids,
+        )?;
         self.count_star_direct_updates = true;
         self.chunk_dictionary_direct_updates = true;
         self.numeric_utf8_topk_dictionary_code_reuse = true;
         self.numeric_utf8_topk_group_roles = Some(roles);
         Ok(true)
+    }
+
+    fn update_numeric_utf8_topk_heavy_hitter_sketch_from_accessors(
+        &mut self,
+        numeric_accessor: &AggregateDirectColumnAccessor,
+        utf8_accessor: &AggregateDirectColumnAccessor,
+        dictionary_string_ids: &[u64],
+    ) -> Result<()> {
+        if numeric_utf8_topk_chunk_compaction_admitted(
+            numeric_accessor,
+            utf8_accessor,
+            dictionary_string_ids,
+        )? {
+            for (key, count) in numeric_utf8_topk_chunk_counts(
+                numeric_accessor,
+                utf8_accessor,
+                dictionary_string_ids,
+            )? {
+                self.update_numeric_utf8_topk_weighted_key(key, count)?;
+            }
+            self.numeric_utf8_topk_chunk_compacted_updates = true;
+            return Ok(());
+        }
+        for row_index in 0..numeric_accessor.len() {
+            let numeric =
+                aggregate_direct_integer_key_part(numeric_accessor, row_index, "numeric-UTF8")?;
+            let utf8_id = aggregate_direct_utf8_dictionary_bound_id(
+                utf8_accessor,
+                dictionary_string_ids,
+                row_index,
+            )?;
+            self.update_numeric_utf8_topk_weighted_key(
+                AggregateNumericUtf8InternedKey::new(numeric, utf8_id),
+                1,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn update_numeric_utf8_topk_weighted_key(
+        &mut self,
+        key: AggregateNumericUtf8InternedKey,
+        count: u64,
+    ) -> Result<()> {
+        {
+            let sketch = self
+                .numeric_utf8_topk_heavy_hitter_sketch
+                .get_or_insert_with(|| {
+                    NumericUtf8TopKHeavyHitterSketch::new(
+                        Self::numeric_utf8_topk_heavy_hitter_capacity(),
+                    )
+                });
+            sketch.update_weighted(key, count)?;
+        }
+        self.numeric_utf8_topk_total_weight = self
+            .numeric_utf8_topk_total_weight
+            .checked_add(count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-UTF8 top-K heavy-hitter total count overflowed u64"
+                        .to_string(),
+                )
+            })?;
+        Ok(())
     }
 
     fn numeric_utf8_group_roles_for_accessors(
@@ -24158,6 +24340,13 @@ impl<'a> GroupedAggregateStates<'a> {
             &self.string_interner,
             candidates,
         );
+        let chunk_counts = numeric_utf8_topk_exact_chunk_counts(
+            numeric_accessor,
+            row_ids,
+            values,
+            &candidate_numeric_by_code,
+            &self.string_interner,
+        )?;
         let exact_counts = self.numeric_utf8_topk_exact_counts.as_mut().ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex numeric-UTF8 top-K heavy-hitter exact count state was missing; no fallback execution was attempted"
@@ -24169,48 +24358,16 @@ impl<'a> GroupedAggregateStates<'a> {
             candidates.len(),
             "numeric-UTF8 top-K exact counts",
         )?;
-        for row_index in 0..numeric_accessor.len() {
-            let code_index = aggregate_utf8_dictionary_code_index(row_ids, row_index)?;
-            let Some(candidate_numeric_parts) = candidate_numeric_by_code
-                .get(code_index)
-                .and_then(Option::as_ref)
-            else {
-                if code_index >= candidate_numeric_by_code.len() {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "local Vortex numeric-UTF8 top-K heavy-hitter dictionary value was missing; no fallback execution was attempted"
-                            .to_string(),
-                    ));
-                }
-                continue;
-            };
-            let numeric =
-                aggregate_direct_integer_key_part(numeric_accessor, row_index, "numeric-UTF8")?;
-            if !candidate_numeric_parts.contains(&(numeric.bits, numeric.signed)) {
-                continue;
-            }
-            let Some(utf8_id) = self
-                .string_interner
-                .id(values.get(code_index).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex numeric-UTF8 top-K heavy-hitter dictionary value was missing; no fallback execution was attempted"
-                            .to_string(),
-                    )
-                })?)
-            else {
-                return Err(ShardLoomError::InvalidOperation(
-                    "local Vortex numeric-UTF8 top-K heavy-hitter exact recount reached an uninterned dictionary value; no fallback execution was attempted"
-                        .to_string(),
-                ));
-            };
-            let key = AggregateNumericUtf8InternedKey::new(numeric, utf8_id);
+        for (key, chunk_count) in chunk_counts {
             let count = exact_counts.entry(key).or_insert(0);
-            *count = count.checked_add(1).ok_or_else(|| {
+            *count = count.checked_add(chunk_count).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex numeric-UTF8 top-K heavy-hitter exact count overflowed u64"
                         .to_string(),
                 )
             })?;
         }
+        self.numeric_utf8_topk_chunk_compacted_updates = true;
         Ok(true)
     }
 
@@ -24260,6 +24417,270 @@ impl<'a> GroupedAggregateStates<'a> {
 
     const fn numeric_utf8_topk_heavy_hitter_capacity() -> usize {
         65_536
+    }
+
+    fn update_source_order_numeric_utf8_count_from_accessors(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+    ) -> Result<bool> {
+        let Some(roles) =
+            self.source_order_numeric_utf8_group_roles_for_accessors(accessors, row_indices)
+        else {
+            return Ok(false);
+        };
+        if !self.source_order_numeric_utf8_existing_groups_admitted(roles)? {
+            return Ok(false);
+        }
+        let Some((numeric_accessor, row_ids, dictionary_values)) =
+            source_order_numeric_utf8_direct_inputs(accessors, roles)?
+        else {
+            return Ok(false);
+        };
+        let mut row_index = 0usize;
+        while row_index < numeric_accessor.len() && !self.source_order_group_admission_closed() {
+            self.update_count_star_direct_row(accessors, row_index)?;
+            row_index = row_index.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex source-order numeric-UTF8 aggregate row index overflowed"
+                        .to_string(),
+                )
+            })?;
+        }
+        if !self.source_order_group_admission_closed() {
+            self.count_star_direct_updates = true;
+            return Ok(true);
+        }
+        self.update_source_order_numeric_utf8_candidate_counts(
+            numeric_accessor,
+            row_ids,
+            dictionary_values,
+            roles,
+            row_index,
+        )?;
+        self.count_star_direct_updates = true;
+        self.chunk_dictionary_direct_updates = true;
+        self.source_order_numeric_utf8_dictionary_direct_updates = true;
+        self.source_order_limited_group_admission = true;
+        Ok(true)
+    }
+
+    fn update_source_order_numeric_utf8_candidate_counts(
+        &mut self,
+        numeric_accessor: &AggregateDirectColumnAccessor,
+        row_ids: &[u32],
+        dictionary_values: &[std::sync::Arc<str>],
+        roles: NumericUtf8GroupRoles,
+        start_row: usize,
+    ) -> Result<()> {
+        let Some(candidate_slots) =
+            self.source_order_numeric_utf8_candidate_slots(dictionary_values, roles)?
+        else {
+            return Ok(());
+        };
+        let mut chunk_counts = vec![0_u64; self.group_order.len()];
+        for row_index in start_row..numeric_accessor.len() {
+            let code_index = aggregate_utf8_dictionary_code_index(row_ids, row_index)?;
+            let Some(candidates) = candidate_slots.get(code_index) else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex source-order numeric-UTF8 aggregate dictionary code was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            };
+            if candidates.is_empty() {
+                continue;
+            }
+            let numeric = aggregate_direct_integer_key_part(
+                numeric_accessor,
+                row_index,
+                "source-order numeric-UTF8",
+            )?;
+            for candidate in candidates {
+                if candidate.numeric_bits == numeric.bits
+                    && candidate.numeric_signed == numeric.signed
+                {
+                    let count = chunk_counts.get_mut(candidate.group_order_index).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex source-order numeric-UTF8 aggregate candidate group index was missing; no fallback execution was attempted"
+                                .to_string(),
+                        )
+                    })?;
+                    *count = count.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex source-order numeric-UTF8 aggregate compact count overflowed u64"
+                                .to_string(),
+                        )
+                    })?;
+                    break;
+                }
+            }
+        }
+        for (group_order_index, count) in chunk_counts.into_iter().enumerate() {
+            if count == 0 {
+                continue;
+            }
+            let key = self
+                .group_order
+                .get(group_order_index)
+                .cloned()
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex source-order numeric-UTF8 aggregate retained key was missing; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+            let group = self.groups.get_mut(&key).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex source-order numeric-UTF8 aggregate retained group was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            group.increment_count_star_by(count)?;
+        }
+        Ok(())
+    }
+
+    fn source_order_numeric_utf8_group_roles_for_accessors(
+        &self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+    ) -> Option<NumericUtf8GroupRoles> {
+        if row_indices.is_some()
+            || self.source_order_group_admission_limit().is_none()
+            || !self.request.order_by.is_empty()
+            || !self.request.having.is_empty()
+            || self.group_key_indices.len() != 2
+            || self.group_columns.len() != 2
+            || self.single_numeric_count_groups.is_some()
+            || self.numeric_pair_compact_groups.is_some()
+            || self.numeric_pair_late_measure_count_groups.is_some()
+            || self.numeric_minute_string_count_groups.is_some()
+            || self.string_count_topk_heavy_hitter_sketch.is_some()
+            || self.string_count_topk_exact_counts.is_some()
+            || self
+                .string_count_distinct_topk_heavy_hitter_sketch
+                .is_some()
+            || self.string_count_distinct_topk_exact_sets.is_some()
+            || self.numeric_utf8_topk_heavy_hitter_sketch.is_some()
+            || self.numeric_utf8_topk_candidate_keys.is_some()
+            || self.numeric_utf8_topk_exact_counts.is_some()
+        {
+            return None;
+        }
+        let mut numeric_group_index = None;
+        let mut utf8_group_index = None;
+        for &group_index in &self.group_key_indices {
+            let group_column = self.group_columns.get(group_index)?;
+            if !group_column.extra_column_indices.is_empty()
+                || !matches!(group_column.transform, AggregateValueTransform::Identity)
+            {
+                return None;
+            }
+            let accessor = accessors.get(group_column.column_index)?;
+            if accessor.is_direct_integer() && numeric_group_index.is_none() {
+                numeric_group_index = Some(group_index);
+            } else if let AggregateDirectColumnAccessor::Utf8Dictionary {
+                value_nulls,
+                row_nulls,
+                ..
+            } = accessor
+            {
+                if !aggregate_utf8_dictionary_value_nulls_are_absent(
+                    value_nulls.as_deref(),
+                    row_nulls.as_deref(),
+                ) {
+                    return None;
+                }
+                if utf8_group_index.is_none() {
+                    utf8_group_index = Some(group_index);
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        }
+        let numeric_group_index = numeric_group_index?;
+        let utf8_group_index = utf8_group_index?;
+        Some(NumericUtf8GroupRoles {
+            numeric_group: numeric_group_index,
+            numeric_column: self.group_columns.get(numeric_group_index)?.column_index,
+            utf8_group: utf8_group_index,
+            utf8_column: self.group_columns.get(utf8_group_index)?.column_index,
+        })
+    }
+
+    fn source_order_numeric_utf8_existing_groups_admitted(
+        &self,
+        roles: NumericUtf8GroupRoles,
+    ) -> Result<bool> {
+        self.group_order
+            .iter()
+            .map(|key| self.source_order_numeric_utf8_key_parts(key, roles))
+            .try_fold(true, |admitted, key_parts| {
+                key_parts.map(|key_parts| admitted && key_parts.is_some())
+            })
+    }
+
+    fn source_order_numeric_utf8_candidate_slots(
+        &self,
+        dictionary_values: &[std::sync::Arc<str>],
+        roles: NumericUtf8GroupRoles,
+    ) -> Result<Option<Vec<Vec<SourceOrderNumericUtf8Candidate>>>> {
+        let mut candidates_by_string_id =
+            rustc_hash::FxHashMap::<u64, Vec<SourceOrderNumericUtf8Candidate>>::default();
+        for (group_order_index, key) in self.group_order.iter().enumerate() {
+            let Some((numeric, utf8_id)) = self.source_order_numeric_utf8_key_parts(key, roles)?
+            else {
+                return Ok(None);
+            };
+            candidates_by_string_id.entry(utf8_id).or_default().push(
+                SourceOrderNumericUtf8Candidate {
+                    numeric_bits: numeric.bits,
+                    numeric_signed: numeric.signed,
+                    group_order_index,
+                },
+            );
+        }
+        let mut candidates_by_code = vec![Vec::new(); dictionary_values.len()];
+        for (code_index, value) in dictionary_values.iter().enumerate() {
+            if let Some(utf8_id) = self.string_interner.id(value.as_ref())
+                && let Some(candidates) = candidates_by_string_id.get(&utf8_id)
+            {
+                candidates_by_code[code_index].extend_from_slice(candidates);
+            }
+        }
+        Ok(Some(candidates_by_code))
+    }
+
+    fn source_order_numeric_utf8_key_parts(
+        &self,
+        key: &AggregateGroupKey,
+        roles: NumericUtf8GroupRoles,
+    ) -> Result<Option<(AggregateIntegerKeyPart, u64)>> {
+        let numeric_position = self
+            .key_position_for_group_index(roles.numeric_group)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex source-order numeric-UTF8 aggregate numeric key position was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        let utf8_position = self
+            .key_position_for_group_index(roles.utf8_group)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex source-order numeric-UTF8 aggregate UTF-8 key position was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        let numeric = key
+            .get(numeric_position)
+            .and_then(aggregate_distinct_integer_key_part);
+        let utf8_id = key
+            .get(utf8_position)
+            .and_then(|value| aggregate_distinct_utf8_interned_id(value, &self.string_interner));
+        Ok(numeric.zip(utf8_id))
     }
 
     fn update_single_numeric_count_direct_from_accessors(
@@ -25873,6 +26294,9 @@ impl<'a> GroupedAggregateStates<'a> {
             if self.update_numeric_pair_compact_direct_from_accessors(&accessors, row_indices)? {
                 return Ok(true);
             }
+            if self.update_compact_direct_from_dictionary_group(&accessors, row_indices)? {
+                return Ok(true);
+            }
             if self.update_compact_direct_from_transformed_dictionary(&accessors, row_indices)? {
                 return Ok(true);
             }
@@ -26008,6 +26432,183 @@ impl<'a> GroupedAggregateStates<'a> {
                         )
                     })
             })
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn update_compact_direct_from_dictionary_group(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+    ) -> Result<bool> {
+        if self.group_key_indices.len() != 1
+            || self.group_columns.len() != 1
+            || self.source_order_group_admission_limit().is_some()
+            || self.single_numeric_count_groups.is_some()
+            || self.numeric_pair_compact_groups.is_some()
+            || self.numeric_pair_late_measure_count_groups.is_some()
+            || self.numeric_minute_string_count_groups.is_some()
+            || self.string_count_topk_heavy_hitter_sketch.is_some()
+            || self.string_count_topk_exact_counts.is_some()
+            || self
+                .string_count_distinct_topk_heavy_hitter_sketch
+                .is_some()
+            || self.string_count_distinct_topk_candidate_ids.is_some()
+            || self.string_count_distinct_topk_exact_sets.is_some()
+            || self.numeric_utf8_topk_heavy_hitter_sketch.is_some()
+            || self.numeric_utf8_topk_candidate_keys.is_some()
+            || self.numeric_utf8_topk_exact_counts.is_some()
+        {
+            return Ok(false);
+        }
+        let specs = self.compact_measure_specs.clone().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex dictionary-group compact aggregate measure specs were missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        if !specs
+            .iter()
+            .all(|spec| dictionary_group_compact_measure_spec_admitted(spec, accessors))
+        {
+            return Ok(false);
+        }
+        let group_index = self.group_key_indices[0];
+        let group_column = self.group_columns.get(group_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex dictionary-group compact aggregate group index was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        if !group_column.extra_column_indices.is_empty()
+            || !matches!(group_column.transform, AggregateValueTransform::Identity)
+        {
+            return Ok(false);
+        }
+        let group_accessor_index = group_column.column_index;
+        let Some(AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids: group_row_ids,
+            values: group_values,
+            value_nulls: group_value_nulls,
+            row_nulls: group_row_nulls,
+            ..
+        }) = accessors.get(group_accessor_index)
+        else {
+            return Ok(false);
+        };
+        let selected_rows = row_indices.map_or(group_row_ids.len(), <[usize]>::len);
+        let mut partials =
+            rustc_hash::FxHashMap::<DictionaryGroupCodeKey, CompactAggregateMeasures>::default();
+        reserve_hash_map_capacity(
+            &mut partials,
+            selected_rows.min(group_values.len().saturating_add(1)),
+            "dictionary-group compact grouped aggregate partials",
+        )?;
+        let mut key_order = Vec::new();
+        key_order
+            .try_reserve(selected_rows.min(group_values.len().saturating_add(1)))
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local Vortex dictionary-group compact aggregate order reservation failed: {error}; no fallback execution was attempted"
+                ))
+            })?;
+        let count_having_prefilter = self.count_star_having_prefilter().filter(|_| {
+            dictionary_group_values_are_code_unique(group_values, group_value_nulls.as_deref())
+        });
+        let count_having_group_totals = if count_having_prefilter.is_some() {
+            Some(dictionary_group_code_counts_for_rows(
+                group_row_ids,
+                group_values.len(),
+                group_value_nulls.as_deref(),
+                group_row_nulls.as_deref(),
+                row_indices,
+            )?)
+        } else {
+            None
+        };
+        let mut dictionary_group_count_having_prefilter_seen = count_having_prefilter.is_some();
+        let mut add_row = |row_index: usize| -> Result<()> {
+            let code_key = dictionary_group_code_key_for_row(
+                group_row_ids,
+                group_values.len(),
+                group_value_nulls.as_deref(),
+                group_row_nulls.as_deref(),
+                row_index,
+            )?;
+            if let (Some(filters), Some(group_totals)) = (
+                count_having_prefilter.as_deref(),
+                count_having_group_totals.as_ref(),
+            ) {
+                dictionary_group_count_having_prefilter_seen = true;
+                let group_total = group_totals.get(&code_key).copied().unwrap_or(0);
+                if !Self::count_star_having_prefilter_matches(group_total, filters) {
+                    return Ok(());
+                }
+            }
+            let partial = match partials.entry(code_key) {
+                std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    key_order.push(code_key);
+                    entry.insert(CompactAggregateMeasures::new(&specs))
+                }
+            };
+            partial.update_from_direct_row(&specs, accessors, row_index)
+        };
+        if let Some(row_indices) = row_indices {
+            for &row_index in row_indices {
+                add_row(row_index)?;
+            }
+        } else {
+            for row_index in 0..group_row_ids.len() {
+                add_row(row_index)?;
+            }
+        }
+        let record_source_order = self.request.order_by.is_empty();
+        for code_key in key_order {
+            let key = dictionary_group_code_key_to_aggregate_group_key(
+                code_key,
+                group_values,
+                &mut self.string_interner,
+            )?;
+            let measures = partials.remove(&code_key).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex dictionary-group compact aggregate partial was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            match self.groups.entry(key) {
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    let group = entry.get_mut();
+                    let GroupedAggregateState::CompactMeasures {
+                        measures: existing, ..
+                    } = group
+                    else {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex dictionary-group compact aggregate reached incompatible group state; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    };
+                    existing.merge_same_specs(&specs, &measures)?;
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    if record_source_order {
+                        self.group_order.push(entry.key().clone());
+                    }
+                    entry.insert(GroupedAggregateState::CompactMeasures {
+                        group_values: None,
+                        measures,
+                    });
+                }
+            }
+        }
+        self.count_star_direct_updates = specs.iter().any(|spec| {
+            spec.function == SimpleAggregateFunction::Count && spec.column_index.is_none()
+        });
+        self.compact_measure_direct_updates = true;
+        self.chunk_dictionary_direct_updates = true;
+        self.dictionary_group_compact_measure_direct_updates = true;
+        self.dictionary_group_count_having_prefilter |=
+            dictionary_group_count_having_prefilter_seen;
+        Ok(true)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -27722,6 +28323,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "numeric_utf8_topk_heavy_hitter_threshold": threshold,
             "numeric_utf8_topk_heavy_hitter_exact_proof": true,
             "numeric_utf8_topk_dictionary_code_reuse": self.numeric_utf8_topk_dictionary_code_reuse,
+            "numeric_utf8_topk_chunk_compacted_updates": self.numeric_utf8_topk_chunk_compacted_updates,
             "values": rows,
         });
         json_object_insert_bool(
@@ -29169,6 +29771,9 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.single_numeric_count_groups.is_some() {
             return "typed_single_numeric_hash_key";
         }
+        if self.source_order_numeric_utf8_dictionary_direct_updates {
+            return "typed_source_order_numeric_utf8_dictionary_code_key";
+        }
         if self.numeric_pair_compact_groups.is_some() {
             return "typed_numeric_pair_hash_key";
         }
@@ -29297,6 +29902,8 @@ impl<'a> GroupedAggregateStates<'a> {
     fn aggregate_update_strategy(&self) -> &'static str {
         if self.single_numeric_count_direct_updates {
             "single_numeric_count_direct_group_update"
+        } else if self.source_order_numeric_utf8_dictionary_direct_updates {
+            "source_order_numeric_utf8_dictionary_code_count_star_group_update"
         } else if self.numeric_minute_string_dictionary_code_reuse {
             "numeric_minute_string_dictionary_code_direct_group_update"
         } else if self.numeric_minute_string_count_direct_updates {
@@ -29339,6 +29946,8 @@ impl<'a> GroupedAggregateStates<'a> {
             }
         } else if self.transformed_dictionary_compact_code_pair_partials {
             "transformed_dictionary_compact_code_pair_partial_group_update"
+        } else if self.dictionary_group_compact_measure_direct_updates {
+            "dictionary_group_compact_count_sum_avg_group_update"
         } else if self.transformed_dictionary_compact_direct_updates {
             "transformed_dictionary_compact_count_sum_avg_group_update"
         } else if self.transformed_dictionary_general_direct_updates {
@@ -29383,6 +29992,8 @@ impl<'a> GroupedAggregateStates<'a> {
     fn compact_group_state_strategy(&self) -> &'static str {
         if self.single_numeric_count_direct_updates {
             "single_numeric_compact_count_star_group_state"
+        } else if self.source_order_numeric_utf8_dictionary_direct_updates {
+            "source_order_numeric_utf8_dictionary_code_compact_count_star_group_state"
         } else if self.numeric_minute_string_dictionary_code_reuse {
             "numeric_minute_string_dictionary_code_compact_count_star_group_state"
         } else if self.numeric_minute_string_count_direct_updates {
@@ -29423,6 +30034,8 @@ impl<'a> GroupedAggregateStates<'a> {
             }
         } else if self.transformed_dictionary_compact_code_pair_partials {
             "chunk_dictionary_transformed_compact_code_pair_group_state"
+        } else if self.dictionary_group_compact_measure_direct_updates {
+            "chunk_dictionary_compact_count_sum_avg_group_state"
         } else if self.transformed_dictionary_compact_direct_updates {
             "chunk_dictionary_transformed_compact_count_sum_avg_group_state"
         } else if self.transformed_dictionary_general_direct_updates {
@@ -29454,6 +30067,8 @@ impl<'a> GroupedAggregateStates<'a> {
     fn group_key_storage(&self) -> &'static str {
         if self.single_numeric_count_groups.is_some() {
             "typed_single_numeric_key"
+        } else if self.source_order_numeric_utf8_dictionary_direct_updates {
+            "source_order_retained_numeric_utf8_dictionary_code_keys"
         } else if self.numeric_minute_string_count_groups.is_some() {
             if self.numeric_minute_string_dictionary_code_reuse {
                 return "typed_numeric_minute_dictionary_code_key";
@@ -29501,6 +30116,8 @@ impl<'a> GroupedAggregateStates<'a> {
     fn group_state_mode(&self) -> &'static str {
         if self.single_numeric_count_direct_updates {
             "single_numeric_hot_hash_map"
+        } else if self.source_order_numeric_utf8_dictionary_direct_updates {
+            "source_order_numeric_utf8_dictionary_candidate_slots"
         } else if self.numeric_minute_string_dictionary_code_reuse {
             "numeric_minute_string_dictionary_code_hot_hash_map"
         } else if self.numeric_minute_string_count_direct_updates {
@@ -29535,6 +30152,8 @@ impl<'a> GroupedAggregateStates<'a> {
             }
         } else if self.transformed_dictionary_compact_code_pair_partials {
             "transformed_chunk_dictionary_compact_code_pair_map"
+        } else if self.dictionary_group_compact_measure_direct_updates {
+            "chunk_dictionary_compact_measure_code_map"
         } else if self.transformed_dictionary_compact_direct_updates {
             "transformed_chunk_dictionary_compact_measure_code_map"
         } else if self.transformed_dictionary_general_direct_updates {
@@ -30181,9 +30800,14 @@ impl<'a> GroupedAggregateStates<'a> {
             if self.numeric_minute_string_count_direct_updates {
                 state_family.push_str("+numeric_minute_string");
             }
+            if self.source_order_numeric_utf8_dictionary_direct_updates {
+                state_family.push_str("+source_order_numeric_utf8_dictionary_slots");
+            }
         }
         if self.chunk_dictionary_direct_updates {
-            if self.transformed_dictionary_compact_direct_updates {
+            if self.dictionary_group_compact_measure_direct_updates {
+                state_family.push_str("+chunk_dictionary_compact_measures");
+            } else if self.transformed_dictionary_compact_direct_updates {
                 state_family.push_str("+chunk_dictionary_transformed_compact_measures");
                 if self.transformed_dictionary_compact_code_pair_partials {
                     state_family.push_str("+code_pair_partials");
@@ -30199,7 +30823,9 @@ impl<'a> GroupedAggregateStates<'a> {
             {
                 state_family.push_str("+transformed");
             }
-            if self.transformed_dictionary_count_having_prefilter {
+            if self.transformed_dictionary_count_having_prefilter
+                || self.dictionary_group_count_having_prefilter
+            {
                 state_family.push_str("+count_having_prefilter");
             }
             if self.string_count_topk_heavy_hitter_direct_updates {
@@ -30215,6 +30841,9 @@ impl<'a> GroupedAggregateStates<'a> {
                 || self.numeric_utf8_topk_exact_counts.is_some()
             {
                 state_family.push_str("+proofbound_numeric_utf8_heavy_hitter");
+                if self.numeric_utf8_topk_chunk_compacted_updates {
+                    state_family.push_str("+chunk_compacted_updates");
+                }
             }
         }
         if self.chunk_materialized_partial_updates {
@@ -30300,6 +30929,16 @@ impl<'a> GroupedAggregateStates<'a> {
                 pulseweave_pressure_signals.push("row_state_update_bypass");
             }
         }
+        if self.dictionary_group_compact_measure_direct_updates {
+            capillary_work_units.push("dictionary_group_compact_measure_update");
+            capillary_work_units.push("dictionary_code_group_measure_merge");
+            pulseweave_pressure_signals.push("dictionary_group_code_reuse");
+            pulseweave_pressure_signals.push("row_state_update_bypass");
+            if self.dictionary_group_count_having_prefilter {
+                capillary_work_units.push("count_having_preupdate_group_filter");
+                pulseweave_pressure_signals.push("having_selectivity_before_state_update");
+            }
+        }
         if self.transformed_dictionary_general_direct_updates {
             capillary_work_units.push("transformed_dictionary_general_measure_update");
             capillary_work_units.push("dictionary_value_transform_group_cache");
@@ -30325,6 +30964,12 @@ impl<'a> GroupedAggregateStates<'a> {
             capillary_work_units.push("existing_group_key_probe");
             pulseweave_pressure_signals.push("admitted_group_limit");
             pulseweave_pressure_signals.push("skipped_new_group_keys_after_limit");
+            if self.source_order_numeric_utf8_dictionary_direct_updates {
+                capillary_work_units.push("source_order_numeric_utf8_dictionary_candidate_slots");
+                capillary_work_units.push("source_order_candidate_count_merge");
+                pulseweave_pressure_signals.push("dictionary_code_string_key_reuse");
+                pulseweave_pressure_signals.push("source_order_candidate_slot_hits");
+            }
         }
         if self.single_numeric_count_direct_updates {
             capillary_work_units.push("typed_single_numeric_group_state");
@@ -30486,6 +31131,12 @@ impl<'a> GroupedAggregateStates<'a> {
             if self.numeric_utf8_topk_dictionary_code_reuse {
                 capillary_work_units.push("dictionary_code_bound_numeric_utf8_key");
                 pulseweave_pressure_signals.push("dictionary_code_string_key_reuse");
+            }
+            if self.numeric_utf8_topk_chunk_compacted_updates {
+                capillary_work_units.push("numeric_utf8_chunk_compacted_sketch_update");
+                capillary_work_units.push("numeric_utf8_chunk_compacted_exact_merge");
+                pulseweave_pressure_signals.push("numeric_utf8_chunk_unique_key_ratio");
+                pulseweave_pressure_signals.push("numeric_utf8_weighted_sketch_updates");
             }
         }
         if self.string_interner.len() > 0 {
@@ -31179,6 +31830,130 @@ fn json_object_insert_usize(
 type NumericUtf8ExactDictionaryInputs<'a> = (&'a [u32], &'a [std::sync::Arc<str>]);
 
 #[cfg(feature = "vortex-local-primitives")]
+type SourceOrderNumericUtf8DirectInputs<'a> = (
+    &'a AggregateDirectColumnAccessor,
+    &'a [u32],
+    &'a [std::sync::Arc<str>],
+);
+
+#[cfg(feature = "vortex-local-primitives")]
+fn numeric_utf8_topk_chunk_compaction_admitted(
+    numeric_accessor: &AggregateDirectColumnAccessor,
+    utf8_accessor: &AggregateDirectColumnAccessor,
+    dictionary_string_ids: &[u64],
+) -> Result<bool> {
+    const MIN_ROWS: usize = 16_384;
+    const SAMPLE_ROWS: usize = 4096;
+    let rows = numeric_accessor.len();
+    if rows < MIN_ROWS || rows != utf8_accessor.len() {
+        return Ok(false);
+    }
+    let sample_rows = SAMPLE_ROWS.min(rows);
+    let mut sampled = rustc_hash::FxHashSet::<AggregateNumericUtf8InternedKey>::default();
+    reserve_hash_set_capacity(
+        &mut sampled,
+        sample_rows,
+        "numeric-UTF8 top-K chunk-compaction sample",
+    )?;
+    for sample_index in 0..sample_rows {
+        let row_index = sample_index.checked_mul(rows).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-UTF8 top-K sample row index overflowed".to_string(),
+            )
+        })? / sample_rows;
+        let numeric =
+            aggregate_direct_integer_key_part(numeric_accessor, row_index, "numeric-UTF8")?;
+        let utf8_id = aggregate_direct_utf8_dictionary_bound_id(
+            utf8_accessor,
+            dictionary_string_ids,
+            row_index,
+        )?;
+        sampled.insert(AggregateNumericUtf8InternedKey::new(numeric, utf8_id));
+    }
+    Ok(sampled.len().saturating_mul(4) <= sample_rows.saturating_mul(3))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn numeric_utf8_topk_chunk_counts(
+    numeric_accessor: &AggregateDirectColumnAccessor,
+    utf8_accessor: &AggregateDirectColumnAccessor,
+    dictionary_string_ids: &[u64],
+) -> Result<rustc_hash::FxHashMap<AggregateNumericUtf8InternedKey, u64>> {
+    let rows = numeric_accessor.len();
+    if rows != utf8_accessor.len() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex numeric-UTF8 top-K chunk compaction saw inconsistent row counts; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    let mut counts = rustc_hash::FxHashMap::<AggregateNumericUtf8InternedKey, u64>::default();
+    reserve_hash_map_capacity(
+        &mut counts,
+        rows.min(65_536),
+        "numeric-UTF8 top-K chunk-compacted key counts",
+    )?;
+    for row_index in 0..rows {
+        let numeric =
+            aggregate_direct_integer_key_part(numeric_accessor, row_index, "numeric-UTF8")?;
+        let utf8_id = aggregate_direct_utf8_dictionary_bound_id(
+            utf8_accessor,
+            dictionary_string_ids,
+            row_index,
+        )?;
+        let key = AggregateNumericUtf8InternedKey::new(numeric, utf8_id);
+        let count = counts.entry(key).or_insert(0);
+        *count = count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-UTF8 top-K chunk-compacted count overflowed u64".to_string(),
+            )
+        })?;
+    }
+    Ok(counts)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn source_order_numeric_utf8_direct_inputs(
+    accessors: &[AggregateDirectColumnAccessor],
+    roles: NumericUtf8GroupRoles,
+) -> Result<Option<SourceOrderNumericUtf8DirectInputs<'_>>> {
+    let numeric_accessor = accessors.get(roles.numeric_column).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex source-order numeric-UTF8 aggregate numeric key column was missing; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    let utf8_accessor = accessors.get(roles.utf8_column).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex source-order numeric-UTF8 aggregate UTF-8 key column was missing; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    let AggregateDirectColumnAccessor::Utf8Dictionary {
+        row_ids,
+        values,
+        value_nulls,
+        row_nulls,
+        ..
+    } = utf8_accessor
+    else {
+        return Ok(None);
+    };
+    if numeric_accessor.len() != row_ids.len() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex source-order numeric-UTF8 aggregate key columns had inconsistent row counts; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if !aggregate_utf8_dictionary_value_nulls_are_absent(
+        value_nulls.as_deref(),
+        row_nulls.as_deref(),
+    ) {
+        return Ok(None);
+    }
+    Ok(Some((numeric_accessor, row_ids, values)))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn numeric_utf8_topk_exact_dictionary_inputs<'a>(
     numeric_accessor: &AggregateDirectColumnAccessor,
     utf8_accessor: &'a AggregateDirectColumnAccessor,
@@ -31230,6 +32005,63 @@ fn numeric_utf8_candidate_parts_by_dictionary_code(
             .insert((candidate.numeric_bits, candidate.numeric_signed));
     }
     candidate_numeric_by_code
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn numeric_utf8_topk_exact_chunk_counts(
+    numeric_accessor: &AggregateDirectColumnAccessor,
+    row_ids: &[u32],
+    values: &[std::sync::Arc<str>],
+    candidate_numeric_by_code: &[Option<rustc_hash::FxHashSet<(u64, bool)>>],
+    string_interner: &AggregateStringInterner,
+) -> Result<rustc_hash::FxHashMap<AggregateNumericUtf8InternedKey, u64>> {
+    let mut chunk_counts = rustc_hash::FxHashMap::<AggregateNumericUtf8InternedKey, u64>::default();
+    reserve_hash_map_capacity(
+        &mut chunk_counts,
+        candidate_numeric_by_code.len().min(numeric_accessor.len()),
+        "numeric-UTF8 top-K chunk exact counts",
+    )?;
+    for row_index in 0..numeric_accessor.len() {
+        let code_index = aggregate_utf8_dictionary_code_index(row_ids, row_index)?;
+        let Some(candidate_numeric_parts) = candidate_numeric_by_code
+            .get(code_index)
+            .and_then(Option::as_ref)
+        else {
+            if code_index >= candidate_numeric_by_code.len() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-UTF8 top-K heavy-hitter dictionary value was missing; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+            continue;
+        };
+        let numeric =
+            aggregate_direct_integer_key_part(numeric_accessor, row_index, "numeric-UTF8")?;
+        if !candidate_numeric_parts.contains(&(numeric.bits, numeric.signed)) {
+            continue;
+        }
+        let Some(utf8_id) = string_interner.id(values.get(code_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-UTF8 top-K heavy-hitter dictionary value was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?) else {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex numeric-UTF8 top-K heavy-hitter exact recount reached an uninterned dictionary value; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        };
+        let count = chunk_counts
+            .entry(AggregateNumericUtf8InternedKey::new(numeric, utf8_id))
+            .or_insert(0);
+        *count = count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-UTF8 top-K heavy-hitter exact count overflowed u64"
+                    .to_string(),
+            )
+        })?;
+    }
+    Ok(chunk_counts)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -31337,6 +32169,43 @@ fn integer_key_distinct_value(bits: u64, signed: bool) -> AggregateDistinctValue
         AggregateDistinctValue::Int64(signed_integer_from_bits(bits))
     } else {
         AggregateDistinctValue::UInt64(bits)
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_distinct_integer_key_part(
+    value: &AggregateDistinctValue,
+) -> Option<AggregateIntegerKeyPart> {
+    match value {
+        AggregateDistinctValue::Int64(value) => Some(AggregateIntegerKeyPart {
+            bits: value.cast_unsigned(),
+            signed: true,
+        }),
+        AggregateDistinctValue::UInt64(value) => Some(AggregateIntegerKeyPart {
+            bits: *value,
+            signed: false,
+        }),
+        AggregateDistinctValue::Null
+        | AggregateDistinctValue::Boolean(_)
+        | AggregateDistinctValue::Float64Bits(_)
+        | AggregateDistinctValue::Utf8(_)
+        | AggregateDistinctValue::Utf8Interned(_) => None,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_distinct_utf8_interned_id(
+    value: &AggregateDistinctValue,
+    interner: &AggregateStringInterner,
+) -> Option<u64> {
+    match value {
+        AggregateDistinctValue::Utf8Interned(id) => Some(*id),
+        AggregateDistinctValue::Utf8(value) => interner.id(value.as_ref()),
+        AggregateDistinctValue::Null
+        | AggregateDistinctValue::Boolean(_)
+        | AggregateDistinctValue::Int64(_)
+        | AggregateDistinctValue::UInt64(_)
+        | AggregateDistinctValue::Float64Bits(_) => None,
     }
 }
 
@@ -31662,6 +32531,146 @@ enum AggregateMaterializedStringPartialKey<'a> {
     Null,
     UInt64(u64),
     Utf8(&'a str),
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum DictionaryGroupCodeKey {
+    Null,
+    Code(u32),
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn dictionary_group_code_key_for_row(
+    row_ids: &[u32],
+    value_count: usize,
+    value_nulls: Option<&[bool]>,
+    row_nulls: Option<&[bool]>,
+    row_index: usize,
+) -> Result<DictionaryGroupCodeKey> {
+    if aggregate_utf8_dictionary_row_has_null(
+        row_ids,
+        value_count,
+        value_nulls,
+        row_nulls,
+        row_index,
+    )? {
+        return Ok(DictionaryGroupCodeKey::Null);
+    }
+    row_ids
+        .get(row_index)
+        .copied()
+        .map(DictionaryGroupCodeKey::Code)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex dictionary-group aggregate row index was out of bounds; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn dictionary_group_code_counts_for_rows(
+    row_ids: &[u32],
+    value_count: usize,
+    value_nulls: Option<&[bool]>,
+    row_nulls: Option<&[bool]>,
+    row_indices: Option<&[usize]>,
+) -> Result<rustc_hash::FxHashMap<DictionaryGroupCodeKey, u64>> {
+    let selected_rows = row_indices.map_or(row_ids.len(), <[usize]>::len);
+    let mut counts = rustc_hash::FxHashMap::<DictionaryGroupCodeKey, u64>::default();
+    reserve_hash_map_capacity(
+        &mut counts,
+        selected_rows.min(value_count.saturating_add(1)),
+        "dictionary-group count-HAVING prefilter counts",
+    )?;
+    let mut add_row = |row_index: usize| -> Result<()> {
+        let code_key = dictionary_group_code_key_for_row(
+            row_ids,
+            value_count,
+            value_nulls,
+            row_nulls,
+            row_index,
+        )?;
+        match counts.entry(code_key) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                *entry.get_mut() = entry.get().checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex dictionary-group count-HAVING total overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(1);
+            }
+        }
+        Ok(())
+    };
+    if let Some(row_indices) = row_indices {
+        for &row_index in row_indices {
+            add_row(row_index)?;
+        }
+    } else {
+        for row_index in 0..row_ids.len() {
+            add_row(row_index)?;
+        }
+    }
+    Ok(counts)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn dictionary_group_values_are_code_unique(
+    values: &[std::sync::Arc<str>],
+    value_nulls: Option<&[bool]>,
+) -> bool {
+    let mut seen = rustc_hash::FxHashSet::<&str>::default();
+    if reserve_hash_set_capacity(&mut seen, values.len(), "dictionary-group unique values").is_err()
+    {
+        return false;
+    }
+    for (index, value) in values.iter().enumerate() {
+        if value_nulls
+            .and_then(|nulls| nulls.get(index))
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        if !seen.insert(value.as_ref()) {
+            return false;
+        }
+    }
+    true
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn dictionary_group_code_key_to_aggregate_group_key(
+    code_key: DictionaryGroupCodeKey,
+    values: &[std::sync::Arc<str>],
+    string_interner: &mut AggregateStringInterner,
+) -> Result<AggregateGroupKey> {
+    match code_key {
+        DictionaryGroupCodeKey::Null => Ok(AggregateGroupKey::single(AggregateDistinctValue::Null)),
+        DictionaryGroupCodeKey::Code(code) => {
+            let value_index = usize::try_from(code).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local Vortex dictionary-group aggregate code overflowed usize: {error}; no fallback execution was attempted"
+                ))
+            })?;
+            let value = values.get(value_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex dictionary-group aggregate code referenced a missing dictionary value; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            Ok(AggregateGroupKey::single(
+                AggregateDistinctValue::Utf8Interned(
+                    string_interner.intern_arc(std::sync::Arc::clone(value))?,
+                ),
+            ))
+        }
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -33402,13 +34411,11 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
 fn aggregate_direct_numeric_dictionary_accessor(
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::PrimitiveArray;
     use vortex::array::arrays::dict::DictArraySlotsExt as _;
-    use vortex::array::dtype::PType;
 
     let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
-        return Ok(None);
-    };
-    let Some(values) = direct_host_primitive(dictionary_array.values()) else {
         return Ok(None);
     };
     let Some((row_ids, code_nulls)) =
@@ -33416,69 +34423,99 @@ fn aggregate_direct_numeric_dictionary_accessor(
     else {
         return Ok(None);
     };
-    let Some(value_nulls) = aggregate_direct_primitive_row_nulls(&values, None) else {
+    if let Some(values) = direct_host_primitive(dictionary_array.values()) {
+        return aggregate_direct_numeric_dictionary_accessor_from_primitive(
+            &row_ids,
+            code_nulls.as_deref(),
+            &values,
+        );
+    }
+    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let Ok(values) = dictionary_array
+        .values()
+        .clone()
+        .execute::<PrimitiveArray>(&mut ctx)
+    else {
+        return Ok(None);
+    };
+    aggregate_direct_numeric_dictionary_accessor_from_primitive(
+        &row_ids,
+        code_nulls.as_deref(),
+        &values,
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_numeric_dictionary_accessor_from_primitive(
+    row_ids: &[u32],
+    code_nulls: Option<&[bool]>,
+    values: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
+) -> Result<Option<AggregateDirectColumnAccessor>> {
+    use vortex::array::dtype::PType;
+
+    let Some(value_nulls) = aggregate_direct_primitive_row_nulls(values, None) else {
         return Ok(None);
     };
     match values.ptype() {
         PType::U8 => aggregate_direct_numeric_dictionary_u64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<u8>(),
             u64::from,
         )
         .map(Some),
         PType::U16 => aggregate_direct_numeric_dictionary_u64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<u16>(),
             u64::from,
         )
         .map(Some),
         PType::U32 => aggregate_direct_numeric_dictionary_u64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<u32>(),
             u64::from,
         )
         .map(Some),
         PType::U64 => aggregate_direct_numeric_dictionary_u64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<u64>(),
             |value| value,
         )
         .map(Some),
         PType::I8 => aggregate_direct_numeric_dictionary_i64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<i8>(),
             i64::from,
         )
         .map(Some),
         PType::I16 => aggregate_direct_numeric_dictionary_i64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<i16>(),
             i64::from,
         )
         .map(Some),
         PType::I32 => aggregate_direct_numeric_dictionary_i64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<i32>(),
             i64::from,
         )
         .map(Some),
         PType::I64 => aggregate_direct_numeric_dictionary_i64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<i64>(),
             |value| value,
@@ -33486,16 +34523,16 @@ fn aggregate_direct_numeric_dictionary_accessor(
         .map(Some),
         PType::F16 => Ok(None),
         PType::F32 => aggregate_direct_numeric_dictionary_f64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<f32>(),
             f64::from,
         )
         .map(Some),
         PType::F64 => aggregate_direct_numeric_dictionary_f64_accessor(
-            &row_ids,
-            code_nulls.as_deref(),
+            row_ids,
+            code_nulls,
             &value_nulls,
             values.as_slice::<f64>(),
             |value| value,
@@ -42197,6 +43234,86 @@ mod tests {
     }
 
     #[test]
+    fn simple_aggregate_rewrites_dictionary_backed_domain_and_length_to_code_group_partials() {
+        let path = unique_vortex_path("simple-aggregate-dictionary-embedded-code-partials");
+        write_dictionary_embedded_derived_url_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let aggregate = VortexSimpleAggregateRequest::new(vec![
+            crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+            crate::VortexSimpleAggregateMeasure::new(
+                "avg",
+                Some(ColumnRef::new("URL").expect("url")),
+                "avg_len".to_string(),
+            )
+            .with_value_transform("length"),
+        ])
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "domain".to_string(),
+            ColumnRef::new("URL").expect("url"),
+            "url_domain",
+        )]);
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(uri, aggregate);
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert!(report.projection_pushdown_applied);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.external_effects_executed);
+        let payload =
+            simple_aggregate_values_json(report.result_summary.as_deref().expect("summary"));
+        assert_eq!(
+            payload["embedded_derived_column_rewrite_status"],
+            serde_json::json!("applied")
+        );
+        assert_eq!(
+            payload["embedded_derived_column_rewrites"],
+            serde_json::json!([
+                "__shardloom_derived_url_domain_URL",
+                "__shardloom_derived_utf8_len_URL"
+            ])
+        );
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            serde_json::json!("dictionary_group_compact_count_sum_avg_group_update")
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            serde_json::json!("chunk_dictionary_compact_count_sum_avg_group_state")
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            serde_json::json!("chunk_dictionary_compact_measure_code_map")
+        );
+        assert_eq!(
+            payload["materialized_group_value_count"],
+            serde_json::json!(0)
+        );
+        let values = payload["values"].as_array().expect("grouped rows");
+        let google = values
+            .iter()
+            .find(|row| row["domain"] == serde_json::json!("google.com"))
+            .expect("google group");
+        let docs = values
+            .iter()
+            .find(|row| row["domain"] == serde_json::json!("docs.rs"))
+            .expect("docs group");
+        assert_eq!(google["rows"], serde_json::json!(2));
+        assert_eq!(
+            google["avg_len"],
+            serde_json::json!(
+                u64::try_from("https://www.google.com/search".len()).expect("len") as f64
+            )
+        );
+        assert_eq!(docs["rows"], serde_json::json!(1));
+        assert_eq!(
+            docs["avg_len"],
+            serde_json::json!(u64::try_from("https://docs.rs/crate".len()).expect("len") as f64)
+        );
+    }
+
+    #[test]
     fn scalar_string_count_distinct_reports_dictionary_arc_state() {
         let path = unique_vortex_path("count-distinct-dictionary-arc-state");
         write_dictionary_embedded_derived_url_fixture(&path).expect("fixture");
@@ -47893,6 +49010,42 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_accessor_keeps_encoded_numeric_vortex_dictionary_direct() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::VortexSessionExecute as _;
+        use vortex::array::arrays::{DictArray, PrimitiveArray};
+        use vortex::encodings::fastlanes::BitPackedData;
+
+        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let codes = [0_u8, 1, 0, 2]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values = [7_u32, 11, 13]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let encoded_codes = BitPackedData::encode(&codes, 2, &mut ctx)
+            .expect("encoded dictionary codes")
+            .into_array();
+        let encoded_values = BitPackedData::encode(&values, 4, &mut ctx)
+            .expect("encoded dictionary values")
+            .into_array();
+        let dictionary = DictArray::try_new(encoded_codes, encoded_values)
+            .expect("encoded numeric dictionary")
+            .into_array();
+
+        let accessor = aggregate_direct_column_accessor("CounterID", &dictionary)
+            .expect("encoded numeric dictionary accessor");
+
+        assert_eq!(accessor.evidence_kind(), "direct_u64");
+        let AggregateDirectColumnAccessor::UInt64(values) = accessor else {
+            panic!("encoded numeric dictionary should lower to direct u64 values");
+        };
+        assert_eq!(values, vec![7, 11, 7, 13]);
+    }
+
+    #[test]
     fn aggregate_accessor_keeps_filtered_primitives_typed() {
         use vortex::array::IntoArray as _;
         use vortex::array::arrays::{FilterArray, PrimitiveArray};
@@ -48677,7 +49830,7 @@ mod tests {
         assert_eq!(payload["group_state_mode"], "all_hot_hash_map");
         assert_eq!(
             payload["materialized_group_value_count"],
-            serde_json::json!(0)
+            serde_json::json!(2)
         );
         assert!(summary.contains("\"group_by\":\"label\""));
         assert!(summary.contains("\"label\":\"paid\""));
@@ -48996,7 +50149,7 @@ mod tests {
         let rows = payload["values"].as_array().expect("values");
         assert_eq!(
             rows.first().expect("first")["watch_id"],
-            serde_json::json!(0)
+            serde_json::json!(2)
         );
         assert_eq!(
             rows.last().expect("last")["watch_id"],
@@ -49291,6 +50444,90 @@ mod tests {
         assert_eq!(payload["values"][0]["url"], serde_json::json!("hot"));
         assert_eq!(payload["values"][0]["rows"], serde_json::json!(3));
         assert_eq!(payload["values"][1]["url"], serde_json::json!("warm"));
+        assert_eq!(payload["values"][1]["rows"], serde_json::json!(2));
+    }
+
+    #[test]
+    fn grouped_aggregate_string_count_topk_admits_constant_dependent_group_key() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("url").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )],
+        )
+        .with_group_expressions(vec![
+            crate::VortexAggregateExpression::new(
+                "literal_1".to_string(),
+                ColumnRef::new("url").expect("column"),
+                "constant_int",
+            )
+            .with_argument_offset(1),
+        ])
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let uri = DatasetUri::new("file:///tmp/string-constant-topk.vortex").expect("uri");
+        let primitive_request = VortexQueryPrimitiveRequest::simple_aggregate(uri, request.clone())
+            .with_source_order_limit(2);
+        assert!(string_count_topk_heavy_hitter_route_enabled(
+            1_000_000,
+            &request,
+            &primitive_request,
+            true,
+        ));
+        let declared_columns = vec!["url".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, true)
+                .expect("states");
+        let accessors = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids: vec![0, 0, 0, 1, 1, 2],
+            values: vec![
+                std::sync::Arc::<str>::from("hot"),
+                std::sync::Arc::<str>::from("warm"),
+                std::sync::Arc::<str>::from("cold"),
+            ],
+            value_nulls: None,
+            row_nulls: None,
+            source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+        }];
+
+        assert!(
+            states
+                .update_string_count_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("heavy-hitter count pass")
+        );
+        states
+            .prepare_string_count_topk_heavy_hitter_second_pass()
+            .expect("prepare candidates");
+        assert!(
+            states
+                .update_string_count_topk_heavy_hitter_exact_from_accessors(&accessors, None)
+                .expect("exact recount")
+        );
+        assert!(
+            states
+                .string_count_topk_exact_proved(Some(2))
+                .expect("exact proof")
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["group_output_strategy"],
+            "proofbound_heavy_hitter_string_count_topk_late_recount"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "string_dictionary_code_candidate_state_then_exact_recount"
+        );
+        assert_eq!(payload["values"][0]["url"], serde_json::json!("hot"));
+        assert_eq!(payload["values"][0]["literal_1"], serde_json::json!(1));
+        assert_eq!(payload["values"][0]["rows"], serde_json::json!(3));
+        assert_eq!(payload["values"][1]["url"], serde_json::json!("warm"));
+        assert_eq!(payload["values"][1]["literal_1"], serde_json::json!(1));
         assert_eq!(payload["values"][1]["rows"], serde_json::json!(2));
     }
 
@@ -50128,6 +51365,104 @@ mod tests {
     }
 
     #[test]
+    fn grouped_aggregate_numeric_utf8_topk_compacts_repeated_chunk_keys() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("user_id").expect("column"),
+                ColumnRef::new("search_phrase").expect("column"),
+            ],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let declared_columns = vec!["user_id".to_string(), "search_phrase".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        states.enable_numeric_utf8_topk_heavy_hitter();
+        let mut numeric = Vec::with_capacity(20_000);
+        let mut row_ids = Vec::with_capacity(20_000);
+        for row_index in 0..20_000 {
+            if row_index < 12_000 {
+                numeric.push(1);
+                row_ids.push(0);
+            } else {
+                numeric.push(2);
+                row_ids.push(1);
+            }
+        }
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Int64(numeric),
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids,
+                values: vec![
+                    std::sync::Arc::<str>::from("hot"),
+                    std::sync::Arc::<str>::from("warm"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+        ];
+
+        assert!(
+            states
+                .update_numeric_utf8_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("chunk-compacted heavy-hitter count pass")
+        );
+        assert!(states.numeric_utf8_topk_chunk_compacted_updates);
+        states
+            .prepare_numeric_utf8_topk_heavy_hitter_second_pass()
+            .expect("prepare candidates");
+        assert!(
+            states
+                .update_numeric_utf8_topk_heavy_hitter_exact_from_accessors(&accessors)
+                .expect("chunk-compacted exact recount")
+        );
+        assert!(
+            states
+                .numeric_utf8_topk_exact_proved(Some(2))
+                .expect("exact proof")
+        );
+        let budget = states
+            .state_budget_report(&request, 20_000, 2)
+            .expect("state budget");
+        assert!(budget.state_family.contains("chunk_compacted_updates"));
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"numeric_utf8_chunk_compacted_sketch_update".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"numeric_utf8_chunk_compacted_exact_merge".to_string())
+        );
+        let (_, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(
+            payload["numeric_utf8_topk_chunk_compacted_updates"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["values"][0]["search_phrase"],
+            serde_json::json!("hot")
+        );
+        assert_eq!(payload["values"][0]["rows"], serde_json::json!(12000));
+        assert_eq!(
+            payload["values"][1]["search_phrase"],
+            serde_json::json!("warm")
+        );
+        assert_eq!(payload["values"][1]["rows"], serde_json::json!(8000));
+    }
+
+    #[test]
     fn numeric_utf8_dictionary_interner_reuses_prepared_dictionary_arc() {
         let hot = std::sync::Arc::<str>::from("hot");
         let warm = std::sync::Arc::<str>::from("warm");
@@ -50484,7 +51819,7 @@ mod tests {
         assert_eq!(payload["retained_candidate_groups"], serde_json::json!(2));
         assert_eq!(
             payload["materialized_group_value_count"],
-            serde_json::json!(0)
+            serde_json::json!(2)
         );
         assert_eq!(payload["decoded_string_count"], serde_json::json!(3));
         let rows = payload["values"].as_array().expect("values");
@@ -51087,24 +52422,33 @@ mod tests {
             },
         ];
 
-        for row_index in 0..6 {
+        assert!(
             states
-                .update_count_star_direct_row(&direct_accessors, row_index)
-                .expect("count-star row update");
-        }
-        states.count_star_direct_updates = true;
+                .update_source_order_numeric_utf8_count_from_accessors(&direct_accessors, None)
+                .expect("source-order numeric UTF8 count update")
+        );
 
         let budget = states
             .state_budget_report(&request, 6, 2)
             .expect("state budget");
         assert_eq!(
             budget.state_family,
-            "grouped_aggregate_state+count_star_direct+compact_group_state+source_order_group_admission_cap"
+            "grouped_aggregate_state+count_star_direct+compact_group_state+source_order_numeric_utf8_dictionary_slots+chunk_dictionary_counts+source_order_group_admission_cap"
         );
         assert!(
             budget
                 .capillary_work_units
                 .contains(&"source_order_group_admission_gate".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"source_order_numeric_utf8_dictionary_candidate_slots".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"source_order_candidate_count_merge".to_string())
         );
         let (row_count, summary) = states
             .result_row_count_and_summary(Some(2))
@@ -51119,6 +52463,22 @@ mod tests {
         assert_eq!(
             payload["group_admission_strategy"],
             "first_k_source_order_groups_then_existing_key_updates"
+        );
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "source_order_numeric_utf8_dictionary_code_count_star_group_update"
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "source_order_numeric_utf8_dictionary_code_compact_count_star_group_state"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "source_order_numeric_utf8_dictionary_candidate_slots"
+        );
+        assert_eq!(
+            payload["group_key_storage"],
+            "source_order_retained_numeric_utf8_dictionary_code_keys"
         );
         assert_eq!(payload["candidate_groups"], serde_json::json!(2));
         assert_eq!(payload["decoded_string_count"], serde_json::json!(2));
@@ -52107,6 +53467,197 @@ mod tests {
         assert_eq!(rows[1]["k"], serde_json::json!("other.test"));
         assert_eq!(rows[1]["c"], serde_json::json!(1));
         assert_eq!(rows[1]["l"], serde_json::json!(4.0));
+    }
+
+    #[test]
+    fn grouped_compact_measures_embedded_dictionary_group_reuses_group_codes() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            Vec::new(),
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "c".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(
+                        ColumnRef::new("__shardloom_derived_utf8_len_URL").expect("hidden length"),
+                    ),
+                    "l".to_string(),
+                ),
+            ],
+        )
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "domain".to_string(),
+            ColumnRef::new("__shardloom_derived_url_domain_Referer").expect("hidden domain"),
+            "identity",
+        )])
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
+        let declared_columns = vec![
+            "__shardloom_derived_url_domain_Referer".to_string(),
+            "__shardloom_derived_utf8_len_URL".to_string(),
+        ];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 1, 0, 2],
+                values: vec![
+                    std::sync::Arc::<str>::from("example.test"),
+                    std::sync::Arc::<str>::from("other.test"),
+                    std::sync::Arc::<str>::from("example.test"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::VortexDictArray,
+            },
+            AggregateDirectColumnAccessor::UInt64(vec![1, 4, 8, 1]),
+        ];
+
+        assert!(
+            states
+                .update_compact_direct_from_dictionary_group(&accessors, None)
+                .expect("embedded dictionary compact update")
+        );
+
+        let budget = states
+            .state_budget_report(&request, 4, 2)
+            .expect("state budget");
+        assert_eq!(
+            budget.state_family,
+            "grouped_aggregate_state+topk+count_star_direct+chunk_dictionary_compact_measures+compact_numeric_measures"
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"dictionary_group_compact_measure_update".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"dictionary_code_group_measure_merge".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"dictionary_group_code_reuse".to_string())
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "dictionary_group_compact_count_sum_avg_group_update"
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "chunk_dictionary_compact_count_sum_avg_group_state"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "chunk_dictionary_compact_measure_code_map"
+        );
+        assert_eq!(
+            payload["materialized_group_value_count"],
+            serde_json::json!(0)
+        );
+        let rows = payload["values"].as_array().expect("values");
+        assert_eq!(rows[0]["domain"], serde_json::json!("example.test"));
+        assert_eq!(rows[0]["c"], serde_json::json!(3));
+        assert_eq!(rows[0]["l"], serde_json::json!(10.0 / 3.0));
+        assert_eq!(rows[1]["domain"], serde_json::json!("other.test"));
+        assert_eq!(rows[1]["c"], serde_json::json!(1));
+        assert_eq!(rows[1]["l"], serde_json::json!(4.0));
+    }
+
+    #[test]
+    fn grouped_compact_measures_embedded_dictionary_group_prefilters_count_having() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            Vec::new(),
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "c".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(
+                        ColumnRef::new("__shardloom_derived_utf8_len_URL").expect("hidden length"),
+                    ),
+                    "l".to_string(),
+                ),
+            ],
+        )
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "domain".to_string(),
+            ColumnRef::new("__shardloom_derived_url_domain_Referer").expect("hidden domain"),
+            "identity",
+        )])
+        .with_having(vec![crate::VortexAggregateHavingExpr::new(
+            "c",
+            ComparisonOp::GtEq,
+            "2",
+        )])
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
+        let declared_columns = vec![
+            "__shardloom_derived_url_domain_Referer".to_string(),
+            "__shardloom_derived_utf8_len_URL".to_string(),
+        ];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 1, 0, 2],
+                values: vec![
+                    std::sync::Arc::<str>::from("example.test"),
+                    std::sync::Arc::<str>::from("other.test"),
+                    std::sync::Arc::<str>::from("docs.test"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::VortexDictArray,
+            },
+            AggregateDirectColumnAccessor::UInt64(vec![1, 4, 8, 100]),
+        ];
+
+        assert!(
+            states
+                .update_compact_direct_from_dictionary_group(&accessors, None)
+                .expect("embedded dictionary compact update")
+        );
+
+        let budget = states
+            .state_budget_report(&request, 4, 1)
+            .expect("state budget");
+        assert!(budget.state_family.contains("count_having_prefilter"));
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"count_having_preupdate_group_filter".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"having_selectivity_before_state_update".to_string())
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 1);
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "dictionary_group_compact_count_sum_avg_group_update"
+        );
+        assert_eq!(
+            payload["materialized_group_value_count"],
+            serde_json::json!(0)
+        );
+        let rows = payload["values"].as_array().expect("values");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["domain"], serde_json::json!("example.test"));
+        assert_eq!(rows[0]["c"], serde_json::json!(2));
+        assert_eq!(rows[0]["l"], serde_json::json!(4.5));
     }
 
     #[test]

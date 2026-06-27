@@ -111,6 +111,90 @@
     },
     "next_optimization_focus": "consume embedded Vortex layout and string/domain metadata more deeply for high-cardinality aggregate, string predicate/grouping, and bounded top-K families; preserve one .vortex artifact, no query-answer sidecars, no fallback, and no external engine execution"
   },
+  "current_retained_targeted_projection": {
+    "claim_boundary": "local_desktop_targeted_uat_projection_until_next_full_43_rerun",
+    "source_full43_run_id": "full43_post_merge_1356_replaced_20260623T151523Z",
+    "substituted_queries": [
+      "CB-Q15",
+      "CB-Q17",
+      "CB-Q18",
+      "CB-Q19",
+      "CB-Q21",
+      "CB-Q22",
+      "CB-Q23",
+      "CB-Q24",
+      "CB-Q28",
+      "CB-Q29",
+      "CB-Q33",
+      "CB-Q34",
+      "CB-Q35"
+    ],
+    "elapsed_seconds_total": 290.766,
+    "geomean_elapsed_seconds": 2.303911,
+    "fallback_or_external_engine_violations": 0,
+    "artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
+    "targeted_substitution_seconds": {
+      "CB-Q15": 9.698,
+      "CB-Q17": 17.525,
+      "CB-Q18": 4.575,
+      "CB-Q19": 10.488,
+      "CB-Q21": 9.414,
+      "CB-Q22": 7.388,
+      "CB-Q23": 13.399,
+      "CB-Q24": 11.475,
+      "CB-Q28": 15.65,
+      "CB-Q29": 16.446,
+      "CB-Q33": 4.051,
+      "CB-Q34": 29.804,
+      "CB-Q35": 30.07
+    },
+    "remaining_rows_over_10s_after_projection": [
+      [
+        "CB-Q35",
+        30.07
+      ],
+      [
+        "CB-Q34",
+        29.804
+      ],
+      [
+        "CB-Q17",
+        17.525
+      ],
+      [
+        "CB-Q29",
+        16.446
+      ],
+      [
+        "CB-Q28",
+        15.65
+      ],
+      [
+        "CB-Q23",
+        13.399
+      ],
+      [
+        "CB-Q13",
+        12.86
+      ],
+      [
+        "CB-Q14",
+        11.865
+      ],
+      [
+        "CB-Q24",
+        11.475
+      ],
+      [
+        "CB-Q19",
+        10.488
+      ],
+      [
+        "CB-Q10",
+        10.17
+      ]
+    ]
+  },
   "command_shape": "target/release/shardloom run dataframe --input <hits.vortex> --input-format vortex --execution-policy native_vortex --request collect --bounded true --format json",
   "current_replacement_artifact_uat": {
     "not_official_clickbench_submission": true,
@@ -250,7 +334,11 @@
         "direct_utf8_contains_count_for_count_where",
         "mixed_predicate_partial_pushdown",
         "native_string_expression_transform_registry",
-        "residual_materialization_posture_evidence"
+        "residual_materialization_posture_evidence",
+        "embedded_domain_dictionary_group_numeric_measure_partials",
+        "embedded_domain_dictionary_group_count_having_prefilter",
+        "hidden_derived_metadata_kept_on_typed_dictionary_layout_path",
+        "adaptive_writer_block_target_evidence"
       ],
       "rows": [
         "CB-Q21",
@@ -797,8 +885,46 @@
       "public_workflow_preparation_source_state_stream_policy",
       "public_workflow_preparation_source_state_dictionary_preservation_status"
     ],
-    "open_conclusion": "Q33 now has a retained two-pass numeric-pair late-measure route (14.86s targeted local UAT), and Q34/Q35 now have a retained proof-bound string count top-K heavy-hitter recount route (33.958s/34.064s, exact parity, no fallback/external engine). Remaining slow families are string predicate/grouping rows (CB-Q21-CB-Q29), high-cardinality minute/string groups (CB-Q19), exact distinct cleanup (CB-Q14 and related rows), and ingest/load throughput. These need embedded string/domain metadata, dictionary/layout consumption, spill/state-budget hardening, or source-side ingest improvements rather than query-specific answer caches.",
+    "open_conclusion": "Current-branch targeted substitutions now project the full-43 total at 290.766s and geomean at 2.303911s before the next full UAT rerun. Retained highlights include Q33 numeric-pair late-measure at 4.051s, Q15/Q17 numeric+UTF8 chunk-compacted heavy-hitter routes at 9.698s/17.525s, Q18 source-order numeric+UTF8 candidate-slot counting at 4.575s, Q21 count-only chunk-dictionary contains at 9.414s, Q22/Q23/Q24 current string-predicate routes at 7.388s/13.399s/11.475s, Q28 encoded numeric dictionary access at 15.65s, Q29 transformed dictionary measures at 16.446s, and Q34/Q35 string heavy-hitter routes at 29.804s/30.07s. Remaining double-digit families are URL string top-K, numeric+UTF8 heavy-hitter, transformed-string grouping, exact distinct, bounded sort/materialization, and ingest/load throughput. These still require generic layout/dictionary/posting-list/state work rather than query-specific answer caches.",
     "rejected_changes_after_targeted_uat": [
+      {
+        "change": "transformed_dictionary_general_state_reconstructable_group_values",
+        "query_id": "CB-Q29",
+        "route_id": "native_vortex_aggregate",
+        "status": "rejected_after_targeted_uat_regression",
+        "prior_current_branch_seconds": 16.446,
+        "targeted_seconds": 21.657,
+        "targeted_total_seconds": 21.657,
+        "targeted_geomean_seconds": 21.657,
+        "fallback_or_external_engine_violations": 0,
+        "aggregate_update_strategy": "transformed_dictionary_general_measure_group_update",
+        "group_state_mode": "transformed_chunk_dictionary_general_measure_code_map",
+        "materialized_group_value_count": 0,
+        "reason": "Storing transformed-dictionary general aggregate group values as reconstructable from the group key removed duplicate group-value materialization evidence, but targeted 100M UAT was slower than the retained Q29 transformed-dictionary measure route. The runtime code path was removed before shipment; future Q29-class work must reduce transform scan volume, dictionary/posting metadata cost, or aggregate measure update work rather than only removing cold result-state duplication.",
+        "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_reconstructable_general_state_current/summary.json"
+      },
+      {
+        "change": "string_topk_exact_recount_existing_interner_candidate_code_map",
+        "fallback_or_external_engine_violations": 0,
+        "prior_current_branch_seconds": {
+          "CB-Q34": 29.804,
+          "CB-Q35": 30.07
+        },
+        "query_ids": [
+          "CB-Q34",
+          "CB-Q35"
+        ],
+        "reason": "Building exact recount candidate-code maps from existing interner IDs avoided reinterning non-candidates, but targeted 100M UAT did not improve the retained proof-bound URL top-K route. The code path was removed before shipment; future URL top-K work must reduce a larger cost class such as source string scans, dictionary/posting metadata, or exact recount pass volume.",
+        "route_id": "native_vortex_aggregate",
+        "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_candidate_code_map_current/summary.json",
+        "status": "rejected_after_targeted_uat_regression",
+        "targeted_seconds": {
+          "CB-Q34": 30.458,
+          "CB-Q35": 30.258
+        },
+        "targeted_total_seconds": 60.716,
+        "targeted_geomean_seconds": 30.35795
+      },
       {
         "aggregate_update_strategy": "numeric_pair_direct_group_update",
         "change": "numeric_pair_update_time_topk_retention",
@@ -868,7 +994,57 @@
         "status": "rejected_after_exactness_and_targeted_uat_check"
       }
     ],
-    "retained_changes": [
+  "retained_changes": [
+    {
+      "change": "layout_advised_full_embedded_text_metadata_for_medium_large_columnar_ingest",
+      "status": "retained_after_focused_validation_pending_replacement_uat",
+      "affected_queries_expected": [
+        "CB-Q29",
+        "CB-Q34",
+        "CB-Q35",
+        "URL/domain/length grouped aggregate families"
+      ],
+      "route_family": "universal_ingest_to_native_vortex_aggregate",
+      "artifact_contract": "single_vortex_artifact_no_sidecars",
+      "fallback_or_external_engine_violations": 0,
+      "focused_validation": [
+        "cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom large_text_domain_columnar_source_embeds_full_url_metadata -- --nocapture",
+        "cargo test -q -p shardloom-vortex --features universal-format-io --lib text_rows_stream_source_embeds_exact_hidden_string_metadata -- --nocapture",
+        "cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis -- --nocapture",
+        "cargo test -q -p shardloom-vortex --features universal-format-io --lib source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata -- --nocapture",
+        "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_length_and_domain_to_embedded_vortex_columns -- --nocapture",
+        "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_compact_measures_embedded_dictionary_group_reuses_group_codes -- --nocapture",
+        "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib simple_aggregate_rewrites_dictionary_backed_domain_and_length_to_code_group_partials -- --nocapture",
+        "cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib large_source -- --nocapture",
+        "cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom vortex_ingest_public_prepare_writes_only_single_vortex_artifact -- --nocapture"
+      ],
+      "reason": "Medium/large URL/text columnar Universal Ingest sources now choose the full embedded derived-column wrapper instead of the source-native-only wrapper, so prepared .vortex artifacts can carry exact hidden length and URL-domain columns even when the Parquet/Arrow/ORC reader surfaces plain UTF-8. The full adapter now emits compact dictionary/code length metadata plus dictionary URL-domain metadata in one source-string pass rather than raw per-row hidden length values. Native Vortex aggregate rewrites consume those hidden columns for url_domain/length groups and measures, and dictionary-backed hidden domain groups with direct numeric hidden length measures now aggregate by dictionary-code partials before final group materialization. This is not counted as a timing win until replacement ingest and targeted URL-domain UAT prove that the added write cost reduces query cost."
+    },
+    {
+      "change": "numeric_utf8_chunk_compacted_heavy_hitter_updates",
+      "query_ids": [
+          "CB-Q15",
+          "CB-Q17"
+        ],
+        "route_id": "native_vortex_aggregate",
+        "status": "retained_after_targeted_uat",
+        "fallback_or_external_engine_violations": 0,
+        "aggregate_update_strategy": "numeric_utf8_dictionary_code_count_topk_heavy_hitter_late_recount",
+        "group_output_strategy": "proofbound_heavy_hitter_numeric_utf8_count_topk_late_recount",
+        "group_state_mode": "numeric_utf8_dictionary_code_candidate_state_then_exact_recount",
+        "state_family_suffix": "proofbound_numeric_utf8_heavy_hitter+chunk_compacted_updates",
+        "latest_full43_seconds": {
+          "CB-Q15": 15.776,
+          "CB-Q17": 42.736
+        },
+        "targeted_seconds": {
+          "CB-Q15": 9.698,
+          "CB-Q17": 17.525
+        },
+        "projected_full43_total_seconds_with_current_targeted_substitutions": 290.766,
+        "projected_full43_geomean_with_current_targeted_substitutions": 2.303911,
+        "reason": "Numeric+UTF8 proof-bound heavy-hitter routes now compact repeated chunk-local dictionary-code keys into weighted sketch updates and chunk-local exact recount merges. The path stays on the shared native Vortex aggregate route, uses the same single .vortex artifact, and reports no fallback or external engine execution."
+      },
       {
         "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
         "baseline_seconds": 173.236,
@@ -925,6 +1101,97 @@
         "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_heavy_hitter_guard_20260622T072212Z/summary.json",
         "q35_source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_heavy_hitter_20260622T071417Z/summary.json",
         "reason": "The route uses a generic exact proof-bound string top-K operator: first-pass weighted heavy-hitter candidate sketch over chunk UTF-8 dictionaries, lower-bound proof before exact recount, second-pass candidate-only recount on the same single .vortex artifact, and native exact fallback if proof is not possible. It preserved exact result-row parity for CB-Q34/CB-Q35 while reducing the current URL grouping path by roughly 63-66%."
+      },
+      {
+        "aggregate_accessor_summary": "URL:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_late_recount",
+        "change": "current_branch_string_count_topk_heavy_hitter_projection",
+        "fallback_or_external_engine_violations": 0,
+        "group_output_strategy": "proofbound_heavy_hitter_string_count_topk_late_recount",
+        "group_state_mode": "string_dictionary_code_candidate_state_then_exact_recount",
+        "latest_full43_seconds": 41.734,
+        "projected_full43_geomean_with_q18_q21_q28_q34_q35": 2.758392,
+        "projected_full43_total_seconds_with_q18_q21_q28_q34_q35": 441.612,
+        "query_id": "CB-Q34",
+        "reason": "The current branch retains the generic proof-bound URL count top-K path on the same single .vortex artifact, with chunk UTF-8 dictionary accessors, candidate-state recount, no fallback, and no external engine execution.",
+        "route_id": "native_vortex_aggregate",
+        "status": "retained_after_targeted_uat",
+        "targeted_seconds": 29.804
+      },
+      {
+        "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_late_recount",
+        "candidate_groups": 48085,
+        "change": "constant_dependent_group_key_admitted_to_string_count_topk_heavy_hitter",
+        "decoded_string_count": 48085,
+        "fallback_or_external_engine_violations": 0,
+        "group_output_strategy": "proofbound_heavy_hitter_string_count_topk_late_recount",
+        "group_state_mode": "string_dictionary_code_candidate_state_then_exact_recount",
+        "latest_full43_seconds": 95.24,
+        "query_id": "CB-Q35",
+        "reason": "The SQL shape SELECT 1, URL, COUNT(*) GROUP BY 1, URL now treats the literal as a reconstructable dependent group expression, so the real URL key can reuse the generic proof-bound string count top-K path instead of building full exact group state for every URL. The output still emits the literal column and preserves exact native Vortex/no-fallback evidence.",
+        "retained_candidate_groups": 10,
+        "route_id": "native_vortex_aggregate",
+        "status": "retained_after_targeted_uat",
+        "targeted_seconds": 30.07
+      },
+      {
+        "aggregate_accessor_blockers": "none",
+        "aggregate_accessor_materialization_status": "chunk_dictionary_or_primitive_only",
+        "aggregate_accessor_summary": "CounterID:direct_i64,URL:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+        "change": "encoded_numeric_dictionary_codes_admitted_to_direct_group_accessor",
+        "fallback_or_external_engine_violations": 0,
+        "group_output_strategy": "capillary_ordered_topk",
+        "group_state_mode": "all_hot_hash_map",
+        "latest_full43_seconds": 33.998,
+        "materialized_group_value_count": 0,
+        "projected_full43_geomean_with_q18_q21_q28_q34_q35": 2.758392,
+        "projected_full43_geomean_with_q18_q28_q35": 2.827354,
+        "projected_full43_geomean_with_q28_q35": 2.929578,
+        "projected_full43_total_seconds_with_q18_q21_q28_q34_q35": 441.612,
+        "projected_full43_total_seconds_with_q18_q28_q35": 463.568,
+        "projected_full43_total_seconds_with_q28_q35": 480.063,
+        "query_id": "CB-Q28",
+        "reason": "Encoded numeric dictionary codes and values now use the Vortex primitive execution boundary before ShardLoom aggregate accessors are chosen, so numeric dictionary group keys such as CounterID no longer materialize to StatValue rows while URL length measures remain dictionary-backed. This is a shared native Vortex accessor improvement for dictionary-coded numeric group keys, not a ClickBench-only route.",
+        "route_id": "native_vortex_aggregate",
+        "status": "retained_after_targeted_uat",
+        "targeted_seconds": 15.65
+      },
+      {
+        "aggregate_accessor_summary": "SearchPhrase:chunk_utf8_dictionary,UserID:direct_i64",
+        "aggregate_update_strategy": "source_order_numeric_utf8_dictionary_code_count_star_group_update",
+        "capillary_work_units": "source_order_numeric_utf8_dictionary_candidate_slots,source_order_candidate_count_merge",
+        "change": "source_order_numeric_utf8_dictionary_candidate_slots",
+        "fallback_or_external_engine_violations": 0,
+        "group_output_strategy": "source_order_limited_group_admission_no_sort",
+        "group_state_mode": "source_order_numeric_utf8_dictionary_candidate_slots",
+        "latest_full43_seconds": 21.07,
+        "materialized_group_value_count": 0,
+        "projected_full43_geomean_with_q18_q21_q28_q34_q35": 2.758392,
+        "projected_full43_geomean_with_q18_q28_q35": 2.827354,
+        "projected_full43_total_seconds_with_q18_q21_q28_q34_q35": 441.612,
+        "projected_full43_total_seconds_with_q18_q28_q35": 463.568,
+        "query_id": "CB-Q18",
+        "reason": "The unordered GROUP BY UserID, SearchPhrase LIMIT K shape still keeps the existing source-order admission contract, but once the retained source-order group window closes it counts only retained numeric+UTF8 dictionary candidates by code and merges chunk counts into the existing retained groups. This avoids per-row generic AggregateGroupKey probes without introducing query-answer sidecars or fallback execution.",
+        "route_id": "native_vortex_aggregate",
+        "status": "retained_after_targeted_uat",
+        "targeted_seconds": 4.575
+      },
+      {
+        "change": "count_only_chunk_dictionary_contains_current_branch_projection",
+        "count": 15911,
+        "data_decoded": false,
+        "data_materialized": false,
+        "fallback_or_external_engine_violations": 0,
+        "latest_full43_seconds": 19.44,
+        "predicate": "contains:URL:google",
+        "projected_full43_geomean_with_q18_q21_q28_q34_q35": 2.758392,
+        "projected_full43_total_seconds_with_q18_q21_q28_q34_q35": 441.612,
+        "query_id": "CB-Q21",
+        "reason": "The current branch retains native_vortex_count_where over the count-only chunk-dictionary contains path. The probe scanned the single .vortex artifact with streaming local primitive execution, selected 15911 rows, and reported no decode/materialization of result rows.",
+        "route_id": "native_vortex_count_where",
+        "status": "retained_after_targeted_uat",
+        "targeted_seconds": 9.414
       },
       {
         "aggregate_update_strategy": "numeric_pair_direct_group_update",
