@@ -34267,10 +34267,14 @@ fn aggregate_direct_numeric_dictionary_accessor(
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::PrimitiveArray;
     use vortex::array::arrays::dict::DictArraySlotsExt as _;
+    use vortex::array::dtype::DType;
 
     let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
         return Ok(None);
     };
+    if !matches!(dictionary_array.values().dtype(), DType::Primitive(_, _)) {
+        return Ok(None);
+    }
     let Some((row_ids, code_nulls)) =
         direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes())
     else {
@@ -37970,6 +37974,13 @@ fn rewrite_simple_aggregate_for_embedded_derived_columns(
         .iter()
         .map(String::as_str)
         .collect::<std::collections::BTreeSet<_>>();
+    if should_preserve_transformed_dictionary_source_lane(aggregate, &available)? {
+        return Ok(AggregateEmbeddedDerivedRewrite {
+            aggregate: aggregate.clone(),
+            predicate: predicate.cloned(),
+            rewritten_columns: Vec::new(),
+        });
+    }
     let mut aggregate = aggregate.clone();
     let mut rewritten_columns = Vec::new();
     for expression in &mut aggregate.group_expressions {
@@ -38013,6 +38024,89 @@ fn rewrite_simple_aggregate_for_embedded_derived_columns(
         predicate,
         rewritten_columns,
     })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn should_preserve_transformed_dictionary_source_lane(
+    aggregate: &VortexSimpleAggregateRequest,
+    available: &std::collections::BTreeSet<&str>,
+) -> Result<bool> {
+    if aggregate.order_by.is_empty()
+        || !aggregate.group_by.is_empty()
+        || aggregate.group_expressions.len() != 1
+    {
+        return Ok(false);
+    }
+    let expression = &aggregate.group_expressions[0];
+    if !expression.extra_columns.is_empty()
+        || is_shardloom_hidden_derived_column(expression.column.as_str())
+    {
+        return Ok(false);
+    }
+    let group_transform = AggregateValueTransform::from_expression(expression)?;
+    if !matches!(
+        group_transform,
+        AggregateValueTransform::Length | AggregateValueTransform::UrlDomain
+    ) {
+        return Ok(false);
+    }
+    let source_column = expression.column.as_str();
+    let Some(hidden_group_column) =
+        embedded_derived_column_for_transform(group_transform, source_column)
+    else {
+        return Ok(false);
+    };
+    let hidden_length_column = shardloom_utf8_length_derived_column(source_column);
+    if !available.contains(hidden_group_column.as_str())
+        || !available.contains(hidden_length_column.as_str())
+    {
+        return Ok(false);
+    }
+
+    let mut has_same_source_length_measure = false;
+    for measure in &aggregate.measures {
+        let function = SimpleAggregateFunction::parse(&measure.function)?;
+        let value_transform =
+            AggregateValueTransform::from_measure_transform(measure.value_transform.as_deref())?;
+        let measure_column = measure.column.as_ref().map(ColumnRef::as_str);
+        match function {
+            SimpleAggregateFunction::Count => {
+                if let Some(column) = measure_column
+                    && (column != source_column
+                        || !matches!(
+                            value_transform,
+                            AggregateValueTransform::Identity | AggregateValueTransform::Length
+                        ))
+                {
+                    return Ok(false);
+                }
+            }
+            SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
+                if measure_column != Some(source_column)
+                    || !matches!(value_transform, AggregateValueTransform::Length)
+                {
+                    return Ok(false);
+                }
+                has_same_source_length_measure = true;
+            }
+            SimpleAggregateFunction::Min | SimpleAggregateFunction::Max => {
+                if measure_column != Some(source_column)
+                    || !matches!(
+                        value_transform,
+                        AggregateValueTransform::Identity | AggregateValueTransform::Length
+                    )
+                {
+                    return Ok(false);
+                }
+                if matches!(value_transform, AggregateValueTransform::Length) {
+                    has_same_source_length_measure = true;
+                }
+            }
+            SimpleAggregateFunction::CountDistinct => return Ok(false),
+        }
+    }
+
+    Ok(has_same_source_length_measure)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -43164,6 +43258,92 @@ mod tests {
             docs["avg_len"],
             serde_json::json!(u64::try_from("https://docs.rs/crate".len()).expect("len") as f64)
         );
+    }
+
+    #[test]
+    fn simple_aggregate_preserves_source_dictionary_fusion_for_ordered_domain_length() {
+        let path = unique_vortex_path("simple-aggregate-dictionary-fused-domain-length");
+        write_dictionary_embedded_derived_url_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let aggregate = VortexSimpleAggregateRequest::new(vec![
+            crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+            crate::VortexSimpleAggregateMeasure::new(
+                "avg",
+                Some(ColumnRef::new("URL").expect("url")),
+                "avg_len".to_string(),
+            )
+            .with_value_transform("length"),
+            crate::VortexSimpleAggregateMeasure::new(
+                "sum",
+                Some(ColumnRef::new("URL").expect("url")),
+                "sum_len".to_string(),
+            )
+            .with_value_transform("length"),
+            crate::VortexSimpleAggregateMeasure::new(
+                "min",
+                Some(ColumnRef::new("URL").expect("url")),
+                "min_url".to_string(),
+            ),
+        ])
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "domain".to_string(),
+            ColumnRef::new("URL").expect("url"),
+            "url_domain",
+        )])
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let mut request = VortexQueryPrimitiveRequest::simple_aggregate(uri, aggregate)
+            .with_source_order_limit(2);
+        request.predicate = Some(PredicateExpr::Compare {
+            column: ColumnRef::new("URL").expect("url"),
+            op: ComparisonOp::NotEq,
+            value: StatValue::Utf8(String::new()),
+        });
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.rows_scanned, 4);
+        assert_eq!(report.rows_selected, Some(3));
+        assert_eq!(report.source_order_limit_requested, Some(2));
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.external_effects_executed);
+        let payload =
+            simple_aggregate_values_json(report.result_summary.as_deref().expect("summary"));
+        assert!(
+            payload
+                .get("embedded_derived_column_rewrite_status")
+                .is_none(),
+            "ordered source-dictionary URL-domain/length aggregates should preserve the fused dictionary lane instead of rewriting to separate hidden columns"
+        );
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            serde_json::json!("transformed_dictionary_general_measure_group_update")
+        );
+        assert_eq!(
+            payload["expression_fusion_strategy"],
+            serde_json::json!("dictionary_weighted_transform_fusion")
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            serde_json::json!("transformed_chunk_dictionary_general_measure_code_map")
+        );
+        assert_eq!(
+            payload["aggregate_accessor_summary"],
+            serde_json::json!("URL:chunk_utf8_dictionary")
+        );
+        let values = payload["values"].as_array().expect("grouped rows");
+        assert_eq!(values.len(), 2);
+        assert_eq!(values[0]["domain"], serde_json::json!("google.com"));
+        assert_eq!(values[0]["rows"], serde_json::json!(2));
+        assert_eq!(
+            values[0]["avg_len"],
+            serde_json::json!(
+                u64::try_from("https://www.google.com/search".len()).expect("len") as f64
+            )
+        );
+        assert_eq!(values[1]["domain"], serde_json::json!("docs.rs"));
+        assert_eq!(values[1]["rows"], serde_json::json!(1));
     }
 
     #[test]
@@ -53060,6 +53240,33 @@ mod tests {
         assert_eq!(rows[0]["c"], serde_json::json!(4));
         assert_eq!(rows[1]["domain"], serde_json::json!("other.test"));
         assert_eq!(rows[1]["c"], serde_json::json!(1));
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn aggregate_numeric_dictionary_provider_skips_utf8_dictionary_values_without_panic() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{DictArray, PrimitiveArray, VarBinViewArray};
+
+        let codes = [0_u8, 1, 0]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values = VarBinViewArray::from_iter_str(["https://example.test/a", ""]).into_array();
+        let dictionary = DictArray::try_new(codes, values)
+            .expect("UTF-8 dictionary")
+            .into_array();
+
+        assert!(
+            aggregate_direct_numeric_dictionary_accessor(&dictionary)
+                .expect("numeric provider should return a miss, not panic")
+                .is_none()
+        );
+        assert!(matches!(
+            aggregate_direct_utf8_chunk_dictionary_accessor("URL", &dictionary)
+                .expect("UTF-8 dictionary provider should accept dictionary values"),
+            Some(AggregateDirectColumnAccessor::Utf8Dictionary { .. })
+        ));
     }
 
     #[test]

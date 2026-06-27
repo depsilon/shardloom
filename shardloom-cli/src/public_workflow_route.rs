@@ -20,8 +20,11 @@ use shardloom_core::{
 use crate::{
     benchmark_runtime,
     cli_output::{emit, emit_error},
-    cli_unknown_arg_error, generated_source_runtime, sql_local_source_runtime, vortex_planning,
-    vortex_primitive_execution,
+    cli_unknown_arg_error, generated_source_runtime,
+    runtime_defaults::{
+        DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM, MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM,
+    },
+    sql_local_source_runtime, vortex_planning, vortex_primitive_execution,
 };
 
 const ROUTE_SCHEMA_VERSION: &str = "shardloom.public_workflow_route.v1";
@@ -37,8 +40,6 @@ const VORTEX_PRODUCTION_RUNTIME_COMMAND: &str = "vortex-production-runtime-run";
 const FALLBACK_BOUNDARY: &str =
     "route inspection is side-effect-free and never invokes fallback or external engines";
 const CLAIM_BOUNDARY: &str = "simplified public facade over admitted ShardLoom routes only; not broad SQL/DataFrame support, production readiness, or performance superiority";
-const PUBLIC_WORKFLOW_DEFAULT_MAX_PARALLELISM: usize = 2;
-const PUBLIC_WORKFLOW_MIN_EFFECTIVE_MAX_PARALLELISM: usize = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PublicWorkflowRouteRequest {
@@ -2087,22 +2088,21 @@ fn public_workflow_requested_max_parallelism(request: &PublicWorkflowRouteReques
         .max_parallelism
         .as_deref()
         .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(PUBLIC_WORKFLOW_DEFAULT_MAX_PARALLELISM)
+        .unwrap_or(DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM)
 }
 
 fn public_workflow_effective_max_parallelism(
     request: &PublicWorkflowRouteRequest,
 ) -> Result<usize, ShardLoomError> {
-    let requested = positive_usize_arg(
-        "max_parallelism",
-        request.max_parallelism.as_deref().unwrap_or("2"),
-    )?;
-    Ok(requested.max(PUBLIC_WORKFLOW_MIN_EFFECTIVE_MAX_PARALLELISM))
+    let requested = match request.max_parallelism.as_deref() {
+        Some(value) => positive_usize_arg("max_parallelism", value)?,
+        None => DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM,
+    };
+    Ok(requested.max(MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM))
 }
 
 fn public_workflow_dynamic_parallelism_floor_applied(request: &PublicWorkflowRouteRequest) -> bool {
-    public_workflow_requested_max_parallelism(request)
-        < PUBLIC_WORKFLOW_MIN_EFFECTIVE_MAX_PARALLELISM
+    public_workflow_requested_max_parallelism(request) < MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
 }
 
 fn native_vortex_materializing_execution_certificate(
@@ -9535,7 +9535,7 @@ fn add_route_native_vortex_resource_fields(
 
 fn public_workflow_effective_max_parallelism_label(request: &PublicWorkflowRouteRequest) -> String {
     public_workflow_requested_max_parallelism(request)
-        .max(PUBLIC_WORKFLOW_MIN_EFFECTIVE_MAX_PARALLELISM)
+        .max(MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM)
         .to_string()
 }
 

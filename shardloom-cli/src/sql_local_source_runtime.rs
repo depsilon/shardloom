@@ -48,6 +48,7 @@ use shardloom_exec::{
 use crate::{
     cli_output::{emit, emit_error, emit_error_with_fields},
     cli_unknown_arg_error,
+    runtime_defaults::DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM,
 };
 
 const COMMAND: &str = "local-source-runtime";
@@ -81,7 +82,6 @@ const OUTPUT_CAPILLARY_ACTIVATION_POLICY: &str = "dynamic_output_size_fanout_gat
 const OUTPUT_CAPILLARY_ACTIVATION_THRESHOLD_BYTES: u64 = 16 * 1024 * 1024;
 const OUTPUT_CAPILLARY_MEMORY_BUDGET_BYTES: u64 = 64 * 1024 * 1024;
 const OUTPUT_CAPILLARY_MAX_PARALLELISM: usize = 4;
-const DEFAULT_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM: usize = 2;
 const OUTPUT_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION: &str =
     "shardloom.output_layout_write_advisor.local_sink.v1";
 const OUTPUT_LAYOUT_WRITE_ADVISOR_POLICY: &str = "format_aware_output_sink_advisor.v1";
@@ -5650,6 +5650,15 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "vortex_capillary_preparation_max_parallelism",
         "vortex_capillary_preparation_prewrite_execution_window_size",
         "vortex_capillary_preparation_prewrite_external_engine_invoked",
+        "universal_ingest_timing_split_schema_version",
+        "universal_ingest_timing_split_status",
+        "universal_ingest_source_read_millis",
+        "universal_ingest_decode_derive_millis",
+        "universal_ingest_arrow_to_vortex_convert_millis",
+        "universal_ingest_encode_write_wall_millis",
+        "universal_ingest_footer_register_millis",
+        "universal_ingest_reopen_verify_millis",
+        "universal_ingest_stream_timing_overlap_policy",
         "vortex_layout_write_advisor_source_scale",
         "vortex_layout_write_advisor_profile_family",
         "vortex_layout_write_advisor_prepared_layout_family",
@@ -5658,8 +5667,16 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "vortex_layout_write_advisor_counter_columns",
         "vortex_layout_write_advisor_key_profile",
         "vortex_layout_write_advisor_dictionary_profile",
+        "vortex_layout_write_advisor_writer_parallelism_budget",
         "vortex_layout_write_advisor_expected_read_tradeoff",
         "vortex_layout_write_advisor_expected_write_tradeoff",
+        "vortex_writer_layout_strategy_applied",
+        "vortex_writer_coalescing_policy_status",
+        "vortex_writer_layout_row_block_size",
+        "vortex_writer_layout_block_target_bytes",
+        "vortex_writer_compression_policy",
+        "vortex_writer_compression_concurrency",
+        "vortex_writer_stats_concurrency",
         "vortex_prepared_state_reuse_index_schema_version",
         "vortex_prepared_state_reuse_index_lookup_status",
         "vortex_prepared_state_reuse_index_cache_scope",
@@ -6056,6 +6073,7 @@ fn layout_write_advisor_report(
     source_state_digest: &str,
     source_schema_digest: &str,
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
+    max_parallelism: usize,
 ) -> shardloom_vortex::VortexLayoutWriteAdvisorReport {
     shardloom_vortex::evaluate_vortex_layout_write_advisor(
         shardloom_vortex::VortexLayoutWriteAdvisorInput {
@@ -6080,6 +6098,7 @@ fn layout_write_advisor_report(
             writer_provider_kind: layout_writer_provider_kind(source).to_string(),
             writer_provider_surface: layout_writer_provider_surface(source).to_string(),
             writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
+            writer_parallelism_budget: max_parallelism.max(1),
             write_reopen_verification_depth: layout_verification_depth(certification_level)
                 .to_string(),
             materialization_boundary_status: source.materialization_layout.to_string(),
@@ -6269,7 +6288,7 @@ fn layout_expected_read_tradeoff(source: &VortexIngestSourceData) -> &'static st
 fn layout_expected_write_tradeoff(source: &VortexIngestSourceData) -> &'static str {
     match (layout_source_scale(source), layout_source_profile(source)) {
         ("large_olap", "url_time_counter_olap" | "url_time_olap" | "url_text_olap") => {
-            "accept_text_dictionary_zstd_and_embedded_metadata_write_cost_for_lower_scan_cost"
+            "accept_text_fast_zstd_no_dict_and_embedded_metadata_write_cost_for_lower_scan_cost"
         }
         ("large_olap", _) => "prefer_fast_load_uncompressed_layout_to_reduce_ingest_wall_time",
         ("medium_olap", "url_time_counter_olap" | "url_time_olap" | "url_text_olap") => {
@@ -6761,6 +6780,7 @@ fn run_scalar_rows_vortex_prepare(
         &source_state_digest,
         &source_schema_digest,
         request.certification_level,
+        request.max_parallelism,
     );
     let rows = ordered_source_rows(&source.header, &source.rows)?;
     let prewrite_input = capillary_prewrite_input(
@@ -6969,6 +6989,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         &prewrite_source_state_digest,
         &source_schema_digest,
         request.certification_level,
+        request.max_parallelism,
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
         &request.target_path,
@@ -7182,6 +7203,7 @@ fn try_run_inferred_text_vortex_prepare(
         &prewrite_source_state_digest,
         &source_schema_digest,
         request.certification_level,
+        request.max_parallelism,
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
         &request.target_path,
@@ -7347,6 +7369,7 @@ fn run_text_streaming_vortex_prepare(
         &prewrite_source_state_digest,
         &source_schema_digest,
         request.certification_level,
+        request.max_parallelism,
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
         &request.target_path,
@@ -7499,6 +7522,7 @@ fn run_columnar_vortex_prepare(
         &prewrite_source_state_digest,
         &source_schema_digest,
         request.certification_level,
+        request.max_parallelism,
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
         &request.target_path,
@@ -8735,6 +8759,60 @@ impl VortexIngestReport {
                 self.source.source_to_columnar_millis.to_string(),
             ),
             (
+                "universal_ingest_timing_split_schema_version".to_string(),
+                "shardloom.universal_ingest_timing_split.v1".to_string(),
+            ),
+            (
+                "universal_ingest_timing_split_status".to_string(),
+                self.vortex_report.stream_timing_split_status.clone(),
+            ),
+            (
+                "universal_ingest_source_read_millis".to_string(),
+                self.source.read_millis.to_string(),
+            ),
+            (
+                "universal_ingest_decode_derive_millis".to_string(),
+                self.vortex_report
+                    .stream_source_pull_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
+                "universal_ingest_arrow_to_vortex_convert_millis".to_string(),
+                self.vortex_report
+                    .stream_array_convert_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
+                "universal_ingest_encode_write_wall_millis".to_string(),
+                self.vortex_report.write_micros.div_ceil(1000).to_string(),
+            ),
+            (
+                "universal_ingest_footer_register_millis".to_string(),
+                self.vortex_report
+                    .workspace_stage_micros
+                    .saturating_add(self.vortex_report.digest_micros)
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
+                "universal_ingest_reopen_verify_millis".to_string(),
+                self.vortex_report
+                    .reopen_scan_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
+                "universal_ingest_stream_timing_overlap_policy".to_string(),
+                if self.vortex_report.array_build_prefetch_window > 0 {
+                    "capillary_prefetch_may_overlap_decode_derive_with_encode_write_wall_time"
+                } else {
+                    "serial_stream_decode_derive_precedes_each_encode_write_pull"
+                }
+                .to_string(),
+            ),
+            (
                 "vortex_array_build_millis".to_string(),
                 self.vortex_report
                     .array_build_micros
@@ -8799,6 +8877,10 @@ impl VortexIngestReport {
                 self.vortex_report.writer_layout_strategy_applied.clone(),
             ),
             (
+                "vortex_writer_coalescing_policy_status".to_string(),
+                self.vortex_report.writer_coalescing_policy_status.clone(),
+            ),
+            (
                 "vortex_writer_layout_row_block_size".to_string(),
                 self.vortex_report.writer_layout_row_block_size.to_string(),
             ),
@@ -8817,6 +8899,10 @@ impl VortexIngestReport {
                 self.vortex_report
                     .writer_compression_concurrency
                     .to_string(),
+            ),
+            (
+                "vortex_writer_stats_concurrency".to_string(),
+                self.vortex_report.writer_stats_concurrency.to_string(),
             ),
             (
                 "vortex_segment_write_millis".to_string(),
@@ -9792,6 +9878,7 @@ fn vortex_ingest_feature_blocked_layout_write_advisor_fields(
             writer_provider_kind: "none_feature_gate_blocked".to_string(),
             writer_provider_surface: "none_feature_gate_blocked".to_string(),
             writer_admission_policy: "blocked_before_vortex_write_feature".to_string(),
+            writer_parallelism_budget: 1,
             write_reopen_verification_depth: "not_started_feature_gate_blocked".to_string(),
             materialization_boundary_status: "not_started_feature_gate_blocked".to_string(),
             decode_boundary_status: "not_started_feature_gate_blocked".to_string(),
@@ -9872,6 +9959,7 @@ fn vortex_ingest_scout_blocked_layout_write_advisor_fields(
             writer_provider_kind: "none_scout_ingress_blocked".to_string(),
             writer_provider_surface: "none_scout_ingress_blocked".to_string(),
             writer_admission_policy: "blocked_before_vortex_write_by_scout_ingress".to_string(),
+            writer_parallelism_budget: 1,
             write_reopen_verification_depth: "not_started_scout_ingress_blocked".to_string(),
             materialization_boundary_status: "not_started_scout_ingress_blocked".to_string(),
             decode_boundary_status: "not_started_scout_ingress_blocked".to_string(),
@@ -16013,6 +16101,7 @@ fn plan_sql_output_layout_write_advisor_prewrite(
                 writer_provider_kind: writer_provider_kind.to_string(),
                 writer_provider_surface: writer_provider_surface.to_string(),
                 writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
+                writer_parallelism_budget: 1,
                 write_reopen_verification_depth: "write_digest_reopen_row_count".to_string(),
                 materialization_boundary_status: writer_materialization_boundary.to_string(),
                 decode_boundary_status: "no_additional_decode_after_result_batch_state"
@@ -43340,7 +43429,7 @@ mod tests {
         );
         assert_eq!(
             layout_expected_write_tradeoff(&source),
-            "accept_text_dictionary_zstd_and_embedded_metadata_write_cost_for_lower_scan_cost"
+            "accept_text_fast_zstd_no_dict_and_embedded_metadata_write_cost_for_lower_scan_cost"
         );
     }
 
@@ -43527,7 +43616,7 @@ mod tests {
             ),
             (
                 "vortex_layout_write_advisor_expected_write_tradeoff".to_string(),
-                "accept_text_dictionary_zstd_and_embedded_metadata_write_cost_for_lower_scan_cost"
+                "accept_text_fast_zstd_no_dict_and_embedded_metadata_write_cost_for_lower_scan_cost"
                     .to_string(),
             ),
         ]));
@@ -43580,7 +43669,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "public_workflow_preparation_vortex_layout_write_advisor_expected_write_tradeoff",
-            "accept_text_dictionary_zstd_and_embedded_metadata_write_cost_for_lower_scan_cost",
+            "accept_text_fast_zstd_no_dict_and_embedded_metadata_write_cost_for_lower_scan_cost",
         );
     }
 
@@ -43997,6 +44086,40 @@ mod tests {
             assert_field_eq(&fields, "vortex_array_build_record_batch_count", "1");
             assert_field_eq(
                 &fields,
+                "vortex_writer_coalescing_policy_status",
+                "vortex_repartition_writer_coalescing_enabled_with_row_block_and_byte_target",
+            );
+            assert_field_eq(
+                &fields,
+                "universal_ingest_timing_split_schema_version",
+                "shardloom.universal_ingest_timing_split.v1",
+            );
+            assert_field_eq(
+                &fields,
+                "universal_ingest_timing_split_status",
+                "streaming_source_pull_and_arrow_to_vortex_convert_timing_recorded",
+            );
+            assert_field_eq(
+                &fields,
+                "universal_ingest_stream_timing_overlap_policy",
+                "capillary_prefetch_may_overlap_decode_derive_with_encode_write_wall_time",
+            );
+            for field in [
+                "universal_ingest_source_read_millis",
+                "universal_ingest_decode_derive_millis",
+                "universal_ingest_arrow_to_vortex_convert_millis",
+                "universal_ingest_encode_write_wall_millis",
+                "universal_ingest_footer_register_millis",
+                "universal_ingest_reopen_verify_millis",
+            ] {
+                fields
+                    .get(field)
+                    .unwrap_or_else(|| panic!("{field} should be emitted"))
+                    .parse::<u128>()
+                    .unwrap_or_else(|_| panic!("{field} should be numeric"));
+            }
+            assert_field_eq(
+                &fields,
                 "vortex_array_build_manual_scalar_copy_avoided",
                 "true",
             );
@@ -44026,9 +44149,16 @@ mod tests {
         let outcome = run_vortex_prepare(request)
             .expect("csv source writes Vortex artifact with explicit max parallelism");
         let report = prepared_vortex_ingest_report(outcome);
-        let fields = field_map(report.fields());
+        let raw_fields = report.fields();
+        let fields = field_map(raw_fields.clone());
+        let public_fields = field_map(public_workflow_preparation_fields(raw_fields));
 
         assert_field_eq(&fields, "vortex_ingest_requested_max_parallelism", "4");
+        assert_field_eq(
+            &fields,
+            "vortex_layout_write_advisor_writer_parallelism_budget",
+            "4",
+        );
         assert_field_eq(
             &fields,
             "source_state_ingest_executor_status",
@@ -44051,6 +44181,21 @@ mod tests {
             "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
         );
         assert_field_eq(&fields, "vortex_capillary_preparation_max_parallelism", "4");
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_layout_write_advisor_writer_parallelism_budget",
+            "4",
+        );
+        assert!(
+            public_fields
+                .contains_key("public_workflow_preparation_universal_ingest_timing_split_status"),
+            "public workflow preparation projection should expose ingest timing split status"
+        );
+        assert!(
+            public_fields
+                .contains_key("public_workflow_preparation_vortex_writer_stats_concurrency"),
+            "public workflow preparation projection should expose writer stats concurrency"
+        );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
 
@@ -44105,6 +44250,11 @@ mod tests {
         assert_field_eq(&fields, "vortex_ingest_requested_max_parallelism", "2");
         assert_field_eq(
             &fields,
+            "vortex_layout_write_advisor_writer_parallelism_budget",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
             "source_state_stream_unit_hint_kind",
             "parquet_adaptive_row_group_task_count",
         );
@@ -44133,6 +44283,7 @@ mod tests {
             "vortex_array_build_strategy",
             "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
         );
+        assert_field_eq(&fields, "vortex_writer_stats_concurrency", "1");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
 
