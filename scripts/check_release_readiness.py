@@ -282,6 +282,7 @@ def runtime_gap_family_burn_down_blockers(
         for field in [
             "all_unchecked_global_review_rows_mapped",
             "all_families_have_phase_items",
+            "all_families_have_active_phase_owner",
             "all_families_have_evidence_and_validators",
             "all_no_fallback_invariants_named",
             "all_claim_boundaries_named",

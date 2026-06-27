@@ -48,6 +48,9 @@ class RuntimeGapFamilyBurnDownTests(unittest.TestCase):
         )
         self.assertTrue(report["acceptance_summary"]["all_families_have_phase_items"])
         self.assertTrue(
+            report["acceptance_summary"]["all_families_have_active_phase_owner"]
+        )
+        self.assertTrue(
             report["acceptance_summary"]["all_families_have_evidence_and_validators"]
         )
         self.assertFalse(report["fallback_attempted"])
@@ -64,6 +67,36 @@ class RuntimeGapFamilyBurnDownTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "unchecked global-review rows lack burn-down family" in blocker
+                for blocker in report["blockers"]
+            )
+        )
+
+    def test_validator_rejects_completed_ledger_only_phase_ownership(self) -> None:
+        module = load_burn_down_module()
+        original_read_text = module.read_text
+
+        def read_text_without_active_owner(path: Path) -> str:
+            text = original_read_text(path)
+            if path.name == "phased-execution-plan.md":
+                return text.replace(
+                    module.ACTIVE_GLOBAL_GAP_PHASE_OWNER,
+                    "REMOVED-ACTIVE-GAP-OWNER",
+                )
+            return text
+
+        module.read_text = read_text_without_active_owner
+        try:
+            report = module.build_report(REPO_ROOT)
+        finally:
+            module.read_text = original_read_text
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertFalse(
+            report["acceptance_summary"]["all_families_have_active_phase_owner"]
+        )
+        self.assertTrue(
+            any(
+                "unchecked gap family lacks active phase owner" in blocker
                 for blocker in report["blockers"]
             )
         )
