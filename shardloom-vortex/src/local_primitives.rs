@@ -21954,8 +21954,6 @@ struct GroupedAggregateStates<'a> {
     transformed_dictionary_compact_direct_updates: bool,
     transformed_dictionary_compact_code_pair_partials: bool,
     dictionary_group_compact_measure_direct_updates: bool,
-    dictionary_group_count_having_prefilter: bool,
-    transformed_dictionary_count_having_prefilter: bool,
     transformed_dictionary_general_direct_updates: bool,
     transformed_dictionary_general_transform_fusion: bool,
     chunk_materialized_partial_updates: bool,
@@ -24052,8 +24050,6 @@ impl<'a> GroupedAggregateStates<'a> {
             transformed_dictionary_compact_direct_updates: false,
             transformed_dictionary_compact_code_pair_partials: false,
             dictionary_group_compact_measure_direct_updates: false,
-            dictionary_group_count_having_prefilter: false,
-            transformed_dictionary_count_having_prefilter: false,
             transformed_dictionary_general_direct_updates: false,
             transformed_dictionary_general_transform_fusion: false,
             chunk_materialized_partial_updates: false,
@@ -25389,17 +25385,6 @@ impl<'a> GroupedAggregateStates<'a> {
         }
         let counts = dictionary_value_counts_for_rows(row_ids, values.len(), row_indices)?;
         let record_source_order = self.request.order_by.is_empty();
-        let count_having_prefilter = self.count_star_having_prefilter();
-        if let Some(filters) = count_having_prefilter.as_deref() {
-            self.update_count_star_transformed_dictionary_with_count_having_prefilter(
-                values,
-                &counts,
-                group_transform,
-                record_source_order,
-                filters,
-            )?;
-            return Ok(true);
-        }
         for (value, count) in values.iter().zip(counts) {
             if count == 0 {
                 continue;
@@ -25417,73 +25402,6 @@ impl<'a> GroupedAggregateStates<'a> {
             group.increment_count_star_by(count)?;
         }
         Ok(true)
-    }
-
-    fn update_count_star_transformed_dictionary_with_count_having_prefilter(
-        &mut self,
-        values: &[std::sync::Arc<str>],
-        counts: &[u64],
-        group_transform: AggregateValueTransform,
-        record_source_order: bool,
-        filters: &[PreparedCountStarHavingExpr],
-    ) -> Result<()> {
-        self.transformed_dictionary_count_having_prefilter = true;
-        let mut group_totals = rustc_hash::FxHashMap::<AggregateGroupKey, u64>::default();
-        reserve_hash_map_capacity(
-            &mut group_totals,
-            counts.len().min(values.len()),
-            "transformed-dictionary count-star count-HAVING prefilter",
-        )?;
-        let mut group_order = Vec::new();
-        group_order
-            .try_reserve(counts.len().min(values.len()))
-            .map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "local Vortex transformed-dictionary count-star count-HAVING group order reservation failed: {error}; no fallback execution was attempted"
-                ))
-            })?;
-        for (value, count) in values.iter().zip(counts) {
-            if *count == 0 {
-                continue;
-            }
-            let key = self.transformed_dictionary_group_key(group_transform, value.as_ref())?;
-            match group_totals.entry(key) {
-                std::collections::hash_map::Entry::Occupied(mut entry) => {
-                    *entry.get_mut() = entry.get().checked_add(*count).ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex transformed-dictionary count-star count-HAVING total overflowed u64"
-                                .to_string(),
-                        )
-                    })?;
-                }
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    group_order.push(entry.key().clone());
-                    entry.insert(*count);
-                }
-            }
-        }
-        for key in group_order {
-            let count = group_totals.get(&key).copied().ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex transformed-dictionary count-star count-HAVING total was missing; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })?;
-            if !Self::count_star_having_prefilter_matches(count, filters) {
-                continue;
-            }
-            let group = match self.groups.entry(key) {
-                std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    if record_source_order {
-                        self.group_order.push(entry.key().clone());
-                    }
-                    entry.insert(GroupedAggregateState::new_compact_count_star(None))
-                }
-            };
-            group.increment_count_star_by(count)?;
-        }
-        Ok(())
     }
 
     fn transformed_dictionary_group_key(
@@ -26643,21 +26561,6 @@ impl<'a> GroupedAggregateStates<'a> {
                     "local Vortex dictionary-group compact aggregate order reservation failed: {error}; no fallback execution was attempted"
                 ))
             })?;
-        let count_having_prefilter = self.count_star_having_prefilter().filter(|_| {
-            dictionary_group_values_are_code_unique(group_values, group_value_nulls.as_deref())
-        });
-        let count_having_group_totals = if count_having_prefilter.is_some() {
-            Some(dictionary_group_code_counts_for_rows(
-                group_row_ids,
-                group_values.len(),
-                group_value_nulls.as_deref(),
-                group_row_nulls.as_deref(),
-                row_indices,
-            )?)
-        } else {
-            None
-        };
-        let mut dictionary_group_count_having_prefilter_seen = count_having_prefilter.is_some();
         let mut add_row = |row_index: usize| -> Result<()> {
             let code_key = dictionary_group_code_key_for_row(
                 group_row_ids,
@@ -26666,16 +26569,6 @@ impl<'a> GroupedAggregateStates<'a> {
                 group_row_nulls.as_deref(),
                 row_index,
             )?;
-            if let (Some(filters), Some(group_totals)) = (
-                count_having_prefilter.as_deref(),
-                count_having_group_totals.as_ref(),
-            ) {
-                dictionary_group_count_having_prefilter_seen = true;
-                let group_total = group_totals.get(&code_key).copied().unwrap_or(0);
-                if !Self::count_star_having_prefilter_matches(group_total, filters) {
-                    return Ok(());
-                }
-            }
             let partial = match partials.entry(code_key) {
                 std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
                 std::collections::hash_map::Entry::Vacant(entry) => {
@@ -26738,8 +26631,6 @@ impl<'a> GroupedAggregateStates<'a> {
         self.compact_measure_direct_updates = true;
         self.chunk_dictionary_direct_updates = true;
         self.dictionary_group_compact_measure_direct_updates = true;
-        self.dictionary_group_count_having_prefilter |=
-            dictionary_group_count_having_prefilter_seen;
         Ok(true)
     }
 
@@ -27128,48 +27019,6 @@ impl<'a> GroupedAggregateStates<'a> {
                 add_row(row_index)?;
             }
         }
-        let count_having_prefilter = self.count_star_having_prefilter();
-        let count_having_group_totals = if count_having_prefilter.is_some() {
-            let mut group_totals = rustc_hash::FxHashMap::<AggregateGroupKey, u64>::default();
-            reserve_hash_map_capacity(
-                &mut group_totals,
-                pair_order.len().min(transformed_keys.len()),
-                "transformed-dictionary compact count-HAVING prefilter",
-            )?;
-            for pair in &pair_order {
-                let weight = pair_counts.get(pair).copied().ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex transformed-dictionary compact count-HAVING pair count was missing; no fallback execution was attempted"
-                            .to_string(),
-                    )
-                })?;
-                let key = transformed_keys
-                    .get(pair.group_code_index)
-                    .cloned()
-                    .ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex transformed-dictionary compact count-HAVING group key was missing; no fallback execution was attempted"
-                                .to_string(),
-                        )
-                    })?;
-                match group_totals.entry(key) {
-                    std::collections::hash_map::Entry::Occupied(mut entry) => {
-                        *entry.get_mut() = entry.get().checked_add(weight).ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "local Vortex transformed-dictionary compact count-HAVING total overflowed u64"
-                                    .to_string(),
-                            )
-                        })?;
-                    }
-                    std::collections::hash_map::Entry::Vacant(entry) => {
-                        entry.insert(weight);
-                    }
-                }
-            }
-            Some(group_totals)
-        } else {
-            None
-        };
         for pair in pair_order {
             let weight = pair_counts.get(&pair).copied().ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
@@ -27186,17 +27035,6 @@ impl<'a> GroupedAggregateStates<'a> {
                         .to_string(),
                     )
                 })?;
-            if let (Some(filters), Some(group_totals)) = (
-                count_having_prefilter.as_deref(),
-                count_having_group_totals.as_ref(),
-            ) {
-                let group_total = group_totals.get(&key).copied().unwrap_or(0);
-                if !Self::count_star_having_prefilter_matches(group_total, filters) {
-                    self.transformed_dictionary_count_having_prefilter = true;
-                    continue;
-                }
-                self.transformed_dictionary_count_having_prefilter = true;
-            }
             let group = match self.groups.entry(key) {
                 std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
                 std::collections::hash_map::Entry::Vacant(entry) => {
@@ -30328,44 +30166,6 @@ impl<'a> GroupedAggregateStates<'a> {
         }
     }
 
-    fn count_star_having_prefilter(&self) -> Option<Vec<PreparedCountStarHavingExpr>> {
-        if self.request.having.is_empty() {
-            return None;
-        }
-        let count_alias = self.state_template.count_star_measure_alias()?;
-        if self
-            .request
-            .having
-            .iter()
-            .any(|expression| expression.column != count_alias)
-        {
-            return None;
-        }
-        Some(
-            self.request
-                .having
-                .iter()
-                .map(|expression| PreparedCountStarHavingExpr {
-                    op: expression.op,
-                    value: aggregate_having_value_json(&expression.value),
-                })
-                .collect(),
-        )
-    }
-
-    fn count_star_having_prefilter_matches(
-        count: u64,
-        having: &[PreparedCountStarHavingExpr],
-    ) -> bool {
-        having.iter().all(|expression| {
-            let ordering = compare_grouped_order_value_to_json(
-                &GroupedAggregateOrderValue::CountStar(count),
-                &expression.value,
-            );
-            aggregate_having_ordering_matches(ordering, expression.op)
-        })
-    }
-
     fn group_count(&self) -> usize {
         if let Some(groups) = self.single_numeric_count_groups.as_ref() {
             return groups.len();
@@ -30970,11 +30770,6 @@ impl<'a> GroupedAggregateStates<'a> {
             {
                 state_family.push_str("+transformed");
             }
-            if self.transformed_dictionary_count_having_prefilter
-                || self.dictionary_group_count_having_prefilter
-            {
-                state_family.push_str("+count_having_prefilter");
-            }
             if self.string_count_topk_heavy_hitter_direct_updates {
                 state_family.push_str("+proofbound_string_heavy_hitter");
                 if self.string_count_topk_late_measure_direct_updates {
@@ -31059,10 +30854,6 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.transformed_dictionary_direct_updates {
             capillary_work_units.push("transformed_dictionary_group_key_cache");
             pulseweave_pressure_signals.push("string_transform_reuse_by_dictionary_id");
-            if self.transformed_dictionary_count_having_prefilter {
-                capillary_work_units.push("count_having_preupdate_group_filter");
-                pulseweave_pressure_signals.push("having_selectivity_before_state_update");
-            }
         }
         if self.transformed_dictionary_compact_direct_updates {
             capillary_work_units.push("transformed_dictionary_compact_measure_update");
@@ -31081,10 +30872,6 @@ impl<'a> GroupedAggregateStates<'a> {
             capillary_work_units.push("dictionary_code_group_measure_merge");
             pulseweave_pressure_signals.push("dictionary_group_code_reuse");
             pulseweave_pressure_signals.push("row_state_update_bypass");
-            if self.dictionary_group_count_having_prefilter {
-                capillary_work_units.push("count_having_preupdate_group_filter");
-                pulseweave_pressure_signals.push("having_selectivity_before_state_update");
-            }
         }
         if self.transformed_dictionary_general_direct_updates {
             capillary_work_units.push("transformed_dictionary_general_measure_update");
@@ -31324,12 +31111,6 @@ impl<'a> GroupedAggregateStates<'a> {
 #[cfg(feature = "vortex-local-primitives")]
 struct PreparedAggregateHavingExpr<'a> {
     column: &'a str,
-    op: ComparisonOp,
-    value: serde_json::Value,
-}
-
-#[cfg(feature = "vortex-local-primitives")]
-struct PreparedCountStarHavingExpr {
     op: ComparisonOp,
     value: serde_json::Value,
 }
@@ -32714,81 +32495,6 @@ fn dictionary_group_code_key_for_row(
                     .to_string(),
             )
         })
-}
-
-#[cfg(feature = "vortex-local-primitives")]
-fn dictionary_group_code_counts_for_rows(
-    row_ids: &[u32],
-    value_count: usize,
-    value_nulls: Option<&[bool]>,
-    row_nulls: Option<&[bool]>,
-    row_indices: Option<&[usize]>,
-) -> Result<rustc_hash::FxHashMap<DictionaryGroupCodeKey, u64>> {
-    let selected_rows = row_indices.map_or(row_ids.len(), <[usize]>::len);
-    let mut counts = rustc_hash::FxHashMap::<DictionaryGroupCodeKey, u64>::default();
-    reserve_hash_map_capacity(
-        &mut counts,
-        selected_rows.min(value_count.saturating_add(1)),
-        "dictionary-group count-HAVING prefilter counts",
-    )?;
-    let mut add_row = |row_index: usize| -> Result<()> {
-        let code_key = dictionary_group_code_key_for_row(
-            row_ids,
-            value_count,
-            value_nulls,
-            row_nulls,
-            row_index,
-        )?;
-        match counts.entry(code_key) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                *entry.get_mut() = entry.get().checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex dictionary-group count-HAVING total overflowed u64"
-                            .to_string(),
-                    )
-                })?;
-            }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                entry.insert(1);
-            }
-        }
-        Ok(())
-    };
-    if let Some(row_indices) = row_indices {
-        for &row_index in row_indices {
-            add_row(row_index)?;
-        }
-    } else {
-        for row_index in 0..row_ids.len() {
-            add_row(row_index)?;
-        }
-    }
-    Ok(counts)
-}
-
-#[cfg(feature = "vortex-local-primitives")]
-fn dictionary_group_values_are_code_unique(
-    values: &[std::sync::Arc<str>],
-    value_nulls: Option<&[bool]>,
-) -> bool {
-    let mut seen = rustc_hash::FxHashSet::<&str>::default();
-    if reserve_hash_set_capacity(&mut seen, values.len(), "dictionary-group unique values").is_err()
-    {
-        return false;
-    }
-    for (index, value) in values.iter().enumerate() {
-        if value_nulls
-            .and_then(|nulls| nulls.get(index))
-            .copied()
-            .unwrap_or(false)
-        {
-            continue;
-        }
-        if !seen.insert(value.as_ref()) {
-            return false;
-        }
-    }
-    true
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -53419,7 +53125,7 @@ mod tests {
     }
 
     #[test]
-    fn grouped_count_star_transformed_dictionary_prefilters_count_having_before_state_update() {
+    fn grouped_count_star_transformed_dictionary_applies_count_having_after_merge() {
         let request = VortexSimpleAggregateRequest::grouped(
             Vec::new(),
             vec![crate::VortexSimpleAggregateMeasure::new(
@@ -53467,16 +53173,11 @@ mod tests {
         let budget = states
             .state_budget_report(&request, 5, 1)
             .expect("state budget");
-        assert!(budget.state_family.contains("count_having_prefilter"));
+        assert!(!budget.state_family.contains("count_having_prefilter"));
         assert!(
-            budget
+            !budget
                 .capillary_work_units
                 .contains(&"count_having_preupdate_group_filter".to_string())
-        );
-        assert!(
-            budget
-                .pulseweave_pressure_signals
-                .contains(&"having_selectivity_before_state_update".to_string())
         );
         let (row_count, summary) = states
             .result_row_count_and_summary(Some(2))
@@ -53721,7 +53422,7 @@ mod tests {
     }
 
     #[test]
-    fn grouped_compact_measures_embedded_dictionary_group_prefilters_count_having() {
+    fn grouped_compact_measures_embedded_dictionary_group_applies_count_having_after_merge() {
         let request = VortexSimpleAggregateRequest::grouped(
             Vec::new(),
             vec![
@@ -53777,16 +53478,11 @@ mod tests {
         let budget = states
             .state_budget_report(&request, 4, 1)
             .expect("state budget");
-        assert!(budget.state_family.contains("count_having_prefilter"));
+        assert!(!budget.state_family.contains("count_having_prefilter"));
         assert!(
-            budget
+            !budget
                 .capillary_work_units
                 .contains(&"count_having_preupdate_group_filter".to_string())
-        );
-        assert!(
-            budget
-                .pulseweave_pressure_signals
-                .contains(&"having_selectivity_before_state_update".to_string())
         );
         let (row_count, summary) = states
             .result_row_count_and_summary(Some(2))
@@ -53810,8 +53506,71 @@ mod tests {
     }
 
     #[test]
-    fn grouped_compact_measures_transformed_dictionary_prefilters_count_having_before_state_update()
-    {
+    fn grouped_compact_measures_embedded_dictionary_group_having_survives_chunk_split() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            Vec::new(),
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "c".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(
+                        ColumnRef::new("__shardloom_derived_utf8_len_URL").expect("hidden length"),
+                    ),
+                    "l".to_string(),
+                ),
+            ],
+        )
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "domain".to_string(),
+            ColumnRef::new("__shardloom_derived_url_domain_Referer").expect("hidden domain"),
+            "identity",
+        )])
+        .with_having(vec![crate::VortexAggregateHavingExpr::new(
+            "c",
+            ComparisonOp::GtEq,
+            "2",
+        )])
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
+        let declared_columns = vec![
+            "__shardloom_derived_url_domain_Referer".to_string(),
+            "__shardloom_derived_utf8_len_URL".to_string(),
+        ];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        for length in [1_u64, 3_u64] {
+            let accessors = vec![
+                AggregateDirectColumnAccessor::Utf8Dictionary {
+                    row_ids: vec![0],
+                    values: vec![std::sync::Arc::<str>::from("example.test")],
+                    value_nulls: None,
+                    row_nulls: None,
+                    source: AggregateUtf8DictionarySource::VortexDictArray,
+                },
+                AggregateDirectColumnAccessor::UInt64(vec![length]),
+            ];
+            assert!(
+                states
+                    .update_compact_direct_from_dictionary_group(&accessors, None)
+                    .expect("embedded dictionary compact update")
+            );
+        }
+
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 1);
+        let rows = payload["values"].as_array().expect("values");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["domain"], serde_json::json!("example.test"));
+        assert_eq!(rows[0]["c"], serde_json::json!(2));
+        assert_eq!(rows[0]["l"], serde_json::json!(2.0));
+    }
+
+    #[test]
+    fn grouped_compact_measures_transformed_dictionary_applies_count_having_after_merge() {
         let request = VortexSimpleAggregateRequest::grouped(
             Vec::new(),
             vec![
@@ -53873,16 +53632,11 @@ mod tests {
         let budget = states
             .state_budget_report(&request, 4, 1)
             .expect("state budget");
-        assert!(budget.state_family.contains("count_having_prefilter"));
+        assert!(!budget.state_family.contains("count_having_prefilter"));
         assert!(
-            budget
+            !budget
                 .capillary_work_units
                 .contains(&"count_having_preupdate_group_filter".to_string())
-        );
-        assert!(
-            budget
-                .pulseweave_pressure_signals
-                .contains(&"having_selectivity_before_state_update".to_string())
         );
         let (row_count, summary) = states
             .result_row_count_and_summary(Some(2))
