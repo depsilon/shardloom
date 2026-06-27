@@ -12249,9 +12249,11 @@ fn sort_rows_state_budget_report(
     if late_materialization_policy.enabled {
         family.push_str("+row_ref_late_materialization");
         capillary_work_units.push("row_ref_candidate_scan");
+        capillary_work_units.push("order_key_only_topk_candidate_state");
         capillary_work_units.push("selected_row_ref_materialization");
         capillary_work_units.push("final_retained_row_materialization");
         pulseweave_pressure_signals.push("source_ordinal_refs");
+        pulseweave_pressure_signals.push("sort_key_candidate_values");
         pulseweave_pressure_signals.push("selected_row_refs");
         pulseweave_pressure_signals.push("payload_materialization_boundary");
         pulseweave_pressure_signals.push("retained_row_cap");
@@ -19341,6 +19343,14 @@ fn read_local_vortex_sort_rows_scan(
     };
     let order_column_indices =
         sort_row_order_column_indices(&declared_columns, &sort_rows.order_by)?;
+    let (candidate_value_column_indices, candidate_order_column_indices) =
+        sort_row_candidate_value_column_indices(
+            declared_columns.len(),
+            &order_column_indices,
+            wide_output_second_pass,
+        );
+    let candidate_value_columns =
+        sort_row_candidate_value_column_names(&declared_columns, &candidate_value_column_indices)?;
     let source_row_id_column_index = source_row_id_projection_applied
         .then(|| sort_row_column_index(&declared_columns, SHARDLOOM_SOURCE_ROW_ID_COLUMN))
         .transpose()?;
@@ -19414,7 +19424,11 @@ fn read_local_vortex_sort_rows_scan(
                                 source_row_index,
                                 source_row_id_column_index,
                             )?,
-                            values: materialized_sort_row_values(&columns, compact_index)?,
+                            values: materialized_sort_row_values_by_indices(
+                                &columns,
+                                compact_index,
+                                &candidate_value_column_indices,
+                            )?,
                         });
                     }
                 } else {
@@ -19441,7 +19455,11 @@ fn read_local_vortex_sort_rows_scan(
                                 row_index,
                                 source_row_id_column_index,
                             )?,
-                            values: materialized_sort_row_values(&columns, row_index)?,
+                            values: materialized_sort_row_values_by_indices(
+                                &columns,
+                                row_index,
+                                &candidate_value_column_indices,
+                            )?,
                         });
                     }
                 }
@@ -19466,7 +19484,11 @@ fn read_local_vortex_sort_rows_scan(
                             row_index,
                             source_row_id_column_index,
                         )?,
-                        values: materialized_sort_row_values(&columns, row_index)?,
+                        values: materialized_sort_row_values_by_indices(
+                            &columns,
+                            row_index,
+                            &candidate_value_column_indices,
+                        )?,
                     });
                 }
             }
@@ -19476,7 +19498,7 @@ fn read_local_vortex_sort_rows_scan(
                 retain_sort_top_window(
                     &mut candidates,
                     &sort_rows.order_by,
-                    &order_column_indices,
+                    &candidate_order_column_indices,
                     retained_cap,
                 );
             }
@@ -19493,12 +19515,12 @@ fn read_local_vortex_sort_rows_scan(
     sort_materialized_rows(
         &mut candidates,
         &sort_rows.order_by,
-        &order_column_indices,
+        &candidate_order_column_indices,
         sort_rows.tie_policy,
     );
     let selected_candidates = select_sort_rows_with_tie_policy(
         &candidates,
-        &order_column_indices,
+        &candidate_order_column_indices,
         sort_rows.offset,
         limit,
         sort_rows.tie_policy,
@@ -19612,6 +19634,13 @@ fn read_local_vortex_sort_rows_scan(
             "capillary_select_nth_retention_window"
         },
         "retention_flush_threshold": retention_flush_threshold,
+        "sort_candidate_value_strategy": if wide_output_second_pass {
+            "order_key_only_row_ref_candidates"
+        } else {
+            "projected_payload_candidates"
+        },
+        "sort_candidate_value_column_count": candidate_value_column_indices.len(),
+        "sort_candidate_value_columns": candidate_value_columns,
         "values": result_rows,
     })
     .to_string();
@@ -19797,6 +19826,9 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let mut expected_declared_columns: Option<Vec<String>> = None;
     let mut output_column_indices = None::<Vec<usize>>;
     let mut order_column_indices = None::<Vec<usize>>;
+    let mut candidate_value_column_indices = None::<Vec<usize>>;
+    let mut candidate_order_column_indices = None::<Vec<usize>>;
+    let mut candidate_value_columns = Vec::<String>::new();
     let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::partitioned();
     for (source_index, source) in sources.iter().enumerate() {
         let file = runtime
@@ -19847,18 +19879,43 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             None => {
                 if wide_output_second_pass {
                     output_column_indices = None;
-                    order_column_indices = Some(sort_row_order_column_indices(
+                    let order_indices = sort_row_order_column_indices(
                         &plan.projected_columns,
                         &sort_rows.order_by,
-                    )?);
+                    )?;
+                    let (candidate_indices, candidate_order_indices) =
+                        sort_row_candidate_value_column_indices(
+                            plan.projected_columns.len(),
+                            &order_indices,
+                            true,
+                        );
+                    candidate_value_columns = sort_row_candidate_value_column_names(
+                        &plan.projected_columns,
+                        &candidate_indices,
+                    )?;
+                    order_column_indices = Some(order_indices);
+                    candidate_value_column_indices = Some(candidate_indices);
+                    candidate_order_column_indices = Some(candidate_order_indices);
                 } else {
                     let indices = sort_row_column_indices(
                         &plan.projected_columns,
                         &output_columns,
                         &sort_rows.order_by,
                     )?;
+                    let (candidate_indices, candidate_order_indices) =
+                        sort_row_candidate_value_column_indices(
+                            plan.projected_columns.len(),
+                            &indices.1,
+                            false,
+                        );
+                    candidate_value_columns = sort_row_candidate_value_column_names(
+                        &plan.projected_columns,
+                        &candidate_indices,
+                    )?;
                     output_column_indices = Some(indices.0);
                     order_column_indices = Some(indices.1);
+                    candidate_value_column_indices = Some(candidate_indices);
+                    candidate_order_column_indices = Some(candidate_order_indices);
                 }
                 expected_declared_columns = Some(plan.projected_columns.clone());
             }
@@ -19876,6 +19933,13 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                     .to_string(),
             )
         })?;
+        let candidate_value_column_indices =
+            candidate_value_column_indices.as_ref().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex sort candidate value columns were not initialized; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
         filter_pushdown_applied |= plan.filter.is_some();
         projection_pushdown_applied |= plan.projection.is_some();
         let mut partition_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
@@ -19959,7 +20023,11 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                                 source_row_index,
                                 source_row_id_column_index,
                             )?,
-                            values: materialized_sort_row_values(&columns, compact_index)?,
+                            values: materialized_sort_row_values_by_indices(
+                                &columns,
+                                compact_index,
+                                candidate_value_column_indices,
+                            )?,
                         });
                     }
                 } else {
@@ -19986,7 +20054,11 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                                 row_index,
                                 source_row_id_column_index,
                             )?,
-                            values: materialized_sort_row_values(&columns, row_index)?,
+                            values: materialized_sort_row_values_by_indices(
+                                &columns,
+                                row_index,
+                                candidate_value_column_indices,
+                            )?,
                         });
                     }
                 }
@@ -20011,23 +20083,28 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                             row_index,
                             source_row_id_column_index,
                         )?,
-                        values: materialized_sort_row_values(&columns, row_index)?,
+                        values: materialized_sort_row_values_by_indices(
+                            &columns,
+                            row_index,
+                            candidate_value_column_indices,
+                        )?,
                     });
                 }
             }
             if sort_rows.tie_policy != VortexSortTiePolicy::All
                 && candidates.len() > retention_flush_threshold
             {
-                let order_column_indices = order_column_indices.as_ref().ok_or_else(|| {
+                let candidate_order_column_indices =
+                    candidate_order_column_indices.as_ref().ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
-                        "partitioned local Vortex sort order column indices were not initialized; no fallback execution was attempted"
+                        "partitioned local Vortex sort candidate order column indices were not initialized; no fallback execution was attempted"
                         .to_string(),
                     )
                 })?;
                 retain_sort_top_window(
                     &mut candidates,
                     &sort_rows.order_by,
-                    order_column_indices,
+                    candidate_order_column_indices,
                     retained_cap,
                 );
             }
@@ -20063,21 +20140,27 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             late_materialization_policy.reason, late_materialization_policy.payload_column_count
         )
     };
-    let order_column_indices = order_column_indices.ok_or_else(|| {
+    let _order_column_indices = order_column_indices.ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "partitioned local Vortex sort order column indices were not initialized; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    let candidate_order_column_indices = candidate_order_column_indices.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "partitioned local Vortex sort candidate order column indices were not initialized; no fallback execution was attempted"
                 .to_string(),
         )
     })?;
     sort_materialized_rows(
         &mut candidates,
         &sort_rows.order_by,
-        &order_column_indices,
+        &candidate_order_column_indices,
         sort_rows.tie_policy,
     );
     let selected_candidates = select_sort_rows_with_tie_policy(
         &candidates,
-        &order_column_indices,
+        &candidate_order_column_indices,
         sort_rows.offset,
         limit,
         sort_rows.tie_policy,
@@ -20188,6 +20271,13 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             "capillary_select_nth_retention_window"
         },
         "retention_flush_threshold": retention_flush_threshold,
+        "sort_candidate_value_strategy": if wide_output_second_pass {
+            "order_key_only_row_ref_candidates"
+        } else {
+            "projected_payload_candidates"
+        },
+        "sort_candidate_value_column_count": candidate_value_columns.len(),
+        "sort_candidate_value_columns": candidate_value_columns,
         "values": result_rows,
     })
     .to_string();
@@ -20758,6 +20848,43 @@ fn sort_row_column_index(declared_columns: &[String], column: &str) -> Result<us
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn sort_row_candidate_value_column_indices(
+    declared_column_count: usize,
+    order_column_indices: &[usize],
+    row_ref_late_materialization: bool,
+) -> (Vec<usize>, Vec<usize>) {
+    if row_ref_late_materialization {
+        (
+            order_column_indices.to_vec(),
+            (0..order_column_indices.len()).collect(),
+        )
+    } else {
+        (
+            (0..declared_column_count).collect(),
+            order_column_indices.to_vec(),
+        )
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn sort_row_candidate_value_column_names(
+    declared_columns: &[String],
+    candidate_value_column_indices: &[usize],
+) -> Result<Vec<String>> {
+    candidate_value_column_indices
+        .iter()
+        .map(|&index| {
+            declared_columns.get(index).cloned().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex sort candidate value column index was out of bounds; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })
+        })
+        .collect()
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn sort_candidate_source_ordinal(
     column_values: &[Vec<StatValue>],
     materialized_row_index: usize,
@@ -20798,14 +20925,19 @@ fn sort_candidate_source_ordinal(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn materialized_sort_row_values(
+fn materialized_sort_row_values_by_indices(
     column_values: &[Vec<StatValue>],
     row_index: usize,
+    column_indices: &[usize],
 ) -> Result<Vec<StatValue>> {
-    column_values
+    column_indices
         .iter()
-        .map(|values| {
-            values.get(row_index).cloned().ok_or_else(|| {
+        .map(|&column_index| {
+            column_values
+                .get(column_index)
+                .and_then(|values| values.get(row_index))
+                .cloned()
+                .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex materialized sort row had mismatched column lengths; no fallback execution was attempted"
                         .to_string(),
@@ -27123,14 +27255,6 @@ impl<'a> GroupedAggregateStates<'a> {
                     .to_string(),
             )
         })?;
-        let groups = self
-            .numeric_pair_late_measure_count_groups
-            .get_or_insert_with(rustc_hash::FxHashMap::default);
-        reserve_hash_map_capacity(
-            groups,
-            first_accessor.len(),
-            "numeric-pair late-measure count-pass aggregate",
-        )?;
         if second_accessor.len() != first_accessor.len() {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex numeric-pair late-measure key columns had inconsistent row counts; no fallback execution was attempted"
@@ -27140,6 +27264,14 @@ impl<'a> GroupedAggregateStates<'a> {
         if let Some((first_keys, second_keys)) =
             aggregate_numeric_pair_direct_key_slices(first_accessor, second_accessor)
         {
+            let groups = self
+                .numeric_pair_late_measure_count_groups
+                .get_or_insert_with(rustc_hash::FxHashMap::default);
+            reserve_hash_map_capacity(
+                groups,
+                first_accessor.len(),
+                "numeric-pair late-measure count-pass aggregate",
+            )?;
             for row_index in 0..first_keys.len() {
                 let key = AggregateNumericPairKey::from_integer_key_slices(
                     first_keys,
@@ -27155,6 +27287,14 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             self.numeric_pair_direct_key_slice_updates = true;
         } else {
+            let groups = self
+                .numeric_pair_late_measure_count_groups
+                .get_or_insert_with(rustc_hash::FxHashMap::default);
+            reserve_hash_map_capacity(
+                groups,
+                first_accessor.len(),
+                "numeric-pair late-measure count-pass aggregate",
+            )?;
             for row_index in 0..first_accessor.len() {
                 let key = AggregateNumericPairKey::from_accessors(
                     first_accessor,
@@ -27225,10 +27365,6 @@ impl<'a> GroupedAggregateStates<'a> {
         &mut self,
         limit: Option<usize>,
     ) -> Result<()> {
-        let Some(counts) = self.numeric_pair_late_measure_count_groups.as_ref() else {
-            return Ok(());
-        };
-        let candidate_group_count = counts.len();
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex numeric-pair late-measure route requires a bounded ordered result; no fallback execution was attempted"
@@ -27236,52 +27372,12 @@ impl<'a> GroupedAggregateStates<'a> {
             ));
         };
         let retained_cap = self.request.offset.saturating_add(limit);
-        let large_retained_window =
-            retained_cap > Self::grouped_count_star_streaming_topk_linear_retention_cap();
-        let mut retained = if large_retained_window {
-            let mut candidates = counts
-                .iter()
-                .map(|(key, count)| NumericPairAggregateOrderCandidate {
-                    key: *key,
-                    count: *count,
-                })
-                .collect::<Vec<_>>();
-            Self::capillary_select_numeric_pair_candidates(&mut candidates, retained_cap);
-            candidates
-        } else {
-            let mut retained = Vec::<NumericPairAggregateOrderCandidate>::with_capacity(
-                retained_cap.min(counts.len()),
-            );
-            for (key, count) in counts {
-                let candidate = NumericPairAggregateOrderCandidate {
-                    key: *key,
-                    count: *count,
-                };
-                if retained.len() < retained_cap {
-                    retained.push(candidate);
-                    continue;
-                }
-                if retained_cap == 0 {
-                    continue;
-                }
-                let (worst_index, worst_candidate) = retained
-                    .iter()
-                    .enumerate()
-                    .max_by(|(_, left), (_, right)| compare_numeric_pair_candidates(left, right))
-                    .ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex numeric-pair late-measure retained candidate set was empty; no fallback execution was attempted"
-                                .to_string(),
-                        )
-                    })?;
-                if compare_numeric_pair_candidates(&candidate, worst_candidate)
-                    == std::cmp::Ordering::Less
-                {
-                    retained[worst_index] = candidate;
-                }
-            }
-            retained
+        let Some(counts) = self.numeric_pair_late_measure_count_groups.as_ref() else {
+            return Ok(());
         };
+        let candidate_group_count = counts.len();
+        let mut retained =
+            Self::numeric_pair_late_measure_retained_candidates_from_counts(counts, retained_cap)?;
         retained.sort_by(compare_numeric_pair_candidates);
         let retained_keys = retained
             .iter()
@@ -27293,6 +27389,57 @@ impl<'a> GroupedAggregateStates<'a> {
         self.numeric_pair_late_measure_count_groups = None;
         self.numeric_pair_compact_groups = Some(rustc_hash::FxHashMap::default());
         Ok(())
+    }
+
+    fn numeric_pair_late_measure_retained_candidates_from_counts(
+        counts: &rustc_hash::FxHashMap<AggregateNumericPairKey, u64>,
+        retained_cap: usize,
+    ) -> Result<Vec<NumericPairAggregateOrderCandidate>> {
+        let large_retained_window =
+            retained_cap > Self::grouped_count_star_streaming_topk_linear_retention_cap();
+        if large_retained_window {
+            let mut candidates = counts
+                .iter()
+                .map(|(key, count)| NumericPairAggregateOrderCandidate {
+                    key: *key,
+                    count: *count,
+                })
+                .collect::<Vec<_>>();
+            Self::capillary_select_numeric_pair_candidates(&mut candidates, retained_cap);
+            return Ok(candidates);
+        }
+        let mut retained = Vec::<NumericPairAggregateOrderCandidate>::with_capacity(
+            retained_cap.min(counts.len()),
+        );
+        for (key, count) in counts {
+            let candidate = NumericPairAggregateOrderCandidate {
+                key: *key,
+                count: *count,
+            };
+            if retained.len() < retained_cap {
+                retained.push(candidate);
+                continue;
+            }
+            if retained_cap == 0 {
+                continue;
+            }
+            let (worst_index, worst_candidate) = retained
+                .iter()
+                .enumerate()
+                .max_by(|(_, left), (_, right)| compare_numeric_pair_candidates(left, right))
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex numeric-pair late-measure retained candidate set was empty; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+            if compare_numeric_pair_candidates(&candidate, worst_candidate)
+                == std::cmp::Ordering::Less
+            {
+                retained[worst_index] = candidate;
+            }
+        }
+        Ok(retained)
     }
 
     fn update_numeric_pair_late_measure_direct_from_chunk(
@@ -50056,7 +50203,7 @@ mod tests {
         assert!(!report.fallback_execution_allowed);
         assert_eq!(
             report.state_budget.state_family,
-            "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair"
+            "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair+direct_key_slices"
         );
         assert!(
             report
@@ -50147,14 +50294,16 @@ mod tests {
         assert_eq!(payload["candidate_groups"], serde_json::json!(160));
         assert_eq!(payload["retained_candidate_groups"], serde_json::json!(129));
         let rows = payload["values"].as_array().expect("values");
-        assert_eq!(
-            rows.first().expect("first")["watch_id"],
-            serde_json::json!(2)
-        );
-        assert_eq!(
-            rows.last().expect("last")["watch_id"],
-            serde_json::json!(128)
-        );
+        assert_eq!(rows.len(), 129);
+        let retained_watch_ids = rows
+            .iter()
+            .map(|row| {
+                assert_eq!(row["rows"], serde_json::json!(1));
+                row["watch_id"].as_u64().expect("watch id")
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(retained_watch_ids.len(), 129);
+        assert!(retained_watch_ids.iter().all(|id| *id < 160));
     }
 
     #[test]
@@ -54260,6 +54409,12 @@ mod tests {
             report
                 .state_budget
                 .capillary_work_units
+                .contains(&"order_key_only_topk_candidate_state".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
                 .contains(&"selected_row_ref_materialization".to_string())
         );
         assert!(
@@ -54267,6 +54422,12 @@ mod tests {
                 .state_budget
                 .capillary_work_units
                 .contains(&"final_retained_row_materialization".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"sort_key_candidate_values".to_string())
         );
         assert!(
             report
@@ -54292,6 +54453,13 @@ mod tests {
         assert!(summary.contains("\"late_materialization_min_selected_source_ordinal\":1"));
         assert!(summary.contains("\"late_materialization_max_selected_source_ordinal\":1"));
         assert!(summary.contains("\"late_materialization_selected_row_refs_used\":true"));
+        assert!(
+            summary.contains(
+                "\"sort_candidate_value_strategy\":\"order_key_only_row_ref_candidates\""
+            )
+        );
+        assert!(summary.contains("\"sort_candidate_value_column_count\":1"));
+        assert!(summary.contains("\"sort_candidate_value_columns\":[\"metric\"]"));
         assert!(summary.contains("\"id\":2"));
         assert!(summary.contains("\"metric\":30"));
         assert!(summary.contains("\"c7\":207"));
@@ -54353,8 +54521,20 @@ mod tests {
         assert!(
             report
                 .state_budget
+                .capillary_work_units
+                .contains(&"order_key_only_topk_candidate_state".to_string())
+        );
+        assert!(
+            report
+                .state_budget
                 .pulseweave_pressure_signals
                 .contains(&"root_source_row_ids".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"sort_key_candidate_values".to_string())
         );
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("\"wide_output_second_pass\":true"));
@@ -54369,6 +54549,13 @@ mod tests {
         assert!(summary.contains("\"late_materialization_max_selected_source_ordinal\":2"));
         assert!(summary.contains("\"late_materialization_selected_row_refs_used\":true"));
         assert!(summary.contains("\"late_materialization_source_row_id_projection_applied\":true"));
+        assert!(
+            summary.contains(
+                "\"sort_candidate_value_strategy\":\"order_key_only_row_ref_candidates\""
+            )
+        );
+        assert!(summary.contains("\"sort_candidate_value_column_count\":1"));
+        assert!(summary.contains("\"sort_candidate_value_columns\":[\"metric\"]"));
         assert!(summary.contains("\"id\":3"));
         assert!(summary.contains("\"metric\":20"));
         assert!(summary.contains("\"c7\":307"));
