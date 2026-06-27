@@ -1301,6 +1301,97 @@ impl VortexLocalPrimitiveExecutionPolicy {
     }
 }
 
+#[cfg(feature = "vortex-local-primitives")]
+enum LocalVortexRuntime {
+    Single(vortex::io::runtime::single::SingleThreadRuntime),
+    Current {
+        runtime: vortex::io::runtime::current::CurrentThreadRuntime,
+        _worker_pool: vortex::io::runtime::current::CurrentThreadWorkerPool,
+    },
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+enum LocalVortexRuntimeIterator<'a, R: 'a> {
+    Single(
+        <vortex::io::runtime::single::SingleThreadRuntime as vortex::io::runtime::BlockingRuntime>::BlockingIterator<
+            'a,
+            R,
+        >,
+    ),
+    Current(
+        <vortex::io::runtime::current::CurrentThreadRuntime as vortex::io::runtime::BlockingRuntime>::BlockingIterator<
+            'a,
+            R,
+        >,
+    ),
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl<R> Iterator for LocalVortexRuntimeIterator<'_, R> {
+    type Item = R;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Single(iter) => iter.next(),
+            Self::Current(iter) => iter.next(),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl vortex::io::runtime::BlockingRuntime for LocalVortexRuntime {
+    type BlockingIterator<'a, R: 'a> = LocalVortexRuntimeIterator<'a, R>;
+
+    fn handle(&self) -> vortex::io::runtime::Handle {
+        match self {
+            Self::Single(runtime) => runtime.handle(),
+            Self::Current { runtime, .. } => runtime.handle(),
+        }
+    }
+
+    fn block_on<Fut, R>(&self, fut: Fut) -> R
+    where
+        Fut: std::future::Future<Output = R>,
+    {
+        match self {
+            Self::Single(runtime) => runtime.block_on(fut),
+            Self::Current { runtime, .. } => runtime.block_on(fut),
+        }
+    }
+
+    fn block_on_stream<'a, S, R>(&self, stream: S) -> Self::BlockingIterator<'a, R>
+    where
+        S: futures::Stream<Item = R> + Send + 'a,
+        R: Send + 'a,
+    {
+        match self {
+            Self::Single(runtime) => {
+                LocalVortexRuntimeIterator::Single(runtime.block_on_stream(stream))
+            }
+            Self::Current { runtime, .. } => {
+                LocalVortexRuntimeIterator::Current(runtime.block_on_stream(stream))
+            }
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn local_vortex_runtime(policy: VortexLocalPrimitiveExecutionPolicy) -> LocalVortexRuntime {
+    let worker_count = policy.resource_envelope.max_parallelism.saturating_sub(1);
+    if worker_count == 0 {
+        return LocalVortexRuntime::Single(
+            vortex::io::runtime::single::SingleThreadRuntime::default(),
+        );
+    }
+    let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
+    let worker_pool = runtime.new_pool();
+    worker_pool.set_workers(worker_count);
+    LocalVortexRuntime::Current {
+        runtime,
+        _worker_pool: worker_pool,
+    }
+}
+
 /// Compatibility row-output format for a scoped local Vortex primitive export.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalPrimitiveRowExportFormat {
@@ -2886,7 +2977,6 @@ fn execute_vortex_local_primitive_row_export_enabled(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
@@ -2983,7 +3073,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
         );
     }
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -3937,7 +4027,6 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
         use vortex::VortexSessionDefault as _;
         use vortex::file::OpenOptionsSessionExt as _;
         use vortex::io::runtime::BlockingRuntime as _;
-        use vortex::io::runtime::single::SingleThreadRuntime;
         use vortex::io::session::RuntimeSessionExt as _;
         use vortex::session::VortexSession;
 
@@ -3960,7 +4049,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
                     .to_string(),
             ));
         }
-        let runtime = SingleThreadRuntime::default();
+        let runtime = local_vortex_runtime(policy);
         let session = VortexSession::default().with_handle(runtime.handle());
         let file = runtime
             .block_on(
@@ -4556,7 +4645,6 @@ fn execute_vortex_local_pivot_row_export_enabled(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
@@ -4592,7 +4680,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
     let temp_path = temporary_output_path(output_path)?;
     prepare_output_target(output_path, &temp_path, allow_overwrite)?;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -15769,11 +15857,10 @@ fn read_local_vortex_distinct_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -15965,11 +16052,10 @@ fn read_local_vortex_drop_duplicate_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -16177,11 +16263,10 @@ fn read_local_vortex_duplicate_mask_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -16332,11 +16417,10 @@ fn read_local_vortex_tail_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -16459,11 +16543,10 @@ fn read_local_vortex_sample_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -16699,7 +16782,6 @@ fn read_local_vortex_expression_project_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
@@ -16714,7 +16796,7 @@ fn read_local_vortex_expression_project_scan(
         ));
     }
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -16936,12 +17018,11 @@ fn read_local_vortex_melt_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
     let melt_projection = required_melt_projection(request)?;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -17133,13 +17214,12 @@ fn read_local_vortex_pivot_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
     let pivot_projection = required_pivot_projection(request)?;
     let aggregate = normalized_pivot_aggregate(pivot_projection)?;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -17347,12 +17427,11 @@ fn read_local_vortex_explode_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
     let explode_projection = required_explode_projection(request)?;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -17553,12 +17632,11 @@ fn read_local_vortex_rolling_window_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
     let rolling_window = required_rolling_window(request)?;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -19398,7 +19476,6 @@ fn read_local_vortex_sort_rows_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
@@ -19421,7 +19498,7 @@ fn read_local_vortex_sort_rows_scan(
                 .to_string(),
         )
     })?;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -19900,7 +19977,6 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
@@ -19923,7 +19999,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 .to_string(),
         )
     })?;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut source_row_count_estimate = 0_u64;
     for source in sources {
@@ -19950,7 +20026,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             })?;
     }
     let output_columns =
-        local_vortex_sort_rows_output_columns(&sources[0].path, request, sort_rows)?;
+        local_vortex_sort_rows_output_columns(&sources[0].path, request, sort_rows, policy)?;
     let first_file = runtime
         .block_on(
             session
@@ -20663,15 +20739,15 @@ fn local_vortex_sort_rows_output_columns(
     path: &std::path::Path,
     request: &VortexQueryPrimitiveRequest,
     _sort_rows: &VortexSortRowsRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<Vec<String>> {
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -20702,7 +20778,6 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
@@ -20725,7 +20800,7 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
         ordinal_positions.entry(ordinal).or_default().push(position);
     }
     let selected_unique_source_ordinals = ordinal_positions.keys().copied().collect::<Vec<_>>();
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -43538,13 +43613,13 @@ mod tests {
             report
                 .embedded_layout
                 .per_column_metadata_contract
-                .contains("__shardloom_derived_url_domain_Referer")
+                .contains("shardloom_derived_extract_minute_EventTime")
         );
         assert!(
             report
                 .embedded_layout
                 .per_column_metadata_contract
-                .contains("derived=url_domain")
+                .contains("derived=extract_minute")
         );
         assert_eq!(
             report.embedded_layout.operator_selection_metadata_status,
@@ -50448,7 +50523,7 @@ mod tests {
         let payload = simple_aggregate_values_json(&summary);
         assert_eq!(
             payload["compact_group_state_strategy"],
-            "compact_count_sum_avg_group_state"
+            "chunk_dictionary_compact_count_sum_avg_group_state"
         );
         assert_eq!(
             payload["group_key_storage"],
@@ -50458,10 +50533,13 @@ mod tests {
             payload["source_order_key_retention"],
             "source_order_keys_retained"
         );
-        assert_eq!(payload["group_state_mode"], "all_hot_hash_map");
+        assert_eq!(
+            payload["group_state_mode"],
+            "chunk_dictionary_compact_measure_code_map"
+        );
         assert_eq!(
             payload["materialized_group_value_count"],
-            serde_json::json!(2)
+            serde_json::json!(0)
         );
         assert!(summary.contains("\"group_by\":\"label\""));
         assert!(summary.contains("\"label\":\"paid\""));
@@ -50602,7 +50680,7 @@ mod tests {
         assert!(report.state_budget.state_budget_required);
         assert_eq!(
             report.state_budget.state_family,
-            "grouped_aggregate_state+topk+compact_numeric_measures"
+            "grouped_aggregate_state+topk+count_star_direct+chunk_dictionary_compact_measures+compact_numeric_measures"
         );
         assert!(
             report
@@ -50633,7 +50711,7 @@ mod tests {
         assert_eq!(payload["group_output_strategy"], "capillary_ordered_topk");
         assert_eq!(
             payload["compact_group_state_strategy"],
-            "compact_count_sum_avg_group_state"
+            "chunk_dictionary_compact_count_sum_avg_group_state"
         );
         assert_eq!(payload["candidate_groups"], serde_json::json!(2));
         assert_eq!(payload["retained_candidate_groups"], serde_json::json!(1));
@@ -52610,7 +52688,7 @@ mod tests {
         assert_eq!(payload["retained_candidate_groups"], serde_json::json!(2));
         assert_eq!(
             payload["materialized_group_value_count"],
-            serde_json::json!(2)
+            serde_json::json!(0)
         );
         assert_eq!(payload["decoded_string_count"], serde_json::json!(3));
         let rows = payload["values"].as_array().expect("values");
@@ -53034,7 +53112,8 @@ mod tests {
         assert_eq!(report.rows_scanned, 3);
         assert_eq!(report.rows_selected, Some(2));
         assert!(report.projection_pushdown_applied);
-        assert!(!report.filter_pushdown_applied);
+        assert!(report.filter_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
         assert!(report.data_decoded);
         assert!(report.data_materialized);
         assert!(report.row_read);
@@ -53046,11 +53125,11 @@ mod tests {
         assert_eq!(payload["group_output_strategy"], "ordered_group_sort");
         assert_eq!(
             payload["aggregate_update_strategy"],
-            "direct_count_sum_avg_group_update"
+            "dictionary_group_compact_count_sum_avg_group_update"
         );
         assert_eq!(
             payload["compact_group_state_strategy"],
-            "compact_count_sum_avg_group_state"
+            "chunk_dictionary_compact_count_sum_avg_group_state"
         );
         let values = payload["values"].as_array().expect("values");
         assert_eq!(values.len(), 1);
@@ -54731,7 +54810,7 @@ mod tests {
         );
         assert_eq!(
             payload["materialized_group_value_count"],
-            serde_json::json!(2)
+            serde_json::json!(0)
         );
         let rows = payload["values"].as_array().expect("values");
         let example_sum = values[0].len() * 2 + values[2].len() + values[3].len();

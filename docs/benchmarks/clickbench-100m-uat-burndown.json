@@ -2032,5 +2032,152 @@
     ],
     "readout": "Targeted repeat shows the slower full43 ResourceEnvelope total was concentrated in run variance/cold-cache effects: Q34/Q35/Q29/Q24/Q19 improved versus post-merge #1361, Q17/Q23 were flat, and Q21/Q33 remain the only material slower candidates in this repeated set.",
     "remaining_pre_merge_optimization_decision": "No revert. Ship ResourceEnvelope evidence plumbing and lazy top-K path, then continue optimizing Q21 string predicate pruning and Q33 high-cardinality numeric-pair retained-measure state in follow-up performance work."
+  },
+  "latest_runtime_driver_targeted_uat": {
+    "run_id": "targeted_runtime_driver_final_changed_routes_20260627T204943Z",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_runtime_driver_final_changed_routes_20260627T204943Z/summary.json",
+    "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
+    "purpose": "validate the shared Vortex current-thread worker-pool runtime driver on changed count/filter and bounded sort/top-K route families without running full 43-query UAT",
+    "query_count": 6,
+    "success_count": 6,
+    "fallback_or_external_engine_violations": 0,
+    "total_elapsed_success_seconds": 29.841,
+    "geomean_success_seconds": 2.414571,
+    "material_changed_lane_results": [
+      [
+        "CB-Q21",
+        9.334
+      ],
+      [
+        "CB-Q24",
+        14.098
+      ],
+      [
+        "CB-Q25",
+        0.541
+      ],
+      [
+        "CB-Q26",
+        2.756
+      ],
+      [
+        "CB-Q27",
+        2.744
+      ]
+    ],
+    "comparison_notes": [
+      "CB-Q21 improved versus latest ResourceEnvelope full43 evidence (12.732s) and targeted repeat (10.627s), and was effectively flat versus post-merge #1361 full43 (9.290s).",
+      "CB-Q24 improved versus latest ResourceEnvelope full43 evidence (21.349s), targeted repeat (14.443s), and post-merge #1361 full43 (15.136s).",
+      "CB-Q25/CB-Q26/CB-Q27 improved versus latest ResourceEnvelope full43 evidence and post-merge #1361 full43.",
+      "CB-Q01 remained metadata-preserving with zero arrays read; its residual wall time is classified as front-door process/startup/file-open overhead rather than operator runtime."
+    ],
+    "decision": "ship_for_scan_export_sort_route_families; keep metadata-only count and aggregate state routes on prior runtime boundary until separately proven",
+    "follow_up": "evaluate persistent local worker/session and footer/open cache for tiny metadata queries and Python/CLI wrapper loops; do not confuse that overhead with row-scan/operator runtime"
+  },
+  "latest_full_ingest_and_query_uat": {
+    "run_id": "full_uat_ingest_replace_release_surfaces_20260627T205855Z_plus_full43_after_ingest_release_surfaces_20260627T210631Z",
+    "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
+    "ingest_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full_uat_ingest_replace_release_surfaces_20260627T205855Z/prepare_summary.json",
+    "query_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_ingest_release_surfaces_20260627T210631Z/summary.json",
+    "source": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/sources/hits.parquet",
+    "prepared_vortex_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
+    "source_bytes": 14779976446,
+    "prepared_vortex_bytes": 34933241344,
+    "ingest_elapsed_seconds": 380.428,
+    "ingest_returncode": 0,
+    "ingest_peak_temp_bytes": 28084272184,
+    "ingest_peak_process_cpu_percent_one_core_basis": 188.0,
+    "ingest_peak_rss_kb": 6730560,
+    "ingest_no_temp_leftovers": true,
+    "ingest_single_artifact_contract": "embedded_olap_metadata_inside_single_vortex_artifact_no_sidecars",
+    "ingest_timing_split": {
+      "source_read_millis": 14675,
+      "decode_derive_millis": 7220,
+      "arrow_to_vortex_convert_millis": 39,
+      "vortex_encode_write_wall_millis": 323689,
+      "footer_register_millis": 14,
+      "reopen_verify_millis": 102
+    },
+    "ingest_parallelism_evidence": {
+      "requested_max_parallelism": 2,
+      "source_state_ingest_executor_applied_parallelism": 1,
+      "writer_compression_concurrency": 2,
+      "writer_stats_concurrency": 2,
+      "follow_up": "source-side Parquet capillary read parallelism is not fully consuming the two-worker envelope; optimize without changing the single-artifact or no-fallback contract"
+    },
+    "query_count": 43,
+    "query_success_count": 43,
+    "query_failure_count": 0,
+    "fallback_or_external_engine_violations": 0,
+    "query_total_success_elapsed_seconds": 276.799,
+    "query_geomean_success_seconds": 1.997102,
+    "combined_ingest_plus_query_elapsed_seconds": 657.227,
+    "comparison_to_latest_resource_envelope_full43": {
+      "previous_total_success_elapsed_seconds": 288.555,
+      "new_total_success_elapsed_seconds": 276.799,
+      "total_delta_seconds": -11.756,
+      "previous_geomean_success_seconds": 1.869188,
+      "new_geomean_success_seconds": 1.997102,
+      "geomean_delta_seconds": 0.127914,
+      "readout": "overall query wall improved while geomean regressed slightly; treat this as local UAT evidence and slow-lane prioritization, not a public performance claim"
+    },
+    "slow_results_desc": [
+      [
+        "CB-Q34",
+        32.371,
+        "native_vortex_aggregate",
+        "string_dictionary_code_candidate_state_then_exact_recount"
+      ],
+      [
+        "CB-Q35",
+        31.716,
+        "native_vortex_aggregate",
+        "string_dictionary_code_candidate_state_then_exact_recount"
+      ],
+      [
+        "CB-Q17",
+        21.52,
+        "native_vortex_aggregate",
+        "numeric_utf8_dictionary_code_candidate_state_then_exact_recount"
+      ],
+      [
+        "CB-Q29",
+        19.049,
+        "native_vortex_aggregate",
+        "transformed_chunk_dictionary_general_measure_code_map"
+      ],
+      [
+        "CB-Q24",
+        17.425,
+        "native_vortex_sort_rows",
+        "row_ref_final_k_materialization"
+      ],
+      [
+        "CB-Q23",
+        13.164,
+        "native_vortex_aggregate",
+        "all_hot_hash_map"
+      ],
+      [
+        "CB-Q33",
+        12.579,
+        "native_vortex_aggregate",
+        "numeric_pair_count_state_then_retained_measure_state"
+      ],
+      [
+        "CB-Q19",
+        12.348,
+        "native_vortex_aggregate",
+        "numeric_minute_string_dictionary_code_hot_hash_map"
+      ],
+      [
+        "CB-Q21",
+        11.809,
+        "native_vortex_count_where",
+        "string_predicate_count"
+      ]
+    ],
+    "decision": "ship_functional_route_readiness_and_runtime_driver_batch; continue optimizing writer-dominant ingest, source-side capillary parallelism, string dictionary recount lanes, and row-ref top-k variance before release claims",
+    "release_surface_note": "successful UAT required building shardloom-cli with --features release-user-surfaces; vortex-traditional-analytics-benchmark alone blocks public Parquet preparation by design"
   }
 }

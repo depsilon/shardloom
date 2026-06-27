@@ -16,6 +16,14 @@ fn read_repo_file(path: impl AsRef<Path>) -> String {
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()))
 }
 
+fn phase_registry_text() -> String {
+    format!(
+        "{}\n{}",
+        read_repo_file("docs/architecture/phased-execution-plan.md"),
+        read_repo_file("docs/architecture/phased-execution-completed-ledger.md")
+    )
+}
+
 fn planned_gar_slices(plan: &str) -> Vec<String> {
     let lines = plan.lines().collect::<Vec<_>>();
     let mut slices = Vec::new();
@@ -324,7 +332,7 @@ fn bayesian_performance_layout_advisor_remains_report_only() {
         );
     }
 
-    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    let plan = phase_registry_text();
     assert!(plan.contains("docs/architecture/bayesian-performance-layout-advisor.md"));
     assert!(!plan.contains("- [ ] GAR-PERF-1D Bayesian performance"));
     assert!(!plan.contains("- [ ] GAR-NOVEL-1D Bayesian claim-confidence"));
@@ -336,7 +344,7 @@ fn bayesian_performance_layout_advisor_remains_report_only() {
 
 #[test]
 fn gar_0022_a_substrait_report_only_contract_remains_claim_safe() {
-    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    let plan = phase_registry_text();
     assert!(!plan.contains("- [ ] GAR-0022-A Substrait import/export report-only contract"));
     assert!(plan.contains("docs/architecture/substrait-report-only-contract.md"));
 
@@ -1270,7 +1278,7 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         );
     }
 
-    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    let plan = phase_registry_text();
     for required in [
         "`PROD-READY-1C-LOCAL`",
         "Table/lakehouse v1 candidate local scope is closed",
@@ -2244,17 +2252,18 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     );
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    let phase_registry = phase_registry_text();
     assert!(!plan.contains("- [ ] GAR-0043-B publication attestation and final release rehearsal"));
     assert!(plan.contains("Current autonomous execution order:"));
-    assert!(plan.contains("### v1 Local Closeout Status"));
-    assert!(plan.contains("`PROD-V1-5A-LOCAL`"));
-    assert!(plan.contains("### External Approval And Environment Gates"));
-    assert!(plan.contains("Public release/API/schema approval"));
-    assert!(plan.contains("### Remaining work snapshot"));
+    assert!(phase_registry.contains("### v1 Local Closeout Status"));
+    assert!(phase_registry.contains("`PROD-V1-5A-LOCAL`"));
+    assert!(phase_registry.contains("### External Approval And Environment Gates"));
+    assert!(phase_registry.contains("Public release/API/schema approval"));
+    assert!(phase_registry.contains("### Remaining work snapshot"));
     assert!(!plan.contains("- [ ] REVIEW-P0-1 generated current-support matrix"));
     assert!(!plan.contains("- [ ] REVIEW-P0-2 release-grade CI gate matrix"));
     assert!(!plan.contains("- [ ] REVIEW-P0-3 enforced workspace path safety"));
-    assert!(plan.contains("docs/release/final-release-rehearsal.md"));
+    assert!(phase_registry.contains("docs/release/final-release-rehearsal.md"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
@@ -2461,11 +2470,12 @@ fn gar_runtime_4s_5q_production_usability_gate_is_local_and_claim_safe() {
     assert!(package_use_case.contains("docs/release/production-usability-gate.md"));
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    let phase_registry = phase_registry_text();
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4S"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5Q"));
-    assert!(plan.contains("Remaining work snapshot"));
-    assert!(plan.contains("Closed local v1"));
-    assert!(plan.contains("Package/readiness, object-store, table/lakehouse, distributed, live/hybrid, Foundry local candidate scopes, docs/website, and current full-local benchmark refresh"));
+    assert!(phase_registry.contains("Remaining work snapshot"));
+    assert!(phase_registry.contains("Closed local v1"));
+    assert!(phase_registry.contains("Package/readiness, object-store, table/lakehouse, distributed, live/hybrid, Foundry local candidate scopes, docs/website, and current full-local benchmark refresh"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-RUNTIME-IMPL-4S / GAR-RUNTIME-IMPL-5Q"));
@@ -3349,7 +3359,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         );
     }
 
-    let phase_plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    let phase_plan = phase_registry_text();
     for required in [
         "`PROD-READY-1G-LOCAL`",
         "Foundry v1 candidate local scope is closed",
@@ -6318,7 +6328,8 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     }
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
-    assert!(plan.contains("docs/architecture/pulseweave-runtime-control.md"));
+    let phase_registry = phase_registry_text();
+    assert!(phase_registry.contains("docs/architecture/pulseweave-runtime-control.md"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5R"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4Q"));
@@ -6326,15 +6337,15 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4R"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5O"));
     assert!(
-        plan.contains(
+        phase_registry.contains(
             "`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout"
         )
     );
-    assert!(plan.contains(
+    assert!(phase_registry.contains(
         "`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout plus `GAR-RUNTIME-IMPL-4D-F1`"
     ));
-    assert!(plan.contains("`GAR-RUNTIME-IMPL-4D-F2` complex dtype"));
-    assert!(plan.contains("`GAR-RUNTIME-IMPL-4D-F3` advanced predicate/subquery"));
+    assert!(phase_registry.contains("`GAR-RUNTIME-IMPL-4D-F2` complex dtype"));
+    assert!(phase_registry.contains("`GAR-RUNTIME-IMPL-4D-F3` advanced predicate/subquery"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains(
@@ -6869,18 +6880,19 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(rfc.contains("Release Blockers"));
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    let phase_registry = phase_registry_text();
     assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
-    assert!(plan.contains("Global Architecture Review Carry-Forward"));
-    assert!(plan.contains("docs/architecture/global-architecture-review.md"));
+    assert!(phase_registry.contains("Global Architecture Review Carry-Forward"));
+    assert!(phase_registry.contains("docs/architecture/global-architecture-review.md"));
     assert!(plan.contains("Planned Item Detail Standard"));
     assert!(plan.contains("claim_gate_status=not_claim_grade"));
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("Current autonomous execution order:"));
-    assert!(plan.contains("### v1 Local Closeout Status"));
-    assert!(plan.contains("`PROD-V1-5A-LOCAL`"));
-    assert!(plan.contains("### External Approval And Environment Gates"));
-    assert!(plan.contains("Public release/API/schema approval"));
+    assert!(phase_registry.contains("### v1 Local Closeout Status"));
+    assert!(phase_registry.contains("`PROD-V1-5A-LOCAL`"));
+    assert!(phase_registry.contains("### External Approval And Environment Gates"));
+    assert!(phase_registry.contains("Public release/API/schema approval"));
     assert!(!plan.contains("- [ ] REVIEW-P1-1 typed command registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-2 typed evidence schema registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-4 dependency, license, provenance"));

@@ -350,14 +350,7 @@ fn native_vortex_primitive_row_export_execution(
     primitive_request = primitive_request.with_duplicate_keep(duplicate_keep_policy_arg(
         request.vortex_duplicate_keep.as_deref(),
     )?);
-    let policy = shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new(
-        request
-            .max_parallelism
-            .as_deref()
-            .unwrap_or("1")
-            .parse::<usize>()
-            .unwrap_or(0),
-    )?;
+    let policy = native_vortex_materializing_policy(request)?;
     Ok(NativeVortexPrimitiveRowExportExecution {
         primitive_request,
         policy,
