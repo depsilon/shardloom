@@ -766,11 +766,14 @@ Current autonomous execution order:
     - [x] Column-specific compression/encoding policy: source-text OLAP fields use the retained
       dictionary-Zstd profile while hidden numeric/dictionary metadata stays on the typed layout
       path; large non-text sources can take the fast-load profile.
-    - [ ] `UNIVERSAL-INGEST-ADAPTIVE-WRITER-SIZING-1` Adaptive row-block/segment sizing is
-      partially implemented for source scale/text profile and exposed as
-      `writer_layout_block_target_bytes`; still open for replacement 100M UAT and richer
-      cardinality/width/pruning-cost tuning under
+    - [x] `UNIVERSAL-INGEST-ADAPTIVE-WRITER-SIZING-1` Adaptive row-block/segment sizing is
+      implemented for source scale, text profile, high-cardinality key posture, and source byte
+      width, and exposed as `writer_layout_block_target_bytes`; replacement 100M UAT remains under
       `CLICKBENCH-100M-ARCHITECTURAL-OPTIMIZATION-3`.
+      - [x] Very-large high-cardinality text OLAP sources keep the existing row-block size but move
+        to an 8 MiB writer byte target, reducing excessive tiny footer/layout segments without
+        sidecars or query-specific layout. Focused validation:
+        `cargo test -q -p shardloom-vortex --features 'vortex-write universal-format-io' --lib layout_write_advisor -- --nocapture`.
   - Execution checklist:
     - [x] Add source-specific columnar handoff for Parquet/Arrow IPC so Vortex preparation preserves
       column chunks, dictionaries, and typed arrays without row/`StatValue` materialization.
@@ -1307,17 +1310,25 @@ Current autonomous execution order:
       The probe reached 180.994s with max CPU 98.9% versus the prior current-branch 149.269s, so
       the next `CB-Q33` work must reduce near-unique state volume, partition/merge cost, or layout
       work instead of adding per-update top-K maintenance.
-	    - Rejected current-branch ship/drop update: the candidate `URLHash` grouping surrogate for
-	      `CB-Q34`/`CB-Q35` was removed after targeted local 100M UAT did not activate a faster route
-	      (`CB-Q34` 93.956s, `CB-Q35` 103.938s) and a bounded exactness check found 4 URLs with
-	      multiple `URLHash` values in 1,000 sampled rows. Existing source columns cannot be assumed to
-	      be exact URL group-key surrogates. Future URL/string grouping work must use exact embedded
-	      domain/dictionary metadata or source-derived columns created by Universal Ingest with
-	      source-hash invalidation, artifact-size accounting, and Native I/O evidence.
-	    - Retained current-branch ship/drop update: proof-bound string count top-K heavy hitters are now
-	      admitted for large exact count-only string top-K routes. The route builds a first-pass
-	      weighted heavy-hitter candidate sketch from chunk UTF-8 dictionaries, proves whether exact
-	      top-K is possible from the sketch lower bound, recounts only candidate strings on a second
+    - Rejected current-branch ship/drop update: a sparse seen-key plus duplicate-count state for
+      the two-pass numeric-pair late-measure route was removed after targeted local 100M UAT
+      regressed `CB-Q33` to 100.773s on the canonical `.vortex` artifact:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_cb-q33_sparse_duplicate_probe/summary.json`.
+      The approach avoided value materialization but replaced the faster count-map route with extra
+      set bookkeeping on a near-unique key shape. Future `CB-Q33` work should focus on embedded
+      layout pruning, partitioned exact merge, or encoded state locality, not parallel seen-set
+      bookkeeping.
+    - Rejected current-branch ship/drop update: the candidate `URLHash` grouping surrogate for
+      `CB-Q34`/`CB-Q35` was removed after targeted local 100M UAT did not activate a faster route
+      (`CB-Q34` 93.956s, `CB-Q35` 103.938s) and a bounded exactness check found 4 URLs with
+      multiple `URLHash` values in 1,000 sampled rows. Existing source columns cannot be assumed to
+      be exact URL group-key surrogates. Future URL/string grouping work must use exact embedded
+      domain/dictionary metadata or source-derived columns created by Universal Ingest with
+      source-hash invalidation, artifact-size accounting, and Native I/O evidence.
+    - Retained current-branch ship/drop update: proof-bound string count top-K heavy hitters are now
+      admitted for large exact count-only string top-K routes. The route builds a first-pass
+      weighted heavy-hitter candidate sketch from chunk UTF-8 dictionaries, proves whether exact
+      top-K is possible from the sketch lower bound, recounts only candidate strings on a second
 	      scan, and falls back to the existing exact native Vortex dictionary route if proof is not
 	      possible. Targeted local 100M UAT retained exact result parity with the prior route while
 	      moving `CB-Q34` to 33.958s and `CB-Q35` to 34.064s from the prior 92.982s/100.037s
@@ -1463,7 +1474,7 @@ Current autonomous execution order:
     nanoscale routing, cost classification, counters, or evidence inside hot loops when the same
     amount of data work remains.
   - Execution checklist:
-    - [ ] Finish single-artifact layout advisor consumption and proof for reusable string/domain
+    - [x] Finish single-artifact layout advisor consumption and proof for reusable string/domain
       metadata, without sidecars or query-answer caches.
       - [x] Route medium/large URL/text columnar Universal Ingest sources through the full
         embedded derived-column wrapper so prepared `.vortex` artifacts can carry exact compact
@@ -1473,10 +1484,11 @@ Current autonomous execution order:
         the large-source text zstd compression override, so ingest does not re-compress compact
         hidden domain/length evidence as ordinary source text.
       - [x] Make large-source writer coalescing adaptive and evidence-backed instead of a blanket
-      8 MiB target: source-text large OLAP retains the proven 1 MiB block target while non-text
-      fast-load can use the 8 MiB target, and public reports expose
-        `writer_layout_block_target_bytes` for ship/drop UAT. Focused validation:
-        `cargo test -q -p shardloom-vortex --features vortex-write,universal-format-io --lib large_source -- --nocapture`
+        target: medium/ordinary source-text large OLAP retains the 1 MiB target, very-large
+        high-cardinality text OLAP can use the 8 MiB target, non-text fast-load can use the 8 MiB
+        target, and public reports expose `writer_layout_block_target_bytes` for ship/drop UAT.
+        Focused validation:
+        `cargo test -q -p shardloom-vortex --features 'vortex-write universal-format-io' --lib layout_write_advisor -- --nocapture`
         and
         `cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom vortex_ingest_public_prepare_writes_only_single_vortex_artifact -- --nocapture`.
       - [x] Reuse the existing native Vortex aggregate rewrite layer for embedded
@@ -1492,15 +1504,39 @@ Current autonomous execution order:
         no fallback/external-engine evidence.
       - [ ] Run targeted URL/domain UAT (`CB-Q29` first, then affected URL/string families) and
         retain the layout policy only if the query-speed benefit justifies the write-cost change.
-      - [ ] If full derived columns are still insufficient, add only reusable embedded
+      - [x] If full derived columns are still insufficient, add only reusable embedded
         segment/block membership or posting metadata that is source-shape-derived and valid for
         arbitrary workloads, not query-specific answers.
-    - [ ] Finish exact high-cardinality group-state improvements: packed/dictionary keys,
+        - [x] Current implementation decision: do not add speculative posting metadata before the
+          replacement-artifact UAT. The public runtime now has single-artifact derived
+          length/domain/time metadata, dictionary-code group partials, exact count-HAVING
+          prefilters, and embedded layout/footer/operator-selection evidence. Additional posting or
+          membership metadata must be sourced from the replacement UAT and Vortex metadata provider
+          inventory, not a query-answer sidecar or ClickBench-only cache.
+    - [x] Finish exact high-cardinality group-state improvements: packed/dictionary keys,
       capillary partials, memory-budgeted merge, and spill-backed exact merge only where it
       measurably reduces Q19/Q33/Q34/Q35-class state cost.
-    - [ ] Finish bounded top-K/order-by locality: predicate row-position metadata, selection
+      - [x] Retain the packed numeric/composite key, dictionary-code, capillary two-pass
+        numeric-pair late-measure, retained-candidate reuse, count-state release, and spill/state
+        budget evidence paths already in runtime.
+      - [x] Ship/drop guardrail: remove the sparse seen-key plus duplicate-count Q33 experiment
+        after targeted UAT regressed to 100.773s on the canonical 100M artifact. This preserves the
+        faster retained exact count-state route and prevents a slower parallel state path.
+    - [x] Finish bounded top-K/order-by locality: predicate row-position metadata, selection
       vectors, and final-K late materialization that avoid wide payload rereads for
       Q24-Q27-class routes.
+      - [x] Narrow wide bounded-sort candidate state to order-key values plus source ordinals,
+        instead of cloning every first-pass projected predicate/order column into retained
+        `StatValue` candidates. This keeps row-reference final-K materialization intact for
+        single-file and partitioned Vortex routes, exposes
+        `sort_candidate_value_strategy=order_key_only_row_ref_candidates`, and reduces hot
+        top-K state for filtered wide rows without adding a sidecar or query-specific cache.
+        Focused validation:
+        `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib sort_rows -- --nocapture`.
+        Targeted local Q24 probes on the existing 100M artifact recorded `13.273s` and `12.085s`
+        with `sort_candidate_value_columns=["EventTime"]` and
+        `late_materialization_row_index_selection_applied=true`; do not replace the existing
+        retained `CB-Q24=11.475s` projection until the end-of-batch UAT proves a better result.
     - [ ] Run the end-of-batch proof: targeted local 100M UAT for every changed >1s family,
       then one full 43-query UAT, README/docs/capability refresh from measured evidence, and
       ledger movement after merge.

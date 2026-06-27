@@ -126,6 +126,12 @@ const VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES: u64 =
 const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES: u64 =
     8 * VORTEX_PREPARED_OLAP_WRITER_ONE_MIB;
 #[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES: u64 =
+    8 * 1024 * VORTEX_PREPARED_OLAP_WRITER_ONE_MIB;
+#[cfg(feature = "vortex-write")]
+const VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES: u64 =
+    VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES;
+#[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY: usize = 0;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY: usize = 0;
@@ -4565,10 +4571,16 @@ fn admitted_layout_writer_row_block_size(advisor: &VortexLayoutWriteAdvisorRepor
 
 #[cfg(feature = "vortex-write")]
 fn admitted_layout_writer_block_target_bytes(advisor: &VortexLayoutWriteAdvisorReport) -> u64 {
-    if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD
-        && !layout_advisor_has_text_domain_profile(advisor)
+    if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
+        return VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES;
+    }
+    if !layout_advisor_has_text_domain_profile(advisor) {
+        return VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES;
+    }
+    if advisor.source_byte_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES
+        && layout_advisor_has_high_cardinality_profile(advisor)
     {
-        VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES
+        VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
     } else {
         VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES
     }
@@ -4610,6 +4622,14 @@ fn layout_advisor_has_text_domain_profile(advisor: &VortexLayoutWriteAdvisorRepo
         || advisor
             .workload_constitution
             .contains("url_time_counter_olap")
+}
+
+#[cfg(feature = "vortex-write")]
+fn layout_advisor_has_high_cardinality_profile(advisor: &VortexLayoutWriteAdvisorReport) -> bool {
+    advisor
+        .workload_constitution
+        .contains("key_profile=high_cardinality")
+        || advisor.workload_constitution.contains("high_cardinality_")
 }
 
 impl VortexLayoutWriteAdvisorReport {
@@ -10103,7 +10123,13 @@ fn vortex_writer_layout_strategy_applied(
         } else if vortex_writer_uses_large_source_balanced(decision) {
             "vortex_write_strategy_row_block_262144_target_1mb_balanced_zstd_embedded_olap_layout_statistics"
         } else if vortex_writer_uses_large_source_text(decision) {
-            "vortex_write_strategy_row_block_262144_target_1mb_source_text_dictionary_zstd_embedded_olap_layout_statistics"
+            if decision.writer_block_target_bytes
+                == VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
+            {
+                "vortex_write_strategy_row_block_262144_target_8mb_source_text_dictionary_zstd_embedded_olap_layout_statistics"
+            } else {
+                "vortex_write_strategy_row_block_262144_target_1mb_source_text_dictionary_zstd_embedded_olap_layout_statistics"
+            }
         } else {
             match decision.writer_row_block_size {
                 VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE => {
@@ -11747,6 +11773,58 @@ mod tests {
         assert_eq!(
             report.writer_compression_concurrency,
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_CONCURRENCY
+        );
+        assert_eq!(report.reopen_row_count, 1);
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_rows_coalesce_very_large_high_cardinality_text_blocks() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-layout-advisor-very-large-text-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let mut advisor_input = layout_advisor_input(true, "none");
+        advisor_input.row_count = 100_000_000;
+        advisor_input.source_byte_count =
+            VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES;
+        advisor_input.workload_constitution =
+            "product_vortex_prepare_once;format=parquet;scale=large_olap;adapter=streaming_columnar_source_state;profile=url_time_counter_olap;layout_family=url_time_counter_dictionary_stats_layout;text_domain=true;time_bucket=true;counter=true;key_profile=high_cardinality_numeric_text_time_keys;dictionary=source_dictionary_or_derived_dictionary_evidence"
+                .to_string();
+        let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string(), "URL".to_string()],
+            vec![vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                (
+                    "URL".to_string(),
+                    ScalarValue::Utf8("https://example.test".to_string()),
+                ),
+            ]],
+        )
+        .layout_write_advisor(advisor);
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(
+            report.layout_write_decision.writer_row_block_size,
+            VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE
+        );
+        assert_eq!(
+            report.layout_write_decision.writer_block_target_bytes,
+            VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
+        );
+        assert_eq!(
+            report.writer_layout_strategy_applied,
+            "vortex_write_strategy_row_block_262144_target_8mb_source_text_dictionary_zstd_embedded_olap_layout_statistics"
+        );
+        assert_eq!(
+            report.writer_layout_block_target_bytes,
+            VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());
