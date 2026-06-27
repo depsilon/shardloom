@@ -959,6 +959,31 @@
         "targeted_seconds": 14.31
       },
       {
+        "change": "dictionary_contains_match_flag_hot_loop_simplification",
+        "fallback_or_external_engine_violations": 0,
+        "latest_full43_seconds": {
+          "CB-Q21": 12.596,
+          "CB-Q24": 21.062
+        },
+        "query_ids": [
+          "CB-Q21",
+          "CB-Q24"
+        ],
+        "reason": "Replacing the shared dictionary contains count/index helpers with a lighter conversion/count loop did not improve the current 100M artifact. Q21 regressed against the latest full-43 lane timing and Q24 was slightly slower while still scanning the same URL predicate candidates. The code path was removed before shipment; future string-predicate work should reduce scan volume or consume richer embedded dictionary/posting metadata instead of only shaving per-row flag lookup overhead.",
+        "route_ids": [
+          "native_vortex_count_where",
+          "native_vortex_sort_rows"
+        ],
+        "source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_dictionary_match_hotloop_current/summary.json",
+        "status": "rejected_after_targeted_uat_regression",
+        "targeted_seconds": {
+          "CB-Q21": 14.16,
+          "CB-Q24": 21.43
+        },
+        "targeted_total_seconds": 35.59,
+        "targeted_geomean_seconds": 17.419782
+      },
+      {
         "change": "partitioned_numeric_pair_group_state",
         "fallback_or_external_engine_violations": 0,
         "group_state_mode": "numeric_pair_partitioned_hot_hash_map",
@@ -1001,6 +1026,161 @@
       }
     ],
     "retained_changes": [
+      {
+        "change": "string_topk_candidate_signature_prefilter_restored",
+        "status": "retained_after_targeted_uat",
+        "query_ids_expected": [
+          "CB-Q34",
+          "CB-Q35",
+          "string count-distinct top-K families"
+        ],
+        "route_id": "native_vortex_aggregate",
+        "shared_component": "native Vortex string top-K and count-distinct top-K exact recount",
+        "fallback_or_external_engine_violations": 0,
+        "focused_validation": [
+          "cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib string_count_topk -- --nocapture",
+          "cargo test -q -p shardloom-cli --features release-user-surfaces --bin shardloom local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture",
+          "cargo fmt --all -- --check",
+          "cargo clippy -q -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings"
+        ],
+        "latest_full43_seconds": {
+          "CB-Q34": 37.431,
+          "CB-Q35": 36.21
+        },
+        "targeted_seconds": {
+          "CB-Q34": 34.236,
+          "CB-Q35": 36.025
+        },
+        "targeted_delta_seconds": {
+          "CB-Q34": -3.195,
+          "CB-Q35": -0.185
+        },
+        "targeted_total_seconds": 70.261,
+        "targeted_source_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_string_signature_prefilter_current_20260627T_now/summary.json",
+        "evidence_fields": {
+          "local_primitive_string_count_topk_candidate_signature_prefilter": "true",
+          "fallback_attempted": "false",
+          "external_engine_invoked": "false"
+        },
+        "decision_gate": "retained because targeted CB-Q34 improved and CB-Q35 was not measurably slower on the current 100M artifact; drop if later full-43 UAT shows route regression",
+        "reason": "The current public workflow still lifts string candidate signature prefilter evidence, but the local primitive had lost the producer after the interner-ID refactor. The restored path builds compact length/prefix/suffix signatures from exact heavy-hitter candidate IDs, screens dictionary values before candidate ID lookup, and still performs exact interned-ID verification before counts or distinct sets are updated. It does not add routes, sidecars, query-answer caches, or external fallback."
+      },
+      {
+        "change": "generated_source_vortex_writer_pressure_evidence_lift",
+        "status": "retained_evidence_surface_only",
+        "affected_families_expected": [
+          "generated-source Vortex output",
+          "prepare-once writer diagnosis",
+          "shared VortexPreparedStateWriteReport consumers"
+        ],
+        "shared_component": "GeneratedSourceRuntime -> VortexPreparedStateWriteReport writer evidence",
+        "fallback_or_external_engine_violations": 0,
+        "focused_validation": [
+          "cargo test -q -p shardloom-cli --features vortex-write --test generated_source_runtime_smoke generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidence -- --nocapture",
+          "cargo clippy -q -p shardloom-cli --features vortex-write --test generated_source_runtime_smoke -- -D warnings",
+          "cargo clippy -q -p shardloom-cli --features release-user-surfaces --bin shardloom -- -D warnings",
+          "cargo fmt --all -- --check"
+        ],
+        "evidence_fields": [
+          "vortex_write_timing_split_schema_version",
+          "vortex_segment_write_millis",
+          "vortex_workspace_stage_millis",
+          "vortex_writer_context_open_millis",
+          "vortex_writer_context_reuse_status",
+          "vortex_writer_layout_strategy_applied",
+          "vortex_writer_coalescing_policy_status",
+          "vortex_writer_layout_row_block_size",
+          "vortex_writer_layout_block_target_bytes",
+          "vortex_writer_compression_policy",
+          "vortex_writer_compression_concurrency",
+          "vortex_writer_stats_concurrency",
+          "vortex_layout_write_decision_applied",
+          "vortex_layout_write_decision_strategy",
+          "vortex_layout_write_decision_digest",
+          "vortex_layout_write_decision_provider_admitted",
+          "vortex_layout_write_decision_blocker"
+        ],
+        "decision_gate": "retained because it reuses existing VortexPreparedStateWriteReport fields and exposes the 455s segment-write cost class on generated-source .vortex output without adding runtime work, routes, sidecars, or external execution",
+        "reason": "The replacement-ingest decision gate needs shared writer-pressure evidence before more writer-profile changes. SQL-local source paths already expose the split; generated-source Vortex output now carries the same segment-write, workspace-stage, writer profile, and layout-decision vocabulary from the common report surface."
+      },
+      {
+        "change": "shared_vortex_writer_profile_decision_reason_evidence",
+        "status": "retained_evidence_surface_only",
+        "affected_families_expected": [
+          "prepare-once writer diagnosis",
+          "Vortex writer/layout advisor decisions",
+          "generated-source Vortex output",
+          "public SQL/Python/DataFrame/CLI Vortex preparation evidence"
+        ],
+        "shared_component": "VortexLayoutWriteRuntimeDecision -> VortexPreparedStateWriteReport -> public workflow evidence",
+        "fallback_or_external_engine_violations": 0,
+        "focused_validation": [
+          "cargo test -q -p shardloom-vortex --features vortex-write --lib local_flat_scalar_rows_use_source_text_large_source_layout_row_blocks_when_advised -- --nocapture",
+          "cargo test -q -p shardloom-vortex --features vortex-write --lib local_flat_scalar_rows_coalesce_very_large_high_cardinality_text_blocks -- --nocapture",
+          "cargo test -q -p shardloom-cli --features vortex-write --test generated_source_runtime_smoke generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidence -- --nocapture",
+          "cargo test -q -p shardloom-cli --features vortex-write,universal-format-io --bin shardloom vortex_ingest_max_parallelism_propagates_to_public_prepare_evidence -- --nocapture",
+          "cargo fmt --all -- --check"
+        ],
+        "evidence_fields": [
+          "vortex_writer_profile_selection_reason",
+          "vortex_writer_profile_regression_guard",
+          "public_workflow_preparation_vortex_writer_profile_selection_reason",
+          "public_workflow_preparation_vortex_writer_profile_regression_guard"
+        ],
+        "decision_gate": "retained because it records why the shared writer selected small-source, non-text fast-load, large text fast-Zstd, or very-large text coalesced profiles and records the guard against previously rejected uncompressed text artifacts and dictionary-training CPU without changing output semantics or adding hot-loop cost",
+        "reason": "The 100M replacement-ingest long pole is writer/segment work. The previous UAT sequence proved some writer profiles are materially slower or produce unacceptable artifact size. This evidence lets the next replacement ingest compare like-for-like profile decisions across public surfaces before changing writer behavior."
+      },
+      {
+        "change": "surface_neutral_local_primitive_state_evidence_contract",
+        "status": "retained_evidence_surface_only",
+        "affected_families_expected": [
+          "row-ref top-K and late materialization",
+          "encoded exact distinct",
+          "grouped aggregate capillary partial/merge state",
+          "SQL/Python/DataFrame/CLI shared route evidence"
+        ],
+        "shared_component": "vortex-run local primitive execution report renderer",
+        "fallback_or_external_engine_violations": 0,
+        "focused_validation": [
+          "cargo test -q -p shardloom-cli --features vortex-local-primitives --bin shardloom local_primitive_shared_renderer_lifts_surface_neutral_optimization_evidence -- --nocapture",
+          "cargo fmt --all -- --check"
+        ],
+        "evidence_fields": [
+          "local_primitive_state_family",
+          "local_primitive_capillary_work_units",
+          "local_primitive_pulseweave_pressure_signals",
+          "local_primitive_state_budget_required",
+          "local_primitive_spill_io_performed"
+        ],
+        "decision_gate": "retained because it proves the existing generic local_primitive_* evidence surface carries optimized physical-route state across SQL/Python/DataFrame/CLI wrappers without adding surface-specific fields or runtime work",
+        "reason": "The maintainer clarified that surface choice should be preference-level syntax. The shared renderer now has focused coverage for row-ref top-K, encoded exact distinct, and grouped aggregate partial/merge evidence so ClickBench UAT optimizations remain attached to the Vortex-normalized physical route rather than to one public front door."
+      },
+      {
+        "change": "sql_vortex_distinct_topk_sink_shared_primitive_lowering",
+        "status": "retained_route_unification_not_timing_claim",
+        "affected_families_expected": [
+          "SQL over .vortex distinct",
+          "SQL over .vortex ORDER BY LIMIT top-K",
+          "SQL over .vortex primitive row export sinks",
+          "DataFrame/Python equivalent primitive payload parity"
+        ],
+        "shared_component": "Python SQL/DataFrame lowering -> public workflow native_vortex primitive payloads",
+        "fallback_or_external_engine_violations": 0,
+        "focused_validation": [
+          "PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_sql_and_dataframe_vortex_distinct_topk_and_sinks_share_payloads"
+        ],
+        "evidence_fields": [
+          "native_vortex_operation_family",
+          "vortex_primitive",
+          "vortex_columns",
+          "vortex_source_order_limit",
+          "vortex_sort_rows",
+          "fallback_attempted=false",
+          "external_engine_invoked=false"
+        ],
+        "decision_gate": "retained because SQL DISTINCT, simple SQL ORDER BY ... LIMIT, and SQL primitive JSONL/CSV row-export payloads now lower into the same native Vortex primitive families as equivalent DataFrame operations instead of requiring a separate Vortex SQL route or external query-engine integration",
+        "reason": "This closes a route-unification gap identified during the Vortex SQL architecture audit. It is not a query timing claim; it keeps surface choice at the syntax layer so future distinct/top-K/sink optimizations land once in the shared Vortex-normalized primitive runtime."
+      },
       {
         "change": "layout_advised_full_embedded_text_metadata_for_medium_large_columnar_ingest",
         "status": "retained_after_focused_validation_pending_replacement_uat",

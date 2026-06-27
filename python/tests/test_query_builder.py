@@ -21537,6 +21537,210 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "not_claim_grade")
 
+    def test_sql_and_dataframe_vortex_filter_project_limit_share_physical_runtime(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                surface = args[1]
+                assert args[0] == "run", args
+                assert surface in {"sql", "dataframe"}, args
+                assert args[2:6] == ["--input", "orders.vortex", "--input-format", "vortex"], args
+                if surface == "sql":
+                    assert args[args.index("--sql") + 1] == "SELECT metric, value FROM 'orders.vortex' WHERE value >= 3 LIMIT 5", args
+                    assert args[args.index("--plan") + 1] == "sql(statement)", args
+                else:
+                    assert "--sql" not in args, args
+                    plan = args[args.index("--plan") + 1]
+                    assert plan.startswith("read_vortex(orders.vortex)"), args
+                    assert "filter(gte:value:3)" in plan, args
+                    assert "select(metric,value)" in plan, args
+                    assert "limit(5)" in plan, args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
+                assert args[args.index("--vortex-primitive") + 1] == "filter_project", args
+                assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
+                assert args[args.index("--vortex-columns") + 1] == "metric,value", args
+                assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
+                assert args[args.index("--memory-gb") + 1] == "6", args
+                assert args[args.index("--max-parallelism") + 1] == "3", args
+                assert args[-2:] == ["--format", "json"], args
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "surface", "value": surface},
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": "native_vortex_filter_project"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-filter-project"},
+                        {"key": "public_workflow_vortex_primitive", "value": "filter_project"},
+                        {"key": "public_workflow_native_vortex_operation_family", "value": "filter_project_limit"},
+                        {"key": "mode", "value": "vortex_filter_project"},
+                        {"key": "primitive", "value": "filter_and_project"},
+                        {"key": "execution", "value": "local_vortex_filter_project_primitive_performed"},
+                        {"key": "result_known", "value": "true"},
+                        {"key": "data_read", "value": "true"},
+                        {"key": "data_decoded", "value": "false"},
+                        {"key": "data_materialized", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "local_primitive_report_present", "value": "true"},
+                        {"key": "local_primitive_state_family", "value": "selection_vector_encoded_filter_project"},
+                        {"key": "filter_project_local_execution_rows_scanned", "value": "10"},
+                        {"key": "filter_project_local_execution_rows_selected", "value": "3"},
+                        {"key": "filter_project_local_execution_rows_projected", "value": "3"},
+                        {"key": "filter_project_local_execution_projected_columns", "value": "metric,value"},
+                        {"key": "filter_project_local_execution_claim_gate_status", "value": "not_claim_grade"}
+                    ],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        sql_report = sl.sql(
+            "SELECT metric, value FROM 'orders.vortex' WHERE value >= 3 LIMIT 5",
+            client=client,
+        ).collect(memory_gb=6, max_parallelism=3)
+        dataframe_report = (
+            sl.read_vortex("orders.vortex", client=client)
+            .filter("gte:value:3")
+            .select("metric", "value")
+            .limit(5)
+            .collect(memory_gb=6, max_parallelism=3)
+        )
+
+        for report in (sql_report, dataframe_report):
+            self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+            self.assertEqual(report.command, "vortex-filter-project")
+            self.assertEqual(report.mode, "vortex_filter_project")
+            self.assertEqual(report.primitive, "filter_and_project")
+            self.assertEqual(report.rows_scanned, 10)
+            self.assertEqual(report.rows_selected, 3)
+            self.assertEqual(report.rows_projected, 3)
+            self.assertEqual(report.projected_columns, ("metric", "value"))
+            self.assertTrue(report.result_known)
+            self.assertTrue(report.runtime_execution)
+            self.assertTrue(report.data_read)
+            self.assertFalse(report.data_decoded)
+            self.assertFalse(report.data_materialized)
+            self.assertFalse(report.write_io)
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.external_engine_invoked)
+            self.assertEqual(
+                report.envelope.field("public_workflow_route_id"),
+                "native_vortex_filter_project",
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_vortex_primitive"),
+                "filter_project",
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_native_vortex_operation_family"),
+                "filter_project_limit",
+            )
+            self.assertEqual(
+                report.envelope.field("local_primitive_report_present"),
+                "true",
+            )
+
+        self.assertEqual(
+            sql_report.envelope.field("public_workflow_resolved_internal_command"),
+            dataframe_report.envelope.field("public_workflow_resolved_internal_command"),
+        )
+        self.assertEqual(
+            sql_report.envelope.field("local_primitive_state_family"),
+            dataframe_report.envelope.field("local_primitive_state_family"),
+        )
+
+    def test_sql_and_dataframe_vortex_distinct_topk_and_sinks_share_payloads(self) -> None:
+        distinct_sql = _sql_native_vortex_public_workflow_kwargs(
+            "SELECT DISTINCT UserID FROM 'hits.vortex' LIMIT 10",
+            requested_output="collect",
+        )
+        distinct_frame = (
+            sl.read_vortex("hits.vortex")
+            .select("UserID")
+            .distinct()
+            .limit(10)
+            ._native_vortex_public_workflow_kwargs(requested_output="collect")
+        )
+        for key in (
+            "native_vortex_operation_family",
+            "vortex_primitive",
+            "vortex_predicate",
+            "vortex_columns",
+            "vortex_source_order_limit",
+            "vortex_sort_rows",
+        ):
+            self.assertEqual(distinct_sql[key], distinct_frame[key])
+        self.assertEqual(distinct_sql["native_vortex_operation_family"], "distinct")
+        self.assertEqual(distinct_sql["vortex_primitive"], "distinct")
+
+        topk_sql = _sql_native_vortex_public_workflow_kwargs(
+            "SELECT id, metric FROM 'hits.vortex' ORDER BY metric DESC LIMIT 10",
+            requested_output="collect",
+        )
+        topk_frame = (
+            sl.read_vortex("hits.vortex")
+            .select("id", "metric")
+            .sort_values("metric", descending=True)
+            .limit(10)
+            ._native_vortex_public_workflow_kwargs(requested_output="collect")
+        )
+        for key in (
+            "native_vortex_operation_family",
+            "vortex_primitive",
+            "vortex_predicate",
+            "vortex_columns",
+            "vortex_source_order_limit",
+            "vortex_sort_rows",
+        ):
+            self.assertEqual(topk_sql[key], topk_frame[key])
+        self.assertEqual(topk_sql["native_vortex_operation_family"], "top_n")
+        self.assertEqual(topk_sql["vortex_primitive"], "sort_rows")
+        self.assertEqual(
+            json.loads(topk_sql["vortex_sort_rows"]),
+            {
+                "order_by": [{"column": "metric", "descending": True}],
+                "limit": 10,
+                "tie_policy": "first",
+            },
+        )
+
+        distinct_sink_sql = _sql_native_vortex_public_workflow_kwargs(
+            "SELECT DISTINCT UserID FROM 'hits.vortex' LIMIT 10",
+            requested_output="write_jsonl",
+        )
+        distinct_sink_frame = (
+            sl.read_vortex("hits.vortex")
+            .select("UserID")
+            .distinct()
+            .limit(10)
+            ._native_vortex_public_workflow_kwargs(requested_output="write_jsonl")
+        )
+        self.assertEqual(distinct_sink_sql["native_vortex_operation_family"], "sink")
+        for key in (
+            "vortex_primitive",
+            "vortex_predicate",
+            "vortex_columns",
+            "vortex_source_order_limit",
+            "vortex_sort_rows",
+        ):
+            self.assertEqual(distinct_sink_sql[key], distinct_sink_frame[key])
+
     def test_vortex_query_builder_count_and_single_primitives_use_local_runtime(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

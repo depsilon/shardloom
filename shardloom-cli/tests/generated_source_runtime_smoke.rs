@@ -24,6 +24,54 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+fn assert_generated_vortex_writer_pressure_fields(stdout: &str) {
+    assert!(stdout.contains(&field(
+        "vortex_write_timing_split_schema_version",
+        "shardloom.vortex_write_timing_split.v1"
+    )));
+    assert!(stdout.contains("\"vortex_segment_write_millis\",\"value\":\""));
+    assert!(stdout.contains("\"vortex_workspace_stage_millis\",\"value\":\""));
+    assert!(
+        stdout.contains(&field(
+            "vortex_writer_context_reuse_status",
+            "thread_local_write_context_opened_for_first_artifact"
+        )) || stdout.contains(&field(
+            "vortex_writer_context_reuse_status",
+            "thread_local_write_context_reused_for_artifact"
+        ))
+    );
+    assert!(stdout.contains(&field(
+        "vortex_writer_layout_strategy_applied",
+        "vortex_write_strategy_upstream_default"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_writer_coalescing_policy_status",
+        "upstream_vortex_default_writer_coalescing_policy"
+    )));
+    assert!(stdout.contains(&field("vortex_writer_layout_row_block_size", "8192")));
+    assert!(stdout.contains(&field(
+        "vortex_writer_compression_policy",
+        "vortex_default_btrblocks_available_parallelism"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_writer_profile_selection_reason",
+        "upstream_vortex_default_writer_profile"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_writer_profile_regression_guard",
+        "not_applicable"
+    )));
+    assert!(stdout.contains(&field("vortex_layout_write_decision_applied", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_decision_strategy",
+        "not_requested"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_decision_blocker",
+        "layout_write_advisor_not_attached_to_writer"
+    )));
+}
+
 #[test]
 #[allow(clippy::too_many_lines)]
 fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
@@ -110,6 +158,25 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
         "not_requested_non_vortex_generated_output"
     )));
     assert!(stdout.contains(&field("vortex_output_runtime_execution", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_write_timing_split_schema_version",
+        "shardloom.vortex_write_timing_split.v1"
+    )));
+    assert!(stdout.contains(&field("vortex_segment_write_millis", "0")));
+    assert!(stdout.contains(&field("vortex_workspace_stage_millis", "0")));
+    assert!(stdout.contains(&field(
+        "vortex_writer_layout_strategy_applied",
+        "not_applicable"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_writer_profile_selection_reason",
+        "not_applicable"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_writer_profile_regression_guard",
+        "not_applicable"
+    )));
+    assert!(stdout.contains(&field("vortex_layout_write_decision_applied", "false")));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "false")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains(&field(
@@ -263,17 +330,23 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
     assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));
     assert!(stdout.contains(&field(
         "prepared_state_reuse_scope",
-        "artifact_adjacent_manifest_local_vortex_artifacts"
+        "single_vortex_artifact_no_sidecar"
     )));
     assert!(stdout.contains(&field(
         "prepared_state_reuse_reason",
-        "prepared_state_created_after_no_reuse_manifest"
+        "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar"
     )));
-    assert!(stdout.contains("\"prepared_state_reuse_manifest_path\",\"value\":\""));
-    assert!(stdout.contains("\"prepared_state_reuse_manifest_digest\",\"value\":\"sha256:"));
+    assert!(stdout.contains(&field(
+        "prepared_state_reuse_manifest_path",
+        "not_applicable_single_vortex_artifact"
+    )));
+    assert!(stdout.contains(&field(
+        "prepared_state_reuse_manifest_digest",
+        "not_applicable_single_vortex_artifact"
+    )));
     assert!(stdout.contains(&field(
         "prepared_state_invalidation_reason",
-        "no_reuse_manifest"
+        "not_applicable_single_vortex_artifact"
     )));
     assert!(stdout.contains(&field(
         "vortex_output_timing_scope",
@@ -283,30 +356,18 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
         "vortex_output_certification_level",
         "ingest_certified"
     )));
+    assert_generated_vortex_writer_pressure_fields(&stdout);
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"sha256:"));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    let manifest_path = output_path
-        .parent()
-        .expect("output path parent")
-        .join(".shardloom")
-        .join(format!(
-            "{}.prepared-state-reuse.manifest",
-            output_path
-                .file_name()
-                .and_then(std::ffi::OsStr::to_str)
-                .expect("file name")
-        ));
-    assert!(manifest_path.exists());
     fs::remove_file(output_path).expect("remove vortex output");
-    fs::remove_file(manifest_path).expect("remove generated-source reuse manifest");
 }
 
 #[test]
 #[cfg(feature = "vortex-write")]
-fn generated_source_vortex_output_reuses_artifact_adjacent_manifest_without_rewrite() {
+fn generated_source_vortex_output_keeps_single_artifact_without_reuse_manifest() {
     let output_path =
         unique_output_path_with_extension("generated-user-rows-vortex-reuse", "vortex");
     let args = [
@@ -335,7 +396,11 @@ fn generated_source_vortex_output_reuses_artifact_adjacent_manifest_without_rewr
     assert!(first_stdout.contains(&field("prepared_state_reuse_hit", "false")));
     assert!(first_stdout.contains(&field(
         "prepared_state_reuse_reason",
-        "prepared_state_created_after_no_reuse_manifest"
+        "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar"
+    )));
+    assert!(first_stdout.contains(&field(
+        "prepared_state_reuse_manifest_path",
+        "not_applicable_single_vortex_artifact"
     )));
     assert!(first_stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(first_stdout.contains(&field("upstream_vortex_scan_called", "false")));
@@ -345,34 +410,22 @@ fn generated_source_vortex_output_reuses_artifact_adjacent_manifest_without_rewr
         .output()
         .expect("second generated-source Vortex command runs");
     assert!(
-        second.status.success(),
+        !second.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&second.stdout),
         String::from_utf8_lossy(&second.stderr)
     );
+    assert!(
+        second.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&second.stderr)
+    );
     let second_stdout = String::from_utf8(second.stdout).expect("stdout is utf8");
-    assert!(second_stdout.contains(&field("prepared_state_created", "false")));
-    assert!(second_stdout.contains(&field("prepared_state_reused", "true")));
-    assert!(second_stdout.contains(&field("prepared_state_reuse_hit", "true")));
-    assert!(second_stdout.contains(&field(
-        "prepared_state_reuse_scope",
-        "artifact_adjacent_manifest_local_vortex_artifacts"
-    )));
-    assert!(second_stdout.contains(&field(
-        "prepared_state_reuse_reason",
-        "manifest_fingerprints_match"
-    )));
-    assert!(second_stdout.contains(&field("prepared_state_invalidation_reason", "none")));
-    assert!(second_stdout.contains(&field("vortex_output_runtime_execution", "false")));
-    assert!(second_stdout.contains(&field(
-        "vortex_output_timing_scope",
-        "prepared_state_reuse_manifest"
-    )));
-    assert!(second_stdout.contains(&field("upstream_vortex_write_called", "false")));
-    assert!(second_stdout.contains(&field("upstream_vortex_scan_called", "false")));
-    assert!(second_stdout.contains(&field("output_overwrite_performed", "false")));
-    assert!(second_stdout.contains(&field("fallback_attempted", "false")));
-    assert!(second_stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(second_stdout.contains("\"status\":\"error\""));
+    assert!(second_stdout.contains("output target already exists and overwrite is disabled"));
+    assert!(second_stdout.contains("no fallback execution was attempted"));
+    assert!(second_stdout.contains("\"attempted\":false"));
+    assert!(second_stdout.contains("\"allowed\":false"));
 
     let manifest_path = output_path
         .parent()
@@ -385,8 +438,8 @@ fn generated_source_vortex_output_reuses_artifact_adjacent_manifest_without_rewr
                 .and_then(std::ffi::OsStr::to_str)
                 .expect("file name")
         ));
+    assert!(!manifest_path.exists());
     fs::remove_file(output_path).expect("remove vortex output");
-    fs::remove_file(manifest_path).expect("remove generated-source reuse manifest");
 }
 
 #[test]
