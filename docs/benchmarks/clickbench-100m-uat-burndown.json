@@ -1,8 +1,8 @@
 {
   "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
   "latest_post_merge_uat": {
-    "run_id": "full43_resource_envelope_20260627T195812Z",
-    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_resource_envelope_20260627T195812Z/summary.json",
+    "run_id": "full43_current_branch_physical_policy_20260627T231853Z",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_current_branch_physical_policy_20260627T231853Z/summary.json",
     "not_official_clickbench_submission": true,
     "source_format": "parquet",
     "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
@@ -22,76 +22,76 @@
     "unsupported_count": 0,
     "timeout_count": 0,
     "fallback_or_external_engine_violations": 0,
-    "elapsed_seconds_total": 288.555,
-    "geomean_elapsed_seconds": 1.869188,
-    "fast_rows_le_1s": 15,
-    "slow_rows_over_1s": 28,
-    "slow_rows_over_10s": 10,
+    "elapsed_seconds_total": 249.617,
+    "geomean_elapsed_seconds": 1.750854,
+    "fast_rows_le_1s": 14,
+    "slow_rows_over_1s": 29,
+    "slow_rows_over_10s": 8,
     "slow_rows_over_60s": 0,
     "slow_rows_desc": [
       [
-        "CB-Q34",
-        34.699
-      ],
-      [
         "CB-Q35",
-        30.698
+        33.017
       ],
       [
-        "CB-Q24",
-        21.349
+        "CB-Q34",
+        31.052
       ],
       [
         "CB-Q29",
-        20.522
+        17.439
       ],
       [
         "CB-Q17",
-        20.269
-      ],
-      [
-        "CB-Q23",
-        16.343
+        17.177
       ],
       [
         "CB-Q33",
-        15.109
+        15.042
+      ],
+      [
+        "CB-Q24",
+        14.065
+      ],
+      [
+        "CB-Q23",
+        11.161
       ],
       [
         "CB-Q19",
-        13.195
-      ],
-      [
-        "CB-Q21",
-        12.732
+        11.074
       ],
       [
         "CB-Q10",
-        10.996
-      ],
-      [
-        "CB-Q09",
-        9.91
-      ],
-      [
-        "CB-Q15",
-        9.185
-      ],
-      [
-        "CB-Q22",
-        8.718
-      ],
-      [
-        "CB-Q14",
-        7.749
-      ],
-      [
-        "CB-Q13",
-        7.511
+        9.689
       ],
       [
         "CB-Q36",
-        6.81
+        9.421
+      ],
+      [
+        "CB-Q21",
+        9.327
+      ],
+      [
+        "CB-Q09",
+        8.938
+      ],
+      [
+        "CB-Q15",
+        8.078
+      ],
+      [
+        "CB-Q14",
+        6.756
+      ],
+      [
+        "CB-Q13",
+        6.609
+      ],
+      [
+        "CB-Q22",
+        5.817
       ]
     ],
     "route_counts": {
@@ -101,10 +101,20 @@
       "native_vortex_filter_project": 1,
       "native_vortex_sort_rows": 4
     },
-    "timing_note": "ResourceEnvelope full 43-query local Desktop UAT after shared memory/parallelism/capillary/state/top-K/writer policy evidence was wired through native Vortex routes; not official ClickBench submission",
+    "timing_note": "Current-branch full 43-query local Desktop UAT after route-aware native Vortex physical-policy evidence was wired through shared SQL/DataFrame/Python/CLI native Vortex routes; not official ClickBench submission",
     "prepared_artifact_digest": "sha256:ad697555dd0723fd0688cd3442eae94255adece96f39c98c046d51d5a24f426f",
     "prepare_transcript": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_arch_replace_budgeted_20260627T153401Z/stdout.json",
-    "next_optimization_focus": "remaining >10s local UAT rows are high-cardinality/string top-K, transformed URL/domain grouping, bounded wide-row top-K, string predicate count, and exact distinct; preserve shared Vortex-normalized physical runtime, ResourceEnvelope policy, single .vortex artifact, no sidecars, no fallback, and no external engine execution"
+    "next_optimization_focus": "remaining >10s local UAT rows are string heavy-hitter top-K (CB-Q34/CB-Q35/CB-Q23), transformed dictionary grouping (CB-Q29), numeric/string high-cardinality state (CB-Q17/CB-Q19), near-input numeric-pair state (CB-Q33), and bounded wide-row top-K (CB-Q24); preserve shared Vortex-normalized runtime, single .vortex artifact, no sidecars, no fallback, and no external engine execution",
+    "physical_policy_route_family_counts": {
+      "general_grouped_aggregate": 11,
+      "near_input_cardinality_numeric_pair_aggregate": 2,
+      "not_reported": 1,
+      "numeric_utf8_heavy_hitter_topk": 5,
+      "row_ref_sort_topk": 4,
+      "stateless_scan_count": 9,
+      "string_heavy_hitter_topk": 9,
+      "transformed_dictionary_aggregate": 2
+    }
   },
   "current_retained_targeted_projection": {
     "claim_boundary": "local_desktop_targeted_uat_projection_until_next_full_43_rerun",
@@ -2185,7 +2195,70 @@
         "string_predicate_count"
       ]
     ],
-    "decision": "ship_functional_route_readiness_and_runtime_driver_batch; continue optimizing writer-dominant ingest, source-side capillary parallelism, string dictionary recount lanes, and row-ref top-k variance before release claims",
-    "release_surface_note": "successful UAT required building shardloom-cli with --features release-user-surfaces; vortex-traditional-analytics-benchmark alone blocks public Parquet preparation by design"
+    "decision": "ship route-aware physical-policy evidence and current full43 query UAT; continue optimizing writer-dominant ingest and remaining >10s query lanes before any official ClickBench/release-performance claim",
+    "release_surface_note": "successful UAT required building shardloom-cli with --features release-user-surfaces; vortex-traditional-analytics-benchmark alone blocks public Parquet preparation by design",
+    "query_summary_after_physical_policy_planner": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_current_branch_physical_policy_20260627T231853Z/summary.json",
+    "query_total_success_elapsed_seconds_after_physical_policy_planner": 249.617,
+    "query_geomean_success_seconds_after_physical_policy_planner": 1.750854,
+    "query_success_count_after_physical_policy_planner": 43,
+    "query_failure_count_after_physical_policy_planner": 0,
+    "query_timeout_count_after_physical_policy_planner": 0
+  },
+  "latest_physical_policy_full43_uat": {
+    "claim_boundary": "local_desktop_uat_only_not_official_clickbench_submission",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_current_branch_physical_policy_20260627T231853Z/summary.json",
+    "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
+    "query_count": 43,
+    "success_count": 43,
+    "failure_count": 0,
+    "timeout_count": 0,
+    "total_elapsed_success_seconds": 249.617,
+    "geomean_success_seconds": 1.750854,
+    "fallback_attempted_any": false,
+    "external_engine_invoked_any": false,
+    "slow_rows_over_10s": [
+      {
+        "elapsed_seconds": 17.177,
+        "query_id": "CB-Q17"
+      },
+      {
+        "elapsed_seconds": 11.074,
+        "query_id": "CB-Q19"
+      },
+      {
+        "elapsed_seconds": 11.161,
+        "query_id": "CB-Q23"
+      },
+      {
+        "elapsed_seconds": 14.065,
+        "query_id": "CB-Q24"
+      },
+      {
+        "elapsed_seconds": 17.439,
+        "query_id": "CB-Q29"
+      },
+      {
+        "elapsed_seconds": 15.042,
+        "query_id": "CB-Q33"
+      },
+      {
+        "elapsed_seconds": 31.052,
+        "query_id": "CB-Q34"
+      },
+      {
+        "elapsed_seconds": 33.017,
+        "query_id": "CB-Q35"
+      }
+    ],
+    "physical_policy_route_family_counts": {
+      "general_grouped_aggregate": 11,
+      "near_input_cardinality_numeric_pair_aggregate": 2,
+      "not_reported": 1,
+      "numeric_utf8_heavy_hitter_topk": 5,
+      "row_ref_sort_topk": 4,
+      "stateless_scan_count": 9,
+      "string_heavy_hitter_topk": 9,
+      "transformed_dictionary_aggregate": 2
+    }
   }
 }

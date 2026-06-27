@@ -134,6 +134,22 @@ fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence
         "bounded_in_memory_low_pressure_spill_not_required"
     )));
     assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_schema_version",
+        "shardloom.local_vortex_physical_policy.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_route_family",
+        "stateless_scan_count"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_state_pressure_reason",
+        "scalar_aggregate_without_group_state"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_rejected_alternatives",
+        "state_heavy_hitter_capacity,row_ref_retention"
+    )));
+    assert!(stdout.contains(&field(
         "local_primitive_capillary_work_units",
         "vortex_scan,aggregate_state,dictionary_or_typed_direct_scalar_aggregate"
     )));
@@ -199,9 +215,19 @@ fn public_run_native_vortex_directory_count_uses_partitioned_binding() {
     assert!(stdout.contains(&field("native_vortex_partitioned_input_binding", "true")));
     assert!(stdout.contains(&field("local_primitive_rows_scanned", "10")));
     assert!(stdout.contains(&field("local_primitive_rows_selected", "10")));
-    assert!(stdout.contains(&field("data_read", "true")));
+    assert!(stdout.contains(&field("local_primitive_mode", "metadata_preserving_count")));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_route_family",
+        "stateless_scan_count"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_state_pressure_reason",
+        "metadata_or_scan_pushdown_without_unbounded_state"
+    )));
+    assert!(stdout.contains(&field("data_read", "false")));
     assert!(stdout.contains(&field("data_decoded", "false")));
     assert!(stdout.contains(&field("data_materialized", "false")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }

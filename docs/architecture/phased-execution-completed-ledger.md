@@ -16,6 +16,87 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] ClickBench 100M shared native Vortex physical-policy and single-artifact optimization batch.
+  - Date: 2026-06-27
+  - Completed phase-plan rows:
+    - `CLICKBENCH-100M-PHYSICAL-POLICY-PLANNER-6`
+    - `CLICKBENCH-100M-SINGLE-ARTIFACT-LAYOUT-ADVISOR-9`
+    - `CLICKBENCH-100M-HIGH-CARDINALITY-AGGREGATE-7`
+    - `CLICKBENCH-100M-STRING-DOMAIN-PREDICATE-8`
+    - `CLICKBENCH-100M-INGEST-WRITER-COALESCING-10`
+  - Completed scope:
+    - Added route-aware local native Vortex physical-policy evidence derived from normalized
+      primitive requests, not front-door spelling or benchmark IDs.
+    - Routed scan concurrency, heavy-hitter capacity, row-ref retention, writer coalescing, and
+      selected resource/state evidence through the shared physical-policy classifier.
+    - Preserved the single `.vortex` artifact contract: embedded OLAP layout/statistics evidence is
+      persisted in the artifact and no query-answer sidecar is required.
+    - Verified existing source-native dictionary-derived URL/domain/length metadata, compact
+      dictionary/grouped aggregate states, numeric-pair late-measure state, and row-ref top-K
+      materialization paths remain shared native Vortex runtime behavior.
+    - Updated local ClickBench UAT evidence to the current full 43-query run:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_current_branch_physical_policy_20260627T231853Z/summary.json`.
+  - Local 100M UAT result:
+    - 43/43 successful queries, 0 failures, 0 timeouts.
+    - Total successful query elapsed time: `249.617s`.
+    - Geomean successful query elapsed time: `1.750854s`.
+    - No fallback attempted and no external engine invoked.
+    - Remaining >10s lanes: `CB-Q35` `33.017s`, `CB-Q34` `31.052s`, `CB-Q29` `17.439s`,
+      `CB-Q17` `17.177s`, `CB-Q33` `15.042s`, `CB-Q24` `14.065s`, `CB-Q23` `11.161s`,
+      `CB-Q19` `11.074s`.
+  - Focused validation evidence:
+    - `cargo fmt --all -- --check`
+    - `cargo check -p shardloom-vortex --features vortex-local-primitives --lib`
+    - `cargo check -p shardloom-cli --features vortex-local-primitives --bin shardloom`
+    - `cargo clippy -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`
+    - `cargo clippy -p shardloom-cli --features vortex-local-primitives --bin shardloom -- -D warnings`
+    - `cargo clippy -p shardloom-cli --features vortex-local-primitives --test public_workflow_route -- -D warnings`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives --lib physical_policy -- --nocapture`
+    - `cargo test -p shardloom-cli --features vortex-local-primitives --test public_workflow_route public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence -- --nocapture`
+    - `cargo test -p shardloom-cli --features vortex-local-primitives --test public_workflow_route public_run_native_vortex_directory_count_uses_partitioned_binding -- --nocapture`
+    - `cargo test -p shardloom-vortex --features release-user-surfaces --lib source_native_dictionary_stream -- --nocapture`
+    - `cargo test -p shardloom-vortex --features release-user-surfaces --lib source_text_large_source -- --nocapture`
+    - `cargo test -p shardloom-vortex --features release-user-surfaces --lib prepared_olap_state_report_admits_single_vortex_artifact_without_sidecars -- --nocapture`
+    - `cargo test -p shardloom-vortex --features release-user-surfaces --lib simple_aggregate_rewrites_dictionary_backed_domain_and_length_to_code_group_partials -- --nocapture`
+    - `cargo test -p shardloom-vortex --features release-user-surfaces --lib sort_rows_late_materialization_policy_uses_row_refs_for_large_payload_topk -- --nocapture`
+    - `cargo test -p shardloom-vortex --features release-user-surfaces --lib sort_rows_wide_all_projection_materializes_only_selected_ordinals_without_fallback -- --nocapture`
+    - `python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down.json`
+    - `cargo build -p shardloom-cli --features release-user-surfaces --release`
+  - Claim boundary:
+    - Local Desktop UAT only; no official ClickBench submission, superiority, production-platform,
+      release-channel, or universal workload claim.
+  - Fallback boundary:
+    - No route added Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, or
+      another external engine as ShardLoom execution fallback.
+
+- [x] `PR-CODEX-COMMENT-RESOLUTION-1361-1363` resolved recent Codex review findings.
+  - Date: 2026-06-27
+  - PR/merge: PR `#1364`, commit `c4191940`, merged to `main` as `b6a52d31`.
+  - Completed scope:
+    - Confirmed `#1361` `DISTINCT ... ORDER BY ... LIMIT` no longer lowers into the `sort_rows`
+      route.
+    - Confirmed `#1362` direct primitive execution evidence honors requested `memory_gb`.
+    - Bounded local Vortex current-thread worker count by local CPU availability before spawning
+      workers.
+    - Required an active phase-plan owner for unchecked global architecture runtime-gap families
+      instead of accepting completed-ledger history as active ownership.
+    - Clarified targeted runtime-driver UAT evidence so count/filter control rows are not claimed
+      as worker-pool validation.
+  - Validation evidence:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives --lib local_vortex_worker_count_is_bounded_before_spawning -- --nocapture`
+    - `cargo clippy -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_runtime_gap_family_burn_down`
+    - `python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down.json`
+    - `python3 -m json.tool docs/benchmarks/clickbench-100m-uat-burndown.json >/dev/null`
+    - `python3 scripts/check_v1_inclusion_scope.py --output target/v1-inclusion-scope-report.json`
+    - `python3 scripts/check_public_status_docs.py`
+    - PR `#1364` GitHub checks were green before merge.
+  - Claim boundary: review-resolution and evidence-governance cleanup only; no new official
+    ClickBench, superiority, production-platform, or release-channel claim.
+  - Fallback boundary: no route added Spark, DataFusion, DuckDB, Polars, pandas, Velox, or another
+    external engine as ShardLoom execution fallback.
+
 - [x] Phase-plan active queue cleanup for ClickBench competitive-score optimization path.
   - Date: 2026-06-27
   - Disposition:

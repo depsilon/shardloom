@@ -249,60 +249,24 @@ post-merge ledger movement, follow `Current autonomous execution order`.
 
 Current autonomous execution order:
 
-1. Resolve `PR-CODEX-COMMENT-RESOLUTION-1361-1363` before returning to the performance queue.
-2. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
+1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-3. Implement `CLICKBENCH-100M-PHYSICAL-POLICY-PLANNER-6` first so shared resource/runtime
-   settings are route-aware and cannot improve one lane while regressing another.
-4. Implement `CLICKBENCH-100M-SINGLE-ARTIFACT-LAYOUT-ADVISOR-9` next so ingest layout,
-   compression, segment stats, and storage-size choices improve query locality inside the single
-   `.vortex` artifact.
-5. Implement `CLICKBENCH-100M-HIGH-CARDINALITY-AGGREGATE-7` for the remaining exact
-   high-cardinality grouped lanes.
-6. Implement `CLICKBENCH-100M-STRING-DOMAIN-PREDICATE-8` so URL/domain/length/search phrase
-   predicates and grouping consume embedded dictionary/domain metadata before row-string scans.
-7. Implement `CLICKBENCH-100M-INGEST-WRITER-COALESCING-10` after layout choices settle, then run
-   one replacement ingest UAT that records load time, artifact size, segment shape, and query
-   impact together.
-8. Update docs, generated status surfaces, and focused validators from the implemented evidence.
-9. Run focused PR validation only while implementation rows are still changing; do not run the full
-   workspace suite or full ClickBench UAT until the cohesive batch is ready.
-10. Create/merge the cohesive PR when required checks are green.
-11. After the current optimization batch is complete, run the heavy local Desktop UAT once on the
-   merged build/artifact, replacing the existing prepared `.vortex` file rather than creating
-   duplicate massive artifacts.
-12. Start any version/release train only after that end-of-batch UAT result is acceptable.
-
-- [ ] `PR-CODEX-COMMENT-RESOLUTION-1361-1363` Resolve recent Codex review findings before
-  returning to the ClickBench optimization queue.
-  - V1 scope classification: `required_for_v1`.
-  - Source: thread-aware review sweep for PRs `#1354` through `#1363`, with unresolved Codex
-    threads found on `#1361`, `#1362`, and `#1363`.
-  - Current state: the `DISTINCT ... ORDER BY ... LIMIT` sort lowering and direct primitive
-    memory-envelope comments are already addressed in merged `main`; the worker-count bound,
-    active phase-owner validation, and targeted-UAT evidence wording still need follow-up.
-  - ShardLoom technique review: ResourceEnvelope/PulseWeave worker admission applies to the Vortex
-    runtime-driver fix; timing-surface discipline applies to the UAT evidence wording; active
-    phase ownership applies to evidence-tier controls. No new route family or external execution is
-    allowed.
-  - Execution checklist:
-    - [x] Confirm `#1361` `DISTINCT ... ORDER BY ... LIMIT` no longer lowers into `sort_rows`.
-    - [x] Confirm `#1362` direct primitive execution evidence honors requested `memory_gb`.
-    - [x] Bound local Vortex current-thread worker count by local CPU availability before spawning
-      workers.
-    - [x] Require an active phase-plan owner for unchecked global architecture runtime-gap
-      families instead of accepting completed-ledger history as active ownership.
-    - [x] Clarify targeted runtime-driver UAT evidence so count/filter control rows are not
-      claimed as worker-pool validation.
-    - [x] Run focused validation for the Vortex worker-count unit, runtime gap-family validator,
-      JSON report syntax, and formatter.
-    - [ ] Open and merge the follow-up PR when required checks are green, then move this
-      completed review-fix item to the completed ledger.
-  - Acceptance: all still-actionable Codex review findings from the recent PR train are addressed
-    in source, docs/evidence, and focused validation without creating route proliferation or
-    weakening no-fallback evidence.
-  - Status: implementation validated; follow-up PR/merge and ledger movement pending.
+2. Implement `CLICKBENCH-STRING-HEAVY-HITTER-EXACT-RECOUNT-11` first because `CB-Q34`/`CB-Q35`
+   are the largest current query-runtime tail.
+3. Implement `CLICKBENCH-TRANSFORM-CODE-MAP-12` next because `CB-Q29` is still expensive despite
+   using transformed dictionary aggregate routing.
+4. Implement `CLICKBENCH-HIGH-CARDINALITY-RADIX-CAPILLARY-13` for `CB-Q17`/`CB-Q19`/`CB-Q33`
+   after the string/transform code paths are stable.
+5. Implement `CLICKBENCH-ROW-REF-TOPK-SEGMENT-PRUNING-14` for `CB-Q24` once order-key segment
+   statistics are confirmed usable in the single `.vortex` artifact.
+6. Implement `CLICKBENCH-INGEST-WRITER-SEGMENT-ECONOMICS-15` and
+   `CLICKBENCH-ARTIFACT-SIZE-ENCODING-POLICY-16` as one cohesive ingest/layout batch because they
+   share writer, encoding, dictionary, and artifact-size evidence.
+7. Run focused PR validation for any remaining branch edits; avoid another full workspace or full
+   ClickBench run unless a new implementation batch materially changes runtime behavior.
+8. Create/merge the cohesive PR when required checks are green.
+9. Start any version/release train only after merged checks and explicit maintainer approval.
 
 - [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
   gaps.
@@ -329,158 +293,185 @@ Current autonomous execution order:
     active phase-plan owner for unchecked global architecture review rows.
   - Status: active carry-forward owner.
 
-- [ ] `CLICKBENCH-100M-PHYSICAL-POLICY-PLANNER-6` Add a route-aware native Vortex physical policy
-  planner so shared ResourceEnvelope/PulseWeave settings improve the right lanes without slowing
-  state-sensitive routes.
+- [ ] `CLICKBENCH-STRING-HEAVY-HITTER-EXACT-RECOUNT-11` Remove the second broad string scan from
+  `string_heavy_hitter_topk` lanes while preserving exact `ORDER BY ... LIMIT` results.
   - V1 scope classification: `required_for_v1`.
-  - Source: local 100M UAT rank review and targeted slow-lane probe
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_slow_lanes_resource_envelope_20260627T213204Z/summary.json`.
-    The memory-aware policy fix improved `CB-Q17`, `CB-Q19`, `CB-Q21`, `CB-Q23`, `CB-Q24`,
-    `CB-Q29`, `CB-Q34`, and `CB-Q35`, but `CB-Q33` regressed when the same shared runtime/capacity
-    shape was applied to near-input-cardinality numeric-pair state. A single-query
-    `CB-Q33` probe with the state-boundary-friendly policy returned to the prior fast range.
-  - Materiality review: accepted as the first option to decide because it prevents broad knobs from
-    creating hidden tail regressions. It is not front-door work; it belongs after Vortex
-    normalization and must feed SQL/Python/DataFrame/CLI equally.
-  - ShardLoom technique review: PulseWeave policy, ResourceEnvelope, ProofBound route evidence,
-    state-pressure classes, capillary work-unit sizing, and timing-surface discipline are all
-    applicable. Do not add query-specific route forks or hidden caches.
-  - Decision-gated checklist:
-    - [ ] Define a small physical-policy classifier for local native Vortex route families:
-      stateless scan/count, string predicate, row-ref sort/top-K, string heavy-hitter top-K,
-      numeric-UTF8 heavy-hitter top-K, transformed dictionary aggregate, and near-input-cardinality
-      numeric-pair aggregate.
-    - [ ] Route `max_parallelism`, scan runtime driver, heavy-hitter capacity, group-state budget,
-      row-ref retention, and writer coalescing through the classifier instead of applying every
-      knob globally.
-    - [ ] Emit evidence fields for selected policy, rejected alternatives, and state-pressure
-      reason so regressions can be diagnosed without rerunning the full suite.
-    - [ ] Prove with focused tests that default public routes still report
-      `fallback_attempted=false` and `external_engine_invoked=false`.
-    - [ ] Run targeted local 100M probes for `CB-Q21`, `CB-Q24`, `CB-Q33`, `CB-Q34`, and `CB-Q35`
-      before retaining the change.
-  - Acceptance: the planner improves or preserves each targeted lane relative to the latest
-    comparable evidence, especially restoring `CB-Q33` while keeping the `CB-Q21`/`CB-Q24`/
-    `CB-Q34`/`CB-Q35` gains; no public route or user surface forks away from the shared native
-    Vortex physical runtime.
-  - Non-goals: no official ClickBench claim, no sidecars, no query-answer caches, no DataFusion/
-    DuckDB/Spark/Polars execution, and no one-off ClickBench query special cases.
-  - Status: top-priority open implementation item.
+  - Source: latest local 100M UAT
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_current_branch_physical_policy_20260627T231853Z/summary.json`
+    shows `CB-Q35` `33.017s`, `CB-Q34` `31.052s`, and `CB-Q23` `11.161s`; all use the
+    `string_heavy_hitter_topk` policy and current evidence includes second-pass exact recount.
+  - Five material ideas reviewed:
+    - [ ] Dictionary-code exact recount: retain candidate dictionary codes and recount over code
+      vectors instead of UTF-8 values.
+    - [ ] Per-segment candidate bitsets: persist/derive candidate-code membership so non-candidate
+      segments or chunks are skipped in the exact pass.
+    - [ ] Heavy-hitter sketch with proof-bound thresholds: stop widening the candidate set once a
+      retained-bound proof is exact.
+    - [ ] Interned group-key arena reuse: share string key storage across first pass, exact recount,
+      and output materialization.
+    - [ ] Functional-dependency pruning: when one grouped string is derived from another key, retain
+      only the narrower key through aggregation and materialize dependent values at output.
+  - Ship/drop checklist:
+    - [ ] Implement dictionary-code exact recount for string heavy-hitter top-K groups.
+    - [ ] Add per-segment candidate-code membership evidence and skip accounting.
+    - [ ] Emit exactness evidence proving no query-answer cache, no sidecar, no external engine, and
+      no approximate result.
+    - [ ] Run targeted UAT for `CB-Q23`, `CB-Q34`, and `CB-Q35` against the latest retained baseline.
+    - [ ] Ship if at least one tail lane materially improves and no target lane regresses beyond
+      run-variance tolerance; otherwise drop/revert the approach and record why.
+  - Non-goals: no query-specific summary, no sidecar, no approximate top-K, and no DataFusion/
+    DuckDB/Spark/Polars/pandas fallback.
+  - Status: open material performance item.
 
-- [ ] `CLICKBENCH-100M-SINGLE-ARTIFACT-LAYOUT-ADVISOR-9` Add a single-`.vortex` layout and
-  encoding advisor that improves query locality and storage size together without sidecars.
+- [ ] `CLICKBENCH-TRANSFORM-CODE-MAP-12` Make transformed dictionary aggregates operate on reusable
+  transform-code maps rather than repeated per-row/per-value string transforms.
   - V1 scope classification: `required_for_v1`.
-  - Source: the current 100M artifact is about `34.933 GB` from a `14.780 GB` Parquet source.
-    ClickBench combined scoring includes storage size, so query-only gains can be offset by a large
-    artifact if layout/encoding policy is too loose.
-  - Materiality review: accepted as the main end-to-end lever after route policy and slow-lane
-    kernels. It should make later scans cheaper and reduce storage score debt; it must not become
-    query-specific pre-aggregation or a multi-file sidecar model.
-  - ShardLoom technique review: Universal Ingest, embedded Vortex metadata, source-native
-    adapters, layout advisor output, domain dictionaries, segment stats, row-position locality,
-    dictionary/code preservation, and timing-surface separation are applicable.
-  - Decision-gated checklist:
-    - [ ] Define a reusable advisor contract for column roles: date/counter filter columns,
-      high-cardinality keys, URL/domain/text columns, derived compact metadata, row-position
-      locality, and wide payload columns.
-    - [ ] Persist generic metadata/layout decisions inside the `.vortex` artifact only; remove or
-      reject any sidecar/manifest/query-answer-cache dependency.
-    - [ ] Add column-specific encoding/compression decisions that balance load time, storage size,
-      and downstream query locality.
-    - [ ] Expose storage-size, segment-count, row-block, compression, dictionary, and metadata
-      evidence in the prepare report.
-    - [ ] Run replacement ingest UAT only after code settles, replacing the existing Desktop
-      artifact and recording size/load/query effects together.
-  - Acceptance: artifact size or query locality materially improves without query-specific
-    summaries, hidden external execution, duplicate artifacts, or unacceptable load-time growth.
-  - Status: top-priority open implementation item.
+  - Source: latest local 100M UAT shows `CB-Q29` `17.439s` on
+    `transformed_dictionary_aggregate`; the route is correct, but the transformed grouping family
+    is still a tail contributor.
+  - Five material ideas reviewed:
+    - [ ] Persist dictionary-value transform maps for `length`, `url_domain`, minute/date bucket,
+      and regex-like admitted transforms inside the single `.vortex` artifact metadata.
+    - [ ] Aggregate over transform codes, not transformed strings, with late visible value
+      materialization only for retained groups.
+    - [ ] Share transform-code maps between predicates, grouped aggregates, sort/top-K, Python,
+      DataFrame-style helpers, and SQL.
+    - [ ] Add transform null/error/overflow contracts so invalid or null transform inputs stay
+      exact and deterministic.
+    - [ ] Cache transform planner decisions by artifact metadata digest during one process without
+      caching query answers.
+  - Ship/drop checklist:
+    - [ ] Add a generic transform-code map contract for admitted dictionary-derived transforms.
+    - [ ] Rewire transformed dictionary aggregate state to group/merge over transform codes.
+    - [ ] Emit transform-code evidence: transform family, dictionary cardinality, code cardinality,
+      null handling, and materialization boundary.
+    - [ ] Run targeted UAT for `CB-Q29` against the latest retained baseline.
+    - [ ] Ship if runtime materially improves or remains neutral with materially lower string
+      transform/materialization evidence; otherwise drop/revert and record why.
+  - Non-goals: no arbitrary regex engine fallback, no Python callable/UDF shortcut, and no
+    transform result sidecar.
+  - Status: open material performance item.
 
-- [ ] `CLICKBENCH-100M-HIGH-CARDINALITY-AGGREGATE-7` Redesign exact high-cardinality aggregate
-  state for `CB-Q17`/`CB-Q19`/`CB-Q33`/related grouped lanes through reusable packed-key,
-  segment-local, and spill-ready state machinery.
+- [ ] `CLICKBENCH-HIGH-CARDINALITY-RADIX-CAPILLARY-13` Redesign high-cardinality exact aggregate
+  state around radix/capillary partitioned partials and merge-local packed keys.
   - V1 scope classification: `required_for_v1`.
-  - Source: local UAT tail review shows the ranking problem is dominated by a small number of
-    high-cardinality/group-state lanes, not by median query latency or SQL/Python/DataFrame
-    front-door overhead.
-  - Materiality review: accepted as a major query-runtime lever because state construction and
-    exact merge dominate these rows. Marginal hash-map tweaks should be dropped unless targeted
-    UAT proves a material gain.
-  - ShardLoom technique review: capillary segment-local partials, packed/dictionary composite keys,
-    dynamic work shaping, memory-budgeted exact merge, late string materialization, and native
-    spill contracts are applicable. External engines and approximate answers are not acceptable.
-  - Decision-gated checklist:
-    - [ ] Add a reusable packed-key state boundary for numeric, numeric/string, string, and
-      transformed dictionary group keys without materializing visible strings until output.
-    - [ ] Add segment-local capillary partial aggregation and exact merge evidence that can be
-      reused by SQL/Python/DataFrame/CLI routes.
-    - [ ] Add memory-budget and spill-readiness diagnostics that fail closed if exact native spill
-      is required before it is certified.
-    - [ ] Keep exact semantics for count, sum, avg, min, max, count-distinct, HAVING, ORDER BY,
-      LIMIT, and OFFSET.
-    - [ ] Run targeted local 100M probes for `CB-Q17`, `CB-Q19`, and `CB-Q33`; retain only changes
-      with material improvement or materially better memory pressure at neutral runtime.
-  - Acceptance: exact results remain stable, candidate/string materialization decreases, and the
-    route evidence shows reusable packed/partial/merge behavior rather than a facade-specific
-    implementation.
-  - Status: top-priority open implementation item.
+  - Source: latest local 100M UAT shows `CB-Q17` `17.177s`, `CB-Q19` `11.074s`, and `CB-Q33`
+    `15.042s`; the current policy correctly separates `numeric_utf8_heavy_hitter_topk` from
+    `near_input_cardinality_numeric_pair_aggregate`, but state construction and merge locality
+    remain material.
+  - Five material ideas reviewed:
+    - [ ] Radix partition group state by packed key prefix so exact merge is cache-local and
+      spill-ready.
+    - [ ] Segment-local capillary partials with deterministic merge order and bounded memory
+      accounting.
+    - [ ] Packed composite keys for numeric/numeric, numeric/string, and dictionary-code/string
+      groups.
+    - [ ] Late measure materialization for retained candidate groups, especially numeric-pair
+      second-pass measure lanes.
+    - [ ] Memory-budgeted exact spill boundary that fails closed until certified native spill is
+      available.
+  - Ship/drop checklist:
+    - [ ] Implement radix/capillary partial aggregation for high-cardinality grouped aggregates.
+    - [ ] Add packed-key merge evidence and memory-pressure accounting shared by SQL/Python/
+      DataFrame/CLI.
+    - [ ] Preserve exact count, sum, avg, min, max, count-distinct, HAVING, ORDER BY, LIMIT, and
+      OFFSET semantics.
+    - [ ] Run targeted UAT for `CB-Q17`, `CB-Q19`, and `CB-Q33` against the latest retained baseline.
+    - [ ] Ship if runtime or memory pressure materially improves without widening candidate-window
+      regressions; otherwise drop/revert and record why.
+  - Non-goals: no approximate aggregates, no hidden external engine, no query-specific partition
+    plan, and no uncertified spill writes.
+  - Status: open material performance item.
 
-- [ ] `CLICKBENCH-100M-STRING-DOMAIN-PREDICATE-8` Move URL/domain/length/search phrase predicate
-  and grouping work toward embedded dictionary/domain metadata and segment membership before raw
-  row-string scans.
+- [ ] `CLICKBENCH-ROW-REF-TOPK-SEGMENT-PRUNING-14` Add segment/block order-key pruning before
+  row-ref top-K materialization.
   - V1 scope classification: `required_for_v1`.
-  - Source: `CB-Q21`, `CB-Q23`, `CB-Q29`, `CB-Q34`, and `CB-Q35` remain among the highest timing
-    lanes, while the current single `.vortex` artifact already carries embedded layout/statistics
-    and derived metadata that can be consumed more deeply.
-  - Materiality review: accepted because string/domain work affects both count/filter and grouped
-    aggregate lanes. A change is only material if it reduces scan/string/decode work or turns
-    repeated transforms into dictionary/code work.
-  - ShardLoom technique review: metadata-first planning, embedded single-artifact dictionaries,
-    dictionary-derived metadata, segment membership sketches, capillary predicate units, and
-    encoded kernels are applicable. Query-answer sidecars and private benchmark summaries are not.
-  - Decision-gated checklist:
-    - [ ] Add reusable dictionary/domain predicate planning for contains, LIKE/NOT LIKE, URL domain,
-      string length, and SearchPhrase non-empty predicates where exact metadata proves admission.
-    - [ ] Prefer dictionary-value evaluation once per dictionary entry over per-row string work,
-      while preserving SQL null/string semantics.
-    - [ ] Connect derived URL/domain/length metadata to grouped aggregate and sort/top-K routes
-      through the same physical planner.
-    - [ ] Emit evidence for dictionary metadata used, segment membership consulted, raw string scan
-      fallback avoided, and exactness proof.
-    - [ ] Run targeted local 100M probes for `CB-Q21`, `CB-Q23`, `CB-Q29`, `CB-Q34`, and `CB-Q35`.
-  - Acceptance: at least one target string/domain lane materially improves without slowing the
-    others; all successful routes stay native Vortex and no-fallback.
-  - Status: top-priority open implementation item.
+  - Source: latest local 100M UAT shows `CB-Q24` `14.065s`; the route already uses
+    `row_ref_sort_topk`, but still scans broadly before final materialization.
+  - Five material ideas reviewed:
+    - [ ] Use embedded per-segment min/max order-key stats to skip segments that cannot beat the
+      current top-K boundary.
+    - [ ] Persist source-order locality metadata so retained row refs can seek fewer chunks during
+      final materialization.
+    - [ ] Maintain a monotonic top-K threshold that tightens as candidate rows are discovered.
+    - [ ] Split sort into key-only candidate scan and selected-row materialization with bounded
+      row-ref buffers.
+    - [ ] Add block-level metadata inside larger segments when segment-level pruning is too coarse.
+  - Ship/drop checklist:
+    - [ ] Confirm order-key min/max and row-position locality metadata are available in the
+      current single `.vortex` artifact.
+    - [ ] Implement conservative segment pruning for bounded `ORDER BY ... LIMIT` where ordering
+      direction and null semantics are exact.
+    - [ ] Emit pruning evidence: consulted segments, skipped segments, retained row refs, and final
+      materialization boundary.
+    - [ ] Run targeted UAT for `CB-Q24` plus `CB-Q25`-`CB-Q27` regression guards.
+    - [ ] Ship if `CB-Q24` materially improves and `CB-Q25`-`CB-Q27` stay neutral; otherwise
+      drop/revert and record why.
+  - Non-goals: no order-changing approximation, no precomputed query result, and no broad sort
+    materialization before pruning.
+  - Status: open material performance item.
 
-- [ ] `CLICKBENCH-100M-INGEST-WRITER-COALESCING-10` Reduce load-time score debt by redesigning the
-  Universal Ingest -> Vortex writer path around bounded capillary stages, coalesced batch handoff,
-  adaptive row-block sizing, and single-pass derive/write/digest accounting.
+- [ ] `CLICKBENCH-INGEST-WRITER-SEGMENT-ECONOMICS-15` Reduce prepare/load time by improving
+  writer segment economics and single-pass ingest accounting.
   - V1 scope classification: `required_for_v1`.
-  - Source: replacement ingest evidence shows `380.428s` prepare wall in the latest full replacement
-    run, with the dominant cost in Vortex encode/write and segment write. Earlier evidence also
-    recorded `ShardLoom prepare-once=477.811s`, `Vortex write/encode=455.636s`, and
-    `segment_write=454.059s`.
-  - Materiality review: accepted because ClickBench combined scoring includes load time, and ingest
-    work also determines the downstream single-artifact layout. Small writer knob changes are
-    insufficient unless they improve wall time, segment shape, or artifact size without query
-    regressions.
-  - ShardLoom technique review: Universal Ingest, capillary source/read/build/encode/write units,
-    PulseWeave writer pressure, dynamic coalesce/split, source-native adapters, dictionary-derived
-    metadata, and timing-surface attribution are applicable.
-  - Decision-gated checklist:
-    - [ ] Split source read, typed builder, derived metadata, encode/layout, segment write,
-      footer/register, digest, and reopen verification timing so the long pole is explicit.
-    - [ ] Add bounded capillary queues and coalesced typed-batch handoff into the single Vortex
-      writer while preserving ordered commit and atomic replacement.
-    - [ ] Use source-native adapters: preserve Parquet/Arrow dictionaries and batches where safe;
-      keep CSV/JSONL projection/schema-aware typed builders out of row materialization.
-    - [ ] Compute derived metadata and digest in one pass where possible instead of rescanning
-      strings or the output file.
-    - [ ] Run replacement ingest UAT after route/layout changes settle; record load time,
-      artifact size, segment count, and full query effect together.
-  - Acceptance: load time or writer/segment timing materially improves, or artifact shape improves
-    enough to justify neutral load time; no sidecars, duplicate massive files, external engines, or
-    query-specific cache artifacts are introduced.
-  - Status: top-priority open implementation item.
+  - Source: replacement ingest evidence records prepare/load as writer-dominant, with previous
+    prepare around `515s` and Vortex write/segment write around `455s`.
+  - Five material ideas reviewed:
+    - [ ] Adaptive larger row blocks and fewer segments based on source shape, target pruning value,
+      and memory envelope.
+    - [ ] Coalesced typed-batch handoff into the Vortex writer with bounded queues and ordered
+      atomic commit.
+    - [ ] Source-native Parquet/Arrow dictionary preservation and CSV/JSONL projection-aware typed
+      builders.
+    - [ ] Single-pass derive/write/digest so strings and output bytes are not rescanned when
+      metadata/digest can be accumulated during write.
+    - [ ] Writer timing split for read, typed build, derived metadata, encode/layout, segment write,
+      footer/register, digest, and reopen verification.
+  - Ship/drop checklist:
+    - [ ] Implement adaptive row-block/segment sizing and coalesced writer handoff behind the
+      existing single `.vortex` artifact path.
+    - [ ] Add timing-surface fields that isolate segment write, footer/register, digest, and reopen
+      costs.
+    - [ ] Preserve ordered atomic replacement and no-sidecar behavior.
+    - [ ] Run replacement ingest UAT only after the query-lane changes settle; record load time,
+      artifact size, segment count, and full-query effect together.
+    - [ ] Ship if load time, segment economics, artifact shape, or downstream query runtime
+      materially improves without unacceptable regression in the others; otherwise drop/revert and
+      record why.
+  - Non-goals: no duplicate massive artifacts, no multi-file OLAP sidecar, and no source-format
+    route fork that bypasses Universal Ingest.
+  - Status: open material performance item.
+
+- [ ] `CLICKBENCH-ARTIFACT-SIZE-ENCODING-POLICY-16` Reduce single-artifact size without making
+  load or query runtime worse.
+  - V1 scope classification: `required_for_v1`.
+  - Source: current local artifact is about `34.9GB` from a `14.8GB` Parquet source; ClickBench
+    scoring includes storage size, and large artifacts also increase scan/write pressure.
+  - Five material ideas reviewed:
+    - [ ] Replace full hidden derived columns with dictionary-derived metadata and compact code
+      maps where exact semantics allow.
+    - [ ] Use column-family encoding policy: dictionary/Zstd for high-value text, fast compact
+      encodings for numeric/derived metadata, and low-effort load profile where compression is not
+      worth the CPU.
+    - [ ] Deduplicate derived URL/domain/length dictionaries across related columns when source
+      dictionaries prove compatible.
+    - [ ] Add layout advisor feedback that reports size contribution by column family and hidden
+      metadata family.
+    - [ ] Add optional compact/repack mode later, separate from default fast-load mode, only after
+      default runtime stays competitive.
+  - Ship/drop checklist:
+    - [ ] Add size-attribution evidence for source columns, derived metadata, dictionaries, and
+      footer/layout metadata.
+    - [ ] Convert eligible hidden derived columns to compact dictionary/code metadata inside the
+      `.vortex` artifact.
+    - [ ] Add column-specific compression policy with explicit load/runtime tradeoff evidence.
+    - [ ] Run replacement ingest UAT and compare artifact size, load time, and full-query runtime
+      against the latest retained baseline.
+    - [ ] Ship only if size improves without material load/query regression, or if a documented
+      query/load win justifies neutral size; otherwise drop/revert and record why.
+  - Non-goals: no external compression-only artifact, no post-query compacting, and no hidden
+    multi-file index.
+  - Status: open material performance item.
 
 
 ## Completed

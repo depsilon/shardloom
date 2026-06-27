@@ -7776,12 +7776,67 @@ fn append_vortex_run_local_primitive_resource_envelope_fields(
     ]);
 }
 
+fn append_vortex_run_local_primitive_physical_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
+) {
+    fields.extend([
+        (
+            "local_primitive_physical_policy_schema_version".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.physical_policy.schema_version.clone(),
+            ),
+        ),
+        (
+            "local_primitive_physical_policy_id".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.physical_policy.policy_id.clone(),
+            ),
+        ),
+        (
+            "local_primitive_physical_policy_route_family".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.physical_policy.route_family.clone(),
+            ),
+        ),
+        (
+            "local_primitive_physical_policy_state_pressure_reason".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.physical_policy.state_pressure_reason.clone(),
+            ),
+        ),
+        (
+            "local_primitive_physical_policy_rejected_alternatives".to_string(),
+            local.map_or_else(String::new, |local| {
+                local.physical_policy.rejected_alternatives.join(",")
+            }),
+        ),
+        (
+            "local_primitive_physical_policy_row_ref_retention_enabled".to_string(),
+            local
+                .is_some_and(|local| local.physical_policy.row_ref_retention_enabled)
+                .to_string(),
+        ),
+        (
+            "local_primitive_physical_policy_writer_coalescing_enabled".to_string(),
+            local
+                .is_some_and(|local| local.physical_policy.writer_coalescing_enabled)
+                .to_string(),
+        ),
+    ]);
+}
+
 #[allow(clippy::too_many_lines)]
 fn append_vortex_run_local_primitive_execution_fields(
     fields: &mut Vec<(String, String)>,
     local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
 ) {
     append_vortex_run_local_primitive_resource_envelope_fields(fields, local);
+    append_vortex_run_local_primitive_physical_policy_fields(fields, local);
     fields.extend([
         (
             "local_primitive_streaming_scan_used".to_string(),
