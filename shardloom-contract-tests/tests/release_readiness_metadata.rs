@@ -468,8 +468,8 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(dry_run.contains("bundled_cli_resolved=True"));
     assert!(dry_run.contains("ShardLoomClient()"));
     assert!(dry_run.contains("smoke_check()"));
-    assert!(dry_run.contains("generated_source_user_rows_local_output_smoke"));
-    assert!(dry_run.contains("generated_source_range_local_output_smoke"));
+    assert!(dry_run.contains("generated_source_user_rows_local_output_runtime"));
+    assert!(dry_run.contains("generated_source_range_local_output_runtime"));
     assert!(dry_run.contains("ctx.from_rows(["));
     assert!(dry_run.contains("ctx.range(0, 8"));
     assert!(dry_run.contains("generated_source_certificate_status"));
@@ -897,8 +897,8 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(snapshot.contains("benchmark_smoke_status: skipped_not_required_for_package_release"));
     assert!(snapshot.contains("clean_conda_env_install_status"));
     assert!(snapshot.contains("fallback_attempted=False"));
-    assert!(snapshot.contains("generated_source_user_rows_local_output_smoke -> 0"));
-    assert!(snapshot.contains("generated_source_range_local_output_smoke -> 0"));
+    assert!(snapshot.contains("generated_source_user_rows_local_output_runtime -> 0"));
+    assert!(snapshot.contains("generated_source_range_local_output_runtime -> 0"));
     assert!(snapshot.contains("generated_source_kind=user_rows"));
     assert!(snapshot.contains("generated_source_kind=range"));
     assert!(snapshot.contains("output_native_io_certificate_status=certified_local_file_sink"));
@@ -2602,7 +2602,7 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
     let script = read_repo_file("scripts/check_golden_workflows.py");
     for required in [
         "shardloom.golden_workflow_validation_report.v1",
-        "vortex-write,vortex-local-primitives",
+        "RELEASE_USER_SURFACE_EXAMPLE_FEATURES",
         "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
         "generated_source_to_local_vortex_output_replay_fidelity",
         "prepared_native_vortex_count_filter_project_execution_certificates",
