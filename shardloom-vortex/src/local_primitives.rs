@@ -13848,6 +13848,7 @@ fn constant_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
 fn dictionary_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -19098,96 +19099,12 @@ fn read_local_vortex_simple_aggregate_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
-            if let Some(predicate) = residual_evaluator.as_ref() {
-                if let Some(row_indices) = predicate
-                    .fast_exact_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                {
-                    if row_indices.is_empty() {
-                        max_chunk_rows = max_chunk_rows.max(rows);
-                        arrays_read_count += 1;
-                        continue;
-                    }
-                    let row_index_filter =
-                        (row_indices.len() < rows).then_some(row_indices.as_slice());
-                    if !exact_states.update_compact_direct_from_chunk(
-                        &chunk,
-                        &declared_columns,
-                        row_index_filter,
-                    )? {
-                        let columns = if row_indices.len() < rows {
-                            row_export_selected_columns_from_chunk(
-                                &chunk,
-                                &declared_columns,
-                                &row_indices,
-                            )?
-                        } else {
-                            row_export_columns_from_chunk(&chunk, &declared_columns)?
-                        };
-                        let materialized_rows = if row_indices.len() < rows {
-                            row_indices.len()
-                        } else if columns.is_empty() {
-                            rows
-                        } else {
-                            row_export_materialized_row_count(&columns, rows)?
-                        };
-                        exact_states.update(&columns, materialized_rows)?;
-                    }
-                    max_chunk_rows = max_chunk_rows.max(rows);
-                    arrays_read_count += 1;
-                    continue;
-                }
-                if let Some(row_indices) =
-                    predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                    && row_indices.len() < rows
-                {
-                    let columns = row_export_selected_columns_from_chunk(
-                        &chunk,
-                        &declared_columns,
-                        &row_indices,
-                    )?;
-                    for row_index in 0..row_indices.len() {
-                        if !predicate.matches(&columns, row_index)? {
-                            continue;
-                        }
-                        if !exact_states
-                            .update_compact_direct_from_materialized_columns(&columns, row_index)?
-                        {
-                            exact_states.update_row(&columns, row_index)?;
-                        }
-                    }
-                    max_chunk_rows = max_chunk_rows.max(rows);
-                    arrays_read_count += 1;
-                    continue;
-                }
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                for row_index in 0..materialized_rows {
-                    if !predicate.matches(&columns, row_index)? {
-                        continue;
-                    }
-                    if !exact_states
-                        .update_compact_direct_from_materialized_columns(&columns, row_index)?
-                    {
-                        exact_states.update_row(&columns, row_index)?;
-                    }
-                }
-            } else if !exact_states.update_compact_direct_from_chunk(
+            update_grouped_exact_states_from_chunk(
+                &mut exact_states,
                 &chunk,
                 &declared_columns,
-                None,
-            )? {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                exact_states.update(&columns, materialized_rows)?;
-            }
+                residual_evaluator.as_ref(),
+            )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
         }
@@ -19326,15 +19243,12 @@ fn read_local_vortex_simple_aggregate_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
-            if !exact_states.update_compact_direct_from_chunk(&chunk, &declared_columns, None)? {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                exact_states.update(&columns, materialized_rows)?;
-            }
+            update_grouped_exact_states_from_chunk(
+                &mut exact_states,
+                &chunk,
+                &declared_columns,
+                residual_evaluator.as_ref(),
+            )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
         }
@@ -19455,15 +19369,12 @@ fn read_local_vortex_simple_aggregate_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
-            if !exact_states.update_compact_direct_from_chunk(&chunk, &declared_columns, None)? {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                exact_states.update(&columns, materialized_rows)?;
-            }
+            update_grouped_exact_states_from_chunk(
+                &mut exact_states,
+                &chunk,
+                &declared_columns,
+                residual_evaluator.as_ref(),
+            )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
         }
@@ -19534,6 +19445,89 @@ fn read_local_vortex_simple_aggregate_scan(
         result_summary: result_summary.clone(),
         state_budget: state_budget.clone(),
     })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn update_grouped_exact_states_from_chunk(
+    exact_states: &mut GroupedAggregateStates,
+    chunk: &vortex::array::ArrayRef,
+    declared_columns: &[String],
+    residual_evaluator: Option<&MaterializedPredicateEvaluator>,
+) -> Result<()> {
+    let rows = chunk.len();
+    if let Some(predicate) = residual_evaluator {
+        if let Some(row_indices) =
+            predicate.fast_exact_candidate_row_indices_in_chunk(chunk, declared_columns)?
+        {
+            if row_indices.is_empty() {
+                return Ok(());
+            }
+            let row_index_filter = (row_indices.len() < rows).then_some(row_indices.as_slice());
+            if !exact_states.update_compact_direct_from_chunk(
+                chunk,
+                declared_columns,
+                row_index_filter,
+            )? {
+                let columns = if row_indices.len() < rows {
+                    row_export_selected_columns_from_chunk(chunk, declared_columns, &row_indices)?
+                } else {
+                    row_export_columns_from_chunk(chunk, declared_columns)?
+                };
+                let materialized_rows = if row_indices.len() < rows {
+                    row_indices.len()
+                } else if columns.is_empty() {
+                    rows
+                } else {
+                    row_export_materialized_row_count(&columns, rows)?
+                };
+                exact_states.update(&columns, materialized_rows)?;
+            }
+            return Ok(());
+        }
+        if let Some(row_indices) =
+            predicate.fast_candidate_row_indices_in_chunk(chunk, declared_columns)?
+            && row_indices.len() < rows
+        {
+            let columns =
+                row_export_selected_columns_from_chunk(chunk, declared_columns, &row_indices)?;
+            for row_index in 0..row_indices.len() {
+                if !predicate.matches(&columns, row_index)? {
+                    continue;
+                }
+                if !exact_states
+                    .update_compact_direct_from_materialized_columns(&columns, row_index)?
+                {
+                    exact_states.update_row(&columns, row_index)?;
+                }
+            }
+            return Ok(());
+        }
+        let columns = row_export_columns_from_chunk(chunk, declared_columns)?;
+        let materialized_rows = if columns.is_empty() {
+            rows
+        } else {
+            row_export_materialized_row_count(&columns, rows)?
+        };
+        for row_index in 0..materialized_rows {
+            if !predicate.matches(&columns, row_index)? {
+                continue;
+            }
+            if !exact_states.update_compact_direct_from_materialized_columns(&columns, row_index)? {
+                exact_states.update_row(&columns, row_index)?;
+            }
+        }
+        return Ok(());
+    }
+    if !exact_states.update_compact_direct_from_chunk(chunk, declared_columns, None)? {
+        let columns = row_export_columns_from_chunk(chunk, declared_columns)?;
+        let materialized_rows = if columns.is_empty() {
+            rows
+        } else {
+            row_export_materialized_row_count(&columns, rows)?
+        };
+        exact_states.update(&columns, materialized_rows)?;
+    }
+    Ok(())
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -55682,6 +55676,96 @@ mod tests {
         let _ = std::fs::remove_file(&path);
 
         assert_eq!(recount_plan.projected_columns, first_plan.projected_columns);
+    }
+
+    #[test]
+    fn grouped_aggregate_exact_fallback_applies_residual_row_filter() {
+        use vortex::VortexSessionDefault as _;
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let path = unique_vortex_path("grouped-aggregate-exact-residual");
+        write_mixed_string_filter_fixture(&path).expect("fixture");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let file = runtime
+            .block_on(
+                session
+                    .open_options()
+                    .with_layout_reader_cache()
+                    .open_path(&path),
+            )
+            .expect("open fixture");
+        let aggregate = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("SearchPhrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "c".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
+        let declared_columns = vec!["SearchPhrase".to_string(), "URL".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&aggregate, Some(10), &declared_columns, false, false)
+                .expect("states");
+        let predicate = PredicateExpr::StringContains {
+            column: ColumnRef::new("URL").expect("column"),
+            needle: "google".to_string(),
+            negated: false,
+        };
+        let residual_evaluator =
+            MaterializedPredicateEvaluator::compile(&predicate, &declared_columns)
+                .expect("residual evaluator");
+        let projection = projection_request_from_declared_columns(&declared_columns)
+            .expect("projection request");
+        let mut plan = projection_scan_plan(
+            file.dtype(),
+            &projection,
+            VortexQueryPrimitiveKind::SimpleAggregate,
+        )
+        .expect("projection plan");
+        let mut scan = file.scan().expect("scan");
+        if let Some(projection) = plan.projection.take() {
+            scan = scan.with_projection(projection);
+        }
+        let mut chunks = scan.into_array_iter(&runtime).expect("array iterator");
+        let chunk = chunks
+            .next()
+            .expect("fixture chunk")
+            .expect("read fixture chunk");
+
+        update_grouped_exact_states_from_chunk(
+            &mut states,
+            &chunk,
+            &declared_columns,
+            Some(&residual_evaluator),
+        )
+        .expect("residual exact update");
+        let _ = std::fs::remove_file(&path);
+
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(10))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("state summary json");
+        let values = payload["values"].as_array().expect("values");
+        assert_eq!(row_count, 3);
+        assert_eq!(values.len(), 3);
+        assert!(
+            values
+                .iter()
+                .any(|row| row["SearchPhrase"] == serde_json::json!("alpha"))
+        );
+        assert!(
+            values
+                .iter()
+                .any(|row| row["SearchPhrase"] == serde_json::json!("gamma"))
+        );
+        assert!(!summary.contains("\"SearchPhrase\":\"beta\""));
     }
 
     #[test]
