@@ -2260,5 +2260,33 @@
       "string_heavy_hitter_topk": 9,
       "transformed_dictionary_aggregate": 2
     }
+  },
+  "latest_q29_lazy_utf8_minmax_uat": {
+    "schema_version": "shardloom.clickbench.q29.lazy_utf8_minmax_uat.v1",
+    "claim_boundary": "local_desktop_targeted_uat_only_not_official_clickbench_submission",
+    "decision": "ship_targeted_primitive_evidence_and_keep_in_current_branch",
+    "query_id": "CB-Q29",
+    "source_full43_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/full43_after_q29_uncached_faststate.summary.json",
+    "source_full43_seconds": 14.214835,
+    "targeted_runs": [
+      {
+        "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/q29_lazy_utf8_minmax_repeat.summary.json",
+        "elapsed_seconds": 13.99,
+        "field_lift_available": true
+      }
+    ],
+    "best_targeted_seconds": 13.99,
+    "median_targeted_seconds": 13.99,
+    "latest_field_lift_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/q29_lazy_utf8_minmax_repeat.summary.json",
+    "observed_fields": {
+      "local_primitive_aggregate_update_strategy": "transformed_dictionary_general_measure_group_update",
+      "local_primitive_transformed_dictionary_lazy_utf8_minmax_updates": "true",
+      "local_primitive_decoded_string_count": "0",
+      "local_primitive_materialized_group_value_count": "0",
+      "fallback_attempted": "false",
+      "external_engine_invoked": "false"
+    },
+    "interpretation": "The primitive now updates transformed-dictionary identity UTF-8 min/max without allocating a candidate StatValue for every weighted dictionary value. The retained targeted Q29 summary is below the latest full-43 Q29 baseline and the shipped field lift makes the allocation-bypass evidence machine-readable.",
+    "next_action": "Continue the broader ClickBench tail-lane item with multi-lane string heavy-hitter/high-cardinality state work; this Q29-only slice does not close the phase-plan item."
   }
 }

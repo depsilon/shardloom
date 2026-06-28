@@ -92,6 +92,10 @@ pub const VORTEX_PREPARED_STATE_REUSE_INDEX_SCHEMA_VERSION: &str =
 /// Admission policy for artifact-adjacent prepared-state reuse manifests.
 pub const VORTEX_PREPARED_STATE_REUSE_POLICY: &str =
     "artifact_adjacent_local_prepared_state_reuse.v1";
+/// Evidence schema emitted when an existing local Vortex artifact is admitted
+/// as a prepared state without compatibility source parsing.
+pub const VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION: &str =
+    "shardloom.vortex_native_artifact_prepare.v1";
 /// Admission policy for generic OLAP layout/statistics evidence attached to a
 /// single prepared Vortex artifact.
 pub const VORTEX_PREPARED_OLAP_STATE_POLICY: &str =
@@ -385,6 +389,58 @@ pub struct VortexPreparedStateReuseReport {
     pub external_engine_invoked: bool,
 }
 
+/// Request to admit an existing local `.vortex` artifact as a prepared Vortex
+/// state without parsing a compatibility source or rewriting encoded layouts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexNativeArtifactPrepareRequest {
+    pub source_path: PathBuf,
+    pub target_path: PathBuf,
+    pub allow_overwrite: bool,
+    pub provider_version: String,
+    pub feature_gates: String,
+    pub certification_level: String,
+}
+
+/// Evidence for the Universal Ingest Vortex-source lane.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexNativeArtifactPrepareReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub policy: String,
+    pub source_path: PathBuf,
+    pub target_path: PathBuf,
+    pub source_size_bytes: u64,
+    pub source_mtime_ns: String,
+    pub source_content_digest: String,
+    pub source_digest_source: String,
+    pub target_size_bytes: u64,
+    pub target_content_digest: String,
+    pub target_digest_source: String,
+    pub row_count: u64,
+    pub prepared_olap_layout_inventory: VortexPreparedOlapLayoutInventory,
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub prepared_state_id: String,
+    pub prepared_state_digest: String,
+    pub encoded_layout_preserved: bool,
+    pub reencode_performed: bool,
+    pub workspace_copy_performed: bool,
+    pub same_artifact_passthrough: bool,
+    pub upstream_vortex_scan_called: bool,
+    pub upstream_vortex_write_called: bool,
+    pub layout_rewrite_status: String,
+    pub copy_budget_status: String,
+    pub workspace_write_report: Option<WorkspaceSafeLocalWriteReport>,
+    pub prepare_once_micros: u128,
+    pub metadata_open_micros: u128,
+    pub byte_copy_micros: u128,
+    pub provider_version: String,
+    pub feature_gates: String,
+    pub certification_level: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
 /// Request to derive content-addressed prepared OLAP state evidence.
 ///
 /// Product prepared OLAP state is attached to the single prepared `.vortex`
@@ -577,6 +633,559 @@ impl VortexPreparedStateReuseRequest {
             feature_gates: feature_gates.into(),
             certification_level: certification_level.into(),
         })
+    }
+}
+
+impl VortexNativeArtifactPrepareRequest {
+    /// Create a local native Vortex artifact preparation request.
+    ///
+    /// # Errors
+    /// Returns [`ShardLoomError::InvalidOperation`] when source or target paths
+    /// are empty, non-local, or not `.vortex` artifacts.
+    pub fn new_local(
+        source_path: impl AsRef<Path>,
+        target_path: impl AsRef<Path>,
+        allow_overwrite: bool,
+        provider_version: impl Into<String>,
+        feature_gates: impl Into<String>,
+        certification_level: impl Into<String>,
+    ) -> Result<Self> {
+        let source_path = absolute_local_path(source_path.as_ref())?;
+        let target_path = absolute_local_path(target_path.as_ref())?;
+        ensure_native_vortex_artifact_extension(&source_path, "native Vortex source")?;
+        ensure_native_vortex_artifact_extension(&target_path, "prepared Vortex target")?;
+        Ok(Self {
+            source_path,
+            target_path,
+            allow_overwrite,
+            provider_version: provider_version.into(),
+            feature_gates: feature_gates.into(),
+            certification_level: certification_level.into(),
+        })
+    }
+}
+
+impl VortexNativeArtifactPrepareReport {
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "native Vortex artifact prepared via {}; rows={}; target={}",
+            self.policy,
+            self.row_count,
+            self.target_path.display()
+        )
+    }
+
+    #[must_use]
+    pub fn to_text(&self) -> String {
+        format!(
+            "{}\nsource={}\ntarget={}\nencoded_layout_preserved={}\nreencode_performed={}\nworkspace_copy_performed={}",
+            self.summary(),
+            self.source_path.display(),
+            self.target_path.display(),
+            self.encoded_layout_preserved,
+            self.reencode_performed,
+            self.workspace_copy_performed
+        )
+    }
+
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        let prepare_once_millis = micros_to_millis_string(self.prepare_once_micros);
+        let metadata_open_millis = micros_to_millis_string(self.metadata_open_micros);
+        let byte_copy_millis = micros_to_millis_string(self.byte_copy_micros);
+        let mut fields = vec![
+            (
+                "schema_version".to_string(),
+                VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "vortex_native_artifact_prepare_schema_version".to_string(),
+                VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION.to_string(),
+            ),
+            ("execution_mode".to_string(), "prepared_vortex".to_string()),
+            (
+                "selected_execution_mode".to_string(),
+                "prepared_vortex".to_string(),
+            ),
+            ("engine_mode".to_string(), "batch".to_string()),
+            ("runtime_execution".to_string(), "true".to_string()),
+            (
+                "support_status".to_string(),
+                "local_workflow_runtime_supported".to_string(),
+            ),
+            ("source_io_performed".to_string(), "true".to_string()),
+            (
+                "output_io_performed".to_string(),
+                self.workspace_copy_performed.to_string(),
+            ),
+            ("source_kind".to_string(), "local_vortex_file".to_string()),
+            ("source_format".to_string(), "vortex".to_string()),
+            (
+                "source_format_inferred".to_string(),
+                "declared_or_extension_vortex".to_string(),
+            ),
+            (
+                "source_format_inference_kind".to_string(),
+                "native_vortex_artifact".to_string(),
+            ),
+            (
+                "source_adapter_id".to_string(),
+                "native_vortex_artifact_input_adapter".to_string(),
+            ),
+            (
+                "source_adapter_registry_entry_id".to_string(),
+                "shardloom.local_input_adapter.vortex_native_artifact.v1".to_string(),
+            ),
+            (
+                "source_adapter_status".to_string(),
+                "production_admitted_local_workflow".to_string(),
+            ),
+            (
+                "source_adapter_admitted_extensions".to_string(),
+                "vortex,vtx".to_string(),
+            ),
+            (
+                "source_adapter_feature_gate".to_string(),
+                self.feature_gates.clone(),
+            ),
+            (
+                "source_adapter_boundary".to_string(),
+                "native_vortex_artifact_source_no_compatibility_parse".to_string(),
+            ),
+            (
+                "source_adapter_selection_reason".to_string(),
+                "input_is_already_native_vortex_artifact".to_string(),
+            ),
+            (
+                "source_adapter_blocker_id".to_string(),
+                "none_native_vortex_artifact".to_string(),
+            ),
+            (
+                "local_workflow_input_row_cap".to_string(),
+                "none_product_runtime".to_string(),
+            ),
+            (
+                "local_workflow_synthetic_input_row_cap_enabled".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "local_workflow_synthetic_output_row_cap_enabled".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "local_workflow_synthetic_source_byte_cap_enabled".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "local_workflow_synthetic_join_candidate_cap_enabled".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "ingress_route".to_string(),
+                "universal_ingest_vortex_native_artifact".to_string(),
+            ),
+            (
+                "ingress_route_label".to_string(),
+                "Universal Ingest native Vortex artifact lane".to_string(),
+            ),
+            (
+                "ingress_status".to_string(),
+                "native_vortex_artifact_admitted".to_string(),
+            ),
+            (
+                "ingress_certification_level".to_string(),
+                self.certification_level.clone(),
+            ),
+            ("vortex_ingest_performed".to_string(), "true".to_string()),
+            ("vortex_ingest_status".to_string(), self.status.clone()),
+            (
+                "vortex_ingest_blocker_id".to_string(),
+                "none_native_vortex_artifact".to_string(),
+            ),
+            (
+                "vortex_ingest_requested_max_parallelism".to_string(),
+                "not_applicable_native_vortex_artifact".to_string(),
+            ),
+            (
+                "prepared_state_id".to_string(),
+                self.prepared_state_id.clone(),
+            ),
+            (
+                "prepared_state_digest".to_string(),
+                self.prepared_state_digest.clone(),
+            ),
+            ("prepared_state_created".to_string(), "true".to_string()),
+            (
+                "prepared_state_reused".to_string(),
+                self.same_artifact_passthrough.to_string(),
+            ),
+            (
+                "prepared_state_reuse_allowed".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepared_state_reuse_hit".to_string(),
+                self.same_artifact_passthrough.to_string(),
+            ),
+            (
+                "prepared_state_reuse_scope".to_string(),
+                "single_vortex_artifact_no_sidecar".to_string(),
+            ),
+            (
+                "prepared_state_reuse_policy".to_string(),
+                "native_vortex_artifact_pass_through_or_workspace_safe_copy.v1".to_string(),
+            ),
+            (
+                "prepared_state_reuse_reason".to_string(),
+                "source_is_already_native_vortex_artifact".to_string(),
+            ),
+            (
+                "execution_route_label".to_string(),
+                "Prepared Vortex route".to_string(),
+            ),
+            (
+                "certification_policy".to_string(),
+                "native_vortex_artifact_prepare_no_fallback".to_string(),
+            ),
+            (
+                "certification_status".to_string(),
+                "certified_native_vortex_artifact_prepare".to_string(),
+            ),
+            (
+                "certification_blocker_id".to_string(),
+                "none_native_vortex_artifact".to_string(),
+            ),
+            (
+                "source_path".to_string(),
+                self.source_path.display().to_string(),
+            ),
+            (
+                "source_bytes".to_string(),
+                self.source_size_bytes.to_string(),
+            ),
+            (
+                "source_digest".to_string(),
+                self.source_content_digest.clone(),
+            ),
+            (
+                "source_fingerprint_kind".to_string(),
+                self.source_digest_source.clone(),
+            ),
+            ("source_state_id".to_string(), self.source_state_id.clone()),
+            (
+                "source_state_digest".to_string(),
+                self.source_state_digest.clone(),
+            ),
+            (
+                "source_state_contract_schema_version".to_string(),
+                "shardloom.native_vortex_source_state.v1".to_string(),
+            ),
+            (
+                "source_state_read_plan".to_string(),
+                "metadata_footer_open_only".to_string(),
+            ),
+            (
+                "source_state_read_plan_reason".to_string(),
+                "native_vortex_artifact_layout_metadata_admission".to_string(),
+            ),
+            (
+                "source_state_projection_pushdown_status".to_string(),
+                "not_applicable_prepare_native_vortex_artifact".to_string(),
+            ),
+            (
+                "source_state_materialization_layout".to_string(),
+                "vortex_encoded_artifact_preserved".to_string(),
+            ),
+            (
+                "source_state_parse_normalization".to_string(),
+                "not_performed_native_vortex_artifact".to_string(),
+            ),
+            (
+                "source_state_columnar_preserved".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "source_state_dictionary_preservation_status".to_string(),
+                "preserved_existing_vortex_artifact".to_string(),
+            ),
+            (
+                "source_state_ingest_executor_status".to_string(),
+                "not_applicable_native_vortex_artifact".to_string(),
+            ),
+            (
+                "source_schema_digest".to_string(),
+                self.prepared_olap_layout_inventory.inventory_digest.clone(),
+            ),
+            ("input_row_count".to_string(), self.row_count.to_string()),
+            (
+                "target_vortex_path".to_string(),
+                self.target_path.display().to_string(),
+            ),
+            (
+                "vortex_artifact_ref".to_string(),
+                self.target_path.display().to_string(),
+            ),
+            (
+                "vortex_artifact_digest".to_string(),
+                self.target_content_digest.clone(),
+            ),
+            (
+                "vortex_artifact_digest_source".to_string(),
+                self.target_digest_source.clone(),
+            ),
+            (
+                "prepared_artifact_ref".to_string(),
+                self.target_path.display().to_string(),
+            ),
+            (
+                "prepared_artifact_digest".to_string(),
+                self.target_content_digest.clone(),
+            ),
+            (
+                "prepared_artifact_reuse_eligible".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "layout_summary".to_string(),
+                self.prepared_olap_layout_inventory
+                    .root_layout_encoding
+                    .clone(),
+            ),
+            (
+                "encoding_summary".to_string(),
+                self.prepared_olap_layout_inventory
+                    .layout_encoding_inventory
+                    .clone(),
+            ),
+            (
+                "statistics_summary".to_string(),
+                self.prepared_olap_layout_inventory
+                    .statistics_status
+                    .clone(),
+            ),
+            (
+                "prepared_olap_layout_inventory_summary".to_string(),
+                format!(
+                    "{};rows={};segments={}",
+                    self.prepared_olap_layout_inventory.status,
+                    self.prepared_olap_layout_inventory.row_count_field(),
+                    self.prepared_olap_layout_inventory.segment_count_field()
+                ),
+            ),
+            (
+                "vortex_prepared_olap_layout_inventory_status".to_string(),
+                self.prepared_olap_layout_inventory.status.clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_inventory_digest".to_string(),
+                self.prepared_olap_layout_inventory.inventory_digest.clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_row_count".to_string(),
+                self.prepared_olap_layout_inventory.row_count_field(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_segment_count".to_string(),
+                self.prepared_olap_layout_inventory.segment_count_field(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_statistics_status".to_string(),
+                self.prepared_olap_layout_inventory
+                    .statistics_status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_encoding_layout_status".to_string(),
+                self.prepared_olap_layout_inventory
+                    .encoding_layout_status
+                    .clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_artifact_size_bytes".to_string(),
+                self.prepared_olap_layout_inventory
+                    .artifact_size_bytes_field(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_approx_bytes".to_string(),
+                self.prepared_olap_layout_inventory
+                    .approx_footer_bytes_field(),
+            ),
+            (
+                "vortex_prepared_olap_layout_footer_dtype_summary".to_string(),
+                self.prepared_olap_layout_inventory.dtype_summary.clone(),
+            ),
+            (
+                "vortex_prepared_olap_layout_metadata_persisted_in_artifact".to_string(),
+                self.prepared_olap_layout_inventory
+                    .metadata_persisted_in_artifact
+                    .to_string(),
+            ),
+            (
+                "vortex_prepared_olap_layout_size_attribution".to_string(),
+                self.prepared_olap_layout_inventory
+                    .layout_size_attribution
+                    .clone(),
+            ),
+            (
+                "prepared_olap_state_allowed".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepared_olap_state_status".to_string(),
+                "embedded_in_single_vortex_artifact".to_string(),
+            ),
+            (
+                "prepared_olap_state_evidence_persistence".to_string(),
+                "single_vortex_artifact_no_sidecar".to_string(),
+            ),
+            (
+                "prepared_olap_state_external_manifest_written".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepared_olap_state_query_time_contract".to_string(),
+                VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_QUERY_TIME_CONTRACT.to_string(),
+            ),
+            (
+                "prepared_olap_state_artifact_model".to_string(),
+                VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL.to_string(),
+            ),
+            (
+                "prepared_olap_state_embedded_layout_statistics_contract".to_string(),
+                VORTEX_PREPARED_OLAP_METADATA_PRUNING_CONTRACT.to_string(),
+            ),
+            (
+                "prepared_olap_state_layout_inventory_status".to_string(),
+                self.prepared_olap_layout_inventory.status.clone(),
+            ),
+            (
+                "prepared_olap_state_layout_inventory_digest".to_string(),
+                self.prepared_olap_layout_inventory.inventory_digest.clone(),
+            ),
+            (
+                "prepared_olap_state_layout_footer_row_count".to_string(),
+                self.prepared_olap_layout_inventory.row_count_field(),
+            ),
+            (
+                "prepared_olap_state_layout_footer_segment_count".to_string(),
+                self.prepared_olap_layout_inventory.segment_count_field(),
+            ),
+            (
+                "prepared_olap_state_layout_metadata_persisted_in_artifact".to_string(),
+                self.prepared_olap_layout_inventory
+                    .metadata_persisted_in_artifact
+                    .to_string(),
+            ),
+            (
+                "prepared_olap_state_query_answer_sidecar_status".to_string(),
+                VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS.to_string(),
+            ),
+            (
+                "prepare_once_millis".to_string(),
+                prepare_once_millis.clone(),
+            ),
+            ("vortex_write_millis".to_string(), byte_copy_millis.clone()),
+            ("vortex_segment_write_millis".to_string(), "0".to_string()),
+            (
+                "vortex_workspace_stage_millis".to_string(),
+                byte_copy_millis,
+            ),
+            ("vortex_digest_millis".to_string(), "0".to_string()),
+            (
+                "vortex_reopen_hot_path_status".to_string(),
+                "metadata_footer_open_only".to_string(),
+            ),
+            (
+                "vortex_reopen_verify_millis".to_string(),
+                metadata_open_millis.clone(),
+            ),
+            (
+                "vortex_copy_budget_status".to_string(),
+                self.copy_budget_status.clone(),
+            ),
+            (
+                "universal_ingest_timing_split_schema_version".to_string(),
+                "shardloom.universal_ingest_timing_split.v2v.v1".to_string(),
+            ),
+            (
+                "universal_ingest_timing_split_status".to_string(),
+                "native_vortex_artifact_metadata_or_byte_copy_split_recorded".to_string(),
+            ),
+            (
+                "universal_ingest_source_read_millis".to_string(),
+                metadata_open_millis.clone(),
+            ),
+            (
+                "universal_ingest_decode_derive_millis".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "universal_ingest_arrow_to_vortex_convert_millis".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "universal_ingest_encode_write_wall_millis".to_string(),
+                micros_to_millis_string(self.byte_copy_micros),
+            ),
+            (
+                "universal_ingest_footer_register_millis".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "universal_ingest_reopen_verify_millis".to_string(),
+                micros_to_millis_string(self.metadata_open_micros),
+            ),
+            ("vortex_to_vortex_policy".to_string(), self.policy.clone()),
+            (
+                "vortex_to_vortex_encoded_layout_preserved".to_string(),
+                self.encoded_layout_preserved.to_string(),
+            ),
+            (
+                "vortex_to_vortex_reencode_performed".to_string(),
+                self.reencode_performed.to_string(),
+            ),
+            (
+                "vortex_to_vortex_workspace_copy_performed".to_string(),
+                self.workspace_copy_performed.to_string(),
+            ),
+            (
+                "vortex_to_vortex_same_artifact_passthrough".to_string(),
+                self.same_artifact_passthrough.to_string(),
+            ),
+            (
+                "vortex_to_vortex_upstream_vortex_scan_called".to_string(),
+                self.upstream_vortex_scan_called.to_string(),
+            ),
+            (
+                "vortex_to_vortex_upstream_vortex_write_called".to_string(),
+                self.upstream_vortex_write_called.to_string(),
+            ),
+            (
+                "vortex_to_vortex_layout_rewrite_status".to_string(),
+                self.layout_rewrite_status.clone(),
+            ),
+            (
+                "vortex_to_vortex_source_digest_source".to_string(),
+                self.source_digest_source.clone(),
+            ),
+            (
+                "vortex_to_vortex_target_digest_source".to_string(),
+                self.target_digest_source.clone(),
+            ),
+            ("fallback_attempted".to_string(), "false".to_string()),
+            ("external_engine_invoked".to_string(), "false".to_string()),
+            (
+                "claim_gate_status".to_string(),
+                "local_workflow_runtime_supported".to_string(),
+            ),
+        ];
+        if let Some(write_report) = &self.workspace_write_report {
+            fields.extend(write_report.evidence_fields("vortex_to_vortex_copy"));
+        }
+        fields
     }
 }
 
@@ -2297,6 +2906,246 @@ fn absolute_local_path(path: impl AsRef<Path>) -> Result<PathBuf> {
                 ))
             })
     }
+}
+
+fn ensure_native_vortex_artifact_extension(path: &Path, label: &str) -> Result<()> {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase);
+    if matches!(extension.as_deref(), Some("vortex" | "vtx")) {
+        return Ok(());
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "{label} '{}' must use a .vortex or .vtx extension; no fallback execution was attempted",
+        path.display()
+    )))
+}
+
+#[cfg(feature = "vortex-write")]
+fn local_file_modified_ns(metadata: &fs::Metadata) -> String {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
+        .map_or_else(
+            || "unknown".to_string(),
+            |value| value.as_nanos().to_string(),
+        )
+}
+
+fn micros_to_millis_string(micros: u128) -> String {
+    let whole = micros / 1000;
+    let frac = micros % 1000;
+    if frac == 0 {
+        whole.to_string()
+    } else {
+        format!("{whole}.{frac:03}")
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+pub fn prepare_native_vortex_artifact(
+    request: VortexNativeArtifactPrepareRequest,
+) -> Result<VortexNativeArtifactPrepareReport> {
+    let prepare_start = Instant::now();
+    ensure_native_vortex_artifact_extension(&request.source_path, "native Vortex source")?;
+    ensure_native_vortex_artifact_extension(&request.target_path, "prepared Vortex target")?;
+    let source_metadata = fs::metadata(&request.source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to stat native Vortex source '{}': {error}; no fallback execution was attempted",
+            request.source_path.display()
+        ))
+    })?;
+    if !source_metadata.is_file() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "native Vortex source '{}' must be a local file; no fallback execution was attempted",
+            request.source_path.display()
+        )));
+    }
+    let source_size_bytes = source_metadata.len();
+    let source_mtime_ns = local_file_modified_ns(&source_metadata);
+    let source_canonical = fs::canonicalize(&request.source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to canonicalize native Vortex source '{}': {error}; no fallback execution was attempted",
+            request.source_path.display()
+        ))
+    })?;
+    let same_artifact_passthrough = if request.target_path == request.source_path {
+        true
+    } else {
+        fs::canonicalize(&request.target_path)
+            .is_ok_and(|target_canonical| target_canonical == source_canonical)
+    };
+
+    let metadata_open_start = Instant::now();
+    let prepared_olap_layout_inventory =
+        read_prepared_vortex_artifact_layout_inventory(&request.source_path)?;
+    let metadata_open_micros = metadata_open_start.elapsed().as_micros();
+    let row_count = prepared_olap_layout_inventory.row_count.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "native Vortex source '{}' did not expose a footer row count; no fallback execution was attempted",
+            request.source_path.display()
+        ))
+    })?;
+
+    let layout_digest = prepared_olap_layout_inventory.inventory_digest.clone();
+    let metadata_fingerprint = fnv64_digest_text(&format!(
+        "native_vortex_artifact|{}|{}|{}|{}|{}",
+        source_canonical.display(),
+        source_size_bytes,
+        source_mtime_ns,
+        row_count,
+        layout_digest
+    ));
+    let mut workspace_write_report = None;
+    let mut byte_copy_micros = 0;
+    let (
+        policy,
+        status,
+        target_size_bytes,
+        target_content_digest,
+        target_digest_source,
+        source_content_digest,
+        source_digest_source,
+        copy_budget_status,
+    ) = if same_artifact_passthrough {
+        (
+            "vortex_native_prepared_state_pass_through".to_string(),
+            "native_vortex_artifact_admitted".to_string(),
+            source_size_bytes,
+            metadata_fingerprint.clone(),
+            "native_vortex_metadata_footer_fingerprint_no_byte_read".to_string(),
+            metadata_fingerprint.clone(),
+            "native_vortex_metadata_footer_fingerprint_no_byte_read".to_string(),
+            "no_copy_same_vortex_artifact".to_string(),
+        )
+    } else {
+        let source_file = fs::File::open(&request.source_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open native Vortex source '{}' for workspace-safe copy: {error}; no fallback execution was attempted",
+                request.source_path.display()
+            ))
+        })?;
+        let workspace_root =
+            shardloom_core::infer_local_output_workspace_root(&request.target_path)?;
+        let copy_start = Instant::now();
+        let (copied_bytes, write_report) =
+            shardloom_core::write_workspace_safe_bytes_with_validated_producer(
+                workspace_root,
+                &request.target_path,
+                request.allow_overwrite,
+                "native vortex artifact workspace-safe copy",
+                |writer| {
+                    let mut reader = std::io::BufReader::new(source_file);
+                    std::io::copy(&mut reader, writer).map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "failed to copy native Vortex artifact '{}' to '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
+                            request.source_path.display(),
+                            request.target_path.display()
+                        ))
+                    })
+                },
+                |copied_bytes| {
+                    if *copied_bytes != source_size_bytes {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "native Vortex artifact copy byte count mismatch: copied {}, expected {}; staging cleanup attempted; no fallback execution was attempted",
+                            copied_bytes, source_size_bytes
+                        )));
+                    }
+                    Ok(())
+                },
+            )?;
+        byte_copy_micros = copy_start.elapsed().as_micros();
+        if copied_bytes != source_size_bytes {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "native Vortex artifact copy byte count mismatch after commit: copied {copied_bytes}, expected {source_size_bytes}; no fallback execution was attempted"
+            )));
+        }
+        let digest = write_report.output_digest.clone();
+        let size = write_report.bytes_written;
+        workspace_write_report = Some(write_report);
+        (
+            "vortex_native_workspace_safe_byte_copy".to_string(),
+            "native_vortex_artifact_copied".to_string(),
+            size,
+            digest.clone(),
+            "workspace_safe_byte_copy_streaming_sha256_digest".to_string(),
+            digest,
+            "workspace_safe_byte_copy_streaming_sha256_digest".to_string(),
+            "workspace_safe_byte_copy_encoded_layout_preserved".to_string(),
+        )
+    };
+    let target_path = if same_artifact_passthrough {
+        request.source_path.clone()
+    } else {
+        request.target_path.clone()
+    };
+    let source_state_digest = fnv64_digest_text(&format!(
+        "native_vortex_source_state|{}|{}|{}|{}|{}",
+        request.source_path.display(),
+        source_size_bytes,
+        source_mtime_ns,
+        row_count,
+        layout_digest
+    ));
+    let prepared_state_digest = fnv64_digest_text(&format!(
+        "native_vortex_prepared_state|{}|{}|{}|{}|{}",
+        target_path.display(),
+        target_size_bytes,
+        target_content_digest,
+        row_count,
+        layout_digest
+    ));
+    let prepare_once_micros = prepare_start.elapsed().as_micros();
+    Ok(VortexNativeArtifactPrepareReport {
+        schema_version: VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION,
+        status,
+        policy,
+        source_path: request.source_path,
+        target_path,
+        source_size_bytes,
+        source_mtime_ns,
+        source_content_digest,
+        source_digest_source,
+        target_size_bytes,
+        target_content_digest,
+        target_digest_source,
+        row_count,
+        prepared_olap_layout_inventory,
+        source_state_id: format!("source_state:native_vortex:{source_state_digest}"),
+        source_state_digest,
+        prepared_state_id: format!("prepared_state:native_vortex:{prepared_state_digest}"),
+        prepared_state_digest,
+        encoded_layout_preserved: true,
+        reencode_performed: false,
+        workspace_copy_performed: !same_artifact_passthrough,
+        same_artifact_passthrough,
+        upstream_vortex_scan_called: false,
+        upstream_vortex_write_called: false,
+        layout_rewrite_status: "not_performed_layout_rewrite_requires_encoded_preserving_provider"
+            .to_string(),
+        copy_budget_status,
+        workspace_write_report,
+        prepare_once_micros,
+        metadata_open_micros,
+        byte_copy_micros,
+        provider_version: request.provider_version,
+        feature_gates: request.feature_gates,
+        certification_level: request.certification_level,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+}
+
+#[cfg(not(feature = "vortex-write"))]
+pub fn prepare_native_vortex_artifact(
+    request: VortexNativeArtifactPrepareRequest,
+) -> Result<VortexNativeArtifactPrepareReport> {
+    let _ = request;
+    Err(ShardLoomError::NotImplemented(
+        "vortex_ingest feature gate is not enabled".to_string(),
+    ))
 }
 
 fn sha256_file_digest(path: &Path, label: &str) -> Result<String> {
@@ -11296,6 +12145,96 @@ mod tests {
                 .metadata_persisted_in_artifact
         );
         report
+    }
+
+    #[test]
+    fn native_vortex_artifact_prepare_admits_same_artifact_without_rewrite() {
+        let root = temp_test_root("native-vortex-pass-through");
+        let source = root.join("prepared.vortex");
+        let written = write_test_prepared_vortex_artifact(&source, 10);
+        let request = VortexNativeArtifactPrepareRequest::new_local(
+            &source,
+            &source,
+            false,
+            "test-vortex-provider",
+            "vortex-write",
+            "ingest_certified",
+        )
+        .expect("native request");
+
+        let report = prepare_native_vortex_artifact(request).expect("native prepare report");
+
+        assert_eq!(report.row_count, written.row_count);
+        assert_eq!(report.status, "native_vortex_artifact_admitted");
+        assert_eq!(report.policy, "vortex_native_prepared_state_pass_through");
+        assert!(report.encoded_layout_preserved);
+        assert!(report.same_artifact_passthrough);
+        assert!(!report.workspace_copy_performed);
+        assert!(!report.reencode_performed);
+        assert!(!report.upstream_vortex_scan_called);
+        assert!(!report.upstream_vortex_write_called);
+        assert!(report.workspace_write_report.is_none());
+        assert_eq!(
+            report.target_digest_source,
+            "native_vortex_metadata_footer_fingerprint_no_byte_read"
+        );
+        let fields = report.evidence_fields();
+        assert_eq!(
+            fields
+                .iter()
+                .find(|(key, _)| key == "vortex_to_vortex_reencode_performed")
+                .map(|(_, value)| value.as_str()),
+            Some("false")
+        );
+        assert!(!legacy_prepared_olap_state_manifest_path(&source).exists());
+        std::fs::remove_dir_all(root).expect("remove temp root");
+    }
+
+    #[test]
+    fn native_vortex_artifact_prepare_copies_bytes_without_scan_stream_rewrite() {
+        let root = temp_test_root("native-vortex-copy");
+        let source = root.join("prepared.vortex");
+        let target = root.join("copied.vortex");
+        write_test_prepared_vortex_artifact(&source, 20);
+        let request = VortexNativeArtifactPrepareRequest::new_local(
+            &source,
+            &target,
+            false,
+            "test-vortex-provider",
+            "vortex-write",
+            "ingest_certified",
+        )
+        .expect("native request");
+
+        let report = prepare_native_vortex_artifact(request).expect("native prepare report");
+
+        assert_eq!(report.status, "native_vortex_artifact_copied");
+        assert_eq!(report.policy, "vortex_native_workspace_safe_byte_copy");
+        assert!(report.encoded_layout_preserved);
+        assert!(report.workspace_copy_performed);
+        assert!(!report.same_artifact_passthrough);
+        assert!(!report.reencode_performed);
+        assert!(!report.upstream_vortex_scan_called);
+        assert!(!report.upstream_vortex_write_called);
+        assert!(report.workspace_write_report.is_some());
+        assert_eq!(
+            std::fs::read(&source).expect("read source"),
+            std::fs::read(&target).expect("read target")
+        );
+        assert_eq!(
+            report.source_size_bytes,
+            report
+                .workspace_write_report
+                .as_ref()
+                .unwrap()
+                .bytes_written
+        );
+        assert_eq!(
+            report.target_digest_source,
+            "workspace_safe_byte_copy_streaming_sha256_digest"
+        );
+        assert!(!legacy_prepared_olap_state_manifest_path(&target).exists());
+        std::fs::remove_dir_all(root).expect("remove temp root");
     }
 
     fn reuse_request_for_test(

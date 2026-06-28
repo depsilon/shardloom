@@ -105,6 +105,60 @@ Constraints:
   over the earlier `602s` CLI run and restores the canonical single-artifact UAT file, but it is not
   the final ingest architecture because write/segment work is still the dominant cost.
 
+### `2026-06-28` Vortex-To-Vortex Probe
+
+- Change tested: added a temporary local probe that opened the retained
+  `hits-parquet-100m.vortex` artifact with upstream Vortex, streamed
+  `VortexFile::scan().into_array_stream()` directly into
+  `VortexSession::write_options().write(...)`, and wrote one candidate `.vortex` target. This was a
+  true Vortex-source probe, not Parquet-to-Vortex import.
+- Evidence:
+  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/vortex_to_vortex_repack_20260628T172833Z`.
+- Result: small fixture V2V worked in `~3.9ms` internal time, but the 100M artifact probe was
+  stopped after about `94s` with only about `112MB` staged. This shows the scan-stream writer route
+  re-encodes/resegments arrays and is not an encoded-layout-preserving copy path.
+- Decision: do not ship scan-stream re-encode as the default V2V Universal Ingest path. Promote
+  `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` in the phase plan: existing `.vortex` sources should be
+  admitted as prepared/native Vortex through pass-through or workspace-safe copy, while any explicit
+  layout rewrite must fail closed until an encoded segment-preserving rewrite provider exists.
+
+### `2026-06-28` Universal Ingest Native Vortex Source Lane
+
+- Change retained: public `prepare dataframe --input-format vortex` now admits existing `.vortex`
+  artifacts through `native_vortex_artifact_prepare` before compatibility-source adapter selection.
+  Same-artifact targets use metadata/footer pass-through; distinct targets use a workspace-safe byte
+  copy. Neither path calls `VortexFile::scan().into_array_stream()` or the upstream Vortex writer,
+  so encoded layout is preserved and the slow scan-stream re-encode probe remains dropped.
+- Evidence:
+  - Focused Rust tests:
+    `CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR=target-codex-v2v cargo +1.91.1 test -p shardloom-vortex --features vortex-write --lib native_vortex_artifact_prepare -- --nocapture`.
+  - Focused CLI check:
+    `CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR=target-codex-v2v cargo +1.91.1 check -p shardloom-cli --features vortex-write,universal-format-io,vortex-local-primitives --bin shardloom`.
+  - 100M same-artifact public UAT with the rebuilt ShardLoom CLI:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/v2v_public_prepare_20260628T185919Z.summary.json`.
+  - Small copy public UAT with the rebuilt ShardLoom CLI:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/v2v_public_prepare_small_copy_20260628T190453Z.summary.json`.
+- Result:
+  - 100M same-artifact public UAT completed in `0.86s` wall time with
+    `prepare_once_millis=16.142`, `vortex_write_millis=0`, `input_row_count=99997497`,
+    `vortex_to_vortex_policy=vortex_native_prepared_state_pass_through`,
+    `vortex_to_vortex_encoded_layout_preserved=true`,
+    `vortex_to_vortex_reencode_performed=false`,
+    `vortex_to_vortex_workspace_copy_performed=false`,
+    `vortex_to_vortex_upstream_vortex_scan_called=false`,
+    `vortex_to_vortex_upstream_vortex_write_called=false`,
+    `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Small copy public UAT completed through the same rebuilt release CLI route with
+    `vortex_to_vortex_policy=vortex_native_workspace_safe_byte_copy`,
+    byte-identical source/target SHA-256 digests, `input_row_count=5`,
+    `prepare_once_millis=1.228`, `vortex_write_millis=0.353`,
+    `vortex_to_vortex_reencode_performed=false`,
+    `vortex_to_vortex_upstream_vortex_scan_called=false`, and
+    `vortex_to_vortex_upstream_vortex_write_called=false`.
+- Decision: retain as the default Universal Ingest Vortex-source behavior. Vortex-to-Vortex
+  lifecycle now means prepared-artifact pass-through or byte-preserving copy unless a future
+  encoded segment-preserving layout rewrite provider is implemented and separately admitted.
+
 ### `2026-06-28` Ultra Row-Block / Segment-Economy Profile
 
 - Change tested: increase large text/high-cardinality row blocks to reduce footer/segment overhead

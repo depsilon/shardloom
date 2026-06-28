@@ -2772,6 +2772,10 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_expression_plan_fingerprint_status",
         ),
         (
+            "transformed_dictionary_lazy_utf8_minmax_updates",
+            "local_primitive_transformed_dictionary_lazy_utf8_minmax_updates",
+        ),
+        (
             "embedded_derived_column_rewrite_status",
             "local_primitive_embedded_derived_column_rewrite_status",
         ),
@@ -4088,11 +4092,6 @@ pub(crate) fn handle_public_workflow_prepare(
         let blocked = output_required_route("prepare", "prepared Vortex target");
         return emit_blocked_facade("prepare", format, &request, &blocked);
     };
-    if request.input_format.as_deref() == Some("vortex") {
-        let blocked = already_native_vortex_prepare_route();
-        return emit_blocked_facade("prepare", format, &request, &blocked);
-    }
-
     let source_format = request
         .input_format
         .clone()
@@ -4420,6 +4419,10 @@ fn plan_public_workflow_route(request: &PublicWorkflowRouteRequest) -> PublicWor
         && request.input_format.as_deref() != Some("vortex")
     {
         return native_vortex_input_required_route();
+    }
+
+    if request.input_format.as_deref() == Some("vortex") && request.requested_output == "prepare" {
+        return native_vortex_artifact_prepare_route(request);
     }
 
     if is_native_vortex_route(request) {
@@ -6024,6 +6027,23 @@ fn native_vortex_input_required_route() -> PublicWorkflowRoutePlan {
     )
 }
 
+fn native_vortex_artifact_prepare_route(
+    request: &PublicWorkflowRouteRequest,
+) -> PublicWorkflowRoutePlan {
+    if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
+        return local_file_vortex_ingest_feature_gated_route(request);
+    }
+    admitted_route(
+        "native_vortex_artifact_prepare",
+        "vortex-prepare",
+        "native_vortex_file",
+        "VortexPreparedState",
+        "prepared_vortex",
+        true,
+        true,
+    )
+}
+
 fn native_vortex_operation_blocked_route(
     family: NativeVortexOperationFamily,
 ) -> PublicWorkflowRoutePlan {
@@ -6374,7 +6394,7 @@ fn infer_native_vortex_sql_provider_payload(
     if infer_input_format_from_ref(first_ref) != Some("vortex") {
         return None;
     }
-    let compact = compact_ascii_lower(statement);
+    let compact = compact_ascii_lower(&sql_without_string_literal_contents(statement));
     let (family, provider_scenario) = if compact.contains("nullable_metric_00isnotnull")
         && compact.contains("groupbygroup_key")
         && compact.contains("sum(nullable_metric_00)astotal_nullable_metric")
@@ -8815,6 +8835,29 @@ fn compact_ascii_lower(value: &str) -> String {
         .collect()
 }
 
+fn sql_without_string_literal_contents(value: &str) -> String {
+    let mut masked = String::with_capacity(value.len());
+    let mut chars = value.char_indices().peekable();
+    while let Some((_, ch)) = chars.next() {
+        if ch != '\'' {
+            masked.push(ch);
+            continue;
+        }
+        masked.push('\'');
+        while let Some((_, inner)) = chars.next() {
+            if inner == '\'' {
+                if matches!(chars.peek(), Some((_, '\''))) {
+                    chars.next();
+                    continue;
+                }
+                masked.push('\'');
+                break;
+            }
+        }
+    }
+    masked
+}
+
 fn summary_tiny_predicate_from_sql(value: &str) -> Option<String> {
     let text = value.trim();
     if text.is_empty() {
@@ -10049,7 +10092,9 @@ fn native_vortex_plan_contract_applies(
     }
     matches!(
         plan.route_id,
-        "local_file_prepare_once" | "local_file_prepare_once_first_query"
+        "local_file_prepare_once"
+            | "local_file_prepare_once_first_query"
+            | "native_vortex_artifact_prepare"
     ) || matches!(
         plan.blocker_id,
         "cg21.route.local_file_vortex_ingest_feature_gated"
@@ -10104,6 +10149,7 @@ fn native_vortex_plan_payload_kind(
         "local_file_prepare_once" | "local_file_prepare_once_first_query" => {
             "prepared_compatibility_source"
         }
+        "native_vortex_artifact_prepare" => "native_vortex_artifact_source",
         "native_vortex_user_aggregate"
         | "native_vortex_user_join"
         | "native_vortex_user_top_n"
@@ -10601,9 +10647,9 @@ fn decode_materialization_boundary(
         return "native_vortex_zero_decode_runtime_with_bounded_python_materialization_boundary";
     }
     match plan.route_id {
-        "local_file_prepare_once" | "local_file_prepare_once_first_query" => {
-            "prepared_vortex_state_boundary"
-        }
+        "local_file_prepare_once"
+        | "local_file_prepare_once_first_query"
+        | "native_vortex_artifact_prepare" => "prepared_vortex_state_boundary",
         _ => "not_applicable",
     }
 }
@@ -10692,6 +10738,7 @@ fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_primitive_row_export" => "production_admitted_local_workflow",
         "local_file_prepare_once"
         | "local_file_prepare_once_first_query"
+        | "native_vortex_artifact_prepare"
         | "native_vortex_count_all"
         | "native_vortex_count_where"
         | "native_vortex_filter"
@@ -10715,9 +10762,9 @@ fn route_runtime_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
 
 fn vortex_middle_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
     match plan.route_id {
-        "local_file_prepare_once" | "local_file_prepare_once_first_query" => {
-            "prepared_vortex_state"
-        }
+        "local_file_prepare_once"
+        | "local_file_prepare_once_first_query"
+        | "native_vortex_artifact_prepare" => "prepared_vortex_state",
         "native_vortex_count_all"
         | "native_vortex_count_where"
         | "native_vortex_filter"
@@ -10756,9 +10803,9 @@ fn underlying_runtime_command(plan: &PublicWorkflowRoutePlan) -> &'static str {
 
 fn local_workflow_runtime_profile(plan: &PublicWorkflowRoutePlan) -> &'static str {
     match plan.route_id {
-        "local_file_prepare_once" | "local_file_prepare_once_first_query" => {
-            "product_local_workflow"
-        }
+        "local_file_prepare_once"
+        | "local_file_prepare_once_first_query"
+        | "native_vortex_artifact_prepare" => "product_local_workflow",
         _ => "not_applicable",
     }
 }
@@ -11617,23 +11664,6 @@ fn output_required_route(
     )
 }
 
-fn already_native_vortex_prepare_route() -> PublicWorkflowRoutePlan {
-    blocked_route(
-        "cg21.prepare.already_native_vortex",
-        "native Vortex input is already prepared and should use a native run route",
-        Diagnostic::new(
-            DiagnosticCode::InvalidInput,
-            DiagnosticSeverity::Error,
-            DiagnosticCategory::InvalidInput,
-            "public workflow prepare received native Vortex input".to_string(),
-            Some("public_workflow_prepare.input_format".to_string()),
-            Some("input_format=vortex does not need compatibility preparation".to_string()),
-            Some("use route/run with --execution-policy native_vortex when an operator facade exists".to_string()),
-            FallbackStatus::disabled_by_policy(),
-        ),
-    )
-}
-
 fn run_route_not_executable_yet(plan: &PublicWorkflowRoutePlan) -> PublicWorkflowRoutePlan {
     blocked_route(
         "cg21.run.route_not_executable_yet",
@@ -12093,6 +12123,10 @@ mod tests {
             "late_materialization_selected_row_refs_used".to_string(),
             serde_json::Value::Bool(true),
         );
+        payload.as_object_mut().expect("payload object").insert(
+            "transformed_dictionary_lazy_utf8_minmax_updates".to_string(),
+            serde_json::Value::Bool(true),
+        );
         let payload = payload.to_string();
         for summary in [
             payload.clone(),
@@ -12129,6 +12163,10 @@ mod tests {
                     (
                         "local_primitive_expression_plan_fingerprint_status",
                         "shared_dictionary_value_transform_update",
+                    ),
+                    (
+                        "local_primitive_transformed_dictionary_lazy_utf8_minmax_updates",
+                        "true",
                     ),
                     (
                         "local_primitive_embedded_derived_column_rewrite_status",
@@ -12978,20 +13016,38 @@ mod tests {
         let plan = plan_public_workflow_route(&request);
 
         assert_eq!(plan.status, CommandStatus::Unsupported);
-        assert_eq!(
-            plan.blocker_id,
-            "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
-        );
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_sink_contract_missing"
+            );
+        } else {
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+            );
+        }
         let fields = route_fields(&request, &plan);
         assert_eq!(field(&fields, "native_vortex_operation_family"), "sink");
-        assert_eq!(
-            field(&fields, "native_vortex_required_feature_gate"),
-            "vortex-local-primitives"
-        );
-        assert_eq!(
-            field(&fields, "native_vortex_capability_status"),
-            "feature_gated"
-        );
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(
+                field(&fields, "native_vortex_required_feature_gate"),
+                "not_applicable"
+            );
+            assert_eq!(
+                field(&fields, "native_vortex_capability_status"),
+                "blocked_until_native_route_admitted"
+            );
+        } else {
+            assert_eq!(
+                field(&fields, "native_vortex_required_feature_gate"),
+                "vortex-local-primitives"
+            );
+            assert_eq!(
+                field(&fields, "native_vortex_capability_status"),
+                "feature_gated"
+            );
+        }
     }
 
     #[test]
