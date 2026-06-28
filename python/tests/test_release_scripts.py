@@ -7903,7 +7903,8 @@ class ReleaseScriptTests(unittest.TestCase):
             "proof_status": "passed",
             "channel_id": channel_id,
             "package_name": "shardloom",
-            "package_version": "0.1.0",
+            "package_version": "0.2.1",
+            "download_transcript_status": "passed",
             "install_transcript_status": "passed",
             "smoke_check_status": "passed",
             "uninstall_transcript_status": "passed",
@@ -7919,6 +7920,64 @@ class ReleaseScriptTests(unittest.TestCase):
             "cli_binary_available": True,
             "cli_binary_ref": "target/release/shardloom",
             "cli_binary_smoke_source": "approved_release_or_local_artifact",
+            "registry_artifact_digest_binding_status": "passed",
+            "downloaded_registry_artifact_ref": (
+                "target/python-registry-package-proof/downloads/"
+                "shardloom-0.2.1-py3-none-any.whl"
+            ),
+            "downloaded_registry_artifact_filename": "shardloom-0.2.1-py3-none-any.whl",
+            "downloaded_registry_artifact_sha256": "a" * 64,
+            "registry_download_isolated": True,
+            "registry_download_cache_disabled": True,
+            "registry_install_from_downloaded_artifact": True,
+            "registry_install_cache_disabled": True,
+            "registry_install_cache_hit_detected": False,
+            "installed_registry_artifact": {
+                "filename": "shardloom-0.2.1-py3-none-any.whl",
+                "sha256": "a" * 64,
+                "url": "https://example.invalid/shardloom-0.2.1-py3-none-any.whl",
+            },
+            "installed_registry_artifact_filename": "shardloom-0.2.1-py3-none-any.whl",
+            "installed_registry_artifact_sha256": "a" * 64,
+            "registry_release_artifact_count": 1,
+            "registry_release_artifacts": [
+                {
+                    "filename": "shardloom-0.2.1-py3-none-any.whl",
+                    "packagetype": "bdist_wheel",
+                    "python_version": "py3",
+                    "sha256": "a" * 64,
+                    "size": 268000,
+                    "url": "https://example.invalid/shardloom-0.2.1-py3-none-any.whl",
+                }
+            ],
+        }
+
+    def _python_registry_matrix_row_fixture(
+        self,
+        *,
+        channel_id: str = "testpypi",
+        proof: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        proof = proof or self._python_registry_proof_fixture(channel_id=channel_id)
+        installed_artifact = proof["installed_registry_artifact"]
+        self.assertIsInstance(installed_artifact, dict)
+        return {
+            "channel_id": channel_id,
+            "ready": True,
+            "downloaded_registry_artifact_ref": proof["downloaded_registry_artifact_ref"],
+            "downloaded_registry_artifact_filename": proof[
+                "downloaded_registry_artifact_filename"
+            ],
+            "downloaded_registry_artifact_sha256": proof[
+                "downloaded_registry_artifact_sha256"
+            ],
+            "installed_registry_artifact_ref": installed_artifact["url"],
+            "installed_registry_artifact_filename": proof[
+                "installed_registry_artifact_filename"
+            ],
+            "installed_registry_artifact_sha256": proof[
+                "installed_registry_artifact_sha256"
+            ],
         }
 
     def test_python_registry_package_proof_commands_are_channel_specific(self) -> None:
@@ -7927,24 +7986,41 @@ class ReleaseScriptTests(unittest.TestCase):
             "python_registry_package_proof_commands_for_test",
         )
 
-        testpypi_command = module.install_command(
+        download_dir = Path("/tmp/shardloom-downloads")
+        testpypi_command = module.download_command(
             Path("/clean/bin/python"),
             module.REGISTRY_CHANNELS["testpypi"],
             "0.1.0",
+            download_dir,
         )
-        pypi_command = module.install_command(
+        pypi_command = module.download_command(
             Path("/clean/bin/python"),
             module.REGISTRY_CHANNELS["pypi"],
             "0.1.0",
+            download_dir,
+        )
+        local_install_command = module.install_downloaded_artifact_command(
+            Path("/clean/bin/python"),
+            download_dir / "shardloom-0.1.0-py3-none-any.whl",
         )
         smoke_command = " ".join(module.smoke_command(Path("/clean/bin/python")))
 
         self.assertIn("--no-deps", testpypi_command)
+        self.assertIn("--isolated", testpypi_command)
+        self.assertIn("--no-cache-dir", testpypi_command)
+        self.assertIn("--only-binary", testpypi_command)
+        self.assertIn("--dest", testpypi_command)
+        self.assertIn(str(download_dir), testpypi_command)
         self.assertIn("--index-url", testpypi_command)
         self.assertIn("https://test.pypi.org/simple/", testpypi_command)
         self.assertEqual(testpypi_command[-1], "shardloom==0.1.0")
-        self.assertNotIn("--index-url", pypi_command)
+        self.assertIn("--isolated", pypi_command)
+        self.assertIn("--no-cache-dir", pypi_command)
+        self.assertIn("--index-url", pypi_command)
+        self.assertIn("https://pypi.org/simple/", pypi_command)
         self.assertEqual(pypi_command[-1], "shardloom==0.1.0")
+        self.assertIn("--no-index", local_install_command)
+        self.assertIn(str(download_dir / "shardloom-0.1.0-py3-none-any.whl"), local_install_command)
         self.assertIn("smoke.fallback_attempted", smoke_command)
         self.assertIn("external_engine_invoked", smoke_command)
         proof_env = module.smoke_env(Path("/release/shardloom"))
@@ -8095,6 +8171,113 @@ class ReleaseScriptTests(unittest.TestCase):
             "check_package_channel_readiness.py",
             "check_package_channel_readiness_registry_pass_for_test",
         )
+        testpypi_proof = self._python_registry_proof_fixture(channel_id="testpypi")
+        pypi_proof = self._python_registry_proof_fixture(
+            channel_id="pypi",
+            testpypi_proof_ref=(
+                "docs/release/channel-proofs/testpypi-v0.2.1-transcript.json"
+            ),
+        )
+        matrix = {
+            "channels": [
+                self._python_registry_matrix_row_fixture(
+                    channel_id="testpypi",
+                    proof=testpypi_proof,
+                ),
+                self._python_registry_matrix_row_fixture(
+                    channel_id="pypi",
+                    proof=pypi_proof,
+                ),
+            ]
+        }
+
+        report = module.validate_python_registry_package_proofs(
+            matrix,
+            testpypi_proof=testpypi_proof,
+            pypi_proof=pypi_proof,
+        )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertTrue(report["pypi_requires_prior_testpypi"])
+        self.assertEqual(
+            report["pypi"]["registry_artifact_digest_binding_status"],
+            "passed",
+        )
+        self.assertTrue(report["pypi"]["registry_download_isolated"])
+        self.assertTrue(report["pypi"]["registry_download_cache_disabled"])
+        self.assertTrue(report["pypi"]["registry_install_from_downloaded_artifact"])
+        self.assertTrue(report["pypi"]["registry_install_cache_disabled"])
+        self.assertFalse(report["pypi"]["registry_install_cache_hit_detected"])
+        self.assertEqual(report["pypi"]["downloaded_registry_artifact_sha256"], "a" * 64)
+        self.assertEqual(report["pypi"]["installed_registry_artifact_sha256"], "a" * 64)
+        self.assertFalse(report["publication_attempted"])
+
+    def test_package_channel_registry_proofs_reject_stale_matrix_artifact_fields(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_registry_matrix_stale_for_test",
+        )
+        testpypi_proof = self._python_registry_proof_fixture(channel_id="testpypi")
+        matrix_row = self._python_registry_matrix_row_fixture(
+            channel_id="testpypi",
+            proof=testpypi_proof,
+        )
+        matrix_row["downloaded_registry_artifact_sha256"] = "b" * 64
+        matrix = {"channels": [matrix_row]}
+
+        report = module.validate_python_registry_package_proofs(
+            matrix,
+            testpypi_proof=testpypi_proof,
+            pypi_proof=None,
+        )
+
+        blockers = "\n".join(report["blockers"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn(
+            "matrix downloaded_registry_artifact_sha256 must match registry proof transcript",
+            blockers,
+        )
+
+    def test_package_channel_registry_proofs_reject_stale_release_version(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_registry_stale_version_for_test",
+        )
+        stale_proof = self._python_registry_proof_fixture(channel_id="pypi")
+        stale_proof["package_version"] = "0.2.0"
+        stale_proof["downloaded_registry_artifact_filename"] = (
+            "shardloom-0.2.0-py3-none-any.whl"
+        )
+        stale_proof["installed_registry_artifact_filename"] = (
+            "shardloom-0.2.0-py3-none-any.whl"
+        )
+        matrix = {"channels": [{"channel_id": "pypi", "ready": True}]}
+
+        report = module.validate_python_registry_package_proofs(
+            matrix,
+            testpypi_proof=None,
+            pypi_proof=stale_proof,
+        )
+
+        blockers = "\n".join(report["blockers"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn("package_version must be 0.2.1", blockers)
+        self.assertIn("downloaded registry artifact must match 0.2.1", blockers)
+        self.assertIn("installed registry artifact must match 0.2.1", blockers)
+
+    def test_package_channel_registry_proofs_reject_stale_testpypi_ref(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_registry_stale_testpypi_ref_for_test",
+        )
+        pypi_proof = self._python_registry_proof_fixture(
+            channel_id="pypi",
+            testpypi_proof_ref=(
+                "docs/release/channel-proofs/testpypi-v0.2.0-transcript.json"
+            ),
+        )
         matrix = {
             "channels": [
                 {"channel_id": "testpypi", "ready": True},
@@ -8105,17 +8288,36 @@ class ReleaseScriptTests(unittest.TestCase):
         report = module.validate_python_registry_package_proofs(
             matrix,
             testpypi_proof=self._python_registry_proof_fixture(channel_id="testpypi"),
-            pypi_proof=self._python_registry_proof_fixture(
-                channel_id="pypi",
-                testpypi_proof_ref=(
-                    "target/python-registry-package-proof/testpypi-transcript.json"
-                ),
-            ),
+            pypi_proof=pypi_proof,
         )
 
-        self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertTrue(report["pypi_requires_prior_testpypi"])
-        self.assertFalse(report["publication_attempted"])
+        blockers = "\n".join(report["blockers"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn(
+            "testpypi_proof_ref must be "
+            "docs/release/channel-proofs/testpypi-v0.2.1-transcript.json",
+            blockers,
+        )
+
+    def test_package_channel_registry_proofs_reject_downloaded_digest_mismatch(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_registry_download_digest_for_test",
+        )
+        bad_proof = self._python_registry_proof_fixture(channel_id="pypi")
+        bad_proof["downloaded_registry_artifact_sha256"] = "b" * 64
+        matrix = {"channels": [{"channel_id": "pypi", "ready": True}]}
+
+        report = module.validate_python_registry_package_proofs(
+            matrix,
+            testpypi_proof=None,
+            pypi_proof=bad_proof,
+        )
+
+        blockers = "\n".join(report["blockers"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn("installed SHA256 must match downloaded SHA256", blockers)
+        self.assertIn("downloaded registry artifact SHA256 must match registry JSON", blockers)
 
     def test_package_channel_readiness_excludes_not_in_v1_rows_from_ready_claim(self) -> None:
         module = self._load_script_module(

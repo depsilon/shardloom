@@ -1,33 +1,33 @@
 {
   "blockers": [],
-  "channel_id": "testpypi",
-  "clean_env": "target/python-registry-package-proof/testpypi-v0.2.1-venv",
+  "channel_id": "pypi",
+  "clean_env": "target/python-registry-package-proof/pypi-v0.2.1-venv",
   "cli_binary_available": true,
   "cli_binary_env_var": "SHARDLOOM_BIN",
   "cli_binary_ref": "target/github-prerelease-channel-proof-v0.2.1/shardloom",
   "cli_binary_required_for_clean_registry_smoke": true,
   "cli_binary_smoke_source": "approved_release_or_local_artifact",
-  "display_name": "TestPyPI",
+  "display_name": "PyPI",
   "download_transcript_status": "passed",
   "downloaded_registry_artifact_filename": "shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl",
-  "downloaded_registry_artifact_ref": "target/python-registry-package-proof/testpypi-v0.2.1-downloads/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl",
-  "downloaded_registry_artifact_sha256": "1f8b4d64cd50127fb8f99a9bab70d50fd0fcf088f94f0d724a0b8321d7378a80",
+  "downloaded_registry_artifact_ref": "target/python-registry-package-proof/pypi-v0.2.1-downloads/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl",
+  "downloaded_registry_artifact_sha256": "3c3f7c73678882a7e4f716f17002beb9b6920de35dfc3d2a674cc2ef9703a0ca",
   "external_engine_invoked": false,
   "fallback_attempted": false,
-  "index_url": "https://test.pypi.org/simple/",
-  "install_source": "testpypi_registry",
+  "index_url": null,
+  "install_source": "pypi_registry",
   "install_transcript_status": "passed",
   "installed_registry_artifact": {
     "filename": "shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl",
     "packagetype": "bdist_wheel",
     "python_version": "cp313",
-    "sha256": "1f8b4d64cd50127fb8f99a9bab70d50fd0fcf088f94f0d724a0b8321d7378a80",
-    "size": 19847020,
-    "upload_time_iso_8601": "2026-06-28T14:07:54.390764Z",
-    "url": "https://test-files.pythonhosted.org/packages/59/ed/320e92c51b894bb18da8106ac62c027b3d5b999de590d1c24218e074529d/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl"
+    "sha256": "3c3f7c73678882a7e4f716f17002beb9b6920de35dfc3d2a674cc2ef9703a0ca",
+    "size": 19847035,
+    "upload_time_iso_8601": "2026-06-28T14:29:31.210685Z",
+    "url": "https://files.pythonhosted.org/packages/39/e9/b5254ae2a22dcb6d44c0ba1c3a14bd6b94fd4ea9e78887f02cdc780860fb/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl"
   },
   "installed_registry_artifact_filename": "shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl",
-  "installed_registry_artifact_sha256": "1f8b4d64cd50127fb8f99a9bab70d50fd0fcf088f94f0d724a0b8321d7378a80",
+  "installed_registry_artifact_sha256": "3c3f7c73678882a7e4f716f17002beb9b6920de35dfc3d2a674cc2ef9703a0ca",
   "package_channel_submission_attempted_by_this_tool": false,
   "package_name": "shardloom",
   "package_version": "0.2.1",
@@ -45,40 +45,40 @@
       "filename": "shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl",
       "packagetype": "bdist_wheel",
       "python_version": "cp313",
-      "sha256": "1f8b4d64cd50127fb8f99a9bab70d50fd0fcf088f94f0d724a0b8321d7378a80",
-      "size": 19847020,
-      "upload_time_iso_8601": "2026-06-28T14:07:54.390764Z",
-      "url": "https://test-files.pythonhosted.org/packages/59/ed/320e92c51b894bb18da8106ac62c027b3d5b999de590d1c24218e074529d/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl"
+      "sha256": "3c3f7c73678882a7e4f716f17002beb9b6920de35dfc3d2a674cc2ef9703a0ca",
+      "size": 19847035,
+      "upload_time_iso_8601": "2026-06-28T14:29:31.210685Z",
+      "url": "https://files.pythonhosted.org/packages/39/e9/b5254ae2a22dcb6d44c0ba1c3a14bd6b94fd4ea9e78887f02cdc780860fb/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl"
     },
     {
       "filename": "shardloom-0.2.1-cp313-cp313-manylinux_2_39_x86_64.whl",
       "packagetype": "bdist_wheel",
       "python_version": "cp313",
-      "sha256": "ee4176ffc468a0ef256ebfe28de2e1582653f87ae1b8e5cf6d20182b686aa37c",
+      "sha256": "c6d9ef3027e3e41832c1dcb30558c10a770498cb91f6cab677c04aa53d248136",
       "size": 22204019,
-      "upload_time_iso_8601": "2026-06-28T14:07:57.729143Z",
-      "url": "https://test-files.pythonhosted.org/packages/48/d3/d349602c9cec85469ca43df692ed4448d39ca9d46e117bd01d9955a3cfea/shardloom-0.2.1-cp313-cp313-manylinux_2_39_x86_64.whl"
+      "upload_time_iso_8601": "2026-06-28T14:29:34.070567Z",
+      "url": "https://files.pythonhosted.org/packages/07/c6/e9fd567f0ad7cfd2dcbaa4ebed3dce799b6785d2d69a8277dbf28139de6d/shardloom-0.2.1-cp313-cp313-manylinux_2_39_x86_64.whl"
     },
     {
       "filename": "shardloom-0.2.1-cp313-cp313-win_amd64.whl",
       "packagetype": "bdist_wheel",
       "python_version": "cp313",
-      "sha256": "be5c8c7f7d1398a73f8abb110b0f369ba24bff730f461403e62259b6a60557c7",
-      "size": 22590809,
-      "upload_time_iso_8601": "2026-06-28T14:08:00.199781Z",
-      "url": "https://test-files.pythonhosted.org/packages/c7/7a/b0c8ab9734c61695e48d69b14de4e790a264b661c986ee60512581899957/shardloom-0.2.1-cp313-cp313-win_amd64.whl"
+      "sha256": "3487374b46041e3018d2225ad20fe72540da012b631c24e60d849095f1833994",
+      "size": 22590808,
+      "upload_time_iso_8601": "2026-06-28T14:29:37.995655Z",
+      "url": "https://files.pythonhosted.org/packages/bd/78/06956141195bc50d4d80de5f5d5caf1bedfd02d089d2dd17e8bb476f3315/shardloom-0.2.1-cp313-cp313-win_amd64.whl"
     },
     {
       "filename": "shardloom-0.2.1.tar.gz",
       "packagetype": "sdist",
       "python_version": "source",
-      "sha256": "7cbad844f3b3f595292a7d7d40fd4fec59b448fc6d6f5871129c8a2b820f354a",
-      "size": 637943,
-      "upload_time_iso_8601": "2026-06-28T14:08:02.432955Z",
-      "url": "https://test-files.pythonhosted.org/packages/a8/c9/03b6ccd0a39ec9bc0a05c33edcb027ca6f925225509d5fbeeb531387900c/shardloom-0.2.1.tar.gz"
+      "sha256": "db8123e520695825e3545f29a6cf1dbe5247a6d8ba3a918b6064dcc8e97ff984",
+      "size": 637886,
+      "upload_time_iso_8601": "2026-06-28T14:29:40.644520Z",
+      "url": "https://files.pythonhosted.org/packages/e7/1a/2577d066d6e0e842b201e70f77acdc6ea198ea5cebf34e3fd5b34173d931/shardloom-0.2.1.tar.gz"
     }
   ],
-  "registry_release_json_url": "https://test.pypi.org/pypi/shardloom/0.2.1/json",
+  "registry_release_json_url": "https://pypi.org/pypi/shardloom/0.2.1/json",
   "registry_upload_attempted_by_this_tool": false,
   "schema_version": "shardloom.python_registry_package_proof.v1",
   "secrets_required": false,
@@ -89,9 +89,9 @@
         "external-path:python3.13",
         "-m",
         "venv",
-        "target/python-registry-package-proof/testpypi-v0.2.1-venv"
+        "target/python-registry-package-proof/pypi-v0.2.1-venv"
       ],
-      "elapsed_millis": 1066.2297,
+      "elapsed_millis": 1009.1574,
       "name": "create_clean_venv",
       "returncode": 0,
       "stderr": "",
@@ -109,16 +109,16 @@
         "--only-binary",
         ":all:",
         "--dest",
-        "target/python-registry-package-proof/testpypi-v0.2.1-downloads",
+        "target/python-registry-package-proof/pypi-v0.2.1-downloads",
         "--index-url",
-        "https://test.pypi.org/simple/",
+        "https://pypi.org/simple/",
         "shardloom==0.2.1"
       ],
-      "elapsed_millis": 519.648,
+      "elapsed_millis": 532.3862,
       "name": "download_registry_artifact",
       "returncode": 0,
-      "stderr": "",
-      "stdout": "Looking in indexes: https://test.pypi.org/simple/\nCollecting shardloom==0.2.1\n  Downloading shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl.metadata (100 kB)\nDownloading shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl (19.8 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 19.8/19.8 MB 159.4 MB/s  0:00:00\nSaved ./target/python-registry-package-proof/testpypi-v0.2.1-downloads/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl\nSuccessfully downloaded shardloom\n"
+      "stderr": "\n[notice] A new release of pip is available: 26.1 -> 26.1.2\n[notice] To update, run: /Users/dylan/Documents/shardloom-local-repo/target/python-registry-package-proof/pypi-v0.2.1-venv/bin/python -m pip install --upgrade pip\n",
+      "stdout": "Looking in indexes: https://pypi.org/simple/\nCollecting shardloom==0.2.1\n  Downloading shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl.metadata (100 kB)\nDownloading shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl (19.8 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 19.8/19.8 MB 137.4 MB/s  0:00:00\nSaved ./target/python-registry-package-proof/pypi-v0.2.1-downloads/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl\nSuccessfully downloaded shardloom\n"
     },
     {
       "command": [
@@ -128,13 +128,13 @@
         "install",
         "--no-deps",
         "--no-index",
-        "target/python-registry-package-proof/testpypi-v0.2.1-downloads/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl"
+        "target/python-registry-package-proof/pypi-v0.2.1-downloads/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl"
       ],
-      "elapsed_millis": 391.7742,
+      "elapsed_millis": 382.5105,
       "name": "install_downloaded_registry_artifact",
       "returncode": 0,
       "stderr": "",
-      "stdout": "Processing ./target/python-registry-package-proof/testpypi-v0.2.1-downloads/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl\nInstalling collected packages: shardloom\nSuccessfully installed shardloom-0.2.1\n"
+      "stdout": "Processing ./target/python-registry-package-proof/pypi-v0.2.1-downloads/shardloom-0.2.1-cp313-cp313-macosx_10_13_universal2.whl\nInstalling collected packages: shardloom\nSuccessfully installed shardloom-0.2.1\n"
     },
     {
       "command": [
@@ -142,7 +142,7 @@
         "-c",
         "from shardloom import ShardLoomClient; client=ShardLoomClient.from_env(); smoke=client.smoke_check(); caps=client.capabilities(); print('fallback_attempted=' + str(smoke.fallback_attempted)); print('external_engine_invoked=' + str(getattr(smoke, 'external_engine_invoked', False))); print('capabilities_command=' + caps.command)"
       ],
-      "elapsed_millis": 116.4472,
+      "elapsed_millis": 106.372,
       "name": "registry_package_client_smoke",
       "returncode": 0,
       "stderr": "",
@@ -157,7 +157,7 @@
         "-y",
         "shardloom"
       ],
-      "elapsed_millis": 154.8675,
+      "elapsed_millis": 152.2592,
       "name": "uninstall_registry_package",
       "returncode": 0,
       "stderr": "",
@@ -165,7 +165,7 @@
     }
   ],
   "tag_created": false,
-  "testpypi_proof_ref": null,
-  "testpypi_proof_required": false,
+  "testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.2.1-transcript.json",
+  "testpypi_proof_required": true,
   "uninstall_transcript_status": "passed"
 }

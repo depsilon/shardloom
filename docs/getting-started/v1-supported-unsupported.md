@@ -119,7 +119,7 @@ production_unsupported_diagnostic_side_effects_performed=false
 ## Package Channels
 
 Package channel rows are generated from `docs/release/package-channel-readiness-matrix.json`.
-Selected v0.2.0 package channels expose install commands. Future package channels remain blocked until their channel-specific proof exists.
+Selected v0.2.1 package channels expose install commands. Future package channels remain blocked until their channel-specific proof exists.
 
 ```text
 package_install_commands_visible=true
@@ -131,9 +131,9 @@ package_upload_attempted=false
 
 | Ready channel | Install command | Uninstall command |
 | --- | --- | --- |
-| GitHub pre-release | gh release download v0.2.0 --repo depsilon/shardloom --pattern '*' --dir <install-dir> | rm -rf <install-dir> |
-| TestPyPI | python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.2.0 | python -m pip uninstall -y shardloom |
-| PyPI | python -m pip install shardloom==0.2.0 | python -m pip uninstall -y shardloom |
+| GitHub pre-release | gh release download v0.2.1 --repo depsilon/shardloom --pattern '*' --dir <install-dir> | rm -rf <install-dir> |
+| TestPyPI | python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.2.1 | python -m pip uninstall -y shardloom |
+| PyPI | python -m pip install shardloom==0.2.1 | python -m pip uninstall -y shardloom |
 | Homebrew tap | brew install depsilon/tap/shardloom | brew uninstall shardloom |
 
 | Channel | Status | Ready | Current blockers |

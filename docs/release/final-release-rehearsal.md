@@ -90,7 +90,7 @@ The current local attestation plan records
 `publication_authorization_status=approved_channel_proof_passed`,
 `publication_human_approved=true`, and
 `slsa_attestation_status=not_generated_for_technical_preview_selected_channels`. The selected
-v0.2.0 GitHub/TestPyPI/PyPI/Homebrew channels are published and proof-backed for the technical
+v0.2.1 GitHub/TestPyPI/PyPI/Homebrew channels are published and proof-backed for the technical
 preview. The GitHub release uses a lightweight tag pointing at a GitHub-verified merge commit;
 future signing and artifact attestations remain separate release-channel actions, not autonomous
 Codex actions.

@@ -12,6 +12,7 @@ machine-readable transcript.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -21,6 +22,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.error import URLError
+from urllib.request import urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +38,7 @@ class RegistryChannel:
     display_name: str
     index_url: str | None
     install_source: str
+    release_json_base_url: str
 
 
 REGISTRY_CHANNELS = {
@@ -43,12 +47,14 @@ REGISTRY_CHANNELS = {
         display_name="TestPyPI",
         index_url="https://test.pypi.org/simple/",
         install_source="testpypi_registry",
+        release_json_base_url="https://test.pypi.org/pypi",
     ),
     "pypi": RegistryChannel(
         channel_id="pypi",
         display_name="PyPI",
         index_url=None,
         install_source="pypi_registry",
+        release_json_base_url="https://pypi.org/pypi",
     ),
 }
 
@@ -68,6 +74,12 @@ def parse_args() -> argparse.Namespace:
         "--venv-dir",
         type=Path,
         default=Path("target/python-registry-package-proof/venv"),
+    )
+    parser.add_argument(
+        "--download-dir",
+        type=Path,
+        default=Path("target/python-registry-package-proof/downloads"),
+        help="Repo-local directory used for the isolated registry artifact download.",
     )
     parser.add_argument(
         "--output",
@@ -155,18 +167,45 @@ def run_step(
     }
 
 
-def install_command(python: Path, channel: RegistryChannel, version: str) -> list[str]:
+def registry_index_url(channel: RegistryChannel) -> str:
+    return channel.index_url or "https://pypi.org/simple/"
+
+
+def download_command(
+    python: Path,
+    channel: RegistryChannel,
+    version: str,
+    download_dir: Path,
+) -> list[str]:
     command = [
+        str(python),
+        "-m",
+        "pip",
+        "--isolated",
+        "download",
+        "--no-deps",
+        "--no-cache-dir",
+        "--only-binary",
+        ":all:",
+        "--dest",
+        str(download_dir),
+        "--index-url",
+        registry_index_url(channel),
+    ]
+    command.append(f"{PACKAGE_NAME}=={version}")
+    return command
+
+
+def install_downloaded_artifact_command(python: Path, artifact: Path) -> list[str]:
+    return [
         str(python),
         "-m",
         "pip",
         "install",
         "--no-deps",
+        "--no-index",
+        str(artifact),
     ]
-    if channel.index_url is not None:
-        command.extend(["--index-url", channel.index_url])
-    command.append(f"{PACKAGE_NAME}=={version}")
-    return command
 
 
 def smoke_command(python: Path) -> list[str]:
@@ -187,6 +226,184 @@ def smoke_command(python: Path) -> list[str]:
 
 def uninstall_command(python: Path) -> list[str]:
     return [str(python), "-m", "pip", "uninstall", "-y", PACKAGE_NAME]
+
+
+def registry_release_json_url(channel: RegistryChannel, version: str) -> str:
+    return f"{channel.release_json_base_url}/{PACKAGE_NAME}/{version}/json"
+
+
+def registry_release_artifacts(channel: RegistryChannel, version: str) -> tuple[list[dict[str, Any]], list[str]]:
+    url = registry_release_json_url(channel, version)
+    try:
+        with urlopen(url, timeout=30) as response:
+            payload = json.load(response)
+    except (OSError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        return [], [f"{channel.channel_id}: failed to fetch registry release JSON: {exc}"]
+    artifacts: list[dict[str, Any]] = []
+    for row in payload.get("urls") or []:
+        digests = row.get("digests") if isinstance(row, dict) else None
+        artifacts.append(
+            {
+                "filename": row.get("filename"),
+                "packagetype": row.get("packagetype"),
+                "python_version": row.get("python_version"),
+                "size": row.get("size"),
+                "upload_time_iso_8601": row.get("upload_time_iso_8601"),
+                "url": row.get("url"),
+                "sha256": digests.get("sha256") if isinstance(digests, dict) else None,
+            }
+        )
+    return artifacts, []
+
+
+def installed_registry_artifact_filename(steps: list[dict[str, Any]]) -> str | None:
+    for step in steps:
+        if step.get("name") not in {
+            "download_registry_artifact",
+            "install_downloaded_registry_artifact",
+            "install_registry_package",
+        }:
+            continue
+        output = f"{step.get('stdout', '')}\n{step.get('stderr', '')}"
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith("Downloading "):
+                candidate = line.removeprefix("Downloading ").split(" ", 1)[0]
+            elif line.startswith("Using cached "):
+                candidate = line.removeprefix("Using cached ").split(" ", 1)[0]
+            elif line.startswith("Processing "):
+                candidate = line.removeprefix("Processing ").split(" ", 1)[0]
+            else:
+                continue
+            if candidate.endswith((".whl", ".tar.gz")):
+                return Path(candidate).name
+    return None
+
+
+def registry_download_isolated(steps: list[dict[str, Any]]) -> bool:
+    for step in steps:
+        if step.get("name") == "download_registry_artifact":
+            command = step.get("command")
+            return isinstance(command, list) and "--isolated" in command
+    return False
+
+
+def registry_download_cache_disabled(steps: list[dict[str, Any]]) -> bool:
+    for step in steps:
+        if step.get("name") == "download_registry_artifact":
+            command = step.get("command")
+            return isinstance(command, list) and "--no-cache-dir" in command
+    return False
+
+
+def registry_install_cache_disabled(steps: list[dict[str, Any]]) -> bool:
+    for step in steps:
+        if step.get("name") in {"download_registry_artifact", "install_registry_package"}:
+            command = step.get("command")
+            return isinstance(command, list) and "--no-cache-dir" in command
+    return False
+
+
+def registry_install_cache_hit_detected(steps: list[dict[str, Any]]) -> bool:
+    for step in steps:
+        if step.get("name") not in {"download_registry_artifact", "install_registry_package"}:
+            continue
+        output = f"{step.get('stdout', '')}\n{step.get('stderr', '')}"
+        if any(line.strip().startswith("Using cached ") for line in output.splitlines()):
+            return True
+    return False
+
+
+def locate_downloaded_registry_artifact(download_dir: Path) -> Path | None:
+    candidates = sorted(
+        [
+            path
+            for path in download_dir.glob(f"{PACKAGE_NAME}-*")
+            if path.name.endswith((".whl", ".tar.gz"))
+        ]
+    )
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def sha256_file(path: Path | None) -> str | None:
+    if path is None or not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def registry_artifact_proof(
+    channel: RegistryChannel,
+    version: str,
+    steps: list[dict[str, Any]],
+    *,
+    repo_root: Path,
+    downloaded_artifact: Path | None,
+) -> tuple[dict[str, Any], list[str]]:
+    artifacts, blockers = registry_release_artifacts(channel, version)
+    downloaded_filename = downloaded_artifact.name if downloaded_artifact is not None else None
+    installed_filename = downloaded_filename or installed_registry_artifact_filename(steps)
+    downloaded_sha256 = sha256_file(downloaded_artifact)
+    download_isolated = registry_download_isolated(steps)
+    download_cache_disabled = registry_download_cache_disabled(steps)
+    install_cache_disabled = registry_install_cache_disabled(steps)
+    install_cache_hit_detected = registry_install_cache_hit_detected(steps)
+    installed_artifact = next(
+        (row for row in artifacts if row.get("filename") == installed_filename),
+        None,
+    )
+    if not download_isolated:
+        blockers.append(f"{channel.channel_id}: registry download proof must use pip --isolated")
+    if not download_cache_disabled:
+        blockers.append(f"{channel.channel_id}: registry download proof must disable pip cache")
+    if not install_cache_disabled:
+        blockers.append(f"{channel.channel_id}: registry install proof must disable pip cache")
+    if install_cache_hit_detected:
+        blockers.append(f"{channel.channel_id}: registry install proof used pip cache")
+    if downloaded_artifact is None:
+        blockers.append(f"{channel.channel_id}: downloaded registry artifact missing")
+    elif downloaded_sha256 is None:
+        blockers.append(
+            f"{channel.channel_id}: downloaded registry artifact SHA256 missing: "
+            f"{downloaded_artifact.name}"
+        )
+    if installed_filename is None:
+        blockers.append(f"{channel.channel_id}: installed registry artifact filename missing")
+    elif installed_artifact is None:
+        blockers.append(
+            f"{channel.channel_id}: installed registry artifact not found in registry JSON: "
+            f"{installed_filename}"
+        )
+    elif not installed_artifact.get("sha256"):
+        blockers.append(
+            f"{channel.channel_id}: installed registry artifact missing SHA256: {installed_filename}"
+        )
+    elif downloaded_sha256 != installed_artifact.get("sha256"):
+        blockers.append(
+            f"{channel.channel_id}: downloaded registry artifact SHA256 mismatch: "
+            f"{installed_filename}"
+        )
+    proof = {
+        "registry_release_json_url": registry_release_json_url(channel, version),
+        "registry_release_artifact_count": len(artifacts),
+        "registry_release_artifacts": artifacts,
+        "downloaded_registry_artifact_ref": rel(repo_root, downloaded_artifact),
+        "downloaded_registry_artifact_filename": downloaded_filename,
+        "downloaded_registry_artifact_sha256": downloaded_sha256,
+        "registry_download_isolated": download_isolated,
+        "registry_download_cache_disabled": download_cache_disabled,
+        "installed_registry_artifact_filename": installed_filename,
+        "installed_registry_artifact": installed_artifact,
+        "installed_registry_artifact_sha256": downloaded_sha256,
+        "registry_install_from_downloaded_artifact": downloaded_artifact is not None,
+        "registry_install_cache_disabled": install_cache_disabled,
+        "registry_install_cache_hit_detected": install_cache_hit_detected,
+        "registry_artifact_digest_binding_status": "passed" if not blockers else "blocked",
+    }
+    return proof, blockers
 
 
 def resolve_shardloom_bin(repo_root: Path, explicit: Path | None) -> tuple[Path | None, list[str]]:
@@ -228,9 +445,11 @@ def write_transcript(
     steps: list[dict[str, Any]],
     testpypi_proof_ref: str | None,
     shardloom_bin: Path | None,
+    downloaded_artifact: Path | None = None,
     setup_blockers: list[str] | None = None,
 ) -> int:
-    installed = step_status(steps, "install_registry_package") == "passed"
+    downloaded = step_status(steps, "download_registry_artifact") == "passed"
+    installed = step_status(steps, "install_downloaded_registry_artifact") == "passed"
     smoked = step_status(steps, "registry_package_client_smoke") == "passed"
     uninstalled = step_status(steps, "uninstall_registry_package") == "passed"
     smoke_stdout = "\n".join(
@@ -239,6 +458,17 @@ def write_transcript(
     fallback_attempted = "fallback_attempted=True" in smoke_stdout
     external_engine_invoked = "external_engine_invoked=True" in smoke_stdout
     setup_blockers = setup_blockers or []
+    registry_artifacts, registry_artifact_blockers = (
+        registry_artifact_proof(
+            channel,
+            version,
+            steps,
+            repo_root=repo_root,
+            downloaded_artifact=downloaded_artifact,
+        )
+        if downloaded and installed
+        else ({}, [])
+    )
     proof_passed = (
         installed
         and smoked
@@ -246,6 +476,7 @@ def write_transcript(
         and not fallback_attempted
         and not external_engine_invoked
         and not setup_blockers
+        and not registry_artifact_blockers
         and shardloom_bin is not None
     )
     report = {
@@ -258,7 +489,8 @@ def write_transcript(
         "install_source": channel.install_source,
         "index_url": channel.index_url,
         "clean_env": rel(repo_root, venv_dir),
-        "install_transcript_status": step_status(steps, "install_registry_package"),
+        "download_transcript_status": step_status(steps, "download_registry_artifact"),
+        "install_transcript_status": step_status(steps, "install_downloaded_registry_artifact"),
         "smoke_check_status": step_status(steps, "registry_package_client_smoke"),
         "uninstall_transcript_status": step_status(steps, "uninstall_registry_package"),
         "fallback_attempted": fallback_attempted,
@@ -276,12 +508,14 @@ def write_transcript(
         "secrets_required": False,
         "package_channel_submission_attempted_by_this_tool": False,
         "steps": steps,
+        **registry_artifacts,
     }
     if channel.channel_id == "pypi" and not testpypi_proof_ref:
         report["proof_status"] = "failed"
         report["blockers"] = ["pypi proof requires a prior TestPyPI proof reference"]
     else:
         blockers = list(setup_blockers)
+        blockers.extend(registry_artifact_blockers)
         if report["proof_status"] != "passed":
             blockers.append("registry proof step failed")
         if shardloom_bin is None:
@@ -302,6 +536,7 @@ def main() -> int:
     repo_root = args.repo_root.resolve()
     channel = REGISTRY_CHANNELS[args.channel]
     venv_dir = resolve_under_repo(repo_root, args.venv_dir)
+    download_dir = resolve_under_repo(repo_root, args.download_dir)
     output = resolve_under_repo(repo_root, args.output)
     shardloom_bin, setup_blockers = resolve_shardloom_bin(repo_root, args.shardloom_bin)
     if channel.channel_id == "pypi" and not args.testpypi_proof_ref:
@@ -314,6 +549,7 @@ def main() -> int:
             steps=[],
             testpypi_proof_ref=None,
             shardloom_bin=shardloom_bin,
+            downloaded_artifact=None,
             setup_blockers=setup_blockers,
         )
     if setup_blockers:
@@ -326,11 +562,15 @@ def main() -> int:
             steps=[],
             testpypi_proof_ref=args.testpypi_proof_ref,
             shardloom_bin=shardloom_bin,
+            downloaded_artifact=None,
             setup_blockers=setup_blockers,
         )
 
     if venv_dir.exists():
         remove_tree_under_repo(repo_root, venv_dir)
+    if download_dir.exists():
+        remove_tree_under_repo(repo_root, download_dir)
+    download_dir.mkdir(parents=True, exist_ok=True)
     steps: list[dict[str, Any]] = []
     steps.append(
         run_step(
@@ -345,12 +585,26 @@ def main() -> int:
         steps.append(
             run_step(
                 repo_root=repo_root,
-                name="install_registry_package",
-                command=install_command(clean_python, channel, args.version),
+                name="download_registry_artifact",
+                command=download_command(clean_python, channel, args.version, download_dir),
                 cwd=repo_root,
             )
         )
-    if step_status(steps, "install_registry_package") == "passed":
+    downloaded_artifact = (
+        locate_downloaded_registry_artifact(download_dir)
+        if step_status(steps, "download_registry_artifact") == "passed"
+        else None
+    )
+    if downloaded_artifact is not None:
+        steps.append(
+            run_step(
+                repo_root=repo_root,
+                name="install_downloaded_registry_artifact",
+                command=install_downloaded_artifact_command(clean_python, downloaded_artifact),
+                cwd=repo_root,
+            )
+        )
+    if step_status(steps, "install_downloaded_registry_artifact") == "passed":
         steps.append(
             run_step(
                 repo_root=repo_root,
@@ -360,7 +614,7 @@ def main() -> int:
                 env=smoke_env(shardloom_bin),
             )
         )
-    if step_status(steps, "install_registry_package") == "passed":
+    if step_status(steps, "install_downloaded_registry_artifact") == "passed":
         steps.append(
             run_step(
                 repo_root=repo_root,
@@ -379,6 +633,7 @@ def main() -> int:
         steps=steps,
         testpypi_proof_ref=args.testpypi_proof_ref,
         shardloom_bin=shardloom_bin,
+        downloaded_artifact=downloaded_artifact,
         setup_blockers=setup_blockers,
     )
 
