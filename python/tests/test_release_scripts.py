@@ -13887,7 +13887,7 @@ jobs:
         )
         self.assertEqual(
             by_method["rename"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIsNone(by_method["rename"]["diagnostic_operation"])
         self.assertIn(
@@ -13896,7 +13896,7 @@ jobs:
         )
         self.assertEqual(
             by_method["drop"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "projection_rewrite_semantics",
@@ -13930,12 +13930,12 @@ jobs:
         )
         self.assertEqual(
             by_method["merge"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn("join_operator_capability", by_method["merge"]["required_evidence"])
         self.assertEqual(
             by_method["concat"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "schema_alignment_contract",
@@ -13943,12 +13943,12 @@ jobs:
         )
         self.assertEqual(
             by_method["nunique"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn("distinct_count_semantics", by_method["nunique"]["required_evidence"])
         self.assertEqual(
             by_method["value_counts"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "grouped_count_semantics",

@@ -167,8 +167,9 @@ impl CompatibilityOutputWriterSupportStatus {
     pub const fn claim_gate_status(&self) -> &'static str {
         match self {
             Self::NativeVortexReference => "scoped_native_vortex_evidence",
-            Self::LocalCompatibilityExportAdmitted => "not_claim_grade",
-            Self::ReportOnlyBlocked | Self::Unsupported => "not_claim_grade",
+            Self::LocalCompatibilityExportAdmitted
+            | Self::ReportOnlyBlocked
+            | Self::Unsupported => "not_claim_grade",
         }
     }
 }

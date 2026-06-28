@@ -1305,16 +1305,13 @@ fn append_local_primitive_memory_admission_fields(
     };
 
     let mut pool = shardloom_exec::MemoryPoolPlan::new(budget);
-    let report = match pool.admit_reservation(
+    let Ok(report) = pool.admit_reservation(
         reservation_id.clone(),
         owner,
         shardloom_exec::ByteSize::from_bytes(requested_bytes),
-    ) {
-        Ok(report) => report,
-        Err(_) => {
-            append_local_primitive_memory_admission_error_fields(fields, "admission_error");
-            return;
-        }
+    ) else {
+        append_local_primitive_memory_admission_error_fields(fields, "admission_error");
+        return;
     };
 
     push_field(
