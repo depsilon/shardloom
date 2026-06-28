@@ -394,10 +394,10 @@ impl SqlDataFramePlannerReadinessSurface {
             Self::SqlPlan => "sql_plan",
             Self::SqlExecute => "sql_execute",
             Self::DataFrameLazyPlan => "dataframe_lazy_plan",
-            Self::DataFrameExpressionBuilder => "dataframe_expression_builder",
-            Self::DataFrameJoin => "dataframe_join",
-            Self::DataFrameAggregate => "dataframe_aggregate",
-            Self::DataFrameWindow => "dataframe_window",
+            Self::DataFrameExpressionBuilder => "dataframe_broad_expression_planner",
+            Self::DataFrameJoin => "dataframe_broad_join_planner",
+            Self::DataFrameAggregate => "dataframe_broad_aggregate_planner",
+            Self::DataFrameWindow => "dataframe_broad_window_planner",
             Self::PlanDiagnostics => "plan_diagnostics",
             Self::UnsupportedExecutionState => "unsupported_execution_state",
         }
@@ -594,14 +594,14 @@ impl SqlDataFramePlannerReadinessRow {
     #[must_use]
     pub const fn dataframe_expression_builder() -> Self {
         Self {
-            row_id: "dataframe_expression_builder",
+            row_id: "dataframe_broad_expression_planner",
             surface: SqlDataFramePlannerReadinessSurface::DataFrameExpressionBuilder,
             support_status: PlannerReadinessSupportStatus::Unsupported,
             claim_gate_status: "not_claim_grade",
             unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
-            blocker_id: "cg21.workflow.with_column.expression_unsupported",
-            required_evidence: "expression_ast_contract,type_inference,operator_capability_matrix,semantic_conformance_suite",
-            user_visible_surface: "python LazyFrame.with_column",
+            blocker_id: "cg21.workflow.broad_expression_planner.expression_unsupported",
+            required_evidence: "broad_expression_ast_contract,type_inference,operator_capability_matrix,semantic_conformance_suite",
+            user_visible_surface: "broad Python/DataFrame expression planner; admitted with_column/assign shapes are covered by dataframe_method_matrix",
             parser_executed: false,
             binder_executed: false,
             planner_executed: false,
@@ -615,14 +615,14 @@ impl SqlDataFramePlannerReadinessRow {
     #[must_use]
     pub const fn dataframe_join() -> Self {
         Self {
-            row_id: "dataframe_join",
+            row_id: "dataframe_broad_join_planner",
             surface: SqlDataFramePlannerReadinessSurface::DataFrameJoin,
             support_status: PlannerReadinessSupportStatus::Unsupported,
             claim_gate_status: "not_claim_grade",
             unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
-            blocker_id: "cg21.workflow.join.operator_unsupported",
-            required_evidence: "join_operator_capability,memory_spill_declaration,correctness_fixture,execution_certificate",
-            user_visible_surface: "python LazyFrame.join",
+            blocker_id: "cg21.workflow.broad_join_planner.operator_unsupported",
+            required_evidence: "broad_join_planner_contract,memory_spill_declaration,correctness_fixture,execution_certificate",
+            user_visible_surface: "broad Python/DataFrame join planner; admitted native Vortex hash-join shapes are covered by dataframe_method_matrix",
             parser_executed: false,
             binder_executed: false,
             planner_executed: false,
@@ -636,14 +636,14 @@ impl SqlDataFramePlannerReadinessRow {
     #[must_use]
     pub const fn dataframe_aggregate() -> Self {
         Self {
-            row_id: "dataframe_aggregate",
+            row_id: "dataframe_broad_aggregate_planner",
             surface: SqlDataFramePlannerReadinessSurface::DataFrameAggregate,
             support_status: PlannerReadinessSupportStatus::Unsupported,
             claim_gate_status: "not_claim_grade",
             unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
-            blocker_id: "cg21.workflow.dataframe_aggregation_unsupported",
-            required_evidence: "aggregate_operator_capability,memory_spill_declaration,correctness_fixture,execution_certificate",
-            user_visible_surface: "python LazyFrame.agg,python GroupedLazyFrame.agg",
+            blocker_id: "cg21.workflow.broad_aggregate_planner.operator_unsupported",
+            required_evidence: "broad_aggregate_planner_contract,memory_spill_declaration,correctness_fixture,execution_certificate",
+            user_visible_surface: "broad Python/DataFrame aggregate planner; admitted group_by/agg shapes are covered by dataframe_method_matrix",
             parser_executed: false,
             binder_executed: false,
             planner_executed: false,
@@ -657,14 +657,14 @@ impl SqlDataFramePlannerReadinessRow {
     #[must_use]
     pub const fn dataframe_window() -> Self {
         Self {
-            row_id: "dataframe_window",
+            row_id: "dataframe_broad_window_planner",
             surface: SqlDataFramePlannerReadinessSurface::DataFrameWindow,
             support_status: PlannerReadinessSupportStatus::Unsupported,
             claim_gate_status: "not_claim_grade",
             unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
-            blocker_id: "cg21.workflow.dataframe_window_unsupported",
-            required_evidence: "window_operator_capability,sort_capability,correctness_fixture,execution_certificate",
-            user_visible_surface: "python LazyFrame.window",
+            blocker_id: "cg21.workflow.broad_window_planner.operator_unsupported",
+            required_evidence: "broad_window_planner_contract,sort_capability,correctness_fixture,execution_certificate",
+            user_visible_surface: "broad Python/DataFrame window planner; admitted ranking/offset window shapes are covered by dataframe_method_matrix and SQL runtime ladder",
             parser_executed: false,
             binder_executed: false,
             planner_executed: false,
@@ -768,7 +768,7 @@ impl SqlDataFramePlannerReadinessMatrix {
     #[must_use]
     pub fn report_only() -> Self {
         Self {
-            schema_version: "shardloom.sql_dataframe_planner_readiness.v1",
+            schema_version: "shardloom.sql_dataframe_planner_readiness.v2",
             matrix_id: "gar0001a.sql_dataframe_planner_readiness",
             rows: vec![
                 SqlDataFramePlannerReadinessRow::sql_text_admission(),
@@ -786,7 +786,7 @@ impl SqlDataFramePlannerReadinessMatrix {
             ],
             claim_gate_status: "not_claim_grade",
             support_status_vocabulary: "report_only,unsupported",
-            report_ref: "capabilities://sql-dataframe-planner-readiness.v1",
+            report_ref: "capabilities://sql-dataframe-planner-readiness.v2",
             docs_ref: "docs/architecture/global-architecture-review.md#rfc-0001",
             parser_executed: false,
             binder_executed: false,
@@ -3076,7 +3076,7 @@ mod tests {
 
         assert_eq!(
             matrix.schema_version,
-            "shardloom.sql_dataframe_planner_readiness.v1"
+            "shardloom.sql_dataframe_planner_readiness.v2"
         );
         assert_eq!(
             matrix.sql_row_order(),
@@ -3092,10 +3092,10 @@ mod tests {
             matrix.dataframe_row_order(),
             vec![
                 "dataframe_lazy_plan",
-                "dataframe_expression_builder",
-                "dataframe_join",
-                "dataframe_aggregate",
-                "dataframe_window",
+                "dataframe_broad_expression_planner",
+                "dataframe_broad_join_planner",
+                "dataframe_broad_aggregate_planner",
+                "dataframe_broad_window_planner",
             ]
         );
         assert!(matrix.all_rows_fallback_free());

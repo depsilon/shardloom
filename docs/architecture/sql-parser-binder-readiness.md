@@ -61,7 +61,10 @@ requests:
 
 The SQL capability matrix also exposes staged planner-readiness fields such as
 `planner_readiness_parser_executed`, `planner_readiness_binder_executed`,
-`planner_readiness_planner_executed`, and `planner_readiness_row_ids`.
+`planner_readiness_planner_executed`, and `planner_readiness_row_ids`. In
+`shardloom.sql_dataframe_planner_readiness.v2`, DataFrame rows that remain in this audit are broad
+planner boundaries such as `dataframe_broad_join_planner`, not the admitted Python method rows.
+Current admitted DataFrame method runtime support is owned by `dataframe_method_matrix`.
 
 ## Claim Boundary
 

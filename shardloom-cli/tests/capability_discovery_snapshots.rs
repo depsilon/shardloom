@@ -12,7 +12,7 @@ const REPORT_ONLY_BOOL_FIELD_KEYS: [&str; 9] = [
     "runtime_execution",
 ];
 
-const PLANNER_READINESS_FIELD_KEYS: [&str; 21] = [
+const PLANNER_READINESS_FIELD_KEYS: [&str; 23] = [
     "planner_readiness_schema_version",
     "planner_readiness_matrix_id",
     "planner_readiness_report_ref",
@@ -23,6 +23,8 @@ const PLANNER_READINESS_FIELD_KEYS: [&str; 21] = [
     "planner_readiness_row_order",
     "planner_readiness_sql_row_order",
     "planner_readiness_dataframe_row_order",
+    "planner_readiness_dataframe_runtime_matrix_ref",
+    "planner_readiness_dataframe_runtime_matrix_scope",
     "planner_readiness_unsupported_diagnostic_codes",
     "planner_readiness_blocker_ids",
     "planner_readiness_required_evidence",
@@ -980,7 +982,7 @@ const DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROW_SUFFIXES: [&str; 14] = [
     "claim_boundary",
 ];
 
-const SQL_FIELD_KEYS: [&str; 55] = [
+const SQL_FIELD_KEYS: [&str; 57] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -1005,6 +1007,8 @@ const SQL_FIELD_KEYS: [&str; 55] = [
     "planner_readiness_row_order",
     "planner_readiness_sql_row_order",
     "planner_readiness_dataframe_row_order",
+    "planner_readiness_dataframe_runtime_matrix_ref",
+    "planner_readiness_dataframe_runtime_matrix_scope",
     "planner_readiness_unsupported_diagnostic_codes",
     "planner_readiness_blocker_ids",
     "planner_readiness_required_evidence",
@@ -2084,7 +2088,7 @@ const WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 25] = [
     "best_default_publication_allowed",
 ];
 
-const DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 46] = [
+const DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 48] = [
     "scope",
     "schema_version",
     "support_status",
@@ -2120,6 +2124,8 @@ const DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 46] = [
     "planner_readiness_row_order",
     "planner_readiness_sql_row_order",
     "planner_readiness_dataframe_row_order",
+    "planner_readiness_dataframe_runtime_matrix_ref",
+    "planner_readiness_dataframe_runtime_matrix_scope",
     "planner_readiness_unsupported_diagnostic_codes",
     "planner_readiness_blocker_ids",
     "planner_readiness_required_evidence",
@@ -3480,7 +3486,7 @@ fn assert_planner_readiness_fields(output: &str, scope: &str) {
     for (key, value) in [
         (
             "planner_readiness_schema_version",
-            "shardloom.sql_dataframe_planner_readiness.v1",
+            "shardloom.sql_dataframe_planner_readiness.v2",
         ),
         ("planner_readiness_claim_gate_status", "not_claim_grade"),
         (
@@ -3489,7 +3495,15 @@ fn assert_planner_readiness_fields(output: &str, scope: &str) {
         ),
         (
             "planner_readiness_dataframe_row_order",
-            "dataframe_lazy_plan,dataframe_expression_builder,dataframe_join,dataframe_aggregate,dataframe_window",
+            "dataframe_lazy_plan,dataframe_broad_expression_planner,dataframe_broad_join_planner,dataframe_broad_aggregate_planner,dataframe_broad_window_planner",
+        ),
+        (
+            "planner_readiness_dataframe_runtime_matrix_ref",
+            "dataframe_method_matrix",
+        ),
+        (
+            "planner_readiness_dataframe_runtime_matrix_scope",
+            "admitted_python_dataframe_methods",
         ),
         (
             "planner_readiness_unsupported_diagnostic_codes",
@@ -3498,6 +3512,7 @@ fn assert_planner_readiness_fields(output: &str, scope: &str) {
     ] {
         assert!(output.contains(&string_field_pair(key, value)));
     }
+    assert!(!output.contains("dataframe_lazy_plan,dataframe_expression_builder,dataframe_join"));
     assert_planner_readiness_boolean_fields(output);
 }
 

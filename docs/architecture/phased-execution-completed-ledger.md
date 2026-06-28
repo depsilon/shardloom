@@ -16,6 +16,81 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `CLICKBENCH-AGGREGATE-PREDICATE-PUSHDOWN-19` restored native aggregate scalar predicate
+  pushdown and transformed-dictionary general-measure fast state.
+  - Date: 2026-06-28
+  - PR/merge: PR `#1369`, merged to `main` as
+    `c069aff9 [codex] Restore ClickBench aggregate pushdown lanes`.
+  - Completed phase-plan row:
+    - `CLICKBENCH-AGGREGATE-PREDICATE-PUSHDOWN-19`
+  - Completed scope:
+    - Restored aggregate pushdown for exact scalar predicates while keeping grouped
+      `StringContains` residual until separately proven faster and exact.
+    - Added a classifier regression guard proving aggregate `Compare` remains pushdownable while
+      aggregate `StringContains` remains residual.
+    - Preserved residual-predicate columns during heavy-hitter/exact recount passes so grouped
+      residual filters keep their required source columns.
+    - Restored transformed-dictionary general-measure updates to uncached typed keys so Q29 avoids
+      broad string interning/decoding while count-star transformed dictionary cache behavior stays
+      covered.
+    - Suppressed transformed-dictionary cache evidence when no cache entries exist so general
+      transformed-measure routes do not report an empty cache as populated transform state.
+    - Added `CLICKBENCH-AGGREGATE-PREDICATE-PUSHDOWN-19` to the v1 inclusion scope matrix so
+      release correctness gates and public status validators retain the restored runtime row.
+    - Kept `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
+      architecture runtime-gap families after CI confirmed that active ownership is still required.
+  - Regression boundary:
+    - Corrected full local UAT showed aggregate routes retained native Vortex labels but lost
+      Vortex filter pushdown and metadata-first pruning. Evidence examples: Q37 arrays read changed
+      `7 -> 800`, Q38 `7 -> 611`, Q39 `7 -> 611`, and Q40 `7 -> 611`, with
+      `local_primitive_filter_pushdown_applied=true -> false` and
+      `local_primitive_metadata_first_pruning_consulted=true -> false`.
+    - Follow-up UAT exposed a Q29 transformed-dictionary regression where the general-measure route
+      interned/decoded `1,798,248` strings; the retained fix keeps that route on uncached typed
+      transform keys while preserving count-star transform cache coverage.
+  - Focused validation evidence:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-vortex --features vortex-local-primitives --lib -- -D warnings`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives --lib string_contains_pushdown_is_route_aware_for_aggregate_regression_guard -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_mixed_predicate_preserves_pushdown_and_residual_boundary -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate_recount_projection_preserves_residual_columns -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives --lib grouped_count_star_transformed_dictionary_reuses_group_transform_per_dictionary_value -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives --lib grouped_general_measures_transformed_dictionary_reuses_selected_dictionary_counts -- --nocapture`
+    - `python3 scripts/check_runtime_gap_family_burn_down.py`
+    - `python3 scripts/check_public_status_docs.py`
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_runtime_gap_family_burn_down`
+    - `python3 scripts/check_v1_inclusion_scope.py`
+    - `git diff --check`
+    - PR `#1369` GitHub checks were green before merge.
+  - Local 100M UAT evidence:
+    - Targeted aggregate pushdown rerun:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_aggregate_pushdown_fix_20260628T061610Z/summary.json`.
+    - Targeted slowed-lane rerun:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_all_slowed_lanes_after_pushdown_20260628T062054Z/summary.json`,
+      completed `18/18` successful, total `62.426s`, geomean `0.681s`.
+    - Replacement ingest:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260628T062739Z/prepare_summary.json`,
+      completed in `421s`, produced one `.vortex` artifact at `34,933,241,344` bytes, and kept
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+    - Full 43-query UAT:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_q29_uncached_faststate_20260628T065223Z/summary.json`,
+      completed `43/43`, total `204.850s`, geomean `1.388s`.
+    - Q29 contract probe:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/q29_after_cache_evidence_fix_20260628T070117Z/summary.json`,
+      completed with `local_primitive_group_key_storage=typed_single_key`,
+      `local_primitive_decoded_string_count=0`, no transform-cache entries,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Local Desktop UAT optimization evidence only; no official ClickBench submission,
+      superiority, production-platform, release-channel, or universal workload claim.
+  - Fallback boundary:
+    - No route added Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, or
+      another external engine as ShardLoom execution fallback.
+  - Residual work:
+    - `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains the active governance owner for unchecked global
+      architecture runtime-gap families until those rows are closed or promoted into concrete
+      shared-runtime implementation items.
+
 - [x] ClickBench 100M ingest ship/drop and URL predicate optimization queue setup.
   - Date: 2026-06-28
   - Completed phase-plan rows:
