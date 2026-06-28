@@ -5490,7 +5490,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
                 return emit_error(emit_command, format, "vortex prepare failed", &error);
             }
         };
-        let report = match shardloom_vortex::prepare_native_vortex_artifact(native_request) {
+        let report = match shardloom_vortex::prepare_native_vortex_artifact(&native_request) {
             Ok(report) => report,
             Err(error) => {
                 return emit_error(emit_command, format, "vortex prepare failed", &error);
@@ -5613,7 +5613,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
             "vortex-write",
             shardloom_vortex::VortexIngestCertificationLevel::IngestCertified.as_str(),
         )?;
-        let report = shardloom_vortex::prepare_native_vortex_artifact(request)?;
+        let report = shardloom_vortex::prepare_native_vortex_artifact(&request)?;
         return Ok(PublicWorkflowVortexPreparation {
             target_path,
             fields: public_workflow_preparation_fields(report.evidence_fields()),

@@ -403,6 +403,7 @@ pub struct VortexNativeArtifactPrepareRequest {
 
 /// Evidence for the Universal Ingest Vortex-source lane.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct VortexNativeArtifactPrepareReport {
     pub schema_version: &'static str,
     pub status: String,
@@ -2945,8 +2946,16 @@ fn micros_to_millis_string(micros: u128) -> String {
 }
 
 #[cfg(feature = "vortex-write")]
+/// Admit an existing local `.vortex` artifact as prepared native Vortex state.
+///
+/// # Errors
+///
+/// Returns an error when the source or target is not a local `.vortex` file,
+/// when source metadata/footer inspection fails, when the source lacks a footer
+/// row count, or when the workspace-safe byte-preserving copy cannot be
+/// completed. No fallback or external execution engine is invoked.
 pub fn prepare_native_vortex_artifact(
-    request: VortexNativeArtifactPrepareRequest,
+    request: &VortexNativeArtifactPrepareRequest,
 ) -> Result<VortexNativeArtifactPrepareReport> {
     let prepare_start = Instant::now();
     ensure_native_vortex_artifact_extension(&request.source_path, "native Vortex source")?;
@@ -3102,7 +3111,7 @@ pub fn prepare_native_vortex_artifact(
         schema_version: VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION,
         status,
         policy,
-        source_path: request.source_path,
+        source_path: request.source_path.clone(),
         target_path,
         source_size_bytes,
         source_mtime_ns,
@@ -3130,19 +3139,25 @@ pub fn prepare_native_vortex_artifact(
         prepare_once_micros,
         metadata_open_micros,
         byte_copy_micros,
-        provider_version: request.provider_version,
-        feature_gates: request.feature_gates,
-        certification_level: request.certification_level,
+        provider_version: request.provider_version.clone(),
+        feature_gates: request.feature_gates.clone(),
+        certification_level: request.certification_level.clone(),
         fallback_attempted: false,
         external_engine_invoked: false,
     })
 }
 
 #[cfg(not(feature = "vortex-write"))]
+/// Admit an existing local `.vortex` artifact as prepared native Vortex state.
+///
+/// # Errors
+///
+/// Always returns an error when the binary is compiled without the
+/// `vortex-write` feature gate. No fallback or external execution engine is
+/// invoked.
 pub fn prepare_native_vortex_artifact(
-    request: VortexNativeArtifactPrepareRequest,
+    _request: &VortexNativeArtifactPrepareRequest,
 ) -> Result<VortexNativeArtifactPrepareReport> {
-    let _ = request;
     Err(ShardLoomError::NotImplemented(
         "vortex_ingest feature gate is not enabled".to_string(),
     ))
@@ -12162,7 +12177,7 @@ mod tests {
         )
         .expect("native request");
 
-        let report = prepare_native_vortex_artifact(request).expect("native prepare report");
+        let report = prepare_native_vortex_artifact(&request).expect("native prepare report");
 
         assert_eq!(report.row_count, written.row_count);
         assert_eq!(report.status, "native_vortex_artifact_admitted");
@@ -12206,7 +12221,7 @@ mod tests {
         )
         .expect("native request");
 
-        let report = prepare_native_vortex_artifact(request).expect("native prepare report");
+        let report = prepare_native_vortex_artifact(&request).expect("native prepare report");
 
         assert_eq!(report.status, "native_vortex_artifact_copied");
         assert_eq!(report.policy, "vortex_native_workspace_safe_byte_copy");
