@@ -183,9 +183,9 @@ impl VortexCapabilityUtilizationReport {
             VortexCapabilityUtilizationRow::new(
                 Area::ScanSourceSinkSplit,
                 "Source, Sink, Scan request, Split",
-                Use::PlannedRuntimeProvider,
+                Use::PartialRuntimeEvidence,
                 "VortexScanExecutionSpineReport",
-                "actual upstream Source/Split path with split estimates and Native I/O refs",
+                "remote/object-store/table split evidence before broad source/sink claims",
             ),
             VortexCapabilityUtilizationRow::new(
                 Area::ScanFieldMasks,
@@ -296,9 +296,9 @@ impl VortexCapabilityUtilizationReport {
             rows: Self::current_rows(),
             arrays_used: Use::PartialRuntimeEvidence,
             layouts_used: Use::ReportOnlyWrapped,
-            scan_api_used: Use::PlannedRuntimeProvider,
-            source_sink_used: Use::PlannedRuntimeProvider,
-            split_execution_used: Use::PlannedRuntimeProvider,
+            scan_api_used: Use::PartialRuntimeEvidence,
+            source_sink_used: Use::PartialRuntimeEvidence,
+            split_execution_used: Use::PartialRuntimeEvidence,
             expression_pushdown_used: Use::BlockedUntilEvidence,
             field_masks_used: Use::BlockedUntilEvidence,
             zone_pruning_used: Use::BlockedUntilEvidence,
@@ -958,6 +958,22 @@ mod tests {
         assert_eq!(
             report.row_status(VortexRuntimeCapabilityArea::Arrays),
             Some(VortexCapabilityUse::PartialRuntimeEvidence)
+        );
+        assert_eq!(
+            report.row_status(VortexRuntimeCapabilityArea::ScanSourceSinkSplit),
+            Some(VortexCapabilityUse::PartialRuntimeEvidence)
+        );
+        assert_eq!(
+            report.scan_api_used,
+            VortexCapabilityUse::PartialRuntimeEvidence
+        );
+        assert_eq!(
+            report.source_sink_used,
+            VortexCapabilityUse::PartialRuntimeEvidence
+        );
+        assert_eq!(
+            report.split_execution_used,
+            VortexCapabilityUse::PartialRuntimeEvidence
         );
         assert_eq!(
             report.row_status(VortexRuntimeCapabilityArea::ScanFieldMasks),

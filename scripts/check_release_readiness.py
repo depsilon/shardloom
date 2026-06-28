@@ -1602,8 +1602,8 @@ def main() -> int:
                 )
             )
         for field, expected in [
-            ("runtime_command_count", 5),
-            ("runtime_command_pass_count", 5),
+            ("runtime_command_count", 6),
+            ("runtime_command_pass_count", 6),
             ("prerequisite_report_count", 2),
             ("memory_budget_config_status", "passed"),
             ("pre_oom_guard_status", "passed"),
@@ -1611,6 +1611,7 @@ def main() -> int:
             ("cancellation_cleanup_status", "passed"),
             ("memory_runtime_hardening_status", "passed"),
             ("fault_tolerance_gate_status", "passed"),
+            ("public_native_vortex_resource_route_status", "passed"),
             ("prepared_state_cleanup_status", "passed"),
             ("local_output_cleanup_status", "passed"),
             ("claim_gate_status", "not_claim_grade"),

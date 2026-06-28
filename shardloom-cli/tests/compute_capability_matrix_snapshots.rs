@@ -153,9 +153,9 @@ fn assert_native_unsupported_coverage_summary_fields(output: &str) {
         "native_unsupported_coverage_category_vocabulary",
         "source,sink,operator,workload"
     )));
-    assert!(output.contains(&field("native_unsupported_coverage_row_count", "22")));
+    assert!(output.contains(&field("native_unsupported_coverage_row_count", "21")));
     assert!(output.contains(&field("native_unsupported_coverage_source_count", "4")));
-    assert!(output.contains(&field("native_unsupported_coverage_sink_count", "4")));
+    assert!(output.contains(&field("native_unsupported_coverage_sink_count", "3")));
     assert!(output.contains(&field("native_unsupported_coverage_operator_count", "8")));
     assert!(output.contains(&field("native_unsupported_coverage_workload_count", "6")));
     assert!(output.contains(&field(
@@ -493,8 +493,12 @@ fn assert_native_unsupported_row_fields(output: &str) {
         "gar-flow-2e.encoded_or_spillable_general_join_blocked"
     )));
     assert!(output.contains(&field(
-        "native_unsupported_coverage_row_native_workload_sql_dataframe_support_status",
-        "unsupported"
+        "native_unsupported_coverage_row_native_operator_scalar_expressions_surface",
+        "broad_scalar_expression_registry_claim"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_row_native_workload_sql_dataframe_surface",
+        "broad_sql_dataframe_frontend_claim"
     )));
     assert!(output.contains(&field(
         "native_unsupported_coverage_row_native_workload_sql_dataframe_fallback_attempted",

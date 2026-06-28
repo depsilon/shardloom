@@ -993,7 +993,7 @@ class FoundryGeneratedOutputReport:
         """Return the generated-output claim-gate status."""
 
         if self.runtime_execution and self.foundry_style_output_api_invoked:
-            return "fixture_smoke_only"
+            return "not_claim_grade"
         return "not_claim_grade"
 
 
@@ -3622,7 +3622,7 @@ _WRITE_BOUNDARY = (
     "fallback, or production output claim."
 )
 _GENERATED_OUTPUT_BOUNDARY = (
-    "Scoped local generated-output smokes only; user rows, engine-native range/sequence, and "
+    "Scoped local generated-output runtime only; user rows, engine-native range/sequence, and "
     "source-free SQL VALUES/literal SELECT/generate_series/range, including scoped value-column "
     "range projections, write local JSONL/CSV with "
     "generated-source and output evidence, but no broad DataFrame runtime, broad SQL runtime, "
@@ -4395,7 +4395,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "from_rows",
         "source_free_generation",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4408,7 +4408,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "range",
         "source_free_generation",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4421,7 +4421,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "literal_table",
         "source_free_generation",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4434,7 +4434,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "calendar",
         "source_free_generation",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4447,7 +4447,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "sequence",
         "source_free_generation",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4460,7 +4460,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "sql_values",
         "sql_frontend",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4476,7 +4476,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "sql_literal_select",
         "sql_frontend",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4492,7 +4492,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "dataframe_source_free_projection",
         "source_free_generation",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4507,7 +4507,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "dataframe_generated_with_column",
         "source_free_generation",
-        "fixture_smoke_supported",
+        "runtime-supported",
         runtime_execution=True,
         write_io=True,
         required_evidence=(
@@ -4600,7 +4600,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "rename",
         "dataframe_transform",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4614,13 +4614,13 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "Schema-declared local-source column rename lowers to an admitted ShardLoom SQL "
             "projection alias route when collected or written. Inferred-schema, aggregate, join, "
             "window, expression, and broad production DataFrame rename semantics remain outside "
-            "this scoped route and fail closed without pandas/Polars or external fallback."
+            "this admitted route and fail closed without pandas/Polars or external fallback."
         ),
     ),
     _df_method(
         "rename_columns",
         "dataframe_transform",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4638,7 +4638,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "drop",
         "dataframe_transform",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4652,14 +4652,14 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "Schema-declared local-source column drop lowers to an admitted ShardLoom SQL "
             "projection route when collected or written. Inferred-schema, aggregate, join, "
             "window, expression, and broad production DataFrame drop semantics remain outside "
-            "this scoped route and fail closed without hidden all-column reads or external "
+            "this admitted route and fail closed without hidden all-column reads or external "
             "fallback."
         ),
     ),
     _df_method(
         "drop_columns",
         "dataframe_transform",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4677,7 +4677,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "astype",
         "dataframe_transform",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4786,7 +4786,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "merge",
         "dataframe_combine",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4798,7 +4798,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped merge(on=..., how=...) lowers to the admitted ShardLoom join route for "
+            "Admitted merge(on=..., how=...) lowers to the ShardLoom join route for "
             "explicit local-source equi-keys. Implicit key inference, left_on/right_on, suffix "
             "handling, right-side operations, pandas/Polars backends, production merge, and broad "
             "DataFrame parity remain outside this route and fail closed."
@@ -4807,7 +4807,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "concat",
         "dataframe_combine",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4818,7 +4818,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped row-wise concat lowers to UNION ALL only for two local-source branches with "
+            "Admitted row-wise concat lowers to UNION ALL only for two local-source branches with "
             "explicit matching projected columns. Schema union/alignment, axis=1, multi-branch, "
             "column-combine, pandas/Polars backend, production concat, and broad DataFrame parity "
             "remain outside this route and fail closed."
@@ -5010,7 +5010,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "nunique",
         "dataframe_summary",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -5021,7 +5021,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped one-column nunique(dropna=True) lowers to ShardLoom count(DISTINCT column) "
+            "Admitted one-column nunique(dropna=True) lowers to ShardLoom count(DISTINCT column) "
             "over admitted local-source workflows. Multi-column, dropna=False, axis/result-shape "
             "pandas parity, production summary claims, and unsafe plan shapes remain outside this "
             "route and fail closed."
@@ -5030,7 +5030,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "value_counts",
         "dataframe_summary",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -5041,7 +5041,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped local-source value_counts lowers to ShardLoom group_by(...).count(rows) with "
+            "Admitted local-source value_counts lowers to ShardLoom group_by(...).count(rows) with "
             "optional IS NOT NULL filtering for dropna and rows-desc ordering. Multi-backend "
             "pandas parity, normalize/bin/axis behavior, production summary claims, and unsafe "
             "plan shapes remain outside this route and fail closed."
@@ -6693,10 +6693,10 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "high_level_context",
         "global_runtime_supported",
         cli_commands=(
-            "generated-source-user-rows-smoke",
-            "generated-source-range-smoke",
-            "generated-source-sequence-smoke",
-            "generated-source-sql-smoke",
+            "generated-source-user-rows",
+            "generated-source-range",
+            "generated-source-sequence",
+            "generated-source-sql",
         ),
         context_methods=(
             "sequence",
@@ -6710,12 +6710,12 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "calendar",
         ),
         client_methods=(
-            "generated_source_user_rows_smoke",
-            "generated_source_range_smoke",
-            "generated_source_sequence_smoke",
-            "generated_source_sql_smoke",
+            "generated_source_user_rows_runtime",
+            "generated_source_range_runtime",
+            "generated_source_sequence_runtime",
+            "generated_source_sql_runtime",
         ),
-        runtime_route="generated-source-*-smoke",
+        runtime_route="generated-source-*",
         promotion_criteria="generated local outputs use ShardLoom generated-source certificates and local sink evidence",
         evidence_refs=("generated_source_certificate", "output_native_io_certificate", "fanout_evidence"),
         claim_boundary="Local generated/source-free output only; no external platform or production sink claim.",
@@ -7398,23 +7398,23 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         sql_surface="ctx.sql_values(...), ctx.sql_literal_select(...), ctx.sql(...).write_*",
         python_surface="ctx.from_rows(...), ctx.range(...), ctx.sequence(...), ctx.calendar(...)",
         dataframe_surface="ctx.dataframe_source_free_projection(...), ctx.dataframe_generated_with_column(...)",
-        shared_runtime_path="generated-source-* smoke family",
+        shared_runtime_path="generated-source runtime family",
         parity_status="equivalent_admitted_scope",
         performance_equivalence_status="same_runtime_family_no_benchmark_claim",
         runtime_execution=True,
         write_io=True,
         materialization_required=True,
         required_evidence=(
-            "generated_source_user_rows_smoke",
-            "generated_source_range_smoke",
-            "generated_source_sequence_smoke",
-            "generated_source_sql_smoke",
+            "generated_source_user_rows_runtime",
+            "generated_source_range_runtime",
+            "generated_source_sequence_runtime",
+            "generated_source_sql_runtime",
             "output_native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
             "Generated SQL, Python, and DataFrame-style source-free workflows are admitted for "
-            "local output smokes. Generated rows are an input adapter and must re-enter through a "
+            "local output runtime. Generated rows are an input adapter and must re-enter through a "
             "Vortex-preparable route for runtime-ready claims. This is generated-output parity, "
             "not broad SQL/DataFrame runtime or remote sink support."
         ),
@@ -8613,8 +8613,8 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         ),
         source_route="generated-source user rows/range/sequence/calendar/SQL literal source",
         preparation_route="generated_source_to_vortex_preparable_batch",
-        execution_mode="generated_source_smoke",
-        execution_route="generated-source-* local output smoke family",
+        execution_mode="generated_source_runtime",
+        execution_route="generated-source local output runtime family",
         output_route=(
             "local JSONL/CSV, feature-gated local Vortex output, single-artifact "
             "Vortex output evidence, and fanout"
@@ -8651,8 +8651,8 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         vortex_normalization_point="materialized snapshot -> generated rows -> Vortex-preparable route",
         source_route="explicit materialized input boundary",
         preparation_route="materialized_input_snapshot_to_generated_source_user_rows",
-        execution_mode="generated_source_smoke",
-        execution_route="generated-source user rows local output smoke",
+        execution_mode="generated_source_runtime",
+        execution_route="generated-source user rows local output runtime",
         output_route="local JSONL/CSV report and generated-source evidence",
         evidence_route="materialized input boundary, generated-source certificate, no-fallback evidence",
         materialization_decode_boundary="materialized input is explicit; no hidden pandas/Arrow execution engine",
@@ -9480,9 +9480,15 @@ class GeneratedSourceApiAdmissionRow:
 
     @property
     def fixture_smoke_supported(self) -> bool:
-        """Whether the row is a scoped fixture-smoke runtime surface."""
+        """Whether the row is a legacy scoped fixture-smoke surface."""
 
         return self.support_status == "fixture_smoke_supported"
+
+    @property
+    def runtime_supported(self) -> bool:
+        """Whether the row is admitted as generated-output runtime."""
+
+        return self.support_status == "runtime-supported"
 
     @property
     def report_only(self) -> bool:
@@ -10347,9 +10353,15 @@ class SourceFreeGeneratedOutputCompatibilityRow:
 
     @property
     def fixture_smoke_supported(self) -> bool:
-        """Whether this row is a scoped local generated-output smoke surface."""
+        """Whether this row is a scoped local generated-output fixture surface."""
 
         return self.support_status == "smoke-supported"
+
+    @property
+    def runtime_supported(self) -> bool:
+        """Whether this row is a generated-output runtime surface."""
+
+        return self.support_status == "runtime-supported"
 
     @property
     def report_only(self) -> bool:
@@ -13175,7 +13187,7 @@ class ShardLoomContext:
         step: int = 1,
         column: str = "value",
     ) -> GeneratedRangeSource:
-        """Create a scoped source-free sequence for local output smokes."""
+        """Create a scoped source-free sequence for local output runtime."""
 
         return generated_sequence(
             start,
@@ -13189,7 +13201,7 @@ class ShardLoomContext:
         self,
         values_clause: object,
     ) -> GeneratedSqlSource:
-        """Create a scoped SQL VALUES generated source for local output smokes."""
+        """Create a scoped SQL VALUES generated source for local output runtime."""
 
         return generated_sql_values(
             values_clause,
@@ -13200,7 +13212,7 @@ class ShardLoomContext:
         self,
         expression: object,
     ) -> GeneratedSqlSource:
-        """Create a scoped SQL literal SELECT generated source for local output smokes."""
+        """Create a scoped SQL literal SELECT generated source for local output runtime."""
 
         return generated_sql_literal_select(
             expression,
@@ -13212,7 +13224,7 @@ class ShardLoomContext:
         *expressions: object,
         check: bool | None = None,
     ) -> GeneratedRowsSource:
-        """Create a scoped source-free literal projection for local output smokes."""
+        """Create a scoped source-free literal projection for local output runtime."""
 
         _ = check
         return generated_dataframe_source_free_projection(
@@ -14326,7 +14338,7 @@ def _write_foundry_style_dataset_metadata(
         "object_store_write_invoked": False,
         "fallback_attempted": False,
         "external_engine_invoked": False,
-        "claim_gate_status": "fixture_smoke_only",
+        "claim_gate_status": "not_claim_grade",
         "metadata": dict(metadata),
     }
     _write_text_workspace_safe(

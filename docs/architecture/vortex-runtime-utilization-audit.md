@@ -99,15 +99,15 @@ Vortex-first provider check:
   required per provider path before support claims.
 - Evidence added:
   report contracts, tests, and the GAR-0042A `vortex-api-inventory` source/split admission proof
-  for the scoped local Vortex scan fixture path. GAR-0042B also adds the
+  for the scoped local Vortex scan runtime path. GAR-0042B also adds the
   `shardloom.vortex_layout_device_managed_boundary.v1` matrix for layout/write, device execution,
-  object-store I/O, and managed-platform comparison boundaries. GAR-0003-A adds the
-  `shardloom.vortex_segment_extraction_admission.v1` sparse patch/fill segment extraction blocker
-  with deterministic diagnostics and no-fallback evidence requirements.
+  object-store I/O, and managed-platform comparison boundaries. GAR-0003-A now admits the
+  `shardloom.vortex_segment_extraction_admission.v1` local non-null sparse patch/fill extraction
+  path into encoded run-length kernel inputs with no-fallback evidence.
 - Gates still blocked:
-  generalized upstream Source/Split runtime, field-mask evidence, predicate-ordering evidence,
-  sparse segment extraction runtime, layout/write advisor evidence, object-store I/O metrics,
-  device residency, and trace-backed array execution layers.
+  remote/object-store/table Source/Split runtime, dynamic predicate-ordering evidence, nullable or
+  generalized sparse segment extraction runtime, layout/write advisor evidence, object-store I/O
+  metrics, device residency, and trace-backed array execution layers.
 - fallback_attempted=false:
   preserved.
 ```
@@ -153,7 +153,10 @@ SQL/DataFrame claim, or public performance claim.
 Vortex encoding/layout facts in ShardLoom kernel admission rows for bitpacked, sequence,
 dictionary, constant, sorted/statistics, and FSST/dictionary string cases where available. Current
 rows execute bitpacked, sequence, and constant filter inputs plus dictionary group-by inputs when
-those encodings are present in real prepared Vortex reader chunks. They separate `kernel_admitted`
+those encodings are present in real prepared Vortex reader chunks. FSST string-contains count and
+row-index helpers now have focused runtime evidence for Vortex's native `LikeKernel` without row
+materialization or fallback; broad dictionary/FSST grouped/top-K reuse remains separately gated.
+They separate `kernel_admitted`
 from `kernel_executed`, record canonicalization/decode/materialization boundaries,
 decoded-reference digest evidence, preserve validity semantics, and keep
 `encoded_native_claim_allowed=false` until end-to-end evidence passes.

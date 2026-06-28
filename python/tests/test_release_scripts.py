@@ -7732,8 +7732,8 @@ class ReleaseScriptTests(unittest.TestCase):
             "local_python_result_and_evidence_printed": True,
             "local_python_unsupported_path_evidence_printed": True,
             "generated_output_proof_distinct_from_no_dataset_smoke": True,
-            "generated_source_user_rows_smoke_performed": True,
-            "generated_source_range_smoke_performed": True,
+            "generated_source_user_rows_runtime_performed": True,
+            "generated_source_range_runtime_performed": True,
             "benchmark_smoke_required_for_package_release": False,
             "benchmark_smoke_status": "skipped_not_required_for_package_release",
             "provenance_dry_run_performed": True,
@@ -13095,7 +13095,7 @@ jobs:
                             emit("run", [
                                 {"key": "public_workflow_route_attached", "value": "true"},
                                 {"key": "public_workflow_route_id", "value": "generated_user_rows_direct_output"},
-                                {"key": "public_workflow_resolved_internal_command", "value": "generated-source-user-rows-smoke"},
+                                {"key": "public_workflow_resolved_internal_command", "value": "generated-source-user-rows"},
                                 {"key": "output_path", "value": str(output_path)},
                                 {"key": "output_format", "value": "jsonl"},
                                 {"key": "output_row_count", "value": "1"},
@@ -13145,11 +13145,11 @@ jobs:
                         }], returncode=1)
                     if args[0] == "local-source-runtime":
                         raise AssertionError("public local quickstart must not use local-source-runtime")
-                    if args[0] == "generated-source-user-rows-smoke":
+                    if args[0] == "generated-source-user-rows":
                         output_path = Path(args[1])
                         output_path.parent.mkdir(parents=True, exist_ok=True)
                         output_path.write_text('{"id":1,"label":"alpha","batch_id":1}\\n', encoding="utf-8")
-                        emit("generated-source-user-rows-smoke", [
+                        emit("generated-source-user-rows", [
                             {"key": "output_path", "value": str(output_path)},
                             {"key": "output_format", "value": "jsonl"},
                             {"key": "generated_source_kind", "value": "user_rows"},
@@ -13491,7 +13491,7 @@ jobs:
             "docs/release/release-dry-run-proof.md": (
                 "clean virtual environment\n"
                 "local_python_user_surface_quickstart_performed=true\n"
-                "generated_source_user_rows_smoke_performed=true\n"
+                "generated_source_user_rows_runtime_performed=true\n"
                 "benchmark_smoke_required_for_package_release=false\n"
             ),
             "docs/release/production-usability-gate.md": (
@@ -13609,8 +13609,8 @@ jobs:
                 "local_python_result_and_evidence_printed": True,
                 "local_python_unsupported_path_evidence_printed": True,
                 "generated_output_proof_distinct_from_no_dataset_smoke": True,
-                "generated_source_user_rows_smoke_performed": True,
-                "generated_source_range_smoke_performed": True,
+                "generated_source_user_rows_runtime_performed": True,
+                "generated_source_range_runtime_performed": True,
                 "benchmark_smoke_required_for_package_release": False,
                 "benchmark_smoke_status": "skipped_not_required_for_package_release",
                 "provenance_dry_run_performed": True,
@@ -13800,15 +13800,15 @@ jobs:
             "local_python_result_and_evidence_printed": True,
             "local_python_unsupported_path_evidence_printed": True,
             "generated_output_proof_distinct_from_no_dataset_smoke": True,
-            "generated_source_user_rows_smoke_performed": True,
-            "generated_source_range_smoke_performed": True,
+            "generated_source_user_rows_runtime_performed": True,
+            "generated_source_range_runtime_performed": True,
             "steps": [
                 {"name": name, "returncode": 0}
                 for name in module.REQUIRED_DRY_RUN_STEPS
             ],
         }
 
-    def test_python_user_surface_completion_gate_accepts_scoped_evidence(self) -> None:
+    def test_python_user_surface_completion_gate_accepts_admitted_runtime_evidence(self) -> None:
         module = self._load_script_module(
             "check_python_user_surface_completion.py",
             "check_python_user_surface_completion_for_test",
@@ -13836,7 +13836,7 @@ jobs:
         self.assertFalse(report["external_engine_invoked"])
         self.assertIn("GAR-USER-SURFACE-1D", report["covered_phase_items"])
         by_id = {row["row_id"]: row for row in report["completion_matrix"]}
-        self.assertEqual(by_id["ctx_sql"]["status"], "scoped_runtime_row_present")
+        self.assertEqual(by_id["ctx_sql"]["status"], "admitted_runtime_row_present")
         self.assertEqual(
             by_id["unsupported_paths"]["status"],
             "deterministic_blockers_present",
@@ -13876,7 +13876,7 @@ jobs:
         self.assertIn("melt", by_method)
         self.assertIn("rolling", by_method)
         self.assertEqual(by_method["filter"]["support_status"], "lazy_plan_supported")
-        self.assertEqual(by_method["from_rows"]["support_status"], "fixture_smoke_supported")
+        self.assertEqual(by_method["from_rows"]["support_status"], "runtime-supported")
         self.assertEqual(
             by_method["to_pandas"]["support_status"],
             "optional_dependency_container_supported",
@@ -13887,7 +13887,7 @@ jobs:
         )
         self.assertEqual(
             by_method["rename"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIsNone(by_method["rename"]["diagnostic_operation"])
         self.assertIn(
@@ -13896,7 +13896,7 @@ jobs:
         )
         self.assertEqual(
             by_method["drop"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "projection_rewrite_semantics",
@@ -13930,12 +13930,12 @@ jobs:
         )
         self.assertEqual(
             by_method["merge"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn("join_operator_capability", by_method["merge"]["required_evidence"])
         self.assertEqual(
             by_method["concat"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "schema_alignment_contract",
@@ -13943,12 +13943,12 @@ jobs:
         )
         self.assertEqual(
             by_method["nunique"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn("distinct_count_semantics", by_method["nunique"]["required_evidence"])
         self.assertEqual(
             by_method["value_counts"]["support_status"],
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "grouped_count_semantics",

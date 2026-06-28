@@ -1,6 +1,6 @@
-//! Scoped generated-source runtime smoke handlers.
+//! Generated-source local-output runtime handlers.
 //!
-//! This module implements deliberately narrow local generated-output smokes. It
+//! This module implements local generated-output runtime. It
 //! accepts either rows already supplied by the user/API layer or narrow
 //! ShardLoom-native integer generators, writes local sinks, and emits
 //! generated-source/output evidence. Default builds admit JSONL/CSV sinks; flat
@@ -30,8 +30,8 @@ use crate::{
     cli_unknown_arg_error,
 };
 
-const USER_ROWS_COMMAND: &str = "generated-source-user-rows-smoke";
-const USER_ROWS_SCHEMA_VERSION: &str = "shardloom.generated_source_user_rows_smoke.v1";
+const USER_ROWS_COMMAND: &str = "generated-source-user-rows";
+const USER_ROWS_SCHEMA_VERSION: &str = "shardloom.generated_source_user_rows_runtime.v1";
 const USER_ROWS_GENERATED_SOURCE_CERTIFICATE_ID: &str =
     "generated-source.user-rows.local-output.v1";
 const USER_ROWS_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
@@ -39,14 +39,14 @@ const USER_ROWS_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
 const USER_ROWS_EXECUTION_CERTIFICATE_ID: &str =
     "generated-source.user-rows.local-output.execution.v1";
 
-const RANGE_COMMAND: &str = "generated-source-range-smoke";
-const RANGE_SCHEMA_VERSION: &str = "shardloom.generated_source_range_smoke.v1";
+const RANGE_COMMAND: &str = "generated-source-range";
+const RANGE_SCHEMA_VERSION: &str = "shardloom.generated_source_range_runtime.v1";
 const RANGE_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.range.local-output.v1";
 const RANGE_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
     "generated-source.range.local-output.native-io.v1";
 const RANGE_EXECUTION_CERTIFICATE_ID: &str = "generated-source.range.local-output.execution.v1";
-const SEQUENCE_COMMAND: &str = "generated-source-sequence-smoke";
-const SEQUENCE_SCHEMA_VERSION: &str = "shardloom.generated_source_sequence_smoke.v1";
+const SEQUENCE_COMMAND: &str = "generated-source-sequence";
+const SEQUENCE_SCHEMA_VERSION: &str = "shardloom.generated_source_sequence_runtime.v1";
 const SEQUENCE_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.sequence.local-output.v1";
 const SEQUENCE_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
     "generated-source.sequence.local-output.native-io.v1";
@@ -54,8 +54,8 @@ const SEQUENCE_EXECUTION_CERTIFICATE_ID: &str =
     "generated-source.sequence.local-output.execution.v1";
 const MAX_GENERATED_RANGE_ROWS: usize = 1_000_000;
 
-const SQL_COMMAND: &str = "generated-source-sql-smoke";
-const SQL_SCHEMA_VERSION: &str = "shardloom.generated_source_sql_smoke.v1";
+const SQL_COMMAND: &str = "generated-source-sql";
+const SQL_SCHEMA_VERSION: &str = "shardloom.generated_source_sql_runtime.v1";
 const SQL_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.sql.local-output.v1";
 const SQL_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str = "generated-source.sql.local-output.native-io.v1";
 const SQL_EXECUTION_CERTIFICATE_ID: &str = "generated-source.sql.local-output.execution.v1";
@@ -111,14 +111,14 @@ impl UserRowsGeneratedSourceKind {
 
     const fn claim_gate_reason(self) -> &'static str {
         match self {
-            Self::UserRows => "one_scoped_local_user_rows_generated_output_smoke",
-            Self::LiteralTable => "one_scoped_local_literal_table_generated_output_smoke",
-            Self::Calendar => "one_scoped_local_calendar_generated_output_smoke",
+            Self::UserRows => "scoped_local_user_rows_generated_output_runtime",
+            Self::LiteralTable => "scoped_local_literal_table_generated_output_runtime",
+            Self::Calendar => "scoped_local_calendar_generated_output_runtime",
             Self::DataFrameProjection => {
-                "one_scoped_local_dataframe_source_free_projection_generated_output_smoke"
+                "scoped_local_dataframe_source_free_projection_generated_output_runtime"
             }
             Self::DataFrameGeneratedWithColumn => {
-                "one_scoped_local_dataframe_generated_with_column_generated_output_smoke"
+                "scoped_local_dataframe_generated_with_column_generated_output_runtime"
             }
         }
     }
@@ -146,7 +146,7 @@ impl GeneratedOutputFormat {
             "orc" => Ok(Self::Orc),
             "vortex" | "vtx" => Ok(Self::Vortex),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported generated-source output format {other:?}; scoped generated-source smokes support local JSONL/CSV plus feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex only"
+                "unsupported generated-source output format {other:?}; generated-source runtime supports local JSONL/CSV plus feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex only"
             ))),
         }
     }
@@ -469,8 +469,8 @@ impl RangeGeneratedSourceKind {
 
     const fn claim_gate_reason(self) -> &'static str {
         match self {
-            Self::Range => "one_scoped_local_range_generated_output_smoke",
-            Self::Sequence => "one_scoped_local_sequence_generated_output_smoke",
+            Self::Range => "scoped_local_range_generated_output_runtime",
+            Self::Sequence => "scoped_local_sequence_generated_output_runtime",
         }
     }
 
@@ -509,10 +509,10 @@ impl SqlGeneratedSourceKind {
 
     const fn claim_gate_reason(self) -> &'static str {
         match self {
-            Self::LiteralSelect => "one_scoped_local_sql_literal_select_generated_output_smoke",
-            Self::Values => "one_scoped_local_sql_values_generated_output_smoke",
+            Self::LiteralSelect => "scoped_local_sql_literal_select_generated_output_runtime",
+            Self::Values => "scoped_local_sql_values_generated_output_runtime",
             Self::GenerateSeriesRange => {
-                "one_scoped_local_sql_generate_series_range_generated_output_smoke"
+                "scoped_local_sql_generate_series_range_generated_output_runtime"
             }
         }
     }
@@ -656,15 +656,20 @@ struct GeneratedSqlSmokeReport {
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn handle_generated_source_user_rows_smoke(
+pub(crate) fn handle_generated_source_user_rows_runtime(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    handle_generated_source_user_rows_smoke_with_facade(args, format, USER_ROWS_COMMAND, Vec::new())
+    handle_generated_source_user_rows_runtime_with_facade(
+        args,
+        format,
+        USER_ROWS_COMMAND,
+        Vec::new(),
+    )
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
+pub(crate) fn handle_generated_source_user_rows_runtime_with_facade(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
     emit_command: &'static str,
@@ -680,9 +685,9 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
         return emit_error(
             emit_command,
             format,
-            "generated-source smoke failed",
+            "generated-source runtime failed",
             &ShardLoomError::InvalidOperation(
-                "generated-source user rows smoke requires a schema argument".to_string(),
+                "generated-source user rows runtime requires a schema argument".to_string(),
             ),
         );
     };
@@ -690,9 +695,9 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
         return emit_error(
             emit_command,
             format,
-            "generated-source smoke failed",
+            "generated-source runtime failed",
             &ShardLoomError::InvalidOperation(
-                "generated-source user rows smoke requires a rows argument".to_string(),
+                "generated-source user rows runtime requires a rows argument".to_string(),
             ),
         );
     };
@@ -708,7 +713,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "generated-source smoke failed",
+                        "generated-source runtime failed",
                         &ShardLoomError::InvalidOperation(
                             "--output-format requires a value".to_string(),
                         ),
@@ -720,7 +725,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "generated-source smoke failed",
+                            "generated-source runtime failed",
                             &error,
                         );
                     }
@@ -731,7 +736,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "generated-source smoke failed",
+                        "generated-source runtime failed",
                         &ShardLoomError::InvalidOperation(
                             "--fanout-output requires format=local-path".to_string(),
                         ),
@@ -743,7 +748,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "generated-source smoke failed",
+                            "generated-source runtime failed",
                             &error,
                         );
                     }
@@ -754,7 +759,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "generated-source smoke failed",
+                        "generated-source runtime failed",
                         &ShardLoomError::InvalidOperation(
                             "--source-kind requires a value".to_string(),
                         ),
@@ -766,7 +771,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "generated-source smoke failed",
+                            "generated-source runtime failed",
                             &error,
                         );
                     }
@@ -777,7 +782,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
                 return emit_error(
                     emit_command,
                     format,
-                    "generated-source smoke failed",
+                    "generated-source runtime failed",
                     &cli_unknown_arg_error(USER_ROWS_COMMAND, extra),
                 );
             }
@@ -798,7 +803,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
             return emit_error(
                 emit_command,
                 format,
-                "generated-source smoke failed",
+                "generated-source runtime failed",
                 &error,
             );
         }
@@ -810,7 +815,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
             return emit_error(
                 emit_command,
                 format,
-                "generated-source smoke failed",
+                "generated-source runtime failed",
                 &error,
             );
         }
@@ -824,7 +829,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
         format,
         CommandStatus::Success,
         format!(
-            "generated user rows local-output smoke wrote {} row(s)",
+            "generated user rows local-output runtime wrote {} row(s)",
             report.rows.len()
         ),
         report.to_text(),
@@ -835,27 +840,27 @@ pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn handle_generated_source_range_smoke(
+pub(crate) fn handle_generated_source_range_runtime(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    handle_generated_source_range_smoke_with_facade(args, format, RANGE_COMMAND, Vec::new())
+    handle_generated_source_range_runtime_with_facade(args, format, RANGE_COMMAND, Vec::new())
 }
 
-pub(crate) fn handle_generated_source_sequence_smoke(
+pub(crate) fn handle_generated_source_sequence_runtime(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    handle_generated_source_sequence_smoke_with_facade(args, format, SEQUENCE_COMMAND, Vec::new())
+    handle_generated_source_sequence_runtime_with_facade(args, format, SEQUENCE_COMMAND, Vec::new())
 }
 
-pub(crate) fn handle_generated_source_range_smoke_with_facade(
+pub(crate) fn handle_generated_source_range_runtime_with_facade(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
-    handle_generated_source_range_like_smoke(
+    handle_generated_source_range_like_runtime(
         args,
         format,
         RangeGeneratedSourceKind::Range,
@@ -864,13 +869,13 @@ pub(crate) fn handle_generated_source_range_smoke_with_facade(
     )
 }
 
-pub(crate) fn handle_generated_source_sequence_smoke_with_facade(
+pub(crate) fn handle_generated_source_sequence_runtime_with_facade(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
-    handle_generated_source_range_like_smoke(
+    handle_generated_source_range_like_runtime(
         args,
         format,
         RangeGeneratedSourceKind::Sequence,
@@ -880,7 +885,7 @@ pub(crate) fn handle_generated_source_sequence_smoke_with_facade(
 }
 
 #[allow(clippy::too_many_lines)]
-fn handle_generated_source_range_like_smoke(
+fn handle_generated_source_range_like_runtime(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
     source_kind: RangeGeneratedSourceKind,
@@ -899,9 +904,9 @@ fn handle_generated_source_range_like_smoke(
         return emit_error(
             emit_command,
             format,
-            &format!("generated-source {noun} smoke failed"),
+            &format!("generated-source {noun} runtime failed"),
             &ShardLoomError::InvalidOperation(format!(
-                "generated-source {noun} smoke requires a start argument"
+                "generated-source {noun} runtime requires a start argument"
             )),
         );
     };
@@ -909,9 +914,9 @@ fn handle_generated_source_range_like_smoke(
         return emit_error(
             emit_command,
             format,
-            &format!("generated-source {noun} smoke failed"),
+            &format!("generated-source {noun} runtime failed"),
             &ShardLoomError::InvalidOperation(format!(
-                "generated-source {noun} smoke requires an end argument"
+                "generated-source {noun} runtime requires an end argument"
             )),
         );
     };
@@ -928,7 +933,7 @@ fn handle_generated_source_range_like_smoke(
                     return emit_error(
                         emit_command,
                         format,
-                        &format!("generated-source {noun} smoke failed"),
+                        &format!("generated-source {noun} runtime failed"),
                         &ShardLoomError::InvalidOperation(
                             "--output-format requires a value".to_string(),
                         ),
@@ -940,7 +945,7 @@ fn handle_generated_source_range_like_smoke(
                         return emit_error(
                             emit_command,
                             format,
-                            &format!("generated-source {noun} smoke failed"),
+                            &format!("generated-source {noun} runtime failed"),
                             &error,
                         );
                     }
@@ -951,7 +956,7 @@ fn handle_generated_source_range_like_smoke(
                     return emit_error(
                         emit_command,
                         format,
-                        &format!("generated-source {noun} smoke failed"),
+                        &format!("generated-source {noun} runtime failed"),
                         &ShardLoomError::InvalidOperation(
                             "--fanout-output requires format=local-path".to_string(),
                         ),
@@ -963,7 +968,7 @@ fn handle_generated_source_range_like_smoke(
                         return emit_error(
                             emit_command,
                             format,
-                            &format!("generated-source {noun} smoke failed"),
+                            &format!("generated-source {noun} runtime failed"),
                             &error,
                         );
                     }
@@ -975,7 +980,7 @@ fn handle_generated_source_range_like_smoke(
                     return emit_error(
                         emit_command,
                         format,
-                        &format!("generated-source {noun} smoke failed"),
+                        &format!("generated-source {noun} runtime failed"),
                         &ShardLoomError::InvalidOperation("--step requires a value".to_string()),
                     );
                 };
@@ -985,7 +990,7 @@ fn handle_generated_source_range_like_smoke(
                         return emit_error(
                             emit_command,
                             format,
-                            &format!("generated-source {noun} smoke failed"),
+                            &format!("generated-source {noun} runtime failed"),
                             &error,
                         );
                     }
@@ -996,7 +1001,7 @@ fn handle_generated_source_range_like_smoke(
                     return emit_error(
                         command,
                         format,
-                        &format!("generated-source {noun} smoke failed"),
+                        &format!("generated-source {noun} runtime failed"),
                         &ShardLoomError::InvalidOperation("--column requires a value".to_string()),
                     );
                 };
@@ -1006,7 +1011,7 @@ fn handle_generated_source_range_like_smoke(
                         return emit_error(
                             command,
                             format,
-                            &format!("generated-source {noun} smoke failed"),
+                            &format!("generated-source {noun} runtime failed"),
                             &ShardLoomError::InvalidOperation(format!(
                                 "generated-source {noun} column must not be empty"
                             )),
@@ -1016,7 +1021,7 @@ fn handle_generated_source_range_like_smoke(
                         return emit_error(
                             command,
                             format,
-                            &format!("generated-source {noun} smoke failed"),
+                            &format!("generated-source {noun} runtime failed"),
                             &error,
                         );
                     }
@@ -1026,7 +1031,7 @@ fn handle_generated_source_range_like_smoke(
                 return emit_error(
                     emit_command,
                     format,
-                    &format!("generated-source {noun} smoke failed"),
+                    &format!("generated-source {noun} runtime failed"),
                     &cli_unknown_arg_error(command, extra),
                 );
             }
@@ -1039,7 +1044,7 @@ fn handle_generated_source_range_like_smoke(
             return emit_error(
                 command,
                 format,
-                &format!("generated-source {noun} smoke failed"),
+                &format!("generated-source {noun} runtime failed"),
                 &error,
             );
         }
@@ -1050,7 +1055,7 @@ fn handle_generated_source_range_like_smoke(
             return emit_error(
                 command,
                 format,
-                &format!("generated-source {noun} smoke failed"),
+                &format!("generated-source {noun} runtime failed"),
                 &error,
             );
         }
@@ -1071,7 +1076,7 @@ fn handle_generated_source_range_like_smoke(
             return emit_error(
                 emit_command,
                 format,
-                &format!("generated-source {noun} smoke failed"),
+                &format!("generated-source {noun} runtime failed"),
                 &error,
             );
         }
@@ -1083,7 +1088,7 @@ fn handle_generated_source_range_like_smoke(
             return emit_error(
                 emit_command,
                 format,
-                &format!("generated-source {noun} smoke failed"),
+                &format!("generated-source {noun} runtime failed"),
                 &error,
             );
         }
@@ -1108,15 +1113,15 @@ fn handle_generated_source_range_like_smoke(
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn handle_generated_source_sql_smoke(
+pub(crate) fn handle_generated_source_sql_runtime(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    handle_generated_source_sql_smoke_with_facade(args, format, SQL_COMMAND, Vec::new())
+    handle_generated_source_sql_runtime_with_facade(args, format, SQL_COMMAND, Vec::new())
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn handle_generated_source_sql_smoke_with_facade(
+pub(crate) fn handle_generated_source_sql_runtime_with_facade(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
     emit_command: &'static str,
@@ -1132,9 +1137,9 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
         return emit_error(
             emit_command,
             format,
-            "generated-source SQL smoke failed",
+            "generated-source SQL runtime failed",
             &ShardLoomError::InvalidOperation(
-                "generated-source SQL smoke requires a SQL statement argument".to_string(),
+                "generated-source SQL runtime requires a SQL statement argument".to_string(),
             ),
         );
     };
@@ -1149,7 +1154,7 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "generated-source SQL smoke failed",
+                        "generated-source SQL runtime failed",
                         &ShardLoomError::InvalidOperation(
                             "--output-format requires a value".to_string(),
                         ),
@@ -1161,7 +1166,7 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "generated-source SQL smoke failed",
+                            "generated-source SQL runtime failed",
                             &error,
                         );
                     }
@@ -1172,7 +1177,7 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
                     return emit_error(
                         emit_command,
                         format,
-                        "generated-source SQL smoke failed",
+                        "generated-source SQL runtime failed",
                         &ShardLoomError::InvalidOperation(
                             "--fanout-output requires format=local-path".to_string(),
                         ),
@@ -1184,7 +1189,7 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "generated-source SQL smoke failed",
+                            "generated-source SQL runtime failed",
                             &error,
                         );
                     }
@@ -1195,7 +1200,7 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
                 return emit_error(
                     emit_command,
                     format,
-                    "generated-source SQL smoke failed",
+                    "generated-source SQL runtime failed",
                     &cli_unknown_arg_error(SQL_COMMAND, extra),
                 );
             }
@@ -1214,7 +1219,7 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
             return emit_error(
                 emit_command,
                 format,
-                "generated-source SQL smoke failed",
+                "generated-source SQL runtime failed",
                 &error,
             );
         }
@@ -1226,7 +1231,7 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
             return emit_error(
                 emit_command,
                 format,
-                "generated-source SQL smoke failed",
+                "generated-source SQL runtime failed",
                 &error,
             );
         }
@@ -1239,7 +1244,7 @@ pub(crate) fn handle_generated_source_sql_smoke_with_facade(
         format,
         CommandStatus::Success,
         format!(
-            "generated SQL source-free local-output smoke wrote {} row(s)",
+            "generated SQL source-free local-output runtime wrote {} row(s)",
             report.rows.len()
         ),
         report.to_text(),
@@ -1264,7 +1269,7 @@ impl GeneratedUserRowsSmokeRequest {
         let rows = parse_rows(rows_raw, &schema)?;
         if rows.is_empty() {
             return Err(ShardLoomError::InvalidOperation(
-                "generated-source user rows smoke requires at least one row".to_string(),
+                "generated-source user rows runtime requires at least one row".to_string(),
             ));
         }
         validate_user_rows_source_kind_shape(source_kind, &schema, &rows)?;
@@ -1289,7 +1294,7 @@ impl GeneratedUserRowsSmokeReport {
                 USER_ROWS_SCHEMA_VERSION.to_string(),
             ),
             (
-                "generated_source_smoke_report_id".to_string(),
+                "generated_source_runtime_report_id".to_string(),
                 USER_ROWS_GENERATED_SOURCE_CERTIFICATE_ID.to_string(),
             ),
             (
@@ -1385,7 +1390,7 @@ impl GeneratedUserRowsSmokeReport {
             ("external_engine_invoked".to_string(), "false".to_string()),
             (
                 "claim_gate_status".to_string(),
-                "fixture_smoke_only".to_string(),
+                "not_claim_grade".to_string(),
             ),
             (
                 "claim_gate_reason".to_string(),
@@ -1432,7 +1437,7 @@ impl GeneratedUserRowsSmokeReport {
 
     fn to_text(&self) -> String {
         format!(
-            "generated-source user rows smoke\nschema_version: {USER_ROWS_SCHEMA_VERSION}\ngenerated_source_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "generated-source user rows runtime\nschema_version: {USER_ROWS_SCHEMA_VERSION}\ngenerated_source_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: not_claim_grade",
             self.source_kind.as_str(),
             canonical_schema(&self.schema),
             self.rows.len(),
@@ -1472,7 +1477,7 @@ impl GeneratedRangeSmokeRequest {
         let row_count = range_row_count(start, end, step)?;
         if row_count > MAX_GENERATED_RANGE_ROWS {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "generated-source range row count {row_count} exceeds scoped smoke limit {MAX_GENERATED_RANGE_ROWS}"
+                "generated-source range row count {row_count} exceeds runtime row limit {MAX_GENERATED_RANGE_ROWS}"
             )));
         }
         Ok(Self {
@@ -1498,7 +1503,7 @@ impl GeneratedRangeSmokeReport {
                 self.source_kind.schema_version().to_string(),
             ),
             (
-                "generated_source_smoke_report_id".to_string(),
+                "generated_source_runtime_report_id".to_string(),
                 self.source_kind
                     .generated_source_certificate_id()
                     .to_string(),
@@ -1616,7 +1621,7 @@ impl GeneratedRangeSmokeReport {
             ("external_engine_invoked".to_string(), "false".to_string()),
             (
                 "claim_gate_status".to_string(),
-                "fixture_smoke_only".to_string(),
+                "not_claim_grade".to_string(),
             ),
             (
                 "claim_gate_reason".to_string(),
@@ -1663,7 +1668,7 @@ impl GeneratedRangeSmokeReport {
 
     fn to_text(&self) -> String {
         format!(
-            "generated-source {} smoke\nschema_version: {}\n{}: {}..{} step {}\ncolumn: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "generated-source {} runtime\nschema_version: {}\n{}: {}..{} step {}\ncolumn: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: not_claim_grade",
             self.source_kind.summary_noun(),
             self.source_kind.schema_version(),
             self.source_kind.summary_noun(),
@@ -1691,12 +1696,12 @@ impl GeneratedSqlSmokeRequest {
         let parsed = parse_source_free_sql(statement_raw)?;
         if parsed.rows.is_empty() {
             return Err(ShardLoomError::InvalidOperation(
-                "generated-source SQL smoke produced no rows; scoped SQL smokes require at least one row".to_string(),
+                "generated-source SQL runtime produced no rows; source-free SQL runtime requires at least one row".to_string(),
             ));
         }
         if parsed.rows.len() > MAX_SQL_GENERATED_ROWS {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "generated-source SQL row count {} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}",
+                "generated-source SQL row count {} exceeds runtime row limit {MAX_SQL_GENERATED_ROWS}",
                 parsed.rows.len()
             )));
         }
@@ -1724,7 +1729,7 @@ impl GeneratedSqlSmokeReport {
         let mut fields = vec![
             ("schema_version".to_string(), SQL_SCHEMA_VERSION.to_string()),
             (
-                "generated_source_smoke_report_id".to_string(),
+                "generated_source_runtime_report_id".to_string(),
                 SQL_GENERATED_SOURCE_CERTIFICATE_ID.to_string(),
             ),
             (
@@ -1829,14 +1834,14 @@ impl GeneratedSqlSmokeReport {
             ("external_engine_invoked".to_string(), "false".to_string()),
             (
                 "claim_gate_status".to_string(),
-                "fixture_smoke_only".to_string(),
+                "not_claim_grade".to_string(),
             ),
             (
                 "claim_gate_reason".to_string(),
                 self.source_kind.claim_gate_reason().to_string(),
             ),
             (
-                "sql_source_free_runtime_smoke_supported".to_string(),
+                "sql_source_free_runtime_supported".to_string(),
                 "true".to_string(),
             ),
             (
@@ -2000,7 +2005,7 @@ impl GeneratedSqlSmokeReport {
 
     fn to_text(&self) -> String {
         format!(
-            "generated-source SQL smoke\nschema_version: {SQL_SCHEMA_VERSION}\nsql_statement_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "generated-source SQL runtime\nschema_version: {SQL_SCHEMA_VERSION}\nsql_statement_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: not_claim_grade",
             self.source_kind.as_str(),
             canonical_schema(&self.schema),
             self.rows.len(),
@@ -3533,7 +3538,7 @@ fn generated_range_rows(
     let row_count = range_row_count(start, end, step)?;
     if row_count > MAX_GENERATED_RANGE_ROWS {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "generated-source range row count {row_count} exceeds scoped smoke limit {MAX_GENERATED_RANGE_ROWS}"
+            "generated-source range row count {row_count} exceeds runtime row limit {MAX_GENERATED_RANGE_ROWS}"
         )));
     }
     let mut rows = Vec::with_capacity(row_count);
@@ -3577,7 +3582,7 @@ fn parse_source_free_sql(raw: &str) -> Result<ParsedSourceFreeSql, ShardLoomErro
         parse_sql_values(&statement)
     } else {
         Err(unsupported_sql_error(
-            "source-free SQL smoke supports only SELECT literal expressions, VALUES clauses, and SELECT * FROM generate_series/range(...)",
+            "source-free SQL runtime supports only SELECT literal expressions, VALUES clauses, and SELECT * FROM generate_series/range(...)",
         ))
     }
 }
@@ -3591,12 +3596,12 @@ fn parse_sql_literal_select(statement: &str) -> Result<ParsedSourceFreeSql, Shar
     }
     if contains_keyword_outside_quotes(select_list, "FROM") {
         return Err(unsupported_sql_error(
-            "SQL literal SELECT smoke does not admit FROM clauses or input datasets",
+            "SQL literal SELECT runtime does not admit FROM clauses or input datasets",
         ));
     }
     if contains_outside_quotes(select_list, '(') || contains_outside_quotes(select_list, ')') {
         return Err(unsupported_sql_error(
-            "SQL literal SELECT smoke does not admit functions, subqueries, or parenthesized expressions",
+            "SQL literal SELECT runtime does not admit functions, subqueries, or parenthesized expressions",
         ));
     }
 
@@ -3642,18 +3647,18 @@ fn parse_sql_values(statement: &str) -> Result<ParsedSourceFreeSql, ShardLoomErr
     let values_body = statement["VALUES".len()..].trim();
     if values_body.is_empty() {
         return Err(unsupported_sql_error(
-            "SQL VALUES smoke requires at least one row tuple",
+            "SQL VALUES runtime requires at least one row tuple",
         ));
     }
     let raw_rows = parse_values_tuples(values_body)?;
     if raw_rows.is_empty() {
         return Err(unsupported_sql_error(
-            "SQL VALUES smoke requires at least one row tuple",
+            "SQL VALUES runtime requires at least one row tuple",
         ));
     }
     if raw_rows.len() > MAX_SQL_GENERATED_ROWS {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "generated-source SQL row count {} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}",
+            "generated-source SQL row count {} exceeds runtime row limit {MAX_SQL_GENERATED_ROWS}",
             raw_rows.len()
         )));
     }
@@ -3865,7 +3870,7 @@ fn generated_sql_range_rows(
         let row_count = range_row_count(range.start, range.end, range.step)?;
         if row_count > MAX_SQL_GENERATED_ROWS {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "generated-source SQL row count {row_count} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}"
+                "generated-source SQL row count {row_count} exceeds runtime row limit {MAX_SQL_GENERATED_ROWS}"
             )));
         }
         generated_range_rows(range.start, range.end, range.step)
@@ -3904,7 +3909,7 @@ fn limit_sql_range_rows(
     };
     if count > MAX_SQL_GENERATED_ROWS {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "generated-source SQL LIMIT {count} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}"
+            "generated-source SQL LIMIT {count} exceeds runtime row limit {MAX_SQL_GENERATED_ROWS}"
         )));
     }
     rows.truncate(count);
@@ -4505,7 +4510,7 @@ fn generated_inclusive_series_rows(
     loop {
         if rows.len() >= MAX_SQL_GENERATED_ROWS {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "generated-source SQL row count exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}"
+                "generated-source SQL row count exceeds runtime row limit {MAX_SQL_GENERATED_ROWS}"
             )));
         }
         rows.push(GeneratedRow {
@@ -4560,7 +4565,7 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
     }
     if semicolon_positions.len() > 1 {
         return Err(unsupported_sql_error(
-            "generated-source SQL smoke accepts only one statement",
+            "generated-source SQL runtime accepts only one statement",
         ));
     }
     if let Some(position) = semicolon_positions.first().copied() {
@@ -4568,7 +4573,7 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
             Ok(trimmed[..position].trim().to_string())
         } else {
             Err(unsupported_sql_error(
-                "generated-source SQL smoke rejects multiple statements",
+                "generated-source SQL runtime rejects multiple statements",
             ))
         }
     } else {
@@ -4663,7 +4668,7 @@ fn parse_values_tuples(raw: &str) -> Result<Vec<Vec<String>>, ShardLoomError> {
         }
         if bytes[index] != b'(' {
             return Err(unsupported_sql_error(
-                "SQL VALUES smoke expects row tuples like VALUES (1, 'a'), (2, 'b')",
+                "SQL VALUES runtime expects row tuples like VALUES (1, 'a'), (2, 'b')",
             ));
         }
         index += 1;
@@ -4681,7 +4686,7 @@ fn parse_values_tuples(raw: &str) -> Result<Vec<Vec<String>>, ShardLoomError> {
                 b')' if !in_quote => break,
                 b'(' if !in_quote => {
                     return Err(unsupported_sql_error(
-                        "SQL VALUES smoke does not admit nested expressions or subqueries",
+                        "SQL VALUES runtime does not admit nested expressions or subqueries",
                     ));
                 }
                 _ => {}
@@ -4690,7 +4695,7 @@ fn parse_values_tuples(raw: &str) -> Result<Vec<Vec<String>>, ShardLoomError> {
         }
         if index >= bytes.len() || in_quote {
             return Err(unsupported_sql_error(
-                "SQL VALUES smoke has an unterminated row tuple or string literal",
+                "SQL VALUES runtime has an unterminated row tuple or string literal",
             ));
         }
         let row_body = raw[start..index].trim();
@@ -4707,7 +4712,7 @@ fn parse_values_tuples(raw: &str) -> Result<Vec<Vec<String>>, ShardLoomError> {
         if index < bytes.len() {
             if bytes[index] != b',' {
                 return Err(unsupported_sql_error(
-                    "SQL VALUES smoke expects commas between row tuples",
+                    "SQL VALUES runtime expects commas between row tuples",
                 ));
             }
             index += 1;
@@ -4791,7 +4796,7 @@ fn parse_sql_literal(raw: &str) -> Result<(GeneratedValueType, String), ShardLoo
     }
     if text.eq_ignore_ascii_case("null") {
         return Err(unsupported_sql_error(
-            "SQL NULL literals are not admitted in the first source-free smoke; null semantics are tracked by the operator-semantics slice",
+            "SQL NULL literals are not admitted in the first source-free runtime; null semantics are tracked by the operator-semantics slice",
         ));
     }
     if !text.contains('.')
@@ -4807,7 +4812,7 @@ fn parse_sql_literal(raw: &str) -> Result<(GeneratedValueType, String), ShardLoo
         return Ok((GeneratedValueType::Float64, value.to_string()));
     }
     Err(unsupported_sql_error(
-        "SQL source-free smoke admits only int64, finite float64, bool, and single-quoted utf8 literals",
+        "SQL source-free runtime admits only int64, finite float64, bool, and single-quoted utf8 literals",
     ))
 }
 
@@ -4848,7 +4853,7 @@ fn unify_sql_value_type(
             Ok(GeneratedValueType::Float64)
         }
         _ => Err(unsupported_sql_error(
-            "SQL VALUES smoke requires each column to have a single compatible literal type",
+            "SQL VALUES runtime requires each column to have a single compatible literal type",
         )),
     }
 }
@@ -4987,7 +4992,7 @@ fn normalize_local_output_path(value: &str) -> Result<PathBuf, ShardLoomError> {
     }
     if trimmed.contains("://") && !trimmed.starts_with("file://") {
         return Err(ShardLoomError::InvalidOperation(
-            "scoped generated-source smokes support local file output only; object-store and remote URI writes remain blocked".to_string(),
+            "scoped generated-source runtime supports local file output only; object-store and remote URI writes remain blocked".to_string(),
         ));
     }
     let local = if let Some(rest) = trimmed.strip_prefix("file://") {

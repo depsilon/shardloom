@@ -112,7 +112,7 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
   ```
 - **Equivalent CLI:**
   ```powershell
-  shardloom generated-source-user-rows-smoke target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --allow-overwrite --format json
+  shardloom generated-source-user-rows target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --allow-overwrite --format json
   ```
 - **Range example:**
   ```powershell
@@ -121,7 +121,7 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
   ```
 - **Range CLI:**
   ```powershell
-  shardloom generated-source-range-smoke target\generated-range.jsonl 0 5 --column id --allow-overwrite --format json
+  shardloom generated-source-range target\generated-range.jsonl 0 5 --column id --allow-overwrite --format json
   ```
 - **Sequence example:**
   ```powershell
@@ -130,7 +130,7 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
   ```
 - **Sequence CLI:**
   ```powershell
-  shardloom generated-source-sequence-smoke target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
+  shardloom generated-source-sequence target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
   ```
 - **Literal-table example:**
   ```powershell

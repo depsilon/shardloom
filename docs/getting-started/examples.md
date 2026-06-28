@@ -262,7 +262,7 @@ python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 5
 Equivalent CLI command:
 
 ```powershell
-shardloom generated-source-sequence-smoke target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
+shardloom generated-source-sequence target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
 ```
 
 `limit(...)`, `head(...)`, and `take(...)` adjust the engine-native range/sequence bounds before

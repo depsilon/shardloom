@@ -17,10 +17,12 @@ import time
 from pathlib import Path
 from typing import Any
 
+from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.golden_workflow_validation_report.v1"
-DEFAULT_FEATURES = "vortex-write,vortex-local-primitives"
+DEFAULT_FEATURES = RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 ROUTE_DIGEST_PREFIX = "fnv64:"
 VORTEX_ARTIFACT_DIGEST_PREFIX = "sha256:"
 
@@ -28,9 +30,9 @@ VORTEX_ARTIFACT_DIGEST_PREFIX = "sha256:"
 REQUIRED_SUPPORT_ROWS: dict[str, tuple[str, tuple[str, ...]]] = {
     "cli_local_source_runtime": ("executable", ("local-source-runtime",)),
     "cli_vortex_prepare": ("feature_gated", ("vortex-prepare",)),
-    "cli_generated_source_smokes": (
+    "cli_generated_source_runtime": (
         "executable",
-        ("generated-source-user-rows-smoke",),
+        ("generated-source-user-rows",),
     ),
     "output_inline_jsonl_csv": ("executable", ("inline_jsonl", "csv")),
     "output_vortex_local": ("feature_gated", ("vortex",)),
@@ -612,7 +614,7 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "upstream_vortex_scan_called": "false",
                 "vortex_preparation_spine_status": "admitted_local_preparation_spine",
                 "vortex_preparation_spine_vortex_first_decision": (
-                    "implement_shardloom_kernel"
+                    "use_vortex_native_provider"
                 ),
                 "vortex_preparation_spine_source_split_count": "1",
                 "vortex_preparation_spine_no_standalone_lane_status": (
@@ -688,7 +690,7 @@ def workflow_local_csv_to_prepared_and_fanout(
                     "admitted_scoped_buffer_reuse_with_unmeasured_segments"
                 ),
                 "vortex_copy_budget_buffer_reuse_status": (
-                    "admitted_read_once_source_buffer_carry_with_digest_and_row_count_proof"
+                    "admitted_columnar_source_state_reuse_with_digest_and_row_count_proof"
                 ),
                 "vortex_copy_budget_unsafe_lifetime_shortcut_status": (
                     "blocked_no_unsafe_lifetime_shortcuts"
@@ -899,7 +901,7 @@ def workflow_generated_source_to_vortex(
             stage_dir=stage_dir,
             stage_id="generated_source_vortex_output",
             args=[
-                "generated-source-user-rows-smoke",
+                "generated-source-user-rows",
                 str(target_vortex),
                 "id:int64,label:utf8,score:float64",
                 "id=1,label=alpha,score=1.5;id=2,label=beta,score=2.25;id=3,label=gamma,score=4.5",
@@ -908,7 +910,7 @@ def workflow_generated_source_to_vortex(
                 "--allow-overwrite",
             ],
             expected_fields={
-                "schema_version": "shardloom.generated_source_user_rows_smoke.v1",
+                "schema_version": "shardloom.generated_source_user_rows_runtime.v1",
                 "execution_mode": "source_free_generated_output",
                 "runtime_execution": "true",
                 "generated_source_created": "true",
@@ -924,7 +926,7 @@ def workflow_generated_source_to_vortex(
                 "vortex_output_row_count": "3",
                 "vortex_output_column_count": "3",
                 "output_commit_status": "committed",
-                "claim_gate_status": "fixture_smoke_only",
+                "claim_gate_status": "not_claim_grade",
             },
             prefix_fields={
                 "generated_source_schema_digest": ROUTE_DIGEST_PREFIX,
@@ -1206,7 +1208,7 @@ def main() -> int:
         "workflows": workflows,
         "blockers": blockers,
         "runtime_support_claim": "local_runtime_workflow_proof_only",
-        "claim_gate_status": "fixture_smoke_only",
+        "claim_gate_status": "not_claim_grade",
         "production_claim_allowed": False,
         "performance_claim_allowed": False,
         "public_release_claim_allowed": False,

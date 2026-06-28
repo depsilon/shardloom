@@ -56,8 +56,8 @@ DRY_RUN_REQUIRED_TRUE_FIELDS = [
     "local_python_result_and_evidence_printed",
     "local_python_unsupported_path_evidence_printed",
     "generated_output_proof_distinct_from_no_dataset_smoke",
-    "generated_source_user_rows_smoke_performed",
-    "generated_source_range_smoke_performed",
+    "generated_source_user_rows_runtime_performed",
+    "generated_source_range_runtime_performed",
     "provenance_dry_run_performed",
     "sbom_checksum_manifest_generated",
 ]
@@ -71,8 +71,8 @@ DRY_RUN_REQUIRED_STEPS = [
     "cli_status_json",
     "cli_capabilities_json",
     "example_local_python_smoke",
-    "generated_source_user_rows_local_output_smoke",
-    "generated_source_range_local_output_smoke",
+    "generated_source_user_rows_local_output_runtime",
+    "generated_source_range_local_output_runtime",
     "release_provenance_dry_run",
 ]
 
@@ -100,7 +100,7 @@ REQUIRED_DOC_MARKERS = {
     "docs/release/release-dry-run-proof.md": [
         "clean virtual environment",
         "local_python_user_surface_quickstart_performed=true",
-        "generated_source_user_rows_smoke_performed=true",
+        "generated_source_user_rows_runtime_performed=true",
         "benchmark_smoke_required_for_package_release=false",
     ],
     "docs/release/production-usability-gate.md": [

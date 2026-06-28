@@ -76,8 +76,8 @@ sbom_checksum_manifest_generated=true
 clean_conda_env_install_status=passed | skipped_tool_missing | skipped_by_request | failed
 clean_conda_env_install_required=true | false
 generated_output_proof_distinct_from_no_dataset_smoke=true
-generated_source_user_rows_smoke_performed=true
-generated_source_range_smoke_performed=true
+generated_source_user_rows_runtime_performed=true
+generated_source_range_runtime_performed=true
 benchmark_smoke_required_for_package_release=false
 benchmark_smoke_status=skipped_not_required_for_package_release | passed
 ```

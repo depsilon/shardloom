@@ -630,9 +630,10 @@ claims remain blocked without evidence.
 
 GAR-0003-A adds `vortex_segment_extraction_admission_ref` to ShardLoom coverage rows. The ref points
 to the `vortex-api-inventory` sparse segment extraction admission report for
-`sparse_patch_fill`. This is explicit unsupported attribution only; sparse extraction, broad layout
-coverage, production segment extraction, and performance claims remain blocked until correctness,
-execution-certificate, Native I/O, materialization/decode, and no-fallback evidence exists.
+`sparse_patch_fill`. Local non-null sparse patch/fill reader chunks are admitted into encoded
+run-length kernel inputs; nullable/generalized sparse extraction, broad layout coverage, production
+segment extraction, and performance claims remain gated until correctness, execution-certificate,
+Native I/O, materialization/decode, and no-fallback evidence exists for those wider paths.
 
 GAR-0003-B adds `materialization_policy_ref` to ShardLoom coverage rows. The ref points to the
 shared `compute-capability-matrix` materialization/decode policy for `encoded_native`,
@@ -704,7 +705,7 @@ reader-backed run-end filter/projection/filter-project
 It also names deterministic blocked lanes:
 
 ```text
-sparse or nullable dictionary/RLE paths
+nullable sparse paths
 device-buffer paths
 nested parent/child paths
 extension DType paths

@@ -73,7 +73,7 @@ fn native_io_envelope_json_exposes_cg19_contract() {
     )));
     assert!(output.contains(&field(
         "native_io_source_sink_coverage_unadmitted_row_count",
-        "11"
+        "9"
     )));
     assert!(output.contains(&field(
         "native_io_source_sink_coverage_unadmitted_rows_missing_diagnostics_count",
@@ -150,7 +150,15 @@ fn native_io_envelope_json_exposes_source_sink_coverage_rows() {
     )));
     assert!(output.contains(&field(
         "native_io_source_sink_row_local_vortex_artifact_sink_support_status",
-        "report_only"
+        "runtime_supported"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_compatibility_export_sink_support_status",
+        "local_compatibility_export_admitted"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_compatibility_export_sink_unsupported_diagnostic_code",
+        "none"
     )));
     assert!(output.contains(&field(
         "native_io_source_sink_row_external_adapter_sink_unsupported_diagnostic_code",

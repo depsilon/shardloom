@@ -167,7 +167,7 @@
         "output_writer_policy_fuzz_seed_20260617"
       ],
       "expected_diagnostic_or_policy": "unsupported_dtype_or_invalid_file_must_emit_deterministic_blocker",
-      "coverage_boundary": "flat scalar local fixture-smoke and columnar provider handoff only; nested extension dtype production support remains gated",
+      "coverage_boundary": "flat scalar admitted local compatibility export and columnar provider handoff only; nested extension dtype production support remains gated",
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
       "external_engine_invoked": false
@@ -234,7 +234,7 @@
         "output_jsonl_property_seed_20260626"
       ],
       "expected_diagnostic_or_policy": "TranslationReport_must_list_preserved_and_lost_metadata_before_compatibility_output_claim",
-      "coverage_boundary": "local fixture-smoke output coverage only; production sink, object-store output, and lakehouse commits remain blocked",
+      "coverage_boundary": "admitted local compatibility-output coverage only; production sink, object-store output, and lakehouse commits remain blocked",
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
       "external_engine_invoked": false

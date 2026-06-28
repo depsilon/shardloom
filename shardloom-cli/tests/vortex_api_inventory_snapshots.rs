@@ -40,7 +40,7 @@ fn vortex_api_inventory_exposes_source_split_admission_proof() {
     )));
     assert!(output.contains(&field(
         "vortex_source_split_admission_proof_id",
-        "gar0042a.vortex_source_split.local_fixture_scan"
+        "gar0042a.vortex_source_split.local_vortex_runtime_scan"
     )));
     assert!(output.contains(&field(
         "vortex_source_split_admission_path_id",
@@ -48,11 +48,11 @@ fn vortex_api_inventory_exposes_source_split_admission_proof() {
     )));
     assert!(output.contains(&field(
         "vortex_source_split_admission_selected_path_status",
-        "fixture_smoke_only"
+        "local_vortex_runtime_admitted"
     )));
     assert!(output.contains(&field(
         "vortex_source_split_admission_generalized_runtime_status",
-        "blocked_until_source_split_certificate"
+        "local_vortex_runtime_admitted"
     )));
     assert!(output.contains(&field(
         "vortex_source_split_admission_provider_kind",
@@ -72,11 +72,11 @@ fn vortex_api_inventory_exposes_source_split_admission_proof() {
     )));
     assert!(output.contains(&field(
         "vortex_source_split_admission_claim_gate_status",
-        "fixture_smoke_only"
+        "not_claim_grade"
     )));
     assert!(output.contains(&field(
         "vortex_source_split_admission_claim_boundary",
-        "local_fixture_scan_only_not_generalized_source_split_runtime"
+        "local_vortex_source_split_runtime_admitted_external_object_store_table_split_runtime_gated"
     )));
 }
 
@@ -126,27 +126,27 @@ fn vortex_api_inventory_exposes_segment_extraction_admission_report() {
     )));
     assert!(output.contains(&field(
         "vortex_segment_extraction_selected_layout_status",
-        "blocked_until_segment_extraction_certificate"
+        "scoped_runtime_admitted"
     )));
     assert!(output.contains(&field(
         "vortex_segment_extraction_supported_layout_count",
-        "0"
-    )));
-    assert!(output.contains(&field(
-        "vortex_segment_extraction_blocked_layout_count",
         "1"
     )));
     assert!(output.contains(&field(
+        "vortex_segment_extraction_blocked_layout_count",
+        "0"
+    )));
+    assert!(output.contains(&field(
         "vortex_segment_extraction_unsupported_diagnostic_codes",
-        "SL_UNSUPPORTED_VORTEX_SPARSE_SEGMENT_EXTRACTION"
+        ""
     )));
     assert!(output.contains(&field(
         "vortex_segment_extraction_blocker_ids",
-        "gar0003a.sparse_patch_fill_segment_extraction"
+        "none_sparse_patch_fill_segment_extraction_runtime_admitted"
     )));
     assert!(output.contains(&field(
         "vortex_segment_extraction_claim_gate_status",
-        "not_claim_grade"
+        "scoped_feature_gated_runtime"
     )));
 }
 
@@ -204,6 +204,14 @@ fn vortex_api_inventory_exposes_gar0005a_local_io_coverage() {
     assert!(output.contains(&field(
         "vortex_local_io_reader_feature_gate",
         "vortex-local-primitives"
+    )));
+    assert!(output.contains(&field(
+        "vortex_local_io_reader_status",
+        "feature_gated_runtime"
+    )));
+    assert!(output.contains(&field(
+        "vortex_local_io_reader_claim_boundary",
+        "local primitive Vortex scan/filter/project/count runtime only; no object-store, table/catalog, generalized schema reader, or performance claim"
     )));
     assert!(output.contains(&field(
         "vortex_local_io_writer_feature_gate",
@@ -471,11 +479,19 @@ fn vortex_api_inventory_exposes_vortex075_heavy_operator_disposition() {
     )));
     assert!(output.contains(&field(
         "vortex075_heavy_operator_provider_candidate_count",
-        "5"
+        "2"
     )));
     assert!(output.contains(&field(
         "vortex075_heavy_operator_wrapped_shardloom_kernel_count",
-        "1"
+        "0"
+    )));
+    assert!(output.contains(&field(
+        "vortex075_heavy_operator_shared_runtime_evidence_count",
+        "2"
+    )));
+    assert!(output.contains(&field(
+        "vortex075_heavy_operator_current_runtime_drop_decision_count",
+        "2"
     )));
     assert!(output.contains(&field(
         "vortex075_heavy_operator_blocked_external_integration_count",
@@ -487,15 +503,27 @@ fn vortex_api_inventory_exposes_vortex075_heavy_operator_disposition() {
     )));
     assert!(output.contains(&field(
         "vortex075_heavy_operator_row_grouped_sum_count_aggregate_status",
-        "candidate_pending_provider_gate"
+        "current_runtime_drop_decision"
+    )));
+    assert!(output.contains(&field(
+        "vortex075_heavy_operator_row_grouped_sum_count_aggregate_shardloom_disposition",
+        "candidate_only_for_pre_grouped_vortex_arrays_current_flat_column_routes_keep_shardloom_capillary_hash_state"
     )));
     assert!(output.contains(&field(
         "vortex075_heavy_operator_row_grouped_sum_count_aggregate_required_evidence",
-        "provider_gate,decoded_reference_parity,null_key_semantics,execution_certificate,native_io_certificate,claim_grade_benchmark_row"
+        "current_runtime_drop_decision; revisit only when route already carries pre_grouped_vortex_list_or_fixed_size_list_values_or_UAT_proves_grouped_list_construction_beats_shardloom_capillary_hash_state"
+    )));
+    assert!(output.contains(&field(
+        "vortex075_heavy_operator_row_validity_mask_no_null_status",
+        "shared_runtime_evidence_recorded"
     )));
     assert!(output.contains(&field(
         "vortex075_heavy_operator_row_byte_length_expression_status",
-        "wrapped_by_existing_shardloom_kernel"
+        "current_runtime_drop_decision"
+    )));
+    assert!(output.contains(&field(
+        "vortex075_heavy_operator_row_layout_child_cache_status",
+        "shared_runtime_evidence_recorded"
     )));
     assert!(output.contains(&field(
         "vortex075_heavy_operator_row_datafusion_54_integration_status",
@@ -547,14 +575,18 @@ fn vortex_api_inventory_exposes_vortex075_local_io_provider_disposition() {
         "vortex075_local_io_row_order",
         "layout_reader_context_cache,json_extension_arrow_interop,wkb_geospatial_extension,interleave_encoding,binary_zstd_compression,row_byte_encoder,validity_mask_semantics,arrow_device_gpu_path"
     )));
-    assert!(output.contains(&field("vortex075_local_io_provider_candidate_count", "7")));
+    assert!(output.contains(&field("vortex075_local_io_provider_candidate_count", "6")));
+    assert!(output.contains(&field(
+        "vortex075_local_io_shared_runtime_evidence_count",
+        "1"
+    )));
     assert!(output.contains(&field(
         "vortex075_local_io_blocked_future_device_count",
         "1"
     )));
     assert!(output.contains(&field(
         "vortex075_local_io_deterministic_blocker_required_count",
-        "8"
+        "7"
     )));
     assert!(output.contains(&field(
         "vortex075_local_io_claim_gate_status",
@@ -562,7 +594,7 @@ fn vortex_api_inventory_exposes_vortex075_local_io_provider_disposition() {
     )));
     assert!(output.contains(&field(
         "vortex075_local_io_row_layout_reader_context_cache_status",
-        "candidate_pending_provider_gate"
+        "shared_runtime_evidence_recorded"
     )));
     assert!(output.contains(&field(
         "vortex075_local_io_row_json_extension_arrow_interop_shardloom_disposition",

@@ -310,7 +310,6 @@ impl VortexAdapterCapabilityReport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalIoLaneStatus {
     FeatureGatedRuntime,
-    FixtureSmokeOnly,
     Blocked,
 }
 
@@ -319,14 +318,13 @@ impl VortexLocalIoLaneStatus {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::FeatureGatedRuntime => "feature_gated_runtime",
-            Self::FixtureSmokeOnly => "fixture_smoke_only",
             Self::Blocked => "blocked",
         }
     }
 
     #[must_use]
     pub const fn runtime_available(self) -> bool {
-        matches!(self, Self::FeatureGatedRuntime | Self::FixtureSmokeOnly)
+        matches!(self, Self::FeatureGatedRuntime)
     }
 
     #[must_use]
@@ -371,22 +369,22 @@ impl VortexLocalIoCoverageRow {
         Self {
             lane_id: "local_vortex_primitive_scan_filter_project",
             io_direction: "read",
-            support_status: VortexLocalIoLaneStatus::FixtureSmokeOnly,
+            support_status: VortexLocalIoLaneStatus::FeatureGatedRuntime,
             user_surface: "vortex-count,vortex-count-where,vortex-filter,vortex-project,vortex-filter-project,vortex-run",
             feature_gate: "vortex-local-primitives",
             upstream_api_surface: "VortexFile::scan,ScanBuilder::with_filter,ScanBuilder::with_projection,ScanBuilder::into_array_iter",
-            schema_encoding_scope: "scoped local primitive fixture columns and reader chunks only",
-            correctness_refs: "local_primitive_scan_fixture_correctness,source_backed_scan_evidence",
-            benchmark_refs: "vortex-count-benchmark.local_fixture_smoke,traditional_analytics.coverage_table",
+            schema_encoding_scope: "scoped local primitive runtime columns and reader chunks",
+            correctness_refs: "local_primitive_scan_runtime_correctness,source_backed_scan_evidence",
+            benchmark_refs: "local_vortex_primitive_runtime_rows,traditional_analytics.coverage_table",
             execution_certificate_refs: "certificates/cg16/local-vortex-count/execution.json",
             native_io_certificate_refs: "certificates/cg19/local-vortex-count/native-io.json",
             materialization_decode_refs: "native_io_certificate.no_row_read_no_arrow_no_hidden_materialization",
             policy_refs: "fallback_attempted=false,external_engine_invoked=false",
-            unsupported_diagnostic_code: "SL_UNSUPPORTED_GENERALIZED_VORTEX_SOURCE_SPLIT_RUNTIME",
-            blocker_id: "gar0005a.generalized_local_reader",
-            required_future_evidence: "source_split_certificate,field_mask_evidence,predicate_ordering_evidence,split_serialization_evidence,general_schema_encoding_correctness",
-            claim_gate_status: "fixture_smoke_only",
-            claim_boundary: "local primitive Vortex scan lanes only; no broad local reader claim",
+            unsupported_diagnostic_code: "none",
+            blocker_id: "none_local_vortex_primitive_scan_runtime_admitted",
+            required_future_evidence: "general_schema_encoding_correctness,object_store_reader_certificate,table_catalog_reader_certificate,remote_split_serialization_evidence",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "local primitive Vortex scan/filter/project/count runtime only; no object-store, table/catalog, generalized schema reader, or performance claim",
             runtime_lane_available: true,
             data_read_lane: true,
             data_written_lane: false,
@@ -1155,6 +1153,8 @@ impl Vortex075HeavyOperatorSurface {
 pub enum Vortex075HeavyOperatorDispositionStatus {
     CandidatePendingProviderGate,
     WrappedByExistingShardLoomKernel,
+    SharedRuntimeEvidenceRecorded,
+    CurrentRuntimeDropDecision,
     BlockedExternalIntegration,
 }
 
@@ -1164,6 +1164,8 @@ impl Vortex075HeavyOperatorDispositionStatus {
         match self {
             Self::CandidatePendingProviderGate => "candidate_pending_provider_gate",
             Self::WrappedByExistingShardLoomKernel => "wrapped_by_existing_shardloom_kernel",
+            Self::SharedRuntimeEvidenceRecorded => "shared_runtime_evidence_recorded",
+            Self::CurrentRuntimeDropDecision => "current_runtime_drop_decision",
             Self::BlockedExternalIntegration => "blocked_external_integration",
         }
     }
@@ -1176,6 +1178,16 @@ impl Vortex075HeavyOperatorDispositionStatus {
     #[must_use]
     pub const fn is_wrapped(self) -> bool {
         matches!(self, Self::WrappedByExistingShardLoomKernel)
+    }
+
+    #[must_use]
+    pub const fn has_shared_runtime_evidence(self) -> bool {
+        matches!(self, Self::SharedRuntimeEvidenceRecorded)
+    }
+
+    #[must_use]
+    pub const fn is_current_runtime_drop(self) -> bool {
+        matches!(self, Self::CurrentRuntimeDropDecision)
     }
 
     #[must_use]
@@ -1254,6 +1266,62 @@ impl Vortex075HeavyOperatorDispositionRow {
             execution_certificate_required: true,
             native_io_certificate_required: true,
             benchmark_evidence_required: true,
+            runtime_execution_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn current_runtime_drop(
+        surface: Vortex075HeavyOperatorSurface,
+        operator_family: &'static str,
+        upstream_api_surface: &'static str,
+        shardloom_disposition: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: Vortex075HeavyOperatorDispositionStatus::CurrentRuntimeDropDecision,
+            operator_family,
+            upstream_api_surface,
+            shardloom_disposition,
+            required_evidence,
+            provider_gate_required: false,
+            decoded_reference_required: false,
+            execution_certificate_required: false,
+            native_io_certificate_required: false,
+            benchmark_evidence_required: false,
+            runtime_execution_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn shared_runtime_evidence(
+        surface: Vortex075HeavyOperatorSurface,
+        operator_family: &'static str,
+        upstream_api_surface: &'static str,
+        shardloom_disposition: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: Vortex075HeavyOperatorDispositionStatus::SharedRuntimeEvidenceRecorded,
+            operator_family,
+            upstream_api_surface,
+            shardloom_disposition,
+            required_evidence,
+            provider_gate_required: false,
+            decoded_reference_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: false,
             runtime_execution_allowed: false,
             external_engine_invoked: false,
             fallback_attempted: false,
@@ -1403,6 +1471,22 @@ impl Vortex075HeavyOperatorProviderDispositionReport {
     }
 
     #[must_use]
+    pub fn shared_runtime_evidence_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.has_shared_runtime_evidence())
+            .count()
+    }
+
+    #[must_use]
+    pub fn current_runtime_drop_decision_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_current_runtime_drop())
+            .count()
+    }
+
+    #[must_use]
     pub fn blocked_external_integration_count(&self) -> usize {
         self.rows
             .iter()
@@ -1443,12 +1527,14 @@ impl Vortex075HeavyOperatorProviderDispositionReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "Vortex 0.75 heavy-operator provider disposition\nschema_version: {}\nreport: {}\nprovider version: {}\nprovider candidates: {}\nwrapped ShardLoom kernels: {}\nblocked external integrations: {}\nclaim gate: {}\nfallback execution: disabled",
+            "Vortex 0.75 heavy-operator provider disposition\nschema_version: {}\nreport: {}\nprovider version: {}\nprovider candidates: {}\nwrapped ShardLoom kernels: {}\nshared runtime evidence rows: {}\ncurrent runtime drop decisions: {}\nblocked external integrations: {}\nclaim gate: {}\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.upstream_vortex_provider_version,
             self.provider_candidate_count(),
             self.wrapped_shardloom_kernel_count(),
+            self.shared_runtime_evidence_count(),
+            self.current_runtime_drop_decision_count(),
             self.blocked_external_integration_count(),
             self.claim_gate_status,
         )
@@ -1458,19 +1544,19 @@ impl Vortex075HeavyOperatorProviderDispositionReport {
 fn vortex075_heavy_operator_disposition_rows() -> Vec<Vortex075HeavyOperatorDispositionRow> {
     use Vortex075HeavyOperatorSurface as S;
     vec![
-        Vortex075HeavyOperatorDispositionRow::candidate(
+        Vortex075HeavyOperatorDispositionRow::current_runtime_drop(
             S::GroupedSumCountAggregate,
             "grouped_aggregates",
             "vortex_0_75_grouped_sum_count_kernels",
-            "evaluate_before_adding_another_shardloom_owned_group_state_kernel",
-            "provider_gate,decoded_reference_parity,null_key_semantics,execution_certificate,native_io_certificate,claim_grade_benchmark_row",
+            "candidate_only_for_pre_grouped_vortex_arrays_current_flat_column_routes_keep_shardloom_capillary_hash_state",
+            "current_runtime_drop_decision; revisit only when route already carries pre_grouped_vortex_list_or_fixed_size_list_values_or_UAT_proves_grouped_list_construction_beats_shardloom_capillary_hash_state",
         ),
-        Vortex075HeavyOperatorDispositionRow::candidate(
+        Vortex075HeavyOperatorDispositionRow::shared_runtime_evidence(
             S::ValidityMaskNoNull,
             "null_heavy_aggregate",
             "vortex_0_75_validity_mask_execute_no_nulls",
-            "candidate_for_no_null_and_null_heavy_operator_admission",
-            "provider_gate,null_semantics_parity,mask_alltrue_allfalse_fixtures,execution_certificate,benchmark_row",
+            "shared_mask_alltrue_allfalse_true_count_fast_paths_for_masked_dictionary_fsst_and_direct_utf8_contains",
+            "vortex_mask_all_true_all_false_true_count,masked dictionary/FSST/direct UTF-8 fixtures,no fallback,broader nullable aggregate admission remains gated",
         ),
         Vortex075HeavyOperatorDispositionRow::candidate(
             S::BranchlessZip,
@@ -1486,19 +1572,19 @@ fn vortex075_heavy_operator_disposition_rows() -> Vec<Vortex075HeavyOperatorDisp
             "candidate_for_string_group_key_and_dictionary_reuse_before_broad_grouped_claim",
             "provider_gate,dictionary_ordering_fixture,utf8_null_fixture,decoded_reference_parity,benchmark_row",
         ),
-        Vortex075HeavyOperatorDispositionRow::candidate(
+        Vortex075HeavyOperatorDispositionRow::shared_runtime_evidence(
             S::LayoutChildCache,
             "reader_input_cache",
             "vortex_0_75_layout_child_cache",
-            "candidate_input_cache_for_prepared_operator_chunks_before_local_cache_duplication",
-            "provider_gate,source_fingerprint_validation,cache_scope_evidence,no_decode_no_materialization_evidence,native_io_certificate",
+            "shared_local_open_paths_use_vortex_layout_reader_cache_and_emit_embedded_layout_cache_status",
+            "with_layout_reader_cache local open evidence, embedded_layout.layout_reader_cache_status, no_decode_no_materialization evidence, native_io_certificate",
         ),
-        Vortex075HeavyOperatorDispositionRow::wrapped(
+        Vortex075HeavyOperatorDispositionRow::current_runtime_drop(
             S::ByteLengthExpression,
             "binary_string_expression",
             "vortex_0_75_byte_length_expression",
-            "existing_shardloom_binary_byte_length_kernel_remains_selected_until_provider_parity_is_proven",
-            "provider_gate,string_binary_null_parity,decoded_reference_parity,execution_certificate,benchmark_row",
+            "existing_shardloom_dictionary_derived_length_and_transform_paths_remain_selected_for_current_routes",
+            "current_runtime_drop_decision; revisit only for non_dictionary_utf8_or_binary_lanes_where_provider_parity_and_UAT_prove_less_materialization_without_regression",
         ),
         Vortex075HeavyOperatorDispositionRow::blocked_external(
             S::DataFusion54Integration,
@@ -1541,6 +1627,7 @@ impl Vortex075LocalIoSurface {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Vortex075LocalIoDispositionStatus {
     CandidatePendingProviderGate,
+    SharedRuntimeEvidenceRecorded,
     BlockedFutureDeviceTrack,
 }
 
@@ -1549,6 +1636,7 @@ impl Vortex075LocalIoDispositionStatus {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::CandidatePendingProviderGate => "candidate_pending_provider_gate",
+            Self::SharedRuntimeEvidenceRecorded => "shared_runtime_evidence_recorded",
             Self::BlockedFutureDeviceTrack => "blocked_future_device_track",
         }
     }
@@ -1556,6 +1644,11 @@ impl Vortex075LocalIoDispositionStatus {
     #[must_use]
     pub const fn is_candidate(self) -> bool {
         matches!(self, Self::CandidatePendingProviderGate)
+    }
+
+    #[must_use]
+    pub const fn has_shared_runtime_evidence(self) -> bool {
+        matches!(self, Self::SharedRuntimeEvidenceRecorded)
     }
 
     #[must_use]
@@ -1610,6 +1703,38 @@ impl Vortex075LocalIoDispositionRow {
             deterministic_blocker_required: true,
             native_io_certificate_required: true,
             benchmark_evidence_required: true,
+            runtime_execution_allowed: false,
+            data_read_allowed: false,
+            data_written_allowed: false,
+            data_decoded: false,
+            data_materialized: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn shared_runtime_evidence(
+        surface: Vortex075LocalIoSurface,
+        format_family: &'static str,
+        upstream_api_surface: &'static str,
+        shardloom_disposition: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: Vortex075LocalIoDispositionStatus::SharedRuntimeEvidenceRecorded,
+            format_family,
+            upstream_api_surface,
+            shardloom_disposition,
+            required_evidence,
+            provider_gate_required: false,
+            fidelity_report_required: true,
+            deterministic_blocker_required: false,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: false,
             runtime_execution_allowed: false,
             data_read_allowed: false,
             data_written_allowed: false,
@@ -1767,6 +1892,14 @@ impl Vortex075LocalIoProviderDispositionReport {
     }
 
     #[must_use]
+    pub fn shared_runtime_evidence_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.has_shared_runtime_evidence())
+            .count()
+    }
+
+    #[must_use]
     pub fn blocked_future_device_count(&self) -> usize {
         self.rows
             .iter()
@@ -1817,11 +1950,12 @@ impl Vortex075LocalIoProviderDispositionReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "Vortex 0.75 local-I/O provider disposition\nschema_version: {}\nreport: {}\nprovider version: {}\nprovider candidates: {}\nblocked future/device tracks: {}\nclaim gate: {}\nfallback execution: disabled",
+            "Vortex 0.75 local-I/O provider disposition\nschema_version: {}\nreport: {}\nprovider version: {}\nprovider candidates: {}\nshared runtime evidence rows: {}\nblocked future/device tracks: {}\nclaim gate: {}\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.upstream_vortex_provider_version,
             self.provider_candidate_count(),
+            self.shared_runtime_evidence_count(),
             self.blocked_future_device_count(),
             self.claim_gate_status,
         )
@@ -1831,12 +1965,12 @@ impl Vortex075LocalIoProviderDispositionReport {
 fn vortex075_local_io_disposition_rows() -> Vec<Vortex075LocalIoDispositionRow> {
     use Vortex075LocalIoSurface as S;
     vec![
-        Vortex075LocalIoDispositionRow::candidate(
+        Vortex075LocalIoDispositionRow::shared_runtime_evidence(
             S::LayoutReaderContextCache,
             "vortex_native_local_read",
             "vortex_0_75_layout_reader_context_child_cache",
-            "candidate_for_prepared_read_through_cache_before_shardloom_local_cache_duplication",
-            "provider_gate,source_fingerprint_validation,cache_scope_evidence,no_decode_no_materialization_evidence,native_io_certificate",
+            "shared_local_open_paths_use_vortex_layout_reader_cache_and_emit_embedded_layout_cache_status",
+            "with_layout_reader_cache local open evidence, embedded_layout.layout_reader_cache_status, no_decode_no_materialization evidence, native_io_certificate",
         ),
         Vortex075LocalIoDispositionRow::candidate(
             S::JsonExtensionArrowInterop,
@@ -3387,8 +3521,10 @@ mod tests {
             "shardloom.vortex075_heavy_operator_provider_disposition.v1"
         );
         assert_eq!(report.phase_id, "PERF-RUNTIME-7B");
-        assert_eq!(report.provider_candidate_count(), 5);
-        assert_eq!(report.wrapped_shardloom_kernel_count(), 1);
+        assert_eq!(report.provider_candidate_count(), 2);
+        assert_eq!(report.wrapped_shardloom_kernel_count(), 0);
+        assert_eq!(report.shared_runtime_evidence_count(), 2);
+        assert_eq!(report.current_runtime_drop_decision_count(), 2);
         assert_eq!(report.blocked_external_integration_count(), 1);
         assert_eq!(
             report.row_order(),
@@ -3408,6 +3544,52 @@ mod tests {
         assert!(!report.runtime_execution);
         assert!(!report.external_engine_invoked);
         assert!(!report.fallback_attempted);
+
+        let validity_mask = report
+            .rows
+            .iter()
+            .find(|row| row.surface == Vortex075HeavyOperatorSurface::ValidityMaskNoNull)
+            .expect("validity mask row");
+        assert_eq!(
+            validity_mask.status,
+            Vortex075HeavyOperatorDispositionStatus::SharedRuntimeEvidenceRecorded
+        );
+        assert!(!validity_mask.provider_gate_required);
+        assert!(validity_mask.execution_certificate_required);
+
+        let layout_cache = report
+            .rows
+            .iter()
+            .find(|row| row.surface == Vortex075HeavyOperatorSurface::LayoutChildCache)
+            .expect("layout cache row");
+        assert_eq!(
+            layout_cache.status,
+            Vortex075HeavyOperatorDispositionStatus::SharedRuntimeEvidenceRecorded
+        );
+        assert!(!layout_cache.provider_gate_required);
+        assert!(layout_cache.native_io_certificate_required);
+
+        let grouped = report
+            .rows
+            .iter()
+            .find(|row| row.surface == Vortex075HeavyOperatorSurface::GroupedSumCountAggregate)
+            .expect("grouped row");
+        assert_eq!(
+            grouped.status,
+            Vortex075HeavyOperatorDispositionStatus::CurrentRuntimeDropDecision
+        );
+        assert!(!grouped.provider_gate_required);
+
+        let byte_length = report
+            .rows
+            .iter()
+            .find(|row| row.surface == Vortex075HeavyOperatorSurface::ByteLengthExpression)
+            .expect("byte-length row");
+        assert_eq!(
+            byte_length.status,
+            Vortex075HeavyOperatorDispositionStatus::CurrentRuntimeDropDecision
+        );
+        assert!(!byte_length.provider_gate_required);
     }
 
     #[test]
@@ -3445,9 +3627,10 @@ mod tests {
             "shardloom.vortex075_local_io_provider_disposition.v1"
         );
         assert_eq!(report.phase_id, "PROD-READY-1A");
-        assert_eq!(report.provider_candidate_count(), 7);
+        assert_eq!(report.provider_candidate_count(), 6);
+        assert_eq!(report.shared_runtime_evidence_count(), 1);
         assert_eq!(report.blocked_future_device_count(), 1);
-        assert_eq!(report.deterministic_blocker_required_count(), 8);
+        assert_eq!(report.deterministic_blocker_required_count(), 7);
         assert_eq!(
             report.row_order(),
             vec![
@@ -3471,6 +3654,18 @@ mod tests {
         assert!(!report.data_materialized);
         assert!(!report.external_engine_invoked);
         assert!(!report.fallback_attempted);
+
+        let layout_cache = report
+            .rows
+            .iter()
+            .find(|row| row.surface == Vortex075LocalIoSurface::LayoutReaderContextCache)
+            .expect("layout reader cache row");
+        assert_eq!(
+            layout_cache.status,
+            Vortex075LocalIoDispositionStatus::SharedRuntimeEvidenceRecorded
+        );
+        assert!(!layout_cache.provider_gate_required);
+        assert!(!layout_cache.deterministic_blocker_required);
     }
 
     #[test]

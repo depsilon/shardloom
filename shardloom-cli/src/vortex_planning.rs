@@ -2023,6 +2023,14 @@ fn vortex075_heavy_operator_disposition_fields(
             report.wrapped_shardloom_kernel_count().to_string(),
         ),
         (
+            "vortex075_heavy_operator_shared_runtime_evidence_count".to_string(),
+            report.shared_runtime_evidence_count().to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_current_runtime_drop_decision_count".to_string(),
+            report.current_runtime_drop_decision_count().to_string(),
+        ),
+        (
             "vortex075_heavy_operator_blocked_external_integration_count".to_string(),
             report.blocked_external_integration_count().to_string(),
         ),
@@ -2159,6 +2167,11 @@ fn vortex075_local_io_provider_disposition_fields(
         &mut fields,
         "vortex075_local_io_provider_candidate_count",
         report.provider_candidate_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "vortex075_local_io_shared_runtime_evidence_count",
+        report.shared_runtime_evidence_count(),
     );
     push_count_field(
         &mut fields,
@@ -2583,12 +2596,16 @@ fn translation_plan_fields(
             writer_matrix.target_kind_order().join(","),
         ),
         (
-            "compatibility_output_writer_local_smoke_count".to_string(),
-            writer_matrix.local_fixture_smoke_count().to_string(),
+            "compatibility_output_writer_local_export_admitted_count".to_string(),
+            writer_matrix
+                .local_compatibility_export_admitted_count()
+                .to_string(),
         ),
         (
-            "compatibility_output_writer_local_smoke_targets".to_string(),
-            writer_matrix.local_fixture_smoke_kind_order().join(","),
+            "compatibility_output_writer_local_export_admitted_targets".to_string(),
+            writer_matrix
+                .local_compatibility_export_admitted_kind_order()
+                .join(","),
         ),
         (
             "compatibility_output_writer_blocked_count".to_string(),
@@ -4796,7 +4813,7 @@ mod tests {
     }
 
     #[test]
-    fn translation_plan_fields_expose_arrow_ipc_writer_smoke_boundaries() {
+    fn translation_plan_fields_expose_arrow_ipc_writer_local_export_boundaries() {
         let plan = TranslationPlan::for_target(OutputTarget::from_uri(
             DatasetUri::new("file://tmp/out.arrow").expect("valid uri"),
         ));
@@ -4806,18 +4823,18 @@ mod tests {
         assert_eq!(output_field(&fields, "target_kind"), "arrow_ipc");
         assert_eq!(
             output_field(&fields, "compatibility_output_writer_target_status"),
-            "local_fixture_smoke"
+            "local_compatibility_export_admitted"
         );
         assert_eq!(
             output_field(
                 &fields,
                 "compatibility_output_writer_target_claim_gate_status"
             ),
-            "fixture_smoke_only"
+            "not_claim_grade"
         );
         assert_eq!(
             output_field(&fields, "compatibility_output_writer_target_feature_gate"),
-            "vortex-traditional-analytics-benchmark"
+            "universal-format-io"
         );
         assert_eq!(
             output_field(

@@ -166,7 +166,7 @@ REQUIRED_SOURCE_MARKERS = {
         "test_sql_vortex_collect_uses_local_filter_project_primitive",
         "test_local_csv_query_builder_decoded_materialization_helpers",
         "test_materialized_input_boundaries_create_generated_rows",
-        "test_context_sql_source_free_write_invokes_generated_source_sql_smoke",
+        "test_context_sql_source_free_write_invokes_generated_source_sql_runtime",
         "test_local_csv_query_builder_order_by_explicit_nulls_invokes_sql_smoke",
     ],
     "shardloom-cli/src/sql_local_source_runtime.rs": [

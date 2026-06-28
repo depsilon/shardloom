@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: Apache-2.0
-"""Validate the scoped Python user-surface completion contract.
+"""Validate the admitted Python user-surface completion contract.
 
 This gate answers a narrow release-readiness question: can ShardLoom describe a
-simple PySpark-like Python front door for its admitted local runtime scope
+simple PySpark-like Python front door for its admitted local runtime
 without overclaiming Spark compatibility, broad SQL/DataFrame production
 support, package publication, or performance?
 """
@@ -37,15 +37,15 @@ REQUIRED_DRY_RUN_TRUE_FIELDS = [
     "local_python_result_and_evidence_printed",
     "local_python_unsupported_path_evidence_printed",
     "generated_output_proof_distinct_from_no_dataset_smoke",
-    "generated_source_user_rows_smoke_performed",
-    "generated_source_range_smoke_performed",
+    "generated_source_user_rows_runtime_performed",
+    "generated_source_range_runtime_performed",
 ]
 
 REQUIRED_DRY_RUN_STEPS = [
     "wheel_import_and_client_smoke",
     "example_local_python_smoke",
-    "generated_source_user_rows_local_output_smoke",
-    "generated_source_range_local_output_smoke",
+    "generated_source_user_rows_local_output_runtime",
+    "generated_source_range_local_output_runtime",
 ]
 
 REQUIRED_QUERY_BUILDER_METHODS = [
@@ -358,7 +358,7 @@ REQUIRED_TEST_MARKERS = {
     "python/tests/test_query_builder.py": [
         "test_context_sql_local_source_collect_invokes_sql_smoke",
         "test_context_sql_local_source_write_invokes_sql_smoke",
-        "test_context_sql_source_free_write_invokes_generated_source_sql_smoke",
+        "test_context_sql_source_free_write_invokes_generated_source_sql_runtime",
         "test_schema_declared_dataframe_rename_blocks_until_alias_preserving_vortex_projection",
         "test_schema_declared_dataframe_drop_lowers_to_prepared_vortex_projection",
         "test_local_csv_query_builder_value_counts_lowers_to_grouped_count",
@@ -798,38 +798,42 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         if "unsupported" in support_status:
             blockers.append(f"{method}: must not be an unsupported row")
         if support_status == "fixture_smoke_supported" and not row.get("required_evidence"):
-            blockers.append(f"{method}: fixture support requires evidence names")
+            blockers.append(f"{method}: smoke support requires evidence names")
 
     for method in REQUIRED_TRANSFORM_RUNTIME_METHODS:
         row = by_method.get(method)
         if not row:
             continue
-        if row.get("support_status") != "fixture_smoke_supported":
-            blockers.append(f"{method}: scoped transform support must be fixture_smoke_supported")
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: transform support must be production_admitted_local_workflow"
+            )
         if row.get("runtime_execution") is not True:
-            blockers.append(f"{method}: scoped transform support requires runtime_execution true")
+            blockers.append(f"{method}: transform support requires runtime_execution true")
         if row.get("data_read") is not True:
-            blockers.append(f"{method}: scoped transform support requires data_read true")
+            blockers.append(f"{method}: transform support requires data_read true")
         if row.get("blocker_id"):
-            blockers.append(f"{method}: scoped transform row must not carry blocker_id")
+            blockers.append(f"{method}: transform row must not carry blocker_id")
         required_evidence = set(row.get("required_evidence") or [])
         if "declared_schema_projection_rewrite" not in required_evidence:
             blockers.append(
-                f"{method}: scoped transform row missing declared_schema_projection_rewrite"
+                f"{method}: transform row missing declared_schema_projection_rewrite"
             )
 
     for method in REQUIRED_SUMMARY_RUNTIME_METHODS:
         row = by_method.get(method)
         if not row:
             continue
-        if row.get("support_status") != "fixture_smoke_supported":
-            blockers.append(f"{method}: scoped summary support must be fixture_smoke_supported")
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: summary support must be production_admitted_local_workflow"
+            )
         if row.get("runtime_execution") is not True:
-            blockers.append(f"{method}: scoped summary support requires runtime_execution true")
+            blockers.append(f"{method}: summary support requires runtime_execution true")
         if row.get("data_read") is not True:
-            blockers.append(f"{method}: scoped summary support requires data_read true")
+            blockers.append(f"{method}: summary support requires data_read true")
         if row.get("blocker_id"):
-            blockers.append(f"{method}: scoped summary row must not carry blocker_id")
+            blockers.append(f"{method}: summary row must not carry blocker_id")
         required_evidence = set(row.get("required_evidence") or [])
         expected_evidence = (
             ["distinct_count_semantics", "dropna_policy"]
@@ -838,7 +842,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         )
         for evidence in expected_evidence:
             if evidence not in required_evidence:
-                blockers.append(f"{method}: scoped summary row missing {evidence}")
+                blockers.append(f"{method}: summary row missing {evidence}")
 
     for method in REQUIRED_METADATA_PROFILE_METHODS:
         row = by_method.get(method)
@@ -866,14 +870,14 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             continue
         if row.get("support_status") != "production_admitted_local_workflow":
             blockers.append(
-                f"{method}: scoped top-N support must be production_admitted_local_workflow"
+                f"{method}: top-N support must be production_admitted_local_workflow"
             )
         if row.get("runtime_execution") is not True:
-            blockers.append(f"{method}: scoped top-N support requires runtime_execution true")
+            blockers.append(f"{method}: top-N support requires runtime_execution true")
         if row.get("data_read") is not True:
-            blockers.append(f"{method}: scoped top-N support requires data_read true")
+            blockers.append(f"{method}: top-N support requires data_read true")
         if row.get("blocker_id"):
-            blockers.append(f"{method}: scoped top-N row must not carry blocker_id")
+            blockers.append(f"{method}: top-N row must not carry blocker_id")
         required_evidence = set(row.get("required_evidence") or [])
         for evidence in [
             "native_vortex_sort_rows_primitive",
@@ -882,7 +886,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             "source_order_state_budget",
         ]:
             if evidence not in required_evidence:
-                blockers.append(f"{method}: scoped top-N row missing {evidence}")
+                blockers.append(f"{method}: top-N row missing {evidence}")
 
     for method in REQUIRED_SOURCE_ORDER_RUNTIME_METHODS:
         row = by_method.get(method)
@@ -1097,14 +1101,16 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         row = by_method.get(method)
         if not row:
             continue
-        if row.get("support_status") != "fixture_smoke_supported":
-            blockers.append(f"{method}: scoped combine support must be fixture_smoke_supported")
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: combine support must be production_admitted_local_workflow"
+            )
         if row.get("runtime_execution") is not True:
-            blockers.append(f"{method}: scoped combine support requires runtime_execution true")
+            blockers.append(f"{method}: combine support requires runtime_execution true")
         if row.get("data_read") is not True:
-            blockers.append(f"{method}: scoped combine support requires data_read true")
+            blockers.append(f"{method}: combine support requires data_read true")
         if row.get("blocker_id"):
-            blockers.append(f"{method}: scoped combine row must not carry blocker_id")
+            blockers.append(f"{method}: combine row must not carry blocker_id")
         required_evidence = set(row.get("required_evidence") or [])
         expected_evidence = (
             ["join_alias_semantics", "join_operator_capability"]
@@ -1113,7 +1119,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         )
         for evidence in expected_evidence:
             if evidence not in required_evidence:
-                blockers.append(f"{method}: scoped combine row missing {evidence}")
+                blockers.append(f"{method}: combine row missing {evidence}")
 
     for method in REQUIRED_NULL_RUNTIME_METHODS:
         row = by_method.get(method)
@@ -1121,14 +1127,14 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             continue
         if row.get("support_status") != "production_admitted_local_workflow":
             blockers.append(
-                f"{method}: scoped null support must be production_admitted_local_workflow"
+                f"{method}: null support must be production_admitted_local_workflow"
             )
         if row.get("runtime_execution") is not True:
-            blockers.append(f"{method}: scoped null support requires runtime_execution true")
+            blockers.append(f"{method}: null support requires runtime_execution true")
         if row.get("data_read") is not True:
-            blockers.append(f"{method}: scoped null support requires data_read true")
+            blockers.append(f"{method}: null support requires data_read true")
         if row.get("blocker_id"):
-            blockers.append(f"{method}: scoped null row must not carry blocker_id")
+            blockers.append(f"{method}: null row must not carry blocker_id")
         required_evidence = set(row.get("required_evidence") or [])
         if method in {"fillna", "fill_null"}:
             expected_evidence = [
@@ -1156,7 +1162,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             ]
         for evidence in expected_evidence:
             if evidence not in required_evidence:
-                blockers.append(f"{method}: scoped null row missing {evidence}")
+                blockers.append(f"{method}: null row missing {evidence}")
 
     for method in REQUIRED_MATERIALIZATION_METHODS:
         row = by_method.get(method)
@@ -1210,7 +1216,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         elif method in MATERIALIZED_INPUT_REENTRY_METHODS:
             if "unsupported" in support_status or support_status == "runtime_expansion_pending":
                 blockers.append(
-                    f"{method}: materialized input re-entry row must be scoped supported"
+                    f"{method}: materialized input re-entry row must be admitted"
                 )
             if row.get("blocker_id"):
                 blockers.append(f"{method}: materialized input re-entry row must not carry blocker_id")
@@ -1293,7 +1299,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 or "DataFrame method matrix missing method" in blocker
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_or_lazy_rows_present",
+            status_when_passed="admitted_runtime_or_lazy_rows_present",
         ),
         _row(
             "generated_output",
@@ -1304,14 +1310,14 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 if any(f"{method}:" in blocker for method in REQUIRED_GENERATED_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
             "ctx_sql",
             "ctx.sql local-source/source-free bridge",
             [blocker for blocker in blockers if blocker.startswith("sql:")],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_row_present",
+            status_when_passed="admitted_runtime_row_present",
         ),
         _row(
             "materialization_interop",
@@ -1322,7 +1328,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 if any(f"{method}:" in blocker for method in REQUIRED_MATERIALIZATION_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_materialization_rows_present",
+            status_when_passed="admitted_materialization_rows_present",
         ),
         _row(
             "schema_declared_transforms",
@@ -1333,18 +1339,18 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 if any(f"{method}:" in blocker for method in REQUIRED_TRANSFORM_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_summary_methods",
-            "scoped DataFrame summary methods",
+            "admitted_summary_methods",
+            "admitted DataFrame summary methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_SUMMARY_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
             "metadata_profile_methods",
@@ -1358,41 +1364,41 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             status_when_passed="metadata_first_profile_rows_present",
         ),
         _row(
-            "scoped_top_n_methods",
-            "scoped DataFrame top-N selection methods",
+            "admitted_top_n_methods",
+            "admitted DataFrame top-N selection methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_TOP_N_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_source_order_methods",
-            "scoped DataFrame source-order selection methods",
+            "admitted_source_order_methods",
+            "admitted DataFrame source-order selection methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_SOURCE_ORDER_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_sampling_methods",
-            "scoped DataFrame deterministic sampling methods",
+            "admitted_sampling_methods",
+            "admitted DataFrame deterministic sampling methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_SAMPLING_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_deduplication_methods",
-            "scoped DataFrame duplicate-mask methods",
+            "admitted_deduplication_methods",
+            "admitted DataFrame duplicate-mask methods",
             [
                 blocker
                 for blocker in blockers
@@ -1405,84 +1411,84 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 )
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_reshape_methods",
-            "scoped DataFrame reshape runtime methods",
+            "admitted_reshape_methods",
+            "admitted DataFrame reshape runtime methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_RESHAPE_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_window_methods",
-            "scoped DataFrame window runtime methods",
+            "admitted_window_methods",
+            "admitted DataFrame window runtime methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_WINDOW_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_plan_transform_methods",
-            "scoped DataFrame plan-transform methods",
+            "admitted_plan_transform_methods",
+            "admitted DataFrame plan-transform methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_PLAN_TRANSFORM_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_lazy_plan_rows_present",
+            status_when_passed="admitted_lazy_plan_rows_present",
         ),
         _row(
-            "scoped_expression_runtime_methods",
-            "scoped DataFrame expression runtime methods",
+            "admitted_expression_runtime_methods",
+            "admitted DataFrame expression runtime methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_EXPRESSION_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_combine_methods",
-            "scoped DataFrame combine methods",
+            "admitted_combine_methods",
+            "admitted DataFrame combine methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_COMBINE_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_null_methods",
-            "scoped DataFrame null cleanup and mask methods",
+            "admitted_null_methods",
+            "admitted DataFrame null cleanup and mask methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_NULL_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
-            "scoped_index_metadata_methods",
-            "scoped DataFrame index metadata no-op methods",
+            "admitted_index_metadata_methods",
+            "admitted DataFrame index metadata no-op methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_INDEX_METADATA_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
-            status_when_passed="scoped_runtime_rows_present",
+            status_when_passed="admitted_runtime_rows_present",
         ),
         _row(
             "unsupported_paths",
@@ -1687,7 +1693,7 @@ def build_report(
         "status": "passed" if passed else "blocked",
         "covered_phase_items": ["GAR-USER-SURFACE-1D"],
         "claim_gate_status": "not_claim_grade",
-        "claim_scope": "scoped_admitted_local_python_front_door",
+        "claim_scope": "admitted_local_python_front_door",
         "scoped_python_front_door_claim_allowed": passed,
         "production_sql_dataframe_claim_allowed": False,
         "spark_compatibility_claim_allowed": False,
@@ -1699,8 +1705,8 @@ def build_report(
         "fallback_attempted": False,
         "external_engine_invoked": False,
         "claim_boundary": (
-            "Only a PySpark-like simple Python front door for admitted local runtime smokes: "
-            "import/context/session, scoped local-source SQL/DataFrame/query-builder, "
+            "Only the admitted local Python front door: import/context/session, "
+            "local-source SQL/DataFrame/query-builder through Vortex-normalized runtime, "
             "source-free generated output, and deterministic unsupported diagnostics. This is not "
             "Spark compatibility, broad SQL/DataFrame production support, package publication, "
             "distributed execution, object-store/lakehouse, Foundry production, or performance evidence."

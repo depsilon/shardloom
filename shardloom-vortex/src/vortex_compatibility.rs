@@ -279,7 +279,7 @@ fn current_matrix_rows() -> Vec<VortexCompatibilityMatrixRow> {
         VortexCompatibilityMatrixRow::evidence_incomplete(
             "reader_chunk_constant_dictionary_run_end_kernel_inputs",
             LOCAL_PRIMITIVES_FEATURE_GATE,
-            "direct local reader-chunk lowering covers constants plus non-null host primitive dictionary and run-end arrays; nullable, sparse, nested, extension, and device paths stay blocked",
+            "direct local reader-chunk lowering covers constants plus host primitive/UTF-8 dictionary arrays including nullable codes/values, non-null sparse patch/fill arrays, and run-end arrays including nullable values; nullable sparse, nested, extension, and device paths stay blocked",
             vec![
                 "reader-generated kernel input admission",
                 "source-backed certificate-pair report",

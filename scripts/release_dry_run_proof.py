@@ -660,7 +660,7 @@ def stage_python_package_with_bundled_cli(
         }
 
 
-def generated_user_rows_smoke_script(output_path: Path) -> str:
+def generated_user_rows_runtime_script(output_path: Path) -> str:
     output_arg = json.dumps(str(output_path))
     return (
         "from shardloom import context; "
@@ -678,7 +678,7 @@ def generated_user_rows_smoke_script(output_path: Path) -> str:
     )
 
 
-def generated_range_smoke_script(output_path: Path) -> str:
+def generated_range_runtime_script(output_path: Path) -> str:
     output_arg = json.dumps(str(output_path))
     return (
         "from shardloom import context; "
@@ -934,11 +934,11 @@ def main() -> int:
     )
     steps.append(
         run_step(
-            name="generated_source_user_rows_local_output_smoke",
+            name="generated_source_user_rows_local_output_runtime",
             command=[
                 str(clean_python),
                 "-c",
-                generated_user_rows_smoke_script(generated_user_rows_output),
+                generated_user_rows_runtime_script(generated_user_rows_output),
             ],
             cwd=repo_root,
             env=smoke_env,
@@ -946,11 +946,11 @@ def main() -> int:
     )
     steps.append(
         run_step(
-            name="generated_source_range_local_output_smoke",
+            name="generated_source_range_local_output_runtime",
             command=[
                 str(clean_python),
                 "-c",
-                generated_range_smoke_script(generated_range_output),
+                generated_range_runtime_script(generated_range_output),
             ],
             cwd=repo_root,
             env=smoke_env,
@@ -1127,11 +1127,11 @@ def write_transcript(
         "local_python_result_and_evidence_printed": local_python_result_and_evidence_printed,
         "local_python_unsupported_path_evidence_printed": local_python_unsupported_path_evidence_printed,
         "generated_output_proof_distinct_from_no_dataset_smoke": True,
-        "generated_source_user_rows_smoke_performed": step_passed(
-            "generated_source_user_rows_local_output_smoke"
+        "generated_source_user_rows_runtime_performed": step_passed(
+            "generated_source_user_rows_local_output_runtime"
         ),
-        "generated_source_range_smoke_performed": step_passed(
-            "generated_source_range_local_output_smoke"
+        "generated_source_range_runtime_performed": step_passed(
+            "generated_source_range_local_output_runtime"
         ),
         "prepared_native_benchmark_smoke_performed": step_passed(
             "example_local_vortex_benchmark_smoke"

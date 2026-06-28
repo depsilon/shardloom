@@ -2327,7 +2327,7 @@ fn append_native_io_source_sink_coverage_summary_fields(
     push_field(
         fields,
         "native_io_source_sink_coverage_support_status_vocabulary",
-        "unsupported,report_only,executable_uncertified,fixture_certified",
+        "unsupported,report_only,executable_uncertified,fixture_certified,runtime_supported,local_compatibility_export_admitted",
     );
     push_count_field(
         fields,

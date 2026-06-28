@@ -16,6 +16,9 @@ ShardLoom v1 local resource safety is intentionally narrow and evidence-backed:
 - reservation release and cleanup after the denial fixture.
 - side-effect-free retry gate planning.
 - side-effect-free cancellation gate planning with cleanup-completed evidence.
+- an admitted public native Vortex aggregate route that carries the shared resource envelope,
+  memory-admission decision, reservation release, state-budget, spill fail-closed, native I/O
+  certificate, and no-fallback evidence through the public workflow facade.
 - prepared-state reuse boundaries that avoid hidden global caches and label internal source smoke routes
   as non-persistent.
 - local output/sink scope evidence that reports write policy, replay, and partial-write cleanup
@@ -41,6 +44,7 @@ The report validates these runtime and support surfaces:
 - `pre-oom-memory-guard-smoke --format json`
 - `retry-gate-plan retry-requested,retry-allowed,cleanup-completed --format json`
 - `cancellation-gate-plan cancellation-requested,cleanup-required,cleanup-completed --format json`
+- `run cli --input shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex --input-format vortex --request collect --execution-policy native_vortex`
 - `cg14-memory-runtime-hardening-gate --format json`
 - `fault-tolerance-promotion-gate --format json`
 - `target/v1-source-prepared-state-scope-report.json`
@@ -54,6 +58,8 @@ Allowed after the gate passes:
 - memory reservation denial fails before OOM for the fixture.
 - cleanup evidence is present for the fixture and local output/prepared-state reports.
 - retry and cancellation gates remain side-effect-free.
+- one admitted public Vortex aggregate route proves resource-envelope, memory-admission,
+  reservation-release, and state-budget evidence survives the public facade boundary.
 
 Not allowed after the gate passes:
 
@@ -71,8 +77,10 @@ The v1 boundary uses ShardLoom-native resource controls where they are already m
 - Dynamic admission is represented by deterministic budget denial and gate-open/closed signals.
 - Capillary work units remain required for future resource-derived chunk sizing; v1 does not claim
   broad runtime chunk resizing.
-- PulseWeave remains a future runtime-control path for in-flight work shaping and does not execute
-  in this v1 local gate.
+- PulseWeave pressure signals and capillary work-unit labels are emitted by the public native
+  Vortex aggregate route, and its derived memory reservation is admitted and released against the
+  same local resource envelope; broader allocator integration and in-flight adaptive resizing remain
+  outside this local gate.
 - Metadata-first checks keep scope reports and readiness validation local and side-effect-free.
 - Timing-surface and evidence-tier controls are preserved by reporting cleanup/proof fields
   separately from hot runtime claims.

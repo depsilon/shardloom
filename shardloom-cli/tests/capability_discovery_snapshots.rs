@@ -1775,7 +1775,7 @@ const CROSS_CG_FIELD_KEYS: [&str; 54] = [
     "cg23_remote_api_no_effects",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 185] = [
+const OPERATOR_FIELD_KEYS: [&str; 191] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -1948,6 +1948,8 @@ const OPERATOR_FIELD_KEYS: [&str; 185] = [
     "local_vortex_primitive_execution_schema_version",
     "local_vortex_primitive_execution_feature_gate",
     "local_vortex_primitive_execution_supported_primitives",
+    "local_vortex_primitive_execution_zero_decode_scan_primitives",
+    "local_vortex_primitive_execution_materializing_primitives",
     "local_vortex_primitive_execution_local_only",
     "local_vortex_primitive_execution_count_all_decode_required",
     "local_vortex_primitive_execution_filter_project_decode_boundary_reported",
@@ -1958,6 +1960,10 @@ const OPERATOR_FIELD_KEYS: [&str; 185] = [
     "local_vortex_primitive_execution_object_store_io",
     "local_vortex_primitive_execution_write_io",
     "local_vortex_primitive_execution_spill_io",
+    "local_vortex_primitive_execution_materialization_boundary_reported",
+    "local_vortex_primitive_execution_state_budget_reported",
+    "local_vortex_primitive_execution_memory_admission_reported",
+    "local_vortex_primitive_execution_native_io_certificate_reported",
     "local_vortex_primitive_execution_requires_correctness_evidence",
     "local_vortex_primitive_execution_requires_benchmark_for_production",
     "local_vortex_primitive_execution_fallback_execution_allowed",
@@ -3163,7 +3169,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_python_ctx_from_rows_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_python_ctx_from_rows_generated_source_created",
@@ -3175,7 +3181,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_literal_select_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_literal_select_runtime_execution",
@@ -3183,7 +3189,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_values_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_values_runtime_execution",
@@ -3191,7 +3197,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_source_free_projection_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_source_free_projection_runtime_execution",
@@ -3199,7 +3205,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_generate_series_range_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_generate_series_range_runtime_execution",
@@ -3207,7 +3213,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_dataframe_generated_with_column_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_dataframe_generated_with_column_runtime_execution",
@@ -3679,23 +3685,23 @@ fn generated_source_capability_contract_separates_no_dataset_smoke() {
         assert!(output.contains(&field_pair("no_dataset_smoke_output_io_performed", false)));
         assert!(output.contains(&string_field_pair(
             "user_generated_source_support_status",
-            "fixture_smoke_supported"
+            "runtime-supported"
         )));
         assert!(output.contains(&string_field_pair(
             "user_generated_source_blocker_id",
-            "none_scoped_local_jsonl_csv_smoke_only"
+            "none_scoped_local_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&string_field_pair(
             "user_generated_source_claim_gate_status",
-            "fixture_smoke_only"
+            "not_claim_grade"
         )));
         assert!(output.contains(&string_field_pair(
             "engine_native_generated_source_support_status",
-            "fixture_smoke_supported"
+            "runtime-supported"
         )));
         assert!(output.contains(&string_field_pair(
             "engine_native_generated_source_blocker_id",
-            "none_scoped_local_range_sequence_jsonl_csv_smoke_only"
+            "none_scoped_local_range_sequence_values_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&string_field_pair("input_dataset_count", "0")));
         assert!(output.contains(&field_pair("source_io_performed", false)));
@@ -3763,7 +3769,7 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_from_rows_support_status",
-            "fixture_smoke_supported"
+            "runtime-supported"
         )));
         assert!(output.contains(&field_pair("python_ctx_from_rows_runtime_execution", true)));
         assert!(output.contains(&field_pair("python_ctx_from_rows_write_io", true)));
@@ -3773,35 +3779,35 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_range_blocker_id",
-            "none_scoped_local_range_jsonl_csv_smoke_only"
+            "none_scoped_local_range_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_sequence_blocker_id",
-            "none_scoped_local_sequence_jsonl_csv_smoke_only"
+            "none_scoped_local_sequence_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&field_pair("python_ctx_sequence_runtime_execution", true)));
         assert!(output.contains(&string_field_pair(
             "python_ctx_literal_table_blocker_id",
-            "none_scoped_local_literal_table_jsonl_csv_smoke_only"
+            "none_scoped_local_literal_table_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_calendar_support_status",
-            "fixture_smoke_supported"
+            "runtime-supported"
         )));
         assert!(output.contains(&field_pair("python_ctx_calendar_runtime_execution", true)));
         assert!(output.contains(&string_field_pair(
             "sql_values_blocker_id",
-            "none_scoped_local_sql_values_jsonl_csv_smoke_only"
+            "none_scoped_local_sql_values_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&field_pair("sql_values_runtime_execution", true)));
         assert!(output.contains(&field_pair("sql_values_generated_source_created", true)));
         assert!(output.contains(&string_field_pair(
             "sql_generate_series_range_blocker_id",
-            "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only"
+            "none_scoped_local_sql_generate_series_range_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&string_field_pair(
             "sql_source_free_projection_blocker_id",
-            "none_scoped_local_sql_range_projection_jsonl_csv_smoke_only"
+            "none_scoped_local_sql_range_projection_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&field_pair(
             "sql_source_free_projection_runtime_execution",
@@ -3817,7 +3823,7 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
         )));
         assert!(output.contains(&string_field_pair(
             "dataframe_generated_with_column_blocker_id",
-            "none_scoped_local_generated_with_column_jsonl_csv_smoke_only"
+            "none_scoped_local_generated_with_column_jsonl_csv_structured_runtime"
         )));
         assert!(output.contains(&field_pair(
             "dataframe_generated_with_column_runtime_execution",
@@ -4851,7 +4857,13 @@ fn assert_operator_discovery_local_vortex_primitive_execution(output: &str) {
         "{\"key\":\"local_vortex_primitive_execution_feature_gate\",\"value\":\"vortex-local-primitives\"}"
     ));
     assert!(output.contains(
-        "{\"key\":\"local_vortex_primitive_execution_supported_primitives\",\"value\":\"count_all,count_where,filter_predicate,project_columns,filter_and_project\"}"
+        "{\"key\":\"local_vortex_primitive_execution_supported_primitives\",\"value\":\"count_all,count_where,filter_predicate,project_columns,filter_and_project,distinct,drop_duplicates,duplicate_mask,tail,sample,expression_project,melt,explode,pivot,rolling_window,aggregate,sort_rows\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_zero_decode_scan_primitives\",\"value\":\"count_all,count_where,filter_predicate,project_columns,filter_and_project\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_materializing_primitives\",\"value\":\"distinct,drop_duplicates,duplicate_mask,tail,sample,expression_project,melt,explode,pivot,rolling_window,aggregate,sort_rows\"}"
     ));
     assert!(
         output.contains(
@@ -4891,6 +4903,18 @@ fn assert_operator_discovery_local_vortex_primitive_execution(output: &str) {
             "{\"key\":\"local_vortex_primitive_execution_spill_io\",\"value\":\"false\"}"
         )
     );
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_materialization_boundary_reported\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_state_budget_reported\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_memory_admission_reported\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_native_io_certificate_reported\",\"value\":\"true\"}"
+    ));
     assert!(output.contains(
         "{\"key\":\"local_vortex_primitive_execution_requires_correctness_evidence\",\"value\":\"true\"}"
     ));
