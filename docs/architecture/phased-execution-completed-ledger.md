@@ -16,6 +16,70 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] ClickBench 100M ingest ship/drop and URL predicate optimization queue setup.
+  - Date: 2026-06-28
+  - Completed phase-plan rows:
+    - `CLICKBENCH-INGEST-WRITER-SEGMENT-ECONOMICS-15`
+    - `CLICKBENCH-ARTIFACT-SIZE-ENCODING-POLICY-16`
+  - Completed scope:
+    - Added a durable local ingest iteration ledger at
+      `docs/architecture/clickbench-ingest-optimization-ledger.md`.
+    - Added `scripts/run_clickbench_ingest_uat.sh`, a CLI-only gated replacement-ingest UAT runner
+      that file-backs stdout/stderr, removes stale duplicate `hits-parquet-100m` artifacts on
+      replacement runs, tracks hidden atomic temp artifacts, and enforces runtime, artifact-size,
+      stable-idle, and minimum-progress gates.
+    - Exposed public preparation evidence for source-text writer compression field count and field
+      names so future writer-profile experiments can be audited from the JSON envelope instead of
+      source inspection alone.
+    - Retained the broad source-text fast-Zstd profile for the canonical single `.vortex` artifact
+      and restored the Desktop UAT artifact after rejected experiments.
+    - Promoted the next material optimization owner,
+      `CLICKBENCH-STRING-PREDICATE-MEMBERSHIP-17`, because current official Q21-Q24-style evidence
+      shows broad URL/string predicate scans before aggregation or row-ref top-K.
+  - Local 100M replacement-ingest evidence:
+    - Retained latest replacement run:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260628T040813Z`.
+    - Wall time: `390s`.
+    - `prepare_once_millis=351003`.
+    - `vortex_write_millis=336171`.
+    - `vortex_segment_write_millis=336159`.
+    - `prepared_olap_state_layout_artifact_size_bytes=34933241344`.
+    - `prepared_olap_state_layout_footer_segment_count=36660`.
+    - `vortex_writer_compression_policy=vortex_large_source_text_fast_zstd_no_dict_layout_statistics`.
+    - `vortex_writer_compression_field_count=28`.
+    - `vortex_writer_layout_strategy_applied=vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_embedded_olap_layout_statistics`.
+    - `fallback_attempted=false`; `external_engine_invoked=false`.
+  - Dropped experiments:
+    - Selective payload-only source-text compression: return code `137` after `215s`, only `168 MB`
+      hidden temp progress, no canonical `.vortex` target.
+    - Ultra row-block/segment-economy profile: load improved in isolation (`360s`, `34.86GB`,
+      `25038` segments), but the saved Q25 row-order/top-K guard regressed to `13.734s`, so the
+      profile was reverted and not shipped.
+  - Additional guard evidence:
+    - Restored canonical artifact keeps the saved Q25 guard on the row-ref path:
+      `local_primitive_arrays_read_count=382`,
+      `local_primitive_late_materialization_source_row_id_projection_applied=true`,
+      `local_primitive_sort_predicate_strategy=vortex_filter_pushdown_with_row_idx`,
+      `local_primitive_physical_policy_route_family=row_ref_sort_topk`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Manual official Q24-style probe
+      `SELECT * FROM hits WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10` still scans broad
+      URL/string chunks (`local_primitive_rows_scanned=99997497`,
+      `local_primitive_arrays_read_count=800`), which is now tracked as the next material
+      optimization family rather than treated as a writer-layout issue.
+  - Validation evidence:
+    - `bash -n scripts/run_clickbench_ingest_uat.sh`
+    - `/opt/homebrew/bin/rustfmt --edition 2024 --check shardloom-vortex/src/vortex_ingest.rs shardloom-cli/src/sql_local_source_runtime.rs`
+    - `CARGO_TARGET_DIR=/tmp/shardloom-target-vortex-policy-restored cargo check -p shardloom-vortex --features vortex-write,universal-format-io`
+    - `CARGO_INCREMENTAL=0 CARGO_TARGET_DIR=/tmp/shardloom-target-cli-policy-check cargo test -p shardloom-cli --features release-user-surfaces --bin shardloom public_workflow_preparation_keeps_layout_profile_fields -- --nocapture`
+    - Local replacement-ingest UAT and targeted Q25 guard described above.
+  - Claim boundary:
+    - Local Desktop UAT only; no official ClickBench submission, superiority, production-platform,
+      release-channel, or universal workload claim.
+  - Fallback boundary:
+    - No route added Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, or
+      another external engine as ShardLoom execution fallback.
+
 - [x] ClickBench 100M shared native Vortex physical-policy and single-artifact optimization batch.
   - Date: 2026-06-27
   - Completed phase-plan rows:
@@ -51144,6 +51208,34 @@ the current queue; promote any actionable unfinished work into Planned before im
       `python3 scripts/run_focused_checks.py --profile current-native-vortex`, `python3
       scripts/check_ci_gate_matrix.py`, focused release-script tests, and syntax checks for the
       runner and benchmark promoter.
+- [x] CLICKBENCH-QUERY-LANE-BURNDOWN-2026-06-28 closed the current string, transform, high-cardinality,
+      and row-ref top-K query-lane optimization batch. `CLICKBENCH-STRING-HEAVY-HITTER-EXACT-RECOUNT-11`
+      retained dictionary-code exact recount, candidate-code skip evidence, interned key reuse, and
+      sparse predicate candidate-set filtering for Q23/Q34/Q35-family lanes. `CLICKBENCH-TRANSFORM-CODE-MAP-12`
+      retained reusable run-local transform-code maps for transformed dictionary aggregates and
+      public evidence for transform family, cap, hits/misses, saturation, null handling, and
+      materialization. `CLICKBENCH-HIGH-CARDINALITY-RADIX-CAPILLARY-13` retained repeated numeric-pair
+      capillary partials, packed-key merge evidence, and memory-pressure accounting without adding
+      uncertified spill. `CLICKBENCH-ROW-REF-TOPK-SEGMENT-PRUNING-14` retained conservative
+      chunk-threshold pruning for bounded order/limit lanes and explicit row-ref materialization
+      evidence. Targeted UAT evidence is recorded in
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_phase_batch_20260628T003354Z/summary.json`
+      and
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_shipdrop_batch_20260628T011000Z/summary.json`.
+      Claim boundary remains local 100M UAT evidence only; no official ClickBench or superiority
+      claim is made.
+- [x] CLICKBENCH-INGEST-UAT-2026-06-28 retained the broad source-text fast-Zstd single-artifact
+      replacement-ingest profile and dropped the selective payload-only compression profile. The
+      retained CLI run at
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260628T031727Z`
+      completed in `421s`, produced one canonical `34.93GB` `.vortex` artifact, reported
+      `prepare_once_millis=355888`, `vortex_write_millis=339646`,
+      `vortex_segment_write_millis=339635`, `footer_segment_count=36660`,
+      `writer_compression_policy=vortex_large_source_text_fast_zstd_no_dict_layout_statistics`,
+      `writer_compression_field_count=28`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`. The dropped selective profile returned code `137` after
+      `215s` and produced no canonical artifact. The remaining material ingest opportunity is a
+      deeper writer/layout architecture change, not another source-text field-list tweak.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

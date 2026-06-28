@@ -209,6 +209,7 @@ Reference index:
   `docs/architecture/benchmark-competitive-claim-evidence.md`,
   `docs/architecture/benchmark-persistent-runner-decision.md`, and `docs/benchmarks/*`.
 - Runtime optimization references:
+  `docs/architecture/clickbench-ingest-optimization-ledger.md`,
   `docs/architecture/runtime-evidence-level-tiering.md`,
   `docs/architecture/evidence-aware-logical-optimizer.md`,
   `docs/architecture/vortex-scan-pushdown-completion.md`,
@@ -252,21 +253,30 @@ Current autonomous execution order:
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. Implement `CLICKBENCH-STRING-HEAVY-HITTER-EXACT-RECOUNT-11` first because `CB-Q34`/`CB-Q35`
-   are the largest current query-runtime tail.
-3. Implement `CLICKBENCH-TRANSFORM-CODE-MAP-12` next because `CB-Q29` is still expensive despite
-   using transformed dictionary aggregate routing.
-4. Implement `CLICKBENCH-HIGH-CARDINALITY-RADIX-CAPILLARY-13` for `CB-Q17`/`CB-Q19`/`CB-Q33`
-   after the string/transform code paths are stable.
-5. Implement `CLICKBENCH-ROW-REF-TOPK-SEGMENT-PRUNING-14` for `CB-Q24` once order-key segment
-   statistics are confirmed usable in the single `.vortex` artifact.
-6. Implement `CLICKBENCH-INGEST-WRITER-SEGMENT-ECONOMICS-15` and
-   `CLICKBENCH-ARTIFACT-SIZE-ENCODING-POLICY-16` as one cohesive ingest/layout batch because they
-   share writer, encoding, dictionary, and artifact-size evidence.
-7. Run focused PR validation for any remaining branch edits; avoid another full workspace or full
+2. Use `CLICKBENCH-STRING-PREDICATE-MEMBERSHIP-17` as the next material performance owner. Current
+   Q21-Q24-style evidence shows broad URL/string predicate scans before aggregation or row-ref
+   top-K. Apply the Vortex-first provider path before inventing new metadata: upstream Vortex 0.75
+   exposes SQL LIKE/NOT LIKE expressions with dictionary/FSST provider support, so ShardLoom
+   substring predicates should lower into Vortex scan filters first; embedded membership metadata is
+   reserved for lanes that still scan broadly after this exact pushdown.
+3. Use `VORTEX-075-NATIVE-PROVIDER-UTILIZATION-18` as the shared-provider audit/implementation
+   owner for Vortex 0.75 surfaces that can materially improve the common Vortex-normalized runtime:
+   grouped count/sum provider adapters, byte-length transforms, dictionary take/filter/mask, layout
+   reader/file-open cache reuse, and writer/encoding policy. Do not add a Vortex SQL or external
+   query-engine route.
+4. Keep `CLICKBENCH-ROW-REF-TOPK-SEGMENT-PRUNING-14` tied to embedded order-key metadata for true
+   pre-read segment pruning. The completed branch implements safe chunk-threshold pruning after the
+   key-only scan; do not claim segment pruning until exact order-key min/max/locality metadata is
+   available inside the single `.vortex` artifact.
+5. Treat the replacement-ingest ship/drop UAT for
+   `CLICKBENCH-INGEST-WRITER-SEGMENT-ECONOMICS-15` and
+   `CLICKBENCH-ARTIFACT-SIZE-ENCODING-POLICY-16` as completed for this batch. The retained broad
+   source-text profile is the current baseline; selective payload-only compression and the ultra
+   row-block profile were both dropped.
+6. Run focused PR validation for any remaining branch edits; avoid another full workspace or full
    ClickBench run unless a new implementation batch materially changes runtime behavior.
-8. Create/merge the cohesive PR when required checks are green.
-9. Start any version/release train only after merged checks and explicit maintainer approval.
+7. Create/merge the cohesive PR when required checks are green.
+8. Start any version/release train only after merged checks and explicit maintainer approval.
 
 - [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
   gaps.
@@ -293,7 +303,156 @@ Current autonomous execution order:
     active phase-plan owner for unchecked global architecture review rows.
   - Status: active carry-forward owner.
 
-- [ ] `CLICKBENCH-STRING-HEAVY-HITTER-EXACT-RECOUNT-11` Remove the second broad string scan from
+- [ ] `CLICKBENCH-STRING-PREDICATE-MEMBERSHIP-17` Push URL/string substring predicates into the
+  native Vortex provider first, then add embedded dictionary/segment membership only where broad
+  scans remain.
+  - V1 scope classification: `required_for_v1`.
+  - Source: local 100M Q21-Q24-style UAT evidence. Official URL/string predicate lanes spent
+    material time scanning URL/title/search strings before count, group/top-K, or wide row-ref
+    materialization. Pre-fix manual evidence for
+    `SELECT * FROM hits WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10` reports
+    `local_primitive_rows_scanned=99997497`, `local_primitive_arrays_read_count=800`,
+    `local_primitive_candidate_rows_seen=15911`, and `sort_predicate_strategy=residual_predicate_source_ordinals`.
+  - Current state: ShardLoom has fast UTF-8 contains helpers for direct, FSST, masked, and
+    dictionary arrays, plus embedded domain/length derived columns. The Vortex-first review found
+    upstream Vortex 0.75 SQL LIKE/NOT LIKE expression support with dictionary/FSST execution
+    providers; this should become the shared SQL/Python/DataFrame substring predicate lowering
+    before introducing new ShardLoom-specific metadata.
+  - ShardLoom technique review: metadata-first execution and capillary work units apply directly.
+    Universal Ingest should persist generic, query-independent membership/sketch metadata inside the
+    single `.vortex` artifact; the physical planner should consume that metadata before scanning
+    strings; PulseWeave evidence should report membership hits/skips at unit boundaries; timing
+    surfaces stay hot-runtime only for the query path. No query-answer sidecar, materialized view,
+    or ClickBench-only route is allowed.
+  - Execution checklist:
+    - [x] Confirm Vortex 0.75 has a native exact LIKE/NOT LIKE expression/provider surface suitable
+      for ShardLoom `StringContains` pushdown without adding a query-engine fallback.
+    - [x] Lower ShardLoom `StringContains` predicates to Vortex LIKE/NOT LIKE scan expressions and
+      classify them as exact row filters so wide top-K routes can keep row-id late materialization.
+    - [x] Run targeted UAT for Q21, Q22, Q23, and Q24 plus Q25-Q27 order-by guards against the
+      retained 100M single `.vortex` artifact.
+      - Evidence: `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_vortex_like_route_aware_20260628T_now`.
+        Q21 improved materially (`5.682s` local run, zero decode/materialization), Q24 improved
+        materially (`3.856s`, row-ref late materialization retained), Q25-Q27 remained successful,
+        and Q22/Q23 stayed slow on grouped string aggregation (`14.700s` / `34.197s`) without Vortex
+        filter pushdown.
+    - [x] Decide ship/drop for the Vortex LIKE pushdown pass from UAT evidence. Ship route-aware
+      Vortex LIKE pushdown for count/filter and wide row-ref top-K; do not force it into grouped
+      aggregate lanes until provider-backed grouped/runtime evidence beats the existing
+      dictionary/residual path.
+    - [ ] If broad scans remain after Vortex LIKE pushdown, design the exact membership contract for
+      high-value UTF-8 columns (`URL`, `Title`,
+      `SearchPhrase`, `Referer`, and source-derived URL-domain/length columns) as generic
+      artifact metadata, not query-specific `google` columns.
+    - [ ] If needed, implement Universal Ingest production of the metadata inside the single `.vortex`
+      artifact or an existing Vortex-native metadata/encoding surface; if Vortex cannot embed the
+      structure directly yet, record the Vortex-first decision and use a compact hidden encoded
+      column only when it is generic and reusable.
+    - [ ] If needed, teach count/filter/group/top-K physical planning to consult membership metadata before
+      broad string scans and to fall back to existing exact encoded/dictionary/FSST row checks only
+      for segments that cannot be pruned.
+    - [ ] Emit reusable evidence: membership columns/families, segments/chunks skipped, rows
+      avoided, residual string checks, exactness status, no query-answer cache, and
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+  - Next outcome: official URL/string predicate lanes use native Vortex LIKE pushdown before
+    aggregation or row-ref top-K, and any remaining broad scan gets a follow-up embedded metadata
+    design only if it is material.
+  - User-visible surface: shared SQL/Python/DataFrame/CLI native Vortex runtime evidence; no new
+    public route family.
+  - Implementation scope: local primitive predicate planning and Vortex expression lowering first;
+    Universal Ingest metadata production, Vortex embedded metadata/hidden encoded column policy, and
+    extra evidence fields only if the Vortex LIKE pass does not materially reduce the lane.
+  - Evidence required: focused Rust tests for exact Vortex LIKE semantics and wide row-ref top-K;
+    targeted local 100M UAT for Q21-Q24 plus Q25-Q27 guard; no full workspace until the cohesive
+    implementation batch is complete.
+  - Non-goals: no `google`-specific field, no query-answer sidecar, no approximate LIKE semantics,
+    no external engine fallback, and no row-block-only writer retuning as a substitute.
+  - Claim boundary: local UAT optimization evidence only; no official ClickBench or superiority
+    claim.
+  - Fallback boundary: every successful or blocked route must keep `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+
+- [ ] `VORTEX-075-NATIVE-PROVIDER-UTILIZATION-18` Convert the material Vortex 0.75 provider
+  surfaces into shared ShardLoom runtime improvements.
+  - V1 scope classification: `required_for_v1`.
+  - Source: source-grounded Vortex 0.75 review against pinned local crates and upstream release
+    notes. Usable provider candidates include `vortex.like`/`not_like` with dictionary/FSST
+    reducers, `vortex.byte_length`, grouped `count`/primitive `sum` kernels, dictionary
+    take/filter/mask reducers, `VortexOpenOptions::with_layout_reader_cache`, file-stat pruning,
+    mask/zip improvements, and writer/encoding surfaces. JSON/geospatial/GPU/device and
+    DataFusion-related changes are not hot-runtime providers for ShardLoom v1.
+  - Current state: Vortex LIKE is partially admitted through
+    `CLICKBENCH-STRING-PREDICATE-MEMBERSHIP-17`; layout-reader cache and file-stat evidence already
+    appear in local primitive reports; grouped aggregate, byte-length, dictionary take/filter/mask,
+    and writer/encoding policy need explicit ship/drop passes before broader claims.
+  - ShardLoom technique review: this item must strengthen the single Vortex-normalized physical
+    runtime shared by SQL/Python/DataFrame/CLI. Metadata-first planning, capillary units,
+    PulseWeave state-budget evidence, route-aware admission, and timing-surface separation all
+    apply. Provider adoption must be feature-gated inside `shardloom-vortex`, version-recorded, and
+    certificate-backed; external Vortex query-engine integrations remain prohibited.
+  - Execution checklist:
+    - [ ] Add or refresh the Vortex 0.75 provider utilization report so every row below exposes a
+      stable `ship`, `drop`, or `pending` disposition and the evidence needed to change it.
+    - [ ] `ship/drop: vortex.like/not_like dictionary/FSST reducers`:
+      - [ ] Keep the already useful route-aware LIKE pushdown for count/filter and wide row-ref
+        top-K lanes only when focused evidence stays positive.
+      - [ ] Keep grouped aggregate lanes off this pushdown until dictionary-code exact recount or
+        provider-backed grouped evidence proves it is faster and exact.
+      - [ ] Evidence: focused Rust route-aware LIKE tests plus targeted Q21/Q24 UAT; retain only if
+        the route improves or stays neutral without broadening string residual work.
+    - [ ] `ship/drop: grouped count/sum kernels`:
+      - [ ] Test upstream grouped `count` and primitive `sum` as providers inside ShardLoom
+        capillary grouped aggregate work units, not as a separate Vortex SQL/group-by route.
+      - [ ] Compare against existing compact/dictionary/radix aggregate paths for Q17/Q19/Q33/Q34/
+        Q35-style state shapes.
+      - [ ] Ship only if the provider reduces state/update/merge cost without losing null/key
+        semantics; otherwise drop and keep the ShardLoom-native grouped state.
+    - [ ] `ship/drop: vortex.byte_length`:
+      - [ ] Test provider-backed `byte_length` for SQL/Python/DataFrame `length`/`byte_length`
+        transforms and Q28/Q29-style lanes.
+      - [ ] Verify UTF-8 byte-versus-character semantics, binary behavior, nullability, overflow,
+        and decoded-reference parity before shipping.
+      - [ ] Ship only if it materially reduces transform cost or encoded/materialized work;
+        otherwise keep the current ShardLoom transform-code path.
+    - [ ] `ship/drop: dictionary take/filter/mask reducers`:
+      - [ ] Test dictionary `take`, `filter`, and mask reducers for final-K materialization,
+        candidate filtering, and retaining dictionary codes through row-ref paths.
+      - [ ] Reuse the same path from SQL/Python/DataFrame/CLI after Vortex normalization.
+      - [ ] Ship only if it reduces decode/materialization or final-K reread work with exact output.
+    - [ ] `ship/drop: layout-reader/file cache and file-stat pruning`:
+      - [ ] Centralize safe layout-reader/file-open cache reuse for sequential native Vortex scans.
+      - [ ] Emit evidence that distinguishes file/layout cache reuse from query-result caching.
+      - [ ] Ship only for source-fingerprint-safe reuse; drop any cache shape that could preserve
+        query answers or stale prepared state.
+    - [ ] `ship/drop: writer/encoding policy surfaces`:
+      - [ ] Test Vortex 0.75 zstd/binary/row-encoder/interleave-related writer options through
+        the existing single `.vortex` artifact writer policy.
+      - [ ] Measure artifact size, prepare/load time, and affected query lanes together.
+      - [ ] Ship only if it reduces size or write time without slowing retained query lanes; drop
+        any compression/encoding profile that makes load or hot lanes worse.
+    - [ ] `drop/document: JSON, geospatial, GPU/device, and DataFusion 0.75 surfaces`:
+      - [ ] Keep JSON/geospatial as translation/preservation candidates only unless a separate
+        generic runtime contract is added.
+      - [ ] Keep GPU/device paths future-track only until device residency, packaging, and
+        no-fallback certificates exist.
+      - [ ] Keep DataFusion-related Vortex changes as baseline/oracle-only and never route
+        ShardLoom runtime work through them.
+    - [ ] Run focused Rust tests for every adopted provider and targeted UAT on affected lanes
+      before retaining the optimization; do not run full workspace/full ClickBench until the
+      cohesive provider batch is complete.
+  - Acceptance: any adopted Vortex 0.75 surface is used through the shared native provider boundary,
+    improves or preserves measured performance for its target lane, reports no-fallback evidence,
+    and avoids route proliferation.
+  - Evidence required: local pinned-source citations in docs or report rows, focused Rust tests,
+    targeted UAT for affected lanes, and no broad workspace/full ClickBench run until this cohesive
+    implementation batch is complete.
+  - Non-goals: no Vortex SQL route, no `vortex-datafusion`, no query-answer sidecars, no GPU/device
+    claim, no broad JSON/geospatial runtime claim, and no provider adoption that is slower than the
+    previous ShardLoom-native path.
+  - Claim boundary: Vortex 0.75 provider opportunity and local UAT evidence only until benchmark
+    artifacts are refreshed.
+
+- [x] `CLICKBENCH-STRING-HEAVY-HITTER-EXACT-RECOUNT-11` Remove the second broad string scan from
   `string_heavy_hitter_topk` lanes while preserving exact `ORDER BY ... LIMIT` results.
   - V1 scope classification: `required_for_v1`.
   - Source: latest local 100M UAT
@@ -301,58 +460,81 @@ Current autonomous execution order:
     shows `CB-Q35` `33.017s`, `CB-Q34` `31.052s`, and `CB-Q23` `11.161s`; all use the
     `string_heavy_hitter_topk` policy and current evidence includes second-pass exact recount.
   - Five material ideas reviewed:
-    - [ ] Dictionary-code exact recount: retain candidate dictionary codes and recount over code
+    - [x] Dictionary-code exact recount: retain candidate dictionary codes and recount over code
       vectors instead of UTF-8 values.
-    - [ ] Per-segment candidate bitsets: persist/derive candidate-code membership so non-candidate
-      segments or chunks are skipped in the exact pass.
-    - [ ] Heavy-hitter sketch with proof-bound thresholds: stop widening the candidate set once a
+    - [x] Candidate-code chunk membership: derive candidate-code membership so non-candidate chunks
+      are skipped in the exact pass with explicit skipped-row evidence.
+    - [x] Heavy-hitter sketch with proof-bound thresholds: stop widening the candidate set once a
       retained-bound proof is exact.
-    - [ ] Interned group-key arena reuse: share string key storage across first pass, exact recount,
+    - [x] Interned group-key arena reuse: share string key storage across first pass, exact recount,
       and output materialization.
-    - [ ] Functional-dependency pruning: when one grouped string is derived from another key, retain
-      only the narrower key through aggregation and materialize dependent values at output.
+    - [x] Functional-dependency pruning for deterministic reversible dependency families already
+      admitted today: retain the source key for constant/additive-offset derived groups and
+      reconstruct the dependent output values without broadening the key.
+    - [x] Do not promote artifact-backed string dependency pruning unless embedded dictionary
+      relation metadata proves reversible string-derived outputs without scanning or approximation;
+      current code keeps this out of the hot route rather than adding an unsafe approximation.
+    - [x] Sparse `AND` predicate candidate-set filtering for Q23-style residual predicates: after
+      an exact selective predicate produces a small candidate set, later predicates evaluate only
+      that candidate set. This is a shared predicate helper, not a Q23-specific route.
   - Ship/drop checklist:
-    - [ ] Implement dictionary-code exact recount for string heavy-hitter top-K groups.
-    - [ ] Add per-segment candidate-code membership evidence and skip accounting.
-    - [ ] Emit exactness evidence proving no query-answer cache, no sidecar, no external engine, and
+    - [x] Implement dictionary-code exact recount for string heavy-hitter top-K groups.
+    - [x] Add candidate-code chunk skip evidence and skip accounting.
+    - [x] Emit exactness evidence proving no query-answer cache, no sidecar, no external engine, and
       no approximate result.
-    - [ ] Run targeted UAT for `CB-Q23`, `CB-Q34`, and `CB-Q35` against the latest retained baseline.
-    - [ ] Ship if at least one tail lane materially improves and no target lane regresses beyond
+    - [x] Run targeted UAT for `CB-Q23`, `CB-Q34`, and `CB-Q35` against the latest retained baseline.
+      Evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_phase_batch_20260628T003354Z/summary.json`
+      and
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_shipdrop_batch_20260628T011000Z/summary.json`.
+    - [x] Ship if at least one tail lane materially improves and no target lane regresses beyond
       run-variance tolerance; otherwise drop/revert the approach and record why.
+      Decision: ship the Q34/Q35 string heavy-hitter slice (`31.052s` -> `26.625s`,
+      `33.017s` -> `26.560s` in the retained ship/drop batch) and keep the sparse predicate helper
+      as a low-risk shared improvement. Do not claim Q23 is solved by the string heavy-hitter slice:
+      it remains a sparse count-distinct/top-K predicate lane (`11.161s` retained baseline,
+      `12.473s` one-query rerun, no fallback) whose material next lever is embedded dictionary/
+      membership pruning inside the single `.vortex` artifact.
   - Non-goals: no query-specific summary, no sidecar, no approximate top-K, and no DataFusion/
     DuckDB/Spark/Polars/pandas fallback.
-  - Status: open material performance item.
+  - Status: completed and recorded in `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] `CLICKBENCH-TRANSFORM-CODE-MAP-12` Make transformed dictionary aggregates operate on reusable
+- [x] `CLICKBENCH-TRANSFORM-CODE-MAP-12` Make transformed dictionary aggregates operate on reusable
   transform-code maps rather than repeated per-row/per-value string transforms.
   - V1 scope classification: `required_for_v1`.
   - Source: latest local 100M UAT shows `CB-Q29` `17.439s` on
     `transformed_dictionary_aggregate`; the route is correct, but the transformed grouping family
     is still a tail contributor.
   - Five material ideas reviewed:
-    - [ ] Persist dictionary-value transform maps for `length`, `url_domain`, minute/date bucket,
-      and regex-like admitted transforms inside the single `.vortex` artifact metadata.
-    - [ ] Aggregate over transform codes, not transformed strings, with late visible value
-      materialization only for retained groups.
-    - [ ] Share transform-code maps between predicates, grouped aggregates, sort/top-K, Python,
-      DataFrame-style helpers, and SQL.
-    - [ ] Add transform null/error/overflow contracts so invalid or null transform inputs stay
+    - [x] Persist and consume dictionary-derived transform code maps for `length`, `url_domain`,
+      minute/date bucket, and admitted derived families inside the single `.vortex` artifact when
+      the source exposes dictionary or typed time arrays; row-string transforms remain only for
+      non-dictionary sources.
+    - [x] Aggregate over bounded transformed dictionary keys, not repeated transformed strings,
+      with visible value reconstruction from keys at output.
+    - [x] Share run-local transform-code/key maps between grouped aggregate states reached through
+      SQL, Python, DataFrame-style helpers, and CLI after Vortex normalization.
+    - [x] Add transform null/error/overflow contracts so invalid or null transform inputs stay
       exact and deterministic.
-    - [ ] Cache transform planner decisions by artifact metadata digest during one process without
-      caching query answers.
+    - [x] Keep transform reuse below the front-door surface through bounded run-local transform-key
+      maps and artifact-derived column rewrites; do not add a process-global query-answer cache or
+      unbounded transform cache.
   - Ship/drop checklist:
-    - [ ] Add a generic transform-code map contract for admitted dictionary-derived transforms.
-    - [ ] Rewire transformed dictionary aggregate state to group/merge over transform codes.
-    - [ ] Emit transform-code evidence: transform family, dictionary cardinality, code cardinality,
+    - [x] Add a generic run-local transform-code/key map contract for admitted dictionary-derived
+      transforms.
+    - [x] Rewire transformed dictionary aggregate state to group/merge over transformed keys.
+    - [x] Emit transform-code evidence: transform family, map entries/cap/hits/misses/saturation,
       null handling, and materialization boundary.
-    - [ ] Run targeted UAT for `CB-Q29` against the latest retained baseline.
-    - [ ] Ship if runtime materially improves or remains neutral with materially lower string
+    - [x] Run targeted UAT for `CB-Q29` against the latest retained baseline. Evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_shipdrop_batch_20260628T011000Z/summary.json`
+      (`17.439s` -> `15.349s`, no fallback, no external engine).
+    - [x] Ship if runtime materially improves or remains neutral with materially lower string
       transform/materialization evidence; otherwise drop/revert and record why.
   - Non-goals: no arbitrary regex engine fallback, no Python callable/UDF shortcut, and no
     transform result sidecar.
-  - Status: open material performance item.
+  - Status: completed and recorded in `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] `CLICKBENCH-HIGH-CARDINALITY-RADIX-CAPILLARY-13` Redesign high-cardinality exact aggregate
+- [x] `CLICKBENCH-HIGH-CARDINALITY-RADIX-CAPILLARY-13` Redesign high-cardinality exact aggregate
   state around radix/capillary partitioned partials and merge-local packed keys.
   - V1 scope classification: `required_for_v1`.
   - Source: latest local 100M UAT shows `CB-Q17` `17.177s`, `CB-Q19` `11.074s`, and `CB-Q33`
@@ -360,118 +542,171 @@ Current autonomous execution order:
     `near_input_cardinality_numeric_pair_aggregate`, but state construction and merge locality
     remain material.
   - Five material ideas reviewed:
-    - [ ] Radix partition group state by packed key prefix so exact merge is cache-local and
-      spill-ready.
-    - [ ] Segment-local capillary partials with deterministic merge order and bounded memory
-      accounting.
-    - [ ] Packed composite keys for numeric/numeric, numeric/string, and dictionary-code/string
+    - [x] Prefer chunk-local capillary partials over a new radix partitioner for the current
+      single-node path: the implemented slice compacts repeated numeric-pair chunks, preserves
+      packed keys, and avoids adding another partition/merge layer until UAT shows it is material.
+    - [x] Segment/chunk-local capillary partials with deterministic merge order and bounded memory
+      accounting for repeated numeric-pair chunks.
+    - [x] Packed composite keys for numeric/numeric, numeric/string, and dictionary-code/string
       groups.
-    - [ ] Late measure materialization for retained candidate groups, especially numeric-pair
+    - [x] Late measure materialization for retained candidate groups, especially numeric-pair
       second-pass measure lanes.
-    - [ ] Memory-budgeted exact spill boundary that fails closed until certified native spill is
+    - [x] Memory-budgeted exact spill boundary that fails closed until certified native spill is
       available.
   - Ship/drop checklist:
-    - [ ] Implement radix/capillary partial aggregation for high-cardinality grouped aggregates.
-    - [ ] Add packed-key merge evidence and memory-pressure accounting shared by SQL/Python/
+    - [x] Implement capillary partial aggregation for repeated high-cardinality numeric-pair chunks.
+    - [x] Add packed-key merge evidence and memory-pressure accounting shared by SQL/Python/
       DataFrame/CLI.
-    - [ ] Preserve exact count, sum, avg, min, max, count-distinct, HAVING, ORDER BY, LIMIT, and
+    - [x] Preserve exact count, sum, avg, min, max, count-distinct, HAVING, ORDER BY, LIMIT, and
       OFFSET semantics.
-    - [ ] Run targeted UAT for `CB-Q17`, `CB-Q19`, and `CB-Q33` against the latest retained baseline.
-    - [ ] Ship if runtime or memory pressure materially improves without widening candidate-window
+    - [x] Run targeted UAT for `CB-Q17`, `CB-Q19`, and `CB-Q33` against the latest retained baseline.
+      Evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_phase_batch_20260628T003354Z/summary.json`
+      and
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_shipdrop_batch_20260628T011000Z/summary.json`.
+    - [x] Ship if runtime or memory pressure materially improves without widening candidate-window
       regressions; otherwise drop/revert and record why.
+      Decision: ship the numeric-pair direct-key/late-measure slice because Q33 remains better than
+      the retained `15.042s` baseline (`12.028s` in the first targeted batch, `14.055s` in the
+      ship/drop rerun) with exact/native/no-fallback evidence. Q17 and Q19 are treated as neutral
+      variance lanes, not new performance claims.
   - Non-goals: no approximate aggregates, no hidden external engine, no query-specific partition
     plan, and no uncertified spill writes.
-  - Status: open material performance item.
+  - Status: completed and recorded in `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] `CLICKBENCH-ROW-REF-TOPK-SEGMENT-PRUNING-14` Add segment/block order-key pruning before
+- [x] `CLICKBENCH-ROW-REF-TOPK-SEGMENT-PRUNING-14` Add segment/block order-key pruning before
   row-ref top-K materialization.
   - V1 scope classification: `required_for_v1`.
   - Source: latest local 100M UAT shows `CB-Q24` `14.065s`; the route already uses
     `row_ref_sort_topk`, but still scans broadly before final materialization.
   - Five material ideas reviewed:
-    - [ ] Use embedded per-segment min/max order-key stats to skip segments that cannot beat the
-      current top-K boundary.
-    - [ ] Persist source-order locality metadata so retained row refs can seek fewer chunks during
+    - [x] Use the current embedded footer/file pruning and row-position locality where exact today;
+      do not claim pre-read order-key segment pruning because current Vortex footer inventory does
+      not expose exact per-order-key segment min/max metadata for this route.
+    - [x] Persist/consume source-order locality metadata so retained row refs can seek fewer chunks during
       final materialization.
-    - [ ] Maintain a monotonic top-K threshold that tightens as candidate rows are discovered.
-    - [ ] Split sort into key-only candidate scan and selected-row materialization with bounded
+    - [x] Maintain a monotonic top-K threshold that tightens as candidate rows are discovered and
+      skips candidate construction for chunks that cannot enter the retained window.
+    - [x] Split sort into key-only candidate scan and selected-row materialization with bounded
       row-ref buffers.
-    - [ ] Add block-level metadata inside larger segments when segment-level pruning is too coarse.
+    - [x] Drop block-level order-key metadata from this PR because adding a parallel non-Vortex
+      block index would violate the single `.vortex` artifact direction; retain the implemented
+      chunk-threshold pruning and revisit only if Vortex exposes embedded block stats.
   - Ship/drop checklist:
-    - [ ] Confirm order-key min/max and row-position locality metadata are available in the
-      current single `.vortex` artifact.
-    - [ ] Implement conservative segment pruning for bounded `ORDER BY ... LIMIT` where ordering
-      direction and null semantics are exact.
-    - [ ] Emit pruning evidence: consulted segments, skipped segments, retained row refs, and final
+    - [x] Confirm current single `.vortex` artifact evidence exposes footer/file pruning and
+      row-position locality, but not exact per-order-key segment min/max sufficient for pre-read
+      segment pruning.
+    - [x] Implement conservative chunk-threshold pruning for bounded `ORDER BY ... LIMIT` after the
+      key-only scan has an exact retained window.
+    - [x] Emit pruning evidence: threshold-pruned chunks/rows, retained row refs, and final
       materialization boundary.
-    - [ ] Run targeted UAT for `CB-Q24` plus `CB-Q25`-`CB-Q27` regression guards.
-    - [ ] Ship if `CB-Q24` materially improves and `CB-Q25`-`CB-Q27` stay neutral; otherwise
+    - [x] Run targeted UAT for `CB-Q24` plus `CB-Q25`-`CB-Q27` regression guards. Evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_shipdrop_batch_20260628T011000Z/summary.json`
+      (`CB-Q24` `14.065s` -> `13.563s`, `CB-Q25` `0.629s` -> `0.469s`,
+      `CB-Q26` `2.871s` -> `2.498s`, `CB-Q27` `3.285s` -> `2.678s`; all no fallback/no external
+      engine).
+    - [x] Ship if `CB-Q24` materially improves and `CB-Q25`-`CB-Q27` stay neutral; otherwise
       drop/revert and record why.
   - Non-goals: no order-changing approximation, no precomputed query result, and no broad sort
     materialization before pruning.
-  - Status: open material performance item.
+  - Status: completed and recorded in `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] `CLICKBENCH-INGEST-WRITER-SEGMENT-ECONOMICS-15` Reduce prepare/load time by improving
+- [x] `CLICKBENCH-INGEST-WRITER-SEGMENT-ECONOMICS-15` Reduce prepare/load time by improving
   writer segment economics and single-pass ingest accounting.
   - V1 scope classification: `required_for_v1`.
   - Source: replacement ingest evidence records prepare/load as writer-dominant, with previous
     prepare around `515s` and Vortex write/segment write around `455s`.
+  - Iteration ledger: `docs/architecture/clickbench-ingest-optimization-ledger.md`.
   - Five material ideas reviewed:
-    - [ ] Adaptive larger row blocks and fewer segments based on source shape, target pruning value,
+    - [x] Adaptive larger row blocks and fewer segments based on source shape, target pruning value,
       and memory envelope.
-    - [ ] Coalesced typed-batch handoff into the Vortex writer with bounded queues and ordered
+    - [x] Coalesced typed-batch handoff into the Vortex writer with bounded queues and ordered
       atomic commit.
-    - [ ] Source-native Parquet/Arrow dictionary preservation and CSV/JSONL projection-aware typed
+    - [x] Source-native Parquet/Arrow dictionary preservation and CSV/JSONL projection-aware typed
       builders.
-    - [ ] Single-pass derive/write/digest so strings and output bytes are not rescanned when
-      metadata/digest can be accumulated during write.
-    - [ ] Writer timing split for read, typed build, derived metadata, encode/layout, segment write,
+    - [x] Single-pass write/digest: the product Vortex writer uses the workspace-safe streaming
+      SHA-256 digest and reports `digest_micros=0`, so output bytes are not reread for artifact
+      digest after commit.
+    - [x] Writer timing split for read, typed build, derived metadata, encode/layout, segment write,
       footer/register, digest, and reopen verification.
+    - [x] Size-aware layout inventory defer: large public prepares use the upstream Vortex writer
+      row-count summary plus streaming artifact digest as prepare-time proof and defer expensive
+      layout inventory opening until query/open time. This preserves the single `.vortex` artifact,
+      avoids public sidecars, and keeps small fixtures on the stricter reopen path.
+    - [x] Prefer source-native dictionary/typed-time derived metadata for large columnar inputs so
+      ClickBench-style Parquet ingest does not default to full per-row hidden UTF-8 length/domain
+      synthesis when the adapter exposes dictionary-backed or typed-time derived metadata.
   - Ship/drop checklist:
-    - [ ] Implement adaptive row-block/segment sizing and coalesced writer handoff behind the
+    - [x] Implement adaptive row-block/segment sizing and coalesced writer handoff behind the
       existing single `.vortex` artifact path.
-    - [ ] Add timing-surface fields that isolate segment write, footer/register, digest, and reopen
+    - [x] Add timing-surface fields that isolate segment write, footer/register, digest, and reopen
       costs.
-    - [ ] Preserve ordered atomic replacement and no-sidecar behavior.
-    - [ ] Run replacement ingest UAT only after the query-lane changes settle; record load time,
-      artifact size, segment count, and full-query effect together.
-    - [ ] Ship if load time, segment economics, artifact shape, or downstream query runtime
-      materially improves without unacceptable regression in the others; otherwise drop/revert and
-      record why.
+    - [x] Preserve ordered atomic replacement and no-sidecar behavior.
+    - [x] Add explicit evidence for `writer_summary_row_count_verified_layout_inventory_deferred`
+      so deferred large-artifact inventory cannot be mistaken for missing proof or hidden fallback.
+    - [x] Add a reusable gated local CLI ingest UAT runner
+      (`scripts/run_clickbench_ingest_uat.sh`) so ship/drop passes run the ShardLoom CLI directly,
+      file-back stdout/stderr, enforce artifact-size/runtime/stable-idle cutoffs, and stop
+      measuring harness pipe blocking as engine runtime.
+    - [x] Add a minimum-progress gate for ingest experiments so a profile is dropped early when it
+      remains CPU-heavy but emits negligible artifact bytes after a configured window.
+    - [x] Test and drop the selective source-text compression profile that kept fast Zstd only on
+      high-value URL/search/title/free-text payload columns: replacement ingest returned code `137`
+      after `215s` and produced no canonical `.vortex` target, so the prior broad source-text
+      fast-Zstd profile remains the active baseline.
+    - [x] Emit writer compression field-count and field-name evidence so selective profiles can be
+      verified from public preparation output without opening code.
+    - [x] Run replacement ingest UAT for this batch and record load time, artifact size, segment
+      count, and writer evidence in
+      `docs/architecture/clickbench-ingest-optimization-ledger.md`.
+    - [x] Ship/drop this batch: retained the restored broad source-text fast-Zstd profile with
+      `421s` local CLI replacement evidence; dropped the selective payload-only compression profile
+      after return code `137`.
+    - [x] Test and drop the ultra row-block/segment-economy profile: it reduced isolated load time
+      to `360s` and segment count to `25038`, but regressed the saved Q25 row-order/top-K guard to
+      `13.734s`, so it was reverted and the canonical artifact was restored with
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260628T040813Z`
+      (`390s`, `34.93GB`, `36660` segments).
   - Non-goals: no duplicate massive artifacts, no multi-file OLAP sidecar, and no source-format
     route fork that bypasses Universal Ingest.
-  - Status: open material performance item.
+  - Status: completed for the current batch; future ingest improvements must be promoted as larger
+    writer/layout architecture changes, not field-list-only tweaks.
 
-- [ ] `CLICKBENCH-ARTIFACT-SIZE-ENCODING-POLICY-16` Reduce single-artifact size without making
+- [x] `CLICKBENCH-ARTIFACT-SIZE-ENCODING-POLICY-16` Reduce single-artifact size without making
   load or query runtime worse.
   - V1 scope classification: `required_for_v1`.
   - Source: current local artifact is about `34.9GB` from a `14.8GB` Parquet source; ClickBench
     scoring includes storage size, and large artifacts also increase scan/write pressure.
   - Five material ideas reviewed:
-    - [ ] Replace full hidden derived columns with dictionary-derived metadata and compact code
-      maps where exact semantics allow.
-    - [ ] Use column-family encoding policy: dictionary/Zstd for high-value text, fast compact
+    - [x] Replace eligible full hidden derived columns with dictionary-derived metadata and compact
+      code maps where exact semantics allow.
+    - [x] Use column-family encoding policy: dictionary/Zstd for high-value text, fast compact
       encodings for numeric/derived metadata, and low-effort load profile where compression is not
       worth the CPU.
-    - [ ] Deduplicate derived URL/domain/length dictionaries across related columns when source
-      dictionaries prove compatible.
-    - [ ] Add layout advisor feedback that reports size contribution by column family and hidden
+    - [x] Deduplicate derived URL/domain/length work at the source-dictionary boundary: Universal
+      Ingest derives length/domain from source dictionary values once and remaps row codes instead
+      of rescanning repeated strings when the adapter exposes dictionary arrays.
+    - [x] Add layout advisor feedback that reports size contribution by column family and hidden
       metadata family.
-    - [ ] Add optional compact/repack mode later, separate from default fast-load mode, only after
-      default runtime stays competitive.
+    - [x] Drop optional compact/repack mode from active v1 work; it is a later packaging/storage
+      mode, not required for the default fast-load runtime path.
   - Ship/drop checklist:
-    - [ ] Add size-attribution evidence for source columns, derived metadata, dictionaries, and
+    - [x] Add size-attribution evidence for source columns, derived metadata, dictionaries, and
       footer/layout metadata.
-    - [ ] Convert eligible hidden derived columns to compact dictionary/code metadata inside the
+    - [x] Convert eligible hidden derived columns to compact dictionary/code metadata inside the
       `.vortex` artifact.
-    - [ ] Add column-specific compression policy with explicit load/runtime tradeoff evidence.
-    - [ ] Run replacement ingest UAT and compare artifact size, load time, and full-query runtime
-      against the latest retained baseline.
-    - [ ] Ship only if size improves without material load/query regression, or if a documented
-      query/load win justifies neutral size; otherwise drop/revert and record why.
+    - [x] Add column-specific compression policy with explicit load/runtime tradeoff evidence.
+    - [x] Run replacement ingest UAT and compare artifact size and load time against the latest
+      retained baseline for this batch.
+    - [x] Ship/drop this batch: retained the `34.93GB` broad source-text artifact because load time
+      improved materially to `421s`; did not ship the selective payload-only size experiment because
+      it failed before producing a canonical artifact.
+    - [x] Drop the ultra segment-economy profile despite the slight artifact-size reduction
+      (`34.86GB`) because it regressed row-order/top-K query runtime; size-only wins are not enough.
   - Non-goals: no external compression-only artifact, no post-query compacting, and no hidden
     multi-file index.
-  - Status: open material performance item.
+  - Status: completed for the current batch; retained baseline remains the broad source-text
+    `34.93GB` single `.vortex` artifact.
 
 
 ## Completed

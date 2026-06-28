@@ -17,8 +17,9 @@ use shardloom_plan::{
 use crate::{
     VortexEncodedValuePredicateBatch, VortexGeneralizedEncodedFilterExecutionReport,
     VortexGeneralizedEncodedProjectionExecutionReport, VortexLocalEnginePrimitive,
-    VortexLocalEngineReport, VortexLocalEngineRequest, VortexNativeProviderBoundary,
-    VortexPreparedEncodedProjectionColumn, VortexReaderBackedEncodedFilterExecutionReport,
+    VortexLocalEngineReport, VortexLocalEngineRequest, VortexLocalPrimitiveResourceEnvelope,
+    VortexNativeProviderBoundary, VortexPreparedEncodedProjectionColumn,
+    VortexReaderBackedEncodedFilterExecutionReport,
     VortexReaderBackedEncodedProjectionExecutionReport, VortexReaderBackedSplitEvidence,
     VortexSourceBackedEncodedFilterExecutionReport, VortexSourceBackedEncodedProjectionColumn,
     VortexSourceBackedEncodedProjectionExecutionReport,
@@ -43,8 +44,8 @@ pub struct VortexTopLevelExecutionProvider {
 impl Default for VortexTopLevelExecutionProvider {
     fn default() -> Self {
         Self {
-            memory_gb: 1,
-            max_parallelism: 1,
+            memory_gb: VortexLocalPrimitiveResourceEnvelope::DEFAULT_MEMORY_GB,
+            max_parallelism: VortexLocalPrimitiveResourceEnvelope::DEFAULT_MAX_PARALLELISM,
         }
     }
 }
