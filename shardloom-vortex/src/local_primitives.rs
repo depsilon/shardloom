@@ -13848,6 +13848,7 @@ fn constant_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
 fn dictionary_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -19098,96 +19099,12 @@ fn read_local_vortex_simple_aggregate_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
-            if let Some(predicate) = residual_evaluator.as_ref() {
-                if let Some(row_indices) = predicate
-                    .fast_exact_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                {
-                    if row_indices.is_empty() {
-                        max_chunk_rows = max_chunk_rows.max(rows);
-                        arrays_read_count += 1;
-                        continue;
-                    }
-                    let row_index_filter =
-                        (row_indices.len() < rows).then_some(row_indices.as_slice());
-                    if !exact_states.update_compact_direct_from_chunk(
-                        &chunk,
-                        &declared_columns,
-                        row_index_filter,
-                    )? {
-                        let columns = if row_indices.len() < rows {
-                            row_export_selected_columns_from_chunk(
-                                &chunk,
-                                &declared_columns,
-                                &row_indices,
-                            )?
-                        } else {
-                            row_export_columns_from_chunk(&chunk, &declared_columns)?
-                        };
-                        let materialized_rows = if row_indices.len() < rows {
-                            row_indices.len()
-                        } else if columns.is_empty() {
-                            rows
-                        } else {
-                            row_export_materialized_row_count(&columns, rows)?
-                        };
-                        exact_states.update(&columns, materialized_rows)?;
-                    }
-                    max_chunk_rows = max_chunk_rows.max(rows);
-                    arrays_read_count += 1;
-                    continue;
-                }
-                if let Some(row_indices) =
-                    predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                    && row_indices.len() < rows
-                {
-                    let columns = row_export_selected_columns_from_chunk(
-                        &chunk,
-                        &declared_columns,
-                        &row_indices,
-                    )?;
-                    for row_index in 0..row_indices.len() {
-                        if !predicate.matches(&columns, row_index)? {
-                            continue;
-                        }
-                        if !exact_states
-                            .update_compact_direct_from_materialized_columns(&columns, row_index)?
-                        {
-                            exact_states.update_row(&columns, row_index)?;
-                        }
-                    }
-                    max_chunk_rows = max_chunk_rows.max(rows);
-                    arrays_read_count += 1;
-                    continue;
-                }
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                for row_index in 0..materialized_rows {
-                    if !predicate.matches(&columns, row_index)? {
-                        continue;
-                    }
-                    if !exact_states
-                        .update_compact_direct_from_materialized_columns(&columns, row_index)?
-                    {
-                        exact_states.update_row(&columns, row_index)?;
-                    }
-                }
-            } else if !exact_states.update_compact_direct_from_chunk(
+            update_grouped_exact_states_from_chunk(
+                &mut exact_states,
                 &chunk,
                 &declared_columns,
-                None,
-            )? {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                exact_states.update(&columns, materialized_rows)?;
-            }
+                residual_evaluator.as_ref(),
+            )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
         }
@@ -19326,15 +19243,12 @@ fn read_local_vortex_simple_aggregate_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
-            if !exact_states.update_compact_direct_from_chunk(&chunk, &declared_columns, None)? {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                exact_states.update(&columns, materialized_rows)?;
-            }
+            update_grouped_exact_states_from_chunk(
+                &mut exact_states,
+                &chunk,
+                &declared_columns,
+                residual_evaluator.as_ref(),
+            )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
         }
@@ -19455,15 +19369,12 @@ fn read_local_vortex_simple_aggregate_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
-            if !exact_states.update_compact_direct_from_chunk(&chunk, &declared_columns, None)? {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
-                let materialized_rows = if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                exact_states.update(&columns, materialized_rows)?;
-            }
+            update_grouped_exact_states_from_chunk(
+                &mut exact_states,
+                &chunk,
+                &declared_columns,
+                residual_evaluator.as_ref(),
+            )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
         }
@@ -19534,6 +19445,89 @@ fn read_local_vortex_simple_aggregate_scan(
         result_summary: result_summary.clone(),
         state_budget: state_budget.clone(),
     })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn update_grouped_exact_states_from_chunk(
+    exact_states: &mut GroupedAggregateStates,
+    chunk: &vortex::array::ArrayRef,
+    declared_columns: &[String],
+    residual_evaluator: Option<&MaterializedPredicateEvaluator>,
+) -> Result<()> {
+    let rows = chunk.len();
+    if let Some(predicate) = residual_evaluator {
+        if let Some(row_indices) =
+            predicate.fast_exact_candidate_row_indices_in_chunk(chunk, declared_columns)?
+        {
+            if row_indices.is_empty() {
+                return Ok(());
+            }
+            let row_index_filter = (row_indices.len() < rows).then_some(row_indices.as_slice());
+            if !exact_states.update_compact_direct_from_chunk(
+                chunk,
+                declared_columns,
+                row_index_filter,
+            )? {
+                let columns = if row_indices.len() < rows {
+                    row_export_selected_columns_from_chunk(chunk, declared_columns, &row_indices)?
+                } else {
+                    row_export_columns_from_chunk(chunk, declared_columns)?
+                };
+                let materialized_rows = if row_indices.len() < rows {
+                    row_indices.len()
+                } else if columns.is_empty() {
+                    rows
+                } else {
+                    row_export_materialized_row_count(&columns, rows)?
+                };
+                exact_states.update(&columns, materialized_rows)?;
+            }
+            return Ok(());
+        }
+        if let Some(row_indices) =
+            predicate.fast_candidate_row_indices_in_chunk(chunk, declared_columns)?
+            && row_indices.len() < rows
+        {
+            let columns =
+                row_export_selected_columns_from_chunk(chunk, declared_columns, &row_indices)?;
+            for row_index in 0..row_indices.len() {
+                if !predicate.matches(&columns, row_index)? {
+                    continue;
+                }
+                if !exact_states
+                    .update_compact_direct_from_materialized_columns(&columns, row_index)?
+                {
+                    exact_states.update_row(&columns, row_index)?;
+                }
+            }
+            return Ok(());
+        }
+        let columns = row_export_columns_from_chunk(chunk, declared_columns)?;
+        let materialized_rows = if columns.is_empty() {
+            rows
+        } else {
+            row_export_materialized_row_count(&columns, rows)?
+        };
+        for row_index in 0..materialized_rows {
+            if !predicate.matches(&columns, row_index)? {
+                continue;
+            }
+            if !exact_states.update_compact_direct_from_materialized_columns(&columns, row_index)? {
+                exact_states.update_row(&columns, row_index)?;
+            }
+        }
+        return Ok(());
+    }
+    if !exact_states.update_compact_direct_from_chunk(chunk, declared_columns, None)? {
+        let columns = row_export_columns_from_chunk(chunk, declared_columns)?;
+        let materialized_rows = if columns.is_empty() {
+            rows
+        } else {
+            row_export_materialized_row_count(&columns, rows)?
+        };
+        exact_states.update(&columns, materialized_rows)?;
+    }
+    Ok(())
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -22406,6 +22400,14 @@ struct SimpleAggregateStates {
     dense_integer_distinct_preunion_updates: bool,
     fused_numeric_additive_updates: bool,
     fused_utf8_dictionary_transform_updates: bool,
+    lazy_utf8_dictionary_minmax_updates: bool,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy, Default)]
+struct WeightedUtf8DictionaryUpdateEvidence {
+    fused_transform: bool,
+    lazy_minmax: bool,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -22479,6 +22481,7 @@ impl SimpleAggregateStates {
             dense_integer_distinct_preunion_updates: false,
             fused_numeric_additive_updates: false,
             fused_utf8_dictionary_transform_updates: false,
+            lazy_utf8_dictionary_minmax_updates: false,
         })
     }
 
@@ -22698,16 +22701,19 @@ impl SimpleAggregateStates {
         dictionary_column_index: usize,
         value: &str,
         weight: u64,
-    ) -> Result<bool> {
-        let fused = self.update_weighted_utf8_dictionary_value_with_fusion(
+    ) -> Result<WeightedUtf8DictionaryUpdateEvidence> {
+        let evidence = self.update_weighted_utf8_dictionary_value_with_fusion(
             dictionary_column_index,
             value,
             weight,
         )?;
-        if fused {
+        if evidence.fused_transform {
             self.fused_utf8_dictionary_transform_updates = true;
         }
-        Ok(fused)
+        if evidence.lazy_minmax {
+            self.lazy_utf8_dictionary_minmax_updates = true;
+        }
+        Ok(evidence)
     }
 
     fn update_weighted_utf8_dictionary_value_with_fusion(
@@ -22715,9 +22721,9 @@ impl SimpleAggregateStates {
         dictionary_column_index: usize,
         value: &str,
         weight: u64,
-    ) -> Result<bool> {
+    ) -> Result<WeightedUtf8DictionaryUpdateEvidence> {
         if weight == 0 {
-            return Ok(false);
+            return Ok(WeightedUtf8DictionaryUpdateEvidence::default());
         }
         if !self.transformed_dictionary_general_measure_admitted(dictionary_column_index) {
             return Err(ShardLoomError::InvalidOperation(
@@ -22754,31 +22760,38 @@ impl SimpleAggregateStates {
             .count();
         let fused = length_consumers > 1 || identity_stat_consumers > 1;
         if !fused {
+            let mut evidence = WeightedUtf8DictionaryUpdateEvidence::default();
             for state in &mut self.states {
-                state.update_weighted_utf8_dictionary_value(
+                if state.update_weighted_utf8_dictionary_value(
                     dictionary_column_index,
                     value,
                     weight,
-                )?;
+                )? {
+                    evidence.lazy_minmax = true;
+                }
             }
-            return Ok(false);
+            return Ok(evidence);
         }
 
         let length = usize_to_u64(value.len())?;
         let length_f64 = uint64_stat_to_float64(length);
         let length_value = StatValue::UInt64(length);
-        let identity_value =
-            (identity_stat_consumers > 0).then(|| StatValue::Utf8(value.to_string()));
+        let mut lazy_minmax = false;
         for state in &mut self.states {
-            state.update_weighted_utf8_dictionary_cached_transform(
+            if state.update_weighted_utf8_dictionary_cached_transform(
                 dictionary_column_index,
+                value,
                 weight,
                 length_f64,
                 &length_value,
-                identity_value.as_ref(),
-            )?;
+            )? {
+                lazy_minmax = true;
+            }
         }
-        Ok(true)
+        Ok(WeightedUtf8DictionaryUpdateEvidence {
+            fused_transform: true,
+            lazy_minmax,
+        })
     }
 
     fn update_direct_fused_numeric_additive(
@@ -23112,6 +23125,10 @@ impl SimpleAggregateStates {
             capillary_work_units.push("dictionary_weighted_transform_fusion");
             pulseweave_pressure_signals.push("repeated_string_transform_evaluation_bypass");
         }
+        if self.lazy_utf8_dictionary_minmax_updates {
+            capillary_work_units.push("dictionary_weighted_utf8_minmax_allocation_bypass");
+            pulseweave_pressure_signals.push("utf8_minmax_candidate_allocation_pressure");
+        }
         let observed_state_items = self
             .state_slot_count()?
             .checked_add(self.count_distinct_state_entries()?)
@@ -23245,6 +23262,7 @@ struct GroupedAggregateStates<'a> {
     dictionary_group_compact_measure_direct_updates: bool,
     transformed_dictionary_general_direct_updates: bool,
     transformed_dictionary_general_transform_fusion: bool,
+    transformed_dictionary_lazy_utf8_minmax_updates: bool,
     chunk_materialized_partial_updates: bool,
     transformed_materialized_partial_updates: bool,
     numeric_minute_string_count_direct_updates: bool,
@@ -23570,6 +23588,9 @@ struct StringCountTopKHeavyHitterOrder {
 #[cfg(feature = "vortex-local-primitives")]
 struct StringCountTopKHeavyHitterSketch {
     capacity: usize,
+    exact_mirror_capacity: usize,
+    exact_counts_mirror: Option<rustc_hash::FxHashMap<u64, u64>>,
+    exact_counts_mirror_disabled: bool,
     offset: u64,
     next_id: u64,
     slots: rustc_hash::FxHashMap<u64, StringCountTopKHeavyHitterSlot>,
@@ -23639,6 +23660,9 @@ struct NumericUtf8TopKHeavyHitterOrder {
 #[cfg(feature = "vortex-local-primitives")]
 struct NumericUtf8TopKHeavyHitterSketch {
     capacity: usize,
+    exact_mirror_capacity: usize,
+    exact_counts_mirror: Option<rustc_hash::FxHashMap<AggregateNumericUtf8InternedKey, u64>>,
+    exact_counts_mirror_disabled: bool,
     offset: u64,
     next_id: u64,
     slots: rustc_hash::FxHashMap<AggregateNumericUtf8InternedKey, NumericUtf8TopKHeavyHitterSlot>,
@@ -23648,9 +23672,12 @@ struct NumericUtf8TopKHeavyHitterSketch {
 
 #[cfg(feature = "vortex-local-primitives")]
 impl NumericUtf8TopKHeavyHitterSketch {
-    fn new(capacity: usize) -> Self {
+    fn new_with_exact_mirror(capacity: usize, exact_mirror_capacity: usize) -> Self {
         Self {
             capacity,
+            exact_mirror_capacity,
+            exact_counts_mirror: (exact_mirror_capacity > 0).then(rustc_hash::FxHashMap::default),
+            exact_counts_mirror_disabled: false,
             offset: 0,
             next_id: 0,
             slots: rustc_hash::FxHashMap::default(),
@@ -23663,6 +23690,7 @@ impl NumericUtf8TopKHeavyHitterSketch {
         if weight == 0 || self.capacity == 0 {
             return Ok(());
         }
+        self.update_exact_mirror_key(key, weight)?;
         if let Some(slot) = self.slots.get(&key).copied() {
             self.order.remove(&NumericUtf8TopKHeavyHitterOrder {
                 stored_count: slot.stored_count,
@@ -23740,6 +23768,30 @@ impl NumericUtf8TopKHeavyHitterSketch {
         }
     }
 
+    fn update_exact_mirror_key(
+        &mut self,
+        key: AggregateNumericUtf8InternedKey,
+        weight: u64,
+    ) -> Result<()> {
+        let Some(exact_counts_mirror) = self.exact_counts_mirror.as_mut() else {
+            return Ok(());
+        };
+        if !exact_counts_mirror.contains_key(&key)
+            && exact_counts_mirror.len() >= self.exact_mirror_capacity
+        {
+            self.exact_counts_mirror = None;
+            self.exact_counts_mirror_disabled = true;
+            return Ok(());
+        }
+        let count = exact_counts_mirror.entry(key).or_insert(0);
+        *count = count.checked_add(weight).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-UTF8 top-K exact mirror count overflowed u64".to_string(),
+            )
+        })?;
+        Ok(())
+    }
+
     fn remove_expired(&mut self) {
         while let Some(entry) = self.order.iter().next().copied() {
             if entry.stored_count > self.offset {
@@ -23774,6 +23826,33 @@ impl NumericUtf8TopKHeavyHitterSketch {
         Ok(Some(counts))
     }
 
+    fn exact_counts_from_mirror(
+        &self,
+    ) -> Result<Option<rustc_hash::FxHashMap<AggregateNumericUtf8InternedKey, u64>>> {
+        let Some(exact_counts_mirror) = self.exact_counts_mirror.as_ref() else {
+            return Ok(None);
+        };
+        if exact_counts_mirror.is_empty() {
+            return Ok(None);
+        }
+        let mut counts = rustc_hash::FxHashMap::default();
+        reserve_hash_map_capacity(
+            &mut counts,
+            exact_counts_mirror.len(),
+            "numeric-UTF8 top-K bounded exact mirror counts",
+        )?;
+        counts.extend(
+            exact_counts_mirror
+                .iter()
+                .map(|(key, count)| (*key, *count)),
+        );
+        Ok(Some(counts))
+    }
+
+    const fn exact_mirror_disabled(&self) -> bool {
+        self.exact_counts_mirror_disabled
+    }
+
     fn capacity(&self) -> usize {
         self.capacity
     }
@@ -23782,8 +23861,15 @@ impl NumericUtf8TopKHeavyHitterSketch {
 #[cfg(feature = "vortex-local-primitives")]
 impl StringCountTopKHeavyHitterSketch {
     fn new(capacity: usize) -> Self {
+        Self::new_with_exact_mirror(capacity, 0)
+    }
+
+    fn new_with_exact_mirror(capacity: usize, exact_mirror_capacity: usize) -> Self {
         Self {
             capacity,
+            exact_mirror_capacity,
+            exact_counts_mirror: (exact_mirror_capacity > 0).then(rustc_hash::FxHashMap::default),
+            exact_counts_mirror_disabled: false,
             offset: 0,
             next_id: 0,
             slots: rustc_hash::FxHashMap::default(),
@@ -23806,6 +23892,7 @@ impl StringCountTopKHeavyHitterSketch {
         {
             return self.update(value_id, weight);
         }
+        self.update_exact_mirror_lazy_utf8_value(value, weight, string_interner)?;
         let mut remaining = weight;
         loop {
             self.remove_expired_and_forget(string_interner)?;
@@ -23871,6 +23958,7 @@ impl StringCountTopKHeavyHitterSketch {
         if weight == 0 || self.capacity == 0 {
             return Ok(());
         }
+        self.update_exact_mirror_id(value_id, weight)?;
         if let Some(slot) = self.slots.get(&value_id).copied() {
             self.order.remove(&StringCountTopKHeavyHitterOrder {
                 stored_count: slot.stored_count,
@@ -23950,6 +24038,50 @@ impl StringCountTopKHeavyHitterSketch {
         }
     }
 
+    fn update_exact_mirror_lazy_utf8_value(
+        &mut self,
+        value: &std::sync::Arc<str>,
+        weight: u64,
+        string_interner: &mut AggregateStringInterner,
+    ) -> Result<()> {
+        if self.exact_counts_mirror.is_none() {
+            return Ok(());
+        }
+        if let Some(value_id) = string_interner.id(value.as_ref()) {
+            return self.update_exact_mirror_id(value_id, weight);
+        }
+        let Some(exact_counts_mirror) = self.exact_counts_mirror.as_ref() else {
+            return Ok(());
+        };
+        if exact_counts_mirror.len() >= self.exact_mirror_capacity {
+            self.exact_counts_mirror = None;
+            self.exact_counts_mirror_disabled = true;
+            return Ok(());
+        }
+        let value_id = string_interner.intern_arc(std::sync::Arc::clone(value))?;
+        self.update_exact_mirror_id(value_id, weight)
+    }
+
+    fn update_exact_mirror_id(&mut self, value_id: u64, weight: u64) -> Result<()> {
+        let Some(exact_counts_mirror) = self.exact_counts_mirror.as_mut() else {
+            return Ok(());
+        };
+        if !exact_counts_mirror.contains_key(&value_id)
+            && exact_counts_mirror.len() >= self.exact_mirror_capacity
+        {
+            self.exact_counts_mirror = None;
+            self.exact_counts_mirror_disabled = true;
+            return Ok(());
+        }
+        let count = exact_counts_mirror.entry(value_id).or_insert(0);
+        *count = count.checked_add(weight).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex string top-K exact mirror count overflowed u64".to_string(),
+            )
+        })?;
+        Ok(())
+    }
+
     fn remove_expired_and_forget(
         &mut self,
         string_interner: &mut AggregateStringInterner,
@@ -23961,7 +24093,14 @@ impl StringCountTopKHeavyHitterSketch {
             self.order.remove(&entry);
             if let Some(value_id) = self.keys.remove(&entry.id) {
                 self.slots.remove(&value_id);
-                string_interner.forget_id(value_id, "string top-K lazy heavy-hitter eviction")?;
+                if !self
+                    .exact_counts_mirror
+                    .as_ref()
+                    .is_some_and(|counts| counts.contains_key(&value_id))
+                {
+                    string_interner
+                        .forget_id(value_id, "string top-K lazy heavy-hitter eviction")?;
+                }
             }
         }
         Ok(())
@@ -24016,6 +24155,31 @@ impl StringCountTopKHeavyHitterSketch {
             counts.insert(*value_id, slot.stored_count);
         }
         Ok(Some(counts))
+    }
+
+    fn exact_counts_from_mirror(&self) -> Result<Option<rustc_hash::FxHashMap<u64, u64>>> {
+        let Some(exact_counts_mirror) = self.exact_counts_mirror.as_ref() else {
+            return Ok(None);
+        };
+        if exact_counts_mirror.is_empty() {
+            return Ok(None);
+        }
+        let mut counts = rustc_hash::FxHashMap::default();
+        reserve_hash_map_capacity(
+            &mut counts,
+            exact_counts_mirror.len(),
+            "string top-K bounded exact mirror counts",
+        )?;
+        counts.extend(
+            exact_counts_mirror
+                .iter()
+                .map(|(value_id, count)| (*value_id, *count)),
+        );
+        Ok(Some(counts))
+    }
+
+    const fn exact_mirror_disabled(&self) -> bool {
+        self.exact_counts_mirror_disabled
     }
 
     fn exact_counts_if_retained_proved(
@@ -25544,6 +25708,7 @@ impl<'a> GroupedAggregateStates<'a> {
             dictionary_group_compact_measure_direct_updates: false,
             transformed_dictionary_general_direct_updates: false,
             transformed_dictionary_general_transform_fusion: false,
+            transformed_dictionary_lazy_utf8_minmax_updates: false,
             chunk_materialized_partial_updates: false,
             transformed_materialized_partial_updates: false,
             numeric_minute_string_count_direct_updates: false,
@@ -25805,9 +25970,15 @@ impl<'a> GroupedAggregateStates<'a> {
     ) -> Result<()> {
         {
             let capacity = self.numeric_utf8_topk_heavy_hitter_capacity();
+            let exact_mirror_capacity = self.numeric_utf8_topk_exact_mirror_capacity();
             let sketch = self
                 .numeric_utf8_topk_heavy_hitter_sketch
-                .get_or_insert_with(|| NumericUtf8TopKHeavyHitterSketch::new(capacity));
+                .get_or_insert_with(|| {
+                    NumericUtf8TopKHeavyHitterSketch::new_with_exact_mirror(
+                        capacity,
+                        exact_mirror_capacity,
+                    )
+                });
             sketch.update_weighted(key, count)?;
         }
         self.numeric_utf8_topk_total_weight = self
@@ -25897,6 +26068,19 @@ impl<'a> GroupedAggregateStates<'a> {
         let Some(sketch) = self.numeric_utf8_topk_heavy_hitter_sketch.as_ref() else {
             return Ok(false);
         };
+        if let Some(counts) = sketch.exact_counts_from_mirror()? {
+            if counts.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-UTF8 top-K heavy-hitter exact mirror produced no candidates; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+            self.numeric_utf8_topk_candidate_keys = Some(counts.keys().copied().collect());
+            self.numeric_utf8_topk_exact_counts = Some(counts);
+            self.numeric_utf8_topk_first_pass_exact_counts = true;
+            self.numeric_utf8_topk_exact_counts_source = Some("first_pass_bounded_exact_mirror");
+            return Ok(true);
+        }
         if let Some(counts) = sketch.exact_counts_if_no_eviction()? {
             if counts.is_empty() {
                 return Err(ShardLoomError::InvalidOperation(
@@ -26059,6 +26243,12 @@ impl<'a> GroupedAggregateStates<'a> {
     const fn numeric_utf8_topk_heavy_hitter_capacity(&self) -> usize {
         self.resource_envelope
             .numeric_utf8_topk_heavy_hitter_capacity
+    }
+
+    fn numeric_utf8_topk_exact_mirror_capacity(&self) -> usize {
+        self.numeric_utf8_topk_heavy_hitter_capacity()
+            .saturating_mul(32)
+            .min(self.resource_envelope.group_state_soft_item_budget)
     }
 
     fn update_source_order_numeric_utf8_count_from_accessors(
@@ -27067,9 +27257,15 @@ impl<'a> GroupedAggregateStates<'a> {
         ));
         let counts = dictionary_value_counts_for_rows(row_ids, values.len(), row_indices)?;
         let capacity = self.string_count_topk_heavy_hitter_capacity();
+        let exact_mirror_capacity = self.string_count_topk_exact_mirror_capacity();
         let sketch = self
             .string_count_topk_heavy_hitter_sketch
-            .get_or_insert_with(|| StringCountTopKHeavyHitterSketch::new(capacity));
+            .get_or_insert_with(|| {
+                StringCountTopKHeavyHitterSketch::new_with_exact_mirror(
+                    capacity,
+                    exact_mirror_capacity,
+                )
+            });
         for (value, count) in values.iter().zip(counts) {
             if count == 0 {
                 continue;
@@ -27156,6 +27352,19 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         if self.string_count_topk_has_late_measures() {
             return Ok(false);
+        }
+        if let Some(counts) = sketch.exact_counts_from_mirror()? {
+            if counts.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex string top-K heavy-hitter exact mirror produced no candidates; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+            self.string_count_topk_candidate_ids = Some(counts.keys().copied().collect());
+            self.string_count_topk_exact_counts = Some(counts);
+            self.string_count_topk_first_pass_exact_counts = true;
+            self.string_count_topk_exact_counts_source = Some("first_pass_bounded_exact_mirror");
+            return Ok(true);
         }
         if let Some(counts) = sketch.exact_counts_if_no_eviction()? {
             if counts.is_empty() {
@@ -27590,6 +27799,15 @@ impl<'a> GroupedAggregateStates<'a> {
 
     const fn string_count_topk_heavy_hitter_capacity(&self) -> usize {
         self.resource_envelope.string_topk_heavy_hitter_capacity
+    }
+
+    fn string_count_topk_exact_mirror_capacity(&self) -> usize {
+        if self.string_count_topk_has_late_measures() {
+            return 0;
+        }
+        self.string_count_topk_heavy_hitter_capacity()
+            .saturating_mul(32)
+            .min(self.resource_envelope.group_state_soft_item_budget)
     }
 
     fn enable_string_count_distinct_topk_heavy_hitter(&mut self) {
@@ -28383,14 +28601,15 @@ impl<'a> GroupedAggregateStates<'a> {
                     ))
                 }
             };
-            let fused_transform_update = group
+            let update_evidence = group
                 .general_states_mut()?
                 .update_weighted_utf8_dictionary_value(
                     group_accessor_index,
                     value.as_ref(),
                     count,
                 )?;
-            fused_transform_update_seen |= fused_transform_update;
+            fused_transform_update_seen |= update_evidence.fused_transform;
+            self.transformed_dictionary_lazy_utf8_minmax_updates |= update_evidence.lazy_minmax;
         }
         self.count_star_direct_updates = self.state_template.has_count_star_measure();
         self.chunk_dictionary_direct_updates = true;
@@ -29844,6 +30063,11 @@ impl<'a> GroupedAggregateStates<'a> {
             "values": rows,
         });
         self.annotate_transformed_dictionary_key_cache_summary(&mut payload)?;
+        json_object_insert_bool(
+            &mut payload,
+            "transformed_dictionary_lazy_utf8_minmax_updates",
+            self.transformed_dictionary_lazy_utf8_minmax_updates,
+        )?;
         Ok((row_count, payload.to_string()))
     }
 
@@ -29917,6 +30141,9 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         let uniqueness_proof_status = if self.numeric_utf8_topk_first_pass_exact_counts {
             match self.numeric_utf8_topk_exact_counts_source {
+                Some("first_pass_bounded_exact_mirror") => {
+                    "proofbound_numeric_utf8_heavy_hitter_exact_first_pass_bounded_mirror"
+                }
                 Some("first_pass_retained_boundary_proof") => {
                     "proofbound_numeric_utf8_heavy_hitter_exact_first_pass_retained_boundary"
                 }
@@ -29928,6 +30155,10 @@ impl<'a> GroupedAggregateStates<'a> {
         let exact_counts_source = self
             .numeric_utf8_topk_exact_counts_source
             .unwrap_or("candidate_recount_second_pass");
+        let exact_mirror_disabled = self
+            .numeric_utf8_topk_heavy_hitter_sketch
+            .as_ref()
+            .is_some_and(NumericUtf8TopKHeavyHitterSketch::exact_mirror_disabled);
         let mut payload = serde_json::json!({
             "rows": rows.len(),
             "group_by": group_by.join(","),
@@ -29987,6 +30218,21 @@ impl<'a> GroupedAggregateStates<'a> {
             &mut payload,
             "numeric_utf8_topk_heavy_hitter_exact_counts_source",
             exact_counts_source,
+        )?;
+        json_object_insert_usize(
+            &mut payload,
+            "numeric_utf8_topk_exact_mirror_capacity",
+            self.numeric_utf8_topk_exact_mirror_capacity(),
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "numeric_utf8_topk_exact_mirror_used",
+            exact_counts_source == "first_pass_bounded_exact_mirror",
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "numeric_utf8_topk_exact_mirror_disabled",
+            exact_mirror_disabled,
         )?;
         json_object_insert_bool(
             &mut payload,
@@ -30222,6 +30468,9 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         let uniqueness_proof_status = if self.string_count_topk_first_pass_exact_counts {
             match self.string_count_topk_exact_counts_source {
+                Some("first_pass_bounded_exact_mirror") => {
+                    "proofbound_heavy_hitter_exact_first_pass_bounded_mirror"
+                }
                 Some("first_pass_retained_boundary_proof") => {
                     "proofbound_heavy_hitter_exact_first_pass_retained_boundary"
                 }
@@ -30233,6 +30482,10 @@ impl<'a> GroupedAggregateStates<'a> {
         let exact_counts_source = self
             .string_count_topk_exact_counts_source
             .unwrap_or("candidate_recount_second_pass");
+        let exact_mirror_disabled = self
+            .string_count_topk_heavy_hitter_sketch
+            .as_ref()
+            .is_some_and(StringCountTopKHeavyHitterSketch::exact_mirror_disabled);
         let mut payload = serde_json::json!({
             "rows": rows.len(),
             "group_by": group_by.join(","),
@@ -30289,6 +30542,21 @@ impl<'a> GroupedAggregateStates<'a> {
                 "proofbound_candidate_late_measure_exact",
             )?;
         }
+        json_object_insert_usize(
+            &mut payload,
+            "string_count_topk_exact_mirror_capacity",
+            self.string_count_topk_exact_mirror_capacity(),
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "string_count_topk_exact_mirror_used",
+            exact_counts_source == "first_pass_bounded_exact_mirror",
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "string_count_topk_exact_mirror_disabled",
+            exact_mirror_disabled,
+        )?;
         json_object_insert_bool(
             &mut payload,
             "string_count_topk_candidate_signature_prefilter",
@@ -32682,6 +32950,10 @@ impl<'a> GroupedAggregateStates<'a> {
             capillary_work_units.push("dictionary_weighted_transform_fusion");
             pulseweave_pressure_signals.push("repeated_string_transform_evaluation_bypass");
         }
+        if self.transformed_dictionary_lazy_utf8_minmax_updates {
+            capillary_work_units.push("dictionary_weighted_utf8_minmax_allocation_bypass");
+            pulseweave_pressure_signals.push("utf8_minmax_candidate_allocation_pressure");
+        }
         if self.chunk_materialized_partial_updates {
             capillary_work_units.push("chunk_materialized_string_partial_group_update");
             capillary_work_units.push("chunk_local_partial_count_merge");
@@ -32803,6 +33075,11 @@ impl<'a> GroupedAggregateStates<'a> {
             if self.string_count_topk_first_pass_exact_counts {
                 capillary_work_units.push("string_heavy_hitter_first_pass_exact_counts");
                 if self.string_count_topk_exact_counts_source
+                    == Some("first_pass_bounded_exact_mirror")
+                {
+                    capillary_work_units.push("string_heavy_hitter_bounded_exact_mirror");
+                    pulseweave_pressure_signals.push("string_heavy_hitter_exact_mirror_capacity");
+                } else if self.string_count_topk_exact_counts_source
                     == Some("first_pass_retained_boundary_proof")
                 {
                     capillary_work_units.push("string_heavy_hitter_retained_boundary_exact_proof");
@@ -32884,6 +33161,12 @@ impl<'a> GroupedAggregateStates<'a> {
             if self.numeric_utf8_topk_first_pass_exact_counts {
                 capillary_work_units.push("numeric_utf8_heavy_hitter_first_pass_exact_counts");
                 if self.numeric_utf8_topk_exact_counts_source
+                    == Some("first_pass_bounded_exact_mirror")
+                {
+                    capillary_work_units.push("numeric_utf8_heavy_hitter_bounded_exact_mirror");
+                    pulseweave_pressure_signals
+                        .push("numeric_utf8_heavy_hitter_exact_mirror_capacity");
+                } else if self.numeric_utf8_topk_exact_counts_source
                     == Some("first_pass_retained_boundary_proof")
                 {
                     capillary_work_units
@@ -39109,9 +39392,9 @@ impl SimpleAggregateState {
         dictionary_column_index: usize,
         value: &str,
         weight: u64,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         if weight == 0 {
-            return Ok(());
+            return Ok(false);
         }
         if !self.transformed_dictionary_general_measure_admitted(dictionary_column_index) {
             return Err(ShardLoomError::InvalidOperation(
@@ -39129,7 +39412,10 @@ impl SimpleAggregateState {
             Ok(())
         };
         match self.function {
-            SimpleAggregateFunction::Count => add_weight(&mut self.count),
+            SimpleAggregateFunction::Count => {
+                add_weight(&mut self.count)?;
+                Ok(false)
+            }
             SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
                 let numeric = match self.value_transform {
                     AggregateValueTransform::Length => value.len() as f64,
@@ -39147,29 +39433,73 @@ impl SimpleAggregateState {
                     }
                 };
                 add_weight(&mut self.count)?;
-                self.sum += numeric * weight as f64;
+                self.sum += numeric * uint64_stat_to_float64(weight);
                 if !self.sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex transformed-dictionary weighted numeric aggregate became non-finite; no fallback execution was attempted"
                             .to_string(),
                     ));
                 }
-                Ok(())
+                Ok(false)
             }
             SimpleAggregateFunction::Min => {
+                if matches!(self.value_transform, AggregateValueTransform::Identity) {
+                    add_weight(&mut self.count)?;
+                    return self.update_weighted_utf8_identity_min(value);
+                }
                 let transformed = self.weighted_utf8_dictionary_stat_value(value)?;
                 add_weight(&mut self.count)?;
                 self.min = Some(simple_aggregate_min_value(self.min.take(), &transformed)?);
-                Ok(())
+                Ok(false)
             }
             SimpleAggregateFunction::Max => {
+                if matches!(self.value_transform, AggregateValueTransform::Identity) {
+                    add_weight(&mut self.count)?;
+                    return self.update_weighted_utf8_identity_max(value);
+                }
                 let transformed = self.weighted_utf8_dictionary_stat_value(value)?;
                 add_weight(&mut self.count)?;
                 self.max = Some(simple_aggregate_max_value(self.max.take(), &transformed)?);
-                Ok(())
+                Ok(false)
             }
             SimpleAggregateFunction::CountDistinct => Err(ShardLoomError::InvalidOperation(
                 "local Vortex transformed-dictionary weighted aggregate does not admit count-distinct; no fallback execution was attempted"
+                    .to_string(),
+            )),
+        }
+    }
+
+    fn update_weighted_utf8_identity_min(&mut self, value: &str) -> Result<bool> {
+        match self.min.as_ref() {
+            None => {
+                self.min = Some(StatValue::Utf8(value.to_string()));
+                Ok(true)
+            }
+            Some(StatValue::Utf8(current)) if value < current.as_str() => {
+                self.min = Some(StatValue::Utf8(value.to_string()));
+                Ok(true)
+            }
+            Some(StatValue::Utf8(_)) => Ok(true),
+            Some(_) => Err(ShardLoomError::InvalidOperation(
+                "local Vortex transformed-dictionary weighted UTF-8 min reached incompatible current state; no fallback execution was attempted"
+                    .to_string(),
+            )),
+        }
+    }
+
+    fn update_weighted_utf8_identity_max(&mut self, value: &str) -> Result<bool> {
+        match self.max.as_ref() {
+            None => {
+                self.max = Some(StatValue::Utf8(value.to_string()));
+                Ok(true)
+            }
+            Some(StatValue::Utf8(current)) if value > current.as_str() => {
+                self.max = Some(StatValue::Utf8(value.to_string()));
+                Ok(true)
+            }
+            Some(StatValue::Utf8(_)) => Ok(true),
+            Some(_) => Err(ShardLoomError::InvalidOperation(
+                "local Vortex transformed-dictionary weighted UTF-8 max reached incompatible current state; no fallback execution was attempted"
                     .to_string(),
             )),
         }
@@ -39206,11 +39536,11 @@ impl SimpleAggregateState {
     fn update_weighted_utf8_dictionary_cached_transform(
         &mut self,
         dictionary_column_index: usize,
+        value: &str,
         weight: u64,
         length_f64: f64,
         length_value: &StatValue,
-        identity_value: Option<&StatValue>,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         if !self.transformed_dictionary_general_measure_admitted(dictionary_column_index) {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex transformed-dictionary fused aggregate reached a non-admitted measure; no fallback execution was attempted"
@@ -39218,7 +39548,10 @@ impl SimpleAggregateState {
             ));
         }
         match self.function {
-            SimpleAggregateFunction::Count => self.add_weighted_utf8_count(weight),
+            SimpleAggregateFunction::Count => {
+                self.add_weighted_utf8_count(weight)?;
+                Ok(false)
+            }
             SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
                 if !matches!(self.value_transform, AggregateValueTransform::Length) {
                     return Err(ShardLoomError::InvalidOperation(
@@ -39234,16 +39567,15 @@ impl SimpleAggregateState {
                             .to_string(),
                     ));
                 }
-                Ok(())
+                Ok(false)
             }
             SimpleAggregateFunction::Min => {
+                let lazy_minmax = matches!(self.value_transform, AggregateValueTransform::Length);
                 let transformed = match self.value_transform {
-                    AggregateValueTransform::Identity => identity_value.ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex transformed-dictionary fused min aggregate missing identity value; no fallback execution was attempted"
-                                .to_string(),
-                        )
-                    })?,
+                    AggregateValueTransform::Identity => {
+                        self.add_weighted_utf8_count(weight)?;
+                        return self.update_weighted_utf8_identity_min(value);
+                    }
                     AggregateValueTransform::Length => length_value,
                     AggregateValueTransform::ConstantInt(_)
                     | AggregateValueTransform::AddOffset(_)
@@ -39259,16 +39591,15 @@ impl SimpleAggregateState {
                 };
                 self.add_weighted_utf8_count(weight)?;
                 self.min = Some(simple_aggregate_min_value(self.min.take(), transformed)?);
-                Ok(())
+                Ok(lazy_minmax)
             }
             SimpleAggregateFunction::Max => {
+                let lazy_minmax = matches!(self.value_transform, AggregateValueTransform::Length);
                 let transformed = match self.value_transform {
-                    AggregateValueTransform::Identity => identity_value.ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex transformed-dictionary fused max aggregate missing identity value; no fallback execution was attempted"
-                                .to_string(),
-                        )
-                    })?,
+                    AggregateValueTransform::Identity => {
+                        self.add_weighted_utf8_count(weight)?;
+                        return self.update_weighted_utf8_identity_max(value);
+                    }
                     AggregateValueTransform::Length => length_value,
                     AggregateValueTransform::ConstantInt(_)
                     | AggregateValueTransform::AddOffset(_)
@@ -39284,7 +39615,7 @@ impl SimpleAggregateState {
                 };
                 self.add_weighted_utf8_count(weight)?;
                 self.max = Some(simple_aggregate_max_value(self.max.take(), transformed)?);
-                Ok(())
+                Ok(lazy_minmax)
             }
             SimpleAggregateFunction::CountDistinct => Err(ShardLoomError::InvalidOperation(
                 "local Vortex transformed-dictionary fused aggregate does not admit count-distinct; no fallback execution was attempted"
@@ -52317,6 +52648,11 @@ mod tests {
         );
         assert!(
             budget
+                .capillary_work_units
+                .contains(&"dictionary_weighted_utf8_minmax_allocation_bypass".to_string())
+        );
+        assert!(
+            budget
                 .pulseweave_pressure_signals
                 .contains(&"repeated_string_transform_evaluation_bypass".to_string())
         );
@@ -53581,6 +53917,11 @@ mod tests {
                 .contains(&"string_heavy_hitter_first_pass_exact_counts".to_string())
         );
         assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_heavy_hitter_bounded_exact_mirror".to_string())
+        );
+        assert!(
             !budget
                 .capillary_work_units
                 .contains(&"string_topk_candidate_exact_recount".to_string())
@@ -53613,7 +53954,15 @@ mod tests {
         );
         assert_eq!(
             payload["string_count_topk_heavy_hitter_exact_counts_source"],
-            serde_json::json!("first_pass_no_eviction")
+            serde_json::json!("first_pass_bounded_exact_mirror")
+        );
+        assert_eq!(
+            payload["string_count_topk_exact_mirror_used"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_topk_exact_mirror_disabled"],
+            serde_json::json!(false)
         );
         assert_eq!(
             payload["string_count_topk_dictionary_code_reuse"],
@@ -54309,6 +54658,11 @@ mod tests {
                 .contains(&"numeric_utf8_heavy_hitter_first_pass_exact_counts".to_string())
         );
         assert!(
+            budget
+                .capillary_work_units
+                .contains(&"numeric_utf8_heavy_hitter_bounded_exact_mirror".to_string())
+        );
+        assert!(
             !budget
                 .capillary_work_units
                 .contains(&"numeric_utf8_topk_candidate_exact_recount".to_string())
@@ -54341,7 +54695,15 @@ mod tests {
         );
         assert_eq!(
             payload["numeric_utf8_topk_heavy_hitter_exact_counts_source"],
-            serde_json::json!("first_pass_no_eviction")
+            serde_json::json!("first_pass_bounded_exact_mirror")
+        );
+        assert_eq!(
+            payload["numeric_utf8_topk_exact_mirror_used"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["numeric_utf8_topk_exact_mirror_disabled"],
+            serde_json::json!(false)
         );
         assert_eq!(
             payload["numeric_utf8_topk_dictionary_code_reuse"],
@@ -55314,6 +55676,96 @@ mod tests {
         let _ = std::fs::remove_file(&path);
 
         assert_eq!(recount_plan.projected_columns, first_plan.projected_columns);
+    }
+
+    #[test]
+    fn grouped_aggregate_exact_fallback_applies_residual_row_filter() {
+        use vortex::VortexSessionDefault as _;
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let path = unique_vortex_path("grouped-aggregate-exact-residual");
+        write_mixed_string_filter_fixture(&path).expect("fixture");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let file = runtime
+            .block_on(
+                session
+                    .open_options()
+                    .with_layout_reader_cache()
+                    .open_path(&path),
+            )
+            .expect("open fixture");
+        let aggregate = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("SearchPhrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "c".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
+        let declared_columns = vec!["SearchPhrase".to_string(), "URL".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&aggregate, Some(10), &declared_columns, false, false)
+                .expect("states");
+        let predicate = PredicateExpr::StringContains {
+            column: ColumnRef::new("URL").expect("column"),
+            needle: "google".to_string(),
+            negated: false,
+        };
+        let residual_evaluator =
+            MaterializedPredicateEvaluator::compile(&predicate, &declared_columns)
+                .expect("residual evaluator");
+        let projection = projection_request_from_declared_columns(&declared_columns)
+            .expect("projection request");
+        let mut plan = projection_scan_plan(
+            file.dtype(),
+            &projection,
+            VortexQueryPrimitiveKind::SimpleAggregate,
+        )
+        .expect("projection plan");
+        let mut scan = file.scan().expect("scan");
+        if let Some(projection) = plan.projection.take() {
+            scan = scan.with_projection(projection);
+        }
+        let mut chunks = scan.into_array_iter(&runtime).expect("array iterator");
+        let chunk = chunks
+            .next()
+            .expect("fixture chunk")
+            .expect("read fixture chunk");
+
+        update_grouped_exact_states_from_chunk(
+            &mut states,
+            &chunk,
+            &declared_columns,
+            Some(&residual_evaluator),
+        )
+        .expect("residual exact update");
+        let _ = std::fs::remove_file(&path);
+
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(10))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("state summary json");
+        let values = payload["values"].as_array().expect("values");
+        assert_eq!(row_count, 3);
+        assert_eq!(values.len(), 3);
+        assert!(
+            values
+                .iter()
+                .any(|row| row["SearchPhrase"] == serde_json::json!("alpha"))
+        );
+        assert!(
+            values
+                .iter()
+                .any(|row| row["SearchPhrase"] == serde_json::json!("gamma"))
+        );
+        assert!(!summary.contains("\"SearchPhrase\":\"beta\""));
     }
 
     #[test]
@@ -57175,6 +57627,10 @@ mod tests {
             serde_json::json!(0)
         );
         assert_eq!(payload["decoded_string_count"], serde_json::json!(0));
+        assert_eq!(
+            payload["transformed_dictionary_lazy_utf8_minmax_updates"],
+            serde_json::json!(true)
+        );
         assert!(
             payload
                 .get("transformed_dictionary_transform_code_map_entries")

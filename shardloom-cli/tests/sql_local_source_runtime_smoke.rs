@@ -288,6 +288,55 @@ fn vortex_prepare_blocks_without_vortex_write_feature() {
     fs::remove_file(source_path).expect("remove source csv");
 }
 
+#[cfg(not(feature = "vortex-write"))]
+#[test]
+fn vortex_prepare_native_source_blocks_with_structured_feature_gate() {
+    let source_path = unique_path("vortex-ingest-native-source", "vortex");
+    let target_path = unique_path("vortex-ingest-native-target", "vortex");
+    fs::write(&source_path, b"not-a-real-vortex-file").expect("write native source placeholder");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-prepare",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--input-format",
+            "vortex",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-prepare command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("schema_version", "shardloom.vortex_prepare.v1")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("vortex_ingest_status", "blocked_feature_gate")));
+    assert!(stdout.contains(&field(
+        "vortex_ingest_blocker_id",
+        "vortex_ingest.requires_vortex_write_feature"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(!target_path.exists());
+
+    fs::remove_file(source_path).expect("remove native source placeholder");
+}
+
 #[test]
 fn vortex_prepare_missing_args_emits_json_error_without_stderr() {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))

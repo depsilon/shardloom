@@ -253,9 +253,12 @@ Current autonomous execution order:
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. Work `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` because the latest local full-43 UAT is correct
+2. Work `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` because Vortex inputs must be first-class
+   Universal Ingest sources and must not be routed through slow compatibility/source-adapter
+   re-encode paths.
+3. Work `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` because the latest local full-43 UAT is correct
    and passing but still tail-bound by reusable high-cardinality/string/grouped-state lanes.
-3. Promote the next concrete shared-runtime implementation item from the standing owner after the
+4. Promote the next concrete shared-runtime implementation item from the standing owner after the
    current measured tail-lane slice either ships or is dropped. Completed runtime-gap rows live in
    the completed ledger, not in this compact Planned queue.
 
@@ -288,16 +291,92 @@ Current autonomous execution order:
   - Fallback boundary: this owner does not execute runtime work and preserves
     `fallback_attempted=false` / `external_engine_invoked=false` in its validators.
 
+- [ ] `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` Make Vortex-to-Vortex a first-class Universal Ingest
+  source lane instead of a slow source-adapter rewrite.
+  - Source: local V2V probe on
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex` using
+    Vortex `scan().into_array_stream()` to `write_options().write(...)`; stopped after ~94s with
+    only ~112MB staged, proving the scan-stream writer route re-encodes rather than preserving
+    encoded layout. Companion Parquet-to-Vortex plain-source probe was also stopped because it was
+    not V2V.
+  - Current state: public prepare treats `input_format=vortex` as already native and blocks
+    compatibility preparation. That is correct for query execution but incomplete for Universal
+    Ingest lifecycle: Vortex sources need an admitted prepared-state pass-through/copy lane and a
+    separate encoded-preserving rewrite/repack lane. The current generic Vortex scan-stream writer
+    is too slow to ship as the default V2V path.
+  - V1 scope classification: `required_for_v1` for Vortex-source admission and pass-through/copy
+    behavior; `v1_candidate_pending_feasibility` for encoded segment-preserving layout rewrite if
+    upstream Vortex exposes a safe provider or ShardLoom can implement one without decode/re-encode.
+  - ShardLoom technique review: source admission, metadata-first footer validation, copy-budget
+    evidence, PulseWeave route selection, and evidence-tier controls apply. Capillary work units
+    apply only to an actual rewrite path; the pass-through/copy lane should avoid work entirely
+    when the source artifact already satisfies the prepared-state contract.
+  - Execution checklist:
+    - [x] Add `vortex` as an admitted Universal Ingest source format with source-state evidence
+      distinct from CSV/JSONL/Parquet/Arrow/Avro/ORC adapters.
+    - [x] Implement a public prepare path for `input_format=vortex` that validates local Vortex
+      metadata/footer compatibility, emits prepared-state evidence, and uses pass-through or
+      workspace-safe copy when a separate target is requested.
+    - [x] Ensure automatic source normalization treats existing `.vortex` inputs as
+      `VortexPreparedState` / native Vortex sources and never routes them through compatibility
+      parse, Arrow `RecordBatch` source adapters, or the slow scan-stream writer by default.
+    - [x] Add explicit rewrite evidence for the layout-rewrite boundary: current V2V reports
+      `vortex_to_vortex_layout_rewrite_status=not_performed_layout_rewrite_requires_encoded_preserving_provider`
+      and does not expose the slow scan-stream re-encode path as a product default.
+    - [x] Add evidence fields for `vortex_to_vortex_policy`,
+      `vortex_to_vortex_encoded_layout_preserved`, `vortex_to_vortex_copy_budget_status`,
+      `vortex_to_vortex_reencode_performed`, source/target artifact digest, row count, and
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+    - [x] Add focused Rust/CLI tests proving public prepare admits `.vortex`, pass-through/copy
+      preserves row count and artifact evidence, explicit layout rewrite blocks until encoded
+      segment-preserving support exists, and the generic source adapters are not invoked.
+    - [x] Update docs/architecture and ingest UAT ledger with the retained V2V behavior, the
+      dropped scan-stream re-encode probe, and fresh rebuilt-CLI UAT evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/v2v_public_prepare_20260628T185919Z.summary.json`
+      and
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/v2v_public_prepare_small_copy_20260628T190453Z.summary.json`.
+    - [ ] Move the completed summary to the ledger after merge.
+  - Next outcome: one shared Universal Ingest Vortex-source implementation slice that makes
+    Vortex-to-Vortex lifecycle behavior explicit, fast by default, and reusable by SQL/Python/
+    DataFrame/CLI surfaces.
+  - User-visible surface: CLI `prepare dataframe` / `vortex-prepare`, Python `ctx.read_vortex(...)`
+    preparation workflows, route evidence, and ClickBench UAT setup.
+  - Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`,
+    `shardloom-cli/src/public_workflow_route.rs`, `shardloom-vortex/src/vortex_ingest.rs`,
+    capability/docs evidence, and focused tests.
+  - Evidence required: local small-fixture Vortex prepare proof, no-fallback evidence, row-count
+    metadata proof, target artifact digest proof, and retained/dropped V2V UAT probe notes.
+  - Acceptance: `.vortex` sources are first-class Universal Ingest inputs; the default V2V path
+    does not parse compatibility source data or re-encode through the slow scan-stream writer; an
+    explicit rewrite request fails closed unless an encoded-preserving rewrite provider exists.
+  - Verification: focused Rust/CLI tests for Vortex-source prepare, targeted small V2V fixture UAT,
+    `python3 scripts/check_runtime_gap_family_burn_down.py`, and no full 100M replacement UAT until
+    the next cohesive ingest/query batch is ready.
+  - Non-goals: no query-answer sidecars, no materialized views, no DataFusion/DuckDB/Polars/pandas/
+    Spark fallback, no slow scan-stream re-encode as the default product V2V behavior.
+  - Claim boundary: local Vortex-source lifecycle readiness only; no official ClickBench load claim
+    until full replacement UAT is rerun.
+  - Fallback boundary: every V2V route must report `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+
 - [ ] `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` Reduce the current >10s local 100M native
   Vortex query tails through shared dictionary, aggregate-state, and transform machinery.
   - Source: latest local Desktop full-43 UAT
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_q29_uncached_faststate_20260628T065223Z/summary.json`.
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/full43_after_q29_uncached_faststate.summary.json`.
   - Current state: full 43-query local UAT passes with `43/43` successful queries, total
     `204.849571s`, geomean `1.387733s`, `max_parallelism=2`, `memory_gb=8`, one
     `34.93GB` `.vortex` artifact, `fallback_attempted=false`, and
     `external_engine_invoked=false`. Remaining >10s lanes are `CB-Q34` `27.449s`,
     `CB-Q35` `27.175s`, `CB-Q17` `16.509s`, `CB-Q29` `14.215s`, `CB-Q33` `11.125s`,
     `CB-Q23` `10.667s`, and `CB-Q19` `10.272s`.
+  - Current retained slice: `CB-Q29` now records
+    `local_primitive_transformed_dictionary_lazy_utf8_minmax_updates=true` and
+    `dictionary_weighted_utf8_minmax_allocation_bypass`, avoiding per-candidate UTF-8 `StatValue`
+    allocation for transformed-dictionary identity min/max. Targeted UAT evidence lives in
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/q29_lazy_utf8_minmax_repeat.summary.json`
+    with `13.99s`, `fallback_attempted=false`, and `external_engine_invoked=false`; the run is
+    recorded in `docs/benchmarks/clickbench-100m-uat-burndown.json` as a retained Q29 slice, not a
+    completed tail-lane phase.
   - V1 scope classification: `required_for_v1` for locally feasible shared runtime speedups that
     preserve current results; official ClickBench submission and superiority claims remain outside
     this item.

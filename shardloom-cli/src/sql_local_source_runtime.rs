@@ -323,7 +323,7 @@ impl SqlLocalSourceRuntimeProfile {
 fn vortex_prepare_usage() -> String {
     format!(
         "usage: shardloom {VORTEX_PREPARE_COMMAND} <local-source-path> <target.vortex> \
-         [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] \
+         [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc|vortex] \
          [--schema name:dtype,...] [--allow-overwrite] \
          [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] \
          [--max-parallelism <n>] \
@@ -3004,6 +3004,19 @@ enum LocalSourceFormat {
     Orc,
 }
 
+fn source_format_token_is_vortex(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().replace('_', "-").as_str(),
+        "vortex" | "vtx"
+    )
+}
+
+fn path_has_vortex_extension(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(source_format_token_is_vortex)
+}
+
 impl LocalSourceFormat {
     fn parse(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().replace('_', "-").as_str() {
@@ -5236,6 +5249,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     let mut allow_overwrite = false;
     let mut source_format_override = None;
     let mut source_schema_hints = Vec::new();
+    let mut source_format_is_native_vortex = false;
     let mut certification_level = shardloom_vortex::VortexIngestCertificationLevel::IngestCertified;
     let mut delta_source_path = None;
     let mut delta_target_path = None;
@@ -5280,10 +5294,15 @@ pub(crate) fn handle_vortex_prepare_with_facade(
                         format,
                         "vortex prepare failed",
                         &ShardLoomError::InvalidOperation(format!(
-                            "{arg} requires csv, json, jsonl, parquet, arrow-ipc, avro, or orc"
+                            "{arg} requires csv, json, jsonl, parquet, arrow-ipc, avro, or orc, or vortex"
                         )),
                     );
                 };
+                if source_format_token_is_vortex(&value) {
+                    source_format_override = None;
+                    source_format_is_native_vortex = true;
+                    continue;
+                }
                 source_format_override = match LocalSourceFormat::parse(&value) {
                     Some(format) => Some(format),
                     None => {
@@ -5444,6 +5463,8 @@ pub(crate) fn handle_vortex_prepare_with_facade(
             );
         }
     };
+    let source_is_native_vortex =
+        source_format_is_native_vortex || path_has_vortex_extension(&source_path);
     let request = VortexIngestRequest {
         source_path,
         source_format_override,
@@ -5467,6 +5488,49 @@ pub(crate) fn handle_vortex_prepare_with_facade(
             fields_with_extra(vortex_ingest_feature_blocked_fields(&request), extra_fields),
         );
         return ExitCode::from(1);
+    }
+
+    if source_is_native_vortex {
+        if request.delta.is_some() {
+            return emit_error(
+                emit_command,
+                format,
+                "vortex prepare failed",
+                &ShardLoomError::InvalidOperation(
+                    "native Vortex artifact prepare does not accept differential compatibility-source options; use the existing .vortex artifact directly or provide a compatibility delta source; no fallback execution was attempted"
+                        .to_string(),
+                ),
+            );
+        }
+        let native_request = match shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
+            &request.source_path,
+            &request.target_path,
+            request.allow_overwrite,
+            shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
+            "vortex-write",
+            request.certification_level.as_str(),
+        ) {
+            Ok(request) => request,
+            Err(error) => {
+                return emit_error(emit_command, format, "vortex prepare failed", &error);
+            }
+        };
+        let report = match shardloom_vortex::prepare_native_vortex_artifact(&native_request) {
+            Ok(report) => report,
+            Err(error) => {
+                return emit_error(emit_command, format, "vortex prepare failed", &error);
+            }
+        };
+        emit(
+            emit_command,
+            format,
+            CommandStatus::Success,
+            report.summary(),
+            report.to_text(),
+            Vec::new(),
+            fields_with_extra(report.evidence_fields(), extra_fields),
+        );
+        return ExitCode::SUCCESS;
     }
 
     let outcome = match run_vortex_prepare_with_schema(request.clone(), &source_schema_hints) {
@@ -5536,6 +5600,25 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         return Err(ShardLoomError::NotImplemented(
             "vortex_ingest feature gate is not enabled".to_string(),
         ));
+    }
+    if source_format.is_some_and(source_format_token_is_vortex)
+        || path_has_vortex_extension(source_path.as_ref())
+    {
+        let target_path =
+            normalize_local_vortex_ingest_target_path(&target_path.as_ref().display().to_string())?;
+        let request = shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
+            source_path.as_ref(),
+            &target_path,
+            allow_overwrite,
+            shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
+            "vortex-write",
+            shardloom_vortex::VortexIngestCertificationLevel::IngestCertified.as_str(),
+        )?;
+        let report = shardloom_vortex::prepare_native_vortex_artifact(&request)?;
+        return Ok(PublicWorkflowVortexPreparation {
+            target_path,
+            fields: public_workflow_preparation_fields(report.evidence_fields()),
+        });
     }
     let source_format_override = match source_format {
         Some(value) => Some(LocalSourceFormat::parse(value).ok_or_else(|| {
@@ -5630,6 +5713,7 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "prepared_state_created",
         "prepared_state_reused",
         "prepared_state_reuse_hit",
+        "input_row_count",
         "target_vortex_path",
         "prepared_artifact_ref",
         "prepared_artifact_digest",
@@ -5645,6 +5729,17 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "vortex_reopen_hot_path_status",
         "vortex_reopen_verify_millis",
         "vortex_copy_budget_status",
+        "vortex_native_artifact_prepare_schema_version",
+        "vortex_to_vortex_policy",
+        "vortex_to_vortex_encoded_layout_preserved",
+        "vortex_to_vortex_reencode_performed",
+        "vortex_to_vortex_workspace_copy_performed",
+        "vortex_to_vortex_same_artifact_passthrough",
+        "vortex_to_vortex_upstream_vortex_scan_called",
+        "vortex_to_vortex_upstream_vortex_write_called",
+        "vortex_to_vortex_layout_rewrite_status",
+        "vortex_to_vortex_source_digest_source",
+        "vortex_to_vortex_target_digest_source",
         "vortex_copy_budget_buffer_reuse_status",
         "vortex_copy_budget_buffer_reuse_count",
         "vortex_capillary_preparation_max_parallelism",

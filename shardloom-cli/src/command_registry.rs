@@ -898,7 +898,7 @@ fn command_usage_fragment(command: &str) -> String {
             format!("{command} <sql-statement> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc]")
         }
         "vortex-prepare" => {
-            format!("{command} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc]")
+            format!("{command} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc|vortex]")
         }
         "sqlite-local-import-export-smoke" => {
             format!(
@@ -1538,6 +1538,7 @@ mod tests {
         assert!(
             help.contains("usage: shardloom vortex-prepare <local-source-path> <target.vortex>")
         );
+        assert!(help.contains("csv|json|jsonl|parquet|arrow-ipc|avro|orc|vortex"));
         assert!(help.contains("support_state: executable"));
         assert!(help.contains("owning_phase_item: GAR-RUNTIME-IMPL-4"));
         assert!(help.contains("fallback_boundary: metadata rendering is side-effect-free"));
