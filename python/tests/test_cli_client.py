@@ -6027,9 +6027,11 @@ class ShardLoomClientTests(unittest.TestCase):
                     if scope in {"sql", "dataframe"}:
                         fields.extend([
                             {"key": "planner_readiness_claim_gate_status", "value": "not_claim_grade"},
-                            {"key": "planner_readiness_row_order", "value": "sql_text_admission,sql_parse,sql_bind,sql_plan,sql_execute,dataframe_lazy_plan,dataframe_expression_builder,dataframe_join,dataframe_aggregate,dataframe_window,plan_diagnostics,unsupported_execution_state"},
+                            {"key": "planner_readiness_row_order", "value": "sql_text_admission,sql_parse,sql_bind,sql_plan,sql_execute,dataframe_lazy_plan,dataframe_broad_expression_planner,dataframe_broad_join_planner,dataframe_broad_aggregate_planner,dataframe_broad_window_planner,plan_diagnostics,unsupported_execution_state"},
                             {"key": "planner_readiness_sql_row_order", "value": "sql_text_admission,sql_parse,sql_bind,sql_plan,sql_execute"},
-                            {"key": "planner_readiness_dataframe_row_order", "value": "dataframe_lazy_plan,dataframe_expression_builder,dataframe_join,dataframe_aggregate,dataframe_window"},
+                            {"key": "planner_readiness_dataframe_row_order", "value": "dataframe_lazy_plan,dataframe_broad_expression_planner,dataframe_broad_join_planner,dataframe_broad_aggregate_planner,dataframe_broad_window_planner"},
+                            {"key": "planner_readiness_dataframe_runtime_matrix_ref", "value": "dataframe_method_matrix"},
+                            {"key": "planner_readiness_dataframe_runtime_matrix_scope", "value": "admitted_python_dataframe_methods"},
                             {"key": "planner_readiness_parser_executed", "value": "false"},
                             {"key": "planner_readiness_binder_executed", "value": "false"},
                             {"key": "planner_readiness_planner_executed", "value": "false"},
@@ -6725,7 +6727,7 @@ class ShardLoomClientTests(unittest.TestCase):
             ),
         )
         self.assertIn(
-            "dataframe_join",
+            "dataframe_broad_join_planner",
             capabilities.dataframe.dataframe_planner_readiness_rows,
         )
         self.assertTrue(capabilities.sql_support.planner_readiness_non_executing)

@@ -8004,6 +8004,16 @@ fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, Strin
     );
     push_field(
         fields,
+        "planner_readiness_dataframe_runtime_matrix_ref",
+        "dataframe_method_matrix",
+    );
+    push_field(
+        fields,
+        "planner_readiness_dataframe_runtime_matrix_scope",
+        "admitted_python_dataframe_methods",
+    );
+    push_field(
+        fields,
         "planner_readiness_unsupported_diagnostic_codes",
         &matrix.unsupported_diagnostic_codes().join(","),
     );
