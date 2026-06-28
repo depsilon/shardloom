@@ -1775,7 +1775,7 @@ const CROSS_CG_FIELD_KEYS: [&str; 54] = [
     "cg23_remote_api_no_effects",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 185] = [
+const OPERATOR_FIELD_KEYS: [&str; 191] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -1948,6 +1948,8 @@ const OPERATOR_FIELD_KEYS: [&str; 185] = [
     "local_vortex_primitive_execution_schema_version",
     "local_vortex_primitive_execution_feature_gate",
     "local_vortex_primitive_execution_supported_primitives",
+    "local_vortex_primitive_execution_zero_decode_scan_primitives",
+    "local_vortex_primitive_execution_materializing_primitives",
     "local_vortex_primitive_execution_local_only",
     "local_vortex_primitive_execution_count_all_decode_required",
     "local_vortex_primitive_execution_filter_project_decode_boundary_reported",
@@ -1958,6 +1960,10 @@ const OPERATOR_FIELD_KEYS: [&str; 185] = [
     "local_vortex_primitive_execution_object_store_io",
     "local_vortex_primitive_execution_write_io",
     "local_vortex_primitive_execution_spill_io",
+    "local_vortex_primitive_execution_materialization_boundary_reported",
+    "local_vortex_primitive_execution_state_budget_reported",
+    "local_vortex_primitive_execution_memory_admission_reported",
+    "local_vortex_primitive_execution_native_io_certificate_reported",
     "local_vortex_primitive_execution_requires_correctness_evidence",
     "local_vortex_primitive_execution_requires_benchmark_for_production",
     "local_vortex_primitive_execution_fallback_execution_allowed",
@@ -3163,7 +3169,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_python_ctx_from_rows_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_python_ctx_from_rows_generated_source_created",
@@ -3175,7 +3181,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_literal_select_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_literal_select_runtime_execution",
@@ -3183,7 +3189,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_values_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_values_runtime_execution",
@@ -3191,7 +3197,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_source_free_projection_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_source_free_projection_runtime_execution",
@@ -3199,7 +3205,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_generate_series_range_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_generate_series_range_runtime_execution",
@@ -3207,7 +3213,7 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_dataframe_generated_with_column_support_status",
-        "smoke-supported"
+        "runtime-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_dataframe_generated_with_column_runtime_execution",
