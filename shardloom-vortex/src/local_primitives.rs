@@ -18697,7 +18697,7 @@ fn read_local_vortex_simple_aggregate_scan(
         && states.needs_numeric_pair_late_measure_second_pass()
     {
         states.prepare_numeric_pair_late_measure_second_pass(result_limit)?;
-        let projection = ProjectionRequest::columns(aggregate.projected_columns());
+        let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if second_plan.projected_columns != declared_columns {
             return Err(ShardLoomError::InvalidOperation(
@@ -18750,7 +18750,7 @@ fn read_local_vortex_simple_aggregate_scan(
             false
         } else {
             states.prepare_numeric_utf8_topk_heavy_hitter_second_pass()?;
-            let projection = ProjectionRequest::columns(aggregate.projected_columns());
+            let projection = projection_request_from_declared_columns(&declared_columns)?;
             let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
             if second_plan.projected_columns != declared_columns {
                 return Err(ShardLoomError::InvalidOperation(
@@ -18819,7 +18819,7 @@ fn read_local_vortex_simple_aggregate_scan(
             false,
             policy.resource_envelope(),
         )?;
-        let projection = ProjectionRequest::columns(aggregate.projected_columns());
+        let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
             return Err(ShardLoomError::InvalidOperation(
@@ -18961,7 +18961,7 @@ fn read_local_vortex_simple_aggregate_scan(
             true
         } else {
             states.prepare_string_count_topk_heavy_hitter_second_pass()?;
-            let projection = ProjectionRequest::columns(aggregate.projected_columns());
+            let projection = projection_request_from_declared_columns(&declared_columns)?;
             let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
             if second_plan.projected_columns != declared_columns {
                 return Err(ShardLoomError::InvalidOperation(
@@ -19047,7 +19047,7 @@ fn read_local_vortex_simple_aggregate_scan(
             false,
             policy.resource_envelope(),
         )?;
-        let projection = ProjectionRequest::columns(aggregate.projected_columns());
+        let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
             return Err(ShardLoomError::InvalidOperation(
@@ -19105,7 +19105,7 @@ fn read_local_vortex_simple_aggregate_scan(
     {
         if states.string_count_distinct_topk_heavy_hitter_exact_proof_possible(result_limit)? {
             states.prepare_string_count_distinct_topk_heavy_hitter_second_pass()?;
-            let projection = ProjectionRequest::columns(aggregate.projected_columns());
+            let projection = projection_request_from_declared_columns(&declared_columns)?;
             let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
             if second_plan.projected_columns != declared_columns {
                 return Err(ShardLoomError::InvalidOperation(
@@ -19176,7 +19176,7 @@ fn read_local_vortex_simple_aggregate_scan(
             false,
             policy.resource_envelope(),
         )?;
-        let projection = ProjectionRequest::columns(aggregate.projected_columns());
+        let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
             return Err(ShardLoomError::InvalidOperation(
@@ -21920,6 +21920,7 @@ fn sort_chunk_topk_threshold_pruning_admitted(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_arguments)]
 fn sort_chunk_pruned_by_topk_threshold(
     column_values: &[Vec<StatValue>],
     materialized_rows: usize,
@@ -26662,8 +26663,7 @@ impl<'a> GroupedAggregateStates<'a> {
             if count == 0 {
                 continue;
             }
-            let key = self
-                .transformed_dictionary_group_key(group_transform, std::sync::Arc::clone(value))?;
+            let key = self.transformed_dictionary_group_key(group_transform, value)?;
             let group = match self.groups.entry(key) {
                 std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
                 std::collections::hash_map::Entry::Vacant(entry) => {
@@ -26681,11 +26681,11 @@ impl<'a> GroupedAggregateStates<'a> {
     fn transformed_dictionary_group_key(
         &mut self,
         transform: AggregateValueTransform,
-        value: std::sync::Arc<str>,
+        value: &std::sync::Arc<str>,
     ) -> Result<AggregateGroupKey> {
         if self.transformed_dictionary_key_cache_admitted() {
             let cache_key =
-                TransformedDictionaryKeyCacheEntry::new(transform, std::sync::Arc::clone(&value));
+                TransformedDictionaryKeyCacheEntry::new(transform, std::sync::Arc::clone(value));
             if let Some(key) = self.transformed_dictionary_key_cache.get(&cache_key) {
                 self.transformed_dictionary_key_cache_hits = self
                     .transformed_dictionary_key_cache_hits
@@ -26747,6 +26747,30 @@ impl<'a> GroupedAggregateStates<'a> {
         })
     }
 
+    fn transformed_dictionary_group_key_uncached(
+        transform: AggregateValueTransform,
+        value: &str,
+    ) -> Result<AggregateGroupKey> {
+        Ok(match transform {
+            AggregateValueTransform::Length => AggregateGroupKey::single(
+                AggregateDistinctValue::UInt64(usize_to_u64(value.len())?),
+            ),
+            AggregateValueTransform::UrlDomain => {
+                AggregateGroupKey::single(AggregateDistinctValue::Utf8(
+                    std::sync::Arc::<str>::from(aggregate_url_domain_str(value)),
+                ))
+            }
+            AggregateValueTransform::Identity
+            | AggregateValueTransform::ConstantInt(_)
+            | AggregateValueTransform::AddOffset(_)
+            | AggregateValueTransform::ExtractMinute
+            | AggregateValueTransform::DateTruncMinute
+            | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => unreachable!(
+                "transformed dictionary aggregate admits only length and URL-domain transforms"
+            ),
+        })
+    }
+
     fn transformed_dictionary_key_cache_admitted(&self) -> bool {
         self.transformed_dictionary_key_cache_cap() > 0
     }
@@ -26754,8 +26778,7 @@ impl<'a> GroupedAggregateStates<'a> {
     fn transformed_dictionary_key_cache_cap(&self) -> usize {
         self.resource_envelope
             .group_state_soft_item_budget
-            .min(1_048_576)
-            .max(16_384)
+            .clamp(16_384, 1_048_576)
     }
 
     fn update_string_count_topk_heavy_hitter_from_accessors(
@@ -28107,8 +28130,7 @@ impl<'a> GroupedAggregateStates<'a> {
             if count == 0 {
                 continue;
             }
-            let key = self
-                .transformed_dictionary_group_key(group_transform, std::sync::Arc::clone(value))?;
+            let key = Self::transformed_dictionary_group_key_uncached(group_transform, value)?;
             let group = match self.groups.entry(key) {
                 std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
                 std::collections::hash_map::Entry::Vacant(entry) => {
@@ -28212,12 +28234,7 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         let mut transformed_keys = Vec::with_capacity(group_values.len());
         for value in group_values {
-            transformed_keys.push(
-                self.transformed_dictionary_group_key(
-                    group_transform,
-                    std::sync::Arc::clone(value),
-                )?,
-            );
+            transformed_keys.push(self.transformed_dictionary_group_key(group_transform, value)?);
         }
         reserve_hash_map_capacity(
             &mut self.groups,
@@ -28431,6 +28448,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn update_numeric_pair_late_measure_count_direct_from_accessors(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
@@ -31768,9 +31786,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         payload: &mut serde_json::Value,
     ) -> Result<()> {
-        if !self.transformed_dictionary_direct_updates
-            && self.transformed_dictionary_key_cache.is_empty()
-        {
+        if self.transformed_dictionary_key_cache.is_empty() {
             return Ok(());
         }
         json_object_insert_str(
@@ -39435,6 +39451,17 @@ fn projection_scan_plan(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn projection_request_from_declared_columns(
+    declared_columns: &[String],
+) -> Result<ProjectionRequest> {
+    declared_columns
+        .iter()
+        .map(|column| ColumnRef::new(column.as_str()))
+        .collect::<Result<Vec<_>>>()
+        .map(ProjectionRequest::columns)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn sort_rows_source_row_id_projection_expr(
     projected_columns: &[String],
 ) -> Result<vortex::array::expr::Expression> {
@@ -40456,8 +40483,8 @@ fn predicate_requires_materialized_evaluation(
         | PredicateExpr::IsNull { .. }
         | PredicateExpr::IsNotNull { .. }
         | PredicateExpr::Compare { .. }
-        | PredicateExpr::InList { .. }
-        | PredicateExpr::StringContains { .. } => {
+        | PredicateExpr::InList { .. } => false,
+        PredicateExpr::StringContains { .. } => {
             primitive_kind == VortexQueryPrimitiveKind::SimpleAggregate
         }
         PredicateExpr::And(predicates) => predicates
@@ -53361,6 +53388,19 @@ mod tests {
 
     #[test]
     fn string_contains_pushdown_is_route_aware_for_aggregate_regression_guard() {
+        let compare = PredicateExpr::Compare {
+            column: ColumnRef::new("CounterID").expect("column"),
+            op: ComparisonOp::Eq,
+            value: StatValue::UInt64(62),
+        };
+        let (aggregate_compare_pushdown, aggregate_compare_residual) =
+            split_predicate_for_vortex_pushdown(
+                &compare,
+                VortexQueryPrimitiveKind::SimpleAggregate,
+            );
+        assert!(aggregate_compare_pushdown.is_some());
+        assert!(aggregate_compare_residual.is_none());
+
         let contains = PredicateExpr::StringContains {
             column: ColumnRef::new("URL").expect("column"),
             needle: "google".to_string(),
@@ -54674,6 +54714,104 @@ mod tests {
         );
         assert!(!summary.contains("\"SearchPhrase\":\"\""));
         assert!(!summary.contains("\"SearchPhrase\":\"beta\""));
+    }
+
+    #[test]
+    fn grouped_aggregate_recount_projection_preserves_residual_columns() {
+        use vortex::VortexSessionDefault as _;
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let path = unique_vortex_path("grouped-aggregate-residual-recount-projection");
+        write_mixed_string_filter_fixture(&path).expect("fixture");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let file = runtime
+            .block_on(
+                session
+                    .open_options()
+                    .with_layout_reader_cache()
+                    .open_path(&path),
+            )
+            .expect("open fixture");
+        let aggregate = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("SearchPhrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "c".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
+        let predicate = PredicateExpr::StringContains {
+            column: ColumnRef::new("URL").expect("column"),
+            needle: "google".to_string(),
+            negated: false,
+        };
+
+        let aggregate_plan = rewrite_simple_aggregate_for_embedded_derived_columns(
+            file.dtype(),
+            &aggregate,
+            Some(&predicate),
+        )
+        .expect("embedded rewrite");
+        assert!(aggregate_plan.rewritten_columns.is_empty());
+        let mut projected_columns = aggregate_plan.aggregate.projected_columns();
+        let (_pushdown_predicate, residual_predicate) =
+            aggregate_plan
+                .predicate
+                .as_ref()
+                .map_or((None, None), |predicate| {
+                    split_predicate_for_vortex_pushdown(
+                        predicate,
+                        VortexQueryPrimitiveKind::SimpleAggregate,
+                    )
+                });
+        append_predicate_columns(
+            residual_predicate.as_ref().expect("residual predicate"),
+            &mut projected_columns,
+        );
+        let first_projection = ProjectionRequest::columns(projected_columns);
+        let first_plan = projection_scan_plan(
+            file.dtype(),
+            &first_projection,
+            VortexQueryPrimitiveKind::SimpleAggregate,
+        )
+        .expect("first projection plan");
+        assert_eq!(
+            first_plan.projected_columns,
+            vec!["SearchPhrase".to_string(), "URL".to_string()]
+        );
+
+        let aggregate_only_projection =
+            ProjectionRequest::columns(aggregate_plan.aggregate.projected_columns());
+        let aggregate_only_plan = projection_scan_plan(
+            file.dtype(),
+            &aggregate_only_projection,
+            VortexQueryPrimitiveKind::SimpleAggregate,
+        )
+        .expect("aggregate-only projection plan");
+        assert_eq!(aggregate_only_plan.projected_columns, vec!["SearchPhrase"]);
+        assert_ne!(
+            aggregate_only_plan.projected_columns,
+            first_plan.projected_columns
+        );
+
+        let recount_projection =
+            projection_request_from_declared_columns(&first_plan.projected_columns)
+                .expect("recount projection");
+        let recount_plan = projection_scan_plan(
+            file.dtype(),
+            &recount_projection,
+            VortexQueryPrimitiveKind::SimpleAggregate,
+        )
+        .expect("recount projection plan");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(recount_plan.projected_columns, first_plan.projected_columns);
     }
 
     #[test]
@@ -56444,9 +56582,17 @@ mod tests {
             payload["group_state_mode"],
             "transformed_chunk_dictionary_general_measure_code_map"
         );
+        assert_eq!(payload["group_key_storage"], "typed_single_key");
         assert_eq!(
             payload["materialized_group_value_count"],
             serde_json::json!(0)
+        );
+        assert_eq!(payload["decoded_string_count"], serde_json::json!(0));
+        assert!(
+            payload
+                .get("transformed_dictionary_transform_code_map_entries")
+                .is_none(),
+            "general transformed-measure route should not populate the string interner/cache"
         );
         let rows = payload["values"].as_array().expect("values");
         let example_sum = values[0].len() * 2 + values[2].len() + values[3].len();
