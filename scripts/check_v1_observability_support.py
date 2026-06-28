@@ -20,12 +20,13 @@ import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 from release_report_utils import fail_closed_fields, load_json, read_text, resolve_path, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_observability_support_report.v1"
-DEFAULT_FEATURES = "vortex-write,vortex-local-primitives"
+DEFAULT_FEATURES = RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 SCOPE_DOC = Path("docs/architecture/v1-observability-support.md")
 TROUBLESHOOTING_DOC = Path("docs/release/troubleshooting-diagnostics.md")
 DIAGNOSTIC_CODE_DOC = Path("docs/release/diagnostic-code-stability.md")

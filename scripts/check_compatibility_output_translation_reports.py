@@ -53,6 +53,12 @@ COMPATIBILITY_ROW_IDS = tuple(
     row_id for row_id in REQUIRED_ROW_IDS if row_id != "vortex_native_output"
 )
 
+LOCAL_COMPATIBILITY_EXPORT_ROW_IDS = tuple(
+    row_id
+    for row_id in COMPATIBILITY_ROW_IDS
+    if row_id not in {"iceberg_compatible_table_output", "delta_compatible_table_output"}
+)
+
 BLOCKED_TABLE_ROW_IDS = (
     "iceberg_compatible_table_output",
     "delta_compatible_table_output",
@@ -127,8 +133,13 @@ def validate_row(row: dict[str, Any]) -> list[str]:
         if row_id in BLOCKED_TABLE_ROW_IDS:
             if row.get("writer_support_status") != "report_only_blocked":
                 blockers.append(f"{row_id}: table targets must be report_only_blocked")
-        elif row.get("writer_support_status") != "local_fixture_smoke":
-            blockers.append(f"{row_id}: writer_support_status must be local_fixture_smoke")
+        elif row_id in LOCAL_COMPATIBILITY_EXPORT_ROW_IDS:
+            if row.get("writer_support_status") != "local_compatibility_export_admitted":
+                blockers.append(
+                    f"{row_id}: writer_support_status must be local_compatibility_export_admitted"
+                )
+        else:
+            blockers.append(f"{row_id}: unknown compatibility output row")
 
     if not _non_empty_string(row.get("unsupported_schema_diagnostic")):
         blockers.append(f"{row_id}: unsupported_schema_diagnostic must be non-empty")

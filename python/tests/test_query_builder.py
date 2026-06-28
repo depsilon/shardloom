@@ -476,7 +476,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 "dataframe_generated_with_column",
             }:
                 rewritten = [
-                    "generated-source-user-rows-smoke",
+                    "generated-source-user-rows",
                     output_ref,
                     _shardloom_take_flag(args, "--generated-schema"),
                     _shardloom_take_flag(args, "--generated-rows"),
@@ -487,9 +487,9 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ]
             else:
                 command = (
-                    "generated-source-sequence-smoke"
+                    "generated-source-sequence"
                     if generated_kind == "sequence"
-                    else "generated-source-range-smoke"
+                    else "generated-source-range"
                 )
                 rewritten = [
                     command,
@@ -511,7 +511,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
         if sql is not None and surface == "sql" and output_ref is not None and " FROM '" not in sql:
             rewritten = [
-                "generated-source-sql-smoke",
+                "generated-source-sql",
                 output_ref,
                 sql,
                 "--output-format",
@@ -1648,7 +1648,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ["public_workflow_facade_command", "run"],
                     ["public_workflow_route_id", "source_free_generated_output"],
                     ["public_workflow_route_status", "admitted"],
-                    ["public_workflow_resolved_internal_command", "generated-source-sql-smoke"],
+                    ["public_workflow_resolved_internal_command", "generated-source-sql"],
                     ["public_workflow_requested_output", "write_jsonl"],
                     ["public_workflow_output_ref", "target/sql-select.jsonl"],
                     ["public_workflow_fanout_output_count", "1"],
@@ -1775,7 +1775,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-user-rows-smoke",
+                    "generated-source-user-rows",
                     "target/generated.jsonl",
                     "id:int64,label:utf8",
                     "id=1,label=alpha;id=2,label=beta",
@@ -1788,7 +1788,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-user-rows-smoke",
+                    "command": "generated-source-user-rows",
                     "status": "success",
                     "summary": "generated",
                     "human_text": "generated",
@@ -1831,7 +1831,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ]
         ).write("target/generated.jsonl")
 
-        self.assertEqual(report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-user-rows")
         self.assertEqual(report.output_path, "target/generated.jsonl")
         self.assertEqual(report.generated_source_kind, "user_rows")
         self.assertEqual(report.generated_source_row_count, 2)
@@ -1946,7 +1946,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-user-rows-smoke",
+                    "generated-source-user-rows",
                     "target/generated-transformed.jsonl",
                     "id:int64,segment:utf8",
                     "id=1,segment=north;id=2,segment=north",
@@ -1959,7 +1959,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-user-rows-smoke",
+                    "command": "generated-source-user-rows",
                     "status": "success",
                     "summary": "generated transformed",
                     "human_text": "generated transformed",
@@ -1997,7 +1997,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write("target/generated-transformed.jsonl")
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-user-rows")
         self.assertEqual(report.generated_source_kind, "user_rows")
         self.assertEqual(report.generated_source_row_count, 2)
         self.assertFalse(report.fallback_attempted)
@@ -2011,7 +2011,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-user-rows-smoke",
+                    "generated-source-user-rows",
                     "target/dataframe-projection.jsonl",
                     "value:int64,label:utf8",
                     "value=1,label=alpha",
@@ -2024,7 +2024,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-user-rows-smoke",
+                    "command": "generated-source-user-rows",
                     "status": "success",
                     "summary": "dataframe source-free projection",
                     "human_text": "dataframe source-free projection",
@@ -2056,7 +2056,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ("label", "alpha"),
         ).write("target/dataframe-projection.jsonl")
 
-        self.assertEqual(report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-user-rows")
         self.assertEqual(report.generated_source_kind, "dataframe_source_free_projection")
         self.assertEqual(report.generated_source_row_count, 1)
         self.assertFalse(report.fallback_attempted)
@@ -2084,7 +2084,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-user-rows-smoke",
+                    "generated-source-user-rows",
                     "target/dataframe-generated-with-column.jsonl",
                     "value:int64",
                     "value=1",
@@ -2097,7 +2097,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-user-rows-smoke",
+                    "command": "generated-source-user-rows",
                     "status": "success",
                     "summary": "dataframe generated with column",
                     "human_text": "dataframe generated with column",
@@ -2128,7 +2128,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "target/dataframe-generated-with-column.jsonl"
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-user-rows")
         self.assertEqual(report.generated_source_kind, "dataframe_generated_with_column")
         self.assertEqual(report.generated_source_row_count, 1)
         self.assertFalse(report.fallback_attempted)
@@ -15712,7 +15712,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-user-rows-smoke",
+                    "generated-source-user-rows",
                     "target/literal-table.jsonl",
                     "code:utf8,weight:float64",
                     "code=A,weight=1.5;code=B,weight=2.0",
@@ -15725,7 +15725,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-user-rows-smoke",
+                    "command": "generated-source-user-rows",
                     "status": "success",
                     "summary": "literal table",
                     "human_text": "literal table",
@@ -15766,7 +15766,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-user-rows-smoke",
+                    "generated-source-user-rows",
                     "target/calendar.jsonl",
                     "dt:utf8,year:int64,month:int64,day:int64,day_of_week:int64",
                     "dt=2026-05-18,year=2026,month=5,day=18,day_of_week=1;dt=2026-05-19,year=2026,month=5,day=19,day_of_week=2",
@@ -15779,7 +15779,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-user-rows-smoke",
+                    "command": "generated-source-user-rows",
                     "status": "success",
                     "summary": "calendar",
                     "human_text": "calendar",
@@ -15850,7 +15850,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-range-smoke",
+                    "generated-source-range",
                     "target/range.jsonl",
                     "2",
                     "8",
@@ -15865,7 +15865,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-range-smoke",
+                    "command": "generated-source-range",
                     "status": "success",
                     "summary": "generated range",
                     "human_text": "generated range",
@@ -15898,7 +15898,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.range(2, 8, step=2, column="id").write("target/range.jsonl")
 
-        self.assertEqual(report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-range")
         self.assertEqual(report.output_path, "target/range.jsonl")
         self.assertEqual(report.generated_source_kind, "range")
         self.assertEqual(report.generated_source_row_count, 3)
@@ -15918,7 +15918,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-range-smoke",
+                    "generated-source-range",
                     "target/range-limited.jsonl",
                     "2",
                     "6",
@@ -15934,7 +15934,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-range-smoke",
+                    "command": "generated-source-range",
                     "status": "success",
                     "summary": "generated range",
                     "human_text": "generated range",
@@ -15966,7 +15966,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             allow_overwrite=True,
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-range")
         self.assertEqual(report.output_path, "target/range-limited.jsonl")
         self.assertEqual(report.generated_source_kind, "range")
         self.assertEqual(report.generated_source_row_count, 2)
@@ -15988,7 +15988,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             source.limit(-1)
 
-    def test_generated_range_dataframe_aliases_invoke_generated_source_sql_smoke(
+    def test_generated_range_dataframe_aliases_invoke_generated_source_sql_runtime(
         self,
     ) -> None:
         statement = (
@@ -16001,7 +16001,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/range-query-aliases.jsonl",
                     {statement!r},
                     "--output-format",
@@ -16012,7 +16012,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql aliases",
                     "human_text": "generated sql aliases",
@@ -16045,7 +16045,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write("target/range-query-aliases.jsonl", allow_overwrite=True)
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
         self.assertTrue(report.sql_source_free_filter_runtime_execution)
         self.assertTrue(report.sql_source_free_order_by_runtime_execution)
@@ -16053,7 +16053,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_range_filter_with_column_limit_invokes_generated_source_sql_smoke(self) -> None:
+    def test_range_filter_with_column_limit_invokes_generated_source_sql_runtime(self) -> None:
         statement = (
             "SELECT value AS id, CASE WHEN value >= 5 THEN 1 ELSE 0 END AS bucket "
             "FROM range(1, 8, 1) WHERE value >= 3 LIMIT 2"
@@ -16064,7 +16064,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/range-query.jsonl",
                     {statement!r},
                     "--output-format",
@@ -16075,7 +16075,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql",
                     "human_text": "generated sql",
@@ -16122,7 +16122,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write("target/range-query.jsonl", allow_overwrite=True)
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
         self.assertEqual(report.generated_source_row_count, 2)
         self.assertEqual(report.generated_source_range_start, 1)
@@ -16148,7 +16148,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_range_filter_with_column_sort_limit_invokes_generated_source_sql_smoke(
+    def test_range_filter_with_column_sort_limit_invokes_generated_source_sql_runtime(
         self,
     ) -> None:
         statement = (
@@ -16161,7 +16161,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/range-query-topn.jsonl",
                     {statement!r},
                     "--output-format",
@@ -16172,7 +16172,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql",
                     "human_text": "generated sql",
@@ -16227,7 +16227,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write("target/range-query-topn.jsonl", allow_overwrite=True)
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
         self.assertEqual(report.generated_source_row_count, 2)
         self.assertTrue(report.sql_source_free_filter_runtime_execution)
@@ -16252,7 +16252,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_range_filter_with_column_sort_limit_fanout_invokes_generated_source_sql_smoke(
+    def test_range_filter_with_column_sort_limit_fanout_invokes_generated_source_sql_runtime(
         self,
     ) -> None:
         statement = (
@@ -16265,7 +16265,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/range-query-topn.jsonl",
                     {statement!r},
                     "--output-format",
@@ -16278,7 +16278,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql fanout",
                     "human_text": "generated sql fanout",
@@ -16341,7 +16341,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.output_route, "local_sink_and_fanout")
         self.assertTrue(report.output_fanout_performed)
         self.assertTrue(report.result_reuse_for_fanout)
@@ -16423,7 +16423,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sequence-smoke",
+                    "generated-source-sequence",
                     "target/sequence.jsonl",
                     "1",
                     "6",
@@ -16438,7 +16438,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sequence-smoke",
+                    "command": "generated-source-sequence",
                     "status": "success",
                     "summary": "generated sequence",
                     "human_text": "generated sequence",
@@ -16469,7 +16469,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.sequence(1, 6, step=2, column="seq").write("target/sequence.jsonl")
 
-        self.assertEqual(report.envelope.command, "generated-source-sequence-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sequence")
         self.assertEqual(report.output_path, "target/sequence.jsonl")
         self.assertEqual(report.generated_source_kind, "sequence")
         self.assertEqual(report.generated_source_row_count, 3)
@@ -16492,7 +16492,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/sequence-query.jsonl",
                     {statement!r},
                     "--output-format",
@@ -16502,7 +16502,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql",
                     "human_text": "generated sql",
@@ -16530,20 +16530,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write("target/sequence-query.jsonl")
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.generated_source_sql_generator_function, "generate_series")
         self.assertTrue(report.generated_source_range_end_inclusive)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_sql_source_free_write_invokes_generated_source_sql_smoke(self) -> None:
+    def test_sql_source_free_write_invokes_generated_source_sql_runtime(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/sql-values.jsonl",
                     "VALUES (1, 'alpha')",
                     "--output-format",
@@ -16553,7 +16553,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql",
                     "human_text": "generated sql",
@@ -16578,7 +16578,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = ctx.sql_values("VALUES (1, 'alpha')").write("target/sql-values.jsonl")
 
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.generated_source_kind, "sql_values")
         self.assertEqual(report.generated_source_row_count, 1)
         self.assertEqual(report.generated_source_certificate_status, "present")
@@ -16587,14 +16587,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
-    def test_context_sql_source_free_write_invokes_generated_source_sql_smoke(self) -> None:
+    def test_context_sql_source_free_write_invokes_generated_source_sql_runtime(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/sql-select.jsonl",
                     "SELECT 1 AS id, 'alpha' AS label",
                     "--output-format",
@@ -16605,7 +16605,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql",
                     "human_text": "generated sql",
@@ -16632,21 +16632,21 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         report = workflow.write("target/sql-select.jsonl", allow_overwrite=True)
 
         self.assertIsInstance(workflow, sl.SqlWorkflow)
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.generated_source_kind, "sql_literal_select")
         self.assertEqual(report.output_path, "target/sql-select.jsonl")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
-    def test_context_sql_source_free_fanout_invokes_generated_source_sql_smoke(self) -> None:
+    def test_context_sql_source_free_fanout_invokes_generated_source_sql_runtime(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/sql-select.jsonl",
                     "SELECT 1 AS id, 'alpha' AS label",
                     "--output-format",
@@ -16659,7 +16659,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql fanout",
                     "human_text": "generated sql fanout",
@@ -16690,7 +16690,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             allow_overwrite=True,
         )
 
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.output_route, "local_sink_and_fanout")
         self.assertTrue(report.output_fanout_performed)
         self.assertEqual(report.fanout_output_count, 1)
@@ -16700,7 +16700,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_context_sql_generate_series_projection_write_invokes_generated_source_sql_smoke(
+    def test_context_sql_generate_series_projection_write_invokes_generated_source_sql_runtime(
         self,
     ) -> None:
         statement = "SELECT value AS id, value + 10 AS shifted, CASE WHEN value >= 6 THEN 1 ELSE 0 END AS is_high FROM generate_series(2, 8, 2)"
@@ -16710,7 +16710,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/sql-generate-series.jsonl",
                     {statement!r},
                     "--output-format",
@@ -16721,7 +16721,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql",
                     "human_text": "generated sql",
@@ -16758,7 +16758,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         report = workflow.write("target/sql-generate-series.jsonl", allow_overwrite=True)
 
         self.assertIsInstance(workflow, sl.SqlWorkflow)
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
         self.assertEqual(report.generated_source_row_count, 4)
         self.assertEqual(report.generated_source_range_start, 2)
@@ -16782,7 +16782,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
-    def test_context_sql_generate_series_filter_limit_write_invokes_generated_source_sql_smoke(
+    def test_context_sql_generate_series_filter_limit_write_invokes_generated_source_sql_runtime(
         self,
     ) -> None:
         statement = "SELECT value AS id FROM range(1, 8) WHERE value >= 3 LIMIT 2"
@@ -16792,7 +16792,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "generated-source-sql-smoke",
+                    "generated-source-sql",
                     "target/sql-range-filter-limit.jsonl",
                     {statement!r},
                     "--output-format",
@@ -16803,7 +16803,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-sql-smoke",
+                    "command": "generated-source-sql",
                     "status": "success",
                     "summary": "generated sql",
                     "human_text": "generated sql",
@@ -16833,7 +16833,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         report = workflow.write("target/sql-range-filter-limit.jsonl", allow_overwrite=True)
 
         self.assertIsInstance(workflow, sl.SqlWorkflow)
-        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.envelope.command, "generated-source-sql")
         self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
         self.assertTrue(report.sql_source_free_filter_runtime_execution)
         self.assertEqual(report.sql_source_free_filter_predicate, "value>=3")
@@ -16849,9 +16849,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 command = sys.argv[1]
-                if command == "generated-source-range-smoke":
+                if command == "generated-source-range":
                     assert sys.argv[1:] == [
-                        "generated-source-range-smoke",
+                        "generated-source-range",
                         "target/range.csv",
                         "1",
                         "4",
@@ -16876,9 +16876,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
                     ]
-                elif command == "generated-source-sql-smoke":
+                elif command == "generated-source-sql":
                     assert sys.argv[1:] == [
-                        "generated-source-sql-smoke",
+                        "generated-source-sql",
                         "target/sql-values.csv",
                         "VALUES (1, 'alpha')",
                         "--output-format",
@@ -16925,14 +16925,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             allow_overwrite=True,
         )
 
-        self.assertEqual(range_report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(range_report.envelope.command, "generated-source-range")
         self.assertEqual(range_report.output_path, "target/range.csv")
         self.assertEqual(range_report.output_format, "csv")
         self.assertEqual(range_report.generated_source_kind, "range")
         self.assertFalse(range_report.fallback_attempted)
         self.assertFalse(range_report.external_engine_invoked)
 
-        self.assertEqual(sql_report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(sql_report.envelope.command, "generated-source-sql")
         self.assertEqual(sql_report.output_path, "target/sql-values.csv")
         self.assertEqual(sql_report.output_format, "csv")
         self.assertEqual(sql_report.generated_source_kind, "sql_values")
@@ -16948,9 +16948,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 command = sys.argv[1]
-                if command == "generated-source-user-rows-smoke":
+                if command == "generated-source-user-rows":
                     assert sys.argv[1:] == [
-                        "generated-source-user-rows-smoke",
+                        "generated-source-user-rows",
                         "target/generated.parquet",
                         "id:int64,label:utf8",
                         "id=1,label=alpha",
@@ -16973,9 +16973,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
                     ]
-                elif command == "generated-source-range-smoke":
+                elif command == "generated-source-range":
                     assert sys.argv[1:] == [
-                        "generated-source-range-smoke",
+                        "generated-source-range",
                         "target/range.arrow",
                         "1",
                         "4",
@@ -16999,9 +16999,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
                     ]
-                elif command == "generated-source-sql-smoke":
+                elif command == "generated-source-sql":
                     assert sys.argv[1:] == [
-                        "generated-source-sql-smoke",
+                        "generated-source-sql",
                         "target/sql.orc",
                         "VALUES (1, 'alpha')",
                         "--output-format",
@@ -17045,7 +17045,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         range_report = ctx.range(1, 4, column="id").write_arrow_ipc("target/range.arrow")
         sql_report = ctx.sql_values("VALUES (1, 'alpha')").write_orc("target/sql.orc")
 
-        self.assertEqual(rows_report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(rows_report.envelope.command, "generated-source-user-rows")
         self.assertEqual(rows_report.output_format, "parquet")
         self.assertEqual(
             rows_report.output_native_io_certificate_status,
@@ -17054,7 +17054,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(rows_report.fallback_attempted)
         self.assertFalse(rows_report.external_engine_invoked)
 
-        self.assertEqual(range_report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(range_report.envelope.command, "generated-source-range")
         self.assertEqual(range_report.output_format, "arrow_ipc")
         self.assertEqual(
             range_report.output_native_io_certificate_status,
@@ -17063,7 +17063,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(range_report.fallback_attempted)
         self.assertFalse(range_report.external_engine_invoked)
 
-        self.assertEqual(sql_report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(sql_report.envelope.command, "generated-source-sql")
         self.assertEqual(sql_report.output_format, "orc")
         self.assertEqual(
             sql_report.output_native_io_certificate_status,
@@ -17081,9 +17081,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 command = sys.argv[1]
-                if command == "generated-source-user-rows-smoke":
+                if command == "generated-source-user-rows":
                     assert sys.argv[1:] == [
-                        "generated-source-user-rows-smoke",
+                        "generated-source-user-rows",
                         "target/generated.vortex",
                         "id:int64,label:utf8",
                         "id=1,label=alpha",
@@ -17112,9 +17112,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
                     ]
-                elif command == "generated-source-range-smoke":
+                elif command == "generated-source-range":
                     assert sys.argv[1:] == [
-                        "generated-source-range-smoke",
+                        "generated-source-range",
                         "target/range.vortex",
                         "1",
                         "3",
@@ -17144,9 +17144,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
                     ]
-                elif command == "generated-source-sql-smoke":
+                elif command == "generated-source-sql":
                     assert sys.argv[1:] == [
-                        "generated-source-sql-smoke",
+                        "generated-source-sql",
                         "target/sql.vortex",
                         "VALUES (1, 'alpha')",
                         "--output-format",
@@ -17210,13 +17210,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(rows_report.fallback_attempted)
         self.assertFalse(rows_report.external_engine_invoked)
 
-        self.assertEqual(range_report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(range_report.envelope.command, "generated-source-range")
         self.assertEqual(range_report.output_format, "vortex")
         self.assertTrue(range_report.vortex_output_runtime_execution)
         self.assertEqual(range_report.vortex_artifact_digest, "fnv64:def")
         self.assertFalse(range_report.external_engine_invoked)
 
-        self.assertEqual(sql_report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(sql_report.envelope.command, "generated-source-sql")
         self.assertEqual(sql_report.output_format, "vortex")
         self.assertTrue(sql_report.vortex_output_runtime_execution)
         self.assertEqual(sql_report.vortex_artifact_digest, "fnv64:fed")
@@ -20378,8 +20378,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_support_status_vocabulary", "value": "runtime-supported,smoke-supported,report-only,blocked,not-planned"},
                     {"key": "universal_compatibility_row_count", "value": "4"},
                     {"key": "universal_compatibility_row_order", "value": "vortex,object_store_s3_gcs_adls,sql_values_literals,foundry"},
-                    {"key": "universal_compatibility_runtime_supported_count", "value": "1"},
-                    {"key": "universal_compatibility_smoke_supported_count", "value": "2"},
+                    {"key": "universal_compatibility_runtime_supported_count", "value": "2"},
+                    {"key": "universal_compatibility_smoke_supported_count", "value": "1"},
                     {"key": "universal_compatibility_report_only_count", "value": "1"},
                     {"key": "universal_compatibility_blocked_count", "value": "0"},
                     {"key": "universal_compatibility_claim_boundary", "value": "capability map only"},
@@ -20533,19 +20533,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ])
                 for row_id, surface, family, status, runtime, write_io, generated, output_io, source_cert, output_cert, generated_cert, claim_status, blocker in [
                     ("no_dataset_smoke", "no-dataset smoke / capability proof", "no_dataset_smoke", "smoke-supported", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_no_output_data", "not_applicable_no_generated_rows", "smoke_only", "gar-gen-1.no_dataset_smoke_not_generated_output"),
-                    ("python_ctx_from_rows", "Python ctx.from_rows([...]).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_jsonl_csv_smoke_only"),
-                    ("python_ctx_range", "Python ctx.range(...).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_range_jsonl_csv_smoke_only"),
-                    ("python_ctx_sequence", "Python ctx.sequence(...).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sequence_jsonl_csv_smoke_only"),
-                    ("python_ctx_literal_table", "Python ctx.literal_table([...]).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_literal_table_jsonl_csv_smoke_only"),
-                    ("python_ctx_calendar", "Python ctx.calendar(start,end).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_calendar_jsonl_csv_smoke_only"),
-                    ("python_generated_source_write", "Generated-source write path", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_supported_generated_source_write_smokes_only"),
+                    ("python_ctx_from_rows", "Python ctx.from_rows([...]).write(local_jsonl_csv_or_feature_gated_structured)", "python_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_jsonl_csv_structured_runtime"),
+                    ("python_ctx_range", "Python ctx.range(...).write(local_jsonl_csv_or_feature_gated_structured)", "python_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_range_jsonl_csv_structured_runtime"),
+                    ("python_ctx_sequence", "Python ctx.sequence(...).write(local_jsonl_csv_or_feature_gated_structured)", "python_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_sequence_jsonl_csv_structured_runtime"),
+                    ("python_ctx_literal_table", "Python ctx.literal_table([...]).write(local_jsonl_csv_or_feature_gated_structured)", "python_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_literal_table_jsonl_csv_structured_runtime"),
+                    ("python_ctx_calendar", "Python ctx.calendar(start,end).write(local_jsonl_csv_or_feature_gated_structured)", "python_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_calendar_jsonl_csv_structured_runtime"),
+                    ("python_generated_source_write", "Python GeneratedRowsSource/GeneratedRangeSource/GeneratedSqlSource.write(local_jsonl_csv_or_feature_gated_structured)", "python_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_supported_generated_source_write_runtime"),
                     ("local_output_only_generated_source_posture", "Generated-source local-output-only posture", "output_boundary", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "local_output_certificate_required", "not_emitted_report_only", "not_claim_grade", "gar-compat-1b.non_local_generated_output_blocked"),
-                    ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_literal_select_jsonl_csv_smoke_only"),
-                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_values_jsonl_csv_smoke_only"),
-                    ("sql_source_free_projection", "SQL source-free range projection", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_range_projection_jsonl_csv_smoke_only"),
-                    ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only"),
-                    ("dataframe_source_free_projection", "DataFrame source-free projection", "dataframe_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_dataframe_literal_projection_jsonl_csv_structured_smoke_only"),
-                    ("dataframe_generated_with_column", "Scoped generated DataFrame with_column", "dataframe_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_generated_with_column_jsonl_csv_smoke_only"),
+                    ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_sql_literal_select_jsonl_csv_structured_runtime"),
+                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_sql_values_jsonl_csv_structured_runtime"),
+                    ("sql_source_free_projection", "SQL source-free range projection", "sql_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_sql_range_projection_jsonl_csv_structured_runtime"),
+                    ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_sql_generate_series_range_jsonl_csv_structured_runtime"),
+                    ("dataframe_source_free_projection", "DataFrame source-free projection", "dataframe_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_dataframe_literal_projection_jsonl_csv_structured_runtime"),
+                    ("dataframe_generated_with_column", "Scoped generated DataFrame with_column", "dataframe_generated_source", "runtime-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "not_claim_grade", "none_scoped_local_generated_with_column_jsonl_csv_structured_runtime"),
                     ("object_store_local_emulator_generated_output", "Python ctx.generated_output_to_object_store(local_path, profile=local-emulator)", "platform_generated_output", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "local_emulator_object_store_write_certificate_required", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_emulator_generated_output_to_object_store_smoke_only"),
                     ("object_store_live_provider_generated_output", "Generated output to live S3/GCS/ADLS object-store URI", "platform_generated_output", "blocked", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_blocked", "not_emitted_blocked", "not_claim_grade", "gar-gen-1.object_store_generated_output_live_provider_blocked"),
                     ("foundry_style_generated_output", "Python ctx.foundry_generated_output(local_dataset_path)", "platform_generated_output", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "local_foundry_style_dataset_output_evidence", "required_for_runtime", "fixture_smoke_only", "none_local_foundry_style_generated_output_dataset_proof_only"),
@@ -20575,7 +20575,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 for row_id, surface, family, direction, status, runtime, smoke, report_only, credential, network, source_io, output_io, native_status, generated_status, claim_status, blocker, claim_boundary in [
                     ("vortex", "Vortex", "native_file_layout", "read_write", "runtime-supported", "true", "true", "false", "false", "false", "true", "true", "scoped_local_vortex_evidence_backed", "not_applicable", "fixture_smoke_only", "gar-compat-1a.vortex_universal_runtime_evidence_missing", "scoped local Vortex evidence only"),
                     ("object_store_s3_gcs_adls", "S3 / GCS / ADLS", "object_store", "read_write", "smoke-supported", "false", "true", "false", "false", "false", "true", "false", "public_fixture_smoke_only", "not_applicable", "public_fixture_smoke_only", "none_public_no_credential_fixture_profile_only", "public fixture object-store read smoke only"),
-                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "smoke-supported", "false", "true", "false", "false", "false", "false", "true", "local_output_certificate_required", "scoped_local_jsonl_csv_smoke", "fixture_smoke_only", "none_scoped_local_sql_values_literals_jsonl_csv_smoke_only", "source-free SQL VALUES/literal local JSONL/CSV fixture smoke only"),
+                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "runtime-supported", "true", "false", "false", "false", "false", "false", "true", "local_output_certificate_required", "scoped_local_jsonl_csv_structured_runtime", "not_claim_grade", "none_scoped_local_sql_values_literals_jsonl_csv_structured_runtime", "source-free SQL VALUES/literal local JSONL/CSV and feature-gated flat scalar structured generated-output runtime"),
                     ("foundry", "Foundry", "platform_integration", "api", "report-only", "false", "false", "true", "true", "true", "false", "false", "not_emitted", "not_emitted_report_only", "not_claim_grade", "gar-compat-1a.foundry_platform_proof_missing", "future validation target only"),
                 ]:
                     prefix = f"universal_compatibility_row_{row_id}"
@@ -20623,7 +20623,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             scoreboard.data_ref,
             "docs/architecture/universal-compatibility-coverage-scoreboard.json",
         )
-        self.assertEqual(scoreboard.runtime_supported_count, 1)
+        self.assertEqual(scoreboard.runtime_supported_count, 2)
         self.assertEqual(scoreboard.blocked_count, 0)
         self.assertEqual(scoreboard.row("object-store-s3-gcs-adls").support_status, "smoke-supported")
         self.assertTrue(scoreboard.row("vortex").supported_for_runtime_claims)
@@ -20658,16 +20658,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(generated.live_platform_api_supported)
         self.assertFalse(generated.broad_sql_dataframe_claim_allowed)
         self.assertTrue(generated.all_no_fallback_no_external_engine)
-        self.assertTrue(generated.row("python-ctx-from-rows").fixture_smoke_supported)
+        self.assertTrue(generated.row("python-ctx-from-rows").runtime_supported)
         self.assertTrue(generated.row("python_ctx_from_rows").generated_source_created)
         self.assertTrue(generated.row("python_ctx_sequence").runtime_execution)
-        self.assertTrue(generated.row("python_ctx_literal_table").fixture_smoke_supported)
+        self.assertTrue(generated.row("python_ctx_literal_table").runtime_supported)
         self.assertTrue(generated.row("python_ctx_calendar").runtime_execution)
-        self.assertTrue(generated.row("sql_values").fixture_smoke_supported)
+        self.assertTrue(generated.row("sql_values").runtime_supported)
         self.assertTrue(generated.row("sql_values").runtime_execution)
-        self.assertTrue(generated.row("sql_source_free_projection").fixture_smoke_supported)
+        self.assertTrue(generated.row("sql_source_free_projection").runtime_supported)
         self.assertTrue(generated.row("sql_source_free_projection").runtime_execution)
-        self.assertTrue(generated.row("sql_generate_series_range").fixture_smoke_supported)
+        self.assertTrue(generated.row("sql_generate_series_range").runtime_supported)
         self.assertTrue(generated.row("sql_generate_series_range").runtime_execution)
         self.assertEqual(
             generated.platform_row_order,
@@ -20692,7 +20692,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(
             generated.row("foundry_live_platform_generated_output").runtime_execution
         )
-        self.assertTrue(generated.row("dataframe_generated_with_column").fixture_smoke_supported)
+        self.assertTrue(generated.row("dataframe_generated_with_column").runtime_supported)
         self.assertTrue(generated.row("dataframe_generated_with_column").runtime_execution)
         self.assertEqual(
             generated.row("local_output_only_generated_source_posture").blocker_id,

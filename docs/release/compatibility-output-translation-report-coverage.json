@@ -23,7 +23,7 @@
   "translation_model_ref": "shardloom-core/src/translation.rs",
   "writer_matrix_ref": "shardloom-core::CompatibilityOutputWriterMatrixReport::current",
   "profile_ref": "docs/release/local-format-production-profiles.json#compatibility_output_exports",
-  "claim_boundary": "Rows cover TranslationReport semantics, metadata preservation/loss, materialization, unsupported-schema diagnostics, and no-fallback boundaries. They do not promote broad production sink, object-store, lakehouse table-commit, performance, or package-release claims.",
+  "claim_boundary": "Rows cover TranslationReport semantics, admitted local compatibility-export writer posture, metadata preservation/loss, materialization, unsupported-schema diagnostics, and no-fallback boundaries. They do not promote broad production sink, object-store, lakehouse table-commit, performance, or package-release claims.",
   "rows": [
     {
       "row_id": "vortex_native_output",
@@ -74,16 +74,17 @@
       ],
       "materialization_requirement": "partial_materialization",
       "unsupported_schema_diagnostic": "nested_struct_list_map_decimal_and_binary_shapes_require_explicit_csv_fidelity_certificate_or_block",
-      "writer_support_status": "local_fixture_smoke",
+      "writer_support_status": "local_compatibility_export_admitted",
       "current_evidence_refs": [
         "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
-        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "ShardLoomContext.local_output_sink_scope_report",
+        "shardloom-cli/tests/public_workflow_route.rs::public_run_executes_local_fanout_through_prepared_vortex_row_export",
         "python/tests/test_query_builder.py::fanout_output_fidelity_statuses"
       ],
       "required_next_evidence": [
         "csv_schema_loss_report",
         "nested_shape_blocker_fixtures",
-        "overwrite_append_policy_certificate"
+        "write_policy_contract_certificate"
       ],
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
@@ -106,10 +107,11 @@
       ],
       "materialization_requirement": "partial_materialization",
       "unsupported_schema_diagnostic": "nested_payloads_need_explicit_json_mapping_certificate_or_block",
-      "writer_support_status": "local_fixture_smoke",
+      "writer_support_status": "local_compatibility_export_admitted",
       "current_evidence_refs": [
         "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
-        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "ShardLoomContext.local_output_sink_scope_report",
+        "shardloom-cli/tests/public_workflow_route.rs::public_run_executes_local_fanout_through_prepared_vortex_row_export",
         "python/tests/test_query_builder.py::output_fidelity_report_status"
       ],
       "required_next_evidence": [
@@ -138,10 +140,11 @@
       ],
       "materialization_requirement": "partial_materialization",
       "unsupported_schema_diagnostic": "unsupported_nested_or_extension_dtype_must_block_with_metadata_loss_diagnostic",
-      "writer_support_status": "local_fixture_smoke",
+      "writer_support_status": "local_compatibility_export_admitted",
       "current_evidence_refs": [
         "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
-        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "ShardLoomContext.local_output_sink_scope_report",
+        "shardloom-cli/tests/public_workflow_route.rs::public_route_admits_native_vortex_primitive_row_export_payloads",
         "shardloom-contract-tests/tests/fidelity_invariants.rs"
       ],
       "required_next_evidence": [
@@ -170,10 +173,11 @@
       ],
       "materialization_requirement": "partial_materialization",
       "unsupported_schema_diagnostic": "extension_dtype_and_vortex_layout_metadata_loss_must_be_reported_or_blocked",
-      "writer_support_status": "local_fixture_smoke",
+      "writer_support_status": "local_compatibility_export_admitted",
       "current_evidence_refs": [
         "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
-        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "ShardLoomContext.local_output_sink_scope_report",
+        "shardloom-cli/tests/public_workflow_route.rs::public_route_admits_native_vortex_primitive_row_export_payloads",
         "shardloom-contract-tests/tests/fidelity_invariants.rs"
       ],
       "required_next_evidence": [
@@ -202,10 +206,11 @@
       ],
       "materialization_requirement": "partial_materialization",
       "unsupported_schema_diagnostic": "union_logical_type_and_nested_shape_loss_must_be_reported_or_blocked",
-      "writer_support_status": "local_fixture_smoke",
+      "writer_support_status": "local_compatibility_export_admitted",
       "current_evidence_refs": [
         "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
-        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "ShardLoomContext.local_output_sink_scope_report",
+        "shardloom-cli/tests/public_workflow_route.rs::public_route_admits_native_vortex_primitive_row_export_payloads",
         "shardloom-contract-tests/tests/fidelity_invariants.rs"
       ],
       "required_next_evidence": [
@@ -234,10 +239,11 @@
       ],
       "materialization_requirement": "partial_materialization",
       "unsupported_schema_diagnostic": "stripe_statistics_nested_shape_and_logical_type_loss_must_be_reported_or_blocked",
-      "writer_support_status": "local_fixture_smoke",
+      "writer_support_status": "local_compatibility_export_admitted",
       "current_evidence_refs": [
         "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
-        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "ShardLoomContext.local_output_sink_scope_report",
+        "shardloom-cli/tests/public_workflow_route.rs::public_route_admits_native_vortex_primitive_row_export_payloads",
         "shardloom-contract-tests/tests/fidelity_invariants.rs"
       ],
       "required_next_evidence": [

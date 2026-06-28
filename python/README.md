@@ -1154,7 +1154,7 @@ DataFusion, DuckDB, or another engine.
 Equivalent CLI command:
 
 ```powershell
-shardloom generated-source-user-rows-smoke target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --format json
+shardloom generated-source-user-rows target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --format json
 ```
 
 The supported literal-table helper uses the same local generated-source write path while reporting
@@ -1212,7 +1212,7 @@ print(range_report.claim_gate_status)
 Equivalent CLI command:
 
 ```powershell
-shardloom generated-source-range-smoke target\generated-range.jsonl 0 5 --column id --format json
+shardloom generated-source-range target\generated-range.jsonl 0 5 --column id --format json
 ```
 
 The supported engine-native sequence smoke uses the same integer generator contract while reporting
@@ -1236,7 +1236,7 @@ print(sequence_report.claim_gate_status)
 Equivalent CLI command:
 
 ```powershell
-shardloom generated-source-sequence-smoke target\generated-sequence.jsonl 0 5 --column id --format json
+shardloom generated-source-sequence target\generated-sequence.jsonl 0 5 --column id --format json
 ```
 
 The supported source-free SQL smokes parse a deliberately tiny SQL subset inside ShardLoom and write
@@ -1300,8 +1300,8 @@ print(range_fanout_report.fanout_result_reuse_hit)
 Equivalent CLI command:
 
 ```powershell
-shardloom generated-source-sql-smoke target\generated-sql-values.jsonl "VALUES (1, 'alpha'), (2, 'beta')" --format json
-shardloom generated-source-sql-smoke target\generated-sql-series.jsonl "SELECT * FROM generate_series(0, 4)" --format json
+shardloom generated-source-sql target\generated-sql-values.jsonl "VALUES (1, 'alpha'), (2, 'beta')" --format json
+shardloom generated-source-sql target\generated-sql-series.jsonl "SELECT * FROM generate_series(0, 4)" --format json
 ```
 
 This SQL smoke accepts only source-free literal `SELECT` expressions and `VALUES` tuples over int64,
@@ -1404,7 +1404,7 @@ structured sinks until built with `--features universal-format-io`, and for Vort
 `vortex_output_runtime_execution`, `vortex_output_reopen_verified`, `vortex_artifact_digest`,
 `upstream_vortex_write_called`, and `upstream_vortex_scan_called`.
 `ctx.generated_output_to_object_store(...)` now admits a scoped local-emulator fixture route by
-staging generated rows through `generated-source-user-rows-smoke` and then committing them through
+staging generated rows through `generated-source-user-rows` and then committing them through
 `object-store-write-smoke`; live S3/GCS/ADLS providers, table/lakehouse commits, and production
 object-store claims remain gated. `ctx.foundry_generated_output(...)` admits only the local
 Foundry-style result/evidence dataset proof; real Foundry output APIs, production Foundry runtime,

@@ -36,7 +36,7 @@ DOC_MARKERS = (
     "jsonl",
     "arrow-ipc",
     "write_vortex",
-    "feature-gated flat scalar",
+    "Vortex-derived typed export contract",
     "error_if_exists_by_default",
     "explicit_allow_overwrite",
     "append_mode_unsupported",

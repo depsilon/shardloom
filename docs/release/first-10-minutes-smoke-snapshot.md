@@ -18,8 +18,8 @@ local_python_user_surface_quickstart_performed: true
 local_python_result_and_evidence_printed: true
 local_python_unsupported_path_evidence_printed: true
 generated_output_proof_distinct_from_no_dataset_smoke: true
-generated_source_user_rows_smoke_performed: true
-generated_source_range_smoke_performed: true
+generated_source_user_rows_runtime_performed: true
+generated_source_range_runtime_performed: true
 prepared_native_benchmark_smoke_performed: false
 benchmark_smoke_required_for_package_release: false
 benchmark_smoke_status: skipped_not_required_for_package_release
@@ -42,7 +42,7 @@ steps:
   - cli_capabilities_json -> 0
   - example_local_python_smoke -> 0
       fallback attempted: False
-  - generated_source_user_rows_local_output_smoke -> 0
+  - generated_source_user_rows_local_output_runtime -> 0
       generated_source_kind=user_rows
       generated_source_row_count=2
       output_io_performed=true
@@ -51,7 +51,7 @@ steps:
       fallback_attempted=False
       external_engine_invoked=False
       claim_gate_status=fixture_smoke_only
-  - generated_source_range_local_output_smoke -> 0
+  - generated_source_range_local_output_runtime -> 0
       generated_source_kind=range
       generated_source_row_count=8
       output_io_performed=true

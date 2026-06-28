@@ -983,6 +983,11 @@ fn append_native_vortex_primitive_row_export_fields(
     append_local_primitive_resource_envelope_fields(fields, &report.resource_envelope);
     append_local_primitive_physical_policy_fields(fields, &report.physical_policy);
     append_local_primitive_state_budget_fields(fields, &report.state_budget);
+    append_local_primitive_memory_admission_fields(
+        fields,
+        &report.resource_envelope,
+        &report.state_budget,
+    );
     push_field(fields, "claim_gate_status", "not_claim_grade");
 }
 
@@ -1208,6 +1213,227 @@ fn append_local_primitive_state_budget_fields(
         "local_primitive_state_budget_next_action",
         &state_budget.next_action,
     );
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_local_primitive_memory_admission_fields(
+    fields: &mut Vec<(String, String)>,
+    resource_envelope: &shardloom_vortex::VortexLocalPrimitiveResourceEnvelope,
+    state_budget: &shardloom_vortex::VortexLocalPrimitiveStateBudgetReport,
+) {
+    push_field(
+        fields,
+        "local_primitive_memory_admission_schema_version",
+        "shardloom.memory_admission.v1",
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_admission_scope",
+        "public_local_vortex_primitive_state_budget",
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_memory_reservation_required",
+        state_budget.state_budget_required,
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_reservation_owner_class",
+        local_primitive_memory_owner_class(&state_budget.state_family).as_str(),
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_reservation_owner_label",
+        &state_budget.state_family,
+    );
+
+    let requested_bytes = local_primitive_memory_reservation_request_bytes(state_budget);
+    push_field(
+        fields,
+        "local_primitive_memory_reservation_requested_bytes",
+        requested_bytes.to_string(),
+    );
+
+    if requested_bytes == 0 {
+        push_field(
+            fields,
+            "local_primitive_memory_reservation_status",
+            "not_required",
+        );
+        push_field(
+            fields,
+            "local_primitive_memory_admission_decision",
+            "not_requested",
+        );
+        push_field(fields, "local_primitive_memory_pressure_before", "normal");
+        push_field(fields, "local_primitive_memory_pressure_after", "normal");
+        push_field(fields, "local_primitive_memory_reserved_before_bytes", "0");
+        push_field(fields, "local_primitive_memory_reserved_after_bytes", "0");
+        push_field(fields, "local_primitive_memory_granted_bytes", "0");
+        push_bool_field(fields, "local_primitive_memory_fail_before_oom", false);
+        push_bool_field(
+            fields,
+            "local_primitive_memory_reservation_release_performed",
+            false,
+        );
+        push_field(
+            fields,
+            "local_primitive_memory_reserved_after_release_bytes",
+            "0",
+        );
+        push_bool_field(fields, "local_primitive_memory_fallback_attempted", false);
+        return;
+    }
+
+    let Ok(budget) = shardloom_exec::MemoryBudget::from_gib(resource_envelope.memory_gb) else {
+        append_local_primitive_memory_admission_error_fields(fields, "invalid_budget");
+        return;
+    };
+    let owner_class = local_primitive_memory_owner_class(&state_budget.state_family);
+    let Ok(owner) = shardloom_exec::MemoryOwner::new(
+        owner_class,
+        format!("local_vortex_primitive.{}", state_budget.state_family),
+    ) else {
+        append_local_primitive_memory_admission_error_fields(fields, "invalid_owner");
+        return;
+    };
+    let Ok(reservation_id) =
+        shardloom_exec::MemoryReservationId::new("public_local_vortex_primitive_state")
+    else {
+        append_local_primitive_memory_admission_error_fields(fields, "invalid_reservation_id");
+        return;
+    };
+
+    let mut pool = shardloom_exec::MemoryPoolPlan::new(budget);
+    let report = match pool.admit_reservation(
+        reservation_id.clone(),
+        owner,
+        shardloom_exec::ByteSize::from_bytes(requested_bytes),
+    ) {
+        Ok(report) => report,
+        Err(_) => {
+            append_local_primitive_memory_admission_error_fields(fields, "admission_error");
+            return;
+        }
+    };
+
+    push_field(
+        fields,
+        "local_primitive_memory_reservation_status",
+        report.reservation.status.as_str(),
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_admission_decision",
+        report.decision.as_str(),
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_pressure_before",
+        report.pressure_before.as_str(),
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_pressure_after",
+        report.pressure_after.as_str(),
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_reserved_before_bytes",
+        report.reserved_before.as_bytes().to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_reserved_after_bytes",
+        report.reserved_after.as_bytes().to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_granted_bytes",
+        report.reservation.granted.as_bytes().to_string(),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_memory_fail_before_oom",
+        report.fail_before_oom,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_memory_fallback_attempted",
+        report.fallback_attempted,
+    );
+
+    let release_performed =
+        report.granted_decision() && pool.release_reservation(&reservation_id).is_ok();
+    push_bool_field(
+        fields,
+        "local_primitive_memory_reservation_release_performed",
+        release_performed,
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_reserved_after_release_bytes",
+        pool.reserved_bytes().as_bytes().to_string(),
+    );
+}
+
+fn append_local_primitive_memory_admission_error_fields(
+    fields: &mut Vec<(String, String)>,
+    status: &str,
+) {
+    push_field(fields, "local_primitive_memory_reservation_status", status);
+    push_field(
+        fields,
+        "local_primitive_memory_admission_decision",
+        "not_requested",
+    );
+    push_field(fields, "local_primitive_memory_pressure_before", "unknown");
+    push_field(fields, "local_primitive_memory_pressure_after", "unknown");
+    push_field(fields, "local_primitive_memory_reserved_before_bytes", "0");
+    push_field(fields, "local_primitive_memory_reserved_after_bytes", "0");
+    push_field(fields, "local_primitive_memory_granted_bytes", "0");
+    push_bool_field(fields, "local_primitive_memory_fail_before_oom", true);
+    push_bool_field(
+        fields,
+        "local_primitive_memory_reservation_release_performed",
+        false,
+    );
+    push_field(
+        fields,
+        "local_primitive_memory_reserved_after_release_bytes",
+        "0",
+    );
+    push_bool_field(fields, "local_primitive_memory_fallback_attempted", false);
+}
+
+fn local_primitive_memory_reservation_request_bytes(
+    state_budget: &shardloom_vortex::VortexLocalPrimitiveStateBudgetReport,
+) -> u64 {
+    if !state_budget.state_budget_required {
+        return 0;
+    }
+    let item_count = state_budget
+        .estimated_state_items
+        .unwrap_or(state_budget.observed_state_items)
+        .max(state_budget.observed_state_items)
+        .max(1);
+    item_count.saturating_mul(128)
+}
+
+fn local_primitive_memory_owner_class(state_family: &str) -> shardloom_exec::OperatorMemoryClass {
+    if state_family.contains("aggregate") || state_family.contains("group") {
+        shardloom_exec::OperatorMemoryClass::Aggregate
+    } else if state_family.contains("sort") || state_family.contains("top") {
+        shardloom_exec::OperatorMemoryClass::Sort
+    } else if state_family.contains("join") {
+        shardloom_exec::OperatorMemoryClass::Join
+    } else if state_family.contains("rolling") || state_family.contains("window") {
+        shardloom_exec::OperatorMemoryClass::Window
+    } else if state_family.contains("row_export") || state_family.contains("sink") {
+        shardloom_exec::OperatorMemoryClass::Sink
+    } else {
+        shardloom_exec::OperatorMemoryClass::Unknown
+    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2279,6 +2505,11 @@ fn append_native_vortex_materializing_primitive_fields(
     append_local_primitive_resource_envelope_fields(fields, &report.resource_envelope);
     append_local_primitive_physical_policy_fields(fields, &report.physical_policy);
     append_local_primitive_state_budget_fields(fields, &report.state_budget);
+    append_local_primitive_memory_admission_fields(
+        fields,
+        &report.resource_envelope,
+        &report.state_budget,
+    );
     append_local_primitive_embedded_layout_fields(fields, &report.embedded_layout);
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
         fields,
@@ -2813,7 +3044,7 @@ fn execute_source_free_generated_sql_run(
         return emit_blocked_facade("run", format, request, &blocked);
     };
     let runtime_args = generated_source_runtime_args(request, output_ref, statement);
-    generated_source_runtime::handle_generated_source_sql_smoke_with_facade(
+    generated_source_runtime::handle_generated_source_sql_runtime_with_facade(
         runtime_args.into_iter(),
         format,
         "run",
@@ -2836,7 +3067,7 @@ fn execute_generated_user_rows_run(
             return emit_error("run", format, "public workflow run failed", &error);
         }
     };
-    generated_source_runtime::handle_generated_source_user_rows_smoke_with_facade(
+    generated_source_runtime::handle_generated_source_user_rows_runtime_with_facade(
         runtime_args.into_iter(),
         format,
         "run",
@@ -2861,14 +3092,14 @@ fn execute_generated_range_run(
         }
     };
     if sequence {
-        generated_source_runtime::handle_generated_source_sequence_smoke_with_facade(
+        generated_source_runtime::handle_generated_source_sequence_runtime_with_facade(
             runtime_args.into_iter(),
             format,
             "run",
             execution_attachment_fields("run", request, plan),
         )
     } else {
-        generated_source_runtime::handle_generated_source_range_smoke_with_facade(
+        generated_source_runtime::handle_generated_source_range_runtime_with_facade(
             runtime_args.into_iter(),
             format,
             "run",
@@ -8971,7 +9202,7 @@ fn local_file_vortex_primitive_feature_gated_route(
                 request.requested_output
             )),
             Some(
-                "use a release-user-surfaces build or rebuild shardloom-cli with --features vortex-write,vortex-local-primitives"
+                "use a release-user-surfaces build or rebuild shardloom-cli with --features \"vortex-write vortex-local-primitives\""
                     .to_string(),
             ),
             FallbackStatus::disabled_by_policy(),
@@ -9026,7 +9257,7 @@ fn local_file_vortex_ingest_feature_gated_route(
                 request.requested_output
             )),
             Some(
-                "use a release-user-surfaces build or rebuild shardloom-cli with --features vortex-write,vortex-local-primitives for local primitive routes"
+                "use a release-user-surfaces build or rebuild shardloom-cli with --features \"vortex-write vortex-local-primitives\" for local primitive routes"
                     .to_string(),
             ),
             FallbackStatus::disabled_by_policy(),
@@ -9155,7 +9386,7 @@ fn is_source_free_sql_write_request(request: &PublicWorkflowRouteRequest) -> boo
 fn source_free_generated_output_route() -> PublicWorkflowRoutePlan {
     admitted_route(
         "source_free_generated_output",
-        "generated-source-sql-smoke",
+        "generated-source-sql",
         "source_free_sql_statement",
         "generated_rows_boundary",
         "source_free_generated_output",
@@ -9191,7 +9422,7 @@ fn generated_source_output_route(request: &PublicWorkflowRouteRequest) -> Public
             }
             admitted_route(
                 "generated_user_rows_direct_output",
-                "generated-source-user-rows-smoke",
+                "generated-source-user-rows",
                 "generated_user_rows",
                 "generated_rows_boundary",
                 "generated_source_output",
@@ -9214,9 +9445,9 @@ fn generated_source_output_route(request: &PublicWorkflowRouteRequest) -> Public
                     "generated_range_direct_output"
                 },
                 if kind == "sequence" {
-                    "generated-source-sequence-smoke"
+                    "generated-source-sequence"
                 } else {
-                    "generated-source-range-smoke"
+                    "generated-source-range"
                 },
                 "engine_native_generated_source",
                 "generated_rows_boundary",

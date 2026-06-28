@@ -54,10 +54,10 @@
       "shardloom workflow-unsupported-plan <operation> --format json"
     ],
     "common_executable_local_proof_commands": [
-      "shardloom generated-source-user-rows-smoke --format json",
-      "shardloom generated-source-range-smoke --format json",
-      "shardloom generated-source-sequence-smoke --format json",
-      "shardloom generated-source-sql-smoke --format json",
+      "shardloom generated-source-user-rows --format json",
+      "shardloom generated-source-range --format json",
+      "shardloom generated-source-sequence --format json",
+      "shardloom generated-source-sql --format json",
       "shardloom local-source-runtime --format json",
       "shardloom vortex-prepare --format json",
       "shardloom vortex-production-runtime-run <scenario> <fact.vortex> <dim.vortex> --format json",
@@ -186,10 +186,10 @@
       "write_vortex",
       "fanout"
     ],
-    "scoped_fanout_runtime_methods": {
+    "admitted_fanout_runtime_methods": {
       "fanout": "local JSONL/CSV fanout derived from native/prepared Vortex row-export routes with staged multi-target commit, target-level cleanup evidence, fallback_attempted=false, and external_engine_invoked=false"
     },
-    "scoped_window_runtime_methods": {
+    "admitted_window_runtime_summary": {
       "rolling": "fixed-row source-order rolling sum/mean/count/min/max with valid-observation min_periods and ShardLoom-native bounded window state"
     },
     "bounded_inspection_and_materialization": [
@@ -252,38 +252,38 @@
       "sl.rank",
       "sl.dense_rank"
     ],
-    "scoped_null_profile_methods": {
+    "admitted_null_profile_methods": {
       "fillna": "schema-declared scalar or per-column literal fill values lower to COALESCE projection rewrites for axis=0/index or projection-equivalent axis=1/columns spellings with inplace=false; fillna(method='ffill', limit=<optional positive int>) lowers to a native source-order forward-fill expression rewrite with bounded state",
-      "fill_null": "alias for the scoped fillna COALESCE projection and forward-fill rewrite profiles"
+      "fill_null": "alias for the admitted fillna COALESCE projection and forward-fill rewrite profiles"
     },
-    "scoped_conditional_rewrite_methods": {
+    "admitted_conditional_rewrite_methods": {
       "mask": "typed scalar/null mask(predicate, scalar-or-null) over declared/projection columns through native Vortex expression-project",
-      "replace": "typed full-cell scalar/null replace(old, scalar-or-null), column-mapped scalar/null replacement, scoped UTF-8 replace(pattern, replacement, regex=True), and in-place UTF-8 with_column(\"col\", col(\"col\").replace(...)) through native Vortex expression-project"
+      "replace": "typed full-cell scalar/null replace(old, scalar-or-null), column-mapped scalar/null replacement, admitted UTF-8 replace(pattern, replacement, regex=True), and in-place UTF-8 with_column(\"col\", col(\"col\").replace(...)) through native Vortex expression-project"
     },
-    "scoped_duplicate_mask_methods": {
+    "admitted_duplicate_mask_methods": {
       "duplicated": "subset-aware duplicated(..., keep='first'|'last'|False) boolean mask over declared/projection scalar columns through native/prepared Vortex duplicate-mask row-key state"
     },
-    "scoped_drop_duplicate_methods": {
+    "admitted_drop_duplicate_methods": {
       "drop_duplicates": "subset-aware drop_duplicates(..., keep='first'|'last'|False) retained-row deduplication over declared/projection scalar columns through native/prepared Vortex row-key retention state"
     },
-    "scoped_plan_transform_methods": {
+    "admitted_plan_transform_methods": {
       "apply": "explicit sl.plan_transform(...) wrappers that return a ShardLoom LazyFrame during lazy plan construction; terminal execution remains on the resulting native/prepared route",
       "pipe": "explicit sl.plan_transform(...) wrappers that return a ShardLoom LazyFrame during lazy plan construction; terminal execution remains on the resulting native/prepared route"
     },
-    "scoped_expression_runtime_methods": {
+    "admitted_expression_runtime_methods": {
       "applymap": "explicit sl.column_transform(...) wrappers for declarative native/prepared Vortex expression-project rewrites; Python cell callables remain blocked",
       "eval": "in-place numeric scalar assignment such as eval(\"amount = amount + 5\") through the native/prepared Vortex expression-project primitive",
       "map": "explicit sl.column_transform(...) wrappers for declarative native/prepared Vortex expression-project rewrites; Python element callables remain blocked",
       "map_rows": "explicit sl.row_transform(...) wrappers for declarative native/prepared Vortex expression-project rewrites; Python row callables remain blocked",
       "transform": "mapping-style in-place numeric scalar assignment such as transform({\"amount\": sl.col(\"amount\") + 5}) through the native/prepared Vortex expression-project primitive"
     },
-    "scoped_reshape_runtime_methods": {
+    "admitted_reshape_runtime_methods": {
       "melt": "explicit id_vars/value_vars flat scalar column-to-row expansion through the native/prepared Vortex melt primitive with heterogeneous scalar value columns and explicit source-order row-number materialization for ignore_index=false",
       "explode": "single or same-length multi-column declared list/fixed-size-list row expansion with scalar, nullable, list, or struct element values, plus single-level list-of-struct dotted field projection, through the native/prepared Vortex explode primitive with explicit cardinality, null-shape, decode, and materialization evidence",
       "pivot": "single index column, pivot column, and value column wide reshape through the native/prepared Vortex pivot primitive with first-unique duplicate-cell fail-closed policy and sparse/wide state evidence",
-      "pivot_table": "single index column, pivot column, and value column aggregate reshape through the native/prepared Vortex pivot primitive with sum/count/mean/min/max aggregate kernels plus scoped fill_value/dropna/margins output policy"
+      "pivot_table": "single index column, pivot column, and value column aggregate reshape through the native/prepared Vortex pivot primitive with sum/count/mean/min/max aggregate kernels plus admitted fill_value/dropna/margins output policy"
     },
-    "scoped_window_runtime_methods": {
+    "admitted_window_runtime_methods": {
       "rolling": "rolling(window=<positive int>, min_periods<=window, center=true|false).sum/mean/count/min/max(column, alias=...) over one scalar source-order column through the native/prepared Vortex rolling-window primitive; sum/mean/min/max require numeric inputs, count admits scalar rows, and centered windows use bounded lookahead evidence"
     },
     "deterministic_blocker_methods": [
@@ -319,13 +319,13 @@
       "sl.sql",
       "ShardLoomClient.local_source_runtime",
       "shardloom local-source-runtime --format json",
-      "shardloom generated-source-sql-smoke --format json"
+      "shardloom generated-source-sql --format json"
     ],
     "admitted_shapes": [
-      "scoped local-source SELECT over local file references",
+      "local-source SELECT over local file references",
       "declared Vortex input bound to a logical SQL table name",
       "projection, filter, group-by, having, order, limit",
-      "scoped joins and set operations",
+      "admitted joins and set operations",
       "bounded source subquery predicates",
       "source-free VALUES",
       "source-free literal SELECT",

@@ -10559,11 +10559,21 @@ fn fast_non_null_utf8_dictionary_match_count_from_flags_masked(
             "local Vortex non-null dictionary {context} mask length did not match rows; no fallback execution was attempted"
         )));
     }
+    if mask.all_false() {
+        return Ok(0);
+    }
+    if mask.all_true() {
+        return fast_non_null_utf8_dictionary_match_count_from_flags(
+            row_ids,
+            value_matches,
+            context,
+        );
+    }
     if !value_matches.iter().any(|matched| *matched) {
         return Ok(0);
     }
     if value_matches.iter().all(|matched| *matched) {
-        return Ok(mask.iter().filter(|selected| *selected).count());
+        return Ok(mask.true_count());
     }
     let mut selected = 0usize;
     for (source_row_index, mask_selected) in mask.iter().enumerate() {
@@ -10933,6 +10943,15 @@ fn fast_utf8_contains_count_from_masked_array(
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::validity::Validity;
 
+    if mask.len() != child.len() {
+        return Ok(None);
+    }
+    if mask.all_false() {
+        return Ok(Some(0));
+    }
+    if mask.all_true() {
+        return fast_utf8_contains_count_from_array(child, needle, negated);
+    }
     if let Some(selected) =
         fast_utf8_contains_count_from_masked_dictionary_array(child, mask, needle, negated)?
     {
@@ -10949,9 +10968,6 @@ fn fast_utf8_contains_count_from_masked_array(
     let Some(utf8) = child.as_opt::<VarBinView>() else {
         return Ok(None);
     };
-    if mask.len() != utf8.len() {
-        return Ok(None);
-    }
     let validity = utf8.varbinview_validity();
     let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut selected = 0usize;
@@ -11018,6 +11034,15 @@ fn fast_utf8_contains_row_indices_from_masked_array(
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::validity::Validity;
 
+    if mask.len() != child.len() {
+        return Ok(None);
+    }
+    if mask.all_false() {
+        return Ok(Some(Vec::new()));
+    }
+    if mask.all_true() {
+        return fast_utf8_contains_row_indices_from_array(child, needle, negated, 0);
+    }
     if let Some(selected) =
         fast_utf8_contains_row_indices_from_masked_dictionary_array(child, mask, needle, negated)?
     {
@@ -11034,9 +11059,6 @@ fn fast_utf8_contains_row_indices_from_masked_array(
     let Some(utf8) = child.as_opt::<VarBinView>() else {
         return Ok(None);
     };
-    if mask.len() != utf8.len() {
-        return Ok(None);
-    }
     let validity = utf8.varbinview_validity();
     let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut filtered_row_index = 0usize;
@@ -11238,12 +11260,18 @@ fn fast_utf8_contains_count_from_masked_fsst_array(
     needle: &str,
     negated: bool,
 ) -> Result<Option<usize>> {
+    if mask.len() != array.len() {
+        return Ok(None);
+    }
+    if mask.all_false() {
+        return Ok(Some(0));
+    }
+    if mask.all_true() {
+        return fast_utf8_contains_count_from_fsst_array(array, needle, negated);
+    }
     let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated)? else {
         return Ok(None);
     };
-    if mask.len() != matches.len() {
-        return Ok(None);
-    }
     Ok(Some(
         matches
             .into_iter()
@@ -11260,12 +11288,18 @@ fn fast_utf8_contains_row_indices_from_masked_fsst_array(
     needle: &str,
     negated: bool,
 ) -> Result<Option<Vec<usize>>> {
+    if mask.len() != array.len() {
+        return Ok(None);
+    }
+    if mask.all_false() {
+        return Ok(Some(Vec::new()));
+    }
+    if mask.all_true() {
+        return fast_utf8_contains_row_indices_from_fsst_array(array, needle, negated, 0);
+    }
     let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated)? else {
         return Ok(None);
     };
-    if mask.len() != matches.len() {
-        return Ok(None);
-    }
     let mut filtered_row_index = 0usize;
     let mut selected = Vec::new();
     for (matched, mask_selected) in matches.into_iter().zip(mask.iter()) {
@@ -11435,6 +11469,12 @@ fn fast_utf8_contains_count_from_dictionary_accessor_masked(
                 .to_string(),
         ));
     }
+    if mask.all_false() {
+        return Ok(0);
+    }
+    if mask.all_true() {
+        return fast_utf8_contains_count_from_dictionary_accessor(accessor, needle, negated);
+    }
     let AggregateDirectColumnAccessor::Utf8Dictionary {
         row_ids,
         values,
@@ -11548,6 +11588,12 @@ fn fast_utf8_contains_row_indices_from_dictionary_accessor_masked(
                 .to_string(),
         ));
     }
+    if mask.all_false() {
+        return Ok(Vec::new());
+    }
+    if mask.all_true() {
+        return fast_utf8_contains_row_indices_from_dictionary_accessor(accessor, needle, negated);
+    }
     let mut filtered_row_index = 0usize;
     let mut selected = Vec::new();
     let AggregateDirectColumnAccessor::Utf8Dictionary {
@@ -11643,11 +11689,21 @@ fn fast_non_null_utf8_dictionary_row_indices_from_match_flags_masked(
             "local Vortex non-null dictionary {context} mask length did not match row IDs; no fallback execution was attempted"
         )));
     }
+    if mask.all_false() {
+        return Ok(Vec::new());
+    }
+    if mask.all_true() {
+        return fast_non_null_utf8_dictionary_row_indices_from_match_flags(
+            row_ids,
+            value_matches,
+            context,
+        );
+    }
     if value_matches.iter().all(|matched| !*matched) {
         return Ok(Vec::new());
     }
     if value_matches.iter().all(|matched| *matched) {
-        return Ok((0..mask.iter().filter(|selected| *selected).count()).collect());
+        return Ok((0..mask.true_count()).collect());
     }
     let mut filtered_row_index = 0usize;
     let mut selected = Vec::new();
@@ -13727,6 +13783,11 @@ fn encoded_kernel_input_from_vortex_array(
     )? {
         return Ok(Some(input));
     }
+    if let Some(input) =
+        sparse_kernel_input_from_vortex_array(source_uri, split_ref, column_name, row_count, array)?
+    {
+        return Ok(Some(input));
+    }
     run_end_kernel_input_from_vortex_array(source_uri, split_ref, column_name, row_count, array)
 }
 
@@ -13782,12 +13843,11 @@ fn dictionary_kernel_input_from_vortex_array(
     let Some(dtype) = shardloom_logical_dtype_from_vortex_dtype(array.dtype()) else {
         return Ok(None);
     };
-    let Some(dictionary) =
-        direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())
-    else {
+    let Some(dictionary_values) = stat_values_from_vortex_array(dictionary_array.values()) else {
         return Ok(None);
     };
-    let Some(codes) = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())
+    let Some((codes, row_nulls)) =
+        direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes())
     else {
         return Ok(None);
     };
@@ -13805,26 +13865,79 @@ fn dictionary_kernel_input_from_vortex_array(
     {
         return Ok(None);
     }
+    let dictionary = dictionary_values
+        .into_iter()
+        .map(stat_value_to_optional_encoded_value)
+        .collect::<Vec<_>>();
+    let mut encoded_codes = Vec::with_capacity(codes.len());
+    for (row_index, code) in codes.into_iter().enumerate() {
+        if row_nulls
+            .as_ref()
+            .and_then(|nulls| nulls.get(row_index))
+            .copied()
+            .unwrap_or(false)
+        {
+            encoded_codes.push(None);
+            continue;
+        }
+        let code_index = usize::try_from(code).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "local Vortex dictionary code overflowed usize: {error}"
+            ))
+        })?;
+        if code_index >= dictionary.len() {
+            return Ok(None);
+        }
+        encoded_codes.push(Some(code));
+    }
+    let null_count = encoded_codes
+        .iter()
+        .filter(|code| {
+            code.and_then(|value| {
+                usize::try_from(value)
+                    .ok()
+                    .and_then(|index| dictionary.get(index))
+            })
+            .and_then(Option::as_ref)
+            .is_none()
+        })
+        .count();
 
     let mut stats = SegmentStats::with_row_count(row_count);
-    stats.null_count = Some(0);
+    stats.null_count = Some(u64::try_from(null_count).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex dictionary null count overflowed u64: {error}"
+        ))
+    })?);
     stats.is_constant = Some(dictionary.len() == 1);
     let segment = EncodedSegment::new(
         SegmentId::new(format!("{split_ref}.{column_name}.dictionary"))?,
         ColumnRef::new(column_name)?,
         dtype,
-        ShardLoomNullability::NonNullable,
+        if null_count == 0 {
+            ShardLoomNullability::NonNullable
+        } else {
+            ShardLoomNullability::Nullable
+        },
         SegmentLayout::new(EncodingKind::Dictionary, LayoutKind::Flat),
         stats,
     );
     let batch = VortexEncodedValuePredicateBatch::new(
         segment,
         EncodedValueBatch::Dictionary {
-            dictionary: dictionary.into_iter().map(Some).collect(),
-            codes: codes.into_iter().map(Some).collect(),
+            dictionary,
+            codes: encoded_codes,
         },
     );
     VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn stat_value_to_optional_encoded_value(value: StatValue) -> Option<StatValue> {
+    match value {
+        StatValue::Null => None,
+        other => Some(other),
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -13978,6 +14091,97 @@ fn sequence_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn sparse_kernel_input_from_vortex_array(
+    source_uri: &DatasetUri,
+    split_ref: &str,
+    column_name: &str,
+    row_count: u64,
+    array: &vortex::array::ArrayRef,
+) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
+    use vortex::encodings::sparse::SparseExt as _;
+
+    let Some(sparse_array) = array.as_opt::<vortex::encodings::sparse::Sparse>() else {
+        return Ok(None);
+    };
+    let Some(dtype) = shardloom_logical_dtype_from_vortex_dtype(array.dtype()) else {
+        return Ok(None);
+    };
+    let Some(fill_value) = vortex_scalar_to_stat_value(sparse_array.fill_scalar()) else {
+        return Ok(None);
+    };
+
+    let patches = sparse_array.patches();
+    let Some(indices) = direct_non_nullable_u64_values_from_vortex_array(patches.indices()) else {
+        return Ok(None);
+    };
+    let Some(values) = direct_non_nullable_stat_values_from_vortex_array(patches.values()) else {
+        return Ok(None);
+    };
+    if indices.len() != values.len() || patches.array_len() != array.len() {
+        return Ok(None);
+    }
+
+    let offset = u64::try_from(patches.offset()).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex sparse patch offset overflowed u64: {error}"
+        ))
+    })?;
+    let mut previous_index = 0_u64;
+    let mut runs = Vec::with_capacity(values.len().saturating_mul(2).saturating_add(1));
+    for (raw_index, value) in indices.into_iter().zip(values) {
+        let Some(index) = raw_index.checked_sub(offset) else {
+            return Ok(None);
+        };
+        if index < previous_index || index >= row_count {
+            return Ok(None);
+        }
+        if index > previous_index {
+            push_sparse_run(&mut runs, fill_value.clone(), index - previous_index);
+        }
+        push_sparse_run(&mut runs, value, 1);
+        previous_index = index + 1;
+    }
+    if previous_index < row_count {
+        push_sparse_run(&mut runs, fill_value, row_count - previous_index);
+    }
+    if runs.is_empty() {
+        return Ok(None);
+    }
+
+    let mut stats = SegmentStats::with_row_count(row_count);
+    stats.null_count = Some(0);
+    stats.run_count = Some(u64::try_from(runs.len()).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("local Vortex run count overflowed u64: {error}"))
+    })?);
+    stats.is_constant = Some(runs.len() <= 1);
+    let segment = EncodedSegment::new(
+        SegmentId::new(format!("{split_ref}.{column_name}.sparse_patch_fill"))?,
+        ColumnRef::new(column_name)?,
+        dtype,
+        ShardLoomNullability::NonNullable,
+        SegmentLayout::new(EncodingKind::RunLength, LayoutKind::Sparse),
+        stats,
+    );
+    let batch =
+        VortexEncodedValuePredicateBatch::new(segment, EncodedValueBatch::RunLength { runs });
+    VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn push_sparse_run(runs: &mut Vec<EncodedValueRun>, value: StatValue, len: u64) {
+    if len == 0 {
+        return;
+    }
+    if let Some(last) = runs.last_mut()
+        && last.value.as_ref() == Some(&value)
+    {
+        last.len += len;
+        return;
+    }
+    runs.push(EncodedValueRun::new(Some(value), len));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn run_end_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -13999,8 +14203,7 @@ fn run_end_kernel_input_from_vortex_array(
     let Some(ends) = direct_non_nullable_u64_values_from_vortex_array(run_end_array.ends()) else {
         return Ok(None);
     };
-    let Some(values) = direct_non_nullable_stat_values_from_vortex_array(run_end_array.values())
-    else {
+    let Some(values) = stat_values_from_vortex_array(run_end_array.values()) else {
         return Ok(None);
     };
     if ends.len() != values.len() {
@@ -14009,14 +14212,21 @@ fn run_end_kernel_input_from_vortex_array(
 
     let mut previous_end = 0_u64;
     let mut runs = Vec::with_capacity(ends.len());
+    let mut null_count = 0_u64;
     for (end, value) in ends.into_iter().zip(values) {
         if end < previous_end || end > row_count {
             return Ok(None);
         }
-        runs.push(EncodedValueRun {
-            value: Some(value),
-            len: end - previous_end,
-        });
+        let len = end - previous_end;
+        let value = stat_value_to_optional_encoded_value(value);
+        if value.is_none() {
+            null_count = null_count.checked_add(len).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex run-end null count overflowed u64".to_string(),
+                )
+            })?;
+        }
+        runs.push(EncodedValueRun { value, len });
         previous_end = end;
     }
     if previous_end != row_count {
@@ -14024,7 +14234,7 @@ fn run_end_kernel_input_from_vortex_array(
     }
 
     let mut stats = SegmentStats::with_row_count(row_count);
-    stats.null_count = Some(0);
+    stats.null_count = Some(null_count);
     stats.run_count = Some(u64::try_from(runs.len()).map_err(|error| {
         ShardLoomError::InvalidOperation(format!("local Vortex run count overflowed u64: {error}"))
     })?);
@@ -14033,7 +14243,11 @@ fn run_end_kernel_input_from_vortex_array(
         SegmentId::new(format!("{split_ref}.{column_name}.run_end"))?,
         ColumnRef::new(column_name)?,
         dtype,
-        ShardLoomNullability::NonNullable,
+        if null_count == 0 {
+            ShardLoomNullability::NonNullable
+        } else {
+            ShardLoomNullability::Nullable
+        },
         SegmentLayout::new(EncodingKind::RunLength, LayoutKind::Flat),
         stats,
     );
@@ -42798,6 +43012,50 @@ mod tests {
             .expect("masked mixed indices"),
             vec![0, 1, 2]
         );
+
+        let all_true_mask = Mask::new_true(row_ids.len());
+        assert_eq!(
+            fast_non_null_utf8_dictionary_match_count_from_flags_masked(
+                &row_ids,
+                &[true, false, true],
+                &all_true_mask,
+                "test all-true mask count",
+            )
+            .expect("all-true mask count"),
+            4
+        );
+        assert_eq!(
+            fast_non_null_utf8_dictionary_row_indices_from_match_flags_masked(
+                &row_ids,
+                &[true, false, true],
+                &all_true_mask,
+                "test all-true mask indices",
+            )
+            .expect("all-true mask indices"),
+            vec![0, 2, 3, 5]
+        );
+
+        let all_false_mask = Mask::new_false(row_ids.len());
+        assert_eq!(
+            fast_non_null_utf8_dictionary_match_count_from_flags_masked(
+                &row_ids,
+                &[true, true, true],
+                &all_false_mask,
+                "test all-false mask count",
+            )
+            .expect("all-false mask count"),
+            0
+        );
+        assert_eq!(
+            fast_non_null_utf8_dictionary_row_indices_from_match_flags_masked(
+                &row_ids,
+                &[true, true, true],
+                &all_false_mask,
+                "test all-false mask indices",
+            )
+            .expect("all-false mask indices"),
+            Vec::<usize>::new()
+        );
     }
 
     #[test]
@@ -42869,6 +43127,42 @@ mod tests {
         )
         .expect("masked dictionary negated row indices");
         assert_eq!(negated_indices, vec![3]);
+
+        let all_true_mask = Mask::new_true(accessor.len());
+        let all_true_count = fast_utf8_contains_count_from_dictionary_accessor_masked(
+            &accessor,
+            "google",
+            false,
+            &all_true_mask,
+        )
+        .expect("all-true dictionary contains count");
+        assert_eq!(all_true_count, 5);
+        let all_true_indices = fast_utf8_contains_row_indices_from_dictionary_accessor_masked(
+            &accessor,
+            "google",
+            false,
+            &all_true_mask,
+        )
+        .expect("all-true dictionary contains row indices");
+        assert_eq!(all_true_indices, vec![0, 2, 3, 5, 6]);
+
+        let all_false_mask = Mask::new_false(accessor.len());
+        let all_false_count = fast_utf8_contains_count_from_dictionary_accessor_masked(
+            &accessor,
+            "google",
+            false,
+            &all_false_mask,
+        )
+        .expect("all-false dictionary contains count");
+        assert_eq!(all_false_count, 0);
+        let all_false_indices = fast_utf8_contains_row_indices_from_dictionary_accessor_masked(
+            &accessor,
+            "google",
+            false,
+            &all_false_mask,
+        )
+        .expect("all-false dictionary contains row indices");
+        assert_eq!(all_false_indices, Vec::<usize>::new());
     }
 
     #[test]
@@ -42877,14 +43171,14 @@ mod tests {
         use vortex::array::arrays::{DictArray, FilterArray, PrimitiveArray, VarBinViewArray};
         use vortex::mask::Mask;
 
-        let direct = VarBinViewArray::from_iter_str([
+        let direct_values = [
             "google",
             "skip-google",
             "other",
             "google-again",
             "google-final",
-        ])
-        .into_array();
+        ];
+        let direct = VarBinViewArray::from_iter_str(direct_values).into_array();
         let direct_filter =
             FilterArray::new(direct, Mask::from_iter([false, true, true, false, true]))
                 .into_array();
@@ -42896,15 +43190,46 @@ mod tests {
                 .expect("filtered direct indices");
         assert_eq!(direct_indices, Some(vec![0, 2]));
 
-        let codes = [0_u8, 1, 2, 0, 1]
-            .into_iter()
-            .collect::<PrimitiveArray>()
-            .into_array();
-        let values =
-            VarBinViewArray::from_iter_str(["google", "other", "google-news"]).into_array();
-        let dictionary = DictArray::try_new(codes, values)
-            .expect("dictionary array")
-            .into_array();
+        let direct_all_true = FilterArray::new(
+            VarBinViewArray::from_iter_str(direct_values).into_array(),
+            Mask::new_true(direct_values.len()),
+        )
+        .into_array();
+        let direct_all_true_count =
+            fast_utf8_contains_count_from_array(&direct_all_true, "google", false)
+                .expect("all-true filtered direct count");
+        assert_eq!(direct_all_true_count, Some(4));
+        let direct_all_true_indices =
+            fast_utf8_contains_row_indices_from_array(&direct_all_true, "google", false, 0)
+                .expect("all-true filtered direct indices");
+        assert_eq!(direct_all_true_indices, Some(vec![0, 1, 3, 4]));
+
+        let direct_all_false = FilterArray::new(
+            VarBinViewArray::from_iter_str(direct_values).into_array(),
+            Mask::new_false(direct_values.len()),
+        )
+        .into_array();
+        let direct_all_false_count =
+            fast_utf8_contains_count_from_array(&direct_all_false, "google", false)
+                .expect("all-false filtered direct count");
+        assert_eq!(direct_all_false_count, Some(0));
+        let direct_all_false_indices =
+            fast_utf8_contains_row_indices_from_array(&direct_all_false, "google", false, 0)
+                .expect("all-false filtered direct indices");
+        assert_eq!(direct_all_false_indices, Some(Vec::<usize>::new()));
+
+        let make_dictionary = || {
+            let codes = [0_u8, 1, 2, 0, 1]
+                .into_iter()
+                .collect::<PrimitiveArray>()
+                .into_array();
+            let values =
+                VarBinViewArray::from_iter_str(["google", "other", "google-news"]).into_array();
+            DictArray::try_new(codes, values)
+                .expect("dictionary array")
+                .into_array()
+        };
+        let dictionary = make_dictionary();
         let dictionary_filter = FilterArray::new(
             dictionary,
             Mask::from_iter([false, true, true, false, true]),
@@ -42918,6 +43243,28 @@ mod tests {
             fast_utf8_contains_row_indices_from_array(&dictionary_filter, "google", false, 0)
                 .expect("filtered dictionary indices");
         assert_eq!(dictionary_indices, Some(vec![1]));
+
+        let dictionary_all_true =
+            FilterArray::new(make_dictionary(), Mask::new_true(direct_values.len())).into_array();
+        let dictionary_all_true_count =
+            fast_utf8_contains_count_from_array(&dictionary_all_true, "google", false)
+                .expect("all-true filtered dictionary count");
+        assert_eq!(dictionary_all_true_count, Some(3));
+        let dictionary_all_true_indices =
+            fast_utf8_contains_row_indices_from_array(&dictionary_all_true, "google", false, 0)
+                .expect("all-true filtered dictionary indices");
+        assert_eq!(dictionary_all_true_indices, Some(vec![0, 2, 3]));
+
+        let dictionary_all_false =
+            FilterArray::new(make_dictionary(), Mask::new_false(direct_values.len())).into_array();
+        let dictionary_all_false_count =
+            fast_utf8_contains_count_from_array(&dictionary_all_false, "google", false)
+                .expect("all-false filtered dictionary count");
+        assert_eq!(dictionary_all_false_count, Some(0));
+        let dictionary_all_false_indices =
+            fast_utf8_contains_row_indices_from_array(&dictionary_all_false, "google", false, 0)
+                .expect("all-false filtered dictionary indices");
+        assert_eq!(dictionary_all_false_indices, Some(Vec::<usize>::new()));
     }
 
     #[test]
@@ -43216,7 +43563,7 @@ mod tests {
     }
 
     #[test]
-    fn nullable_dictionary_reader_chunk_lowering_stays_blocked() {
+    fn nullable_dictionary_reader_chunk_lowers_into_encoded_kernel_inputs() {
         use vortex::array::IntoArray as _;
         use vortex::array::arrays::{DictArray, PrimitiveArray};
         use vortex::array::validity::Validity;
@@ -43237,11 +43584,36 @@ mod tests {
         )
         .expect("kernel inputs");
 
-        assert!(inputs.is_empty());
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(
+            input.batch.segment.layout.encoding,
+            EncodingKind::Dictionary
+        );
+        assert_eq!(input.batch.segment.dtype, LogicalDType::UInt64);
+        assert_eq!(
+            input.batch.segment.nullability,
+            ShardLoomNullability::Nullable
+        );
+        assert_eq!(input.batch.segment.stats.row_count, Some(2));
+        assert_eq!(input.batch.segment.stats.null_count, Some(1));
+        match &input.batch.values {
+            EncodedValueBatch::Dictionary { dictionary, codes } => {
+                assert_eq!(
+                    dictionary,
+                    &vec![Some(StatValue::UInt64(10)), Some(StatValue::UInt64(20))]
+                );
+                assert_eq!(codes, &vec![Some(0), None]);
+            }
+            other => panic!("expected nullable dictionary batch, got {other:?}"),
+        }
     }
 
     #[test]
-    fn nullable_utf8_dictionary_values_stay_blocked_before_bytes_access() {
+    fn nullable_utf8_dictionary_values_lower_into_encoded_kernel_inputs() {
         use vortex::array::IntoArray as _;
         use vortex::array::arrays::{DictArray, PrimitiveArray, VarBinViewArray};
 
@@ -43264,11 +43636,40 @@ mod tests {
         )
         .expect("kernel inputs");
 
-        assert!(inputs.is_empty());
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(
+            input.batch.segment.layout.encoding,
+            EncodingKind::Dictionary
+        );
+        assert_eq!(input.batch.segment.dtype, LogicalDType::Utf8);
+        assert_eq!(
+            input.batch.segment.nullability,
+            ShardLoomNullability::Nullable
+        );
+        assert_eq!(input.batch.segment.stats.row_count, Some(3));
+        assert_eq!(input.batch.segment.stats.null_count, Some(1));
+        match &input.batch.values {
+            EncodedValueBatch::Dictionary { dictionary, codes } => {
+                assert_eq!(
+                    dictionary,
+                    &vec![
+                        Some(StatValue::Utf8("alpha".to_string())),
+                        None,
+                        Some(StatValue::Utf8("gamma".to_string())),
+                    ]
+                );
+                assert_eq!(codes, &vec![Some(0), Some(1), Some(0)]);
+            }
+            other => panic!("expected nullable utf8 dictionary batch, got {other:?}"),
+        }
     }
 
     #[test]
-    fn nullable_run_end_reader_chunk_lowering_stays_blocked() {
+    fn nullable_run_end_reader_chunk_lowers_into_encoded_kernel_inputs() {
         use vortex::array::IntoArray as _;
         use vortex::array::VortexSessionExecute as _;
         use vortex::array::arrays::PrimitiveArray;
@@ -43294,11 +43695,36 @@ mod tests {
         )
         .expect("kernel inputs");
 
-        assert!(inputs.is_empty());
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(input.batch.segment.layout.encoding, EncodingKind::RunLength);
+        assert_eq!(input.batch.segment.dtype, LogicalDType::Int64);
+        assert_eq!(
+            input.batch.segment.nullability,
+            ShardLoomNullability::Nullable
+        );
+        assert_eq!(input.batch.segment.stats.row_count, Some(5));
+        assert_eq!(input.batch.segment.stats.null_count, Some(3));
+        assert_eq!(input.batch.segment.stats.run_count, Some(2));
+        match &input.batch.values {
+            EncodedValueBatch::RunLength { runs } => {
+                assert_eq!(
+                    runs,
+                    &vec![
+                        EncodedValueRun::new(Some(StatValue::Int64(5)), 2),
+                        EncodedValueRun::new(None, 3),
+                    ]
+                );
+            }
+            other => panic!("expected nullable run-length batch, got {other:?}"),
+        }
     }
 
     #[test]
-    fn sparse_reader_chunk_lowering_stays_blocked() {
+    fn sparse_reader_chunk_patch_fill_lowers_into_encoded_kernel_inputs() {
         use vortex::array::IntoArray as _;
         use vortex::array::arrays::PrimitiveArray;
         use vortex::array::scalar::Scalar;
@@ -43324,7 +43750,32 @@ mod tests {
         )
         .expect("kernel inputs");
 
-        assert!(inputs.is_empty());
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(input.batch.segment.layout.encoding, EncodingKind::RunLength);
+        assert_eq!(input.batch.segment.layout.layout, LayoutKind::Sparse);
+        assert_eq!(input.batch.segment.dtype, LogicalDType::Int64);
+        assert_eq!(input.batch.segment.stats.row_count, Some(5));
+        assert_eq!(input.batch.segment.stats.null_count, Some(0));
+        assert_eq!(input.batch.segment.stats.run_count, Some(5));
+        match &input.batch.values {
+            EncodedValueBatch::RunLength { runs } => {
+                assert_eq!(
+                    runs,
+                    &vec![
+                        EncodedValueRun::new(Some(StatValue::Int64(0)), 1),
+                        EncodedValueRun::new(Some(StatValue::Int64(42)), 1),
+                        EncodedValueRun::new(Some(StatValue::Int64(0)), 1),
+                        EncodedValueRun::new(Some(StatValue::Int64(77)), 1),
+                        EncodedValueRun::new(Some(StatValue::Int64(0)), 1),
+                    ]
+                );
+            }
+            other => panic!("expected sparse patch/fill run-length batch, got {other:?}"),
+        }
     }
 
     #[test]
@@ -55514,6 +55965,91 @@ mod tests {
         assert_eq!(values[0].as_ref(), "http://example.test/a");
         assert_eq!(values[1].as_ref(), "http://example.test/b");
         assert_eq!(values[2].as_ref(), "http://example.test/c");
+    }
+
+    #[test]
+    fn fsst_string_contains_uses_vortex_like_kernel_without_materialized_rows() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::LEGACY_SESSION;
+        use vortex::array::VortexSessionExecute as _;
+        use vortex::array::arrays::varbin::builder::VarBinBuilder;
+        use vortex::array::dtype::{DType, Nullability};
+        use vortex::encodings::fsst::{fsst_compress, fsst_train_compressor};
+        use vortex::mask::Mask;
+
+        let mut input = VarBinBuilder::<i32>::with_capacity(5);
+        input.append_value(b"https://google.example/a");
+        input.append_value(b"https://maps.example/b");
+        input.append_value(b"https://mail.google.example/c");
+        input.append_value(b"https://example.test/d");
+        input.append_value(b"https://google.example/e");
+        let input = input.finish(DType::Utf8(Nullability::NonNullable));
+        let compressor = fsst_train_compressor(&input);
+        let dtype = input.dtype().clone();
+        let len = input.len();
+        let mut ctx = LEGACY_SESSION.create_execution_ctx();
+        let compressed = fsst_compress(input, len, &dtype, &compressor, &mut ctx).into_array();
+
+        assert!(compressed.is::<vortex::encodings::fsst::FSST>());
+        assert_eq!(
+            fast_utf8_contains_count_from_array(&compressed, "google", false)
+                .expect("contains count"),
+            Some(3)
+        );
+        assert_eq!(
+            fast_utf8_contains_row_indices_from_array(&compressed, "google", false, 0)
+                .expect("contains row indices"),
+            Some(vec![0, 2, 4])
+        );
+        assert_eq!(
+            fast_utf8_contains_count_from_array(&compressed, "google", true)
+                .expect("negated contains count"),
+            Some(2)
+        );
+
+        let all_true_mask = Mask::new_true(compressed.len());
+        assert_eq!(
+            fast_utf8_contains_count_from_masked_fsst_array(
+                &compressed,
+                &all_true_mask,
+                "google",
+                false,
+            )
+            .expect("all-true masked FSST count"),
+            Some(3)
+        );
+        assert_eq!(
+            fast_utf8_contains_row_indices_from_masked_fsst_array(
+                &compressed,
+                &all_true_mask,
+                "google",
+                false,
+            )
+            .expect("all-true masked FSST row indices"),
+            Some(vec![0, 2, 4])
+        );
+
+        let all_false_mask = Mask::new_false(compressed.len());
+        assert_eq!(
+            fast_utf8_contains_count_from_masked_fsst_array(
+                &compressed,
+                &all_false_mask,
+                "google",
+                false,
+            )
+            .expect("all-false masked FSST count"),
+            Some(0)
+        );
+        assert_eq!(
+            fast_utf8_contains_row_indices_from_masked_fsst_array(
+                &compressed,
+                &all_false_mask,
+                "google",
+                false,
+            )
+            .expect("all-false masked FSST row indices"),
+            Some(Vec::<usize>::new())
+        );
     }
 
     #[test]

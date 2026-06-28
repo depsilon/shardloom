@@ -79,7 +79,7 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     let output_path = unique_output_path("generated-user-rows");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-user-rows-smoke",
+            "generated-source-user-rows",
             output_path.to_str().expect("temp path is utf8"),
             "id:int64,label:utf8,active:bool,score:float64",
             "id=1,label=alpha,active=true,score=1.5;id=2,label=beta,active=false,score=2.25",
@@ -87,7 +87,7 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
             "json",
         ])
         .output()
-        .expect("generated-source-user-rows-smoke command runs");
+        .expect("generated-source-user-rows command runs");
 
     assert!(
         output.status.success(),
@@ -109,11 +109,11 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "schema_version",
-        "shardloom.generated_source_user_rows_smoke.v1"
+        "shardloom.generated_source_user_rows_runtime.v1"
     )));
     assert!(stdout.contains(&field("command_family", "workflow_planning")));
     assert!(stdout.contains(&field("execution_mode", "source_free_generated_output")));
@@ -211,7 +211,7 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("fallback_execution_allowed", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
     assert!(stdout.contains(&field("performance_claim_allowed", "false")));
     assert!(stdout.contains(&field("production_claim_allowed", "false")));
     assert!(stdout.contains(&field("sql_dataframe_runtime_claim_allowed", "false")));
@@ -231,7 +231,7 @@ fn generated_source_vortex_output_blocks_without_vortex_write_feature() {
         unique_output_path_with_extension("generated-user-rows-vortex-blocked", "vortex");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-user-rows-smoke",
+            "generated-source-user-rows",
             output_path.to_str().expect("temp path is utf8"),
             "id:int64,label:utf8",
             "id=1,label=alpha",
@@ -241,7 +241,7 @@ fn generated_source_vortex_output_blocks_without_vortex_write_feature() {
             "json",
         ])
         .output()
-        .expect("generated-source-user-rows-smoke command runs");
+        .expect("generated-source-user-rows command runs");
 
     assert!(
         !output.status.success(),
@@ -256,7 +256,7 @@ fn generated_source_vortex_output_blocks_without_vortex_write_feature() {
     );
     assert!(!output_path.exists());
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows\""));
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains("local Vortex generated-source output runtime requires"));
     assert!(stdout.contains("--features vortex-write"));
@@ -273,7 +273,7 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
     let output_path = unique_output_path_with_extension("generated-user-rows-vortex", "vortex");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-user-rows-smoke",
+            "generated-source-user-rows",
             output_path.to_str().expect("temp path is utf8"),
             "id:int64,label:utf8,score:float64",
             "id=1,label=alpha,score=1.5;id=2,label=beta,score=2.25",
@@ -283,7 +283,7 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
             "json",
         ])
         .output()
-        .expect("generated-source-user-rows-smoke command runs");
+        .expect("generated-source-user-rows command runs");
 
     assert!(
         output.status.success(),
@@ -298,7 +298,7 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
     );
     assert!(output_path.exists());
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("output_format", "vortex")));
     assert!(stdout.contains(&field(
@@ -372,7 +372,7 @@ fn generated_source_vortex_output_keeps_single_artifact_without_reuse_manifest()
     let output_path =
         unique_output_path_with_extension("generated-user-rows-vortex-reuse", "vortex");
     let args = [
-        "generated-source-user-rows-smoke",
+        "generated-source-user-rows",
         output_path.to_str().expect("temp path is utf8"),
         "id:int64,label:utf8,score:float64",
         "id=1,label=alpha,score=1.5;id=2,label=beta,score=2.25",
@@ -444,11 +444,11 @@ fn generated_source_vortex_output_keeps_single_artifact_without_reuse_manifest()
 }
 
 #[test]
-fn generated_source_smokes_write_local_csv_outputs() {
+fn generated_source_runtimes_write_local_csv_outputs() {
     let user_rows_path = unique_output_path_with_extension("generated-user-rows-csv", "csv");
     let user_rows_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-user-rows-smoke",
+            "generated-source-user-rows",
             user_rows_path.to_str().expect("temp path is utf8"),
             "id:int64,label:utf8,active:bool",
             "id=1,label=alpha,active=true;id=2,label=comma%2Cquote%22,active=false",
@@ -458,7 +458,7 @@ fn generated_source_smokes_write_local_csv_outputs() {
             "json",
         ])
         .output()
-        .expect("generated-source-user-rows-smoke command runs");
+        .expect("generated-source-user-rows command runs");
     assert!(
         user_rows_output.status.success(),
         "stdout={} stderr={}",
@@ -483,7 +483,7 @@ fn generated_source_smokes_write_local_csv_outputs() {
     let range_path = unique_output_path_with_extension("generated-range-csv", "csv");
     let range_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-range-smoke",
+            "generated-source-range",
             range_path.to_str().expect("temp path is utf8"),
             "1",
             "4",
@@ -495,7 +495,7 @@ fn generated_source_smokes_write_local_csv_outputs() {
             "json",
         ])
         .output()
-        .expect("generated-source-range-smoke command runs");
+        .expect("generated-source-range command runs");
     assert!(
         range_output.status.success(),
         "stdout={} stderr={}",
@@ -517,7 +517,7 @@ fn generated_source_smokes_write_local_csv_outputs() {
     let sql_path = unique_output_path_with_extension("generated-sql-csv", "csv");
     let sql_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             sql_path.to_str().expect("temp path is utf8"),
             "VALUES (1, 'alpha'), (2, 'beta')",
             "--output-format",
@@ -526,7 +526,7 @@ fn generated_source_smokes_write_local_csv_outputs() {
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
     assert!(
         sql_output.status.success(),
         "stdout={} stderr={}",
@@ -553,7 +553,7 @@ fn generated_source_structured_outputs_fail_closed_without_feature() {
         unique_output_path_with_extension("generated-user-rows-parquet-blocked", "parquet");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-user-rows-smoke",
+            "generated-source-user-rows",
             output_path.to_str().expect("temp path is utf8"),
             "id:int64,label:utf8",
             "id=1,label=alpha",
@@ -563,7 +563,7 @@ fn generated_source_structured_outputs_fail_closed_without_feature() {
             "json",
         ])
         .output()
-        .expect("generated-source-user-rows-smoke command runs");
+        .expect("generated-source-user-rows command runs");
 
     assert!(
         !output.status.success(),
@@ -581,7 +581,7 @@ fn generated_source_structured_outputs_fail_closed_without_feature() {
         "blocked structured output should not create a sink"
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows\""));
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains("requires building shardloom-cli with --features universal-format-io"));
     assert!(stdout.contains("deterministic blocked sink"));
@@ -591,13 +591,13 @@ fn generated_source_structured_outputs_fail_closed_without_feature() {
 
 #[test]
 #[cfg(feature = "universal-format-io")]
-fn generated_source_smokes_write_feature_gated_structured_outputs() {
+fn generated_source_runtimes_write_feature_gated_structured_outputs() {
     for (name, extension, command_args, expected_format, expected_certificate, expected_boundary) in [
         (
             "generated-user-rows-parquet",
             "parquet",
             vec![
-                "generated-source-user-rows-smoke".to_string(),
+                "generated-source-user-rows".to_string(),
                 "id:int64,label:utf8,active:bool,score:float64".to_string(),
                 "id=1,label=alpha,active=true,score=1.5;id=2,label=beta,active=false,score=2.25"
                     .to_string(),
@@ -612,7 +612,7 @@ fn generated_source_smokes_write_feature_gated_structured_outputs() {
             "generated-range-arrow-ipc",
             "arrow",
             vec![
-                "generated-source-range-smoke".to_string(),
+                "generated-source-range".to_string(),
                 "1".to_string(),
                 "4".to_string(),
                 "--column".to_string(),
@@ -628,7 +628,7 @@ fn generated_source_smokes_write_feature_gated_structured_outputs() {
             "generated-sql-avro",
             "avro",
             vec![
-                "generated-source-sql-smoke".to_string(),
+                "generated-source-sql".to_string(),
                 "VALUES (1, 'alpha'), (2, 'beta')".to_string(),
                 "--output-format".to_string(),
                 "avro".to_string(),
@@ -641,7 +641,7 @@ fn generated_source_smokes_write_feature_gated_structured_outputs() {
             "generated-sequence-orc",
             "orc",
             vec![
-                "generated-source-sequence-smoke".to_string(),
+                "generated-source-sequence".to_string(),
                 "1".to_string(),
                 "4".to_string(),
                 "--column".to_string(),
@@ -689,7 +689,7 @@ fn generated_source_smokes_write_feature_gated_structured_outputs() {
         assert!(stdout.contains(&field("materialization_boundary", expected_boundary)));
         assert!(stdout.contains(&field("fallback_attempted", "false")));
         assert!(stdout.contains(&field("external_engine_invoked", "false")));
-        assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+        assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
         fs::remove_file(output_path).expect("remove structured output");
     }
 }
@@ -704,7 +704,7 @@ fn user_rows_smoke_supports_literal_table_and_calendar_source_kinds() {
             "code=A,weight=1.5;code=B,weight=2.0",
             "{\"code\":\"A\",\"weight\":1.5}\n{\"code\":\"B\",\"weight\":2}\n",
             "python_literal_table_to_local_jsonl_sink",
-            "one_scoped_local_literal_table_generated_output_smoke",
+            "scoped_local_literal_table_generated_output_runtime",
         ),
         (
             "generated-calendar",
@@ -713,13 +713,13 @@ fn user_rows_smoke_supports_literal_table_and_calendar_source_kinds() {
             "dt=2026-05-18,year=2026,month=5,day=18;dt=2026-05-19,year=2026,month=5,day=19",
             "{\"dt\":\"2026-05-18\",\"year\":2026,\"month\":5,\"day\":18}\n{\"dt\":\"2026-05-19\",\"year\":2026,\"month\":5,\"day\":19}\n",
             "python_calendar_generator_to_local_jsonl_sink",
-            "one_scoped_local_calendar_generated_output_smoke",
+            "scoped_local_calendar_generated_output_runtime",
         ),
     ] {
         let output_path = unique_output_path(name);
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
             .args([
-                "generated-source-user-rows-smoke",
+                "generated-source-user-rows",
                 output_path.to_str().expect("temp path is utf8"),
                 schema,
                 rows,
@@ -729,7 +729,7 @@ fn user_rows_smoke_supports_literal_table_and_calendar_source_kinds() {
                 "json",
             ])
             .output()
-            .expect("generated-source-user-rows-smoke command runs");
+            .expect("generated-source-user-rows command runs");
 
         assert!(
             output.status.success(),
@@ -757,7 +757,7 @@ fn user_rows_smoke_supports_literal_table_and_calendar_source_kinds() {
         assert!(stdout.contains(&field("claim_gate_reason", expected_reason)));
         assert!(stdout.contains(&field("fallback_attempted", "false")));
         assert!(stdout.contains(&field("external_engine_invoked", "false")));
-        assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+        assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
 
         fs::remove_file(output_path).expect("remove output jsonl");
     }
@@ -768,7 +768,7 @@ fn user_rows_smoke_supports_dataframe_source_free_projection_source_kind() {
     let output_path = unique_output_path("generated-dataframe-projection");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-user-rows-smoke",
+            "generated-source-user-rows",
             output_path.to_str().expect("temp path is utf8"),
             "value:int64,label:utf8",
             "value=1,label=alpha",
@@ -778,7 +778,7 @@ fn user_rows_smoke_supports_dataframe_source_free_projection_source_kind() {
             "json",
         ])
         .output()
-        .expect("generated-source-user-rows-smoke command runs");
+        .expect("generated-source-user-rows command runs");
 
     assert!(
         output.status.success(),
@@ -806,7 +806,7 @@ fn user_rows_smoke_supports_dataframe_source_free_projection_source_kind() {
     )));
     assert!(stdout.contains(&field(
         "claim_gate_reason",
-        "one_scoped_local_dataframe_source_free_projection_generated_output_smoke"
+        "scoped_local_dataframe_source_free_projection_generated_output_runtime"
     )));
     assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
     assert!(stdout.contains(&field(
@@ -824,7 +824,7 @@ fn user_rows_smoke_supports_dataframe_generated_with_column_source_kind() {
     let output_path = unique_output_path("generated-dataframe-with-column");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-user-rows-smoke",
+            "generated-source-user-rows",
             output_path.to_str().expect("temp path is utf8"),
             "value:int64",
             "value=1",
@@ -834,7 +834,7 @@ fn user_rows_smoke_supports_dataframe_generated_with_column_source_kind() {
             "json",
         ])
         .output()
-        .expect("generated-source-user-rows-smoke command runs");
+        .expect("generated-source-user-rows command runs");
 
     assert!(
         output.status.success(),
@@ -862,7 +862,7 @@ fn user_rows_smoke_supports_dataframe_generated_with_column_source_kind() {
     )));
     assert!(stdout.contains(&field(
         "claim_gate_reason",
-        "one_scoped_local_dataframe_generated_with_column_generated_output_smoke"
+        "scoped_local_dataframe_generated_with_column_generated_output_runtime"
     )));
     assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
     assert!(stdout.contains(&field(
@@ -879,7 +879,7 @@ fn user_rows_smoke_supports_dataframe_generated_with_column_source_kind() {
 fn user_rows_smoke_blocks_remote_object_store_outputs() {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-user-rows-smoke",
+            "generated-source-user-rows",
             "s3://bucket/out.jsonl",
             "id:int64",
             "id=1",
@@ -887,7 +887,7 @@ fn user_rows_smoke_blocks_remote_object_store_outputs() {
             "json",
         ])
         .output()
-        .expect("generated-source-user-rows-smoke command runs");
+        .expect("generated-source-user-rows command runs");
 
     assert!(
         !output.status.success(),
@@ -901,9 +901,9 @@ fn user_rows_smoke_blocks_remote_object_store_outputs() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows\""));
     assert!(stdout.contains("\"status\":\"error\""));
-    assert!(stdout.contains("support local file output only"));
+    assert!(stdout.contains("supports local file output only"));
     assert!(stdout.contains("object-store and remote URI writes remain blocked"));
     assert!(stdout.contains("\"attempted\":false"));
     assert!(stdout.contains("\"allowed\":false"));
@@ -915,7 +915,7 @@ fn range_smoke_writes_local_jsonl_and_emits_engine_native_generated_source_evide
     let output_path = unique_output_path("generated-range");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-range-smoke",
+            "generated-source-range",
             output_path.to_str().expect("temp path is utf8"),
             "2",
             "8",
@@ -927,7 +927,7 @@ fn range_smoke_writes_local_jsonl_and_emits_engine_native_generated_source_evide
             "json",
         ])
         .output()
-        .expect("generated-source-range-smoke command runs");
+        .expect("generated-source-range command runs");
 
     assert!(
         output.status.success(),
@@ -945,11 +945,11 @@ fn range_smoke_writes_local_jsonl_and_emits_engine_native_generated_source_evide
     assert_eq!(written, "{\"id\":2}\n{\"id\":4}\n{\"id\":6}\n");
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-range-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-range\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "schema_version",
-        "shardloom.generated_source_range_smoke.v1"
+        "shardloom.generated_source_range_runtime.v1"
     )));
     assert!(stdout.contains(&field("command_family", "workflow_planning")));
     assert!(stdout.contains(&field("execution_mode", "source_free_generated_output")));
@@ -990,10 +990,10 @@ fn range_smoke_writes_local_jsonl_and_emits_engine_native_generated_source_evide
     assert!(stdout.contains(&field("foundry_spark_invoked", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
     assert!(stdout.contains(&field(
         "claim_gate_reason",
-        "one_scoped_local_range_generated_output_smoke"
+        "scoped_local_range_generated_output_runtime"
     )));
     assert!(stdout.contains(&field("performance_claim_allowed", "false")));
     assert!(stdout.contains(&field("production_claim_allowed", "false")));
@@ -1012,7 +1012,7 @@ fn sequence_smoke_writes_local_jsonl_and_emits_sequence_evidence() {
     let output_path = unique_output_path("generated-sequence");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sequence-smoke",
+            "generated-source-sequence",
             output_path.to_str().expect("temp path is utf8"),
             "1",
             "6",
@@ -1024,7 +1024,7 @@ fn sequence_smoke_writes_local_jsonl_and_emits_sequence_evidence() {
             "json",
         ])
         .output()
-        .expect("generated-source-sequence-smoke command runs");
+        .expect("generated-source-sequence command runs");
 
     assert!(
         output.status.success(),
@@ -1042,11 +1042,11 @@ fn sequence_smoke_writes_local_jsonl_and_emits_sequence_evidence() {
     assert_eq!(written, "{\"seq\":1}\n{\"seq\":3}\n{\"seq\":5}\n");
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-sequence-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-sequence\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "schema_version",
-        "shardloom.generated_source_sequence_smoke.v1"
+        "shardloom.generated_source_sequence_runtime.v1"
     )));
     assert!(stdout.contains(&field("generated_source_kind", "sequence")));
     assert!(stdout.contains(&field("generated_source_range_start", "1")));
@@ -1065,11 +1065,11 @@ fn sequence_smoke_writes_local_jsonl_and_emits_sequence_evidence() {
     )));
     assert!(stdout.contains(&field(
         "claim_gate_reason",
-        "one_scoped_local_sequence_generated_output_smoke"
+        "scoped_local_sequence_generated_output_runtime"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
 
     fs::remove_file(output_path).expect("remove output jsonl");
 }
@@ -1078,7 +1078,7 @@ fn sequence_smoke_writes_local_jsonl_and_emits_sequence_evidence() {
 fn range_smoke_blocks_remote_outputs_and_zero_step() {
     let remote = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-range-smoke",
+            "generated-source-range",
             "s3://bucket/out.jsonl",
             "0",
             "3",
@@ -1086,7 +1086,7 @@ fn range_smoke_blocks_remote_outputs_and_zero_step() {
             "json",
         ])
         .output()
-        .expect("generated-source-range-smoke command runs");
+        .expect("generated-source-range command runs");
 
     assert!(
         !remote.status.success(),
@@ -1095,16 +1095,16 @@ fn range_smoke_blocks_remote_outputs_and_zero_step() {
         String::from_utf8_lossy(&remote.stderr)
     );
     let remote_stdout = String::from_utf8(remote.stdout).expect("stdout is utf8");
-    assert!(remote_stdout.contains("\"command\":\"generated-source-range-smoke\""));
+    assert!(remote_stdout.contains("\"command\":\"generated-source-range\""));
     assert!(remote_stdout.contains("\"status\":\"error\""));
-    assert!(remote_stdout.contains("support local file output only"));
+    assert!(remote_stdout.contains("supports local file output only"));
     assert!(remote_stdout.contains("object-store and remote URI writes remain blocked"));
     assert!(remote_stdout.contains("\"attempted\":false"));
 
     let output_path = unique_output_path("generated-range-zero-step");
     let zero_step = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-range-smoke",
+            "generated-source-range",
             output_path.to_str().expect("temp path is utf8"),
             "0",
             "3",
@@ -1114,7 +1114,7 @@ fn range_smoke_blocks_remote_outputs_and_zero_step() {
             "json",
         ])
         .output()
-        .expect("generated-source-range-smoke command runs");
+        .expect("generated-source-range command runs");
 
     assert!(
         !zero_step.status.success(),
@@ -1123,7 +1123,7 @@ fn range_smoke_blocks_remote_outputs_and_zero_step() {
         String::from_utf8_lossy(&zero_step.stderr)
     );
     let zero_step_stdout = String::from_utf8(zero_step.stdout).expect("stdout is utf8");
-    assert!(zero_step_stdout.contains("\"command\":\"generated-source-range-smoke\""));
+    assert!(zero_step_stdout.contains("\"command\":\"generated-source-range\""));
     assert!(zero_step_stdout.contains("\"status\":\"error\""));
     assert!(zero_step_stdout.contains("step must not be zero"));
     assert!(zero_step_stdout.contains("\"attempted\":false"));
@@ -1134,14 +1134,14 @@ fn sql_smoke_writes_literal_select_jsonl_and_emits_generated_source_evidence() {
     let output_path = unique_output_path("generated-sql-select");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT 1 AS id, 'alpha' AS label, true AS active, 1.5 AS score",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1162,11 +1162,11 @@ fn sql_smoke_writes_literal_select_jsonl_and_emits_generated_source_evidence() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-sql\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "schema_version",
-        "shardloom.generated_source_sql_smoke.v1"
+        "shardloom.generated_source_sql_runtime.v1"
     )));
     assert!(stdout.contains(&field("command_family", "workflow_planning")));
     assert!(stdout.contains(&field("execution_mode", "source_free_generated_output")));
@@ -1195,12 +1195,12 @@ fn sql_smoke_writes_literal_select_jsonl_and_emits_generated_source_evidence() {
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
     assert!(stdout.contains(&field(
         "claim_gate_reason",
-        "one_scoped_local_sql_literal_select_generated_output_smoke"
+        "scoped_local_sql_literal_select_generated_output_runtime"
     )));
-    assert!(stdout.contains(&field("sql_source_free_runtime_smoke_supported", "true")));
+    assert!(stdout.contains(&field("sql_source_free_runtime_supported", "true")));
     assert!(stdout.contains(&field("sql_production_runtime_claim_allowed", "false")));
     assert!(stdout.contains(&field("performance_claim_allowed", "false")));
     assert!(stdout.contains("\"generated_source_schema_digest\",\"value\":\"fnv64:"));
@@ -1216,14 +1216,14 @@ fn sql_smoke_writes_values_jsonl_and_rejects_broader_sql() {
     let output_path = unique_output_path("generated-sql-values");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "VALUES (1, 'alpha'), (2, 'beta')",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1245,20 +1245,20 @@ fn sql_smoke_writes_values_jsonl_and_rejects_broader_sql() {
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
     fs::remove_file(output_path).expect("remove output jsonl");
 
     let blocked_path = unique_output_path("generated-sql-blocked");
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             blocked_path.to_str().expect("temp path is utf8"),
             "SELECT id FROM events",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
     assert!(
         !blocked.status.success(),
         "stdout={} stderr={}",
@@ -1266,7 +1266,7 @@ fn sql_smoke_writes_values_jsonl_and_rejects_broader_sql() {
         String::from_utf8_lossy(&blocked.stderr)
     );
     let blocked_stdout = String::from_utf8(blocked.stdout).expect("stdout is utf8");
-    assert!(blocked_stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(blocked_stdout.contains("\"command\":\"generated-source-sql\""));
     assert!(blocked_stdout.contains("\"status\":\"error\""));
     assert!(blocked_stdout.contains("does not admit FROM clauses"));
     assert!(blocked_stdout.contains("no fallback engine was invoked"));
@@ -1303,14 +1303,14 @@ fn sql_smoke_writes_generate_series_and_range_jsonl() {
         let output_path = unique_output_path(name);
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
             .args([
-                "generated-source-sql-smoke",
+                "generated-source-sql",
                 output_path.to_str().expect("temp path is utf8"),
                 statement,
                 "--format",
                 "json",
             ])
             .output()
-            .expect("generated-source-sql-smoke command runs");
+            .expect("generated-source-sql command runs");
 
         assert!(
             output.status.success(),
@@ -1327,7 +1327,7 @@ fn sql_smoke_writes_generate_series_and_range_jsonl() {
         assert_eq!(written, expected_written);
 
         let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-        assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+        assert!(stdout.contains("\"command\":\"generated-source-sql\""));
         assert!(stdout.contains("\"status\":\"success\""));
         assert!(stdout.contains(&field("sql_statement_kind", "sql_generate_series_range")));
         assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
@@ -1355,11 +1355,11 @@ fn sql_smoke_writes_generate_series_and_range_jsonl() {
         )));
         assert!(stdout.contains(&field(
             "claim_gate_reason",
-            "one_scoped_local_sql_generate_series_range_generated_output_smoke"
+            "scoped_local_sql_generate_series_range_generated_output_runtime"
         )));
         assert!(stdout.contains(&field("fallback_attempted", "false")));
         assert!(stdout.contains(&field("external_engine_invoked", "false")));
-        assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+        assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
 
         fs::remove_file(output_path).expect("remove output jsonl");
     }
@@ -1370,14 +1370,14 @@ fn sql_smoke_writes_generate_series_projection_jsonl() {
     let output_path = unique_output_path("generated-sql-range-projection");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT value AS id, value + 10 AS shifted, value * 2 AS doubled, CASE WHEN value >= 3 THEN 1 ELSE 0 END AS is_high FROM range(2, 5)",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1397,7 +1397,7 @@ fn sql_smoke_writes_generate_series_projection_jsonl() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-sql\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("sql_statement_kind", "sql_generate_series_range")));
     assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
@@ -1426,7 +1426,7 @@ fn sql_smoke_writes_generate_series_projection_jsonl() {
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
 
     fs::remove_file(output_path).expect("remove output jsonl");
 }
@@ -1436,14 +1436,14 @@ fn sql_smoke_writes_generate_series_filter_limit_projection_jsonl() {
     let output_path = unique_output_path("generated-sql-range-filter-limit");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT value AS id, value + 10 AS shifted, CASE WHEN value >= 5 THEN 1 ELSE 0 END AS is_high FROM range(1, 8) WHERE value >= 3 LIMIT 3",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1463,7 +1463,7 @@ fn sql_smoke_writes_generate_series_filter_limit_projection_jsonl() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-sql\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("sql_statement_kind", "sql_generate_series_range")));
     assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
@@ -1498,7 +1498,7 @@ fn sql_smoke_writes_generate_series_filter_limit_projection_jsonl() {
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
 
     fs::remove_file(output_path).expect("remove output jsonl");
 }
@@ -1508,14 +1508,14 @@ fn sql_smoke_writes_generate_series_projection_order_by_topn_jsonl() {
     let output_path = unique_output_path("generated-sql-range-projection-topn");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT value AS id, value * 2 AS doubled FROM range(1, 6) WHERE value >= 2 ORDER BY doubled DESC LIMIT 2",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1535,7 +1535,7 @@ fn sql_smoke_writes_generate_series_projection_order_by_topn_jsonl() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-sql\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("sql_statement_kind", "sql_generate_series_range")));
     assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
@@ -1579,7 +1579,7 @@ fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
     let fanout_path = unique_output_path_with_extension("generated-sql-range-fanout-csv", "csv");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT value AS id, value * 2 AS doubled FROM range(1, 6) ORDER BY doubled DESC LIMIT 2",
             "--output-format",
@@ -1589,7 +1589,7 @@ fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
         .arg(format!("csv={}", fanout_path.display()))
         .args(["--format", "json"])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1612,7 +1612,7 @@ fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
     assert_eq!(fanout, "id,doubled\n5,10\n4,8\n");
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-sql\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("output_route", "local_sink_and_fanout")));
     assert!(stdout.contains(&field("result_reuse_for_fanout", "true")));
@@ -1699,7 +1699,7 @@ fn generated_source_fanout_rejects_duplicate_paths_before_writes() {
         .join(output_path.file_name().expect("temp path has file name"));
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT * FROM range(1, 3)",
             "--fanout-output",
@@ -1707,7 +1707,7 @@ fn generated_source_fanout_rejects_duplicate_paths_before_writes() {
         .arg(format!("csv={}", duplicate_path.display()))
         .args(["--format", "json"])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         !output.status.success(),
@@ -1722,7 +1722,7 @@ fn generated_source_fanout_rejects_duplicate_paths_before_writes() {
     );
     assert!(!output_path.exists());
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"command\":\"generated-source-sql\""));
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains("generated-source fanout output path is duplicated"));
     assert!(stdout.contains("no fallback execution was attempted"));
@@ -1735,14 +1735,14 @@ fn sql_smoke_writes_generate_series_source_order_by_topn_jsonl() {
     let output_path = unique_output_path("generated-sql-range-source-topn");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT value * 2 AS doubled FROM range(1, 6) ORDER BY value DESC LIMIT 2",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1769,14 +1769,14 @@ fn sql_smoke_prefers_projected_order_by_alias_over_source_column() {
     let output_path = unique_output_path("generated-sql-range-alias-precedence-topn");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT value * -1 AS value FROM range(1, 6) ORDER BY value DESC LIMIT 2",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1802,14 +1802,14 @@ fn sql_smoke_allows_from_in_projection_alias_identifier() {
     let output_path = unique_output_path("generated-sql-range-from-alias");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
-            "generated-source-sql-smoke",
+            "generated-source-sql",
             output_path.to_str().expect("temp path is utf8"),
             "SELECT value AS from_col FROM range(1, 3)",
             "--format",
             "json",
         ])
         .output()
-        .expect("generated-source-sql-smoke command runs");
+        .expect("generated-source-sql command runs");
 
     assert!(
         output.status.success(),
@@ -1885,14 +1885,14 @@ fn sql_smoke_blocks_unadmitted_generate_series_forms() {
         let output_path = unique_output_path(name);
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
             .args([
-                "generated-source-sql-smoke",
+                "generated-source-sql",
                 output_path.to_str().expect("temp path is utf8"),
                 statement,
                 "--format",
                 "json",
             ])
             .output()
-            .expect("generated-source-sql-smoke command runs");
+            .expect("generated-source-sql command runs");
 
         assert!(
             !output.status.success(),
@@ -1901,7 +1901,7 @@ fn sql_smoke_blocks_unadmitted_generate_series_forms() {
             String::from_utf8_lossy(&output.stderr)
         );
         let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-        assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+        assert!(stdout.contains("\"command\":\"generated-source-sql\""));
         assert!(stdout.contains("\"status\":\"error\""));
         assert!(stdout.contains(expected_error));
         assert!(stdout.contains("no fallback engine was invoked"));

@@ -88,11 +88,11 @@ fn compatibility_output_writer_matrix_respects_claim_boundaries() {
 
     assert_eq!(
         arrow_ipc.support_status,
-        CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke
+        CompatibilityOutputWriterSupportStatus::LocalCompatibilityExportAdmitted
     );
     assert_eq!(
         arrow_ipc.support_status.claim_gate_status(),
-        "fixture_smoke_only"
+        "not_claim_grade"
     );
     assert!(arrow_ipc.local_file_output);
     assert!(!arrow_ipc.object_store_output);

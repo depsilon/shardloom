@@ -1745,7 +1745,7 @@ fn public_run_executes_generated_user_rows_with_attached_route_envelope() {
     )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
-        "generated-source-user-rows-smoke"
+        "generated-source-user-rows"
     )));
     assert!(stdout.contains(&field("public_workflow_generated_source_kind", "user_rows")));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
@@ -1802,7 +1802,7 @@ fn public_run_forwards_generated_fanout_payload_with_attached_route_envelope() {
     )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
-        "generated-source-user-rows-smoke"
+        "generated-source-user-rows"
     )));
     assert!(stdout.contains(&field("public_workflow_generated_source_kind", "user_rows")));
     assert!(stdout.contains(&field("public_workflow_fanout_output_count", "1")));
@@ -1855,7 +1855,7 @@ fn public_run_executes_generated_range_with_attached_route_envelope() {
     )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
-        "generated-source-range-smoke"
+        "generated-source-range"
     )));
     assert!(stdout.contains(&field("public_workflow_generated_source_kind", "range")));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
@@ -1910,7 +1910,7 @@ fn public_run_executes_generated_sequence_with_attached_route_envelope() {
     )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
-        "generated-source-sequence-smoke"
+        "generated-source-sequence"
     )));
     assert!(stdout.contains(&field("public_workflow_generated_source_kind", "sequence")));
     assert!(stdout.contains(&field("generated_source_kind", "sequence")));
@@ -2317,7 +2317,7 @@ fn public_run_executes_source_free_values_with_attached_route_envelope() {
     )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
-        "generated-source-sql-smoke"
+        "generated-source-sql"
     )));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
     assert!(stdout.contains(&field("generated_source_kind", "sql_values")));
@@ -2357,7 +2357,7 @@ fn public_run_executes_source_free_range_sql_with_attached_route_envelope() {
     )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
-        "generated-source-sql-smoke"
+        "generated-source-sql"
     )));
     assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
     assert!(stdout.contains(&field("generated_source_row_count", "2")));

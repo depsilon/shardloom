@@ -130,60 +130,60 @@ reports are route evidence, not broad arbitrary Vortex SQL/DataFrame parity or p
 
 ## Python Query Builder
 
-Admitted scoped local-source and generated-source workflows use `LazyFrame` and related source
-objects. Common supported or scoped methods include:
+Admitted local-source and generated-source workflows use `LazyFrame` and related source
+objects. Common admitted methods include:
 
 - Filters and predicates: `filter(...)`, `where(...)`, `query(...)` without unsupported keyword
   arguments, `having(...)` after an aggregate.
 - Projection and schema rewrites: `select(...)`, `project(...)`, `rename(...)`,
   `rename_columns(...)`, `drop(...)`, `drop_columns(...)`, `astype(...)`.
-- Row bounds: `limit(...)`, `head(...)`, `take(...)`, scoped `tail(...)`, and scoped deterministic
+- Row bounds: `limit(...)`, `head(...)`, `take(...)`, admitted `tail(...)`, and deterministic
   `sample(n=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)` or
   fractional
   `sample(frac|fraction=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)`.
 - Aggregation: `group_by(...).agg(...)`, `groupby(...).agg(...)`, scalar `agg(...)`,
   `aggregate(...)`, `nunique(...)`, `value_counts(...)`.
-- Joins and set operations: scoped `join(...)`, `merge(...)` when it lowers to the same join,
+- Joins and set operations: admitted `join(...)`, `merge(...)` when it lowers to the same join,
   `concat(...)` when it lowers to `UNION ALL`, `union(...)`, `union_all(...)`,
   `intersect(...)`, `except_rows(...)`, `subtract(...)`.
 - Ordering and top N: `sort(...)`, `order_by(...)`, `sort_by(...)`, `sort_values(...)`,
-  scoped index metadata `set_index(..., drop=False)`, source-order-preserving
+  admitted index metadata `set_index(..., drop=False)`, source-order-preserving
   `reset_index(drop=True)`/`sort_index(ascending=True)`, `nlargest(...)`, `nsmallest(...)`.
-- Windows: scoped fixed-row `rolling(...).sum(...)`, `mean(...)`, `count(...)`, `min(...)`, and
+- Windows: admitted fixed-row `rolling(...).sum(...)`, `mean(...)`, `count(...)`, `min(...)`, and
   `max(...)` use source order, valid-observation `min_periods`, and ShardLoom-native window state.
 - Null and duplicate helpers: `dropna(...)`, `fillna(...)`, `fill_null(...)`, `isna(...)`,
   `isnull(...)`, `notna(...)`, `notnull(...)`, `distinct()`, `drop_duplicates()`, `unique()`,
-  scoped `drop_duplicates(subset=..., keep="first"|"last"|False)` retained-row deduplication,
-  scoped `duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, and
+  admitted `drop_duplicates(subset=..., keep="first"|"last"|False)` retained-row deduplication,
+  admitted `duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, and
   schema-declared scalar/per-column literal `fillna`/`fill_null` projection rewrites for
-  `axis=0`/`index` or projection-equivalent `axis=1`/`columns` spellings, plus scoped
+  `axis=0`/`index` or projection-equivalent `axis=1`/`columns` spellings, plus admitted
   source-order `fillna(method="ffill", limit=<optional positive int>)`/`fill_null(...)`
   forward-fill rewrites.
-- Reshape: scoped `melt(id_vars=..., value_vars=..., var_name=..., value_name=...)` for explicit
+- Reshape: admitted `melt(id_vars=..., value_vars=..., var_name=..., value_name=...)` for explicit
   flat scalar id columns and heterogeneous scalar value columns through the native/prepared Vortex
   melt primitive; `ignore_index=False` adds an explicit source-order row-number column rather than
-  relying on hidden pandas index state. Scoped `explode("list_column")` and same-length
+  relying on hidden pandas index state. Admitted `explode("list_column")` and same-length
   multi-column list/fixed-size-list `explode("a", "b", ...)` lower through the native/prepared
   Vortex explode primitive with scalar, nullable, list, or struct element values, cardinality
-  evidence, and null-shape evidence; scoped `explode("items.field")` projects one field from
-  list-of-struct elements. Scoped `pivot(...)` / `pivot_table(...)` over one
+  evidence, and null-shape evidence; admitted `explode("items.field")` projects one field from
+  list-of-struct elements. Admitted `pivot(...)` / `pivot_table(...)` over one
   index column, one pivot column, and one value column lower through the native/prepared Vortex
   pivot primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`
-  plus scoped `fill_value`, `dropna`, `margins`, and `margins_name` output policy; multi-level
+  plus admitted `fill_value`, `dropna`, `margins`, and `margins_name` output policy; multi-level
   nested-field accessor explode, multi-index/multi-value pivot, custom pivot aggregates,
   hidden index-state reshape, and broad reshape parity remain deterministic blockers.
-- Windows: scoped `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
+- Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
   primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows
   use bounded lookahead evidence, and time/calendar windows, custom frames, callbacks, and broad pandas rolling parity remain deterministic
   blockers.
-- Conditional and value rewrites: scoped typed scalar/null `mask(predicate, scalar-or-null)`,
-  `replace(old, scalar-or-null)`/column-mapped full-cell scalar/null replacement, scoped UTF-8
+- Conditional and value rewrites: admitted typed scalar/null `mask(predicate, scalar-or-null)`,
+  `replace(old, scalar-or-null)`/column-mapped full-cell scalar/null replacement, admitted UTF-8
   `replace(pattern, replacement, regex=True)`, and in-place UTF-8
   `with_column("col", col("col").replace(...))` string replacement when the schema and projection
   admit the native Vortex expression-project primitive; broad pandas alignment, callable,
   method/limit, nested, or mixed-dtype variants remain deterministic blockers.
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
-  lowers to the scoped ShardLoom expression surface.
+  lowers to the admitted ShardLoom expression surface.
 - Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar
   assignment and `transform({"amount": sl.col("amount") + 5})` mapping-style in-place numeric
   assignment through the native/prepared Vortex expression-project primitive. `map(...)` and
@@ -197,11 +197,11 @@ objects. Common supported or scoped methods include:
 - Local execution and writes: bounded `collect(...)`, `run(...)`, `route(...)`, `prepare(...)`,
   `write(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated `write_parquet(...)`,
   `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and
-  `fanout(...)`. Scoped local JSONL/CSV fanout uses staged multi-target commit and exposes
+  `fanout(...)`. Local JSONL/CSV fanout uses staged multi-target commit and exposes
   target-level commit, cleanup, and no-fallback evidence.
 - Bounded inspection: `schema(...)`, `describe_schema(...)`, `validate_schema(...)`,
   `schema_contract(...)`, `data_quality_check(...)`, `data_quality(...)`,
-  `data_quality_summary(...)`, scoped `describe(...)`, `profile(...)`, `preview(...)`, `display(...)`,
+  `data_quality_summary(...)`, admitted `describe(...)`, `profile(...)`, `preview(...)`, `display(...)`,
   `to_python_objects(...)`, optional bounded `to_pandas(...)`, `to_arrow(...)`,
   `to_arrow_table(...)`, `to_arrow_ipc(...)`, and `to_numpy(...)`.
 
@@ -210,7 +210,7 @@ execution engines.
 
 ## Python Expressions
 
-Expression helpers are scoped SQL/Python front-door builders:
+Expression helpers are admitted SQL/Python front-door builders:
 
 - Column references: `sl.col(...)`, `sl.column(...)`, `sl.outer(...)`.
 - Comparison and boolean composition through Python operators, `&`, `|`, and `~`.
@@ -263,10 +263,10 @@ Entry points:
 - `sl.sql("SELECT ...")`
 - `ShardLoomClient.local_source_runtime(...)` for lower-level CLI-backed proof.
 - `shardloom local-source-runtime ... --format json` for lower-level CLI proof execution.
-- `shardloom generated-source-sql-smoke ... --format json` for scoped source-free SQL proof writes.
+- `shardloom generated-source-sql ... --format json` for admitted source-free SQL proof writes.
 
-Admitted forms include scoped local-source `SELECT` over local file references, declared Vortex
-inputs bound to logical table names, scoped projection, filter, group-by, having, order, limit,
+Admitted forms include local-source `SELECT` over local file references, declared Vortex
+inputs bound to logical table names, admitted projection, filter, group-by, having, order, limit,
 joins, set operations, bounded subquery predicates, source-free `VALUES`, source-free literal
 `SELECT`, and generated range forms such as `generate_series` or `range` where the local runtime
 admits them.
@@ -314,10 +314,10 @@ shardloom workflow-unsupported-plan <operation> --format json
 Common executable local proof commands:
 
 ```sh
-shardloom generated-source-user-rows-smoke --format json
-shardloom generated-source-range-smoke --format json
-shardloom generated-source-sequence-smoke --format json
-shardloom generated-source-sql-smoke --format json
+shardloom generated-source-user-rows --format json
+shardloom generated-source-range --format json
+shardloom generated-source-sequence --format json
+shardloom generated-source-sql --format json
 shardloom local-source-runtime --format json
 shardloom vortex-prepare --format json
 shardloom vortex-production-runtime-run <scenario> <fact.vortex> <dim.vortex> --format json
@@ -337,7 +337,7 @@ future-gated unless the dynamic capability row says otherwise:
 - Broad SQL grammar or arbitrary SQL execution.
 - Hidden fallback execution in DuckDB, DataFusion, Spark, Polars, pandas, Velox, or another engine.
 - Unbounded materialization as a convenience path.
-- Duplicate and duplicate-mask variants outside scoped scalar-subset `keep="first"|"last"|False`
+- Duplicate and duplicate-mask variants outside admitted scalar-subset `keep="first"|"last"|False`
   semantics with nullable scalar equality, including nested/list/struct equality and hidden-index
   duplicate semantics.
 - Object-store, lakehouse/table, catalog, remote API, Foundry, live/hybrid, distributed, and

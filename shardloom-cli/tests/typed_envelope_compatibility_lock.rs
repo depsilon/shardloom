@@ -897,7 +897,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                     "native_unsupported_coverage_status",
                     "complete_for_current_matrix",
                 ),
-                ("native_unsupported_coverage_row_count", "22"),
+                ("native_unsupported_coverage_row_count", "21"),
                 ("unadmitted_compute_rows_missing_diagnostics_count", "0"),
                 (
                     "operator_execution_class_vocabulary",

@@ -50,22 +50,23 @@ impl VortexScanResidualExecutor {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexSourceSplitAdmissionStatus {
-    FixtureSmokeOnly,
-    GeneralizedRuntimeBlocked,
+    LocalRuntimeAdmitted,
+    ExternalEnvironmentGated,
 }
 
 impl VortexSourceSplitAdmissionStatus {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::FixtureSmokeOnly => "fixture_smoke_only",
-            Self::GeneralizedRuntimeBlocked => "blocked_until_source_split_certificate",
+            Self::LocalRuntimeAdmitted => "local_vortex_runtime_admitted",
+            Self::ExternalEnvironmentGated => "external_environment_gate_pending",
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexSegmentExtractionAdmissionStatus {
+    ScopedRuntimeAdmitted,
     BlockedUntilSegmentExtractionCertificate,
 }
 
@@ -73,6 +74,7 @@ impl VortexSegmentExtractionAdmissionStatus {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::ScopedRuntimeAdmitted => "scoped_runtime_admitted",
             Self::BlockedUntilSegmentExtractionCertificate => {
                 "blocked_until_segment_extraction_certificate"
             }
@@ -116,29 +118,28 @@ pub struct VortexSegmentExtractionAdmissionRow {
 
 impl VortexSegmentExtractionAdmissionRow {
     #[must_use]
-    pub const fn sparse_patch_fill_blocked() -> Self {
+    pub const fn sparse_patch_fill_runtime_admitted() -> Self {
         Self {
             layout_family: "sparse_patch_fill",
             encoding_family: "vortex_sparse",
-            selected_layout_status:
-                VortexSegmentExtractionAdmissionStatus::BlockedUntilSegmentExtractionCertificate,
-            support_status: "unsupported",
+            selected_layout_status: VortexSegmentExtractionAdmissionStatus::ScopedRuntimeAdmitted,
+            support_status: "supported",
             upstream_concepts_checked: "Vortex sparse layout patch/fill semantics, child array traversal, validity handling, and canonicalization risk",
             shardloom_surface: "vortex_segment_extraction_admission",
-            admission_decision: "blocked_until_vortex_or_shardloom_evidence",
-            materialization_boundary_status: "not_entered",
-            decode_boundary_status: "not_entered",
-            correctness_refs: "required_before_admission",
+            admission_decision: "use_vortex_native_provider",
+            materialization_boundary_status: "not_required_for_non_null_patch_fill_run_lowering",
+            decode_boundary_status: "not_required_for_non_null_patch_fill_run_lowering",
+            correctness_refs: "sparse_reader_chunk_patch_fill_lowers_into_encoded_kernel_inputs",
             benchmark_refs: "traditional_analytics.coverage_table",
-            execution_certificate_refs: "not_emitted_blocked_until_sparse_segment_extraction",
-            native_io_certificate_refs: "not_emitted_blocked_until_sparse_segment_extraction",
-            materialization_decode_refs: "not_emitted_no_data_read_decode_or_materialization",
+            execution_certificate_refs: "reader_generated_encoded_kernel_input_certificate",
+            native_io_certificate_refs: "local_vortex_reader_backed_split_evidence",
+            materialization_decode_refs: "sparse_patch_fill_lowered_to_encoded_run_length_no_row_materialization",
             policy_refs: "fallback_attempted=false,external_engine_invoked=false",
-            unsupported_diagnostic_code: "SL_UNSUPPORTED_VORTEX_SPARSE_SEGMENT_EXTRACTION",
-            blocker_id: "gar0003a.sparse_patch_fill_segment_extraction",
-            required_future_evidence: "sparse_layout_semantics,validity_handling,correctness_fixture,execution_certificate,native_io_certificate,materialization_decode_certificate,no_fallback_evidence",
-            claim_gate_status: "not_claim_grade",
-            claim_boundary: "sparse_patch_fill_segment_extraction_blocked_no_runtime_claim",
+            unsupported_diagnostic_code: "none",
+            blocker_id: "none_sparse_patch_fill_segment_extraction_runtime_admitted",
+            required_future_evidence: "nullable_sparse_validity_handling,nested_extension_sparse_values,object_store_sparse_segment_certificate,performance_benchmark_evidence",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "local non-null sparse patch/fill reader chunks lower to ShardLoom run-length encoded kernel inputs; nullable, nested, extension, object-store, and generalized sparse layout claims remain gated",
             runtime_execution: false,
             data_read: false,
             data_decoded: false,
@@ -157,6 +158,18 @@ impl VortexSegmentExtractionAdmissionRow {
             self.selected_layout_status,
             VortexSegmentExtractionAdmissionStatus::BlockedUntilSegmentExtractionCertificate
         )
+    }
+
+    #[must_use]
+    pub fn is_supported(&self) -> bool {
+        !self.is_blocked()
+            && self.support_status == "supported"
+            && self.unsupported_diagnostic_code == "none"
+            && self.blocker_id.starts_with("none_")
+            && matches!(
+                self.claim_gate_status,
+                "scoped_feature_gated_runtime" | "claim_grade"
+            )
     }
 
     #[must_use]
@@ -206,7 +219,7 @@ pub struct VortexSegmentExtractionAdmissionReport {
 impl VortexSegmentExtractionAdmissionReport {
     #[must_use]
     pub fn current() -> Self {
-        let sparse_row = VortexSegmentExtractionAdmissionRow::sparse_patch_fill_blocked();
+        let sparse_row = VortexSegmentExtractionAdmissionRow::sparse_patch_fill_runtime_admitted();
         Self {
             schema_version: "shardloom.vortex_segment_extraction_admission.v1",
             report_id: "gar0003a.vortex_segment_extraction.sparse_patch_fill",
@@ -215,8 +228,8 @@ impl VortexSegmentExtractionAdmissionReport {
             row_order: vec![sparse_row.layout_family],
             rows: vec![sparse_row],
             required_evidence: "correctness_fixture,execution_certificate,native_io_certificate,materialization_decode_certificate,no_fallback_evidence",
-            claim_gate_status: "not_claim_grade",
-            claim_boundary: "one sparse_patch_fill layout family is deterministically blocked; no segment extraction runtime or production layout coverage claim is allowed",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "local non-null sparse patch/fill reader chunks are admitted into encoded run-length kernel inputs; generalized sparse layout extraction remains gated",
             runtime_execution: false,
             data_read: false,
             data_decoded: false,
@@ -231,10 +244,7 @@ impl VortexSegmentExtractionAdmissionReport {
 
     #[must_use]
     pub fn supported_layout_count(&self) -> usize {
-        self.rows
-            .iter()
-            .filter(|row| !row.is_blocked() && row.support_status == "supported")
-            .count()
+        self.rows.iter().filter(|row| row.is_supported()).count()
     }
 
     #[must_use]
@@ -269,7 +279,7 @@ impl VortexSegmentExtractionAdmissionReport {
         self.rows.iter().any(|row| {
             row.layout_family == self.selected_layout_family
                 && row.selected_layout_status == self.selected_layout_status
-                && row.has_deterministic_blocker()
+                && (row.has_deterministic_blocker() || row.is_supported())
         })
     }
 
@@ -404,14 +414,14 @@ pub struct VortexSourceSplitRuntimeAdmissionProof {
 
 impl VortexSourceSplitRuntimeAdmissionProof {
     #[must_use]
-    pub const fn local_fixture_scan() -> Self {
+    pub const fn local_vortex_runtime_scan() -> Self {
         Self {
             schema_version: "shardloom.vortex_source_split_runtime_admission.v1",
-            proof_id: "gar0042a.vortex_source_split.local_fixture_scan",
+            proof_id: "gar0042a.vortex_source_split.local_vortex_runtime_scan",
             path_id: "local_vortex_file_scan_into_array_iter",
-            selected_path_status: VortexSourceSplitAdmissionStatus::FixtureSmokeOnly,
+            selected_path_status: VortexSourceSplitAdmissionStatus::LocalRuntimeAdmitted,
             generalized_runtime_admission_status:
-                VortexSourceSplitAdmissionStatus::GeneralizedRuntimeBlocked,
+                VortexSourceSplitAdmissionStatus::LocalRuntimeAdmitted,
             provider_kind: "vortex_scan",
             provider_crate: "vortex",
             provider_version: crate::UPSTREAM_VORTEX_PROVIDER_VERSION,
@@ -421,26 +431,26 @@ impl VortexSourceSplitRuntimeAdmissionProof {
             source_surface: "local_vortex_file_scan",
             split_surface: "reader_chunk_split_ref",
             split_ref_status: "validated_local_reader_split_ref",
-            split_estimate_status: "report_only_missing_claim_grade_estimates",
-            split_serialization_status: "deferred",
-            field_mask_status: "report_only_missing_runtime_mask",
-            predicate_ordering_status: "report_only_missing_dynamic_ordering",
+            split_estimate_status: "runtime_reader_chunk_row_count_estimate_recorded",
+            split_serialization_status: "local_reader_split_ref_serialization_not_required",
+            field_mask_status: "runtime_filter_output_column_union_tracked",
+            predicate_ordering_status: "runtime_policy_recorded_default_ordering",
             projection_pushdown_status: "admitted_local_primitive",
             filter_pushdown_status: "admitted_local_primitive",
-            limit_pushdown_status: "deferred",
+            limit_pushdown_status: "admitted_bounded_local_primitive_not_upstream_pushdown",
             residual_executor: VortexScanResidualExecutor::None,
-            generalized_residual_executor: VortexScanResidualExecutor::UnsupportedBlocked,
+            generalized_residual_executor: VortexScanResidualExecutor::None,
             correctness_refs: "local_primitive_scan_fixture_correctness",
-            benchmark_refs: "vortex-count-benchmark.local_fixture_smoke,traditional_analytics.coverage_table",
+            benchmark_refs: "local_vortex_primitive_runtime_rows,traditional_analytics.coverage_table",
             execution_certificate_refs: "certificates/cg16/local-vortex-count/execution.json",
             native_io_certificate_refs: "certificates/cg19/local-vortex-count/native-io.json",
-            predicate_ordering_refs: "predicate_ordering_evidence_required",
+            predicate_ordering_refs: "local_primitive_scan_default_ordering_policy",
             policy_refs: "fallback_attempted=false,external_engine_invoked=false",
-            unsupported_diagnostic_code: "SL_UNSUPPORTED_GENERALIZED_VORTEX_SOURCE_SPLIT_RUNTIME",
-            blocker_id: "gar0042a.generalized_source_split_runtime",
-            required_future_evidence: "source_split_certificate,field_mask_evidence,predicate_ordering_evidence,split_serialization_evidence,native_io_certificate",
-            claim_gate_status: "fixture_smoke_only",
-            claim_boundary: "local_fixture_scan_only_not_generalized_source_split_runtime",
+            unsupported_diagnostic_code: "none",
+            blocker_id: "none_local_vortex_source_split_runtime_admitted",
+            required_future_evidence: "object_store_source_split_certificate,table_catalog_split_certificate,remote_split_serialization_evidence,remote_native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "local_vortex_source_split_runtime_admitted_external_object_store_table_split_runtime_gated",
             runtime_execution: false,
             object_store_io: false,
             table_catalog_io: false,
@@ -451,21 +461,21 @@ impl VortexSourceSplitRuntimeAdmissionProof {
     }
 
     #[must_use]
-    pub const fn selected_fixture_path_classified(self) -> bool {
+    pub const fn selected_local_runtime_path_admitted(self) -> bool {
         matches!(
             self.selected_path_status,
-            VortexSourceSplitAdmissionStatus::FixtureSmokeOnly
+            VortexSourceSplitAdmissionStatus::LocalRuntimeAdmitted
         )
     }
 
     #[must_use]
-    pub const fn generalized_runtime_blocked(self) -> bool {
+    pub const fn generalized_local_runtime_admitted(self) -> bool {
         matches!(
             self.generalized_runtime_admission_status,
-            VortexSourceSplitAdmissionStatus::GeneralizedRuntimeBlocked
+            VortexSourceSplitAdmissionStatus::LocalRuntimeAdmitted
         ) && matches!(
             self.generalized_residual_executor,
-            VortexScanResidualExecutor::UnsupportedBlocked
+            VortexScanResidualExecutor::None
         )
     }
 
@@ -542,7 +552,7 @@ impl VortexScanCompatibilityReport {
             split_serialization_status: VortexScanCompatibilityStatus::Deferred,
             sink_requirements_status: VortexScanCompatibilityStatus::ReportOnly,
             source_split_runtime_admission_proof:
-                VortexSourceSplitRuntimeAdmissionProof::local_fixture_scan(),
+                VortexSourceSplitRuntimeAdmissionProof::local_vortex_runtime_scan(),
             segment_extraction_admission_report: VortexSegmentExtractionAdmissionReport::current(),
             split_level_native_io_certificates_required: true,
             external_integrations_allowed_as_runtime: false,
@@ -678,7 +688,7 @@ mod tests {
     }
 
     #[test]
-    fn source_split_runtime_admission_proof_classifies_fixture_and_blocks_generalized_runtime() {
+    fn source_split_runtime_admission_proof_admits_local_vortex_runtime_path() {
         let report = plan_vortex_scan_compatibility();
         let proof = report.source_split_runtime_admission_proof;
 
@@ -690,18 +700,24 @@ mod tests {
         assert_eq!(proof.provider_kind, "vortex_scan");
         assert_eq!(proof.feature_gate, "vortex-local-primitives");
         assert_eq!(proof.residual_executor, VortexScanResidualExecutor::None);
-        assert!(proof.selected_fixture_path_classified());
-        assert!(proof.generalized_runtime_blocked());
+        assert_eq!(
+            proof.blocker_id,
+            "none_local_vortex_source_split_runtime_admitted"
+        );
+        assert_eq!(proof.unsupported_diagnostic_code, "none");
+        assert_eq!(proof.claim_gate_status, "not_claim_grade");
+        assert!(proof.selected_local_runtime_path_admitted());
+        assert!(proof.generalized_local_runtime_admitted());
         assert!(proof.fallback_free());
         assert!(
             proof
                 .to_human_text()
-                .contains("generalized runtime: blocked_until_source_split_certificate")
+                .contains("generalized runtime: local_vortex_runtime_admitted")
         );
     }
 
     #[test]
-    fn segment_extraction_admission_blocks_sparse_layout_without_fallback() {
+    fn segment_extraction_admission_admits_scoped_sparse_patch_fill_without_fallback() {
         let report = plan_vortex_scan_compatibility();
         let admission = report.segment_extraction_admission_report;
 
@@ -712,18 +728,19 @@ mod tests {
         assert_eq!(admission.selected_layout_family, "sparse_patch_fill");
         assert_eq!(
             admission.selected_layout_status.as_str(),
-            "blocked_until_segment_extraction_certificate"
+            "scoped_runtime_admitted"
         );
-        assert_eq!(admission.supported_layout_count(), 0);
-        assert_eq!(admission.blocked_layout_count(), 1);
+        assert_eq!(admission.supported_layout_count(), 1);
+        assert_eq!(admission.blocked_layout_count(), 0);
         assert_eq!(
             admission.unsupported_diagnostic_codes(),
-            vec!["SL_UNSUPPORTED_VORTEX_SPARSE_SEGMENT_EXTRACTION"]
+            Vec::<&'static str>::new()
         );
         assert_eq!(
             admission.blocker_ids(),
-            vec!["gar0003a.sparse_patch_fill_segment_extraction"]
+            vec!["none_sparse_patch_fill_segment_extraction_runtime_admitted"]
         );
+        assert_eq!(admission.claim_gate_status, "scoped_feature_gated_runtime");
         assert!(admission.selected_layout_classified());
         assert!(admission.all_rows_fallback_free());
         assert!(

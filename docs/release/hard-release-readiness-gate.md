@@ -447,7 +447,8 @@ target/golden-workflow-report.json
 target/golden-workflows
 ```
 
-The validator builds the CLI with `vortex-write,vortex-local-primitives`, then executes local
+The validator builds the CLI with `release-user-surfaces vortex-traditional-analytics-benchmark`,
+then executes local
 CSV-to-`vortex_ingest`, prepared Vortex primitive replay, JSONL/CSV fanout, generated-source local
 Vortex output/replay, and fixture-certified count/project/filter-project primitive workflows. It
 also checks the docs and website `runs-today` matrix rows for those surfaces. It intentionally
@@ -686,8 +687,8 @@ docs/architecture/v1-local-resource-safety.md
 target/v1-local-resource-safety-report.json
 shardloom.v1_local_resource_safety.v1
 shardloom.v1_local_resource_safety_report.v1
-runtime_command_count=5
-runtime_command_pass_count=5
+runtime_command_count=6
+runtime_command_pass_count=6
 prerequisite_report_count=2
 memory_budget_config_status=passed
 pre_oom_guard_status=passed
@@ -695,6 +696,7 @@ retry_gate_status=passed
 cancellation_cleanup_status=passed
 memory_runtime_hardening_status=passed
 fault_tolerance_gate_status=passed
+public_native_vortex_resource_route_status=passed
 prepared_state_cleanup_status=passed
 local_output_cleanup_status=passed
 v1_scope_ready=true

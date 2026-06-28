@@ -20,11 +20,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.admitted_semantics_matrix_report.v1"
 MATRIX_SCHEMA_VERSION = "shardloom.admitted_semantics_fixture_matrix.v1"
-DEFAULT_FEATURES = "vortex-write,vortex-local-primitives"
+DEFAULT_FEATURES = RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 PROPERTY_SEED = 20260521
 
 REQUIRED_ROW_FIELDS = (

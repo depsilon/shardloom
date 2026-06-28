@@ -75,7 +75,7 @@ REQUIRED_COMMANDS = (
     "run",
     "prepare",
     "local-source-runtime",
-    "generated-source-sql-smoke",
+    "generated-source-sql",
     "vortex-prepare",
 )
 

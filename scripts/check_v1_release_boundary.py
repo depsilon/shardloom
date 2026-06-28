@@ -92,8 +92,8 @@ REQUIRED_DRY_RUN_TRUE_FIELDS = (
     "local_python_result_and_evidence_printed",
     "local_python_unsupported_path_evidence_printed",
     "generated_output_proof_distinct_from_no_dataset_smoke",
-    "generated_source_user_rows_smoke_performed",
-    "generated_source_range_smoke_performed",
+    "generated_source_user_rows_runtime_performed",
+    "generated_source_range_runtime_performed",
     "provenance_dry_run_performed",
     "sbom_checksum_manifest_generated",
 )

@@ -187,8 +187,9 @@ plan before coding.
 
 - Source: [`docs/rfcs/0007-translation-layer-contract.md`](../rfcs/0007-translation-layer-contract.md)
 - Current read: Translation/report contracts exist, and GAR-0007-A/B now makes current writer
-  support explicit. Local fixture-smoke compatibility writers exist for the traditional analytics
-  path; production sinks and lakehouse table commits remain gated.
+  support explicit. Local compatibility-export writers are admitted only after native/prepared
+  Vortex execution with explicit metadata-loss and materialization evidence; production
+  object-store sinks and lakehouse table commits remain gated.
 - Evidence: `shardloom-core/src/translation.rs`, `shardloom-cli/src/vortex_planning.rs`,
   `shardloom-contract-tests/tests/fidelity_invariants.rs`,
   `shardloom-vortex/src/traditional_analytics.rs`,
@@ -196,9 +197,9 @@ plan before coding.
 - [x] Plan/report contracts distinguish Vortex native, compatibility export, and unsupported paths.
 - [x] Compatibility surfaces preserve no-fallback and evidence terminology.
 - [x] GAR-0007-A adds `shardloom.compatibility_output_writer_matrix.v1` through
-  `translation-plan`, classifying native Vortex reference output, local fixture-smoke compatibility
-  output rows, Iceberg/Delta table-commit blockers, metadata-loss posture, feature gates,
-  implementation/evidence refs, and no-fallback/no-external-engine fields.
+  `translation-plan`, classifying native Vortex reference output, admitted local
+  compatibility-export output rows, Iceberg/Delta table-commit blockers, metadata-loss posture,
+  feature gates, implementation/evidence refs, and no-fallback/no-external-engine fields.
 - [x] GAR-0007-B hardens the existing feature-gated traditional analytics writer smoke so CSV,
   JSONL, Parquet, Arrow IPC, Avro, and ORC local compatibility outputs are written non-empty,
   replayed, and kept separate from production sink claims.

@@ -18,12 +18,13 @@ import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 from release_report_utils import fail_closed_fields, load_json, read_text, resolve_path, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_local_resource_safety_report.v1"
-DEFAULT_FEATURES = "vortex-write,vortex-local-primitives"
+DEFAULT_FEATURES = RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 DOC_PATH = Path("docs/architecture/v1-local-resource-safety.md")
 
 COMMAND_SPECS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -54,6 +55,37 @@ COMMAND_SPECS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "fault_tolerance_promotion_gate",
         ("fault-tolerance-promotion-gate", "--format", "json"),
     ),
+    (
+        "public_native_vortex_resource_route",
+        (
+            "run",
+            "cli",
+            "--input",
+            "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+            "--input-format",
+            "vortex",
+            "--request",
+            "collect",
+            "--execution-policy",
+            "native_vortex",
+            "--materialization-policy",
+            "bounded",
+            "--evidence-level",
+            "runtime_smoke",
+            "--bounded",
+            "true",
+            "--vortex-primitive",
+            "aggregate",
+            "--vortex-aggregate",
+            '{"measures":[{"function":"sum","column":"metric","alias":"sum_metric"},{"function":"count","alias":"rows"}]}',
+            "--memory-gb",
+            "1",
+            "--max-parallelism",
+            "2",
+            "--format",
+            "json",
+        ),
+    ),
 )
 
 DOC_MARKERS = (
@@ -63,6 +95,7 @@ DOC_MARKERS = (
     "pre-oom-memory-guard-smoke --format json",
     "retry-gate-plan retry-requested,retry-allowed,cleanup-completed --format json",
     "cancellation-gate-plan cancellation-requested,cleanup-required,cleanup-completed --format json",
+    "run cli --input shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex --input-format vortex --request collect --execution-policy native_vortex",
     "target/v1-source-prepared-state-scope-report.json",
     "target/v1-local-output-sink-scope-report.json",
     "no larger-than-memory claim",
@@ -559,6 +592,10 @@ def build_report(
             "fault_tolerance_promotion_gate",
             {},
         ).get("status", "failed"),
+        "public_native_vortex_resource_route_status": command_summaries.get(
+            "public_native_vortex_resource_route",
+            {},
+        ).get("status", "failed"),
         "prepared_state_cleanup_status": source_summary.get("status", "failed"),
         "local_output_cleanup_status": local_output_summary.get("status", "failed"),
         "unsupported_paths_blocked_without_writes": passed,
@@ -741,6 +778,78 @@ def validate_command_payload(label: str, payload: Mapping[str, Any]) -> tuple[di
                 "execution_promotions_blocked",
                 "exactly_once_resumability_recovery_claims_blocked",
                 "side_effect_free",
+            ),
+        )
+    if label == "public_native_vortex_resource_route":
+        return check_fields(
+            label,
+            payload,
+            "run",
+            {
+                "public_workflow_route_id": "native_vortex_aggregate",
+                "public_workflow_resolved_internal_command": "vortex-run",
+                "public_workflow_start_state": "native_vortex_file",
+                "public_workflow_vortex_normalization_point": "native_vortex_boundary",
+                "public_workflow_memory_gb": "1",
+                "public_workflow_max_parallelism": "2",
+                "public_workflow_dynamic_parallelism_floor_applied": "false",
+                "local_primitive_resource_envelope_schema_version": "shardloom.local_vortex_resource_envelope.v1",
+                "local_primitive_resource_memory_gb": "1",
+                "local_primitive_resource_max_parallelism": "2",
+                "local_primitive_state_budget_schema_version": "shardloom.local_vortex_state_budget.v2",
+                "local_primitive_state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+                "local_primitive_state_family": "scalar_aggregate_state+direct_dictionary_or_typed",
+                "local_primitive_budget_scope": "local_vortex_scalar_aggregate",
+                "local_primitive_spill_policy": "fail_closed_before_uncertified_spill",
+                "local_primitive_state_budget_diagnostic_code": "none",
+                "local_primitive_memory_admission_schema_version": "shardloom.memory_admission.v1",
+                "local_primitive_memory_admission_scope": "public_local_vortex_primitive_state_budget",
+                "local_primitive_memory_reservation_owner_class": "aggregate",
+                "local_primitive_memory_reservation_status": "granted",
+                "local_primitive_memory_admission_decision": "granted",
+                "local_primitive_memory_pressure_before": "normal",
+                "local_primitive_memory_pressure_after": "normal",
+                "local_primitive_memory_reserved_before_bytes": "0",
+                "local_primitive_memory_reserved_after_release_bytes": "0",
+                "local_primitive_native_io_certificate_status": "certified",
+                "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
+            },
+            false_fields=(
+                "public_workflow_fallback_attempted",
+                "public_workflow_external_engine_invoked",
+                "public_workflow_native_vortex_plan_fallback_attempted",
+                "public_workflow_native_vortex_plan_external_engine_invoked",
+                "object_store_io",
+                "write_io",
+                "spill_io_performed",
+                "local_primitive_spill_required",
+                "local_primitive_spill_supported",
+                "local_primitive_spill_io_performed",
+                "local_primitive_memory_fail_before_oom",
+                "local_primitive_memory_fallback_attempted",
+                "local_primitive_native_io_object_store_io",
+                "local_primitive_native_io_write_io",
+                "local_primitive_native_io_spill_io_performed",
+                "local_primitive_native_io_fallback_attempted",
+                "local_primitive_native_io_fallback_execution_allowed",
+                "fallback_attempted",
+                "external_engine_invoked",
+            ),
+            true_fields=(
+                "public_workflow_route_attached",
+                "public_workflow_bounded_request",
+                "local_primitive_report_present",
+                "local_primitive_state_budget_required",
+                "local_primitive_fail_closed_if_spill_required",
+                "local_primitive_memory_reservation_required",
+                "local_primitive_memory_reservation_release_performed",
+                "local_primitive_native_io_certified",
+                "local_primitive_native_io_encoded_representation_preserved",
+                "local_primitive_native_io_streaming_capability",
+                "upstream_vortex_scan_called",
+                "data_read",
+                "data_decoded",
+                "data_materialized",
             ),
         )
     return {"status": "failed", "command": label}, [f"{label}: unknown command spec"]

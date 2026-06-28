@@ -206,9 +206,10 @@ row covers `sparse_patch_fill` and records:
 - `external_engine_invoked=false`
 - `fallback_attempted=false`
 
-The report does not implement sparse segment extraction. It keeps sparse patch/fill extraction
-blocked until correctness fixtures, execution certificates, Native I/O certificates,
-materialization/decode evidence, and no-fallback evidence exist.
+The report now admits local non-null sparse patch/fill extraction into ShardLoom run-length
+encoded kernel inputs with correctness coverage and no-fallback evidence. Nullable sparse
+validity, nested/extension sparse values, object-store sparse segment certificates, and broad
+performance claims remain gated.
 
 ## VortexLayoutDeviceManagedBoundaryMatrix
 

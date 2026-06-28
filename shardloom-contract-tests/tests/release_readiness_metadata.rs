@@ -875,8 +875,8 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(proof.contains("local_python_example_smoke_performed=true"));
     assert!(proof.contains("provenance_dry_run_performed"));
     assert!(proof.contains("sbom_checksum_manifest_generated"));
-    assert!(proof.contains("generated_source_user_rows_smoke_performed=true"));
-    assert!(proof.contains("generated_source_range_smoke_performed=true"));
+    assert!(proof.contains("generated_source_user_rows_runtime_performed=true"));
+    assert!(proof.contains("generated_source_range_runtime_performed=true"));
     assert!(proof.contains("benchmark_smoke_required_for_package_release=false"));
     assert!(proof.contains("benchmark_smoke_status=skipped_not_required_for_package_release"));
     assert!(proof.contains("generated_source_certificate_status=present"));
@@ -890,8 +890,8 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(snapshot.contains("proof_status: passed"));
     assert!(snapshot.contains("public_package_release_claim_allowed: false"));
     assert!(snapshot.contains("generated_output_proof_distinct_from_no_dataset_smoke: true"));
-    assert!(snapshot.contains("generated_source_user_rows_smoke_performed: true"));
-    assert!(snapshot.contains("generated_source_range_smoke_performed: true"));
+    assert!(snapshot.contains("generated_source_user_rows_runtime_performed: true"));
+    assert!(snapshot.contains("generated_source_range_runtime_performed: true"));
     assert!(snapshot.contains("prepared_native_benchmark_smoke_performed: false"));
     assert!(snapshot.contains("benchmark_smoke_required_for_package_release: false"));
     assert!(snapshot.contains("benchmark_smoke_status: skipped_not_required_for_package_release"));
@@ -2608,7 +2608,7 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
         "prepared_native_vortex_count_filter_project_execution_certificates",
         "vortex-prepare",
         "local-source-runtime",
-        "generated-source-user-rows-smoke",
+        "generated-source-user-rows",
         "vortex-count-where",
         "vortex-project",
         "vortex-filter-project",
@@ -3383,9 +3383,9 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "user_generated_source",
         "engine_native_generated_source",
         "not_applicable_no_generated_rows",
-        "generated-source-user-rows-smoke",
-        "generated-source-range-smoke",
-        "generated-source-sequence-smoke",
+        "generated-source-user-rows",
+        "generated-source-range",
+        "generated-source-sequence",
         "ctx.from_rows([",
         "ctx.range(",
         "ctx.sequence(",

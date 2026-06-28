@@ -22,9 +22,10 @@ phase note. They are not active queue state and do not override `phased-executio
 - Prepared encoded execution surfaces: prepared encoded filter, projection, and filter-project
   evidence paths with source-bound prepared batch envelopes, reader split-ref validation, explicit
   reader-generated kernel-input admission, and narrow direct reader-chunk lowering for constants
-  through `ArrayRef::as_constant()`, dictionaries through `DictArray` slots, and run-end arrays
-  through `RunEnd` slots.
-- Still blocked reader-chunk lowering: nullable dictionaries/RLE, sparse internals, nested/extension
+  through `ArrayRef::as_constant()`, dictionaries including nullable codes/values through
+  `DictArray` slots, sparse patch/fill chunks through `Sparse` patch indices/values plus fill
+  scalar, and run-end arrays including nullable values through `RunEnd` slots.
+- Still blocked reader-chunk lowering: nullable sparse validity, nested/extension
   values, scalar row access, canonicalization, Arrow conversion, decoded row materialization, and
   generalized Source/Sink extraction remain deferred until phase-plan work proves
   dtype/encoding-specific no-decode mappings.
@@ -36,19 +37,21 @@ phase note. They are not active queue state and do not override `phased-executio
   status.
 - Scoped native Vortex admission framing: `compute-capability-matrix` and
   `vortex-count-benchmark` now expose the admitted `local_vortex_count_scalar` lane for local
-  Vortex scan `CountAll` to typed scalar result evidence. This admits the exact fixture-certified
-  lane only; broad source/sink/operator/workload support remains deferred.
+  Vortex scan `CountAll` to typed scalar result evidence. Local primitive scan/filter/project/count
+  lanes are feature-gated runtime evidence; broad object-store/table reader, generalized schema
+  reader, operator/workload, and performance claims remain gated.
 - Compute-provider report framing: execution certificates carry `ExecutionProviderKind` fields,
   while `VortexComputeProviderReport`, `VortexComputeProviderAlignmentReport`, and
   `VortexIntegrationBoundaryReport` keep upstream Vortex-native provider boundaries distinct from
   Vortex query-engine integrations and external baselines.
-- Source/Split admission framing: `vortex-api-inventory` now exposes
+- Source/Split admission framing: `vortex-api-inventory` exposes
   `shardloom.vortex_source_split_runtime_admission.v1` for the scoped
-  `local_vortex_file_scan_into_array_iter` fixture path. The proof records `vortex` version `0.75`,
+  `local_vortex_file_scan_into_array_iter` runtime path. The proof records `vortex` version `0.75`,
   `vortex-local-primitives`, `VortexFile::scan` / `ScanBuilder` API surfaces, source/split refs,
-  field-mask and predicate-ordering blockers, execution/Native I/O refs, and
-  `fallback_attempted=false`. This classifies the fixture path only; generalized Source/Split,
-  object-store, table/catalog, split serialization, and residual execution remain blocked.
+  local field-mask/predicate-ordering policy, execution/Native I/O refs, and
+  `fallback_attempted=false`. This admits the local Vortex source/split runtime path while keeping
+  object-store, table/catalog, remote split serialization, and remote Native I/O proof
+  external-environment gated.
 - Arrow RecordBatch provider admission: the feature-gated local `vortex_ingest` columnar
   SourceState path uses upstream Vortex `ArrayRef::from_arrow(RecordBatch)` for non-empty flat
   Parquet/Arrow IPC/Avro/ORC batches. The traditional benchmark compatibility-import writer uses
@@ -77,13 +80,14 @@ phase note. They are not active queue state and do not override `phased-executio
   object-store source/sink runtime, distributed scheduling, or performance claim.
 - Segment extraction admission framing: `vortex-api-inventory` now exposes
   `shardloom.vortex_segment_extraction_admission.v1` for the `sparse_patch_fill` layout family.
-  The report records the Vortex sparse layout concepts checked and keeps sparse segment extraction
-  `blocked_until_segment_extraction_certificate` with deterministic diagnostics, required
-  correctness/execution/Native I/O/materialization evidence, `claim_gate_status=not_claim_grade`,
-  `external_engine_invoked=false`, and `fallback_attempted=false`.
+  The report records the Vortex sparse layout concepts checked and admits local non-null sparse
+  patch/fill reader chunks into ShardLoom run-length encoded kernel inputs with
+  `claim_gate_status=scoped_feature_gated_runtime`, `external_engine_invoked=false`, and
+  `fallback_attempted=false`. Nullable sparse validity, nested/extension sparse values,
+  object-store sparse segment certificates, and performance claims remain gated.
 - Residual boundary framing: reader-generated prepared-batch reports carry
-  `VortexResidualBoundaryReport`; admitted constant/dictionary/run-end kernel inputs use
-  `residual_executor=none`, while opaque/sparse/nullable/unsupported chunks use
+  `VortexResidualBoundaryReport`; admitted constant/dictionary/sparse/run-end kernel inputs use
+  `residual_executor=none`, while opaque/nullable/unsupported chunks use
   `residual_executor=unsupported_blocked` with `external_engine_invoked=false`, prohibited external
   fallback, and `fallback_attempted=false`.
 - Source-backed expansion evidence: source-backed encoded filter/projection reports expose
@@ -157,13 +161,13 @@ Runtime-relevant 0.75 API/opportunity map:
 
 | Upstream 0.75 surface | Classification | ShardLoom incorporation path | Claim boundary |
 | --- | --- | --- | --- |
-| Grouped `sum` / `count` aggregate kernels | `native_provider_candidate` | Feed `PERF-RUNTIME-7B` heavy residual operator promotion before inventing new ShardLoom aggregate kernels; admit only behind `shardloom-vortex`, decoded-reference parity, null/key ordering tests, provider-version evidence, and execution certificates. | No grouped aggregate runtime claim until rows prove ShardLoom used the admitted provider or a ShardLoom-native kernel with no external engine. |
-| Validity/mask execution context, `definitely_no_nulls`, `execute_no_nulls`, mask `AllTrue`/`AllFalse`, branchless zip, dictionary/FSST/layout-cache optimizations | `native_provider_candidate` | Feed `PERF-RUNTIME-7B` and `PROD-READY-1A` as no-null/null-heavy operator and adapter fast paths. Existing ShardLoom validity diagnostics remain authoritative until provider-gated tests prove equivalent null semantics. | No broad nullable execution or performance claim from dependency availability alone. |
+| Grouped `sum` / `count` aggregate kernels | `current_runtime_drop_decision` for flat-column routes | Feed `PERF-RUNTIME-7B` only when the route already has pre-grouped Vortex list/fixed-size-list values or evidence proves grouped-list construction is cheaper than ShardLoom's packed-key/dictionary-code/capillary state. The 0.75 source exposes grouped kernels for already-grouped arrays, not a full SQL/hash group-by provider for flat ClickBench-style columns. | No grouped aggregate runtime claim from dependency availability alone. Current SQL/Python/DataFrame aggregate routes should continue using ShardLoom-native grouped state unless a focused route proves Vortex grouped arrays avoid more work than they add. |
+| Validity/mask execution context, `definitely_no_nulls`, `execute_no_nulls`, mask `AllTrue`/`AllFalse`, branchless zip, dictionary/FSST/layout-cache optimizations | `native_provider_candidate` with shared runtime evidence for mask metadata, layout-reader cache, and scoped FSST `LikeKernel` helpers | Feed `PERF-RUNTIME-7B` and `PROD-READY-1A` as no-null/null-heavy operator and adapter fast paths. Existing ShardLoom validity diagnostics remain authoritative until provider-gated tests prove equivalent null semantics. Current ShardLoom local primitive tests prove FSST string-contains count/row-index paths call Vortex's native `LikeKernel` without row materialization or fallback; masked dictionary/FSST/direct UTF-8 helpers consume Vortex mask `AllTrue`/`AllFalse`/`true_count` metadata before row work; dictionary code histograms remain ShardLoom-owned runtime state. Shared local open paths use Vortex 0.75 layout-reader cache and report `layout_reader_cache_status` in embedded layout evidence. | No broad nullable, grouped aggregate, dictionary/FSST reuse, or performance claim from dependency availability alone. Mask metadata support is bounded to shared masked UTF-8 helper evidence; layout-cache support is bounded to shared local-open evidence until lane-specific performance proof exists. |
 | Layout reader context/cache and child-layout cache work | `wrap_vortex_concept` | Feed `PROD-READY-1A` broad local Vortex read/write certification and `PERF-RUNTIME-7C` prepared/read-through attribution only when reader construction, cache scope, source fingerprints, and Native I/O certificates are explicit. | Layout-reader caching may be reported as diagnostic/planning evidence only until no-decode/no-materialization behavior is certified. |
 | JSON extension Arrow import/export | `native_provider_candidate` | Feed `PROD-READY-1A` JSON/NDJSON and Arrow-boundary adapter certification. It must preserve extension dtype metadata, fail closed on unsupported nested/variant shapes, and stay a translation/provider boundary rather than an execution fallback. | No broad JSON, semi-structured, or Arrow-default execution claim. |
 | WKB/geospatial extension import/export, Point, `GeoDistance` | `blocked_until_vortex_or_shardloom_evidence` | Record as future extension/geospatial adapter evidence. v1 local I/O can preserve or block extension metadata, but geospatial runtime needs its own semantics, correctness, and certificate item before support. | No geospatial execution claim. |
 | Interleave array encoding | `wrap_vortex_concept` | Feed `PROD-READY-1A` Vortex-native fidelity profiles and encoded-layout admission. ShardLoom must report whether interleave is preserved, blocked, or materialized with metadata loss. | No interleave-aware execution claim until encoded reader/operator evidence exists. |
-| `byte_length()` expression | `native_provider_candidate` | Compare against the existing ShardLoom `byte_length` expression semantics and use Vortex-first provider checks before adding more string/binary kernels under `PERF-RUNTIME-7B` or later kernel registry work. | No provider-backed byte-length claim until null/binary/string parity tests and certificates select the provider. |
+| `byte_length()` expression | `current_runtime_drop_decision` for dictionary-derived length routes | Keep the existing ShardLoom dictionary-derived length/transform paths selected for current aggregate routes because they compute once per dictionary value and avoid row string materialization. Use Vortex `byte_length()` only for a non-dictionary UTF-8/binary route where provider parity and UAT prove it removes materialization without slowing dictionary-heavy lanes. | No provider-backed byte-length claim until null/binary/string parity tests, execution certificates, and route evidence select the provider for a concrete non-regressing lane. |
 | Binary zstd schemes and row-oriented byte encoder surfaces | `native_provider_candidate` | Feed `PROD-READY-1A` Vortex-native/compatibility output fidelity, compression metadata preservation, row encoder write-path evaluation, and publication-proof sink attribution. | No compression or row-encoder performance claim until write/replay evidence and TranslationReports prove the selected path. |
 | Arrow device export, GPU/device paths, JNI, cuDF C FFI | `blocked_until_vortex_or_shardloom_evidence` | Future accelerator/device-residency track only. Keep blocked unless a phase adds device memory ownership, CPU fallback refusal, certificates, and package/build policy. | No GPU/device support claim. |
 | DataFusion 54 integration items | `baseline_or_oracle_only` | External comparison or differential oracle context only. Must never execute unsupported ShardLoom runtime work or residual evaluation. | No fallback execution, no ShardLoom runtime claim. |
@@ -179,12 +183,19 @@ Executable evidence surface:
 - Both reports are side-effect-free and report-only: `runtime_execution=false`, `data_read=false`,
   `data_decoded=false`, `data_materialized=false`, `external_engine_invoked=false`,
   `fallback_attempted=false`, and `claim_gate_status=not_claim_grade`.
-- The rows classify Vortex 0.75 grouped aggregate, validity/mask, branchless zip,
-  dictionary/FSST, and layout-cache surfaces as provider candidates; `byte_length()` as wrapped by
-  the existing ShardLoom binary byte-length kernel pending provider parity; and DataFusion 54
-  integration as baseline/oracle-only.
-- The local-I/O disposition rows classify layout-reader context/cache, JSON extension Arrow
-  import/export, WKB/geospatial extension preservation, Interleave encoding, binary
+- The rows classify branchless zip and dictionary/FSST surfaces as provider candidates; validity
+  mask and layout-cache as shared runtime evidence recorded; grouped aggregate and `byte_length()`
+  as explicit current-runtime drop
+  decisions; and DataFusion 54 integration as baseline/oracle-only. The grouped aggregate source
+  check keeps current flat-column SQL/Python/DataFrame aggregate routes on ShardLoom-native
+  capillary/hash state because Vortex grouped kernels consume already-grouped arrays. The
+  `byte_length()` source check keeps current dictionary-derived length/transform routes selected
+  because they compute once per dictionary value and avoid row string materialization. Separate
+  local primitive runtime tests now cover the scoped FSST string-contains path that uses Vortex's
+  `LikeKernel`; that evidence does not broaden the report-only provider-disposition rows into a
+  general grouped/string runtime claim.
+- The local-I/O disposition rows classify layout-reader context/cache as shared local-open runtime
+  evidence; JSON extension Arrow import/export, WKB/geospatial extension preservation, Interleave encoding, binary
   zstd/compression metadata, row-byte encoder, and broad validity/mask semantics as report-only
   provider candidates pending adapter/fidelity evidence; the narrower flat nullable columnar and
   Arrow dictionary utf8/binary columnar Vortex prepared-state writer lanes are admitted separately under
@@ -332,7 +343,7 @@ Classification vocabulary:
 | DuckDB tracing logger and projection simplification | `baseline_only` | External benchmark/baseline context only. | DuckDB must never execute unsupported ShardLoom work as fallback. |
 | TurboQuant | `runtime_opportunity` | Track under `GAR-RUNTIME-IMPL-4J` as a future encoded/kernel capability candidate after feature proof. | No GPU/vector/quantized execution claim. |
 | `UncompressedSize` aggregate | `runtime_opportunity` | Candidate evidence for source-state/layout metadata and benchmark attribution. | Metadata aggregate evidence only until tied to runtime correctness. |
-| Iterative execution for `SparseArray` | `runtime_opportunity` | Candidate for sparse/segment extraction follow-through under encoded kernel and source-backed scan slices. | Sparse traversal remains blocked without segment extraction certificates. |
+| Iterative execution for `SparseArray` | `runtime_opportunity` | Candidate for sparse/segment extraction follow-through under encoded kernel and source-backed scan slices. | Local non-null sparse patch/fill reader chunks are now admitted into encoded run-length kernel inputs; nullable/generalized sparse traversal remains gated. |
 | `VortexReadAt::read_at` result checking in I/O driver | `native_provider_candidate` | Map to `GAR-RUNTIME-IMPL-4H`, Native I/O certificate hardening, and scale/object-store ladder evidence. | I/O validation support does not imply object-store/table/runtime write support. |
 | CUDA FSST decompression and GPU fixes | `blocked` | Optional future accelerator context only. | No GPU execution, CUDA dependency, or performance claim. |
 | Pluggable struct cast | `runtime_opportunity` | Map to `GAR-RUNTIME-IMPL-4D` cast/coercion runtime and local writer/fanout schema conversion planning. | Not broad SQL-standard cast parity or SQL/DataFrame production support. |
@@ -383,38 +394,43 @@ Required blockers before any 0.71 item becomes executable:
 ### Array APIs
 - Public API names discovered: `vortex::array::ArrayRef::len`, `ArrayRef::dtype`,
   `ArrayRef::encoding_id`, `ArrayRef::nchildren`, `ArrayRef::nbuffers`, `ArrayRef::named_children`,
-  `ArrayRef::as_constant`, `ArrayRef::as_opt::<Dict>`, `ArrayRef::as_opt::<RunEnd>`, and direct host
-  primitive buffers for dictionary codes/values and run ends/values.
+  `ArrayRef::as_constant`, `ArrayRef::as_opt::<Dict>`, `ArrayRef::as_opt::<Sparse>`,
+  `ArrayRef::as_opt::<RunEnd>`, and direct host primitive buffers for dictionary codes/values,
+  sparse patch indices/values, and run ends/values.
 - Use now: yes, only in feature-gated local primitive scan evidence and direct
-  constant/dictionary/run-end reader-chunk kernel-input lowering where upstream APIs expose
-  whole-chunk values, dictionary slots, or run-end slots without decode/materialization.
+  constant/dictionary/sparse/run-end reader-chunk kernel-input lowering where upstream APIs expose
+  whole-chunk values, dictionary slots including nullable codes/values, sparse patch/fill slots, or
+  run-end slots including nullable values without decode/materialization.
 - Stability: acceptable only for narrow local evidence; broad encoded-value extraction remains
   staged.
-- Adapter support: local reader chunk evidence plus constant, dictionary, and run-end lowering; real
-  payload write path remains future, feature-gated, and explicitly approved.
+- Adapter support: local reader chunk evidence plus constant, dictionary, sparse patch/fill, and
+  run-end lowering; real payload write path remains future, feature-gated, and explicitly approved.
 - Risks: `scalar_at`, `execute_scalar`, canonicalization, Arrow execution, validity row reads,
-  nullable dictionary/RLE handling, sparse patch/fill interpretation, and broad child traversal can
-  silently become row/decode/materialization behavior if admitted without separate evidence.
+  nullable sparse handling, and broad child traversal can silently become
+  row/decode/materialization behavior if admitted without separate evidence.
 
 ### Encoding APIs
-- Public API names discovered: `DictArray` slots (`codes`, `values`) and `RunEndArray` slots
-  (`ends`, `values`, `offset`) for narrow no-decode local reader-chunk lowering.
-- Use now: yes, for non-null host primitive dictionary and run-end arrays only; sparse and other
+- Public API names discovered: `DictArray` slots (`codes`, `values`), `Sparse` patches
+  (`indices`, `values`, `offset`) and fill scalar, and `RunEndArray` slots (`ends`, `values`,
+  `offset`) for narrow no-decode local reader-chunk lowering.
+- Use now: yes, for host primitive/UTF-8 dictionary arrays including nullable codes/values, non-null
+  sparse patch/fill arrays, and run-end arrays including nullable values; nullable sparse and other
   encodings remain blocked.
 - Stability: partially acceptable for feature-gated local evidence; broad encoding mapping remains
   staged.
 - Adapter support: planned beyond the narrow local lowering path.
-- Risks: encoding taxonomy drift, nullable validity handling, sparse patch/fill semantics, and
+- Risks: encoding taxonomy drift, nullable validity handling, generalized sparse semantics, and
   device/non-host buffers require separate evidence before support claims.
 
 ### Layout APIs
 - Public API names discovered: not confirmed yet.
 - Use now: yes, via temporary name-based mapping only.
 - Stability: partially acceptable for placeholders.
-- Adapter support: planned; sparse patch/fill segment extraction is explicitly blocked by
-  `shardloom.vortex_segment_extraction_admission.v1` until certificate-backed layout semantics,
-  validity handling, and materialization/decode evidence exist.
-- Risks: layout labels may change; sparse patch/fill traversal can silently become decoded,
+- Adapter support: scoped. Local non-null sparse patch/fill reader chunks are admitted by
+  `shardloom.vortex_segment_extraction_admission.v1` into encoded run-length kernel inputs;
+  nullable/generalized sparse layout extraction still requires certificate-backed validity handling
+  and materialization/decode evidence.
+- Risks: layout labels may change; generalized sparse traversal can silently become decoded,
   materialized, or canonicalized execution if admitted without separate evidence.
 
 ### Statistics APIs

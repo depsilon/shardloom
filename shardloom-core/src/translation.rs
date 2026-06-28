@@ -148,7 +148,7 @@ impl OutputTargetKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompatibilityOutputWriterSupportStatus {
     NativeVortexReference,
-    LocalFixtureSmoke,
+    LocalCompatibilityExportAdmitted,
     ReportOnlyBlocked,
     Unsupported,
 }
@@ -157,7 +157,7 @@ impl CompatibilityOutputWriterSupportStatus {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::NativeVortexReference => "native_vortex_reference",
-            Self::LocalFixtureSmoke => "local_fixture_smoke",
+            Self::LocalCompatibilityExportAdmitted => "local_compatibility_export_admitted",
             Self::ReportOnlyBlocked => "report_only_blocked",
             Self::Unsupported => "unsupported",
         }
@@ -167,7 +167,7 @@ impl CompatibilityOutputWriterSupportStatus {
     pub const fn claim_gate_status(&self) -> &'static str {
         match self {
             Self::NativeVortexReference => "scoped_native_vortex_evidence",
-            Self::LocalFixtureSmoke => "fixture_smoke_only",
+            Self::LocalCompatibilityExportAdmitted => "not_claim_grade",
             Self::ReportOnlyBlocked | Self::Unsupported => "not_claim_grade",
         }
     }
@@ -212,25 +212,39 @@ impl CompatibilityOutputWriterMatrixRow {
         }
     }
 
-    fn local_fixture_smoke(target_kind: OutputTargetKind) -> Self {
+    fn local_compatibility_export_admitted(target_kind: OutputTargetKind) -> Self {
         let target = target_kind.as_str().to_string();
         let implementation_ref = match &target_kind {
-            OutputTargetKind::Csv => "shardloom-vortex traditional analytics CSV writer",
-            OutputTargetKind::JsonLines => "shardloom-vortex traditional analytics JSONL writer",
-            OutputTargetKind::Parquet => "parquet::arrow::ArrowWriter",
-            OutputTargetKind::ArrowIpc => "arrow_ipc::writer::FileWriter",
-            OutputTargetKind::Avro => "arrow_avro::writer::AvroWriter",
-            OutputTargetKind::Orc => "orc_rust Arrow writer",
+            OutputTargetKind::Csv => "native/prepared Vortex-derived CSV compatibility writer",
+            OutputTargetKind::JsonLines => {
+                "native/prepared Vortex-derived JSONL compatibility writer"
+            }
+            OutputTargetKind::Parquet => {
+                "native/prepared Vortex-derived Parquet compatibility writer"
+            }
+            OutputTargetKind::ArrowIpc => {
+                "native/prepared Vortex-derived Arrow IPC compatibility writer"
+            }
+            OutputTargetKind::Avro => "native/prepared Vortex-derived Avro compatibility writer",
+            OutputTargetKind::Orc => "native/prepared Vortex-derived ORC compatibility writer",
             _ => "unsupported compatibility writer",
+        };
+        let feature_gate = match &target_kind {
+            OutputTargetKind::Csv | OutputTargetKind::JsonLines => "release-user-surfaces",
+            OutputTargetKind::Parquet
+            | OutputTargetKind::ArrowIpc
+            | OutputTargetKind::Avro
+            | OutputTargetKind::Orc => "universal-format-io",
+            _ => "unsupported",
         };
         Self {
             target_kind,
-            writer_id: format!("{target}_local_benchmark_writer"),
-            support_status: CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke,
-            feature_gate: Some("vortex-traditional-analytics-benchmark".to_string()),
+            writer_id: format!("{target}_local_compatibility_export_writer"),
+            support_status: CompatibilityOutputWriterSupportStatus::LocalCompatibilityExportAdmitted,
+            feature_gate: Some(feature_gate.to_string()),
             implementation_ref: implementation_ref.to_string(),
             evidence_ref:
-                "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs"
+                "local_output_sink_scope_report,public_workflow_route_tests,compatibility_output_translation_report_validation"
                     .to_string(),
             metadata_loss_reported: true,
             local_file_output: true,
@@ -239,7 +253,7 @@ impl CompatibilityOutputWriterMatrixRow {
             fallback_attempted: false,
             external_engine_invoked: false,
             claim_boundary: format!(
-                "local traditional-analytics fixture smoke for {target} only; no production sink, object-store, or lakehouse claim"
+                "local {target} compatibility export is admitted only after native/prepared Vortex execution with explicit metadata-loss and materialization evidence; no object-store, lakehouse table commit, broad schema, performance, or production claim"
             ),
         }
     }
@@ -305,12 +319,24 @@ impl CompatibilityOutputWriterMatrixReport {
     pub fn current() -> Self {
         let rows = vec![
             CompatibilityOutputWriterMatrixRow::native_vortex_reference(),
-            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::Csv),
-            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::JsonLines),
-            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::Parquet),
-            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::ArrowIpc),
-            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::Avro),
-            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::Orc),
+            CompatibilityOutputWriterMatrixRow::local_compatibility_export_admitted(
+                OutputTargetKind::Csv,
+            ),
+            CompatibilityOutputWriterMatrixRow::local_compatibility_export_admitted(
+                OutputTargetKind::JsonLines,
+            ),
+            CompatibilityOutputWriterMatrixRow::local_compatibility_export_admitted(
+                OutputTargetKind::Parquet,
+            ),
+            CompatibilityOutputWriterMatrixRow::local_compatibility_export_admitted(
+                OutputTargetKind::ArrowIpc,
+            ),
+            CompatibilityOutputWriterMatrixRow::local_compatibility_export_admitted(
+                OutputTargetKind::Avro,
+            ),
+            CompatibilityOutputWriterMatrixRow::local_compatibility_export_admitted(
+                OutputTargetKind::Orc,
+            ),
             CompatibilityOutputWriterMatrixRow::blocked_table_target(
                 OutputTargetKind::IcebergCompatible,
             ),
@@ -340,11 +366,12 @@ impl CompatibilityOutputWriterMatrixReport {
     }
 
     #[must_use]
-    pub fn local_fixture_smoke_count(&self) -> usize {
+    pub fn local_compatibility_export_admitted_count(&self) -> usize {
         self.rows
             .iter()
             .filter(|row| {
-                row.support_status == CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke
+                row.support_status
+                    == CompatibilityOutputWriterSupportStatus::LocalCompatibilityExportAdmitted
             })
             .count()
     }
@@ -372,11 +399,12 @@ impl CompatibilityOutputWriterMatrixReport {
     }
 
     #[must_use]
-    pub fn local_fixture_smoke_kind_order(&self) -> Vec<String> {
+    pub fn local_compatibility_export_admitted_kind_order(&self) -> Vec<String> {
         self.rows
             .iter()
             .filter(|row| {
-                row.support_status == CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke
+                row.support_status
+                    == CompatibilityOutputWriterSupportStatus::LocalCompatibilityExportAdmitted
             })
             .map(|row| row.target_kind.as_str().to_string())
             .collect()
@@ -405,11 +433,11 @@ impl CompatibilityOutputWriterMatrixReport {
             CompatibilityOutputWriterMatrixRow::to_human_text,
         );
         format!(
-            "compatibility_output_writer_matrix\nschema_version={}\nreport_id={}\nrow_count={}\nlocal_fixture_smoke_count={}\nblocked_count={}\ntarget_row={}\nfallback_execution_allowed={}\nfallback_attempted={}\nexternal_engine_invoked={}\nperformance_claim_allowed={}\nproduction_output_claim_allowed={}\nlakehouse_table_commit_claim_allowed={}",
+            "compatibility_output_writer_matrix\nschema_version={}\nreport_id={}\nrow_count={}\nlocal_compatibility_export_admitted_count={}\nblocked_count={}\ntarget_row={}\nfallback_execution_allowed={}\nfallback_attempted={}\nexternal_engine_invoked={}\nperformance_claim_allowed={}\nproduction_output_claim_allowed={}\nlakehouse_table_commit_claim_allowed={}",
             self.schema_version,
             self.report_id,
             self.rows.len(),
-            self.local_fixture_smoke_count(),
+            self.local_compatibility_export_admitted_count(),
             self.blocked_count(),
             target_row,
             self.fallback_execution_allowed,
@@ -1133,7 +1161,7 @@ mod tests {
         assert!(r.has_metadata_loss());
     }
     #[test]
-    fn compatibility_output_writer_matrix_marks_arrow_ipc_local_smoke() {
+    fn compatibility_output_writer_matrix_marks_arrow_ipc_local_export_admitted() {
         let report = CompatibilityOutputWriterMatrixReport::current();
         let row = report
             .row_for_kind(&OutputTargetKind::ArrowIpc)
@@ -1141,19 +1169,16 @@ mod tests {
 
         assert_eq!(
             row.support_status,
-            CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke
+            CompatibilityOutputWriterSupportStatus::LocalCompatibilityExportAdmitted
         );
-        assert_eq!(
-            row.feature_gate.as_deref(),
-            Some("vortex-traditional-analytics-benchmark")
-        );
+        assert_eq!(row.feature_gate.as_deref(), Some("universal-format-io"));
         assert!(row.local_file_output);
         assert!(!row.object_store_output);
         assert!(!row.table_commit_semantics);
         assert!(row.metadata_loss_reported);
         assert!(!row.fallback_attempted);
         assert!(!row.external_engine_invoked);
-        assert_eq!(row.support_status.claim_gate_status(), "fixture_smoke_only");
+        assert_eq!(row.support_status.claim_gate_status(), "not_claim_grade");
     }
     #[test]
     fn compatibility_output_writer_matrix_blocks_lakehouse_commit_targets() {
@@ -1182,7 +1207,7 @@ mod tests {
     fn compatibility_output_writer_matrix_preserves_global_claim_boundaries() {
         let report = CompatibilityOutputWriterMatrixReport::current();
 
-        assert_eq!(report.local_fixture_smoke_count(), 6);
+        assert_eq!(report.local_compatibility_export_admitted_count(), 6);
         assert_eq!(report.blocked_count(), 2);
         assert!(!report.fallback_execution_allowed);
         assert!(!report.fallback_attempted);
