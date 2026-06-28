@@ -7688,31 +7688,37 @@ fn columnar_stream_source_prefers_full_embedded_text_metadata(
         .is_some_and(|rows| rows >= LOCAL_OLAP_MEDIUM_SOURCE_ROW_THRESHOLD)
         || source.source_stream_batch_size
             >= shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS;
-    let text_or_time_profile = source.header.iter().any(|column| {
-        layout_text_domain_column_name(column) || layout_time_bucket_column_name(column)
-    });
     medium_or_larger
-        && text_or_time_profile
-        && !columnar_stream_source_has_source_native_derived_metadata(source)
+        && (columnar_stream_source_has_missing_source_native_text_metadata(source)
+            || columnar_stream_source_has_missing_source_native_time_metadata(source))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn columnar_stream_source_has_source_native_derived_metadata(
+fn columnar_stream_source_has_missing_source_native_text_metadata(
     source: &shardloom_vortex::FlatLocalColumnarStreamSource,
 ) -> bool {
-    source
-        .header
-        .iter()
-        .zip(source.column_arrow_dtypes.iter())
-        .filter_map(|(column, dtype)| dtype.as_ref().map(|dtype| (column.as_str(), dtype)))
-        .any(|(column, dtype)| source_native_embedded_derived_column(column, dtype))
+    source.header.iter().enumerate().any(|(index, column)| {
+        layout_text_domain_column_name(column)
+            && !source
+                .column_arrow_dtypes
+                .get(index)
+                .and_then(Option::as_ref)
+                .is_some_and(is_dictionary_utf8_arrow_dtype)
+    })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn source_native_embedded_derived_column(column: &str, data_type: &DataType) -> bool {
-    (layout_text_domain_column_name(column) && is_dictionary_utf8_arrow_dtype(data_type))
-        || (layout_time_bucket_column_name(column)
-            && is_source_native_extract_minute_arrow_dtype(data_type))
+fn columnar_stream_source_has_missing_source_native_time_metadata(
+    source: &shardloom_vortex::FlatLocalColumnarStreamSource,
+) -> bool {
+    source.header.iter().enumerate().any(|(index, column)| {
+        layout_time_bucket_column_name(column)
+            && !source
+                .column_arrow_dtypes
+                .get(index)
+                .and_then(Option::as_ref)
+                .is_some_and(is_source_native_extract_minute_arrow_dtype)
+    })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -43758,6 +43764,129 @@ mod tests {
         assert_eq!(domain_values.value(0), "google.com");
         assert_eq!(domain_values.value(1), "example.com");
         assert!(domains.is_null(2));
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn source_native_time_does_not_suppress_missing_text_domain_metadata() {
+        use arrow_array::types::Int32Type;
+        use arrow_array::{
+            Array as _, DictionaryArray, Int64Array, RecordBatch, RecordBatchReader,
+        };
+        use arrow_array::{StringArray, UInt32Array};
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("EventTime", DataType::Int64, false),
+            Field::new("Referer", DataType::Utf8, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(vec![60_i64, 121, 180])),
+                Arc::new(StringArray::from(vec![
+                    Some("https://www.google.com/search"),
+                    Some("https://example.com/page"),
+                    None,
+                ])),
+            ],
+        )
+        .expect("record batch");
+        let source = shardloom_vortex::FlatLocalColumnarStreamSource {
+            header: vec!["EventTime".to_string(), "Referer".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Int64), Some(LogicalDType::Utf8)],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(DataType::Utf8)],
+            materialized_columns: vec!["EventTime".to_string(), "Referer".to_string()],
+            reader_projection_columns: vec!["EventTime".to_string(), "Referer".to_string()],
+            row_count_hint: Some(100_000_000),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size:
+                shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 3)]),
+            source_stream_unit_hint_kind: "test_time_plus_text_record_batch".to_string(),
+            source_stream_policy: "test_time_plus_text_units".to_string(),
+            source_dictionary_preservation_status:
+                "parquet_arrow_reader_preserves_source_native_time_metadata".to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_time_plus_text_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            reader: Box::new(TestRecordBatchReader {
+                schema,
+                batches: VecDeque::from([batch]),
+            }),
+        };
+
+        let mut source =
+            with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
+
+        assert!(
+            source
+                .source_dictionary_preservation_status
+                .contains("embedded_derived_column_mode=full_adapter"),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().clone())
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"__shardloom_derived_extract_minute_EventTime".to_string()));
+        assert!(names.contains(&"__shardloom_derived_utf8_len_Referer".to_string()));
+        assert!(names.contains(&"__shardloom_derived_url_domain_Referer".to_string()));
+
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        let lengths = batch
+            .column(4)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("length dictionary");
+        let length_values = lengths
+            .values()
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .expect("length dictionary values");
+        assert_eq!(
+            length_values.value(0),
+            u32::try_from("https://www.google.com/search".len()).expect("length")
+        );
+        let domains = batch
+            .column(5)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("domain dictionary");
+        let domain_values = domains
+            .values()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("domain values");
+        assert_eq!(domain_values.value(0), "google.com");
     }
 
     #[test]

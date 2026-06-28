@@ -253,14 +253,11 @@ Current autonomous execution order:
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. Work `RUNTIME-GAP-NATIVE-VORTEX-OPERATOR-COVERAGE-1` first because source/sink/operator
-   coverage is the shared dependency for SQL, Python, DataFrame, CLI, and ClickBench lanes.
-3. Work `RUNTIME-GAP-FRONT-DOOR-SHARED-RUNTIME-PARITY-1` after native coverage changes so public
-   surface aliases converge onto the same Vortex-normalized runtime families.
-4. Work `RUNTIME-GAP-OUTPUT-SINK-FANOUT-1` after shared runtime parity so writes/fanout use the
-   same source/prepared/output evidence boundary.
-5. Work `RUNTIME-GAP-MEMORY-SPILL-FAULT-TOLERANCE-1` after the operator and sink boundaries are
-   stable enough to attach memory, spill, cancellation, and cleanup evidence.
+2. Work `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` because the latest local full-43 UAT is correct
+   and passing but still tail-bound by reusable high-cardinality/string/grouped-state lanes.
+3. Promote the next concrete shared-runtime implementation item from the standing owner after the
+   current measured tail-lane slice either ships or is dropped. Completed runtime-gap rows live in
+   the completed ledger, not in this compact Planned queue.
 
 - [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
   gaps.
@@ -291,305 +288,62 @@ Current autonomous execution order:
   - Fallback boundary: this owner does not execute runtime work and preserves
     `fallback_attempted=false` / `external_engine_invoked=false` in its validators.
 
-- [ ] `RUNTIME-GAP-NATIVE-VORTEX-OPERATOR-COVERAGE-1` Burn down native Vortex
-  source/sink/operator and encoded execution coverage gaps through shared runtime families.
-  - Source: `target/runtime-gap-family-burn-down-current.json` rows in the
-    `native_vortex_operator_runtime` family, including global review lines 95, 116, 162, 183, and
-    956.
-  - Current state: the latest local 100M UAT proves strong shared native Vortex paths for many
-    ClickBench lanes, but the global review still records non-universal source/sink/operator,
-    segment-extraction, predicate, DType, nested/null, and compressed encoded execution coverage.
-    The next work should convert concrete blockers into native runtime evidence or deterministic
-    admission denial, not add route labels.
-  - V1 scope classification: `required_for_v1` for locally feasible source/sink/operator coverage;
-    external object-store or production platform proof remains outside this item.
-  - ShardLoom technique review: use metadata-first planning, embedded `.vortex` statistics/layout
-    metadata, dictionary/encoded kernels, selection vectors, row-ref materialization, capillary
-    operator units, PulseWeave state budgets, and evidence-tier controls where they reduce real
-    work. Check upstream Vortex providers before adding ShardLoom-specific primitives, and never use
-    Vortex query-engine integrations as fallback.
+- [ ] `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` Reduce the current >10s local 100M native
+  Vortex query tails through shared dictionary, aggregate-state, and transform machinery.
+  - Source: latest local Desktop full-43 UAT
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_q29_uncached_faststate_20260628T065223Z/summary.json`.
+  - Current state: full 43-query local UAT passes with `43/43` successful queries, total
+    `204.849571s`, geomean `1.387733s`, `max_parallelism=2`, `memory_gb=8`, one
+    `34.93GB` `.vortex` artifact, `fallback_attempted=false`, and
+    `external_engine_invoked=false`. Remaining >10s lanes are `CB-Q34` `27.449s`,
+    `CB-Q35` `27.175s`, `CB-Q17` `16.509s`, `CB-Q29` `14.215s`, `CB-Q33` `11.125s`,
+    `CB-Q23` `10.667s`, and `CB-Q19` `10.272s`.
+  - V1 scope classification: `required_for_v1` for locally feasible shared runtime speedups that
+    preserve current results; official ClickBench submission and superiority claims remain outside
+    this item.
+  - ShardLoom technique review: apply only optimizations that remove a dominant cost class in the
+    shared Vortex-normalized middle: metadata-first segment pruning, dictionary-code execution,
+    capillary partial aggregates, packed-key state, transform-code reuse, row-ref late
+    materialization, PulseWeave resource envelopes, and evidence-tier controls. Do not add
+    query-answer sidecars, ClickBench-specific shortcuts, external engines, or front-door-specific
+    routes.
   - Execution checklist:
-    - [x] Generate and inspect the current native operator/source/sink blocker matrix from existing
-      capability reports, Vortex runtime reports, and UAT evidence.
-    - [x] Classify blockers into `already_runtime`, `feasible_now`, `external_gated`, or
-      `unsafe_semantics`, with exact files and diagnostics for each row.
-      Evidence: `native_unsupported_coverage` now keeps object-store, table/catalog, streaming,
-      unstructured media, external effects, live/distributed/remote, best-default-claim, and broad
-      operator/SQL/DataFrame claims explicitly unsupported, while local Vortex artifact writes and
-      Vortex-derived compatibility exports are no longer duplicated as unsupported sink rows.
-    - [x] Reclassify stale local Vortex Source/Split admission evidence from
-      fixture-smoke/generalized-blocked to local runtime admitted, while keeping object-store,
-      table/catalog, remote split serialization, and remote Native I/O proof external-gated.
-    - [x] Align Vortex runtime-utilization audit rows so local scan/source/split usage is
-      `partial_runtime_evidence` rather than `planned_runtime_provider`, while dynamic predicate
-      ordering and remote/object-store evidence remain gated.
-    - [x] Promote the selected local Vortex I/O reader lane from fixture-smoke posture to
-      feature-gated runtime evidence with no generalized-reader blocker, while keeping broad
-      schema/remote reader claims gated.
-    - [x] Promote local non-null Vortex sparse patch/fill reader chunks into reader-generated
-      ShardLoom run-length encoded kernel inputs with no fallback, update the segment-extraction
-      admission report to `scoped_feature_gated_runtime`, and keep nullable/generalized sparse
-      layout extraction gated.
-    - [x] Promote Vortex dictionary reader chunks with nullable codes/values and run-end chunks
-      with nullable values into the shared encoded kernel-input path, preserving encoded nulls in
-      `EncodedValueBatch` instead of blocking the reader chunks.
-    - [x] Add focused runtime evidence that FSST string-contains lanes use Vortex's native
-      `LikeKernel` through shared local primitive helpers without row materialization or fallback;
-      keep broad dictionary/FSST provider-disposition rows gated until grouped/top-K parity and
-      benchmark evidence prove wider admission.
-    - [x] Promote Vortex 0.75 mask `AllTrue`/`AllFalse`/`true_count` semantics into shared
-      masked dictionary/FSST/direct UTF-8 contains fast paths so empty/full filter masks avoid
-      per-row string work, while keeping broader nullable aggregate/runtime claims gated until
-      lane-specific null-semantics and benchmark evidence exist.
-    - [x] Evaluate Vortex 0.75 `byte_length()` for length/string-transform lanes and record a
-      current-runtime drop decision rather than a provider gate for current routes: ShardLoom's
-      existing dictionary-derived length, transformed-dictionary general measure, and compact
-      code-pair partial paths compute once per dictionary value and avoid row string materialization
-      for the relevant SQL/Python/DataFrame aggregate shapes. Revisit only if a non-dictionary
-      UTF-8 lane has UAT evidence showing Vortex `byte_length()` removes materialization without
-      slowing the dictionary-heavy lanes.
-    - [x] Evaluate Vortex 0.75 grouped `count`/primitive `sum` kernels and keep the current
-      ShardLoom capillary/hash grouped-aggregate state selected for flat-column SQL/Python/
-      DataFrame routes: upstream grouped kernels operate on already-grouped list/fixed-size-list
-      values, so wrapping them before ShardLoom builds group state would add a list-construction
-      phase for the current ClickBench-style lanes. Record the row as a current-runtime drop
-      decision and revisit only for routes that already carry pre-grouped Vortex list arrays or can
-      prove grouped-list construction is cheaper than the existing packed-key/dictionary-code/
-      capillary state.
-    - [x] Promote Vortex 0.75 layout-reader/child-cache provider disposition from candidate-only to
-      shared runtime evidence recorded: shared local Vortex open paths use
-      `with_layout_reader_cache()`, embedded layout reports emit `layout_reader_cache_status`, and
-      focused local primitive tests prove no decode/materialization/fallback for metadata-pruned
-      routes. Keep broad layout-cache performance claims gated until UAT/benchmark evidence proves
-      a concrete lane improvement.
-    - [x] Implement the highest-value `feasible_now` native Vortex provider/operator/sink coverage
-      in shared `shardloom-vortex`/CLI runtime helpers, not benchmark-only paths.
-      Evidence: the shared Native I/O report now marks `local_vortex_artifact_sink` as
-      `runtime_supported` and `compatibility_export_sink` as
-      `local_compatibility_export_admitted`, with local-output/translation certificate refs and no
-      unsupported diagnostic, matching the existing public write/fanout runtime contract.
-    - [x] Add focused Rust tests proving no fallback, native Vortex input/output, correct decoded
-      references where applicable, and deterministic blockers for any remaining unsupported shape.
-      Evidence: `shardloom-core` Native I/O report tests, `native_io_envelope_plan_snapshots`,
-      `compute_capability_matrix_snapshots`, `typed_envelope_compatibility_lock`, and
-      `typed_envelope_contract_snapshots` cover the changed row counts/status fields.
-    - [x] Update capability/status/release evidence so supported rows are not reported as
-      diagnostic-only, and real external-gated rows keep stable blocker IDs.
-      Evidence: `compute-capability-matrix` now reports 21 unsupported rows with sink count 3,
-      removes the duplicate compatibility-export sink blocker, and labels remaining scalar and
-      SQL/DataFrame rows as broad unsupported claims rather than the admitted local primitive/front
-      door subset.
-    - [x] Run focused native Vortex validators and any targeted UAT needed to prove the changed
-      operator family is faster or at least not slower.
-      Evidence: focused Rust report/snapshot tests, `python3
-      scripts/check_compatibility_output_translation_reports.py`, `python3
-      scripts/check_v1_local_output_sink_scope.py`, and `python3
-      scripts/check_runtime_gap_family_burn_down.py` pass locally. `python3
-      scripts/check_v1_local_resource_safety.py --skip-build --binary
-      target/release-user-surfaces-validation/debug/shardloom` also passes after building the
-      feature-gated CLI with rustup stable in an isolated target directory.
+    - [ ] Inspect the current route/evidence for each >10s lane and classify its dominant cost as
+      string heavy-hitter recount, transformed dictionary grouping, high-cardinality packed-key
+      state, or bounded materialization.
+    - [ ] Implement one cohesive shared-runtime optimization that applies to at least two of the
+      remaining >10s lanes, or explicitly drop it with targeted UAT evidence if it regresses.
+    - [ ] Preserve the single `.vortex` artifact contract: any new metadata must be embedded in the
+      artifact or computed run-locally from existing Vortex state, never kept as a query-specific
+      sidecar.
+    - [ ] Add or update focused Rust tests for the changed primitive route, including no-fallback,
+      decoded-reference correctness where applicable, and evidence fields that show whether the
+      optimization shipped or was dropped.
+    - [ ] Run targeted UAT for the affected lanes before a full replacement/full-43 UAT; retain only
+      changes that improve or hold the current best timing within expected local variance.
+    - [ ] Update `docs/benchmarks/clickbench-100m-uat-burndown.json` and completed-ledger evidence
+      with the ship/drop decision and timing deltas.
     - [ ] Move the completed summary to the ledger after merge.
-  - Next outcome: one cohesive PR that closes at least one concrete native Vortex operator/source or
-    sink coverage family with runtime evidence and updates the blocker matrix.
-  - User-visible surface: Vortex-native CLI, SQL/Python/DataFrame routes after normalization,
-    capability reports, benchmark/UAT evidence.
-  - Implementation scope: `shardloom-vortex/src`, `shardloom-cli/src`, capability/report scripts,
-    focused Rust tests, and release/status docs generated from those reports.
-  - Evidence required: Native I/O certificates, operator blocker matrix, encoded/residual/
-    materialized mode evidence, decoded-reference checks, and no-fallback evidence.
-  - Acceptance: locally feasible native Vortex blockers are either implemented with shared runtime
-    evidence or reclassified with concrete external/unsafe reasons; no successful route reports
-    external engine invocation or hidden fallback.
-  - Verification: `cargo test -p shardloom-vortex ...`, `cargo test -p shardloom-cli vortex_...`,
-    `python3 scripts/check_runtime_gap_family_burn_down.py`,
-    `python3 scripts/check_user_route_capability_report.py`, plus targeted UAT only for touched
-    query/operator lanes.
-  - Non-goals: no broad official ClickBench claim, no production object-store claim, no
-    DataFusion/DuckDB/Polars/pandas/Spark fallback, no query-answer sidecars.
-  - Claim boundary: scoped native Vortex runtime evidence only.
-  - Fallback boundary: successful and blocked routes must preserve `fallback_attempted=false` and
-    `external_engine_invoked=false`.
-  - Ledger rule: move completed detail to
-    `docs/architecture/phased-execution-completed-ledger.md`.
-
-- [ ] `RUNTIME-GAP-FRONT-DOOR-SHARED-RUNTIME-PARITY-1` Close SQL/Python/DataFrame/CLI
-  front-door breadth gaps by converging aliases onto shared Vortex-normalized runtime families.
-  - Source: `target/runtime-gap-family-burn-down-current.json` rows in the
-    `language_front_door_runtime` family, including global review lines 66, 1278, 1342, and 1480.
-  - Current state: `scripts/check_sql_python_dataframe_parity.py` and route-capability reports pass
-    for the current scoped rows, and the Python user-surface gate passes once CI-style release
-    dry-run evidence exists. Remaining global review rows still describe broad language/runtime
-    breadth rather than a completed public semantic matrix.
-  - V1 scope classification: `required_for_v1` for feasible local SQL/Python/DataFrame/CLI
-    semantics that lower into existing shared runtime families; arbitrary UDFs, notebooks, and
-    platform-dependent surfaces stay out of this item.
-  - ShardLoom technique review: front doors should be syntax/ergonomics wrappers. SQL text,
-    Python lazy calls, DataFrame-style method chains, and CLI commands must converge after source
-    admission on the same Vortex-prepared plan, physical policy, sink, materialization boundary,
-    and evidence vocabulary.
-  - Execution checklist:
-    - [x] Inspect parity and Python user-surface reports for any public alias, method, SQL shape, or
-      CLI spelling that still maps to a facade-only path.
-    - [x] Promote feasible aliases into shared runtime lowering or remove/rename obsolete facade
-      rows that imply a separate execution path.
-    - [x] Add or update parity tests for equivalent SQL, Python, DataFrame-style, and CLI shapes
-      over the same prepared Vortex source.
-    - [x] Ensure deterministic unsupported diagnostics remain only for unsafe/external semantics,
-      with stable blocker IDs and concrete next actions.
-    - [x] Update README/docs/user-surface references if public examples or method availability
-      changes.
-    - [x] Re-run parity, Python user-surface, and route-capability validators.
-    - [ ] Move the completed summary to the ledger after merge.
-  - Next outcome: public surface choice is demonstrably preference-level syntax for the next
-    admitted runtime family, not an alternate execution stack.
-  - User-visible surface: README examples, Python API, SQL CLI, DataFrame-style helpers, route and
-    capability reports.
-  - Implementation scope: `python/src/shardloom/query.py`, `python/src/shardloom/context.py`,
-    `python/src/shardloom/session.py`, `shardloom-cli/src/sql_local_source_runtime.rs`, parity
-    validators, and focused tests.
-  - Evidence required: positive parity fixtures, decoded-reference expectations, deterministic
-    blockers, no-fallback evidence, and release dry-run transcript when Python package gates run.
-  - Acceptance: all admitted equivalent front-door shapes lower to the same runtime family and
-    report matching fallback/external-engine status.
-  - Verification: `python3 scripts/check_sql_python_dataframe_parity.py`,
-    `python3 scripts/check_python_user_surface_completion.py`,
-    `python3 scripts/check_user_route_capability_report.py`, and focused Python/Rust tests for the
-    touched method or SQL family.
-  - Non-goals: no broad pandas/Polars compatibility claim, no broad ANSI SQL claim, no notebook or
-    arbitrary callable/UDF execution.
-  - Claim boundary: scoped public front-door runtime parity only.
-  - Fallback boundary: front-door wrappers must not invoke pandas, Polars, DuckDB, Spark,
-    DataFusion, Velox, or another external execution engine.
-  - Ledger rule: move completed detail to
-    `docs/architecture/phased-execution-completed-ledger.md`.
-
-- [ ] `RUNTIME-GAP-OUTPUT-SINK-FANOUT-1` Promote production output, fanout, and user-facing write
-  runtime through shared Vortex-normalized sink contracts.
-  - Source: `target/runtime-gap-family-burn-down-current.json` rows in the `output_sink_runtime`
-    and `io_reuse_fanout_followthrough` families, including global review lines 205 and 1876.
-  - Current state: local Vortex output, JSONL/CSV-style compatibility sinks, and selected fanout
-    evidence exist, but broad production output sink APIs, object-store output, replay/fidelity
-    proof, and cross-format fanout follow-through are still claim-gated.
-  - V1 scope classification: `required_for_v1` for local/native/compatibility sinks feasible in
-    this repo; production object-store credentials and platform writes remain external-gated unless
-    a local isolated provider fixture proves them.
-  - ShardLoom technique review: use capillary sink units, metadata-first output planning,
-    PulseWeave sink pressure, route timing surface separation, and explicit metadata-loss evidence.
-    Compatibility export is translation, not fallback execution.
-  - Execution checklist:
-    - [x] Inventory current `write`, `write_jsonl`, `write_csv`, native Vortex output, and fanout
-      routes across SQL/Python/DataFrame/CLI surfaces.
-    - [x] Collapse equivalent sinks onto shared output planning and sink artifact helpers.
-      Evidence: local write/fanout method rows, public workflow route rows, and the
-      compatibility-output writer matrix now distinguish admitted Vortex-derived local
-      compatibility exports from blocked table/object-store sink work instead of preserving stale
-      fixture-smoke wording.
-    - [x] Add replay/fidelity and metadata preservation/loss evidence for each admitted sink
-      family.
-    - [x] Add focused tests for native Vortex output, compatibility output, fanout partial-failure
-      handling, and deterministic blockers for external/platform writes.
-    - [x] Update capability/release docs so local sinks are not underclaimed and external sinks are
-      not overclaimed.
-    - [x] Run output/fanout validators and focused sink tests.
-    - [ ] Move the completed summary to the ledger after merge.
-  - Next outcome: local/user-facing writes and fanout share one output contract with explicit
-    artifact, replay, metadata, and no-fallback evidence.
-  - User-visible surface: Python `write*` helpers, CLI output commands, native Vortex output,
-    compatibility exports, fanout reports.
-  - Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, `shardloom-vortex/src`,
-    `python/src/shardloom/session.py`, output/fanout reports, docs/release status files, and tests.
-  - Evidence required: OutputPlan, sink artifact proof, replay/fidelity checks, metadata-loss
-    report, and no-fallback evidence.
-  - Acceptance: admitted local sinks are runtime-backed, external/platform writes fail closed with
-    deterministic diagnostics, and fanout does not hide partial writes or fallback execution.
-  - Verification: focused output/fanout Rust and Python tests,
-    `python3 scripts/check_user_route_capability_report.py`, and release readiness validators
-    touched by sink status.
-  - Non-goals: no production cloud/object-store write claim without isolated provider evidence, no
-    compatibility export as execution fallback.
-  - Claim boundary: scoped local sink/fanout runtime evidence only.
-  - Fallback boundary: output translation must keep `fallback_attempted=false` and
-    `external_engine_invoked=false`.
-  - Ledger rule: move completed detail to
-    `docs/architecture/phased-execution-completed-ledger.md`.
-
-- [ ] `RUNTIME-GAP-MEMORY-SPILL-FAULT-TOLERANCE-1` Attach real bounded memory, spill, adaptive,
-  retry, cancellation, commit, and cleanup evidence to shared runtime operators.
-  - Source: `target/runtime-gap-family-burn-down-current.json` rows in the
-    `spill_fault_tolerance_runtime` family, including global review lines 376, 416, and 432.
-  - Current state: memory/resource evidence and local safety reports exist, but broad runtime
-    spill/OOM enforcement, adaptive execution, runtime filters, skew handling, compaction writes,
-    retry, cancellation, and commit execution are still incomplete.
-  - V1 scope classification: `required_for_v1` for locally feasible bounded-memory and cleanup
-    guarantees on shared operators; distributed shuffle/cluster runtime remains external-gated.
-  - ShardLoom technique review: use PulseWeave resource envelopes, ScarcityLedger-style pressure
-    evidence, capillary work-unit retry/idempotency state, ProofBound-safe adaptation, spill-backed
-    native state where needed, and deterministic pre-OOM blockers.
-  - Execution checklist:
-    - [x] Inventory current resource-envelope, memory, spill, cancellation, retry, and cleanup
-      evidence across native Vortex operators and sinks.
-      Evidence: `shardloom-exec` memory/recovery/PulseWeave models, public native Vortex
-      primitive resource-envelope/state-budget fields, pre-OOM fixture, retry/cancellation gates,
-      and local output/prepared-state cleanup reports are now referenced by the v1 local
-      resource-safety gate.
-    - [x] Choose one shared high-risk operator or sink family and add real memory reservation,
-      pressure, pre-OOM, cancellation, and cleanup evidence.
-      Evidence: the v1 local resource-safety gate now executes a public native Vortex aggregate
-      route through `run cli` and validates its shared resource envelope, memory-admission
-      decision, reservation-release proof, scalar aggregate state-budget, spill fail-closed policy,
-      native I/O certificate, and no-fallback evidence alongside the deterministic pre-OOM, retry,
-      cancellation, and cleanup reports.
-    - [x] Implement spill-backed exact state only where a local workload proves in-memory state is
-      unsafe or materially slower than bounded spill.
-      Evidence: no admitted local aggregate/sink route currently proves in-memory state unsafe or
-      slower than bounded spill; existing `shardloom-exec` spill payload primitives remain
-      synthetic/planning support, so the runtime contract stays bounded-memory admission plus
-      deterministic pre-OOM/spill-required fail-closed diagnostics rather than adding slower or
-      unproven spill I/O to the hot path.
-    - [x] Add tests for deterministic pre-OOM denial, cleanup after cancellation/error, and no
-      external fallback.
-      Evidence: existing Rust pre-OOM/retry/cancellation gate tests plus
-      `scripts/check_v1_local_resource_safety.py` now validate the admitted public native Vortex
-      aggregate resource route and fail closed if fallback/external-engine, spill I/O, missing
-      memory-admission, or missing reservation-release evidence appears.
-    - [x] Update status/release docs so synthetic-only safety rows are not mistaken for production
-      runtime proof.
-      Evidence: `docs/architecture/v1-local-resource-safety.md`,
-      `docs/release/hard-release-readiness-gate.md`, `scripts/check_v1_local_resource_safety.py`,
-      and `scripts/check_release_readiness.py` now require the admitted public native Vortex
-      aggregate resource route in addition to planning-only gates.
-    - [x] Run focused memory/fault-tolerance tests and targeted UAT for the changed route if it
-      affects query timing.
-      Evidence: `python3 scripts/check_v1_local_output_sink_scope.py` passes, and the focused Rust
-      pre-OOM/resource route tests pass. `python3
-      scripts/check_v1_local_resource_safety.py --skip-build --binary
-      target/release-user-surfaces-validation/debug/shardloom` passes against a feature-built CLI
-      produced with `CARGO_TARGET_DIR=target/release-user-surfaces-validation CARGO_INCREMENTAL=0
-      CARGO_BUILD_JOBS=1
-      ~/.cargo/bin/cargo +stable build -q -p shardloom-cli --features
-      "release-user-surfaces vortex-traditional-analytics-benchmark"`.
-    - [ ] Move the completed summary to the ledger after merge.
-  - Next outcome: the first shared operator/sink family has runtime memory/fault-tolerance proof
-    instead of report-only posture.
-  - User-visible surface: memory/spill diagnostics, runtime reports, benchmark safety rows, CLI and
-    Python evidence envelopes.
-  - Implementation scope: `shardloom-cli/src/cg14_memory_runtime_hardening.rs`,
-    `shardloom-cli/src/fault_tolerance_promotion_gate.rs`, `shardloom-exec/src`, native Vortex
-    operator/sink helpers, and tests.
-  - Evidence required: memory reservation proof, pre-OOM deterministic blocker, spill cleanup
-    proof, cancellation/retry state evidence, and no-fallback evidence.
-  - Acceptance: at least one shared runtime family has concrete bounded-memory/fault-tolerance
-    execution evidence, and remaining families are classified with exact blockers or promoted
-    checklist rows.
-  - Verification: focused memory/fault-tolerance Rust tests, `cargo test -p shardloom-exec` where
-    touched, and `python3 scripts/check_runtime_gap_family_burn_down.py`.
-  - Non-goals: no distributed runtime, no external shuffle/storage fallback, no broad production
-    HA claim.
-  - Claim boundary: scoped local memory/fault-tolerance runtime evidence only.
-  - Fallback boundary: memory pressure, retry, and commit failures must fail deterministically
-    before fallback, external delegation, or process OOM where the route is admitted.
-  - Ledger rule: move completed detail to
-    `docs/architecture/phased-execution-completed-ledger.md`.
+  - Next outcome: one coherent performance PR that improves shared native Vortex tail-lane behavior
+    without sacrificing the current fast lanes or artifact contract.
+  - User-visible surface: SQL/Python/DataFrame/CLI all benefit through the same prepared/native
+    Vortex primitive routes; UAT artifacts show CLI/runtime evidence.
+  - Implementation scope: `shardloom-vortex/src/local_primitives.rs`, physical-policy/resource
+    helpers, focused Rust tests, ClickBench UAT burndown docs, and generated evidence only where the
+    changed route requires it.
+  - Evidence required: per-lane before/after timings, route evidence, materialization/decode
+    posture, no-fallback fields, correctness tests, and ship/drop rationale.
+  - Acceptance: at least one >10s lane improves materially without a material regression in another
+    affected lane, or the attempted optimization is removed and documented as dropped with evidence.
+  - Verification: focused Rust tests for the changed primitive, targeted local UAT for affected
+    `CB-Q*` lanes, `python3 scripts/check_runtime_gap_family_burn_down.py`,
+    `PYTHONPATH=scripts python3 scripts/check_v1_inclusion_scope.py`, and full 43-query UAT only at
+    the end of a cohesive performance batch.
+  - Non-goals: no full workspace test suite for a ship/drop probe, no official ClickBench claim, no
+    query-answer cache, no hidden sidecar, no DataFusion/DuckDB/Polars/pandas/Spark fallback.
+  - Claim boundary: local Desktop UAT optimization evidence only.
+  - Fallback boundary: every successful and dropped route must preserve `fallback_attempted=false`
+    and `external_engine_invoked=false`.
 
 ## Completed
 
