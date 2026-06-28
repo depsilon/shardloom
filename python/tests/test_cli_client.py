@@ -1900,7 +1900,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "claim_gate_status", "value": "not_claim_grade"},
                     ]
                 },
                 "lifecycle": {"fields": []},
@@ -9573,7 +9573,7 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertTrue(report.write_io)
             self.assertFalse(report.foundry_runtime_invoked)
             self.assertFalse(report.foundry_output_api_invoked)
-            self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+            self.assertEqual(report.claim_gate_status, "not_claim_grade")
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
             self.assertTrue((result_dataset / "_dataset_metadata.json").exists())
