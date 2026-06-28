@@ -6429,9 +6429,7 @@ fn infer_native_vortex_sql_provider_payload(
             NativeVortexOperationFamily::Cast,
             "malformed-timestamp-dirty-csv",
         )
-    } else if compact.contains("nested_payload")
-        && (compact.contains("like'%target%'") || compact.contains("contains('target')"))
-    {
+    } else if sql_contains_nested_payload_target_predicate(statement, &compact) {
         (
             NativeVortexOperationFamily::Contains,
             "nested-json-field-scan",
@@ -8856,6 +8854,22 @@ fn sql_without_string_literal_contents(value: &str) -> String {
         }
     }
     masked
+}
+
+fn sql_contains_nested_payload_target_predicate(
+    statement: &str,
+    compact_without_literals: &str,
+) -> bool {
+    if !compact_without_literals.contains("nested_payload") {
+        return false;
+    }
+    let compact = compact_ascii_lower(statement);
+    compact.contains("nested_payloadlike'%target%'")
+        || compact.contains("f.nested_payloadlike'%target%'")
+        || compact.contains("nested_payloadcontains('target')")
+        || compact.contains("f.nested_payloadcontains('target')")
+        || compact.contains("contains(nested_payload,'target')")
+        || compact.contains("contains(f.nested_payload,'target')")
 }
 
 fn summary_tiny_predicate_from_sql(value: &str) -> Option<String> {
@@ -15079,6 +15093,44 @@ mod tests {
         assert_eq!(field(&fields, "vortex_primitive"), "count_where");
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
         assert_eq!(field(&fields, "vortex_aggregate_present"), "false");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-production-runtime")]
+    #[test]
+    fn route_planner_infers_native_vortex_sql_nested_payload_contains_provider_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--input",
+                "events.vortex",
+                "--input-format",
+                "vortex",
+                "--sql",
+                "SELECT id, nested_payload FROM 'events.vortex' WHERE nested_payload LIKE '%target%' LIMIT 100",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL nested-payload contains provider route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Success);
+        assert_eq!(plan.route_id, "native_vortex_user_contains");
+        assert_eq!(
+            field(&fields, "native_vortex_provider_scenario"),
+            "nested-json-field-scan"
+        );
+        assert_eq!(field(&fields, "native_vortex_operation_family"), "contains");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
