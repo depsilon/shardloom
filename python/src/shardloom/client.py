@@ -11811,6 +11811,106 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))
 
+    def generated_source_user_rows_smoke(
+        self,
+        output_path: str | os.PathLike[str],
+        schema_arg: str,
+        rows_arg: str,
+        *,
+        source_kind: str = "user_rows",
+        output_format: str = "jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Compatibility alias for generated_source_user_rows_runtime."""
+
+        return self.generated_source_user_rows_runtime(
+            output_path,
+            schema_arg,
+            rows_arg,
+            source_kind=source_kind,
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def generated_source_range_smoke(
+        self,
+        output_path: str | os.PathLike[str],
+        start: int,
+        end: int,
+        *,
+        step: int = 1,
+        column: str = "value",
+        output_format: str = "jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Compatibility alias for generated_source_range_runtime."""
+
+        return self.generated_source_range_runtime(
+            output_path,
+            start,
+            end,
+            step=step,
+            column=column,
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def generated_source_sequence_smoke(
+        self,
+        output_path: str | os.PathLike[str],
+        start: int,
+        end: int,
+        *,
+        step: int = 1,
+        column: str = "value",
+        output_format: str = "jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Compatibility alias for generated_source_sequence_runtime."""
+
+        return self.generated_source_sequence_runtime(
+            output_path,
+            start,
+            end,
+            step=step,
+            column=column,
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def generated_source_sql_smoke(
+        self,
+        output_path: str | os.PathLike[str],
+        statement: str,
+        *,
+        output_format: str = "jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Compatibility alias for generated_source_sql_runtime."""
+
+        return self.generated_source_sql_runtime(
+            output_path,
+            statement,
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def local_source_runtime(
         self,
         statement: str,

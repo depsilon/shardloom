@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `RUNTIME-GAP-NATIVE-VORTEX-OPERATOR-COVERAGE-1`,
+      `RUNTIME-GAP-FRONT-DOOR-SHARED-RUNTIME-PARITY-1`,
+      `RUNTIME-GAP-OUTPUT-SINK-FANOUT-1`, and
+      `RUNTIME-GAP-MEMORY-SPILL-FAULT-TOLERANCE-1` closed the current native Vortex runtime-gap
+      batch, including the current `VORTEX-075-NATIVE-PROVIDER-UTILIZATION-18` provider
+      ship/drop decisions.
+  - Date: 2026-06-28
+  - PR/merge: PR `#1371`, merged to `main` as
+    `061060c5 [codex] Close native Vortex runtime gap evidence`.
+  - Completed phase-plan rows:
+    - `RUNTIME-GAP-NATIVE-VORTEX-OPERATOR-COVERAGE-1`
+    - `RUNTIME-GAP-FRONT-DOOR-SHARED-RUNTIME-PARITY-1`
+    - `RUNTIME-GAP-OUTPUT-SINK-FANOUT-1`
+    - `RUNTIME-GAP-MEMORY-SPILL-FAULT-TOLERANCE-1`
+    - `VORTEX-075-NATIVE-PROVIDER-UTILIZATION-18`
+  - Completed scope:
+    - Promoted stale local Vortex source/split/reader admission evidence from fixture-smoke or
+      generalized-blocked posture into feature-gated local runtime evidence while keeping
+      object-store, catalog/table, remote split, remote Native I/O, broad schema, and broad operator
+      claims explicitly gated.
+    - Promoted local non-null sparse patch/fill, nullable dictionary chunks, and nullable run-end
+      chunks into shared encoded kernel inputs that preserve encoded nulls in `EncodedValueBatch`
+      without reporting fallback or row-materialized execution.
+    - Wired focused FSST/string-contains evidence through Vortex's native `LikeKernel`, Vortex 0.75
+      mask `AllTrue`/`AllFalse`/`true_count` semantics, and shared local primitive helpers while
+      recording current-runtime drop decisions for `byte_length()` and grouped list aggregate
+      providers that would add more work to the current flat-column routes.
+    - Promoted shared local Native I/O sink evidence so `local_vortex_artifact_sink` is
+      `runtime_supported` and the compatibility export sink is
+      `local_compatibility_export_admitted`, with output/translation certificates and no duplicate
+      unsupported sink blocker.
+    - Closed public front-door parity rows so admitted SQL, Python, DataFrame-style, and CLI aliases
+      converge on shared Vortex-normalized runtime families and release dry-run/user-surface
+      validators read those rows as supported instead of facade-only paths.
+    - Closed local output/fanout sink posture so native Vortex output and compatibility exports
+      share output planning, replay/fidelity, metadata-preservation/loss, and no-fallback evidence
+      while platform/object-store writes remain deterministic external-gated rows.
+    - Attached public native Vortex aggregate resource evidence to the v1 local resource-safety gate:
+      resource envelope, memory admission, reservation release, scalar aggregate state budget,
+      spill fail-closed posture, native I/O certificate, and no-fallback fields are all validated
+      through a real `run cli` route.
+  - Focused validation evidence:
+    - `PYTHONPATH=scripts python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_python_user_surface_completion_can_read_method_rows_statically`
+    - `python3 scripts/run_python_test_shard.py --shard release_scripts`
+    - `PYTHONPATH=python/src:scripts python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_foundry_generated_output_uses_local_style_dataset_route`
+    - `python3 scripts/run_python_test_shard.py --shard core`
+    - `CARGO_TARGET_DIR=target/rustup-baseline-test-validation CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=1 ~/.cargo/bin/cargo +stable test -q -p shardloom-cli --test capability_discovery_snapshots`
+    - `CARGO_TARGET_DIR=target/rustup-baseline-test-validation CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=1 ~/.cargo/bin/cargo +stable test -q -p shardloom-contract-tests --test release_readiness_metadata`
+    - `~/.cargo/bin/cargo +stable fmt --all -- --check`
+    - `CARGO_TARGET_DIR=target/rustup-clippy-validation CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=1 ~/.cargo/bin/cargo +stable clippy --workspace --all-targets -- -D warnings`
+    - `git diff --check`
+    - PR `#1371` GitHub checks were green before merge, including Rust baseline, feature matrix,
+      Python compatibility shards, release user-surface evidence, release runtime core evidence,
+      release readiness reports, CodeQL, package/governance evidence, and website/docs validation.
+  - Claim boundary:
+    - Local/shared runtime evidence only. This closes stale underclaiming and completed runtime-gap
+      bookkeeping for locally feasible Vortex-native, front-door, sink/fanout, and resource-safety
+      rows; it does not make official ClickBench, production object-store, platform, broad SQL,
+      broad pandas/Polars, arbitrary UDF, or superiority claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, or another external
+      engine was added or invoked as ShardLoom runtime fallback. Successful and blocked routes keep
+      `fallback_attempted=false` and `external_engine_invoked=false` evidence.
+  - Residual work:
+    - `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains active as the standing owner for unchecked global
+      architecture runtime-gap families. New concrete shared-runtime work should be promoted from
+      that owner into the compact phase plan when a remaining unchecked global-review row is ready
+      for implementation.
+
 - [x] `CLICKBENCH-AGGREGATE-PREDICATE-PUSHDOWN-19` restored native aggregate scalar predicate
   pushdown and transformed-dictionary general-measure fast state.
   - Date: 2026-06-28

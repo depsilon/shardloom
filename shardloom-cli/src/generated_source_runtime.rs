@@ -31,6 +31,7 @@ use crate::{
 };
 
 const USER_ROWS_COMMAND: &str = "generated-source-user-rows";
+pub(crate) const USER_ROWS_SMOKE_ALIAS_COMMAND: &str = "generated-source-user-rows-smoke";
 const USER_ROWS_SCHEMA_VERSION: &str = "shardloom.generated_source_user_rows_runtime.v1";
 const USER_ROWS_GENERATED_SOURCE_CERTIFICATE_ID: &str =
     "generated-source.user-rows.local-output.v1";
@@ -40,12 +41,14 @@ const USER_ROWS_EXECUTION_CERTIFICATE_ID: &str =
     "generated-source.user-rows.local-output.execution.v1";
 
 const RANGE_COMMAND: &str = "generated-source-range";
+pub(crate) const RANGE_SMOKE_ALIAS_COMMAND: &str = "generated-source-range-smoke";
 const RANGE_SCHEMA_VERSION: &str = "shardloom.generated_source_range_runtime.v1";
 const RANGE_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.range.local-output.v1";
 const RANGE_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
     "generated-source.range.local-output.native-io.v1";
 const RANGE_EXECUTION_CERTIFICATE_ID: &str = "generated-source.range.local-output.execution.v1";
 const SEQUENCE_COMMAND: &str = "generated-source-sequence";
+pub(crate) const SEQUENCE_SMOKE_ALIAS_COMMAND: &str = "generated-source-sequence-smoke";
 const SEQUENCE_SCHEMA_VERSION: &str = "shardloom.generated_source_sequence_runtime.v1";
 const SEQUENCE_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.sequence.local-output.v1";
 const SEQUENCE_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
@@ -55,6 +58,7 @@ const SEQUENCE_EXECUTION_CERTIFICATE_ID: &str =
 const MAX_GENERATED_RANGE_ROWS: usize = 1_000_000;
 
 const SQL_COMMAND: &str = "generated-source-sql";
+pub(crate) const SQL_SMOKE_ALIAS_COMMAND: &str = "generated-source-sql-smoke";
 const SQL_SCHEMA_VERSION: &str = "shardloom.generated_source_sql_runtime.v1";
 const SQL_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.sql.local-output.v1";
 const SQL_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str = "generated-source.sql.local-output.native-io.v1";
@@ -668,6 +672,18 @@ pub(crate) fn handle_generated_source_user_rows_runtime(
     )
 }
 
+pub(crate) fn handle_generated_source_user_rows_smoke_alias(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_generated_source_user_rows_runtime_with_facade(
+        args,
+        format,
+        USER_ROWS_SMOKE_ALIAS_COMMAND,
+        Vec::new(),
+    )
+}
+
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_generated_source_user_rows_runtime_with_facade(
     mut args: impl Iterator<Item = String>,
@@ -847,11 +863,35 @@ pub(crate) fn handle_generated_source_range_runtime(
     handle_generated_source_range_runtime_with_facade(args, format, RANGE_COMMAND, Vec::new())
 }
 
+pub(crate) fn handle_generated_source_range_smoke_alias(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_generated_source_range_runtime_with_facade(
+        args,
+        format,
+        RANGE_SMOKE_ALIAS_COMMAND,
+        Vec::new(),
+    )
+}
+
 pub(crate) fn handle_generated_source_sequence_runtime(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
     handle_generated_source_sequence_runtime_with_facade(args, format, SEQUENCE_COMMAND, Vec::new())
+}
+
+pub(crate) fn handle_generated_source_sequence_smoke_alias(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_generated_source_sequence_runtime_with_facade(
+        args,
+        format,
+        SEQUENCE_SMOKE_ALIAS_COMMAND,
+        Vec::new(),
+    )
 }
 
 pub(crate) fn handle_generated_source_range_runtime_with_facade(
@@ -1118,6 +1158,18 @@ pub(crate) fn handle_generated_source_sql_runtime(
     format: OutputFormat,
 ) -> ExitCode {
     handle_generated_source_sql_runtime_with_facade(args, format, SQL_COMMAND, Vec::new())
+}
+
+pub(crate) fn handle_generated_source_sql_smoke_alias(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_generated_source_sql_runtime_with_facade(
+        args,
+        format,
+        SQL_SMOKE_ALIAS_COMMAND,
+        Vec::new(),
+    )
 }
 
 #[allow(clippy::too_many_lines)]

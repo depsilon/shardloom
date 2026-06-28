@@ -225,6 +225,50 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
 }
 
 #[test]
+fn generated_source_user_rows_smoke_alias_reuses_runtime_handler() {
+    let output_path = unique_output_path("generated-user-rows-alias");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-user-rows-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "id:int64,label:utf8",
+            "id=1,label=alpha",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-user-rows-smoke alias command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(written, "{\"id\":1,\"label\":\"alpha\"}\n");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains(&field(
+        "schema_version",
+        "shardloom.generated_source_user_rows_runtime.v1"
+    )));
+    assert!(stdout.contains(&field("command_family", "workflow_planning")));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
 #[cfg(not(feature = "vortex-write"))]
 fn generated_source_vortex_output_blocks_without_vortex_write_feature() {
     let output_path =

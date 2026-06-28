@@ -1051,14 +1051,26 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("generated-source-user-rows") => {
             generated_source_runtime::handle_generated_source_user_rows_runtime(args, format)
         }
+        Some("generated-source-user-rows-smoke") => {
+            generated_source_runtime::handle_generated_source_user_rows_smoke_alias(args, format)
+        }
         Some("generated-source-range") => {
             generated_source_runtime::handle_generated_source_range_runtime(args, format)
+        }
+        Some("generated-source-range-smoke") => {
+            generated_source_runtime::handle_generated_source_range_smoke_alias(args, format)
         }
         Some("generated-source-sequence") => {
             generated_source_runtime::handle_generated_source_sequence_runtime(args, format)
         }
+        Some("generated-source-sequence-smoke") => {
+            generated_source_runtime::handle_generated_source_sequence_smoke_alias(args, format)
+        }
         Some("generated-source-sql") => {
             generated_source_runtime::handle_generated_source_sql_runtime(args, format)
+        }
+        Some("generated-source-sql-smoke") => {
+            generated_source_runtime::handle_generated_source_sql_smoke_alias(args, format)
         }
         Some("local-source-runtime") => {
             sql_local_source_runtime::handle_local_source_runtime(args, format)

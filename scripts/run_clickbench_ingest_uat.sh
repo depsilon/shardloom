@@ -117,7 +117,7 @@ cmd=(
   --max-parallelism "$max_parallelism"
   --format json
 )
-if [[ "$replace_existing" != "true" ]]; then
+if [[ "$replace_existing" == "true" ]]; then
   cmd+=(--allow-overwrite)
 fi
 
@@ -130,7 +130,12 @@ json_escape() {
 
 file_size_bytes() {
   if [[ -e "$1" ]]; then
-    stat -f '%z' "$1"
+    local size
+    if size="$(stat -f '%z' "$1" 2>/dev/null)" && [[ "$size" =~ ^[0-9]+$ ]]; then
+      printf '%s' "$size"
+    else
+      stat -c '%s' "$1"
+    fi
   else
     printf '0'
   fi

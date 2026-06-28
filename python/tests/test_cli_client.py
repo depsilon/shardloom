@@ -4303,6 +4303,71 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
 
+    def test_generated_source_smoke_aliases_call_runtime_helpers(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                command = sys.argv[1]
+                expected_commands = {
+                    "generated-source-user-rows": "user_rows",
+                    "generated-source-range": "engine_native_range",
+                    "generated-source-sequence": "engine_native_sequence",
+                    "generated-source-sql": "engine_native_sql",
+                }
+                assert command in expected_commands, sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "generated source alias",
+                    "human_text": "generated source alias",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": sys.argv[2]},
+                        {"key": "output_format", "value": "jsonl"},
+                        {"key": "generated_source_kind", "value": expected_commands[command]},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        rows = client.generated_source_user_rows_smoke(
+            "target/generated-rows.jsonl",
+            "id:int64",
+            "id=1",
+        )
+        range_report = client.generated_source_range_smoke(
+            "target/generated-range.jsonl",
+            0,
+            1,
+        )
+        sequence = client.generated_source_sequence_smoke(
+            "target/generated-sequence.jsonl",
+            0,
+            1,
+        )
+        sql = client.generated_source_sql_smoke(
+            "target/generated-sql.jsonl",
+            "select 1 as id",
+        )
+
+        self.assertEqual(rows.envelope.command, "generated-source-user-rows")
+        self.assertEqual(range_report.envelope.command, "generated-source-range")
+        self.assertEqual(sequence.envelope.command, "generated-source-sequence")
+        self.assertEqual(sql.envelope.command, "generated-source-sql")
+        self.assertFalse(rows.fallback_attempted)
+        self.assertFalse(sql.external_engine_invoked)
+
     def test_generated_source_prepare_vortex_rejects_ambiguous_target_ownership(
         self,
     ) -> None:

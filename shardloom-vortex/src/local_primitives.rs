@@ -1420,10 +1420,27 @@ impl VortexLocalPrimitiveExecutionPolicy {
         self,
         request: &VortexQueryPrimitiveRequest,
     ) -> (Self, VortexLocalPrimitivePhysicalPolicyReport) {
+        self.with_physical_policy_for_request_and_writer_sink(request, false)
+    }
+
+    #[must_use]
+    pub fn with_writer_sink_physical_policy_for_request(
+        self,
+        request: &VortexQueryPrimitiveRequest,
+    ) -> (Self, VortexLocalPrimitivePhysicalPolicyReport) {
+        self.with_physical_policy_for_request_and_writer_sink(request, true)
+    }
+
+    fn with_physical_policy_for_request_and_writer_sink(
+        self,
+        request: &VortexQueryPrimitiveRequest,
+        writer_sink_declared: bool,
+    ) -> (Self, VortexLocalPrimitivePhysicalPolicyReport) {
         let mut envelope = self.resource_envelope;
         let requested_max_parallelism = self.max_parallelism;
         let mut row_ref_retention_enabled = false;
         let mut writer_coalescing_enabled = false;
+        let mut writer_sink_declared = writer_sink_declared;
         let mut rejected_alternatives = Vec::new();
         let (route_family, state_pressure_reason) = local_vortex_physical_policy_family(request);
 
@@ -1471,14 +1488,16 @@ impl VortexLocalPrimitiveExecutionPolicy {
                 rejected_alternatives.push("external_engine_materialization");
             }
             "writer_sink" => {
-                writer_coalescing_enabled = true;
-                envelope.writer_coalescing_target_bytes = envelope
-                    .writer_coalescing_target_bytes
-                    .max(
-                    VortexLocalPrimitiveResourceEnvelope::DEFAULT_WRITER_COALESCING_TARGET_BYTES,
-                );
+                writer_sink_declared = true;
             }
             _ => {}
+        }
+        if writer_sink_declared {
+            writer_coalescing_enabled = true;
+            envelope.writer_coalescing_target_bytes = envelope
+                .writer_coalescing_target_bytes
+                .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_WRITER_COALESCING_TARGET_BYTES);
+            rejected_alternatives.push("uncoalesced_writer_sink_flushes");
         }
 
         let report = VortexLocalPrimitivePhysicalPolicyReport::selected(
@@ -3382,7 +3401,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
+    let (policy, physical_policy) = policy.with_writer_sink_physical_policy_for_request(request);
     if request.kind == VortexQueryPrimitiveKind::PivotRows {
         return execute_vortex_local_pivot_row_export_enabled(
             request,
@@ -13888,6 +13907,14 @@ fn dictionary_kernel_input_from_vortex_array(
         if code_index >= dictionary.len() {
             return Ok(None);
         }
+        if dictionary
+            .get(code_index)
+            .and_then(Option::as_ref)
+            .is_none()
+        {
+            encoded_codes.push(None);
+            continue;
+        }
         encoded_codes.push(Some(code));
     }
     let null_count = encoded_codes
@@ -20479,6 +20506,7 @@ fn read_local_vortex_sort_rows_scan(
                             &sort_rows.order_by,
                             &candidate_order_column_indices,
                             retained_cap,
+                            sort_rows.tie_policy,
                         );
                     }
                     if sort_chunk_pruned_by_topk_threshold(
@@ -20559,6 +20587,7 @@ fn read_local_vortex_sort_rows_scan(
                     &sort_rows.order_by,
                     &candidate_order_column_indices,
                     retained_cap,
+                    sort_rows.tie_policy,
                 );
             }
             max_chunk_rows = max_chunk_rows.max(rows);
@@ -21148,6 +21177,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                             &sort_rows.order_by,
                             candidate_order_column_indices,
                             retained_cap,
+                            sort_rows.tie_policy,
                         );
                     }
                     if sort_chunk_pruned_by_topk_threshold(
@@ -21242,6 +21272,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                     &sort_rows.order_by,
                     candidate_order_column_indices,
                     retained_cap,
+                    sort_rows.tie_policy,
                 );
             }
             max_chunk_rows = max_chunk_rows.max(rows);
@@ -22103,18 +22134,13 @@ fn retain_sort_top_window(
     order_by: &[crate::VortexAggregateOrderExpr],
     order_column_indices: &[usize],
     retained_cap: usize,
+    tie_policy: VortexSortTiePolicy,
 ) {
     if retained_cap >= rows.len() {
         return;
     }
     rows.select_nth_unstable_by(retained_cap, |left, right| {
-        compare_sort_row_candidates(
-            left,
-            right,
-            order_by,
-            order_column_indices,
-            VortexSortTiePolicy::First,
-        )
+        compare_sort_row_candidates(left, right, order_by, order_column_indices, tie_policy)
     });
     rows.truncate(retained_cap);
 }
@@ -41077,6 +41103,31 @@ mod tests {
     }
 
     #[test]
+    fn physical_policy_writer_sink_overlay_preserves_route_family() {
+        let uri = DatasetUri::new("file:///tmp/policy-writer.vortex").expect("uri");
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            uri,
+            PredicateExpr::Compare {
+                column: ColumnRef::new("EventTime").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(0),
+            },
+            ProjectionRequest::all(),
+        );
+        let policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("resource policy");
+        let (_effective, report) = policy.with_writer_sink_physical_policy_for_request(&request);
+
+        assert_eq!(report.route_family, "stateless_scan_count");
+        assert!(report.writer_coalescing_enabled);
+        assert!(
+            report
+                .rejected_alternatives
+                .contains(&"uncoalesced_writer_sink_flushes".to_string())
+        );
+    }
+
+    #[test]
     fn physical_policy_classifies_string_and_numeric_utf8_heavy_hitters() {
         let uri = DatasetUri::new("file:///tmp/policy-heavy-hitter.vortex").expect("uri");
         let string_aggregate = VortexSimpleAggregateRequest::grouped(
@@ -43662,7 +43713,7 @@ mod tests {
                         Some(StatValue::Utf8("gamma".to_string())),
                     ]
                 );
-                assert_eq!(codes, &vec![Some(0), Some(1), Some(0)]);
+                assert_eq!(codes, &vec![Some(0), None, Some(0)]);
             }
             other => panic!("expected nullable utf8 dictionary batch, got {other:?}"),
         }
@@ -57522,6 +57573,43 @@ mod tests {
             )
             .expect("last tie pruning")
         );
+    }
+
+    #[test]
+    fn sort_rows_retention_window_preserves_last_tie_candidates() {
+        let order_by = vec![crate::VortexAggregateOrderExpr::new("metric", true)];
+        let tied_candidates = || {
+            vec![
+                SortRowCandidate {
+                    ordinal: 0,
+                    source_partition_index: 0,
+                    source_ordinal: 0,
+                    values: vec![StatValue::Int64(100)],
+                },
+                SortRowCandidate {
+                    ordinal: 1,
+                    source_partition_index: 0,
+                    source_ordinal: 1,
+                    values: vec![StatValue::Int64(100)],
+                },
+                SortRowCandidate {
+                    ordinal: 2,
+                    source_partition_index: 0,
+                    source_ordinal: 2,
+                    values: vec![StatValue::Int64(100)],
+                },
+            ]
+        };
+
+        let mut first = tied_candidates();
+        retain_sort_top_window(&mut first, &order_by, &[0], 1, VortexSortTiePolicy::First);
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].ordinal, 0);
+
+        let mut last = tied_candidates();
+        retain_sort_top_window(&mut last, &order_by, &[0], 1, VortexSortTiePolicy::Last);
+        assert_eq!(last.len(), 1);
+        assert_eq!(last[0].ordinal, 2);
     }
 
     #[test]

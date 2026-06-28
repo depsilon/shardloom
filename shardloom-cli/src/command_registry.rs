@@ -67,9 +67,13 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "agent-contract-pack",
     "python-wrapper-plan",
     "generated-source-user-rows",
+    "generated-source-user-rows-smoke",
     "generated-source-range",
+    "generated-source-range-smoke",
     "generated-source-sequence",
+    "generated-source-sequence-smoke",
     "generated-source-sql",
+    "generated-source-sql-smoke",
     "local-source-runtime",
     "vortex-prepare",
     "sqlite-local-import-export-smoke",
@@ -878,13 +882,16 @@ fn command_usage_fragment(command: &str) -> String {
         "rest-api-security-governance" => format!("{command} [safe-local-default|destructive-policy-required|agent-mcp-discovery]"),
         "rest-api-data-plane" => format!("{command} [artifact-reference-default|flight-ticket-requested|adbc-endpoint-requested|standards-matrix]"),
         "serve" => "serve --mode discovery [--bind host:port]".to_string(),
-        "generated-source-user-rows" => {
+        "generated-source-user-rows" | "generated-source-user-rows-smoke" => {
             format!("{command} <local-output-path> <schema> <rows>")
         }
-        "generated-source-range" | "generated-source-sequence" => {
+        "generated-source-range"
+        | "generated-source-range-smoke"
+        | "generated-source-sequence"
+        | "generated-source-sequence-smoke" => {
             format!("{command} <local-output-path> <start> <end>")
         }
-        "generated-source-sql" => {
+        "generated-source-sql" | "generated-source-sql-smoke" => {
             format!("{command} <local-output-path> <sql-statement>")
         }
         "local-source-runtime" => {
