@@ -5465,48 +5465,6 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     };
     let source_is_native_vortex =
         source_format_is_native_vortex || path_has_vortex_extension(&source_path);
-    if source_is_native_vortex {
-        if delta.is_some() {
-            return emit_error(
-                emit_command,
-                format,
-                "vortex prepare failed",
-                &ShardLoomError::InvalidOperation(
-                    "native Vortex artifact prepare does not accept differential compatibility-source options; use the existing .vortex artifact directly or provide a compatibility delta source; no fallback execution was attempted"
-                        .to_string(),
-                ),
-            );
-        }
-        let native_request = match shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
-            &source_path,
-            &target_path,
-            allow_overwrite,
-            shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
-            "vortex-write",
-            certification_level.as_str(),
-        ) {
-            Ok(request) => request,
-            Err(error) => {
-                return emit_error(emit_command, format, "vortex prepare failed", &error);
-            }
-        };
-        let report = match shardloom_vortex::prepare_native_vortex_artifact(&native_request) {
-            Ok(report) => report,
-            Err(error) => {
-                return emit_error(emit_command, format, "vortex prepare failed", &error);
-            }
-        };
-        emit(
-            emit_command,
-            format,
-            CommandStatus::Success,
-            report.summary(),
-            report.to_text(),
-            Vec::new(),
-            fields_with_extra(report.evidence_fields(), extra_fields),
-        );
-        return ExitCode::SUCCESS;
-    }
     let request = VortexIngestRequest {
         source_path,
         source_format_override,
@@ -5530,6 +5488,49 @@ pub(crate) fn handle_vortex_prepare_with_facade(
             fields_with_extra(vortex_ingest_feature_blocked_fields(&request), extra_fields),
         );
         return ExitCode::from(1);
+    }
+
+    if source_is_native_vortex {
+        if request.delta.is_some() {
+            return emit_error(
+                emit_command,
+                format,
+                "vortex prepare failed",
+                &ShardLoomError::InvalidOperation(
+                    "native Vortex artifact prepare does not accept differential compatibility-source options; use the existing .vortex artifact directly or provide a compatibility delta source; no fallback execution was attempted"
+                        .to_string(),
+                ),
+            );
+        }
+        let native_request = match shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
+            &request.source_path,
+            &request.target_path,
+            request.allow_overwrite,
+            shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
+            "vortex-write",
+            request.certification_level.as_str(),
+        ) {
+            Ok(request) => request,
+            Err(error) => {
+                return emit_error(emit_command, format, "vortex prepare failed", &error);
+            }
+        };
+        let report = match shardloom_vortex::prepare_native_vortex_artifact(&native_request) {
+            Ok(report) => report,
+            Err(error) => {
+                return emit_error(emit_command, format, "vortex prepare failed", &error);
+            }
+        };
+        emit(
+            emit_command,
+            format,
+            CommandStatus::Success,
+            report.summary(),
+            report.to_text(),
+            Vec::new(),
+            fields_with_extra(report.evidence_fields(), extra_fields),
+        );
+        return ExitCode::SUCCESS;
     }
 
     let outcome = match run_vortex_prepare_with_schema(request.clone(), &source_schema_hints) {
