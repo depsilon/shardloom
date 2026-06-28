@@ -8,7 +8,7 @@ Schema marker: `shardloom.public_status_matrix.v1`.
 
 This matrix is the source-owned public posture summary for the README, getting-started docs,
 Python README, release readiness docs, and website wording. It describes what a public reader may
-infer from the current repository state. v0.2.0 package channels are published where explicitly
+infer from the current repository state. v0.2.1 package channels are published where explicitly
 listed, but that does not authorize production support, benchmark superiority, Spark displacement,
 external execution, or fallback execution.
 
@@ -19,7 +19,7 @@ The active v1 queue and feasibility firewall is tracked in
 [`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md).
 The selected local/source/package v1 release track is tracked in
 [`docs/release/v1-local-source-package-release.md`](v1-local-source-package-release.md).
-Selected package channels are published for v0.2.0; real production environment gates remain
+Selected package channels are published for v0.2.1; real production environment gates remain
 blocked.
 The scoped local SQL/Python/DataFrame front-door runtime boundary is defined in
 [`docs/architecture/v1-front-door-runtime-scope.md`](../architecture/v1-front-door-runtime-scope.md).
@@ -39,7 +39,7 @@ support bundles remain local/redacted and remote telemetry/upload surfaces remai
 Public claim booleans remain fail-closed unless a later release-approved gate changes them:
 
 ```text
-package_publication_status=published_v0.2.0_selected_channels
+package_publication_status=published_v0.2.1_selected_channels
 public_package_release_claim_allowed=true
 public_release_claim_allowed=false
 public_package_claim_allowed=false
@@ -72,7 +72,7 @@ external_engine_invoked=false
 | Benchmarks | Promoted artifacts separate route lanes, timing surfaces, evidence tiers, and claim gates. | Evidence interpretation for hot runtime, replay proof, publication proof, and external baselines. | Public performance superiority, Spark displacement, stale-artifact claims, timing-surface substitution. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked for broader platform routes. | Capability posture, local fixture proof where explicitly named, blocked diagnostics. | Production platform/runtime claims and managed-service integrations. |
 | Website | Static public interpretation layer over checked-in source/evidence. | Claim-safe docs, use-case, benchmark, status, and architecture views. | Runtime expansion, package publication, public benchmark freshness beyond promoted artifacts. |
-| Package/release channels | v0.2.0 selected channels are published and proof-backed: GitHub pre-release assets, TestPyPI, PyPI, and Homebrew. | Install access through `gh release download v0.2.0`, `python -m pip install shardloom==0.2.0`, and `brew install depsilon/tap/shardloom`; channel proof refs remain checked in. | Scoop, winget, conda-forge, GHCR, crates.io, real production environment gates, signing/attestation expansion, and production/package-maturity claims remain blocked. |
+| Package/release channels | v0.2.1 selected channels are published and proof-backed: GitHub pre-release assets, TestPyPI, PyPI, and Homebrew. | Install access through `gh release download v0.2.1`, `python -m pip install shardloom==0.2.1`, and `brew install depsilon/tap/shardloom`; channel proof refs remain checked in. | Scoop, winget, conda-forge, GHCR, crates.io, real production environment gates, signing/attestation expansion, and production/package-maturity claims remain blocked. |
 
 ## Public Docs Ownership
 
@@ -110,6 +110,6 @@ external_engine_invoked=false
   policy.
 - Benchmark wording must state `timing_surface` and `claim_gate_status` before comparing numbers.
 - Package wording must distinguish source checkout, local wheel dry run, selected published
-  v0.2.0 channels, blocked future channels, and production/package-maturity claims.
+  v0.2.1 channels, blocked future channels, and production/package-maturity claims.
 - Website and docs changes must preserve `fallback_attempted=false` and
   `external_engine_invoked=false` for ShardLoom execution evidence.

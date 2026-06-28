@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from release_channel_contract import (
+    SELECTED_PACKAGE_RELEASE_VERSION,
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
     SELECTED_PACKAGE_RELEASE_TAG,
@@ -397,6 +398,44 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
                 blockers.append(prefix + "auth_provenance_requirement must mention Trusted Publisher/OIDC")
             if row.get("trusted_publisher_status") not in {"not_configured", "configured", "passed"}:
                 blockers.append(prefix + "trusted_publisher_status is invalid")
+            if is_ready:
+                if row.get("registry_artifact_digest_binding_status") != "passed":
+                    blockers.append(
+                        prefix
+                        + "ready=true requires registry_artifact_digest_binding_status=passed"
+                    )
+                if row.get("registry_install_cache_disabled") is not True:
+                    blockers.append(
+                        prefix + "ready=true requires registry_install_cache_disabled=true"
+                    )
+                if row.get("registry_download_isolated") is not True:
+                    blockers.append(
+                        prefix + "ready=true requires registry_download_isolated=true"
+                    )
+                if row.get("registry_download_cache_disabled") is not True:
+                    blockers.append(
+                        prefix + "ready=true requires registry_download_cache_disabled=true"
+                    )
+                if row.get("registry_install_from_downloaded_artifact") is not True:
+                    blockers.append(
+                        prefix
+                        + "ready=true requires registry_install_from_downloaded_artifact=true"
+                    )
+                if row.get("registry_install_cache_hit_detected") is not False:
+                    blockers.append(
+                        prefix + "ready=true requires registry_install_cache_hit_detected=false"
+                    )
+                for field in [
+                    "downloaded_registry_artifact_ref",
+                    "downloaded_registry_artifact_filename",
+                    "downloaded_registry_artifact_sha256",
+                    "installed_registry_artifact_ref",
+                    "installed_registry_artifact_filename",
+                    "installed_registry_artifact_sha256",
+                    "registry_release_artifacts_ref",
+                ]:
+                    if not _non_empty_string(row, field):
+                        blockers.append(prefix + f"ready=true requires {field}")
 
         if channel_id == "crates_io_future":
             claim_boundary = row.get("claim_boundary", "")
@@ -689,6 +728,7 @@ def python_registry_proof_blockers(
         blockers.append(f"{channel_id}: registry proof package_name must be shardloom")
     for field in [
         "proof_status",
+        "download_transcript_status",
         "install_transcript_status",
         "smoke_check_status",
         "uninstall_transcript_status",
@@ -710,8 +750,18 @@ def python_registry_proof_blockers(
     ]:
         if proof.get(field) is not False:
             blockers.append(f"{channel_id}: registry proof {field} must be false")
-    if require_prior_testpypi_ref and not proof.get("testpypi_proof_ref"):
-        blockers.append(f"{channel_id}: registry proof requires testpypi_proof_ref")
+    if require_prior_testpypi_ref:
+        expected_testpypi_ref = (
+            f"docs/release/channel-proofs/testpypi-"
+            f"{SELECTED_PACKAGE_RELEASE_TAG}-transcript.json"
+        )
+        if not proof.get("testpypi_proof_ref"):
+            blockers.append(f"{channel_id}: registry proof requires testpypi_proof_ref")
+        elif proof.get("testpypi_proof_ref") != expected_testpypi_ref:
+            blockers.append(
+                f"{channel_id}: registry proof testpypi_proof_ref must be "
+                f"{expected_testpypi_ref}"
+            )
     if proof.get("cli_binary_required_for_clean_registry_smoke") is not True:
         blockers.append(
             f"{channel_id}: registry proof must require an explicit ShardLoom CLI binary"
@@ -725,6 +775,114 @@ def python_registry_proof_blockers(
         )
     if not isinstance(proof.get("cli_binary_ref"), str) or not proof.get("cli_binary_ref"):
         blockers.append(f"{channel_id}: registry proof cli_binary_ref missing")
+    if proof.get("registry_artifact_digest_binding_status") != "passed":
+        blockers.append(
+            f"{channel_id}: registry proof registry_artifact_digest_binding_status="
+            + str(proof.get("registry_artifact_digest_binding_status", "missing"))
+        )
+    if proof.get("package_version") != SELECTED_PACKAGE_RELEASE_VERSION:
+        blockers.append(
+            f"{channel_id}: registry proof package_version must be "
+            f"{SELECTED_PACKAGE_RELEASE_VERSION}"
+        )
+    if proof.get("registry_install_cache_disabled") is not True:
+        blockers.append(f"{channel_id}: registry proof must disable pip cache")
+    if proof.get("registry_download_isolated") is not True:
+        blockers.append(f"{channel_id}: registry proof must use pip --isolated download")
+    if proof.get("registry_download_cache_disabled") is not True:
+        blockers.append(f"{channel_id}: registry proof download must disable pip cache")
+    if proof.get("registry_install_from_downloaded_artifact") is not True:
+        blockers.append(
+            f"{channel_id}: registry proof must install the downloaded registry artifact"
+        )
+    if proof.get("registry_install_cache_hit_detected") is True:
+        blockers.append(f"{channel_id}: registry proof must not use pip cache")
+    downloaded_filename = proof.get("downloaded_registry_artifact_filename")
+    if not isinstance(downloaded_filename, str):
+        blockers.append(f"{channel_id}: registry proof downloaded registry artifact missing")
+    elif f"-{SELECTED_PACKAGE_RELEASE_VERSION}-" not in downloaded_filename:
+        blockers.append(
+            f"{channel_id}: registry proof downloaded registry artifact must match "
+            f"{SELECTED_PACKAGE_RELEASE_VERSION}"
+        )
+    downloaded_sha256 = proof.get("downloaded_registry_artifact_sha256")
+    if not isinstance(downloaded_sha256, str):
+        blockers.append(
+            f"{channel_id}: registry proof downloaded registry artifact SHA256 missing"
+        )
+    artifact_filename = proof.get("installed_registry_artifact_filename")
+    if not isinstance(artifact_filename, str):
+        blockers.append(f"{channel_id}: registry proof installed registry artifact missing")
+    elif f"-{SELECTED_PACKAGE_RELEASE_VERSION}-" not in artifact_filename:
+        blockers.append(
+            f"{channel_id}: registry proof installed registry artifact must match "
+            f"{SELECTED_PACKAGE_RELEASE_VERSION}"
+        )
+    installed_sha256 = proof.get("installed_registry_artifact_sha256")
+    if not isinstance(installed_sha256, str):
+        blockers.append(f"{channel_id}: registry proof installed registry artifact SHA256 missing")
+    elif isinstance(downloaded_sha256, str) and installed_sha256 != downloaded_sha256:
+        blockers.append(
+            f"{channel_id}: registry proof installed SHA256 must match downloaded SHA256"
+        )
+    registry_artifacts = proof.get("registry_release_artifacts")
+    if not isinstance(registry_artifacts, list) or not registry_artifacts:
+        blockers.append(f"{channel_id}: registry proof registry_release_artifacts missing")
+    elif isinstance(downloaded_filename, str) and isinstance(downloaded_sha256, str):
+        registry_row = next(
+            (
+                row
+                for row in registry_artifacts
+                if isinstance(row, dict) and row.get("filename") == downloaded_filename
+            ),
+            None,
+        )
+        if registry_row is None:
+            blockers.append(
+                f"{channel_id}: downloaded registry artifact missing from registry JSON"
+            )
+        elif registry_row.get("sha256") != downloaded_sha256:
+            blockers.append(
+                f"{channel_id}: downloaded registry artifact SHA256 must match registry JSON"
+            )
+    return blockers
+
+
+def matrix_registry_artifact_blockers(
+    row: dict[str, Any] | None,
+    proof: dict[str, Any] | None,
+    *,
+    channel_id: str,
+) -> list[str]:
+    if row is None or proof is None or row.get("ready") is not True:
+        return []
+
+    installed_artifact = proof.get("installed_registry_artifact")
+    expected_values = {
+        "downloaded_registry_artifact_ref": proof.get("downloaded_registry_artifact_ref"),
+        "downloaded_registry_artifact_filename": proof.get(
+            "downloaded_registry_artifact_filename"
+        ),
+        "downloaded_registry_artifact_sha256": proof.get(
+            "downloaded_registry_artifact_sha256"
+        ),
+        "installed_registry_artifact_filename": proof.get(
+            "installed_registry_artifact_filename"
+        ),
+        "installed_registry_artifact_sha256": proof.get(
+            "installed_registry_artifact_sha256"
+        ),
+        "installed_registry_artifact_ref": installed_artifact.get("url")
+        if isinstance(installed_artifact, dict)
+        else None,
+    }
+
+    blockers: list[str] = []
+    for field, expected in expected_values.items():
+        if row.get(field) != expected:
+            blockers.append(
+                f"{channel_id}: matrix {field} must match registry proof transcript"
+            )
     return blockers
 
 
@@ -743,6 +901,7 @@ def python_registry_proof_summary(proof: dict[str, Any] | None) -> dict[str, Any
         "channel_id": proof.get("channel_id"),
         "package_name": proof.get("package_name"),
         "package_version": proof.get("package_version"),
+        "download_transcript_status": proof.get("download_transcript_status"),
         "install_transcript_status": proof.get("install_transcript_status"),
         "smoke_check_status": proof.get("smoke_check_status"),
         "uninstall_transcript_status": proof.get("uninstall_transcript_status"),
@@ -753,6 +912,29 @@ def python_registry_proof_summary(proof: dict[str, Any] | None) -> dict[str, Any
         "cli_binary_available": proof.get("cli_binary_available"),
         "cli_binary_ref": proof.get("cli_binary_ref"),
         "cli_binary_smoke_source": proof.get("cli_binary_smoke_source"),
+        "registry_artifact_digest_binding_status": proof.get(
+            "registry_artifact_digest_binding_status"
+        ),
+        "registry_download_isolated": proof.get("registry_download_isolated"),
+        "registry_download_cache_disabled": proof.get("registry_download_cache_disabled"),
+        "registry_install_from_downloaded_artifact": proof.get(
+            "registry_install_from_downloaded_artifact"
+        ),
+        "registry_install_cache_disabled": proof.get("registry_install_cache_disabled"),
+        "registry_install_cache_hit_detected": proof.get("registry_install_cache_hit_detected"),
+        "downloaded_registry_artifact_filename": proof.get(
+            "downloaded_registry_artifact_filename"
+        ),
+        "downloaded_registry_artifact_sha256": proof.get(
+            "downloaded_registry_artifact_sha256"
+        ),
+        "installed_registry_artifact_filename": proof.get(
+            "installed_registry_artifact_filename"
+        ),
+        "installed_registry_artifact_sha256": proof.get(
+            "installed_registry_artifact_sha256"
+        ),
+        "registry_release_artifact_count": proof.get("registry_release_artifact_count"),
     }
 
 
@@ -772,12 +954,26 @@ def validate_python_registry_package_proofs(
         blockers.extend(
             python_registry_proof_blockers(testpypi_proof, channel_id="testpypi")
         )
+        blockers.extend(
+            matrix_registry_artifact_blockers(
+                testpypi_row,
+                testpypi_proof,
+                channel_id="testpypi",
+            )
+        )
     if pypi_proof is not None:
         blockers.extend(
             python_registry_proof_blockers(
                 pypi_proof,
                 channel_id="pypi",
                 require_prior_testpypi_ref=True,
+            )
+        )
+        blockers.extend(
+            matrix_registry_artifact_blockers(
+                pypi_row,
+                pypi_proof,
+                channel_id="pypi",
             )
         )
     if testpypi_ready and testpypi_proof is None:
