@@ -2025,6 +2025,55 @@ fn vortex_upstream_local_io_disposition_rows() -> Vec<VortexUpstreamLocalIoDispo
     ]
 }
 
+#[deprecated(
+    since = "0.2.1",
+    note = "use VortexUpstreamHeavyOperatorSurface; the current provider version is reported separately"
+)]
+pub type Vortex075HeavyOperatorSurface = VortexUpstreamHeavyOperatorSurface;
+
+#[deprecated(
+    since = "0.2.1",
+    note = "use VortexUpstreamHeavyOperatorDispositionStatus; the current provider version is reported separately"
+)]
+pub type Vortex075HeavyOperatorDispositionStatus = VortexUpstreamHeavyOperatorDispositionStatus;
+
+#[deprecated(
+    since = "0.2.1",
+    note = "use VortexUpstreamHeavyOperatorDispositionRow; the current provider version is reported separately"
+)]
+pub type Vortex075HeavyOperatorDispositionRow = VortexUpstreamHeavyOperatorDispositionRow;
+
+#[deprecated(
+    since = "0.2.1",
+    note = "use VortexUpstreamHeavyOperatorProviderDispositionReport; the current provider version is reported separately"
+)]
+pub type Vortex075HeavyOperatorProviderDispositionReport =
+    VortexUpstreamHeavyOperatorProviderDispositionReport;
+
+#[deprecated(
+    since = "0.2.1",
+    note = "use VortexUpstreamLocalIoSurface; the current provider version is reported separately"
+)]
+pub type Vortex075LocalIoSurface = VortexUpstreamLocalIoSurface;
+
+#[deprecated(
+    since = "0.2.1",
+    note = "use VortexUpstreamLocalIoDispositionStatus; the current provider version is reported separately"
+)]
+pub type Vortex075LocalIoDispositionStatus = VortexUpstreamLocalIoDispositionStatus;
+
+#[deprecated(
+    since = "0.2.1",
+    note = "use VortexUpstreamLocalIoDispositionRow; the current provider version is reported separately"
+)]
+pub type Vortex075LocalIoDispositionRow = VortexUpstreamLocalIoDispositionRow;
+
+#[deprecated(
+    since = "0.2.1",
+    note = "use VortexUpstreamLocalIoProviderDispositionReport; the current provider version is reported separately"
+)]
+pub type Vortex075LocalIoProviderDispositionReport = VortexUpstreamLocalIoProviderDispositionReport;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexObjectStoreIoGateSurface {
     ObjectStoreVortexReadProvider,

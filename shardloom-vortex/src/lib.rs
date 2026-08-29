@@ -42,6 +42,14 @@ pub use adapter::{
     typed_vortex_statistics_mapping_available,
 };
 
+#[allow(deprecated)]
+pub use adapter::{
+    Vortex075HeavyOperatorDispositionRow, Vortex075HeavyOperatorDispositionStatus,
+    Vortex075HeavyOperatorProviderDispositionReport, Vortex075HeavyOperatorSurface,
+    Vortex075LocalIoDispositionRow, Vortex075LocalIoDispositionStatus,
+    Vortex075LocalIoProviderDispositionReport, Vortex075LocalIoSurface,
+};
+
 pub mod bounded_execution;
 pub mod commit_execution_gate;
 pub mod commit_intent;

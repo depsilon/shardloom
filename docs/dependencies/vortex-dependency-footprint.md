@@ -39,6 +39,8 @@ Compatibility posture:
   `shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION`; active provider-disposition field names
   now use `vortex_upstream_*` labels instead of hard-coding a release number into current report
   keys.
+- Deprecated Rust type aliases preserve the previous `Vortex075*` public report/type names while
+  new code uses the version-neutral `VortexUpstream*` names and the provider-version evidence field.
 - Default builds still keep upstream Vortex optional and disabled by default.
 - No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
   dependency is introduced.

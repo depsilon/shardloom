@@ -160,6 +160,9 @@ Dependency update:
   benchmark route evidence.
 - Active upstream provider-disposition reports use `vortex_upstream_*` schema/field labels so
   current report keys do not encode a stale release number.
+- The crate root and `adapter` module keep deprecated `Vortex075*` Rust type aliases for downstream
+  compile compatibility; active report IDs and JSON fields use the version-neutral
+  `vortex_upstream_*` naming.
 - No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
   dependency is introduced.
 
