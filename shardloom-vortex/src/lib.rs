@@ -23,12 +23,8 @@ pub const UPSTREAM_VORTEX_PROVIDER_VERSION: &str =
 
 // Report-only adapter/API inventory and metadata posture.
 pub use adapter::{
-    Vortex075HeavyOperatorDispositionRow, Vortex075HeavyOperatorDispositionStatus,
-    Vortex075HeavyOperatorProviderDispositionReport, Vortex075HeavyOperatorSurface,
-    Vortex075LocalIoDispositionRow, Vortex075LocalIoDispositionStatus,
-    Vortex075LocalIoProviderDispositionReport, Vortex075LocalIoSurface, VortexAdapterCapability,
-    VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus, VortexApiArea,
-    VortexApiInventoryItem, VortexApiSupportStatus, VortexDTypeMappingReport,
+    VortexAdapterCapability, VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus,
+    VortexApiArea, VortexApiInventoryItem, VortexApiSupportStatus, VortexDTypeMappingReport,
     VortexEncodingLayoutMappingReport, VortexEncodingMappingStatus, VortexLayoutMappingStatus,
     VortexLocalIoCoverageReport, VortexLocalIoCoverageRow, VortexLocalIoLaneStatus,
     VortexMetadataIoMode, VortexMetadataIoStatus, VortexMetadataProbeReport,
@@ -36,10 +32,22 @@ pub use adapter::{
     VortexNativeWriterSchemaCertificationRow, VortexObjectStoreIoGateReport,
     VortexObjectStoreIoGateRow, VortexObjectStoreIoGateStatus, VortexObjectStoreIoGateSurface,
     VortexStatisticsMappingReport, VortexStatisticsMappingStatus, VortexTypedMappingStatus,
+    VortexUpstreamHeavyOperatorDispositionRow, VortexUpstreamHeavyOperatorDispositionStatus,
+    VortexUpstreamHeavyOperatorProviderDispositionReport, VortexUpstreamHeavyOperatorSurface,
+    VortexUpstreamLocalIoDispositionRow, VortexUpstreamLocalIoDispositionStatus,
+    VortexUpstreamLocalIoProviderDispositionReport, VortexUpstreamLocalIoSurface,
     can_map_statistics_without_io, empty_vortex_segment_stats_placeholder,
     map_known_vortex_dtype_name, map_known_vortex_encoding_name, map_known_vortex_layout_name,
     probe_vortex_metadata_only, row_count_stats_placeholder, typed_vortex_dtype_mapping_available,
     typed_vortex_statistics_mapping_available,
+};
+
+#[allow(deprecated)]
+pub use adapter::{
+    Vortex075HeavyOperatorDispositionRow, Vortex075HeavyOperatorDispositionStatus,
+    Vortex075HeavyOperatorProviderDispositionReport, Vortex075HeavyOperatorSurface,
+    Vortex075LocalIoDispositionRow, Vortex075LocalIoDispositionStatus,
+    Vortex075LocalIoProviderDispositionReport, Vortex075LocalIoSurface,
 };
 
 pub mod bounded_execution;

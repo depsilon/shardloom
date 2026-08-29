@@ -82,6 +82,16 @@ fn sha256_digest_string(digest: impl AsRef<[u8]>) -> String {
     }
     encoded
 }
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn bind_traditional_vortex_scan_expr(
+    file: &vortex::file::VortexFile,
+    expr: &vortex::expr::Expression,
+) -> Result<vortex::expr::BoundExpression> {
+    expr.optimize_recursive(file.dtype())
+        .and_then(|expr| expr.bind(file.dtype()))
+        .map_err(vortex_error)
+}
 const ROUTE_SHAPE_STRATIFICATION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.route_shape_stratification.v1";
 const SOURCE_TO_VORTEX_ARRAY_GUARD_SCHEMA_VERSION: &str =
@@ -9733,7 +9743,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             || workspace_partial_repair_performed;
         let prepared_state_read_through_native_io_verified =
             prepared_state_native_io_certificate_status == "certified";
-        let prepared_state_vortex075_layout_reader_context_cache_status =
+        let prepared_state_vortex_provider_layout_reader_context_cache_status =
             if prepared_state_read_through_cache_hit {
                 "not_used_prepare_lookup_reused_manifest_snapshot_not_vortex_reader_state"
             } else {
@@ -10511,9 +10521,9 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 prepared_state_read_through_native_io_verified.to_string(),
             ),
             (
-                "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status"
+                "prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status"
                     .to_string(),
-                prepared_state_vortex075_layout_reader_context_cache_status.to_string(),
+                prepared_state_vortex_provider_layout_reader_context_cache_status.to_string(),
             ),
             (
                 "prepare_batch_prepared_state_read_through_cache_fallback_attempted".to_string(),
@@ -25254,7 +25264,7 @@ fn traditional_layout_advisor_report(
             input_format.as_str(),
             fact_vortex_bytes,
             dim_vortex_bytes,
-            &runtime_evidence.scheduler_ref
+            runtime_evidence.scheduler_ref
         ),
         evidence_source_refs,
         recommended_chunk_rows: resource_policy.target_batch_rows,
@@ -27797,13 +27807,19 @@ fn vortex_array_from_record_batch(
     batch: arrow_array::RecordBatch,
     label: &str,
 ) -> Result<vortex::array::ArrayRef> {
-    use vortex::array::arrow::FromArrowArray as _;
+    use vortex::VortexSessionDefault as _;
+    use vortex::arrow::ArrowSessionExt as _;
 
-    vortex::array::ArrayRef::from_arrow(batch, false).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "traditional analytics {label} Vortex array provider failed: {error}; no fallback execution was attempted"
-        ))
-    })
+    let schema = batch.schema();
+    let session = vortex::session::VortexSession::default();
+    session
+        .arrow()
+        .from_arrow_record_batch(batch, schema.as_ref())
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics {label} Vortex array provider failed: {error}; no fallback execution was attempted"
+            ))
+        })
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -28963,7 +28979,7 @@ fn primitive_array_field(
     let field = fields.get(name).ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!("Vortex field '{name}' was missing"))
     })?;
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let primitive = field
         .clone()
         .execute::<PrimitiveArray>(&mut ctx)
@@ -28982,7 +28998,7 @@ fn varbin_view_field(
     let field = fields.get(name).ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!("Vortex field '{name}' was missing"))
     })?;
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let utf8 = field
         .clone()
         .execute::<VarBinViewArray>(&mut ctx)
@@ -36344,7 +36360,10 @@ fn collect_selective_filter_column_probe(
     let source_uri = DatasetUri::new(fact_path.display().to_string())?;
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     let mut scan = file.scan().map_err(vortex_error)?;
-    scan = scan.with_projection(select(projected_column_refs.to_vec(), root()));
+    scan = scan.with_projection(bind_traditional_vortex_scan_expr(
+        &file,
+        &select(projected_column_refs.to_vec(), root()),
+    )?);
 
     let mut reader_splits = Vec::new();
     let mut encoded_kernel_inputs = Vec::new();
@@ -37943,10 +37962,13 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     let scan_open_start = std::time::Instant::now();
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = filter {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_traditional_vortex_scan_expr(&file, &filter)?);
     }
     if projection_pushdown_applied {
-        scan = scan.with_projection(select(projected_columns.to_vec(), root()));
+        scan = scan.with_projection(bind_traditional_vortex_scan_expr(
+            &file,
+            &select(projected_columns.to_vec(), root()),
+        )?);
     }
     let mut scan_iter = scan.into_array_iter(&runtime).map_err(vortex_error)?;
     let vortex_scan_open_micros = duration_to_micros(scan_open_start.elapsed());
@@ -38067,7 +38089,7 @@ fn projected_fields_from_chunk(
 
     match chunk.dtype() {
         DType::Struct(_, _) => {
-            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let struct_array = chunk
                 .execute::<StructArray>(&mut ctx)
                 .map_err(vortex_error)?;
@@ -44681,7 +44703,7 @@ mod tests {
         );
         assert_field_eq(
             &second_fields,
-            "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+            "prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status",
             "not_used_prepare_lookup_reused_manifest_snapshot_not_vortex_reader_state",
         );
         assert_field_eq(
@@ -45627,12 +45649,12 @@ mod tests {
                 .split_runtime_evidence
                 .completed_task_count
         );
-        assert!(
+        assert_eq!(
             group_report
                 .local_scale_evidence
                 .split_runtime_evidence
-                .execution_certificate_status
-                == "certified"
+                .execution_certificate_status,
+            "certified"
         );
         assert!(
             group_report

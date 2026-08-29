@@ -5209,6 +5209,7 @@ fn arrow_list_value_to_shardloom(
 }
 
 #[cfg(test)]
+#[allow(clippy::too_many_lines)]
 mod tests {
     use super::*;
     use arrow_array::ArrayAccessor as _;
@@ -5305,11 +5306,13 @@ mod tests {
             product_columnar_stream_record_batch_rows(usize::MAX),
             PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
         );
-        assert!(PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS > SCOPED_COMPAT_RECORD_BATCH_ROWS);
-        assert!(
-            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
-                > PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS
-        );
+        const {
+            assert!(PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS > SCOPED_COMPAT_RECORD_BATCH_ROWS);
+            assert!(
+                PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
+                    > PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS
+            );
+        }
     }
 
     #[test]
@@ -5514,7 +5517,7 @@ mod tests {
             .schema()
             .fields()
             .iter()
-            .map(|field| field.name().to_string())
+            .map(|field| field.name().clone())
             .collect::<Vec<_>>();
         assert!(names.contains(&"__shardloom_derived_utf8_len_URL".to_string()));
         assert!(names.contains(&"__shardloom_derived_url_domain_URL".to_string()));
@@ -5680,7 +5683,7 @@ mod tests {
             .schema()
             .fields()
             .iter()
-            .map(|field| field.name().to_string())
+            .map(|field| field.name().clone())
             .collect::<Vec<_>>();
         assert_eq!(
             names,
@@ -5890,7 +5893,7 @@ mod tests {
             .schema()
             .fields()
             .iter()
-            .map(|field| field.name().to_string())
+            .map(|field| field.name().clone())
             .collect::<Vec<_>>();
         assert_eq!(
             names,
@@ -6003,7 +6006,7 @@ mod tests {
             .schema()
             .fields()
             .iter()
-            .map(|field| field.name().to_string())
+            .map(|field| field.name().clone())
             .collect::<Vec<_>>();
         assert_eq!(
             names,
@@ -6062,7 +6065,7 @@ mod tests {
             ),
         ]];
 
-        let error = match stream_flat_text_rows_columnar_source(
+        let Err(error) = stream_flat_text_rows_columnar_source(
             header.clone(),
             vec![None, None],
             vec![None, None],
@@ -6071,9 +6074,8 @@ mod tests {
             rows,
             64,
             "JSONL",
-        ) {
-            Ok(_) => panic!("reserved hidden derived columns must be rejected"),
-            Err(error) => error,
+        ) else {
+            panic!("reserved hidden derived columns must be rejected");
         };
 
         let message = error.to_string();
@@ -6105,11 +6107,11 @@ mod tests {
             ),
         ]];
 
-        let error =
-            match flat_rows_to_record_batch_with_schema(schema, &columns, &rows, "schema batch") {
-                Ok(_) => panic!("reserved hidden derived columns must be rejected"),
-                Err(error) => error,
-            };
+        let Err(error) =
+            flat_rows_to_record_batch_with_schema(schema, &columns, &rows, "schema batch")
+        else {
+            panic!("reserved hidden derived columns must be rejected");
+        };
 
         let message = error.to_string();
         assert!(
@@ -6441,7 +6443,7 @@ mod tests {
         );
 
         let mut ids = Vec::new();
-        while let Some(batch) = source.reader.next() {
+        for batch in source.reader.by_ref() {
             let batch = batch.expect("row group batch");
             let id_array = batch
                 .column(0)
@@ -6564,7 +6566,7 @@ mod tests {
             .schema()
             .fields()
             .iter()
-            .map(|field| field.name().to_string())
+            .map(|field| field.name().clone())
             .collect::<Vec<_>>();
         assert_eq!(names, vec!["URL".to_string()]);
         let batch = source
@@ -6658,7 +6660,7 @@ mod tests {
             .schema()
             .fields()
             .iter()
-            .map(|field| field.name().to_string())
+            .map(|field| field.name().clone())
             .collect::<Vec<_>>();
         assert_eq!(
             names,
@@ -6765,10 +6767,9 @@ mod tests {
         writer.write(&batch).expect("write parquet batch");
         writer.close().expect("close parquet writer");
 
-        let error = match stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
-        {
-            Ok(_) => panic!("reserved hidden derived columns must be rejected"),
-            Err(error) => error,
+        let Err(error) = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
+        else {
+            panic!("reserved hidden derived columns must be rejected");
         };
 
         let message = error.to_string();

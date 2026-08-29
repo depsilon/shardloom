@@ -13,9 +13,8 @@ publication, performance claims, or production readiness.
   benchmark-specific Vortex feature gates.
 - `orc-rust 0.8.0` remains unchanged and still brings the Arrow 58 stack transitively for ORC.
 - ShardLoom's direct Arrow and Parquet bridge dependencies remain on Arrow 58.3 / Parquet 58.3
-  because the pinned Vortex 0.75 provider boundary, reviewed current Vortex 0.85 provider boundary,
-  and ORC lane all still expose Arrow 58-compatible types in ShardLoom's feature-complete local
-  structured-format path.
+  because the current Vortex 0.85 provider boundary and ORC lane still expose Arrow 58-compatible
+  types in ShardLoom's feature-complete local structured-format path.
 - `regex` remains a ShardLoom-owned parsing/validation helper, not an execution provider.
 - No Spark, DataFusion, DuckDB, Polars, Velox, pandas, Dask, Ray, Trino, Vortex query-engine
   integration, or other fallback execution dependency is introduced.

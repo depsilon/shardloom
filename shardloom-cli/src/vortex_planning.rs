@@ -15,7 +15,6 @@ use shardloom_core::{
 };
 use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 use shardloom_vortex::{
-    Vortex075HeavyOperatorProviderDispositionReport, Vortex075LocalIoProviderDispositionReport,
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexComputeProviderReport,
     VortexCountCandidateSource, VortexCountReadinessSignal, VortexDTypeMappingReport,
     VortexEncodedExecutionPathSelectionReport, VortexEncodingLayoutMappingReport,
@@ -28,8 +27,10 @@ use shardloom_vortex::{
     VortexObjectStoreIoGateReport, VortexProjectionCandidateSource,
     VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
     VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
-    VortexScanCompatibilityReport, VortexStatisticsMappingReport, VortexWriteOptions,
-    VortexWritePlan, admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
+    VortexScanCompatibilityReport, VortexStatisticsMappingReport,
+    VortexUpstreamHeavyOperatorProviderDispositionReport,
+    VortexUpstreamLocalIoProviderDispositionReport, VortexWriteOptions, VortexWritePlan,
+    admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
     build_vortex_runtime_task_graph, evaluate_vortex_execution_readiness,
     evaluate_vortex_metadata_physical_kernels,
     execute_vortex_count_all_from_encoded_count_data_path_approval, execute_vortex_metadata_only,
@@ -965,8 +966,8 @@ fn vortex_api_inventory_fields(
     local_io_report: &VortexLocalIoCoverageReport,
     writer_schema_certification: &VortexNativeWriterSchemaCertificationReport,
     object_store_io_gate: &VortexObjectStoreIoGateReport,
-    heavy_operator_disposition: &Vortex075HeavyOperatorProviderDispositionReport,
-    local_io_provider_disposition: &Vortex075LocalIoProviderDispositionReport,
+    heavy_operator_disposition: &VortexUpstreamHeavyOperatorProviderDispositionReport,
+    local_io_provider_disposition: &VortexUpstreamLocalIoProviderDispositionReport,
 ) -> Vec<(String, String)> {
     let mut fields = vortex_api_inventory_base_fields();
     fields.extend(vortex_api_inventory_report_fields(
@@ -986,10 +987,10 @@ fn vortex_api_inventory_fields(
         writer_schema_certification,
     ));
     fields.extend(vortex_object_store_io_gate_fields(object_store_io_gate));
-    fields.extend(vortex075_heavy_operator_disposition_fields(
+    fields.extend(vortex_upstream_heavy_operator_disposition_fields(
         heavy_operator_disposition,
     ));
-    fields.extend(vortex075_local_io_provider_disposition_fields(
+    fields.extend(vortex_upstream_local_io_provider_disposition_fields(
         local_io_provider_disposition,
     ));
     fields
@@ -1982,113 +1983,116 @@ fn append_vortex_object_store_io_gate_diagnostic_fields(
 }
 
 #[allow(clippy::too_many_lines)]
-fn vortex075_heavy_operator_disposition_fields(
-    report: &Vortex075HeavyOperatorProviderDispositionReport,
+fn vortex_upstream_heavy_operator_disposition_fields(
+    report: &VortexUpstreamHeavyOperatorProviderDispositionReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![
         (
-            "vortex075_heavy_operator_schema_version".to_string(),
+            "vortex_upstream_heavy_operator_schema_version".to_string(),
             report.schema_version.to_string(),
         ),
         (
-            "vortex075_heavy_operator_report_id".to_string(),
+            "vortex_upstream_heavy_operator_report_id".to_string(),
             report.report_id.to_string(),
         ),
         (
-            "vortex075_heavy_operator_phase_id".to_string(),
+            "vortex_upstream_heavy_operator_phase_id".to_string(),
             report.phase_id.to_string(),
         ),
         (
-            "vortex075_heavy_operator_provider_version".to_string(),
+            "vortex_upstream_heavy_operator_provider_version".to_string(),
             report.upstream_vortex_provider_version.to_string(),
         ),
         (
-            "vortex075_heavy_operator_gate_status".to_string(),
+            "vortex_upstream_heavy_operator_gate_status".to_string(),
             report.gate_status.to_string(),
         ),
         (
-            "vortex075_heavy_operator_support_status".to_string(),
+            "vortex_upstream_heavy_operator_support_status".to_string(),
             report.support_status.to_string(),
         ),
         (
-            "vortex075_heavy_operator_row_order".to_string(),
+            "vortex_upstream_heavy_operator_row_order".to_string(),
             report.row_order().join(","),
         ),
         (
-            "vortex075_heavy_operator_provider_candidate_count".to_string(),
+            "vortex_upstream_heavy_operator_provider_candidate_count".to_string(),
             report.provider_candidate_count().to_string(),
         ),
         (
-            "vortex075_heavy_operator_wrapped_shardloom_kernel_count".to_string(),
+            "vortex_upstream_heavy_operator_wrapped_shardloom_kernel_count".to_string(),
             report.wrapped_shardloom_kernel_count().to_string(),
         ),
         (
-            "vortex075_heavy_operator_shared_runtime_evidence_count".to_string(),
+            "vortex_upstream_heavy_operator_shared_runtime_evidence_count".to_string(),
             report.shared_runtime_evidence_count().to_string(),
         ),
         (
-            "vortex075_heavy_operator_current_runtime_drop_decision_count".to_string(),
+            "vortex_upstream_heavy_operator_current_runtime_drop_decision_count".to_string(),
             report.current_runtime_drop_decision_count().to_string(),
         ),
         (
-            "vortex075_heavy_operator_blocked_external_integration_count".to_string(),
+            "vortex_upstream_heavy_operator_blocked_external_integration_count".to_string(),
             report.blocked_external_integration_count().to_string(),
         ),
         (
-            "vortex075_heavy_operator_claim_gate_status".to_string(),
+            "vortex_upstream_heavy_operator_claim_gate_status".to_string(),
             report.claim_gate_status.to_string(),
         ),
         (
-            "vortex075_heavy_operator_claim_boundary".to_string(),
+            "vortex_upstream_heavy_operator_claim_boundary".to_string(),
             report.claim_boundary.to_string(),
         ),
         (
-            "vortex075_heavy_operator_runtime_execution".to_string(),
+            "vortex_upstream_heavy_operator_runtime_execution".to_string(),
             report.runtime_execution.to_string(),
         ),
         (
-            "vortex075_heavy_operator_data_read".to_string(),
+            "vortex_upstream_heavy_operator_data_read".to_string(),
             report.data_read.to_string(),
         ),
         (
-            "vortex075_heavy_operator_data_decoded".to_string(),
+            "vortex_upstream_heavy_operator_data_decoded".to_string(),
             report.data_decoded.to_string(),
         ),
         (
-            "vortex075_heavy_operator_data_materialized".to_string(),
+            "vortex_upstream_heavy_operator_data_materialized".to_string(),
             report.data_materialized.to_string(),
         ),
         (
-            "vortex075_heavy_operator_object_store_io".to_string(),
+            "vortex_upstream_heavy_operator_object_store_io".to_string(),
             report.object_store_io.to_string(),
         ),
         (
-            "vortex075_heavy_operator_write_io".to_string(),
+            "vortex_upstream_heavy_operator_write_io".to_string(),
             report.write_io.to_string(),
         ),
         (
-            "vortex075_heavy_operator_external_engine_invoked".to_string(),
+            "vortex_upstream_heavy_operator_external_engine_invoked".to_string(),
             report.external_engine_invoked.to_string(),
         ),
         (
-            "vortex075_heavy_operator_fallback_attempted".to_string(),
+            "vortex_upstream_heavy_operator_fallback_attempted".to_string(),
             report.fallback_attempted.to_string(),
         ),
         (
-            "vortex075_heavy_operator_fallback_execution_allowed".to_string(),
+            "vortex_upstream_heavy_operator_fallback_execution_allowed".to_string(),
             report.fallback_execution_allowed.to_string(),
         ),
         (
-            "vortex075_heavy_operator_side_effect_free".to_string(),
+            "vortex_upstream_heavy_operator_side_effect_free".to_string(),
             report.side_effect_free().to_string(),
         ),
         (
-            "vortex075_heavy_operator_diagnostic_count".to_string(),
+            "vortex_upstream_heavy_operator_diagnostic_count".to_string(),
             report.diagnostics.len().to_string(),
         ),
     ];
     for row in &report.rows {
-        let row_prefix = format!("vortex075_heavy_operator_row_{}", row.surface.as_str());
+        let row_prefix = format!(
+            "vortex_upstream_heavy_operator_row_{}",
+            row.surface.as_str()
+        );
         fields.extend([
             (
                 format!("{row_prefix}_status"),
@@ -2128,134 +2132,142 @@ fn vortex075_heavy_operator_disposition_fields(
 }
 
 #[allow(clippy::too_many_lines)]
-fn vortex075_local_io_provider_disposition_fields(
-    report: &Vortex075LocalIoProviderDispositionReport,
+fn vortex_upstream_local_io_provider_disposition_fields(
+    report: &VortexUpstreamLocalIoProviderDispositionReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(
         &mut fields,
-        "vortex075_local_io_schema_version",
+        "vortex_upstream_local_io_schema_version",
         report.schema_version,
     );
     push_field(
         &mut fields,
-        "vortex075_local_io_report_id",
+        "vortex_upstream_local_io_report_id",
         report.report_id,
     );
-    push_field(&mut fields, "vortex075_local_io_phase_id", report.phase_id);
     push_field(
         &mut fields,
-        "vortex075_local_io_provider_version",
+        "vortex_upstream_local_io_phase_id",
+        report.phase_id,
+    );
+    push_field(
+        &mut fields,
+        "vortex_upstream_local_io_provider_version",
         report.upstream_vortex_provider_version,
     );
     push_field(
         &mut fields,
-        "vortex075_local_io_gate_status",
+        "vortex_upstream_local_io_gate_status",
         report.gate_status,
     );
     push_field(
         &mut fields,
-        "vortex075_local_io_support_status",
+        "vortex_upstream_local_io_support_status",
         report.support_status,
     );
     push_field(
         &mut fields,
-        "vortex075_local_io_row_order",
+        "vortex_upstream_local_io_row_order",
         &report.row_order().join(","),
     );
     push_count_field(
         &mut fields,
-        "vortex075_local_io_provider_candidate_count",
+        "vortex_upstream_local_io_provider_candidate_count",
         report.provider_candidate_count(),
     );
     push_count_field(
         &mut fields,
-        "vortex075_local_io_shared_runtime_evidence_count",
+        "vortex_upstream_local_io_shared_runtime_evidence_count",
         report.shared_runtime_evidence_count(),
     );
     push_count_field(
         &mut fields,
-        "vortex075_local_io_blocked_future_device_count",
+        "vortex_upstream_local_io_blocked_future_device_count",
         report.blocked_future_device_count(),
     );
     push_count_field(
         &mut fields,
-        "vortex075_local_io_deterministic_blocker_required_count",
+        "vortex_upstream_local_io_deterministic_blocker_required_count",
         report.deterministic_blocker_required_count(),
     );
     push_field(
         &mut fields,
-        "vortex075_local_io_claim_gate_status",
+        "vortex_upstream_local_io_claim_gate_status",
         report.claim_gate_status,
     );
     push_field(
         &mut fields,
-        "vortex075_local_io_claim_boundary",
+        "vortex_upstream_local_io_claim_boundary",
         report.claim_boundary,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_runtime_execution",
+        "vortex_upstream_local_io_runtime_execution",
         report.runtime_execution,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_data_read",
+        "vortex_upstream_local_io_data_read",
         report.data_read,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_data_written",
+        "vortex_upstream_local_io_data_written",
         report.data_written,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_data_decoded",
+        "vortex_upstream_local_io_data_decoded",
         report.data_decoded,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_data_materialized",
+        "vortex_upstream_local_io_data_materialized",
         report.data_materialized,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_object_store_io",
+        "vortex_upstream_local_io_object_store_io",
         report.object_store_io,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_table_catalog_io",
+        "vortex_upstream_local_io_table_catalog_io",
         report.table_catalog_io,
     );
-    push_bool_field(&mut fields, "vortex075_local_io_write_io", report.write_io);
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_external_engine_invoked",
+        "vortex_upstream_local_io_write_io",
+        report.write_io,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_upstream_local_io_external_engine_invoked",
         report.external_engine_invoked,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_fallback_attempted",
+        "vortex_upstream_local_io_fallback_attempted",
         report.fallback_attempted,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_fallback_execution_allowed",
+        "vortex_upstream_local_io_fallback_execution_allowed",
         report.fallback_execution_allowed,
     );
     push_bool_field(
         &mut fields,
-        "vortex075_local_io_side_effect_free",
+        "vortex_upstream_local_io_side_effect_free",
         report.side_effect_free(),
     );
     push_count_field(
         &mut fields,
-        "vortex075_local_io_diagnostic_count",
+        "vortex_upstream_local_io_diagnostic_count",
         report.diagnostics.len(),
     );
     for row in &report.rows {
-        let row_prefix = format!("vortex075_local_io_row_{}", row.surface.as_str());
+        let row_prefix = format!("vortex_upstream_local_io_row_{}", row.surface.as_str());
         fields.extend([
             (
                 format!("{row_prefix}_status"),
@@ -2309,8 +2321,9 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
     let local_io_report = VortexLocalIoCoverageReport::current();
     let writer_schema_certification = VortexNativeWriterSchemaCertificationReport::current();
     let object_store_io_gate = VortexObjectStoreIoGateReport::current();
-    let heavy_operator_disposition = Vortex075HeavyOperatorProviderDispositionReport::current();
-    let local_io_provider_disposition = Vortex075LocalIoProviderDispositionReport::current();
+    let heavy_operator_disposition =
+        VortexUpstreamHeavyOperatorProviderDispositionReport::current();
+    let local_io_provider_disposition = VortexUpstreamLocalIoProviderDispositionReport::current();
     let mut diagnostics = report.diagnostics.clone();
     diagnostics.extend(object_store_io_gate.diagnostics.clone());
     diagnostics.extend(heavy_operator_disposition.diagnostics.clone());

@@ -14,11 +14,13 @@ executable support from older PR-specific sections that say "this PR" or
 ## Current support snapshot
 
 - Upstream Vortex remains optional and isolated in `shardloom-vortex`.
-- The tracked workspace dependency is `vortex = 0.75`; `shardloom-vortex` inherits it while keeping
+- The tracked workspace dependency is `vortex = 0.85`; `shardloom-vortex` inherits it while keeping
   the dependency optional and feature-gated.
-- Vortex `0.75.0` is the current optional dependency family after the dependency compatibility
+- Vortex `0.85.0` is the current optional dependency family after the provider-capability
   update recorded in `docs/architecture/vortex-public-api-inventory.md` and
   `docs/dependencies/vortex-dependency-footprint.md`.
+- Vortex `0.75.0` remains historical intake material in this review and
+  `docs/architecture/vortex-public-api-inventory.md`.
 - Vortex `0.74.0` remains historical intake material in this review and
   `docs/architecture/vortex-public-api-inventory.md`.
 - Vortex `0.73.0` remains historical intake material in this review and
@@ -49,20 +51,71 @@ executable support from older PR-specific sections that say "this PR" or
   <https://docs.rs/vortex/0.85.0>, and repository <https://github.com/spiraldb/vortex>.
 - Upstream Vortex changelog docs on 2026-08-29 also list `0.86.0` as draft. Treat draft changes as
   migration surveillance only; do not pin or publish against an unreleased Vortex crate line.
-- The next Vortex update must be a provider/capability intake PR, not a blind lockfile bump. It
-  must review `0.76.0` as a yanked hazard and then review each intervening non-yanked release from
-  0.77 through the current released latest 0.85 for ShardLoom-native provider opportunities such as
-  metadata/statistics pruning, dictionary/FSST predicates, grouped aggregate kernels, byte/list
-  length transforms, layout-reader caching, row-reference/top-K support, mask/filter/take reducers,
-  writer/encoding policy, and single-artifact embedded layout metadata. The migration plan must also
-  surveil the 0.86 draft for upcoming `VortexWrite`, `OutputSink`, `RowFn`, fixed-width filtering,
-  grouped-state, and sequence-cast changes without treating them as retained runtime dependencies.
+- The retained Vortex update is a provider/capability intake, not a blind lockfile bump. It records
+  `0.76.0` as a yanked hazard, reviews each intervening non-yanked release from 0.77 through the
+  current released latest 0.85, migrates only the ShardLoom-native provider APIs needed for current
+  feature-gated builds, and rejects Vortex query-engine integrations as runtime helpers.
 - The direct Arrow/Parquet bridge stays on Arrow/Parquet `58.3.0` in this dependency hygiene pass
   because current Vortex `0.85.0` still declares `arrow-array ^58.3` and `parquet ^58.3`; upgrading
   only ShardLoom's direct Arrow bridge to `59.x` would create duplicate Arrow provider types.
 - Vortex query-engine integrations remain prohibited as ShardLoom runtime helpers.
 
+## Vortex 0.85 provider-capability update
+
+- Dependabot PR <https://github.com/depsilon/shardloom/pull/1379> and the follow-on Vortex bump
+  signal were reviewed as one upstream provider intake instead of merged directly.
+- `cargo info vortex@0.85.0` reports license `Apache-2.0`, Rust version `1.95`, documentation
+  at <https://docs.rs/vortex/0.85.0>, repository <https://github.com/spiraldb/vortex>, and crates.io
+  version <https://crates.io/crates/vortex/0.85.0>.
+- `cargo info vortex-zstd@0.85.0` reports license `Apache-2.0`, Rust version `1.95`,
+  documentation at <https://docs.rs/vortex-zstd/0.85.0>, repository
+  <https://github.com/spiraldb/vortex>, and crates.io version
+  <https://crates.io/crates/vortex-zstd/0.85.0>.
+- Root `Cargo.toml` now records workspace dependencies `vortex = 0.85` and
+  `vortex-zstd = 0.85`; `shardloom-vortex` inherits both as optional feature-gated dependencies.
+- `Cargo.lock` records the upstream Vortex crate family at `0.85.0`.
+- Active provider-version evidence remains centralized through
+  `shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION`.
+- Active provider-disposition reports now use `vortex_upstream_*` field/schema labels, so future
+  provider-line updates do not leave current report keys hard-coded to an older release number.
+
+Release-family review retained:
+
+- `0.76.0` / `vortex-zstd 0.76.0`: yanked; recorded as a dependency hazard and skipped as a pinned
+  provider line.
+- `0.77.0`-`0.79.0`: reviewed as intermediate scan/expression/encoding compatibility releases; no
+  separate ShardLoom runtime provider adoption was retained beyond the current 0.85 compile
+  migration.
+- `0.80.0`: `VortexSource` improvements, layout adapter error posture, piecewise sequence/index
+  work, struct-layout reader allocation improvements, footer parse validation, and Vortex edition
+  docs were mapped as provider-alignment pressure.
+- `0.81.0`: file-level user metadata, serialization-context registry filtering, partition-expression
+  locking, and `UnionArray` were mapped; ShardLoom now treats new union scalar/dtype shapes as
+  explicit unsupported metadata/encoded-stat boundaries unless a later runtime item admits them.
+- `0.82.0`-`0.84.0`: grouped aggregate kernels, scan statistics, layout-reader/file-cache work,
+  JSON/Arrow import/export changes, interleave encoding, row encoder, byte-length/string
+  transforms, zstd/binary scheme changes, mask/zip/layout performance, and dictionary/FSST LIKE
+  behavior were mapped into the current upstream-provider disposition reports.
+- `0.85.0`: retained code migrations cover `BoundExpression` scan pushdown, ArrowSession-only
+  RecordBatch import/export, Vortex session/edition encoding selection, `DynLayout`, strict sorted
+  row-index selection, run-end slot access, `Map`/`Union` unsupported-boundary handling, updated
+  VarBin/FSST helper APIs, and writer strategy API changes.
+- `0.86.0` draft: surveyed only as future pressure around `VortexWrite`/`OutputSink`, `RowFn`,
+  fixed-width filtering, grouped-state behavior, sequence casts, and DataFusion/DuckDB integration
+  changes. It is not a retained dependency line.
+
+Claim boundary:
+
+- The update proves feature-gated Vortex 0.85 build compatibility, provider-version freshness, and
+  refreshed source-linked provider-disposition evidence.
+- It does not admit Vortex query-engine integrations, hidden fallback execution, object-store/table
+  runtime, GPU/device support, broad JSON/geospatial runtime support, package publication,
+  performance superiority, or broad SQL/DataFrame support by dependency availability alone.
+
 ## Vortex 0.75 compatibility update
+
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 - Dependabot PR: <https://github.com/depsilon/shardloom/pull/1223>.
 - `cargo info vortex@0.75.0` reports license `Apache-2.0`, Rust version `1.91.0`, documentation
@@ -91,8 +144,8 @@ executable support from older PR-specific sections that say "this PR" or
 
 ## Vortex 0.74 compatibility update
 
-Historical note; superseded by the Vortex 0.75 compatibility update above for current dependency
-status.
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 - Dependabot PR: <https://github.com/depsilon/shardloom/pull/1150>.
 - `cargo info vortex@0.74.0` reports license `Apache-2.0`, Rust version `1.91.0`, documentation
@@ -112,8 +165,8 @@ status.
 
 ## Vortex 0.73 compatibility update
 
-Historical note; superseded by the Vortex 0.75 compatibility update above for current dependency
-status.
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 - Dependabot PR: <https://github.com/depsilon/shardloom/pull/979>.
 - `cargo info vortex@0.73.0` reports license `Apache-2.0`, Rust version `1.91.0`, documentation
@@ -131,8 +184,8 @@ status.
 
 ## Vortex 0.72 compatibility update
 
-Historical note; superseded by the Vortex 0.75 compatibility update above for current dependency
-status.
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 - `shardloom-vortex` now requests optional `vortex = 0.72`.
 - `Cargo.lock` records Vortex `0.72.0` crate family versions.
@@ -145,8 +198,8 @@ status.
 
 ## Vortex 0.71 bump update
 
-Historical note; superseded by the Vortex 0.75 compatibility update above for current dependency
-status.
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 - `shardloom-vortex` now requests optional `vortex = 0.71`.
 - `Cargo.lock` records Vortex `0.71.0` crate family versions.
@@ -279,7 +332,7 @@ status.
   - `arrow-json 58.2.0` is reserved under the same gate for JSON/NDJSON boundary work; the current
     deterministic JSONL fixture parser remains local and narrow.
 - Dependabot Arrow/Parquet 59 PRs #1224, #1225, #1227, #1228, and #1229 were reviewed and
-  deferred because Vortex 0.75 and `orc-rust 0.8.0` still expose Arrow 58-compatible provider
+  deferred because Vortex 0.85 and `orc-rust 0.8.0` still expose Arrow 58-compatible provider
   boundaries in the feature-complete structured-format lane.
 - License/provenance:
   - Apache Arrow Rust crates are Apache-2.0.

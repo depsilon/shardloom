@@ -324,7 +324,7 @@ pub struct VortexLocalPrimitiveEmbeddedLayoutReport {
 
 #[cfg(feature = "vortex-local-primitives")]
 fn collect_vortex_local_layout_encodings(
-    layout: &dyn vortex::layout::Layout,
+    layout: &dyn vortex::layout::DynLayout,
     encodings: &mut std::collections::BTreeSet<String>,
 ) {
     encodings.insert(layout.encoding_id().to_string());
@@ -336,7 +336,9 @@ fn collect_vortex_local_layout_encodings(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn vortex_local_layout_encoding_inventory(layout: &dyn vortex::layout::Layout) -> (String, String) {
+fn vortex_local_layout_encoding_inventory(
+    layout: &dyn vortex::layout::DynLayout,
+) -> (String, String) {
     let root_layout_encoding = layout.encoding_id().to_string();
     let mut encodings = std::collections::BTreeSet::new();
     collect_vortex_local_layout_encodings(layout, &mut encodings);
@@ -371,6 +373,16 @@ fn vortex_local_domain_dictionary_status(
     } else {
         "not_required_no_utf8_domain_columns".to_string()
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn bind_vortex_scan_expr(
+    file: &vortex::file::VortexFile,
+    expr: &vortex::expr::Expression,
+) -> Result<vortex::expr::BoundExpression> {
+    expr.optimize_recursive(file.dtype())
+        .and_then(|expr| expr.bind(file.dtype()))
+        .map_err(vortex_error)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -3660,10 +3672,10 @@ fn execute_vortex_local_primitive_row_export_enabled(
             .transpose()?;
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
-            scan = scan.with_filter(filter);
+            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
         }
         if let Some(projection) = plan.projection {
-            scan = scan.with_projection(projection);
+            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -4621,10 +4633,10 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
         }
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
-            scan = scan.with_filter(filter);
+            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
         }
         if let Some(projection) = plan.projection {
-            scan = scan.with_projection(projection);
+            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -5226,10 +5238,10 @@ fn execute_vortex_local_pivot_row_export_enabled(
         .transpose()?;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -6660,13 +6672,13 @@ fn list_element_rows_from_vortex_array(
 
     match array.dtype() {
         DType::List(_, _) => {
-            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let list = array
                 .clone()
                 .execute::<ListViewArray>(&mut ctx)
                 .map_err(vortex_error)?;
             let validity = list.listview_validity();
-            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut out = Vec::with_capacity(list.len());
             for row_index in 0..list.len() {
                 if !validity
@@ -6682,13 +6694,13 @@ fn list_element_rows_from_vortex_array(
             Ok(out)
         }
         DType::FixedSizeList(_, _, _) => {
-            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let list = array
                 .clone()
                 .execute::<FixedSizeListArray>(&mut ctx)
                 .map_err(vortex_error)?;
             let validity = list.fixed_size_list_validity();
-            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut out = Vec::with_capacity(list.len());
             for row_index in 0..list.len() {
                 if !validity
@@ -6764,7 +6776,7 @@ fn struct_scalar_values_from_vortex_array(
         }
     }
     let validity = array.validity().map_err(vortex_error)?;
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let mut out = Vec::with_capacity(row_count);
     for row_index in 0..row_count {
         if !validity
@@ -8116,8 +8128,7 @@ fn predicate_matches_materialized_row(
             })?;
             let matched = values.iter().any(|value| {
                 coerce_rewrite_value_for_column(Some(column.as_str()), current, value)
-                    .ok()
-                    .is_some_and(|value| stat_value_equal(current, &value))
+                    .is_ok_and(|value| stat_value_equal(current, &value))
             });
             Ok(if *negated { !matched } else { matched })
         }
@@ -8471,8 +8482,7 @@ impl MaterializedPredicateEvaluator {
                 let current = materialized_predicate_value(columns, *column_index, row_index)?;
                 let matched = values.iter().any(|value| {
                     coerce_rewrite_value_for_column(Some(column.as_str()), current, value)
-                        .ok()
-                        .is_some_and(|value| stat_value_equal(current, &value))
+                        .is_ok_and(|value| stat_value_equal(current, &value))
                 });
                 Ok(if *negated { !matched } else { matched })
             }
@@ -10081,8 +10091,7 @@ fn utf8_dictionary_in_list_match_flags(
     let null_value = StatValue::Null;
     let null_matches = values.iter().any(|value| {
         coerce_rewrite_value_for_column(Some(column), &null_value, value)
-            .ok()
-            .is_some_and(|value| stat_value_equal(&null_value, &value))
+            .is_ok_and(|value| stat_value_equal(&null_value, &value))
     });
     let utf8_values = utf8_in_list_literal_values(values);
     let mut dictionary_matches = Vec::with_capacity(dictionary_values.len());
@@ -10103,8 +10112,7 @@ fn utf8_dictionary_in_list_match_flags(
             let current = StatValue::Utf8(dictionary_value.to_string());
             values.iter().any(|value| {
                 coerce_rewrite_value_for_column(Some(column), &current, value)
-                    .ok()
-                    .is_some_and(|value| stat_value_equal(&current, &value))
+                    .is_ok_and(|value| stat_value_equal(&current, &value))
             })
         };
         dictionary_matches.push(value_matches);
@@ -10636,8 +10644,7 @@ fn fast_in_list_accessor_row_matches(
     let current = aggregate_direct_stat_value(accessor, row_index)?;
     let matched = values.iter().any(|value| {
         coerce_rewrite_value_for_column(Some(column), &current, value)
-            .ok()
-            .is_some_and(|value| stat_value_equal(&current, &value))
+            .is_ok_and(|value| stat_value_equal(&current, &value))
     });
     Ok(if negated { !matched } else { matched })
 }
@@ -10689,7 +10696,7 @@ fn fast_utf8_contains_count_from_array(
         return Ok(None);
     };
     let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut selected = 0usize;
     match &validity {
@@ -10811,7 +10818,7 @@ fn fast_utf8_contains_row_indices_from_array(
         return Ok(None);
     };
     let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut selected = Vec::new();
     match &validity {
@@ -10862,7 +10869,7 @@ fn fast_utf8_contains_count_from_filtered_array(
     needle: &str,
     negated: bool,
 ) -> Result<Option<usize>> {
-    use vortex::array::arrays::filter::FilterArrayExt as _;
+    use vortex::array::arrays::filter::FilterArraySlotsExt as _;
 
     let mask = filter.filter_mask();
     if let Some(selected) =
@@ -10899,7 +10906,7 @@ fn fast_utf8_contains_row_indices_from_filtered_array(
     negated: bool,
     base_offset: usize,
 ) -> Result<Option<Vec<usize>>> {
-    use vortex::array::arrays::filter::FilterArrayExt as _;
+    use vortex::array::arrays::filter::FilterArraySlotsExt as _;
 
     let mask = filter.filter_mask();
     if let Some(selected) =
@@ -11012,7 +11019,7 @@ fn fast_utf8_contains_count_from_masked_array(
         }
         Validity::AllInvalid => return Ok(Some(0)),
         Validity::Array(_) => {
-            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             for (index, mask_selected) in mask.iter().enumerate() {
                 if !mask_selected {
                     continue;
@@ -11105,7 +11112,7 @@ fn fast_utf8_contains_row_indices_from_masked_array(
         }
         Validity::AllInvalid => return Ok(Some(selected)),
         Validity::Array(_) => {
-            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             for (source_row_index, mask_selected) in mask.iter().enumerate() {
                 if !mask_selected {
                     continue;
@@ -11356,7 +11363,7 @@ fn fast_utf8_contains_fsst_matches(
     };
     let pattern = contains_literal_like_pattern(needle);
     let pattern = ConstantArray::new(pattern.as_str(), array.len()).into_array();
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let Some(result) = <vortex::encodings::fsst::FSST as LikeKernel>::like(
         fsst,
         &pattern,
@@ -12230,13 +12237,13 @@ fn list_row_key_values_from_vortex_array(
 
     match array.dtype() {
         DType::List(_, _) => {
-            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let list = array
                 .clone()
                 .execute::<ListViewArray>(&mut ctx)
                 .map_err(vortex_error)?;
             let validity = list.listview_validity();
-            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut out = Vec::with_capacity(list.len());
             for row_index in 0..list.len() {
                 if !validity
@@ -12253,13 +12260,13 @@ fn list_row_key_values_from_vortex_array(
             Ok(out)
         }
         DType::FixedSizeList(_, _, _) => {
-            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let list = array
                 .clone()
                 .execute::<FixedSizeListArray>(&mut ctx)
                 .map_err(vortex_error)?;
             let validity = list.fixed_size_list_validity();
-            let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut out = Vec::with_capacity(list.len());
             for row_index in 0..list.len() {
                 if !validity
@@ -12295,7 +12302,7 @@ fn struct_row_key_values_from_vortex_array(
         .into_iter()
         .collect::<std::collections::BTreeMap<_, _>>();
     let validity = array.validity().map_err(vortex_error)?;
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let mut field_values = Vec::with_capacity(children.len());
     for (field_name, field_array) in children {
         field_values.push((
@@ -13384,10 +13391,10 @@ fn read_local_vortex_scan(
     }
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter.take() {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection.take() {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
     let residual_evaluator = residual_predicate
@@ -13626,10 +13633,10 @@ fn read_local_vortex_partitioned_scan(
         }
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter.take() {
-            scan = scan.with_filter(filter);
+            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
         }
         if let Some(projection) = plan.projection.take() {
-            scan = scan.with_projection(projection);
+            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         let residual_evaluator = plan
@@ -14217,7 +14224,7 @@ fn run_end_kernel_input_from_vortex_array(
     row_count: u64,
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
-    use vortex::encodings::runend::RunEndArrayExt as _;
+    use vortex::encodings::runend::{RunEndArrayExt as _, RunEndArraySlotsExt as _};
 
     let Some(run_end_array) = array.as_opt::<vortex::encodings::runend::RunEnd>() else {
         return Ok(None);
@@ -14297,9 +14304,10 @@ fn stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<
         | DType::Binary(_)
         | DType::Struct(_, _)
         | DType::List(_, _)
+        | DType::Map(_, _)
         | DType::FixedSizeList(_, _, _)
         | DType::Extension(_)
-        | DType::Union(_)
+        | DType::Union(_, _)
         | DType::Variant(_) => None,
     }
 }
@@ -14388,7 +14396,7 @@ fn primitive_stat_values_from_vortex_array(
         return primitive_stat_values_from_primitive_array(&primitive);
     }
 
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
     primitive_stat_values_from_primitive_array(&primitive)
 }
@@ -14555,7 +14563,7 @@ fn stat_values_with_validity(
         Validity::NonNullable | Validity::AllValid => Some(values),
         Validity::AllInvalid => Some(vec![StatValue::Null; values.len()]),
         Validity::Array(_) => {
-            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             for (index, value) in values.iter_mut().enumerate() {
                 if !validity.execute_is_valid(index, &mut ctx).ok()? {
                     *value = StatValue::Null;
@@ -14572,11 +14580,11 @@ fn utf8_stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option
     use vortex::array::arrays::VarBinViewArray;
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
 
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let utf8 = array.clone().execute::<VarBinViewArray>(&mut ctx).ok()?;
     let validity = utf8.varbinview_validity();
     let mut values = Vec::with_capacity(utf8.len());
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     for index in 0..utf8.len() {
         if !validity.execute_is_valid(index, &mut validity_ctx).ok()? {
             values.push(StatValue::Null);
@@ -14601,7 +14609,7 @@ fn direct_non_nullable_utf8_stat_values_from_vortex_array(
     if !array.is_host() {
         return None;
     }
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let utf8 = array.clone().execute::<VarBinViewArray>(&mut ctx).ok()?;
     match utf8.varbinview_validity() {
         Validity::NonNullable | Validity::AllValid => {}
@@ -14622,7 +14630,7 @@ fn bool_stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option
     use vortex::array::arrays::BoolArray;
     use vortex::array::arrays::bool::BoolArrayExt as _;
 
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let bool_array = array.clone().execute::<BoolArray>(&mut ctx).ok()?;
     let validity = bool_array.validity().ok()?;
     let values = bool_array
@@ -14652,7 +14660,7 @@ fn direct_u32_codes_with_nulls_from_vortex_array(
     if let Some(primitive) = direct_host_primitive(array) {
         return primitive_u32_codes_with_nulls(&primitive);
     }
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
     primitive_u32_codes_with_nulls(&primitive)
 }
@@ -14671,7 +14679,7 @@ fn primitive_u32_codes_with_nulls(
         Validity::NonNullable | Validity::AllValid => None,
         Validity::AllInvalid => Some(vec![true; codes.len()]),
         Validity::Array(_) => {
-            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut nulls = Vec::with_capacity(codes.len());
             let mut any_null = false;
             for row_index in 0..codes.len() {
@@ -14823,9 +14831,10 @@ fn shardloom_logical_dtype_from_vortex_dtype(
         | vortex::array::dtype::DType::Binary(_)
         | vortex::array::dtype::DType::Struct(_, _)
         | vortex::array::dtype::DType::List(_, _)
+        | vortex::array::dtype::DType::Map(_, _)
         | vortex::array::dtype::DType::FixedSizeList(_, _, _)
         | vortex::array::dtype::DType::Extension(_)
-        | vortex::array::dtype::DType::Union(_)
+        | vortex::array::dtype::DType::Union(_, _)
         | vortex::array::dtype::DType::Variant(_) => None,
     }
 }
@@ -14841,6 +14850,7 @@ fn vortex_scalar_to_stat_value(scalar: &vortex::array::scalar::Scalar) -> Option
         ScalarValue::Decimal(_)
         | ScalarValue::Binary(_)
         | ScalarValue::Tuple(_)
+        | ScalarValue::Union(_)
         | ScalarValue::Variant(_) => None,
     }
 }
@@ -16673,10 +16683,10 @@ fn read_local_vortex_distinct_scan(
     }
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter.take() {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection.take() {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
     let residual_evaluator = residual_predicate
@@ -16861,10 +16871,10 @@ fn read_local_vortex_drop_duplicate_scan(
     }
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter.take() {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection.take() {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
     let residual_evaluator = residual_predicate
@@ -17032,7 +17042,7 @@ fn read_local_vortex_duplicate_mask_scan(
     let source_order_limit = plan.source_order_limit;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -17190,7 +17200,7 @@ fn read_local_vortex_tail_scan(
     let projection_pushdown_applied = plan.projection.is_some();
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -17370,10 +17380,10 @@ fn read_local_vortex_sample_scan(
     }
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter.take() {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection.take() {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
     let residual_evaluator = residual_predicate
@@ -17615,10 +17625,10 @@ fn read_local_vortex_expression_project_scan(
     }
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter.take() {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection.take() {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
     let residual_evaluator = residual_predicate
@@ -17836,10 +17846,10 @@ fn read_local_vortex_melt_scan(
         .transpose()?;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -18040,10 +18050,10 @@ fn read_local_vortex_pivot_scan(
         .transpose()?;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -18250,10 +18260,10 @@ fn read_local_vortex_explode_scan(
         .transpose()?;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -18452,10 +18462,10 @@ fn read_local_vortex_rolling_window_scan(
         .transpose()?;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -18738,10 +18748,10 @@ fn read_local_vortex_simple_aggregate_scan(
     if !embedded_layout.metadata_pruned_entire_input {
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
-            scan = scan.with_filter(filter);
+            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
         }
         if let Some(projection) = plan.projection {
-            scan = scan.with_projection(projection);
+            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -18949,14 +18959,11 @@ fn read_local_vortex_simple_aggregate_scan(
         }
         let mut second_scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
-            second_scan = second_scan.with_filter(predicate_to_vortex_expr(
-                filter,
-                file.dtype(),
-                request.kind,
-            )?);
+            let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
+            second_scan = second_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
         }
         if let Some(projection) = second_plan.projection.take() {
-            second_scan = second_scan.with_projection(projection);
+            second_scan = second_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in second_scan
@@ -19002,14 +19009,12 @@ fn read_local_vortex_simple_aggregate_scan(
             }
             let mut second_scan = file.scan().map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
-                second_scan = second_scan.with_filter(predicate_to_vortex_expr(
-                    filter,
-                    file.dtype(),
-                    request.kind,
-                )?);
+                let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
+                second_scan = second_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
-                second_scan = second_scan.with_projection(projection);
+                second_scan =
+                    second_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan
@@ -19071,14 +19076,11 @@ fn read_local_vortex_simple_aggregate_scan(
         }
         let mut exact_scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
-            exact_scan = exact_scan.with_filter(predicate_to_vortex_expr(
-                filter,
-                file.dtype(),
-                request.kind,
-            )?);
+            let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
+            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(projection);
+            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -19129,14 +19131,12 @@ fn read_local_vortex_simple_aggregate_scan(
             }
             let mut second_scan = file.scan().map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
-                second_scan = second_scan.with_filter(predicate_to_vortex_expr(
-                    filter,
-                    file.dtype(),
-                    request.kind,
-                )?);
+                let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
+                second_scan = second_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
-                second_scan = second_scan.with_projection(projection);
+                second_scan =
+                    second_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan
@@ -19215,14 +19215,11 @@ fn read_local_vortex_simple_aggregate_scan(
         }
         let mut exact_scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
-            exact_scan = exact_scan.with_filter(predicate_to_vortex_expr(
-                filter,
-                file.dtype(),
-                request.kind,
-            )?);
+            let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
+            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(projection);
+            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -19270,14 +19267,12 @@ fn read_local_vortex_simple_aggregate_scan(
             }
             let mut second_scan = file.scan().map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
-                second_scan = second_scan.with_filter(predicate_to_vortex_expr(
-                    filter,
-                    file.dtype(),
-                    request.kind,
-                )?);
+                let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
+                second_scan = second_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
-                second_scan = second_scan.with_projection(projection);
+                second_scan =
+                    second_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan
@@ -19341,14 +19336,11 @@ fn read_local_vortex_simple_aggregate_scan(
         }
         let mut exact_scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
-            exact_scan = exact_scan.with_filter(predicate_to_vortex_expr(
-                filter,
-                file.dtype(),
-                request.kind,
-            )?);
+            let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
+            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(projection);
+            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -19849,10 +19841,10 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         }
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
-            scan = scan.with_filter(filter);
+            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
         }
         if let Some(projection) = plan.projection {
-            scan = scan.with_projection(projection);
+            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         let residual_evaluator = residual_predicate
@@ -20391,10 +20383,10 @@ fn read_local_vortex_sort_rows_scan(
     if !embedded_layout.metadata_pruned_entire_input {
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
-            scan = scan.with_filter(filter);
+            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
         }
         if let Some(projection) = plan.projection {
-            scan = scan.with_projection(projection);
+            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -21047,10 +21039,10 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         }
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
-            scan = scan.with_filter(filter);
+            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
         }
         if let Some(projection) = plan.projection {
-            scan = scan.with_projection(projection);
+            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         let residual_evaluator = residual_predicate
@@ -21705,14 +21697,15 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     let declared_columns = plan.projected_columns;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
-        scan = scan.with_filter(filter);
+        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
     }
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(projection);
+        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
     }
     let row_index_selection_applied = materialization_filter_predicate.is_none();
     if row_index_selection_applied {
         use vortex::buffer::Buffer;
+        use vortex::scan::strict_sorted_buffer::StrictSortedBuffer;
 
         let selected_row_indices = selected_unique_source_ordinals
             .iter()
@@ -21724,7 +21717,10 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-        scan = scan.with_row_indices(Buffer::from_iter(selected_row_indices));
+        let selected_row_indices =
+            StrictSortedBuffer::try_new(Buffer::from_iter(selected_row_indices))
+                .map_err(vortex_error)?;
+        scan = scan.with_row_indices(selected_row_indices);
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
@@ -36380,7 +36376,7 @@ fn aggregate_utf8_chunk_dictionary_materialization_blocker(
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::validity::Validity;
 
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let Ok(utf8) = array.clone().execute::<VarBinViewArray>(&mut ctx) else {
         return "cg21.aggregate_accessor.utf8_chunk_dictionary_provider_unavailable";
     };
@@ -36413,13 +36409,13 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
     } else {
         AggregateUtf8DictionarySource::DecodedUtf8ChunkDictionary
     };
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let utf8 = array
         .clone()
         .execute::<VarBinViewArray>(&mut ctx)
         .map_err(vortex_error)?;
     let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let mut row_nulls = Vec::<bool>::new();
     let mut has_null_row = false;
 
@@ -36498,7 +36494,7 @@ fn aggregate_direct_numeric_dictionary_accessor(
             &values,
         );
     }
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let Ok(values) = dictionary_array
         .values()
         .clone()
@@ -36822,7 +36818,7 @@ fn direct_primitive_aggregate_column_accessor(
 fn direct_bool_aggregate_column_accessor(
     array: &vortex::array::ArrayRef,
 ) -> Option<AggregateDirectColumnAccessor> {
-    use vortex::array::arrays::filter::FilterArrayExt as _;
+    use vortex::array::arrays::filter::FilterArraySlotsExt as _;
     use vortex::array::dtype::DType;
 
     if matches!(array.dtype(), DType::Bool(_)) {
@@ -36844,7 +36840,7 @@ fn bool_aggregate_column_accessor_from_array(
     use vortex::array::arrays::BoolArray;
     use vortex::array::arrays::bool::BoolArrayExt as _;
 
-    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let bool_array = array.clone().execute::<BoolArray>(&mut ctx).ok()?;
     let len = bool_array.len();
     let values = bool_array
@@ -36865,7 +36861,7 @@ fn bool_aggregate_column_accessor_from_array(
 fn filtered_primitive_aggregate_column_accessor(
     filter: vortex::array::ArrayView<'_, vortex::array::arrays::Filter>,
 ) -> Option<AggregateDirectColumnAccessor> {
-    use vortex::array::arrays::filter::FilterArrayExt as _;
+    use vortex::array::arrays::filter::FilterArraySlotsExt as _;
 
     let mask = filter.filter_mask();
     let primitive = direct_host_primitive(filter.child())?;
@@ -37014,7 +37010,7 @@ fn aggregate_direct_row_nulls_from_validity(
             Vec::new()
         }),
         Validity::Array(_) => {
-            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut nulls = Vec::with_capacity(selected_len);
             let mut any_null = false;
             for row_index in 0..len {
@@ -39984,7 +39980,7 @@ fn json_number_from_f64(value: f64) -> Result<serde_json::Value> {
 
 #[cfg(feature = "vortex-local-primitives")]
 fn deterministic_sample_score(seed: u64, row_index: usize) -> u64 {
-    let row = u64::try_from(row_index).map_or(u64::MAX, |value| value);
+    let row = u64::try_from(row_index).unwrap_or(u64::MAX);
     let mut value = seed ^ row.wrapping_mul(0x9e37_79b9_7f4a_7c15);
     value = value.wrapping_add(0x9e37_79b9_7f4a_7c15);
     value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
@@ -43727,7 +43723,7 @@ mod tests {
             .into_iter()
             .collect::<PrimitiveArray>()
             .into_array();
-        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
         let chunk = RunEnd::try_new(ends, values, &mut ctx)
             .expect("run-end array")
             .into_array();
@@ -43775,7 +43771,7 @@ mod tests {
             .into_iter()
             .collect::<PrimitiveArray>()
             .into_array();
-        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
         let chunk = BitPackedData::encode(&values, 1, &mut ctx)
             .expect("bit-packed array")
             .as_array()
@@ -43870,7 +43866,7 @@ mod tests {
             .into_iter()
             .collect::<PrimitiveArray>()
             .into_array();
-        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
         let flag = BitPackedData::encode(&flag_values, 1, &mut ctx)
             .expect("bit-packed flag")
             .as_array()
@@ -44064,7 +44060,7 @@ mod tests {
             .into_array();
         let values =
             PrimitiveArray::new(vec![5_i64, 9], Validity::from_iter([true, false])).into_array();
-        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
         let chunk = RunEnd::try_new(ends, values, &mut ctx)
             .expect("nullable run-end array")
             .into_array();
@@ -51936,7 +51932,7 @@ mod tests {
         use vortex::array::arrays::{DictArray, PrimitiveArray};
         use vortex::encodings::fastlanes::BitPackedData;
 
-        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
         let codes = [0_u8, 1, 0, 2]
             .into_iter()
             .collect::<PrimitiveArray>()
@@ -55730,7 +55726,9 @@ mod tests {
         .expect("projection plan");
         let mut scan = file.scan().expect("scan");
         if let Some(projection) = plan.projection.take() {
-            scan = scan.with_projection(projection);
+            scan = scan.with_projection(
+                bind_vortex_scan_expr(&file, &projection).expect("projection should bind"),
+            );
         }
         let mut chunks = scan.into_array_iter(&runtime).expect("array iterator");
         let chunk = chunks
@@ -56424,24 +56422,25 @@ mod tests {
     #[test]
     fn aggregate_accessor_uses_utf8_chunk_dictionary_before_materialized_rows() {
         use vortex::array::IntoArray as _;
-        use vortex::array::LEGACY_SESSION;
         use vortex::array::VortexSessionExecute as _;
         use vortex::array::arrays::varbin::builder::VarBinBuilder;
         use vortex::array::dtype::{DType, Nullability};
+        use vortex::array::legacy_session;
         use vortex::encodings::fsst::{fsst_compress, fsst_train_compressor};
 
-        let mut input = VarBinBuilder::<i32>::with_capacity(5);
+        let mut input =
+            VarBinBuilder::<i32>::with_capacity(DType::Utf8(Nullability::NonNullable), 5);
         input.append_value(b"http://example.test/a");
         input.append_value(b"http://example.test/b");
         input.append_value(b"http://example.test/a");
         input.append_value(b"http://example.test/c");
         input.append_value(b"http://example.test/b");
-        let input = input.finish(DType::Utf8(Nullability::NonNullable));
-        let compressor = fsst_train_compressor(&input);
-        let dtype = input.dtype().clone();
-        let len = input.len();
-        let mut ctx = LEGACY_SESSION.create_execution_ctx();
-        let compressed = fsst_compress(input, len, &dtype, &compressor, &mut ctx).into_array();
+        let input = input.finish_into_varbin().into_array();
+        let mut ctx = legacy_session().create_execution_ctx();
+        let compressor = fsst_train_compressor(&input, &mut ctx).expect("train FSST compressor");
+        let compressed = fsst_compress(&input, &compressor, &mut ctx)
+            .expect("compress FSST array")
+            .into_array();
 
         let accessor =
             aggregate_direct_column_accessor("URL", &compressed).expect("UTF-8 aggregate accessor");
@@ -56473,25 +56472,26 @@ mod tests {
     #[test]
     fn fsst_string_contains_uses_vortex_like_kernel_without_materialized_rows() {
         use vortex::array::IntoArray as _;
-        use vortex::array::LEGACY_SESSION;
         use vortex::array::VortexSessionExecute as _;
         use vortex::array::arrays::varbin::builder::VarBinBuilder;
         use vortex::array::dtype::{DType, Nullability};
+        use vortex::array::legacy_session;
         use vortex::encodings::fsst::{fsst_compress, fsst_train_compressor};
         use vortex::mask::Mask;
 
-        let mut input = VarBinBuilder::<i32>::with_capacity(5);
+        let mut input =
+            VarBinBuilder::<i32>::with_capacity(DType::Utf8(Nullability::NonNullable), 5);
         input.append_value(b"https://google.example/a");
         input.append_value(b"https://maps.example/b");
         input.append_value(b"https://mail.google.example/c");
         input.append_value(b"https://example.test/d");
         input.append_value(b"https://google.example/e");
-        let input = input.finish(DType::Utf8(Nullability::NonNullable));
-        let compressor = fsst_train_compressor(&input);
-        let dtype = input.dtype().clone();
-        let len = input.len();
-        let mut ctx = LEGACY_SESSION.create_execution_ctx();
-        let compressed = fsst_compress(input, len, &dtype, &compressor, &mut ctx).into_array();
+        let input = input.finish_into_varbin().into_array();
+        let mut ctx = legacy_session().create_execution_ctx();
+        let compressor = fsst_train_compressor(&input, &mut ctx).expect("train FSST compressor");
+        let compressed = fsst_compress(&input, &compressor, &mut ctx)
+            .expect("compress FSST array")
+            .into_array();
 
         assert!(compressed.is::<vortex::encodings::fsst::FSST>());
         assert_eq!(

@@ -238,8 +238,7 @@ impl VortexPreparedOlapLayoutInventory {
         let writer_layout = vortex_writer_layout_strategy_applied(layout_write_decision);
         let writer_policy = vortex_writer_compression_policy(layout_write_decision);
         let layout_size_attribution = format!(
-            "artifact_bytes_from_workspace_write;footer_inventory_deferred_until_query_open;writer_layout={};compression_policy={};single_vortex_artifact=true",
-            writer_layout, writer_policy
+            "artifact_bytes_from_workspace_write;footer_inventory_deferred_until_query_open;writer_layout={writer_layout};compression_policy={writer_policy};single_vortex_artifact=true",
         );
         let inventory_digest = fnv64_digest_text(&format!(
             "prepared_olap_layout_inventory|{}|{}|{}|{}|{}|{}",
@@ -2954,6 +2953,7 @@ fn micros_to_millis_string(micros: u128) -> String {
 /// when source metadata/footer inspection fails, when the source lacks a footer
 /// row count, or when the workspace-safe byte-preserving copy cannot be
 /// completed. No fallback or external execution engine is invoked.
+#[allow(clippy::too_many_lines)]
 pub fn prepare_native_vortex_artifact(
     request: &VortexNativeArtifactPrepareRequest,
 ) -> Result<VortexNativeArtifactPrepareReport> {
@@ -3058,8 +3058,7 @@ pub fn prepare_native_vortex_artifact(
                 |copied_bytes| {
                     if *copied_bytes != source_size_bytes {
                         return Err(ShardLoomError::InvalidOperation(format!(
-                            "native Vortex artifact copy byte count mismatch: copied {}, expected {}; staging cleanup attempted; no fallback execution was attempted",
-                            copied_bytes, source_size_bytes
+                            "native Vortex artifact copy byte count mismatch: copied {copied_bytes}, expected {source_size_bytes}; staging cleanup attempted; no fallback execution was attempted",
                         )));
                     }
                     Ok(())
@@ -9030,12 +9029,23 @@ fn validate_stream_record_batch_shape(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn arrow_record_batch_to_vortex_array(batch: RecordBatch) -> Result<vortex::array::ArrayRef> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::arrow::ArrowSessionExt as _;
+
+    let schema = batch.schema();
+    let session = vortex::session::VortexSession::default();
+    session
+        .arrow()
+        .from_arrow_record_batch(batch, schema.as_ref())
+        .map_err(vortex_error)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn record_batch_to_vortex_from_arrow_provider(
     batch: &RecordBatch,
     source_shape: &FlatColumnarSourceShape,
 ) -> Result<vortex::array::ArrayRef> {
-    use vortex::array::arrow::FromArrowArray as _;
-
     let projection_indices = source_shape
         .projected_columns
         .iter()
@@ -9046,7 +9056,7 @@ fn record_batch_to_vortex_from_arrow_provider(
             "streaming local vortex_ingest Arrow RecordBatch projection failed: {error}; no fallback execution was attempted"
         ))
     })?;
-    vortex::array::ArrayRef::from_arrow(projected, false).map_err(vortex_error)
+    arrow_record_batch_to_vortex_array(projected)
 }
 
 #[cfg(feature = "vortex-write")]
@@ -9874,7 +9884,6 @@ fn flat_columnar_source_to_vortex_from_arrow_provider(
 ) -> Result<vortex::array::ArrayRef> {
     use vortex::array::IntoArray as _;
     use vortex::array::arrays::ChunkedArray;
-    use vortex::array::arrow::FromArrowArray as _;
 
     let projection_indices = source_shape
         .projected_columns
@@ -9890,7 +9899,7 @@ fn flat_columnar_source_to_vortex_from_arrow_provider(
                     "local vortex_ingest Arrow RecordBatch projection failed: {error}; no fallback execution was attempted"
                 ))
             })?;
-            vortex::array::ArrayRef::from_arrow(projected, false).map_err(vortex_error)
+            arrow_record_batch_to_vortex_array(projected)
         })
         .collect::<Result<Vec<_>>>()?;
     match chunks.as_slice() {
@@ -10523,8 +10532,6 @@ fn scalar_rows_to_vortex_from_arrow_provider(
     column_arrow_dtypes: &[Option<ArrowDataType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<vortex::array::ArrayRef> {
-    use vortex::array::arrow::FromArrowArray as _;
-
     let batch = crate::universal_format_io::flat_rows_to_record_batch_with_dtypes(
         columns,
         column_dtypes,
@@ -10532,7 +10539,7 @@ fn scalar_rows_to_vortex_from_arrow_provider(
         rows,
         "local Vortex typed nested output",
     )?;
-    vortex::array::ArrayRef::from_arrow(batch, false).map_err(vortex_error)
+    arrow_record_batch_to_vortex_array(batch)
 }
 
 #[cfg(all(feature = "vortex-write", not(feature = "universal-format-io")))]
@@ -11257,7 +11264,10 @@ fn large_source_fast_load_table_strategy(
     block_target_bytes: u64,
     stats_concurrency: usize,
 ) -> vortex::layout::layouts::table::TableStrategy {
-    use vortex::file::ALLOWED_ENCODINGS;
+    use std::num::NonZeroUsize;
+
+    use vortex::compressor::BtrBlocksCompressorBuilder;
+    use vortex::editions::EditionSessionExt as _;
     use vortex::layout::layouts::buffered::BufferedStrategy;
     use vortex::layout::layouts::chunked::writer::ChunkedLayoutStrategy;
     use vortex::layout::layouts::collect::CollectStrategy;
@@ -11266,8 +11276,24 @@ fn large_source_fast_load_table_strategy(
     use vortex::layout::layouts::repartition::{RepartitionStrategy, RepartitionWriterOptions};
     use vortex::layout::layouts::table::TableStrategy;
     use vortex::layout::layouts::zoned::writer::{ZonedLayoutOptions, ZonedStrategy};
+    let row_block_len = row_block_size.max(1);
+    let row_block_size =
+        NonZeroUsize::new(row_block_len).expect("row_block_len is clamped to at least one");
+    let stats_concurrency = NonZeroUsize::new(stats_concurrency.max(1))
+        .expect("stats_concurrency is clamped to at least one");
+    let allowed_encodings = vortex::array::legacy_session()
+        .enabled_component_ids(vortex::editions::ComponentKind::Array)
+        .into_iter()
+        .collect();
+    let probe_compressor = std::sync::Arc::new(
+        BtrBlocksCompressorBuilder::default()
+            .retain_allowed_encodings(&allowed_encodings)
+            .build(),
+    );
+    let flat_base: std::sync::Arc<dyn vortex::layout::LayoutStrategy> =
+        std::sync::Arc::new(FlatLayoutStrategy::default());
     let flat: std::sync::Arc<dyn vortex::layout::LayoutStrategy> = std::sync::Arc::new(
-        FlatLayoutStrategy::default().with_allow_encodings((*ALLOWED_ENCODINGS).clone()),
+        vortex::layout::LayoutStrategyEncodingValidator::new(flat_base, allowed_encodings.clone()),
     );
     let chunked = ChunkedLayoutStrategy::new(std::sync::Arc::clone(&flat));
     let buffered = BufferedStrategy::new(
@@ -11278,7 +11304,7 @@ fn large_source_fast_load_table_strategy(
         buffered,
         RepartitionWriterOptions {
             block_size_minimum: VORTEX_PREPARED_OLAP_WRITER_ONE_MIB,
-            block_len_multiple: row_block_size,
+            block_len_multiple: row_block_len,
             block_size_target: Some(block_target_bytes),
             canonicalize: true,
         },
@@ -11288,13 +11314,14 @@ fn large_source_fast_load_table_strategy(
         std::sync::Arc::clone(&flat),
         coalescing,
         DictLayoutOptions::default(),
+        probe_compressor,
     );
     let stats = ZonedStrategy::new(
         dict,
         std::sync::Arc::clone(&flat),
         ZonedLayoutOptions {
             block_size: row_block_size,
-            concurrency: stats_concurrency.max(1),
+            concurrency: stats_concurrency,
             ..Default::default()
         },
     );
@@ -11302,7 +11329,7 @@ fn large_source_fast_load_table_strategy(
         stats,
         RepartitionWriterOptions {
             block_size_minimum: 0,
-            block_len_multiple: row_block_size,
+            block_len_multiple: row_block_len,
             block_size_target: None,
             canonicalize: false,
         },
@@ -11368,7 +11395,7 @@ fn large_source_fast_zstd_text_leaf_strategy(
         if !chunk.dtype().is_utf8() {
             return Ok(chunk.clone());
         }
-        let varbin = VarBinViewArray::execute(chunk.clone(), ctx)?.compact_buffers()?;
+        let varbin = VarBinViewArray::execute(chunk.clone(), ctx)?.compact_buffers(ctx)?;
         Ok(vortex_zstd::Zstd::from_var_bin_view_without_dict(
             &varbin,
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL,
@@ -11504,7 +11531,7 @@ where
 
 #[cfg(feature = "vortex-write")]
 fn collect_vortex_layout_encodings(
-    layout: &dyn vortex::layout::Layout,
+    layout: &dyn vortex::layout::DynLayout,
     encodings: &mut BTreeSet<String>,
 ) {
     encodings.insert(layout.encoding_id().to_string());
@@ -11516,7 +11543,7 @@ fn collect_vortex_layout_encodings(
 }
 
 #[cfg(feature = "vortex-write")]
-fn vortex_layout_encoding_inventory(layout: &dyn vortex::layout::Layout) -> (String, String) {
+fn vortex_layout_encoding_inventory(layout: &dyn vortex::layout::DynLayout) -> (String, String) {
     let root_layout_encoding = layout.encoding_id().to_string();
     let mut encodings = BTreeSet::new();
     collect_vortex_layout_encodings(layout, &mut encodings);
@@ -11754,6 +11781,7 @@ fn vortex_layout_size_attribution(
 
 #[cfg(feature = "vortex-write")]
 #[derive(Default)]
+#[allow(clippy::struct_field_names)]
 struct VortexLayoutSizeAttribution {
     source_columns: usize,
     derived_columns: usize,
@@ -12033,6 +12061,7 @@ fn usize_to_u64(value: usize) -> Result<u64> {
 }
 
 #[cfg(all(test, feature = "vortex-write"))]
+#[allow(clippy::too_many_lines)]
 mod tests {
     use super::*;
 
@@ -12043,8 +12072,8 @@ mod tests {
     ) -> arrow_array::ArrayRef {
         use vortex::VortexSessionDefault as _;
         use vortex::array::VortexSessionExecute as _;
-        use vortex::array::arrow::ArrowSessionExt as _;
         use vortex::array::stream::ArrayStreamExt as _;
+        use vortex::arrow::ArrowSessionExt as _;
         use vortex::file::OpenOptionsSessionExt as _;
         use vortex::io::runtime::BlockingRuntime as _;
         use vortex::io::runtime::single::SingleThreadRuntime;
@@ -12067,13 +12096,13 @@ mod tests {
                     .read_all(),
             )
             .expect("read vortex array");
-        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let mut ctx = session.create_execution_ctx();
         let target = arrow_schema::Field::new(
             "",
             arrow_schema::DataType::Struct(schema.fields.clone()),
             false,
         );
-        vortex::array::LEGACY_SESSION
+        session
             .arrow()
             .execute_arrow(array, Some(&target), &mut ctx)
             .expect("execute vortex artifact to arrow struct")

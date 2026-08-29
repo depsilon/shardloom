@@ -5,18 +5,73 @@ ShardLoom is auditing the upstream Vortex dependency graph before deeper integra
 builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
 
 ## Current state
-- Current workspace-managed dependency: optional umbrella `vortex = 0.75`, inherited by
+- Current workspace-managed dependency: optional umbrella `vortex = 0.85`, inherited by
   `shardloom-vortex` with `workspace = true` and kept optional at the crate boundary.
-- Latest upstream intake note: `vortex = 0.75.0` was reviewed in
-  `docs/architecture/vortex-public-api-inventory.md`; the prior `0.74`, `0.73`, `0.72`, and
-  detailed `0.71` release-note intake sections remain historical background.
+- Latest upstream intake note: `vortex = 0.85.0` was reviewed in
+  `docs/architecture/vortex-public-api-inventory.md`; the prior `0.75`, `0.74`, `0.73`,
+  `0.72`, and detailed `0.71` release-note intake sections remain historical background.
 - Umbrella `vortex` crate is still used for upstream opt-in builds.
 - Default build (`default = []`) does not enable upstream Vortex.
 - Existing feature-gated Vortex file/local primitive/write paths remain explicitly scoped and
   claim-gated; the version bump does not broaden runtime support.
 - Fallback execution engines are not present.
 
+## Vortex 0.85 provider-capability update
+
+`VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` incorporates the safe part of the Vortex dependency intake:
+the optional upstream Vortex provider family moves from `0.75.0` to `0.85.0`, while the structured
+Arrow/Parquet bridge remains Arrow 58-aligned to avoid duplicate provider types across Vortex and
+ORC.
+
+Compatibility posture:
+
+- Root `Cargo.toml` declares workspace dependencies `vortex = "0.85"` and
+  `vortex-zstd = "0.85"`; `shardloom-vortex/Cargo.toml` inherits them as optional dependencies.
+- `Cargo.lock` resolves the upstream Vortex crate family to `0.85.0`.
+- `cargo info vortex@0.85.0` reports license `Apache-2.0`, Rust version `1.95`, documentation
+  <https://docs.rs/vortex/0.85.0>, repository <https://github.com/spiraldb/vortex>, and crates.io
+  version <https://crates.io/crates/vortex/0.85.0>.
+- `cargo info vortex-zstd@0.85.0` reports license `Apache-2.0`, Rust version `1.95`,
+  documentation <https://docs.rs/vortex-zstd/0.85.0>, repository
+  <https://github.com/spiraldb/vortex>, and crates.io version
+  <https://crates.io/crates/vortex-zstd/0.85.0>.
+- ShardLoom provider-version evidence continues to read from
+  `shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION`; active provider-disposition field names
+  now use `vortex_upstream_*` labels instead of hard-coding a release number into current report
+  keys.
+- Deprecated Rust type aliases preserve the previous `Vortex075*` public report/type names while
+  new code uses the version-neutral `VortexUpstream*` names and the provider-version evidence field.
+- Default builds still keep upstream Vortex optional and disabled by default.
+- No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
+  dependency is introduced.
+
+0.85 migration changes retained in `shardloom-vortex`:
+
+- Vortex scan projection/filter calls now bind optimized expressions as `BoundExpression` before
+  calling `ScanBuilder::with_projection` / `with_filter`.
+- Arrow import/export uses `vortex::arrow::ArrowSessionExt` session methods instead of deprecated
+  non-session Arrow imports.
+- Layout inventory accepts the current `DynLayout` trait surface.
+- Local top-K row-reference materialization uses Vortex `StrictSortedBuffer<u64>` row-index
+  selection.
+- Run-end lowering imports current slot access traits and keeps unsupported nullable/nested cases
+  explicit.
+- Current Vortex `Map`/`Union` dtype/scalar variants are deterministically unsupported at the
+  encoded-stat boundary unless a later runtime item adds support.
+- Writer layout strategy derives allowed encodings from the active Vortex edition/session instead
+  of depending on removed static file constants.
+
+Claim boundary:
+
+- This update proves optional dependency compatibility and refreshed provider-disposition evidence.
+- It does not by itself admit new Vortex runtime APIs, JSON/geospatial execution, GPU/device
+  execution, external engines, object-store/table support, broad SQL/DataFrame claims, performance
+  claims, package claims, or production readiness.
+
 ## Vortex 0.75 dependency bump proof
+
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 `PROD-V1-3A` folds in Dependabot PR
 [#1223](https://github.com/depsilon/shardloom/pull/1223), updating the optional upstream Vortex
@@ -59,8 +114,8 @@ Claim boundary:
 
 ## Vortex 0.74 dependency bump proof
 
-Historical note; superseded by the Vortex 0.75 dependency bump proof above for current dependency
-status.
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 `GAR-DEPENDENCY-INTAKE-1` incorporates Dependabot PR
 [#1150](https://github.com/depsilon/shardloom/pull/1150), updating the optional upstream Vortex
@@ -88,8 +143,8 @@ Claim boundary:
 
 ## Vortex 0.73 dependency bump proof
 
-Historical note; superseded by the Vortex 0.75 dependency bump proof above for current dependency
-status.
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 `GAR-DEPENDENCY-INTAKE-1` incorporates Dependabot PR
 [#979](https://github.com/depsilon/shardloom/pull/979), updating the optional upstream Vortex

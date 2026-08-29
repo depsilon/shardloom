@@ -1806,6 +1806,26 @@ class ReleaseScriptTests(unittest.TestCase):
             0.0,
         )
 
+    def test_benchmark_runner_repair_contract_uses_provider_neutral_vortex_field(
+        self,
+    ) -> None:
+        module = self._load_module_from_path(
+            REPO_ROOT / "benchmarks" / "traditional_analytics" / "run.py",
+            "traditional_analytics_run_repair_contract_for_test",
+        )
+
+        contract = module.prepared_state_contract()
+        repair_fields = contract["prepare_batch_dependency_repair_fields"]
+
+        self.assertIn(
+            "prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status",
+            repair_fields,
+        )
+        self.assertNotIn(
+            "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+            repair_fields,
+        )
+
     def test_benchmark_promoter_emits_cold_bottleneck_fields(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",

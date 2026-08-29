@@ -253,10 +253,10 @@ Current autonomous execution order:
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. Work `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` as the next separate provider/capability PR before
-   changing the pinned Vortex dependency, because the Vortex bot PR skips multiple upstream releases
-   and current released upstream is 0.85. The upstream docs also list 0.86 as draft; treat that as
-   surveillance input only until a released crate line exists.
+2. Finish and merge `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1`: the implementation branch updates the
+   pinned Vortex provider line to 0.85, keeps Arrow/Parquet on the provider-aligned 58.3 stack,
+   refreshes active provider-disposition evidence, and still needs final PR validation plus
+   post-merge ledger movement.
 3. Work `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` because Vortex inputs must be first-class
    Universal Ingest sources and must not be routed through slow compatibility/source-adapter
    re-encode paths.
@@ -276,67 +276,68 @@ Current autonomous execution order:
     `vortex 0.76.0` / `vortex-zstd 0.76.0` as a yanked hazard, the upstream Vortex GitHub release
     list on 2026-08-29 showing `0.85.0` as the current latest release, and upstream Vortex
     changelog docs on 2026-08-29 showing `0.86.0` as draft.
-  - Current state: ShardLoom is pinned to Vortex `0.75`, with current provider evidence already
-    consuming selected 0.75 surfaces. The open Dependabot PR cannot be merged as-is because it
-    jumps over 0.76-0.84 and does not review API/provider changes, ArrowSession migration pressure,
-    layout reader changes, row-function additions, or no-fallback evidence impacts. The draft 0.86
-    notes should be tracked for upcoming provider design pressure but must not be used to pin an
-    unreleased production dependency.
+  - Current state: implementation is in progress on the cohesive dependency/provider branch.
+    ShardLoom is updated to the current non-yanked Vortex `0.85` provider line, active provider
+    reports use version-neutral `vortex_upstream_*` fields, and the structured Arrow/Parquet bridge
+    intentionally remains on the Vortex/ORC-aligned 58.3 stack. The draft 0.86 notes are tracked as
+    design pressure only and must not be used to pin an unreleased production dependency.
   - ShardLoom technique review: review all candidate provider changes through the Vortex-first
     boundary. Prioritize metadata-first planning, dictionary/FSST predicates, grouped aggregate
     kernels, byte-length/list-length transforms, layout-reader/file-cache reuse, row-ref/top-K
     support, writer/encoding policy, mask/filter/take reducers, and single-artifact embedded
     layout metadata. Reject Vortex query-engine integrations as fallback.
   - Execution checklist:
-    - [ ] Read upstream Vortex 0.76-0.85 release notes and local crate APIs from primary sources.
-      - [ ] 0.76: yanked status, ArrayAccessor removal, aggregate descriptors for zoned stats,
+    - [x] Read upstream Vortex 0.76-0.85 release notes and local crate APIs from primary sources.
+      - [x] 0.76: yanked status, ArrayAccessor removal, aggregate descriptors for zoned stats,
         session-registry kernel movement, nullable-boolean mask strictness, list-length scalar,
         Decimal casting, JSON Variant conversion, Arrow device export, buffer/mask performance,
         FSST and dictionary metadata fixes.
-      - [ ] 0.77: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
+      - [x] 0.77: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
         and any Arrow/session compatibility breaks.
-      - [ ] 0.78: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
+      - [x] 0.78: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
         and any Arrow/session compatibility breaks.
-      - [ ] 0.79: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
+      - [x] 0.79: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
         and any Arrow/session compatibility breaks.
-      - [ ] 0.80: `VortexSource` improvements, layout adapter error posture, piecewise sequence
+      - [x] 0.80: `VortexSource` improvements, layout adapter error posture, piecewise sequence
         index arrays, struct-layout reader allocation reductions, footer parse validation, and
         Vortex edition docs.
-      - [ ] 0.81: file-level user metadata, serialization-context registry filtering, partition
+      - [x] 0.81: file-level user metadata, serialization-context registry filtering, partition
         expression locking changes, and `UnionArray`.
-      - [ ] 0.82: grouped aggregate kernels, scan statistics, layout-reader/file-cache changes,
+      - [x] 0.82: grouped aggregate kernels, scan statistics, layout-reader/file-cache changes,
         JSON/Arrow import/export changes, interleave encoding, row encoder, byte-length/string
         transforms, zstd/binary scheme changes, mask/zip/layout performance, and dictionary/FSST
         LIKE behavior.
-      - [ ] 0.83: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
+      - [x] 0.83: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
         and any Arrow/session compatibility breaks.
-      - [ ] 0.84: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
+      - [x] 0.84: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
         and any Arrow/session compatibility breaks.
-      - [ ] 0.85: ArrowSession-only import/export deprecations, Expression enum/Root variant,
+      - [x] 0.85: ArrowSession-only import/export deprecations, Expression enum/Root variant,
         Normalized validity movement, builder child canonicalization changes, layout scan physical
         plan model, `VortexReadAt::read_ranges`, RowFn/RowVisitor batch execution, expression
         optimizer rules, primitive interleave execution, Decimal cast kernels, row-range selection
         preservation, bit-buffer/mask performance, and sequence bitmap improvements.
-      - [ ] 0.86 draft surveillance: `VortexWrite` `Send` requirements, physical `OutputSink`
+      - [x] 0.86 draft surveillance: `VortexWrite` `Send` requirements, physical `OutputSink`
         parameters, runtime output dtype for row dispatch, filter-and-scatter `RowFn` execution,
         fixed-width buffer filtering, grouped accumulator state behavior, nullable `RowFn` dense
         retry, sequence cast compute, and upstream DataFusion/DuckDB items to keep rejected as
         runtime fallback.
-    - [ ] Build a migration staircase that validates each provider line or release family before
+    - [x] Build a migration staircase that validates each provider line or release family before
       jumping the workspace dependency: `0.75 -> non-yanked 0.77/0.78/0.79 API audit -> 0.80 ->
       0.81 -> 0.82 -> 0.83 -> 0.84 -> 0.85`, with 0.76 recorded only as a yanked hazard.
-    - [ ] For each release step, record compile breaks, removed APIs, migrated API replacements,
+    - [x] For each release step, record compile breaks, removed APIs, migrated API replacements,
       provider opportunities, rejected query-engine integrations, and required ShardLoom adapter
       changes before retaining the step.
-    - [ ] Identify provider changes that can materially help ShardLoom ingest, scan, string,
+    - [x] Identify provider changes that can materially help ShardLoom ingest, scan, string,
       top-K, high-cardinality aggregate, and writer lanes.
-    - [ ] Decide whether to update the pinned Vortex crate line to a current non-yanked version or
+    - [x] Decide whether to update the pinned Vortex crate line to a current non-yanked version or
       stay on 0.75 while backfilling ShardLoom-owned implementations.
-    - [ ] If updating, keep usage isolated in `shardloom-vortex`, update provider-version evidence
+    - [x] If updating, keep usage isolated in `shardloom-vortex`, update provider-version evidence
       surfaces, dependency footprint docs, lockfile, feature-gated compile tests, and no-fallback
       validators.
-    - [ ] If adopting provider APIs, add correctness fixtures and ship/drop UAT probes proving the
-      provider is faster or cleaner than the current ShardLoom path before retaining it.
+    - [x] If adopting provider APIs, add correctness fixtures and ship/drop UAT probes proving the
+      provider is faster or cleaner than the current ShardLoom path before retaining it. Current
+      branch adopts compatibility API migrations only; performance-sensitive provider adoption
+      remains gated by existing slow-lane ship/drop items rather than claimed here.
     - [ ] Move completed intake details to the ledger after the Vortex capability PR merges.
   - User-visible surface: runtime evidence fields, capability reports, dependency docs, and
     eventually SQL/Python/DataFrame routes only through shared Vortex-normalized runtime families.
@@ -346,7 +347,8 @@ Current autonomous execution order:
     focused provider correctness tests, and targeted performance/UAT evidence for retained
     providers.
   - Acceptance: Vortex provider upgrade/adoption is deliberate, current, non-yanked, and backed by
-    ShardLoom-native evidence; no Vortex DataFusion/DuckDB/Spark integration is used.
+    ShardLoom-native evidence; Arrow/Parquet remain on a single provider-aligned 58.3 graph; no
+    Vortex DataFusion/DuckDB/Spark integration is used.
   - Claim boundary: provider/capability intake only until runtime tests and UAT prove a specific
     performance or capability claim.
   - Fallback boundary: Vortex array/compute/scan/source/sink providers are allowed only as native

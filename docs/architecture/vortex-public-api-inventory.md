@@ -46,7 +46,8 @@ phase note. They are not active queue state and do not override `phased-executio
   Vortex query-engine integrations and external baselines.
 - Source/Split admission framing: `vortex-api-inventory` exposes
   `shardloom.vortex_source_split_runtime_admission.v1` for the scoped
-  `local_vortex_file_scan_into_array_iter` runtime path. The proof records `vortex` version `0.75`,
+  `local_vortex_file_scan_into_array_iter` runtime path. The proof records the current upstream
+  Vortex provider version from `shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION`,
   `vortex-local-primitives`, `VortexFile::scan` / `ScanBuilder` API surfaces, source/split refs,
   local field-mask/predicate-ordering policy, execution/Native I/O refs, and
   `fallback_attempted=false`. This admits the local Vortex source/split runtime path while keeping
@@ -97,8 +98,8 @@ phase note. They are not active queue state and do not override `phased-executio
 - Still deferred: generalized Source/Sink API integration, object-store scan, table/catalog scan,
   broad reader wiring, writes, Arrow-default execution, GPU/device execution,
   vector/geospatial/media execution, and external query-engine integration execution.
-- Historical upstream 0.74 intake: Vortex `0.74.0` remains historical dependency intake material
-  superseded by the `0.75` snapshot below. Historical API notes do not admit current runtime
+- Historical upstream 0.75 intake: Vortex `0.75.0` remains historical dependency intake material
+  superseded by the `0.85` snapshot below. Historical API notes do not admit current runtime
   behavior without provider admission, certificates, no-fallback evidence, and tests.
 - TurboQuant posture: upstream Vortex exposes TurboQuant as a vector quantization extension family,
   but ShardLoom now exposes only a blocked capability row for
@@ -121,14 +122,90 @@ phase note. They are not active queue state and do not override `phased-executio
 
 ## Dependency Snapshot
 - Crate: `vortex`
-- Version: `0.75`
+- Version: `0.85`
 - License: Apache-2.0 (per dependency review)
 - ShardLoom crate using it: `shardloom-vortex`
 - Actual Vortex IO implemented: historical metadata/footer fixture open plus approved feature-gated
   local primitive scan paths where recorded in the phase plan
 - Fallback execution introduced: no
 
+## Upstream Vortex 0.85 Provider-Capability Update
+
+This section records the workspace-managed `vortex = "0.85"` / `vortex-zstd = "0.85"` dependency
+compatibility update. It does not authorize Vortex query-engine integrations, broad runtime support,
+object-store/table execution, JSON/geospatial execution, GPU/device execution, SQL/DataFrame
+production claims, package publication, or performance claims by dependency availability alone.
+
+Source evidence:
+
+- Upstream changelog index: <https://docs.vortex.dev/project/changelog/>.
+- Upstream 0.85 changelog: <https://docs.vortex.dev/project/changelog/v0.85.0>.
+- Crates.io version: <https://crates.io/crates/vortex/0.85.0>.
+- Versioned docs: <https://docs.rs/vortex/0.85.0>.
+- `cargo info vortex@0.85.0`: license `Apache-2.0`, Rust version `1.95`, repository
+  <https://github.com/spiraldb/vortex>.
+- `cargo info vortex-zstd@0.85.0`: license `Apache-2.0`, Rust version `1.95`, repository
+  <https://github.com/spiraldb/vortex>.
+
+Dependency update:
+
+- Root `Cargo.toml` now records workspace dependencies `vortex = "0.85"` and
+  `vortex-zstd = "0.85"`; `shardloom-vortex` inherits them as optional, feature-gated
+  dependencies.
+- `Cargo.lock` now resolves the upstream Vortex crate family to `0.85.0`.
+- Default ShardLoom builds still do not enable upstream Vortex.
+- Provider-version evidence continues to read from
+  `shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION`, avoiding duplicate current-version strings
+  across certificates, capability rows, scan/source admission rows, preparation spine reports, and
+  benchmark route evidence.
+- Active upstream provider-disposition reports use `vortex_upstream_*` schema/field labels so
+  current report keys do not encode a stale release number.
+- The crate root and `adapter` module keep deprecated `Vortex075*` Rust type aliases for downstream
+  compile compatibility; active report IDs and JSON fields use the version-neutral
+  `vortex_upstream_*` naming.
+- No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
+  dependency is introduced.
+
+Runtime-relevant 0.76-0.85 API/opportunity map:
+
+| Upstream release family | Classification | ShardLoom incorporation path | Claim boundary |
+| --- | --- | --- | --- |
+| 0.76 yanked line | `blocked_dependency_hazard` | Record `vortex 0.76.0` / `vortex-zstd 0.76.0` as yanked and skip it as a pinned provider line. | No runtime claim. |
+| 0.77-0.79 scan/expression/encoding changes | `wrap_vortex_concept` | Treat as intermediate migration pressure; retain only the current 0.85-compatible ShardLoom adapter surface. | No separate runtime claim. |
+| 0.80 `VortexSource`, piecewise sequence, footer validation, layout allocation and editions work | `native_provider_candidate` | Feed source-admission, row-ref/top-K, footer safety, and layout-advisor work through shared Vortex-normalized runtime evidence. | No object-store/table or performance claim by release availability alone. |
+| 0.81 file metadata, registry filtering, partition-expression lock behavior, `UnionArray` | `native_provider_candidate` / `blocked_until_shardloom_evidence` | Use file metadata/registry behavior in provider evidence; keep union dtype/scalar values deterministically unsupported at encoded-stat boundaries until a runtime item admits them. | No union execution claim. |
+| 0.82-0.84 grouped aggregate, scan statistics, layout/file cache, JSON/Arrow, interleave, row encoder, byte-length, zstd/binary, mask/zip, dictionary/FSST LIKE work | `native_provider_candidate` with existing shared runtime evidence where proven | Keep ShardLoom-native packed-key/capillary grouped state for flat ClickBench-style group-bys unless grouped-list construction becomes cheaper; keep dictionary-derived length transforms unless Vortex `byte_length()` wins a non-dictionary lane; continue using scoped Vortex `LikeKernel`, mask metadata, layout cache, writer/encoding, and strict row-reference provider surfaces where tests prove parity. | No broad grouped aggregate, JSON/geospatial, or performance claim without route evidence. |
+| 0.85 BoundExpression, ArrowSession-only import/export, `DynLayout`, strict row indices, session/edition encoding selection, `Map` dtype, updated VarBin/FSST helpers, writer strategy changes | `use_vortex_native_provider` for current adapter migration | Migrate scan pushdown to bound expressions, Arrow import/export to `ArrowSessionExt`, layout inventories to `DynLayout`, top-K materialization to `StrictSortedBuffer`, writer strategy to session-derived encoding membership, and dtype/scalar matches to explicit `Map`/`Union` unsupported handling. | Feature-gated build/provider compatibility only; no new runtime/performance claim. |
+| 0.86 draft `VortexWrite`/`OutputSink`, `RowFn`, fixed-width filtering, grouped-state, sequence-cast changes | `surveillance_only` | Track as future migration pressure. Do not pin or publish against unreleased crate lines. | No runtime claim. |
+
+Executable evidence surface:
+
+- `vortex-api-inventory --format json` now exposes
+  `shardloom.vortex_upstream_heavy_operator_provider_disposition.v1` under report id
+  `perf-runtime-7b.vortex_upstream.heavy_operator_provider_disposition`.
+- `vortex-api-inventory --format json` also exposes
+  `shardloom.vortex_upstream_local_io_provider_disposition.v1` under report id
+  `prod-ready-1a.vortex_upstream.local_io_provider_disposition`.
+- Both reports are side-effect-free and report-only: `runtime_execution=false`, `data_read=false`,
+  `data_decoded=false`, `data_materialized=false`, `external_engine_invoked=false`,
+  `fallback_attempted=false`, and `claim_gate_status=not_claim_grade`.
+- Older benchmark promotion code accepts the historical
+  `prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status` field as
+  an input alias, but new output uses the provider-neutral
+  `prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status`
+  key.
+
+Claim boundary:
+
+- Vortex `0.85.0` compatibility is a dependency/build/provider-disposition claim only.
+- No new runtime behavior, JSON/geospatial execution, vector/search support, GPU support,
+  object-store support, broad SQL/DataFrame support, package readiness, or performance claim is
+  added.
+
 ## Upstream Vortex 0.75 Dependency Update
+
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 This section records the workspace-managed `vortex = "0.75"` dependency compatibility update. It does not authorize
 new Vortex runtime APIs, JSON/geospatial execution, GPU/device execution, object-store/table
@@ -172,12 +249,12 @@ Runtime-relevant 0.75 API/opportunity map:
 | Arrow device export, GPU/device paths, JNI, cuDF C FFI | `blocked_until_vortex_or_shardloom_evidence` | Future accelerator/device-residency track only. Keep blocked unless a phase adds device memory ownership, CPU fallback refusal, certificates, and package/build policy. | No GPU/device support claim. |
 | DataFusion 54 integration items | `baseline_or_oracle_only` | External comparison or differential oracle context only. Must never execute unsupported ShardLoom runtime work or residual evaluation. | No fallback execution, no ShardLoom runtime claim. |
 
-Executable evidence surface:
+Historical evidence surface:
 
-- `vortex-api-inventory --format json` now exposes
+- `vortex-api-inventory --format json` historically exposed
   `shardloom.vortex075_heavy_operator_provider_disposition.v1` under report id
   `perf-runtime-7b.vortex075.heavy_operator_provider_disposition`.
-- `vortex-api-inventory --format json` also exposes
+- `vortex-api-inventory --format json` also historically exposed
   `shardloom.vortex075_local_io_provider_disposition.v1` under report id
   `prod-ready-1a.vortex075.local_io_provider_disposition`.
 - Both reports are side-effect-free and report-only: `runtime_execution=false`, `data_read=false`,
@@ -211,8 +288,8 @@ Claim boundary:
 
 ## Upstream Vortex 0.74 Dependency Update
 
-Historical note; superseded by the Vortex 0.75 dependency update above for current dependency
-status.
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 This section records the `vortex = "0.74"` dependency compatibility update. It does not authorize
 new Vortex runtime APIs, vector execution, GPU execution, object-store/table execution, SQL/DataFrame
@@ -247,7 +324,8 @@ Claim boundary:
 
 ## Upstream Vortex 0.72 Dependency Update And TurboQuant Gate
 
-Historical note; superseded by the Vortex 0.75 dependency update above for current dependency status.
+Historical note; superseded by the Vortex 0.85 provider-capability update above for current
+dependency status.
 
 This section records the `vortex = "0.72"` dependency compatibility update and the TurboQuant
 capability review. It does not authorize new Vortex runtime APIs, vector execution, GPU execution,

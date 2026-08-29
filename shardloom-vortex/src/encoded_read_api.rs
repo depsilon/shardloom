@@ -45,7 +45,7 @@ fn layout_reader_row_count_method_item_probe(reader: &dyn vortex::layout::Layout
 fn layout_reader_projection_evaluation_method_item_probe(
     reader: &dyn vortex::layout::LayoutReader,
     row_range: &std::ops::Range<u64>,
-    expr: &vortex::expr::Expression,
+    expr: &vortex::expr::BoundExpression,
     mask: vortex::array::MaskFuture,
 ) -> vortex::error::VortexResult<vortex::layout::ArrayFuture> {
     reader.projection_evaluation(row_range, expr, mask)
@@ -55,7 +55,7 @@ fn layout_reader_projection_evaluation_method_item_probe(
 fn layout_reader_filter_evaluation_method_item_probe(
     reader: &dyn vortex::layout::LayoutReader,
     row_range: &std::ops::Range<u64>,
-    expr: &vortex::expr::Expression,
+    expr: &vortex::expr::BoundExpression,
     mask: vortex::array::MaskFuture,
 ) -> vortex::error::VortexResult<vortex::array::MaskFuture> {
     reader.filter_evaluation(row_range, expr, mask)
