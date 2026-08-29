@@ -9,14 +9,17 @@ or fallback execution.
 
 ## Current support snapshot
 
-- Direct crate: `rusqlite = 0.40.1` in `shardloom-cli`.
+- Direct crate: `rusqlite = 0.40.2` in `shardloom-cli`.
 - Feature posture: `default-features = false`, `features = ["bundled"]`.
-- Source: Dependabot PR <https://github.com/depsilon/shardloom/pull/1153>.
-- `cargo info rusqlite@0.40.1` reports license `MIT`, documentation
+- Source: Dependabot PRs <https://github.com/depsilon/shardloom/pull/1153> and
+  <https://github.com/depsilon/shardloom/pull/1406>.
+- `cargo info rusqlite@0.40.2` reports license `MIT`, documentation
   <https://docs.rs/rusqlite/>, repository <https://github.com/rusqlite/rusqlite>, and crates.io
-  version <https://crates.io/crates/rusqlite/0.40.1>.
-- Immediate host-target transitive dependency for SQLite FFI: `libsqlite3-sys = 0.38.1`, license
-  `MIT` per `cargo info libsqlite3-sys@0.38.1`.
+  version <https://crates.io/crates/rusqlite/0.40.2>.
+- Immediate host-target transitive dependency for SQLite FFI: `libsqlite3-sys = 0.38.2`, license
+  `MIT` per `cargo info libsqlite3-sys@0.38.2`.
+- The 0.40.2 release lowers upstream MSRV to 1.88.0; it does not broaden ShardLoom's SQLite
+  fixture-smoke runtime scope.
 - ShardLoom intentionally disables `rusqlite` default features for this fixture path. The local
   smoke does not use `prepare_cached`, and ShardLoom is not a wasm SQLite runtime, so the update
   keeps `hashlink`, `sqlite-wasm-rs`, `rsqlite-vfs`, `wasm-bindgen`, and `js-sys` out of the
@@ -50,5 +53,5 @@ or fallback execution.
 - `cargo clippy -p shardloom-vortex -p shardloom-cli --all-targets -- -D warnings`
 - `cargo test -p shardloom-cli --test sqlite_local_runtime_snapshots`
 - `cargo tree -p shardloom-cli --edges normal --depth 3` confirms the host-target normal tree
-  includes `rusqlite v0.40.1` and `libsqlite3-sys v0.38.1` without `hashlink`,
+  includes `rusqlite v0.40.2` and `libsqlite3-sys v0.38.2` without `hashlink`,
   `sqlite-wasm-rs`, `rsqlite-vfs`, `wasm-bindgen`, or `js-sys`.

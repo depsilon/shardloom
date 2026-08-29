@@ -10218,7 +10218,7 @@ class ReleaseScriptTests(unittest.TestCase):
             cli_manifest.parent.mkdir(parents=True)
             cli_manifest.write_text(
                 "[dependencies]\n"
-                'rusqlite = { version = "0.40.1", default-features = false, features = ["bundled"] }\n',
+                'rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }\n',
                 encoding="utf-8",
             )
             vortex_manifest = root / "shardloom-vortex" / "Cargo.toml"
@@ -10235,11 +10235,11 @@ class ReleaseScriptTests(unittest.TestCase):
                 "\n"
                 "[[package]]\n"
                 'name = "rusqlite"\n'
-                'version = "0.40.1"\n'
+                'version = "0.40.2"\n'
                 "\n"
                 "[[package]]\n"
                 'name = "libsqlite3-sys"\n'
-                'version = "0.38.1"\n',
+                'version = "0.38.2"\n',
                 encoding="utf-8",
             )
 
@@ -10258,15 +10258,15 @@ class ReleaseScriptTests(unittest.TestCase):
 
         self.assertEqual(
             rusqlite,
-            {"version": "0.40.1", "default-features": False, "features": ["bundled"]},
+            {"version": "0.40.2", "default-features": False, "features": ["bundled"]},
         )
         self.assertEqual(
             vortex,
             {"version": CURRENT_VORTEX_MANIFEST_VERSION, "optional": True},
         )
         self.assertEqual(lock_versions["vortex"], CURRENT_VORTEX_LOCK_VERSION)
-        self.assertEqual(lock_versions["rusqlite"], "0.40.1")
-        self.assertEqual(lock_versions["libsqlite3-sys"], "0.38.1")
+        self.assertEqual(lock_versions["rusqlite"], "0.40.2")
+        self.assertEqual(lock_versions["libsqlite3-sys"], "0.38.2")
 
     def test_workspace_version_source_contract_accepts_manifest_derived_versions(self) -> None:
         module = self._load_script_module(

@@ -48,10 +48,11 @@ executable support from older PR-specific sections that say "this PR" or
   `Apache-2.0`, Rust version `1.95`, documentation at <https://docs.rs/vortex/0.85.0>, and
   repository <https://github.com/spiraldb/vortex>.
 - The next Vortex update must be a provider/capability intake PR, not a blind lockfile bump. It
-  must review the intervening 0.77-0.85 release surface for ShardLoom-native provider opportunities
-  such as metadata/statistics pruning, dictionary/FSST predicates, grouped aggregate kernels,
-  byte/list length transforms, layout-reader caching, row-reference/top-K support, mask/filter/take
-  reducers, writer/encoding policy, and single-artifact embedded layout metadata.
+  must review `0.76.0` as a yanked hazard and then review each intervening non-yanked release from
+  0.77 through the current latest 0.85 for ShardLoom-native provider opportunities such as
+  metadata/statistics pruning, dictionary/FSST predicates, grouped aggregate kernels, byte/list
+  length transforms, layout-reader caching, row-reference/top-K support, mask/filter/take reducers,
+  writer/encoding policy, and single-artifact embedded layout metadata.
 - The direct Arrow/Parquet bridge stays on Arrow/Parquet `58.3.0` in this dependency hygiene pass
   because current Vortex `0.85.0` still declares `arrow-array ^58.3` and `parquet ^58.3`; upgrading
   only ShardLoom's direct Arrow bridge to `59.x` would create duplicate Arrow provider types.

@@ -22,18 +22,28 @@ execution.
   <https://github.com/depsilon/shardloom/pull/1399>,
   <https://github.com/depsilon/shardloom/pull/1400>, and
   <https://github.com/depsilon/shardloom/pull/1401> were closed and absorbed into one cohesive
-  dependency-intake PR rather than merged as individual slivers.
+  dependency-intake PR rather than merged as individual slivers. Follow-up Dependabot PR
+  <https://github.com/depsilon/shardloom/pull/1407> is absorbed into the current dependency hygiene
+  pass for the same action family.
 - Updated action pins:
   - `github/codeql-action/init@v4` pinned to commit
-    `e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81`.
+    `cdf488f595d80d6e07e03d4674febd5ab45fa938`.
   - `github/codeql-action/analyze@v4` pinned to commit
-    `e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81`.
+    `cdf488f595d80d6e07e03d4674febd5ab45fa938`.
   - `github/codeql-action/upload-sarif@v4` pinned to commit
-    `e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81`.
+    `cdf488f595d80d6e07e03d4674febd5ab45fa938`.
   - `ossf/scorecard-action@v2.4.4` pinned to commit
     `2d1146689b8cda280b9bc96326124645441f03bc`.
   - `actions/setup-python@v7.0.0` pinned to commit
     `5fda3b95a4ea91299a34e894583c3862153e4b97`.
+  - `actions/checkout@v7.0.1` pinned to commit
+    `3d3c42e5aac5ba805825da76410c181273ba90b1`.
+  - `actions/setup-node@v7.0.0` pinned to commit
+    `820762786026740c76f36085b0efc47a31fe5020`.
+  - `Swatinem/rust-cache@v2.9.2` pinned to commit
+    `f0d9c3887740aee45f6153b24b3a6b815192ec16`.
+  - `pypa/gh-action-pypi-publish@v1.14.2` pinned to commit
+    `dc37677b2e1c63e2034f94d8a5b11f265b73ba33`.
 - Scope: CI setup, CodeQL analysis, OpenSSF Scorecard, SARIF upload, and PyPI draft workflow setup
   only.
 - Dependabot grouping now batches GitHub Actions updates as `ci-security-actions` so action pin

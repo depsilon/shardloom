@@ -6,15 +6,18 @@ This document records ShardLoom's current JSON and digest dependency posture for
 `shardloom-vortex` features. It is a dependency-review ledger only; it does not authorize new
 runtime behavior, package publication, performance claims, or fallback execution.
 
-## Serde JSON 1.0.150
+## Serde JSON 1.0.151
 
-- Source: Dependabot PR <https://github.com/depsilon/shardloom/pull/1151>.
+- Source: Dependabot PRs <https://github.com/depsilon/shardloom/pull/1151> and
+  <https://github.com/depsilon/shardloom/pull/1405>.
 - Direct manifest posture: `serde_json = "1.0"` remains optional in `shardloom-vortex`.
-- Lockfile version: `serde_json = 1.0.150`.
-- `cargo info serde_json@1.0.150` reports license `MIT OR Apache-2.0`, Rust version `1.71`,
+- Workspace dependency version: `serde_json = "1.0.151"`.
+- Lockfile version: `serde_json = 1.0.151`.
+- `cargo info serde_json@1.0.151` reports license `MIT OR Apache-2.0`, Rust version `1.71`,
   documentation <https://docs.rs/serde_json>, repository <https://github.com/serde-rs/json>, and
-  crates.io version <https://crates.io/crates/serde_json/1.0.150>.
-- The release note says non-string enum object keys are rejected.
+  crates.io version <https://crates.io/crates/serde_json/1.0.151>.
+- The release note adds `RawValue::from_string_unchecked`; ShardLoom does not use that unsafe-style
+  constructor as a runtime shortcut.
 
 ## Sha2 0.11.0
 
