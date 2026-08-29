@@ -44,15 +44,19 @@ executable support from older PR-specific sections that say "this PR" or
 - Dependabot PR <https://github.com/depsilon/shardloom/pull/1379> was closed without merging.
 - Crates.io reports `vortex 0.76.0` and `vortex-zstd 0.76.0` as yanked. They must not be used as
   ShardLoom's next pinned provider line.
-- Crates.io reports current upstream `vortex 0.85.0` and `vortex-zstd 0.85.0` with license
-  `Apache-2.0`, Rust version `1.95`, documentation at <https://docs.rs/vortex/0.85.0>, and
-  repository <https://github.com/spiraldb/vortex>.
+- Crates.io reports current released upstream `vortex 0.85.0` and `vortex-zstd 0.85.0` with
+  license `Apache-2.0`, Rust version `1.95`, documentation at
+  <https://docs.rs/vortex/0.85.0>, and repository <https://github.com/spiraldb/vortex>.
+- Upstream Vortex changelog docs on 2026-08-29 also list `0.86.0` as draft. Treat draft changes as
+  migration surveillance only; do not pin or publish against an unreleased Vortex crate line.
 - The next Vortex update must be a provider/capability intake PR, not a blind lockfile bump. It
   must review `0.76.0` as a yanked hazard and then review each intervening non-yanked release from
-  0.77 through the current latest 0.85 for ShardLoom-native provider opportunities such as
+  0.77 through the current released latest 0.85 for ShardLoom-native provider opportunities such as
   metadata/statistics pruning, dictionary/FSST predicates, grouped aggregate kernels, byte/list
   length transforms, layout-reader caching, row-reference/top-K support, mask/filter/take reducers,
-  writer/encoding policy, and single-artifact embedded layout metadata.
+  writer/encoding policy, and single-artifact embedded layout metadata. The migration plan must also
+  surveil the 0.86 draft for upcoming `VortexWrite`, `OutputSink`, `RowFn`, fixed-width filtering,
+  grouped-state, and sequence-cast changes without treating them as retained runtime dependencies.
 - The direct Arrow/Parquet bridge stays on Arrow/Parquet `58.3.0` in this dependency hygiene pass
   because current Vortex `0.85.0` still declares `arrow-array ^58.3` and `parquet ^58.3`; upgrading
   only ShardLoom's direct Arrow bridge to `59.x` would create duplicate Arrow provider types.

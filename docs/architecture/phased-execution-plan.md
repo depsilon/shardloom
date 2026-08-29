@@ -250,15 +250,13 @@ post-merge ledger movement, follow `Current autonomous execution order`.
 
 Current autonomous execution order:
 
-0. Close `DEPENDENCY-INTAKE-BATCH-1` after the easy open Dependabot updates are absorbed into one
-   validator-aware dependency hygiene PR and the hard provider migrations are moved into explicit
-   follow-up work.
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
 2. Work `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` as the next separate provider/capability PR before
    changing the pinned Vortex dependency, because the Vortex bot PR skips multiple upstream releases
-   and current upstream is 0.85.
+   and current released upstream is 0.85. The upstream docs also list 0.86 as draft; treat that as
+   surveillance input only until a released crate line exists.
 3. Work `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` because Vortex inputs must be first-class
    Universal Ingest sources and must not be routed through slow compatibility/source-adapter
    re-encode paths.
@@ -268,79 +266,22 @@ Current autonomous execution order:
    current measured tail-lane slice either ships or is dropped. Completed runtime-gap rows live in
    the completed ledger, not in this compact Planned queue.
 
-- [ ] `DEPENDENCY-INTAKE-BATCH-1` Close split Dependabot PRs and land one cohesive dependency
-  hygiene batch.
-  - V1 scope classification: `required_for_v1`.
-  - Source: closed Dependabot PRs #1379, #1381, #1383, #1385, #1387, #1388, #1389, #1391, #1392,
-    #1394, #1397-#1401, and follow-up Dependabot PRs #1403-#1407, which were closed during this
-    cohesive intake pass.
-  - Current state: the easy follow-up PRs #1405-#1407 are absorbed into this cohesive hygiene pass.
-    The Arrow/Parquet PR #1404 was closed and deferred because it would create duplicate Arrow 58/59
-    graphs while upstream Vortex and ORC remain Arrow-58 aligned. The Vortex PR #1403 was closed and
-    promoted into release-by-release migration work because it jumps from 0.75 to 0.85 without
-    reviewing the intervening release train, known API breaks, or ShardLoom provider evidence.
-  - Intake review: safe utility crate bumps, CI/security action SHA refresh, lockfile-only
-    transitive Rust audit remediation, safe serde/rusqlite patch bumps, and the website build
-    dependency audit refresh are accepted into this batch; Arrow/Parquet 59.x is deferred until
-    provider alignment; Vortex 0.76-0.85 is promoted into
-    `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1`.
-  - ShardLoom technique review: evidence-tier controls and no-fallback policy apply. This is
-    dependency hygiene, so PulseWeave/capillary execution changes do not apply directly; the Vortex
-    provider intake item must separately evaluate metadata-first, encoded, dictionary, and scan
-    provider opportunities before any runtime dependency change.
-  - Execution checklist:
-    - [x] Close open Dependabot PRs #1403-#1407 instead of merging sliver or unsafe provider-stack
-      updates.
-    - [x] Keep Arrow/Parquet direct bridge crates pinned to the provider-aligned Arrow 58.3 stack.
-    - [x] Bump safe Rust utility dependencies: `futures`, `memchr`, `regex`, and `rustc-hash`.
-    - [x] Remediate lockfile-only Vortex transitive audit findings for `crossbeam-epoch` and
-      `chacha20` without changing the Vortex provider API line.
-    - [x] Refresh CodeQL, Scorecard, upload-SARIF, and setup-python pinned action SHAs with
-      matching validator/doc markers.
-    - [x] Absorb follow-up CI/security action pin refresh from Dependabot PR #1407 with corrected
-      action-version markers.
-    - [x] Absorb `serde_json 1.0.151` from Dependabot PR #1405 with dependency-review and freshness
-      fixture updates.
-    - [x] Absorb `rusqlite 0.40.2` / `libsqlite3-sys 0.38.2` from Dependabot PR #1406 with
-      dependency-review and freshness fixture updates.
-    - [x] Defer Arrow/Parquet 59.x until the Vortex/ORC provider line is Arrow-59 compatible.
-    - [x] Promote Vortex 0.76-0.85 provider review and migration into the Vortex intake item rather
-      than merging a bot dependency jump.
-    - [x] Refresh the website Astro/Starlight build dependency family to clear `npm audit`
-      findings while preserving static site validation.
-    - [x] Add Dependabot groups for `ci-security-actions`, `structured-format-stack`,
-      `rust-runtime-utilities`, and the existing `vortex-upstream` family.
-    - [x] Update dependency review docs and freshness-gate tests for the closed-and-absorbed PRs.
-    - [x] Run focused dependency/security validators and Rust/Python smoke checks for the changed
-      surfaces.
-    - [ ] Move this item to the completed ledger after the dependency PR merges.
-  - User-visible surface: GitHub Actions, dependency freshness gate, dependency review docs,
-    website build/static output, and release/security validators.
-  - Implementation scope: `Cargo.toml`, `Cargo.lock`, `.github/dependabot.yml`,
-    `.github/workflows/*`, `website-src/package.json`, `website-src/package-lock.json`, checked-in
-    static website output, `scripts/check_security_posture.py`,
-    `scripts/check_pre_5j_dependency_freshness.py`, dependency review docs, and release-script
-    tests.
-  - Evidence required: dependency/security validators, action pin check, website dependency audit
-    and static validation, no-fallback dependency scope, and targeted release-script tests.
-  - Acceptance: easy open Dependabot PRs are absorbed or closed as one coherent dependency hygiene
-    PR; Arrow/Vortex risky updates are explicitly handled by plan, not accidentally merged.
-  - Claim boundary: dependency hygiene only; no runtime, performance, Vortex provider, or package
-    publication claim.
-  - Fallback boundary: no added external execution engine and no fallback runtime behavior.
-
-- [ ] `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` Review Vortex 0.76-0.85 provider/API changes and
-  incorporate useful ShardLoom-native enhancements in a separate PR.
+- [ ] `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` Review Vortex 0.76-0.85 provider/API changes,
+  surveil 0.86 draft changes, and incorporate useful ShardLoom-native enhancements in a separate
+  PR.
   - V1 scope classification: `required_for_v1` for review and safe provider mapping; runtime
     adoption is `v1_candidate_pending_feasibility` until compile, correctness, no-fallback, and
     performance evidence exists.
   - Source: closed Dependabot PR #1379, closed Dependabot PR #1403, crates.io state showing
-    `vortex 0.76.0` / `vortex-zstd 0.76.0` as a yanked hazard, and the upstream Vortex GitHub
-    release list on 2026-08-29 showing `0.85.0` as the current latest release.
+    `vortex 0.76.0` / `vortex-zstd 0.76.0` as a yanked hazard, the upstream Vortex GitHub release
+    list on 2026-08-29 showing `0.85.0` as the current latest release, and upstream Vortex
+    changelog docs on 2026-08-29 showing `0.86.0` as draft.
   - Current state: ShardLoom is pinned to Vortex `0.75`, with current provider evidence already
     consuming selected 0.75 surfaces. The open Dependabot PR cannot be merged as-is because it
     jumps over 0.76-0.84 and does not review API/provider changes, ArrowSession migration pressure,
-    layout reader changes, row-function additions, or no-fallback evidence impacts.
+    layout reader changes, row-function additions, or no-fallback evidence impacts. The draft 0.86
+    notes should be tracked for upcoming provider design pressure but must not be used to pin an
+    unreleased production dependency.
   - ShardLoom technique review: review all candidate provider changes through the Vortex-first
     boundary. Prioritize metadata-first planning, dictionary/FSST predicates, grouped aggregate
     kernels, byte-length/list-length transforms, layout-reader/file-cache reuse, row-ref/top-K
@@ -376,6 +317,17 @@ Current autonomous execution order:
         plan model, `VortexReadAt::read_ranges`, RowFn/RowVisitor batch execution, expression
         optimizer rules, primitive interleave execution, Decimal cast kernels, row-range selection
         preservation, bit-buffer/mask performance, and sequence bitmap improvements.
+      - [ ] 0.86 draft surveillance: `VortexWrite` `Send` requirements, physical `OutputSink`
+        parameters, runtime output dtype for row dispatch, filter-and-scatter `RowFn` execution,
+        fixed-width buffer filtering, grouped accumulator state behavior, nullable `RowFn` dense
+        retry, sequence cast compute, and upstream DataFusion/DuckDB items to keep rejected as
+        runtime fallback.
+    - [ ] Build a migration staircase that validates each provider line or release family before
+      jumping the workspace dependency: `0.75 -> non-yanked 0.77/0.78/0.79 API audit -> 0.80 ->
+      0.81 -> 0.82 -> 0.83 -> 0.84 -> 0.85`, with 0.76 recorded only as a yanked hazard.
+    - [ ] For each release step, record compile breaks, removed APIs, migrated API replacements,
+      provider opportunities, rejected query-engine integrations, and required ShardLoom adapter
+      changes before retaining the step.
     - [ ] Identify provider changes that can materially help ShardLoom ingest, scan, string,
       top-K, high-cardinality aggregate, and writer lanes.
     - [ ] Decide whether to update the pinned Vortex crate line to a current non-yanked version or
