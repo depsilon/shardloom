@@ -13610,6 +13610,9 @@ class ShardLoomClient:
             [*self._binary_parts(), *command_args]
         )
         with self._worker_lock:
+            first_request_for_process = (
+                self._worker_process is None or self._worker_process.poll() is not None
+            )
             process = self._ensure_worker()
             if process.stdin is None or process.stdout is None:
                 self._worker_disabled = True
@@ -13620,6 +13623,10 @@ class ShardLoomClient:
                 process.stdin.flush()
             except (BrokenPipeError, OSError) as exc:
                 self._close_worker()
+                if first_request_for_process:
+                    raise _ShardLoomWorkerStartupError(
+                        "ShardLoom persistent worker exited before accepting first request"
+                    ) from exc
                 raise ShardLoomProtocolError(
                     "ShardLoom persistent worker closed before accepting a request"
                 ) from exc
@@ -13627,6 +13634,10 @@ class ShardLoomClient:
             if not response_line:
                 stderr = self._worker_stderr_preview(process)
                 self._close_worker()
+                if first_request_for_process:
+                    raise _ShardLoomWorkerStartupError(
+                        "ShardLoom persistent worker exited before first response"
+                    )
                 detail = f": {stderr}" if stderr else ""
                 raise ShardLoomProtocolError(
                     f"ShardLoom persistent worker emitted no JSON output{detail}"
@@ -13659,7 +13670,7 @@ class ShardLoomClient:
             return _env_truthy(configured)
         if self._use_persistent_worker is not None:
             return self._use_persistent_worker
-        return self._binary is None
+        return True
 
     def _ensure_worker(self) -> subprocess.Popen[str]:
         if self._worker_process is not None and self._worker_process.poll() is None:

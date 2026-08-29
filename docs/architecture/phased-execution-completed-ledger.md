@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` completed the Vortex 0.76-0.85 provider/API intake
+      and migrated ShardLoom to the current non-yanked 0.85 provider line.
+  - Date: 2026-08-29
+  - PR/merge: PR `#1410`, merged to `main` as
+    `1eb6a23 Merge pull request #1410 from depsilon/codex/vortex-arrow-provider-alignment`.
+  - Completed scope:
+    - Reviewed upstream Vortex release families from 0.76 through 0.85, recorded 0.76 as yanked,
+      treated draft 0.86 notes as surveillance only, and selected Vortex `0.85` / `vortex-zstd
+      0.85` as the current non-yanked provider line.
+    - Kept Arrow/Parquet aligned to the Vortex/ORC-compatible 58.3 stack instead of creating a
+      duplicate Arrow 59.x graph.
+    - Migrated ShardLoom's Vortex adapter code to Vortex 0.85 expression binding, Arrow session,
+      legacy-session, writer-strategy, validity, FSST, scan, and strict sorted-buffer APIs.
+    - Renamed active provider-disposition reports and prepared-state cache evidence to
+      version-neutral `vortex_upstream_*` / `vortex_provider_*` names while retaining deprecated
+      `Vortex075*` Rust type aliases and legacy benchmark input aliases for downstream
+      compatibility.
+    - Updated dependency, Vortex API inventory, structured-format dependency, and benchmark
+      promotion docs so the current provider state is 0.85 and query-engine integrations remain
+      rejected as runtime fallback.
+  - Focused validation evidence:
+    - `cargo fmt --all -- --check`
+    - `cargo check -p shardloom-vortex --features upstream-vortex --all-targets --message-format short`
+    - `cargo check -p shardloom-vortex --features vortex-file-io --all-targets --message-format short`
+    - `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets --message-format short`
+    - `cargo check -p shardloom-cli --features vortex-traditional-analytics-benchmark --all-targets --message-format short`
+    - `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`
+    - `cargo clippy -p shardloom-cli --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib vortex_upstream -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib aggregate_accessor_uses_utf8_chunk_dictionary_before_materialized_rows -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib fsst_string_contains_uses_vortex_like_kernel_without_materialized_rows -- --nocapture`
+    - `cargo test -p shardloom-cli --features vortex-traditional-analytics-benchmark --test vortex_api_inventory_snapshots -- --nocapture`
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github`
+    - `python3 scripts/check_workspace_version_sources.py`
+    - `python3 scripts/check_dependency_audit.py`
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py scripts/promote_benchmark_artifact.py python/src/shardloom/prepared_route.py`
+    - `python3 -m unittest python.tests.test_release_scripts`
+    - PR `#1410` GitHub checks were green before merge, including Rust baseline, Rust feature
+      matrix, Python compatibility shards, release runtime/user-surface/package/readiness evidence,
+      CodeQL, dependency/security gates, website/docs validation, and Workers preview build.
+  - Claim boundary:
+    - Provider/dependency capability intake only. Runtime performance wins from new Vortex 0.85
+      provider surfaces remain gated by the open shared-runtime and ClickBench ship/drop items.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, or another external
+      engine was added or invoked as ShardLoom runtime fallback. Vortex array/compute/scan/source/
+      sink APIs remain admitted only as ShardLoom-native providers behind versioned evidence.
+
 - [x] `DEPENDENCY-INTAKE-BATCH-1` closed the cohesive dependency hygiene batch for the current
       open Dependabot set.
   - Date: 2026-08-29

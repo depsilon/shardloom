@@ -65,11 +65,27 @@ use shardloom_vortex::{
 };
 fn main() -> ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    run_with_cli_stack(args)
+    if cli_large_stack_requested() {
+        run_with_cli_stack(args)
+    } else {
+        run(args)
+    }
 }
 
 const CLI_COMMAND_NAME: &str = "shardloom";
 const CLI_STACK_SIZE: usize = 16 * 1024 * 1024;
+const CLI_LARGE_STACK_ENV: &str = "SHARDLOOM_CLI_LARGE_STACK";
+
+fn cli_large_stack_requested() -> bool {
+    large_stack_value_truthy(&std::env::var(CLI_LARGE_STACK_ENV).unwrap_or_default())
+}
+
+fn large_stack_value_truthy(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
 
 fn run_with_cli_stack(args: Vec<String>) -> ExitCode {
     let handle = match std::thread::Builder::new()
@@ -1549,6 +1565,16 @@ mod tests {
 
     fn run(args: Vec<String>) -> ExitCode {
         run_with_larger_stack("cli-test", args)
+    }
+
+    #[test]
+    fn large_stack_env_is_opt_in_only() {
+        for value in ["", "0", "false", "no", "off", "maybe"] {
+            assert!(!large_stack_value_truthy(value));
+        }
+        for value in ["1", "true", "TRUE", "yes", "on"] {
+            assert!(large_stack_value_truthy(value));
+        }
     }
 
     #[test]

@@ -394,12 +394,27 @@ class ShardLoomClientTests(unittest.TestCase):
                 "current public local-source routes require Vortex middle or deterministic blockers"
             )
 
-    def fake_cli(self, body: str, *, rewrite_public_run: bool = True) -> list[str]:
+    def fake_cli(
+        self,
+        body: str,
+        *,
+        rewrite_public_run: bool = True,
+        supports_worker: bool = False,
+    ) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
         prefix = "" if rewrite_public_run else "_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE = True\n"
-        path.write_text(prefix + _FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
+        worker_guard = (
+            ""
+            if supports_worker
+            else "if _shardloom_sys.argv[1:] == ['python-worker']:\n"
+            "    raise SystemExit(64)\n"
+        )
+        path.write_text(
+            prefix + _FAKE_CLI_ENVELOPE_PRELUDE + "\n" + worker_guard + "\n" + body,
+            encoding="utf-8",
+        )
         return [sys.executable, str(path)]
 
     def test_package_exports_non_placeholder_version(self) -> None:
@@ -4742,7 +4757,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 second.batch.field(
                     "prepare_batch_source_admission_digest_policy_status"
                 ),
-                "content_digest_fingerprint_reuse_hit",
+                "metadata_fingerprint_reuse_hit",
             )
             self.assertEqual(
                 second.batch.field("prepare_batch_prepared_state_index_schema_version"),
@@ -4799,7 +4814,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 second.batch.field(
                     "prepare_batch_source_admission_full_content_digest_requested"
                 ),
-                "true",
+                "false",
             )
             self.assertEqual(second.batch.field("prepare_batch_preparation_micros"), "0")
             self.assertEqual(second.batch.field("prepare_batch_prepared_state_created"), "false")
@@ -4839,7 +4854,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
             os.utime(
                 fact,
-                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns + 1_000_000),
             )
             third = route.run_batch("selective filter")
             self.assertFalse(third.prepared_state_reuse_hit)
@@ -4975,9 +4990,9 @@ class ShardLoomClientTests(unittest.TestCase):
                     target_path,
                     allow_overwrite=True,
                 )
-                self.assertEqual(digest_mock.call_count, 2)
+                self.assertEqual(digest_mock.call_count, 0)
                 second = session.prepare_vortex(source_path, target_path)
-                self.assertEqual(digest_mock.call_count, 2)
+                self.assertEqual(digest_mock.call_count, 0)
 
                 self.assertIsInstance(session, ShardLoomSession)
                 self.assertIsInstance(first, SessionPreparedState)
@@ -5000,7 +5015,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     target_path,
                     allow_overwrite=True,
                 )
-                self.assertEqual(digest_mock.call_count, 4)
+                self.assertEqual(digest_mock.call_count, 0)
             self.assertFalse(third.reuse_hit)
             self.assertEqual(third.reuse_reason, "source_fingerprint_changed")
             self.assertEqual(third.prepared_state_id, "vortex-prepared-state-2")
@@ -11442,9 +11457,10 @@ class ShardLoomClientTests(unittest.TestCase):
 
                 raise AssertionError(sys.argv)
                 """
-            )
+            ),
+            supports_worker=True,
         )
-        client = ShardLoomClient(binary=binary, use_persistent_worker=True)
+        client = ShardLoomClient(binary=binary)
         self.addCleanup(client.close)
 
         status = client.run(["status"])
@@ -11459,6 +11475,41 @@ class ShardLoomClientTests(unittest.TestCase):
             "capabilities,python,--format,json",
         )
         self.assertEqual(log_path.read_text(encoding="utf-8").count("start\n"), 1)
+
+    def test_explicit_binary_without_worker_falls_back_to_subprocess(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["status", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "status",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "worker_transport", "value": "subprocess_after_worker_startup_miss"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+        self.addCleanup(client.close)
+
+        result = client.status()
+
+        self.assertEqual(result.command, "status")
+        self.assertEqual(
+            result.field("worker_transport"),
+            "subprocess_after_worker_startup_miss",
+        )
+        self.assertFalse(result.fallback.attempted)
 
     def test_bundled_binary_is_resolved_before_path_binary(self) -> None:
         tempdir = tempfile.TemporaryDirectory()

@@ -170,23 +170,37 @@ def _file_content_digest(path: Path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
-def _local_path_fingerprint(value: str | os.PathLike[str] | None) -> dict[str, Any] | None:
+def _local_path_fingerprint(
+    value: str | os.PathLike[str] | None,
+    *,
+    content_digest: bool = False,
+) -> dict[str, Any] | None:
     if value is None:
         return None
     path = Path(value).expanduser()
     normalized = _normalized_path(path)
     if path.is_file():
         stat = path.stat()
-        return {
+        fingerprint: dict[str, Any] = {
             "path": normalized,
             "exists": True,
-            "kind": "local_file_sha256_size_mtime",
+            "kind": "local_file_size_mtime",
             "size_bytes": stat.st_size,
             "mtime_ns": stat.st_mtime_ns,
-            "content_digest": _file_content_digest(path),
-            "content_digest_status": "computed_for_local_file_fingerprint",
-            "digest_policy": "content_digest_size_mtime_normal_warm_reuse",
+            "content_digest": None,
+            "content_digest_status": "not_requested_metadata_first_hot_runtime",
+            "digest_policy": "metadata_size_mtime_normal_warm_reuse",
         }
+        if content_digest:
+            fingerprint.update(
+                {
+                    "kind": "local_file_sha256_size_mtime",
+                    "content_digest": _file_content_digest(path),
+                    "content_digest_status": "computed_for_explicit_proof_fingerprint",
+                    "digest_policy": "content_digest_size_mtime_explicit_proof",
+                }
+            )
+        return fingerprint
     if path.is_dir():
         total_size = 0
         max_mtime = 0
@@ -194,7 +208,6 @@ def _local_path_fingerprint(value: str | os.PathLike[str] | None) -> dict[str, A
         for child in sorted(item for item in path.rglob("*") if item.is_file()):
             stat = child.stat()
             relative = child.relative_to(path).as_posix()
-            child_digest = _file_content_digest(child)
             total_size += stat.st_size
             max_mtime = max(max_mtime, stat.st_mtime_ns)
             digest.update(relative.encode("utf-8"))
@@ -203,17 +216,31 @@ def _local_path_fingerprint(value: str | os.PathLike[str] | None) -> dict[str, A
             digest.update(b"\0")
             digest.update(str(stat.st_mtime_ns).encode("ascii"))
             digest.update(b"\0")
-            digest.update(child_digest.encode("ascii"))
-            digest.update(b"\0")
+            if content_digest:
+                child_digest = _file_content_digest(child)
+                digest.update(child_digest.encode("ascii"))
+                digest.update(b"\0")
         return {
             "path": normalized,
             "exists": True,
-            "kind": "local_directory_tree_sha256_size_mtime",
+            "kind": (
+                "local_directory_tree_sha256_size_mtime"
+                if content_digest
+                else "local_directory_tree_size_mtime"
+            ),
             "size_bytes": total_size,
             "mtime_ns": max_mtime,
             "content_digest": "sha256:" + digest.hexdigest(),
-            "content_digest_status": "computed_for_directory_tree_fingerprint",
-            "digest_policy": "directory_tree_digest_required_until_metadata_tree_policy_exists",
+            "content_digest_status": (
+                "computed_for_explicit_proof_directory_tree_fingerprint"
+                if content_digest
+                else "metadata_tree_digest_without_file_content"
+            ),
+            "digest_policy": (
+                "directory_tree_content_digest_explicit_proof"
+                if content_digest
+                else "metadata_tree_size_mtime_normal_warm_reuse"
+            ),
         }
     return {
         "path": normalized,
@@ -837,17 +864,17 @@ class CompatibilityPreparedVortexRoute:
             "batch_route_id": self.batch_route_id,
             "input_format": self.input_format,
             "source_schema_hash": _TRADITIONAL_SOURCE_ADMISSION_SCHEMA_HASH,
-            "source_path_fingerprint_kind": "local_path_sha256_size_mtime",
+            "source_path_fingerprint_kind": "local_path_size_mtime",
             "digest_policy": {
                 "schema_version": _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION,
-                "status": "content_digest_fingerprint",
-                "normal_warm_reuse_content_digest_requested": True,
+                "status": "metadata_fingerprint",
+                "normal_warm_reuse_content_digest_requested": False,
                 "claim_grade_content_digest_required": True,
-                "full_content_digest_status": "computed_for_local_source_fingerprint",
+                "full_content_digest_status": "available_only_for_explicit_proof_lane",
                 "claim_boundary": (
-                    "local warm reuse compares normalized path, size, mtime, and content "
-                    "digest; claim-grade publication rows still require the full benchmark "
-                    "publication evidence gate"
+                    "normal local warm reuse compares normalized path, size, and mtime; "
+                    "full content digests are reserved for explicit replay/publication "
+                    "proof lanes and claim-grade publication evidence gates"
                 ),
             },
             "fact_input": fact_input,
@@ -1587,13 +1614,13 @@ class CompatibilityPreparedVortexRoute:
             "source_admission_digest_policy_schema_version": (
                 _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
             ),
-            "source_admission_digest_policy_status": "content_digest_fingerprint",
-            "source_admission_full_content_digest_requested": True,
+            "source_admission_digest_policy_status": "metadata_fingerprint",
+            "source_admission_full_content_digest_requested": False,
             "source_admission_full_content_digest_required_for_claim_grade": True,
             "source_admission_digest_policy_claim_boundary": (
-                "normal local warm reuse compares normalized path, size, mtime, and content "
-                "digest; claim-grade publication evidence must still pass the publication "
-                "evidence gate"
+                "normal local warm reuse compares normalized path, size, and mtime; "
+                "full content digests are reserved for explicit replay/publication proof "
+                "lanes and claim-grade publication evidence gates"
             ),
             "prepared_state_dependency_schema_version": _field_any(
                 fields,
@@ -1910,9 +1937,9 @@ class CompatibilityPreparedVortexRoute:
                     _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
                 ),
                 "prepare_batch_source_admission_digest_policy_status": (
-                    "content_digest_fingerprint_reuse_hit"
+                    "metadata_fingerprint_reuse_hit"
                 ),
-                "prepare_batch_source_admission_full_content_digest_requested": "true",
+                "prepare_batch_source_admission_full_content_digest_requested": "false",
                 "prepare_batch_source_admission_full_content_digest_micros": "0",
                 "prepare_batch_prepared_state_lookup_timing_schema_version": (
                     "shardloom.traditional_analytics.prepared_state_lookup_timing.v1"
