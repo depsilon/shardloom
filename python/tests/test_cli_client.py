@@ -4,6 +4,7 @@ import json
 import importlib
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -416,6 +417,38 @@ class ShardLoomClientTests(unittest.TestCase):
             encoding="utf-8",
         )
         return [sys.executable, str(path)]
+
+    def test_package_import_lazily_defers_heavy_front_door_modules(self) -> None:
+        script = textwrap.dedent(
+            """
+            import importlib
+            import sys
+            import shardloom
+
+            assert "shardloom.client" not in sys.modules
+            assert "shardloom.context" not in sys.modules
+            assert "shardloom.query" not in sys.modules
+
+            importlib.import_module("shardloom.session")
+            from shardloom import ShardLoomClient, col, context, session
+
+            assert ShardLoomClient.__name__ == "ShardLoomClient"
+            assert callable(col)
+            assert callable(context)
+            assert callable(session)
+            assert "shardloom.client" in sys.modules
+            assert "shardloom.context" in sys.modules
+            assert "shardloom.query" in sys.modules
+            """
+        )
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(REPO_ROOT / "python" / "src")
+        subprocess.run(
+            [sys.executable, "-c", script],
+            check=True,
+            cwd=str(REPO_ROOT),
+            env=env,
+        )
 
     def test_package_exports_non_placeholder_version(self) -> None:
         self.assertRegex(__version__, r"^\d+\.\d+\.\d+")

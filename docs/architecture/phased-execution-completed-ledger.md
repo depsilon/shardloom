@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `FRONT-DOOR-CONTROL-PLANE-OVERHEAD-21` removed public/user-facing control-plane overhead that
+      could dwarf warm Vortex-native execution.
+  - Date: 2026-08-29
+  - PR/merge: PR `#1411`, merged to `main` as
+    `b93d1ce Merge pull request #1411 from depsilon/codex/front-door-control-plane-overhead`.
+  - Completed scope:
+    - Made the Python client prefer the persistent session worker even when an explicit binary is
+      supplied, while preserving timeout/env overrides and adding a startup-miss fallback for
+      binaries that do not implement the worker protocol.
+    - Replaced default Python hot/runtime source identity with metadata-first fingerprints and
+      retained full content digests only for explicit proof/publication fingerprint requests.
+    - Removed the 16MiB CLI worker-thread trampoline from the default command path and kept it
+      behind `SHARDLOOM_CLI_LARGE_STACK=1` for stack-sensitive diagnostics.
+    - Made CLI timed JSON envelope emission single-pass instead of rendering and discarding an
+      envelope copy before the final output.
+    - Added `scripts/run_front_door_control_plane_probe.py` for local control-plane evidence that
+      separates import, binary resolution, context construction, metadata fingerprinting, fresh
+      subprocess dispatch, and persistent-worker dispatch.
+    - Added worker protocol regression coverage so a one-shot CLI invoked as `python-worker` cannot
+      masquerade as a valid persistent worker response.
+  - Focused validation evidence:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - `cargo test -p shardloom-cli --bin shardloom large_stack_env_is_opt_in_only -- --nocapture`
+    - `cargo test -p shardloom-cli --bin shardloom cli_output -- --nocapture`
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client python.tests.test_prepared_route python.tests.test_v1_source_prepared_state_scope python.tests.test_release_scripts`
+    - `python3 scripts/run_python_test_shard.py --shard core`
+    - `python3 scripts/check_public_status_docs.py`
+    - `python3 scripts/check_v1_inclusion_scope.py`
+    - `python3 scripts/check_runtime_gap_family_burn_down.py`
+    - `python3 scripts/check_user_surface_reference.py`
+    - `git diff --check`
+    - Local control-plane probe: `target/front-door-control-plane-probe.json`; debug CLI one-shot
+      status median about `2.44ms`, persistent worker median after startup about `0.089ms`,
+      metadata fingerprint median about `0.014ms`, and sparse `4GiB` metadata fingerprint median
+      about `0.019ms` with no content digest.
+    - PR `#1411` GitHub checks were green before merge, including Rust baseline, Rust feature
+      matrix, Python shards/compatibility/package smoke, release runtime/user-surface/package/
+      readiness evidence, CodeQL, dependency/security gates, website/docs validation, and Workers
+      preview build.
+  - Claim boundary:
+    - Local control-plane overhead evidence only. No official benchmark, superiority, or production
+      performance claim is made from this item.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, or another external
+      engine was added or invoked as runtime fallback. Persistent worker reuse is a transport
+      optimization only and preserves the same command handlers and no-fallback evidence.
+
 - [x] `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` completed the Vortex 0.76-0.85 provider/API intake
       and migrated ShardLoom to the current non-yanked 0.85 provider line.
   - Date: 2026-08-29
@@ -63,6 +111,40 @@ phase plan first.
     - No Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, or another external
       engine was added or invoked as ShardLoom runtime fallback. Vortex array/compute/scan/source/
       sink APIs remain admitted only as ShardLoom-native providers behind versioned evidence.
+
+- [x] `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` made Vortex-to-Vortex a first-class Universal Ingest
+      source lane instead of a slow source-adapter rewrite.
+  - Date: 2026-08-29
+  - PR/merge: completed before this ledger cleanup; implementation present on `main` before
+    `b93d1ce`.
+  - Completed scope:
+    - Added `vortex` as an admitted Universal Ingest source format with source-state evidence
+      distinct from CSV/JSONL/Parquet/Arrow/Avro/ORC adapters.
+    - Implemented public prepare behavior for `.vortex` inputs that validates local Vortex
+      metadata/footer compatibility, emits prepared-state evidence, and uses pass-through or
+      workspace-safe copy when a separate target is requested.
+    - Ensured automatic source normalization treats existing `.vortex` inputs as
+      `VortexPreparedState` / native Vortex sources and avoids compatibility parse, Arrow
+      `RecordBatch` source-adapter rewrite, or slow scan-stream writer re-encode by default.
+    - Recorded explicit layout-rewrite evidence:
+      `vortex_to_vortex_layout_rewrite_status=not_performed_layout_rewrite_requires_encoded_preserving_provider`.
+    - Added evidence fields for V2V policy, encoded-layout preservation, copy budget,
+      re-encode status, source/target artifact digest, row count, and no-fallback posture.
+  - Focused validation evidence:
+    - Focused Rust/CLI Vortex-source prepare tests for pass-through/copy and rewrite blocker
+      behavior.
+    - `python3 scripts/check_runtime_gap_family_burn_down.py`
+    - Retained local V2V UAT evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/v2v_public_prepare_20260628T185919Z.summary.json`.
+    - Retained small-copy V2V UAT evidence:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/v2v_public_prepare_small_copy_20260628T190453Z.summary.json`.
+  - Claim boundary:
+    - Local Vortex-source lifecycle readiness only. No official ClickBench load claim until full
+      replacement UAT is rerun and claim-gated separately.
+  - Fallback boundary:
+    - V2V routes report `fallback_attempted=false` and `external_engine_invoked=false`; no
+      query-answer sidecars, materialized views, external engines, or slow scan-stream re-encode are
+      exposed as the default product V2V behavior.
 
 - [x] `DEPENDENCY-INTAKE-BATCH-1` closed the cohesive dependency hygiene batch for the current
       open Dependabot set.
