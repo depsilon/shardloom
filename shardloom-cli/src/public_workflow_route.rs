@@ -7987,7 +7987,8 @@ fn infer_native_vortex_structured_export_payload(
                 "name": name,
                 "array": values
             })
-        } else if let Some(columns) = parse_summary_struct_columns(expression) {
+        } else {
+            let columns = parse_summary_struct_columns(expression)?;
             for column in &columns {
                 push_unique_string(&mut source_columns, column.clone());
             }
@@ -7995,8 +7996,6 @@ fn infer_native_vortex_structured_export_payload(
                 "name": name,
                 "struct": columns
             })
-        } else {
-            return None;
         };
         structured_columns.push(structured_column);
     }

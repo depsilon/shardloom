@@ -7252,7 +7252,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 self._dependabot_pr(1151, "Bump serde_json from 1.0.149 to 1.0.150"),
                 self._dependabot_pr(1152, "Bump sha2 from 0.10.9 to 0.11.0"),
                 self._dependabot_pr(1153, "Bump rusqlite from 0.40.0 to 0.40.1"),
-                self._dependabot_pr(1226, "Bump regex from 1.12.3 to 1.12.4"),
+                self._dependabot_pr(1392, "Bump regex from 1.12.4 to 1.13.1"),
             ],
             "open_dependabot_pr_count": 6,
             "admitted_open_dependabot_prs": [
@@ -7261,7 +7261,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 1152,
                 1153,
                 1223,
-                1226,
+                1392,
             ],
             "unknown_open_dependabot_prs": [],
             "benchmark_refresh_dependency_gate_status": "passed",
@@ -10121,7 +10121,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 self._dependabot_pr(1151, "Bump serde_json from 1.0.149 to 1.0.150"),
                 self._dependabot_pr(1152, "Bump sha2 from 0.10.9 to 0.11.0"),
                 self._dependabot_pr(1153, "Bump rusqlite from 0.40.0 to 0.40.1"),
-                self._dependabot_pr(1226, "Bump regex from 1.12.3 to 1.12.4"),
+                self._dependabot_pr(1392, "Bump regex from 1.12.4 to 1.13.1"),
             ],
             open_prs_status="loaded_from_file",
             require_live_github=True,
@@ -10130,7 +10130,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(
             report["admitted_open_dependabot_prs"],
-            [1149, 1151, 1152, 1153, 1223, 1226],
+            [1149, 1151, 1152, 1153, 1223, 1392],
         )
         self.assertTrue(report["benchmark_refresh_allowed"])
         self.assertFalse(report["benchmark_run_performed"])

@@ -15,11 +15,11 @@
     "check": "npm run clean:static && npm run sync-content && astro check && npm run settle:static"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.4",
-    "@astrojs/mdx": "^5.0.6",
-    "@astrojs/sitemap": "^3.7.2",
-    "@astrojs/starlight": "^0.39.2",
-    "astro": "^6.3.5",
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/mdx": "^7.0.8",
+    "@astrojs/sitemap": "^3.7.3",
+    "@astrojs/starlight": "^0.41.10",
+    "astro": "^7.2.9",
     "typescript": "^5.9.3",
     "yaml": "^2.9.0"
   },

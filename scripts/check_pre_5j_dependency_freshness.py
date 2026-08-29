@@ -74,15 +74,15 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
             "Vortex query-engine integrations remain prohibited",
         ],
     },
-    1226: {
+    1392: {
         "dependency": "regex",
         "expected_manifest": "shardloom-core/Cargo.toml",
-        "expected_manifest_version": "1.12.4",
-        "expected_lock_versions": {"regex": "1.12.4"},
+        "expected_manifest_version": "1.13.1",
+        "expected_lock_versions": {"regex": "1.13.1"},
         "review_doc": "docs/dependencies/structured-format-dependency-review.md",
         "review_markers": [
-            "Dependabot PR <https://github.com/depsilon/shardloom/pull/1226>",
-            "regex = 1.12.4",
+            "Dependabot PR <https://github.com/depsilon/shardloom/pull/1392>",
+            "regex = 1.13.1",
             "MIT OR Apache-2.0",
             "fallback execution",
         ],
