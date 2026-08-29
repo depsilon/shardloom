@@ -233,7 +233,7 @@ WEBSITE_ROW_KEYS = (
     "prepare_batch_prepared_state_read_through_source_fingerprint_verified",
     "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified",
     "prepare_batch_prepared_state_read_through_native_io_certificate_verified",
-    "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+    "prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status",
     "prepare_batch_prepared_state_read_through_cache_fallback_attempted",
     "prepare_batch_prepared_state_read_through_cache_external_engine_invoked",
     "prepare_batch_prepared_state_read_through_cache_claim_boundary",
@@ -875,7 +875,7 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "prepare_batch_prepared_state_read_through_source_fingerprint_verified",
     "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified",
     "prepare_batch_prepared_state_read_through_native_io_certificate_verified",
-    "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+    "prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status",
     "prepare_batch_prepared_state_read_through_cache_fallback_attempted",
     "prepare_batch_prepared_state_read_through_cache_external_engine_invoked",
     "prepare_batch_prepared_state_read_through_cache_claim_boundary",
@@ -5293,9 +5293,10 @@ def prepared_state_optimization_fields_for_row(row: dict[str, Any]) -> dict[str,
                 default=False,
             )
         ),
-        "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status": first_meaningful_field(
+        "prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status": first_meaningful_field(
             fields,
             (
+                "prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status",
                 "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
             ),
         )

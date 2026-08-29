@@ -458,183 +458,189 @@ fn vortex_api_inventory_keeps_object_store_io_gate_effect_free() {
 }
 
 #[test]
-fn vortex_api_inventory_exposes_vortex075_heavy_operator_disposition() {
+fn vortex_api_inventory_exposes_vortex_upstream_heavy_operator_disposition() {
     let output = run_vortex_api_inventory_json();
 
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_schema_version",
-        "shardloom.vortex075_heavy_operator_provider_disposition.v1"
+        "vortex_upstream_heavy_operator_schema_version",
+        "shardloom.vortex_upstream_heavy_operator_provider_disposition.v1"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_report_id",
-        "perf-runtime-7b.vortex075.heavy_operator_provider_disposition"
+        "vortex_upstream_heavy_operator_report_id",
+        "perf-runtime-7b.vortex_upstream.heavy_operator_provider_disposition"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_phase_id",
+        "vortex_upstream_heavy_operator_phase_id",
         "PERF-RUNTIME-7B"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_order",
+        "vortex_upstream_heavy_operator_row_order",
         "grouped_sum_count_aggregate,validity_mask_no_null,branchless_zip,dictionary_fsst_reuse,layout_child_cache,byte_length_expression,datafusion_54_integration"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_provider_candidate_count",
+        "vortex_upstream_heavy_operator_provider_candidate_count",
         "2"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_wrapped_shardloom_kernel_count",
+        "vortex_upstream_heavy_operator_wrapped_shardloom_kernel_count",
         "0"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_shared_runtime_evidence_count",
+        "vortex_upstream_heavy_operator_shared_runtime_evidence_count",
         "2"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_current_runtime_drop_decision_count",
+        "vortex_upstream_heavy_operator_current_runtime_drop_decision_count",
         "2"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_blocked_external_integration_count",
+        "vortex_upstream_heavy_operator_blocked_external_integration_count",
         "1"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_claim_gate_status",
+        "vortex_upstream_heavy_operator_claim_gate_status",
         "not_claim_grade"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_grouped_sum_count_aggregate_status",
+        "vortex_upstream_heavy_operator_row_grouped_sum_count_aggregate_status",
         "current_runtime_drop_decision"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_grouped_sum_count_aggregate_shardloom_disposition",
+        "vortex_upstream_heavy_operator_row_grouped_sum_count_aggregate_shardloom_disposition",
         "candidate_only_for_pre_grouped_vortex_arrays_current_flat_column_routes_keep_shardloom_capillary_hash_state"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_grouped_sum_count_aggregate_required_evidence",
+        "vortex_upstream_heavy_operator_row_grouped_sum_count_aggregate_required_evidence",
         "current_runtime_drop_decision; revisit only when route already carries pre_grouped_vortex_list_or_fixed_size_list_values_or_UAT_proves_grouped_list_construction_beats_shardloom_capillary_hash_state"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_validity_mask_no_null_status",
+        "vortex_upstream_heavy_operator_row_validity_mask_no_null_status",
         "shared_runtime_evidence_recorded"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_byte_length_expression_status",
+        "vortex_upstream_heavy_operator_row_byte_length_expression_status",
         "current_runtime_drop_decision"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_layout_child_cache_status",
+        "vortex_upstream_heavy_operator_row_layout_child_cache_status",
         "shared_runtime_evidence_recorded"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_datafusion_54_integration_status",
+        "vortex_upstream_heavy_operator_row_datafusion_54_integration_status",
         "blocked_external_integration"
     )));
     assert!(output.contains(&field(
-        "vortex075_heavy_operator_row_datafusion_54_integration_shardloom_disposition",
+        "vortex_upstream_heavy_operator_row_datafusion_54_integration_shardloom_disposition",
         "baseline_or_oracle_only_not_shardloom_runtime_provider"
     )));
 }
 
 #[test]
-fn vortex_api_inventory_keeps_vortex075_heavy_operator_disposition_effect_free() {
+fn vortex_api_inventory_keeps_vortex_upstream_heavy_operator_disposition_effect_free() {
     let output = run_vortex_api_inventory_json();
 
     for key in [
-        "vortex075_heavy_operator_runtime_execution",
-        "vortex075_heavy_operator_data_read",
-        "vortex075_heavy_operator_data_decoded",
-        "vortex075_heavy_operator_data_materialized",
-        "vortex075_heavy_operator_object_store_io",
-        "vortex075_heavy_operator_write_io",
-        "vortex075_heavy_operator_external_engine_invoked",
-        "vortex075_heavy_operator_fallback_attempted",
-        "vortex075_heavy_operator_fallback_execution_allowed",
+        "vortex_upstream_heavy_operator_runtime_execution",
+        "vortex_upstream_heavy_operator_data_read",
+        "vortex_upstream_heavy_operator_data_decoded",
+        "vortex_upstream_heavy_operator_data_materialized",
+        "vortex_upstream_heavy_operator_object_store_io",
+        "vortex_upstream_heavy_operator_write_io",
+        "vortex_upstream_heavy_operator_external_engine_invoked",
+        "vortex_upstream_heavy_operator_fallback_attempted",
+        "vortex_upstream_heavy_operator_fallback_execution_allowed",
     ] {
         assert!(
             output.contains(&field(key, "false")),
             "missing false field {key}"
         );
     }
-    assert!(output.contains(&field("vortex075_heavy_operator_side_effect_free", "true")));
+    assert!(output.contains(&field(
+        "vortex_upstream_heavy_operator_side_effect_free",
+        "true"
+    )));
 }
 
 #[test]
-fn vortex_api_inventory_exposes_vortex075_local_io_provider_disposition() {
+fn vortex_api_inventory_exposes_vortex_upstream_local_io_provider_disposition() {
     let output = run_vortex_api_inventory_json();
 
     assert!(output.contains(&field(
-        "vortex075_local_io_schema_version",
-        "shardloom.vortex075_local_io_provider_disposition.v1"
+        "vortex_upstream_local_io_schema_version",
+        "shardloom.vortex_upstream_local_io_provider_disposition.v1"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_report_id",
-        "prod-ready-1a.vortex075.local_io_provider_disposition"
+        "vortex_upstream_local_io_report_id",
+        "prod-ready-1a.vortex_upstream.local_io_provider_disposition"
     )));
-    assert!(output.contains(&field("vortex075_local_io_phase_id", "PROD-READY-1A")));
+    assert!(output.contains(&field("vortex_upstream_local_io_phase_id", "PROD-READY-1A")));
     assert!(output.contains(&field(
-        "vortex075_local_io_row_order",
+        "vortex_upstream_local_io_row_order",
         "layout_reader_context_cache,json_extension_arrow_interop,wkb_geospatial_extension,interleave_encoding,binary_zstd_compression,row_byte_encoder,validity_mask_semantics,arrow_device_gpu_path"
     )));
-    assert!(output.contains(&field("vortex075_local_io_provider_candidate_count", "6")));
     assert!(output.contains(&field(
-        "vortex075_local_io_shared_runtime_evidence_count",
+        "vortex_upstream_local_io_provider_candidate_count",
+        "6"
+    )));
+    assert!(output.contains(&field(
+        "vortex_upstream_local_io_shared_runtime_evidence_count",
         "1"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_blocked_future_device_count",
+        "vortex_upstream_local_io_blocked_future_device_count",
         "1"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_deterministic_blocker_required_count",
+        "vortex_upstream_local_io_deterministic_blocker_required_count",
         "7"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_claim_gate_status",
+        "vortex_upstream_local_io_claim_gate_status",
         "not_claim_grade"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_row_layout_reader_context_cache_status",
+        "vortex_upstream_local_io_row_layout_reader_context_cache_status",
         "shared_runtime_evidence_recorded"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_row_json_extension_arrow_interop_shardloom_disposition",
+        "vortex_upstream_local_io_row_json_extension_arrow_interop_shardloom_disposition",
         "candidate_for_json_extension_preservation_and_deterministic_expression_blockers"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_row_wkb_geospatial_extension_required_evidence",
+        "vortex_upstream_local_io_row_wkb_geospatial_extension_required_evidence",
         "provider_gate,wkb_extension_fidelity_report,geo_execution_blocker,translation_report,native_io_certificate"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_row_arrow_device_gpu_path_status",
+        "vortex_upstream_local_io_row_arrow_device_gpu_path_status",
         "blocked_future_device_track"
     )));
     assert!(output.contains(&field(
-        "vortex075_local_io_row_arrow_device_gpu_path_shardloom_disposition",
+        "vortex_upstream_local_io_row_arrow_device_gpu_path_shardloom_disposition",
         "blocked_future_device_track_not_local_cpu_v1"
     )));
 }
 
 #[test]
-fn vortex_api_inventory_keeps_vortex075_local_io_provider_disposition_effect_free() {
+fn vortex_api_inventory_keeps_vortex_upstream_local_io_provider_disposition_effect_free() {
     let output = run_vortex_api_inventory_json();
 
     for key in [
-        "vortex075_local_io_runtime_execution",
-        "vortex075_local_io_data_read",
-        "vortex075_local_io_data_written",
-        "vortex075_local_io_data_decoded",
-        "vortex075_local_io_data_materialized",
-        "vortex075_local_io_object_store_io",
-        "vortex075_local_io_table_catalog_io",
-        "vortex075_local_io_write_io",
-        "vortex075_local_io_external_engine_invoked",
-        "vortex075_local_io_fallback_attempted",
-        "vortex075_local_io_fallback_execution_allowed",
+        "vortex_upstream_local_io_runtime_execution",
+        "vortex_upstream_local_io_data_read",
+        "vortex_upstream_local_io_data_written",
+        "vortex_upstream_local_io_data_decoded",
+        "vortex_upstream_local_io_data_materialized",
+        "vortex_upstream_local_io_object_store_io",
+        "vortex_upstream_local_io_table_catalog_io",
+        "vortex_upstream_local_io_write_io",
+        "vortex_upstream_local_io_external_engine_invoked",
+        "vortex_upstream_local_io_fallback_attempted",
+        "vortex_upstream_local_io_fallback_execution_allowed",
     ] {
         assert!(
             output.contains(&field(key, "false")),
             "missing false field {key}"
         );
     }
-    assert!(output.contains(&field("vortex075_local_io_side_effect_free", "true")));
+    assert!(output.contains(&field("vortex_upstream_local_io_side_effect_free", "true")));
 }
