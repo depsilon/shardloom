@@ -137,8 +137,7 @@ mod tests {
     #[test]
     fn json_emit_timing_placeholder_is_filled_after_single_render() {
         let rendered = format!(
-            r#"{{"fields":[{{"key":"json_envelope_emit_micros","value":"{}"}}]}}"#,
-            EMIT_TIMING_PLACEHOLDER
+            r#"{{"fields":[{{"key":"json_envelope_emit_micros","value":"{EMIT_TIMING_PLACEHOLDER}"}}]}}"#
         );
 
         let updated = replace_emit_timing_placeholder(rendered, OutputFormat::Json, "42");

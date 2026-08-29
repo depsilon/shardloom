@@ -11511,6 +11511,50 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertFalse(result.fallback.attempted)
 
+    def test_one_shot_cli_worker_startup_envelope_falls_back_to_subprocess(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                def emit(command, worker_transport):
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": command,
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "worker_transport", "value": worker_transport},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"}
+                        ],
+                    }))
+
+                if sys.argv[1:] == ["python-worker"]:
+                    emit("python-worker", "invalid_one_shot_worker_startup")
+                    raise SystemExit(0)
+
+                assert sys.argv[1:] == ["status", "--format", "json"], sys.argv
+                emit("status", "subprocess_after_worker_startup_miss")
+                """
+            ),
+            supports_worker=True,
+        )
+        client = ShardLoomClient(binary=binary)
+        self.addCleanup(client.close)
+
+        result = client.status()
+
+        self.assertEqual(result.command, "status")
+        self.assertEqual(
+            result.field("worker_transport"),
+            "subprocess_after_worker_startup_miss",
+        )
+        self.assertFalse(result.fallback.attempted)
+
     def test_bundled_binary_is_resolved_before_path_binary(self) -> None:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)

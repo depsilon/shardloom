@@ -13643,6 +13643,16 @@ class ShardLoomClient:
                     f"ShardLoom persistent worker emitted no JSON output{detail}"
                 )
         envelope = self._parse_stdout(response_line, redacted_command)
+        expected_command = command_args[0] if command_args else ""
+        if expected_command and envelope.command == "python-worker":
+            message = (
+                "ShardLoom persistent worker emitted a startup envelope instead "
+                f"of the requested {expected_command!r} command"
+            )
+            self._close_worker()
+            if first_request_for_process:
+                raise _ShardLoomWorkerStartupError(message)
+            raise ShardLoomProtocolError(message)
         if check and envelope.is_error:
             raise ShardLoomCommandError(
                 command=redacted_command,
