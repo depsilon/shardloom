@@ -253,10 +253,9 @@ Current autonomous execution order:
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. Finish and merge `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1`: the implementation branch updates the
-   pinned Vortex provider line to 0.85, keeps Arrow/Parquet on the provider-aligned 58.3 stack,
-   refreshes active provider-disposition evidence, and still needs final PR validation plus
-   post-merge ledger movement.
+2. Work `FRONT-DOOR-CONTROL-PLANE-OVERHEAD-21` because recent performance review found the
+   public/user-facing cold path can dominate sub-ms warm execution through process startup,
+   full-file fingerprinting, and duplicated envelope rendering.
 3. Work `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` because Vortex inputs must be first-class
    Universal Ingest sources and must not be routed through slow compatibility/source-adapter
    re-encode paths.
@@ -266,93 +265,104 @@ Current autonomous execution order:
    current measured tail-lane slice either ships or is dropped. Completed runtime-gap rows live in
    the completed ledger, not in this compact Planned queue.
 
-- [ ] `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` Review Vortex 0.76-0.85 provider/API changes,
-  surveil 0.86 draft changes, and incorporate useful ShardLoom-native enhancements in a separate
-  PR.
-  - V1 scope classification: `required_for_v1` for review and safe provider mapping; runtime
-    adoption is `v1_candidate_pending_feasibility` until compile, correctness, no-fallback, and
-    performance evidence exists.
-  - Source: closed Dependabot PR #1379, closed Dependabot PR #1403, crates.io state showing
-    `vortex 0.76.0` / `vortex-zstd 0.76.0` as a yanked hazard, the upstream Vortex GitHub release
-    list on 2026-08-29 showing `0.85.0` as the current latest release, and upstream Vortex
-    changelog docs on 2026-08-29 showing `0.86.0` as draft.
-  - Current state: implementation is in progress on the cohesive dependency/provider branch.
-    ShardLoom is updated to the current non-yanked Vortex `0.85` provider line, active provider
-    reports use version-neutral `vortex_upstream_*` fields, and the structured Arrow/Parquet bridge
-    intentionally remains on the Vortex/ORC-aligned 58.3 stack. The draft 0.86 notes are tracked as
-    design pressure only and must not be used to pin an unreleased production dependency.
-  - ShardLoom technique review: review all candidate provider changes through the Vortex-first
-    boundary. Prioritize metadata-first planning, dictionary/FSST predicates, grouped aggregate
-    kernels, byte-length/list-length transforms, layout-reader/file-cache reuse, row-ref/top-K
-    support, writer/encoding policy, mask/filter/take reducers, and single-artifact embedded
-    layout metadata. Reject Vortex query-engine integrations as fallback.
+- [ ] `FRONT-DOOR-CONTROL-PLANE-OVERHEAD-21` Remove public/user-facing cold-path overhead that can
+  dwarf ShardLoom's warm Vortex-native execution.
+  - V1 scope classification: `required_for_v1` for feasible local/Python/CLI control-plane fixes;
+    publication-proof full digests remain available through explicit proof tiers, not default hot
+    runtime paths.
+  - Source: maintainer-provided performance review packet on 2026-08-29, local code paths in
+    `python/src/shardloom/session.py`, `python/src/shardloom/prepared_route.py`,
+    `python/src/shardloom/client.py`, `python/src/shardloom/__init__.py`,
+    `shardloom-cli/src/main.rs`, and `shardloom-cli/src/cli_output.rs`.
+  - Current state: historical local evidence shows warm query runtime around `0.58-0.59ms`, scan
+    around `0.15ms`, and operator compute around `0.32ms`, while first-process CLI cold startup was
+    reported around `803.7ms`. Python session fingerprint helpers can read whole files with SHA-256,
+    persistent worker use depends on construction details, `shardloom-cli` always enters through a
+    16MiB worker-thread trampoline, and `emit_timed()` renders the typed output envelope twice.
+  - Intake review:
+    - Accepted: persistent process reuse as the default Python/session transport when command
+      semantics allow it.
+    - Accepted: metadata-first source fingerprints for ordinary hot/runtime admission, reserving
+      full content digests for changed metadata, explicit replay/publication proof, or claim-grade
+      evidence lanes.
+    - Accepted: remove or isolate the CLI worker-thread trampoline if focused stack-safety tests do
+      not prove it is required for every command.
+    - Accepted: make `emit_timed()` single-pass while preserving timing fields and output schema.
+    - Accepted: measure and slim `import shardloom` only when timing evidence shows meaningful
+      Python import/front-door cost.
+    - Rejected as low value: optimizing boolean gates, enum comparisons, single `Path.exists()`
+      calls, or merely removing constant doc/fixture path references without profiling evidence.
+  - ShardLoom technique review: PulseWeave/evidence-tier controls apply to distinguish transport,
+    source-admission, hot runtime, replay proof, and publication proof timing. Metadata-first
+    planning applies to source identity. Capillary work units do not directly apply to process
+    startup, but source-fingerprint work should use the same SourceState/prepared-state identity
+    model as Universal Ingest. Timing-surface separation is mandatory so wrapper/process/fingerprint
+    costs cannot be misreported as Vortex operator time.
   - Execution checklist:
-    - [x] Read upstream Vortex 0.76-0.85 release notes and local crate APIs from primary sources.
-      - [x] 0.76: yanked status, ArrayAccessor removal, aggregate descriptors for zoned stats,
-        session-registry kernel movement, nullable-boolean mask strictness, list-length scalar,
-        Decimal casting, JSON Variant conversion, Arrow device export, buffer/mask performance,
-        FSST and dictionary metadata fixes.
-      - [x] 0.77: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
-        and any Arrow/session compatibility breaks.
-      - [x] 0.78: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
-        and any Arrow/session compatibility breaks.
-      - [x] 0.79: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
-        and any Arrow/session compatibility breaks.
-      - [x] 0.80: `VortexSource` improvements, layout adapter error posture, piecewise sequence
-        index arrays, struct-layout reader allocation reductions, footer parse validation, and
-        Vortex edition docs.
-      - [x] 0.81: file-level user metadata, serialization-context registry filtering, partition
-        expression locking changes, and `UnionArray`.
-      - [x] 0.82: grouped aggregate kernels, scan statistics, layout-reader/file-cache changes,
-        JSON/Arrow import/export changes, interleave encoding, row encoder, byte-length/string
-        transforms, zstd/binary scheme changes, mask/zip/layout performance, and dictionary/FSST
-        LIKE behavior.
-      - [x] 0.83: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
-        and any Arrow/session compatibility breaks.
-      - [x] 0.84: scan/file/layout/provider changes, expression/kernel changes, encoding changes,
-        and any Arrow/session compatibility breaks.
-      - [x] 0.85: ArrowSession-only import/export deprecations, Expression enum/Root variant,
-        Normalized validity movement, builder child canonicalization changes, layout scan physical
-        plan model, `VortexReadAt::read_ranges`, RowFn/RowVisitor batch execution, expression
-        optimizer rules, primitive interleave execution, Decimal cast kernels, row-range selection
-        preservation, bit-buffer/mask performance, and sequence bitmap improvements.
-      - [x] 0.86 draft surveillance: `VortexWrite` `Send` requirements, physical `OutputSink`
-        parameters, runtime output dtype for row dispatch, filter-and-scatter `RowFn` execution,
-        fixed-width buffer filtering, grouped accumulator state behavior, nullable `RowFn` dense
-        retry, sequence cast compute, and upstream DataFusion/DuckDB items to keep rejected as
-        runtime fallback.
-    - [x] Build a migration staircase that validates each provider line or release family before
-      jumping the workspace dependency: `0.75 -> non-yanked 0.77/0.78/0.79 API audit -> 0.80 ->
-      0.81 -> 0.82 -> 0.83 -> 0.84 -> 0.85`, with 0.76 recorded only as a yanked hazard.
-    - [x] For each release step, record compile breaks, removed APIs, migrated API replacements,
-      provider opportunities, rejected query-engine integrations, and required ShardLoom adapter
-      changes before retaining the step.
-    - [x] Identify provider changes that can materially help ShardLoom ingest, scan, string,
-      top-K, high-cardinality aggregate, and writer lanes.
-    - [x] Decide whether to update the pinned Vortex crate line to a current non-yanked version or
-      stay on 0.75 while backfilling ShardLoom-owned implementations.
-    - [x] If updating, keep usage isolated in `shardloom-vortex`, update provider-version evidence
-      surfaces, dependency footprint docs, lockfile, feature-gated compile tests, and no-fallback
-      validators.
-    - [x] If adopting provider APIs, add correctness fixtures and ship/drop UAT probes proving the
-      provider is faster or cleaner than the current ShardLoom path before retaining it. Current
-      branch adopts compatibility API migrations only; performance-sensitive provider adoption
-      remains gated by existing slow-lane ship/drop items rather than claimed here.
-    - [ ] Move completed intake details to the ledger after the Vortex capability PR merges.
-  - User-visible surface: runtime evidence fields, capability reports, dependency docs, and
-    eventually SQL/Python/DataFrame routes only through shared Vortex-normalized runtime families.
-  - Implementation scope: `shardloom-vortex`, runtime/provider evidence docs, dependency review
-    ledgers, feature-gate tests, and any shared operator/ingest helpers selected by the review.
-  - Evidence required: license/provenance review, compile matrix, no-fallback dependency audit,
-    focused provider correctness tests, and targeted performance/UAT evidence for retained
-    providers.
-  - Acceptance: Vortex provider upgrade/adoption is deliberate, current, non-yanked, and backed by
-    ShardLoom-native evidence; Arrow/Parquet remain on a single provider-aligned 58.3 graph; no
-    Vortex DataFusion/DuckDB/Spark integration is used.
-  - Claim boundary: provider/capability intake only until runtime tests and UAT prove a specific
-    performance or capability claim.
-  - Fallback boundary: Vortex array/compute/scan/source/sink providers are allowed only as native
-    providers; Vortex query-engine integrations remain prohibited.
+    - [x] Add focused timing diagnostics that separate Python import, binary resolution,
+      persistent-worker startup, fresh-process startup, source fingerprinting, command dispatch,
+      typed-envelope serialization, and engine/runtime timing for a tiny local query.
+    - [x] Make Python `ShardLoomClient` and `ShardLoomContext` prefer the session-scoped persistent
+      worker for repeated local calls, including explicit binary paths when safe, while preserving
+      timeout, environment, and command-handler semantics.
+    - [x] Replace default whole-file SHA-256 source fingerprinting in Python hot/runtime paths with
+      metadata-first SourceState identity (`path`, `size`, `mtime`, optional prepared-state
+      identity) and compute full content digests only for explicit full-replay/publication proof or
+      when metadata changes require repair.
+    - [x] Mirror the metadata-first fingerprint policy in Rust public/local workflow evidence where
+      product paths still perform full source reads for identity outside proof tiers.
+    - [x] Make `emit_timed()` render the typed envelope once and record serialization timing without
+      building/serializing a discarded envelope copy.
+    - [x] Audit the CLI 16MiB worker-thread trampoline, remove it from the default command path,
+      and keep it only behind an explicit large-stack escape hatch for stack-sensitive diagnostics.
+    - [x] Measure `import shardloom` and convert eager top-level imports to lazy exports only if
+      the change materially reduces import/front-door cold cost without breaking public symbols.
+      Local source-checkout import timing measured about `63ms` median and normal usage immediately
+      calls `sl.context()`, so lazy top-level exports would mostly move rather than remove the cost;
+      no lazy-export rewrite retained in this batch.
+    - [x] Add focused Python/Rust tests proving repeated Python operations reuse one worker,
+      ordinary hot/runtime source admission does not full-read large files for SHA-256, explicit
+      replay/publication proof still can request full content digests, and output envelopes remain
+      schema-compatible.
+    - [x] Run targeted UAT for tiny repeated Python calls and one large-source metadata-first
+      admission path; retain only changes that reduce or amortize cold/front-door overhead without
+      slowing warm Vortex-native execution.
+      Local probe output: `target/front-door-control-plane-probe.json`. Debug CLI one-shot status
+      median was about `2.44ms`; persistent worker median after startup was about `0.089ms`;
+      metadata fingerprint median was about `0.014ms`. A sparse `4GiB` metadata fingerprint check
+      stayed about `0.019ms` median and did not compute a content digest.
+    - [x] Update README/docs/architecture if public usage, evidence tiers, or timing interpretation
+      changes.
+    - [ ] Move the completed summary to the ledger after merge.
+  - Next outcome: one cohesive control-plane optimization PR that makes the fast path feel as fast
+    as the engine is, without weakening no-fallback evidence or publication-proof options.
+  - User-visible surface: Python package, CLI, SQL/Python/DataFrame user workflows, timing evidence,
+    and release/user-surface readiness reports.
+  - Implementation scope: `python/src/shardloom/client.py`, `python/src/shardloom/context.py`,
+    `python/src/shardloom/session.py`, `python/src/shardloom/prepared_route.py`,
+    `python/src/shardloom/__init__.py`, `shardloom-cli/src/main.rs`,
+    `shardloom-cli/src/cli_output.rs`, Rust public workflow evidence where full-read
+    fingerprinting remains, focused tests, and docs.
+  - Evidence required: before/after timing transcript for fresh process versus persistent worker,
+    large-source fingerprint behavior proof, envelope schema/timing regression tests, no-fallback
+    fields, and explicit proof-tier digest behavior.
+  - Acceptance: repeated Python calls no longer pay fresh CLI startup per operation by default;
+    hot/runtime admission does not read multi-GB source files solely for proof digesting; full
+    digests remain available only in explicit proof lanes; `emit_timed()` is single-pass; any
+    retained CLI stack trampoline has measured justification and isolated scope.
+  - Verification: focused Python client/session tests, focused Rust CLI output/main tests,
+    `python3 -m unittest python.tests.test_cli_client python.tests.test_release_scripts`, targeted
+    `cargo test` filters for changed Rust modules, `cargo fmt --all -- --check`, and `git diff
+    --check`.
+  - Non-goals: no external engine fallback, no benchmark/publication-proof weakening, no
+    ClickBench query-kernel optimization inside this item, no broad full workspace gate until the
+    cohesive implementation batch is ready.
+  - Claim boundary: local front-door/control-plane overhead evidence only. No official benchmark or
+    superiority claim until benchmark methodology selects the timing surface and reruns the relevant
+    suite.
+  - Fallback boundary: every successful and blocked path must preserve `fallback_attempted=false`
+    and `external_engine_invoked=false`; transport reuse must not become a separate execution
+    provider.
 
 - [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
   gaps.

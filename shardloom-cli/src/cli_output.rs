@@ -17,6 +17,7 @@ use shardloom_core::{CommandStatus, Diagnostic, OutputEnvelope, OutputFormat, Sh
 use crate::{command_family::classify_command, typed_envelope::apply_typed_envelope_fields};
 
 static OUTPUT_EMISSION_COUNT: AtomicU64 = AtomicU64::new(0);
+const EMIT_TIMING_PLACEHOLDER: &str = "__shardloom_json_envelope_emit_micros__";
 
 pub(crate) fn output_emission_count() -> u64 {
     OUTPUT_EMISSION_COUNT.load(Ordering::Relaxed)
@@ -61,23 +62,27 @@ pub(crate) fn emit_timed(
     mut fields: Vec<(String, String)>,
 ) {
     let timing_start = Instant::now();
-    let probe_envelope = envelope_from_fields(
-        command,
-        status,
-        summary.clone(),
-        text.clone(),
-        diagnostics.clone(),
-        fields.clone(),
-    );
-    let _rendered_probe = probe_envelope.render(format);
-    let micros = timing_start.elapsed().as_micros().to_string();
-    fields.push(("json_envelope_emit_micros".to_string(), micros));
+    fields.push((
+        "json_envelope_emit_micros".to_string(),
+        EMIT_TIMING_PLACEHOLDER.to_string(),
+    ));
     fields.push((
         "json_envelope_emit_timing_status".to_string(),
-        "measured_by_probe_render_before_final_emit".to_string(),
+        "single_pass_final_render_window".to_string(),
     ));
     let envelope = envelope_from_fields(command, status, summary, text, diagnostics, fields);
-    write_stdout_line(&envelope.render(format));
+    let rendered = envelope.render(format);
+    let micros = timing_start.elapsed().as_micros().to_string();
+    let rendered = replace_emit_timing_placeholder(rendered, format, &micros);
+    write_stdout_line(&rendered);
+}
+
+fn replace_emit_timing_placeholder(rendered: String, format: OutputFormat, micros: &str) -> String {
+    if format == OutputFormat::Json {
+        rendered.replace(EMIT_TIMING_PLACEHOLDER, micros)
+    } else {
+        rendered
+    }
 }
 
 pub(crate) fn emit_error(
@@ -122,4 +127,31 @@ fn write_stdout_line(rendered: &str) {
         std::process::exit(1);
     }
     OUTPUT_EMISSION_COUNT.fetch_add(1, Ordering::Relaxed);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EMIT_TIMING_PLACEHOLDER, replace_emit_timing_placeholder};
+    use shardloom_core::OutputFormat;
+
+    #[test]
+    fn json_emit_timing_placeholder_is_filled_after_single_render() {
+        let rendered = format!(
+            r#"{{"fields":[{{"key":"json_envelope_emit_micros","value":"{EMIT_TIMING_PLACEHOLDER}"}}]}}"#
+        );
+
+        let updated = replace_emit_timing_placeholder(rendered, OutputFormat::Json, "42");
+
+        assert!(updated.contains(r#""value":"42""#));
+        assert!(!updated.contains(EMIT_TIMING_PLACEHOLDER));
+    }
+
+    #[test]
+    fn text_emit_timing_placeholder_is_not_rewritten() {
+        let rendered = format!("json_envelope_emit_micros={EMIT_TIMING_PLACEHOLDER}");
+
+        let updated = replace_emit_timing_placeholder(rendered.clone(), OutputFormat::Text, "42");
+
+        assert_eq!(updated, rendered);
+    }
 }

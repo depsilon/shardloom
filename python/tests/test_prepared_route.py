@@ -1,6 +1,7 @@
 import unittest
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 from shardloom.client import ShardLoomClient
 from shardloom.prepared_route import (
@@ -55,7 +56,52 @@ class PreparedRouteEvidenceTests(unittest.TestCase):
             packet["source_schema_hash"],
             _TRADITIONAL_SOURCE_ADMISSION_SCHEMA_HASH,
         )
+        self.assertEqual(packet["source_path_fingerprint_kind"], "local_path_size_mtime")
+        self.assertEqual(packet["digest_policy"]["status"], "metadata_fingerprint")
+        self.assertFalse(
+            packet["digest_policy"]["normal_warm_reuse_content_digest_requested"]
+        )
         self.assertTrue(packet["packet_digest"].startswith("sha256:"))
+
+    def test_local_path_fingerprint_is_metadata_first_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "source.csv"
+            path.write_text("id,label\n1,alpha\n", encoding="utf-8")
+
+            with mock.patch(
+                "shardloom.prepared_route._file_content_digest",
+                side_effect=AssertionError("content digest should not run by default"),
+            ):
+                fingerprint = _local_path_fingerprint(path)
+
+            self.assertEqual(fingerprint["kind"], "local_file_size_mtime")
+            self.assertIsNone(fingerprint["content_digest"])
+            self.assertEqual(
+                fingerprint["content_digest_status"],
+                "not_requested_metadata_first_hot_runtime",
+            )
+            self.assertEqual(
+                fingerprint["digest_policy"],
+                "metadata_size_mtime_normal_warm_reuse",
+            )
+
+    def test_local_path_fingerprint_can_request_explicit_proof_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "source.csv"
+            path.write_text("id,label\n1,alpha\n", encoding="utf-8")
+
+            fingerprint = _local_path_fingerprint(path, content_digest=True)
+
+            self.assertEqual(fingerprint["kind"], "local_file_sha256_size_mtime")
+            self.assertTrue(fingerprint["content_digest"].startswith("sha256:"))
+            self.assertEqual(
+                fingerprint["content_digest_status"],
+                "computed_for_explicit_proof_fingerprint",
+            )
+            self.assertEqual(
+                fingerprint["digest_policy"],
+                "content_digest_size_mtime_explicit_proof",
+            )
 
     def test_role_repair_rejects_stale_unchanged_prepared_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

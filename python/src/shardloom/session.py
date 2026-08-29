@@ -54,7 +54,7 @@ class LocalFileFingerprint:
     size_bytes: int | None
     mtime_ns: int | None
     content_digest: str | None
-    fingerprint_kind: str = "local_file_sha256_size_mtime"
+    fingerprint_kind: str = "local_file_size_mtime"
 
     @property
     def reuse_digest(self) -> str:
@@ -2020,9 +2020,13 @@ class ShardLoomSession:
         )
 
 
-def _fingerprint_file(path: str | os.PathLike[str]) -> LocalFileFingerprint:
+def _fingerprint_file(
+    path: str | os.PathLike[str],
+    *,
+    content_digest: bool = False,
+) -> LocalFileFingerprint:
     metadata = _fingerprint_file_metadata(path)
-    if not metadata.exists:
+    if not metadata.exists or not content_digest:
         return metadata
     local_path = Path(path).expanduser()
     return LocalFileFingerprint(
@@ -2031,6 +2035,7 @@ def _fingerprint_file(path: str | os.PathLike[str]) -> LocalFileFingerprint:
         size_bytes=metadata.size_bytes,
         mtime_ns=metadata.mtime_ns,
         content_digest=_file_content_digest(local_path),
+        fingerprint_kind="local_file_sha256_size_mtime",
     )
 
 
@@ -2098,9 +2103,13 @@ def _reuse_reason_from_metadata(
     return "source_and_prepared_artifact_fingerprints_match"
 
 
-def _source_fingerprints(statement: str) -> tuple[LocalFileFingerprint, ...]:
+def _source_fingerprints(
+    statement: str,
+    *,
+    content_digest: bool = False,
+) -> tuple[LocalFileFingerprint, ...]:
     refs = _sql_source_refs(statement)
-    return tuple(_fingerprint_file(ref) for ref in refs)
+    return tuple(_fingerprint_file(ref, content_digest=content_digest) for ref in refs)
 
 
 def _cacheable_sql_state(
