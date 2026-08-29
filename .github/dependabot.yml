@@ -12,6 +12,19 @@ updates:
         patterns:
           - "vortex"
           - "vortex-*"
+      structured-format-stack:
+        patterns:
+          - "arrow-*"
+          - "parquet"
+          - "orc-rust"
+      rust-runtime-utilities:
+        patterns:
+          - "futures"
+          - "futures-*"
+          - "memchr"
+          - "regex"
+          - "regex-*"
+          - "rustc-hash"
 
   - package-ecosystem: "pip"
     directory: "/python"
@@ -24,3 +37,7 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      ci-security-actions:
+        patterns:
+          - "*"
