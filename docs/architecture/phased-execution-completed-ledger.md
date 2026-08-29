@@ -16,6 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `DEPENDENCY-INTAKE-BATCH-1` closed the cohesive dependency hygiene batch for the current
+      open Dependabot set.
+  - Date: 2026-08-29
+  - PR/merge: PR `#1408`, merged to `main` as
+    `50a3ca1 Merge pull request #1408 from depsilon/codex/consolidated-dependency-easy-fixes`.
+  - Completed scope:
+    - Closed split Dependabot PRs #1403-#1407 instead of merging sliver updates.
+    - Absorbed `serde_json 1.0.151`, `rusqlite 0.40.2`, `libsqlite3-sys 0.38.2`, and CI/security
+      action SHA refreshes into one validator-aware dependency PR.
+    - Preserved the provider-aligned Arrow/Parquet 58.3 stack and deferred Arrow/Parquet 59.x until
+      upstream Vortex/ORC provider alignment avoids duplicate Arrow graphs.
+    - Closed the Vortex 0.75-to-0.85 Dependabot jump without merging it, then promoted Vortex
+      release-by-release provider review into `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1`.
+    - Refreshed dependency review docs, release-script tests, freshness-gate markers, and
+      no-fallback/security validators for the absorbed and closed PRs.
+  - Focused validation evidence:
+    - `python3 -m unittest python.tests.test_release_scripts`
+    - `python3 scripts/check_pre_5j_dependency_freshness.py`
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github`
+    - `python3 scripts/check_security_posture.py --no-json`
+    - `cargo check -p shardloom-cli --all-targets`
+    - `cargo fmt --all -- --check`
+    - PR `#1408` GitHub checks were green before merge, including Rust baseline, Rust feature
+      matrix, Python compatibility shards, release runtime/user-surface/package/readiness evidence,
+      CodeQL, dependency/security gates, website/docs validation, and Workers preview build.
+  - Claim boundary:
+    - Dependency hygiene and provider-migration planning only. No runtime, performance, Vortex
+      provider upgrade, package publication, or superiority claim.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, or another external
+      engine was added or invoked as ShardLoom runtime fallback.
+
 - [x] `RUNTIME-GAP-NATIVE-VORTEX-OPERATOR-COVERAGE-1`,
       `RUNTIME-GAP-FRONT-DOOR-SHARED-RUNTIME-PARITY-1`,
       `RUNTIME-GAP-OUTPUT-SINK-FANOUT-1`, and
