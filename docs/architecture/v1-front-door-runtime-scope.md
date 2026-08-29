@@ -51,6 +51,13 @@ startup across repeated calls. That worker is transport-only: it dispatches the 
 `prepare`, and Vortex commands, returns their normal typed JSON envelopes, and does not change the
 execution route, fallback boundary, or native Vortex evidence.
 
+The Python package entrypoint is lazy at import time. `import shardloom` loads package metadata and
+the version only; `ShardLoomClient`, `ShardLoomContext`, `context`, `session`, query-builder
+expressions, and typed report classes are imported on first symbol access. This keeps notebook,
+Foundry/dev-env, and package-smoke startup from paying the full SQL/DataFrame/session import cost
+before a caller has selected a ShardLoom route. Lazy imports are a control-plane optimization only;
+they do not execute runtime work, probe data, or change no-fallback evidence.
+
 ## Format-Neutral Route Model
 
 The public front door has one logical workflow shape:

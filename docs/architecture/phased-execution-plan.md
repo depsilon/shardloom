@@ -253,116 +253,13 @@ Current autonomous execution order:
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. Work `FRONT-DOOR-CONTROL-PLANE-OVERHEAD-21` because recent performance review found the
-   public/user-facing cold path can dominate sub-ms warm execution through process startup,
-   full-file fingerprinting, and duplicated envelope rendering.
-3. Work `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` because Vortex inputs must be first-class
-   Universal Ingest sources and must not be routed through slow compatibility/source-adapter
-   re-encode paths.
-4. Work `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` because the latest local full-43 UAT is correct
+2. Work `PYTHON-PACKAGE-LAZY-FRONT-DOOR-22` because the remaining critical control-plane finding is
+   import-time eager loading of the entire Python SQL/DataFrame/session surface.
+3. Work `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` because the latest local full-43 UAT is correct
    and passing but still tail-bound by reusable high-cardinality/string/grouped-state lanes.
-5. Promote the next concrete shared-runtime implementation item from the standing owner after the
+4. Promote the next concrete shared-runtime implementation item from the standing owner after the
    current measured tail-lane slice either ships or is dropped. Completed runtime-gap rows live in
    the completed ledger, not in this compact Planned queue.
-
-- [ ] `FRONT-DOOR-CONTROL-PLANE-OVERHEAD-21` Remove public/user-facing cold-path overhead that can
-  dwarf ShardLoom's warm Vortex-native execution.
-  - V1 scope classification: `required_for_v1` for feasible local/Python/CLI control-plane fixes;
-    publication-proof full digests remain available through explicit proof tiers, not default hot
-    runtime paths.
-  - Source: maintainer-provided performance review packet on 2026-08-29, local code paths in
-    `python/src/shardloom/session.py`, `python/src/shardloom/prepared_route.py`,
-    `python/src/shardloom/client.py`, `python/src/shardloom/__init__.py`,
-    `shardloom-cli/src/main.rs`, and `shardloom-cli/src/cli_output.rs`.
-  - Current state: historical local evidence shows warm query runtime around `0.58-0.59ms`, scan
-    around `0.15ms`, and operator compute around `0.32ms`, while first-process CLI cold startup was
-    reported around `803.7ms`. Python session fingerprint helpers can read whole files with SHA-256,
-    persistent worker use depends on construction details, `shardloom-cli` always enters through a
-    16MiB worker-thread trampoline, and `emit_timed()` renders the typed output envelope twice.
-  - Intake review:
-    - Accepted: persistent process reuse as the default Python/session transport when command
-      semantics allow it.
-    - Accepted: metadata-first source fingerprints for ordinary hot/runtime admission, reserving
-      full content digests for changed metadata, explicit replay/publication proof, or claim-grade
-      evidence lanes.
-    - Accepted: remove or isolate the CLI worker-thread trampoline if focused stack-safety tests do
-      not prove it is required for every command.
-    - Accepted: make `emit_timed()` single-pass while preserving timing fields and output schema.
-    - Accepted: measure and slim `import shardloom` only when timing evidence shows meaningful
-      Python import/front-door cost.
-    - Rejected as low value: optimizing boolean gates, enum comparisons, single `Path.exists()`
-      calls, or merely removing constant doc/fixture path references without profiling evidence.
-  - ShardLoom technique review: PulseWeave/evidence-tier controls apply to distinguish transport,
-    source-admission, hot runtime, replay proof, and publication proof timing. Metadata-first
-    planning applies to source identity. Capillary work units do not directly apply to process
-    startup, but source-fingerprint work should use the same SourceState/prepared-state identity
-    model as Universal Ingest. Timing-surface separation is mandatory so wrapper/process/fingerprint
-    costs cannot be misreported as Vortex operator time.
-  - Execution checklist:
-    - [x] Add focused timing diagnostics that separate Python import, binary resolution,
-      persistent-worker startup, fresh-process startup, source fingerprinting, command dispatch,
-      typed-envelope serialization, and engine/runtime timing for a tiny local query.
-    - [x] Make Python `ShardLoomClient` and `ShardLoomContext` prefer the session-scoped persistent
-      worker for repeated local calls, including explicit binary paths when safe, while preserving
-      timeout, environment, and command-handler semantics.
-    - [x] Replace default whole-file SHA-256 source fingerprinting in Python hot/runtime paths with
-      metadata-first SourceState identity (`path`, `size`, `mtime`, optional prepared-state
-      identity) and compute full content digests only for explicit full-replay/publication proof or
-      when metadata changes require repair.
-    - [x] Mirror the metadata-first fingerprint policy in Rust public/local workflow evidence where
-      product paths still perform full source reads for identity outside proof tiers.
-    - [x] Make `emit_timed()` render the typed envelope once and record serialization timing without
-      building/serializing a discarded envelope copy.
-    - [x] Audit the CLI 16MiB worker-thread trampoline, remove it from the default command path,
-      and keep it only behind an explicit large-stack escape hatch for stack-sensitive diagnostics.
-    - [x] Measure `import shardloom` and convert eager top-level imports to lazy exports only if
-      the change materially reduces import/front-door cold cost without breaking public symbols.
-      Local source-checkout import timing measured about `63ms` median and normal usage immediately
-      calls `sl.context()`, so lazy top-level exports would mostly move rather than remove the cost;
-      no lazy-export rewrite retained in this batch.
-    - [x] Add focused Python/Rust tests proving repeated Python operations reuse one worker,
-      ordinary hot/runtime source admission does not full-read large files for SHA-256, explicit
-      replay/publication proof still can request full content digests, and output envelopes remain
-      schema-compatible.
-    - [x] Run targeted UAT for tiny repeated Python calls and one large-source metadata-first
-      admission path; retain only changes that reduce or amortize cold/front-door overhead without
-      slowing warm Vortex-native execution.
-      Local probe output: `target/front-door-control-plane-probe.json`. Debug CLI one-shot status
-      median was about `2.44ms`; persistent worker median after startup was about `0.089ms`;
-      metadata fingerprint median was about `0.014ms`. A sparse `4GiB` metadata fingerprint check
-      stayed about `0.019ms` median and did not compute a content digest.
-    - [x] Update README/docs/architecture if public usage, evidence tiers, or timing interpretation
-      changes.
-    - [ ] Move the completed summary to the ledger after merge.
-  - Next outcome: one cohesive control-plane optimization PR that makes the fast path feel as fast
-    as the engine is, without weakening no-fallback evidence or publication-proof options.
-  - User-visible surface: Python package, CLI, SQL/Python/DataFrame user workflows, timing evidence,
-    and release/user-surface readiness reports.
-  - Implementation scope: `python/src/shardloom/client.py`, `python/src/shardloom/context.py`,
-    `python/src/shardloom/session.py`, `python/src/shardloom/prepared_route.py`,
-    `python/src/shardloom/__init__.py`, `shardloom-cli/src/main.rs`,
-    `shardloom-cli/src/cli_output.rs`, Rust public workflow evidence where full-read
-    fingerprinting remains, focused tests, and docs.
-  - Evidence required: before/after timing transcript for fresh process versus persistent worker,
-    large-source fingerprint behavior proof, envelope schema/timing regression tests, no-fallback
-    fields, and explicit proof-tier digest behavior.
-  - Acceptance: repeated Python calls no longer pay fresh CLI startup per operation by default;
-    hot/runtime admission does not read multi-GB source files solely for proof digesting; full
-    digests remain available only in explicit proof lanes; `emit_timed()` is single-pass; any
-    retained CLI stack trampoline has measured justification and isolated scope.
-  - Verification: focused Python client/session tests, focused Rust CLI output/main tests,
-    `python3 -m unittest python.tests.test_cli_client python.tests.test_release_scripts`, targeted
-    `cargo test` filters for changed Rust modules, `cargo fmt --all -- --check`, and `git diff
-    --check`.
-  - Non-goals: no external engine fallback, no benchmark/publication-proof weakening, no
-    ClickBench query-kernel optimization inside this item, no broad full workspace gate until the
-    cohesive implementation batch is ready.
-  - Claim boundary: local front-door/control-plane overhead evidence only. No official benchmark or
-    superiority claim until benchmark methodology selects the timing surface and reruns the relevant
-    suite.
-  - Fallback boundary: every successful and blocked path must preserve `fallback_attempted=false`
-    and `external_engine_invoked=false`; transport reuse must not become a separate execution
-    provider.
 
 - [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
   gaps.
@@ -393,73 +290,40 @@ Current autonomous execution order:
   - Fallback boundary: this owner does not execute runtime work and preserves
     `fallback_attempted=false` / `external_engine_invoked=false` in its validators.
 
-- [ ] `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1` Make Vortex-to-Vortex a first-class Universal Ingest
-  source lane instead of a slow source-adapter rewrite.
-  - Source: local V2V probe on
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex` using
-    Vortex `scan().into_array_stream()` to `write_options().write(...)`; stopped after ~94s with
-    only ~112MB staged, proving the scan-stream writer route re-encodes rather than preserving
-    encoded layout. Companion Parquet-to-Vortex plain-source probe was also stopped because it was
-    not V2V.
-  - Current state: public prepare treats `input_format=vortex` as already native and blocks
-    compatibility preparation. That is correct for query execution but incomplete for Universal
-    Ingest lifecycle: Vortex sources need an admitted prepared-state pass-through/copy lane and a
-    separate encoded-preserving rewrite/repack lane. The current generic Vortex scan-stream writer
-    is too slow to ship as the default V2V path.
-  - V1 scope classification: `required_for_v1` for Vortex-source admission and pass-through/copy
-    behavior; `v1_candidate_pending_feasibility` for encoded segment-preserving layout rewrite if
-    upstream Vortex exposes a safe provider or ShardLoom can implement one without decode/re-encode.
-  - ShardLoom technique review: source admission, metadata-first footer validation, copy-budget
-    evidence, PulseWeave route selection, and evidence-tier controls apply. Capillary work units
-    apply only to an actual rewrite path; the pass-through/copy lane should avoid work entirely
-    when the source artifact already satisfies the prepared-state contract.
+- [ ] `PYTHON-PACKAGE-LAZY-FRONT-DOOR-22` Finish the critical Python import/front-door overhead
+  cleanup from the control-plane performance findings.
+  - V1 scope classification: `required_for_v1` because `import shardloom` is the first public
+    package operation for Python, Foundry/dev-env, and notebook users.
+  - Source: maintainer-provided front-door overhead packet on 2026-08-29. The already-merged
+    `FRONT-DOOR-CONTROL-PLANE-OVERHEAD-21` item handled persistent worker reuse, metadata-first
+    fingerprints, default CLI stack behavior, and single-pass envelope rendering; this item closes
+    the remaining eager package import surface.
   - Execution checklist:
-    - [x] Add `vortex` as an admitted Universal Ingest source format with source-state evidence
-      distinct from CSV/JSONL/Parquet/Arrow/Avro/ORC adapters.
-    - [x] Implement a public prepare path for `input_format=vortex` that validates local Vortex
-      metadata/footer compatibility, emits prepared-state evidence, and uses pass-through or
-      workspace-safe copy when a separate target is requested.
-    - [x] Ensure automatic source normalization treats existing `.vortex` inputs as
-      `VortexPreparedState` / native Vortex sources and never routes them through compatibility
-      parse, Arrow `RecordBatch` source adapters, or the slow scan-stream writer by default.
-    - [x] Add explicit rewrite evidence for the layout-rewrite boundary: current V2V reports
-      `vortex_to_vortex_layout_rewrite_status=not_performed_layout_rewrite_requires_encoded_preserving_provider`
-      and does not expose the slow scan-stream re-encode path as a product default.
-    - [x] Add evidence fields for `vortex_to_vortex_policy`,
-      `vortex_to_vortex_encoded_layout_preserved`, `vortex_to_vortex_copy_budget_status`,
-      `vortex_to_vortex_reencode_performed`, source/target artifact digest, row count, and
-      `fallback_attempted=false` / `external_engine_invoked=false`.
-    - [x] Add focused Rust/CLI tests proving public prepare admits `.vortex`, pass-through/copy
-      preserves row count and artifact evidence, explicit layout rewrite blocks until encoded
-      segment-preserving support exists, and the generic source adapters are not invoked.
-    - [x] Update docs/architecture and ingest UAT ledger with the retained V2V behavior, the
-      dropped scan-stream re-encode probe, and fresh rebuilt-CLI UAT evidence:
-      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/v2v_public_prepare_20260628T185919Z.summary.json`
-      and
-      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/v2v_public_prepare_small_copy_20260628T190453Z.summary.json`.
+    - [x] Replace eager top-level imports in `python/src/shardloom/__init__.py` with a lazy public
+      export registry that preserves the existing public API names.
+    - [x] Preserve `from shardloom import X`, `import shardloom as sl; sl.context()`, and
+      interactive discovery through `__all__` / `__dir__`.
+    - [x] Add a clean-process Python regression test proving plain `import shardloom` does not load
+      `shardloom.client`, `shardloom.context`, or `shardloom.query` until one of their public
+      symbols is accessed.
+    - [x] Run focused Python import/export validation and public client tests. Local source-checkout
+      `import shardloom` median was about `0.33ms` over 20 clean Python processes, direct import map
+      parity preserved all previously imported symbols, and `__all__` matched the prior star-export
+      set exactly.
     - [ ] Move the completed summary to the ledger after merge.
-  - Next outcome: one shared Universal Ingest Vortex-source implementation slice that makes
-    Vortex-to-Vortex lifecycle behavior explicit, fast by default, and reusable by SQL/Python/
-    DataFrame/CLI surfaces.
-  - User-visible surface: CLI `prepare dataframe` / `vortex-prepare`, Python `ctx.read_vortex(...)`
-    preparation workflows, route evidence, and ClickBench UAT setup.
-  - Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`,
-    `shardloom-cli/src/public_workflow_route.rs`, `shardloom-vortex/src/vortex_ingest.rs`,
-    capability/docs evidence, and focused tests.
-  - Evidence required: local small-fixture Vortex prepare proof, no-fallback evidence, row-count
-    metadata proof, target artifact digest proof, and retained/dropped V2V UAT probe notes.
-  - Acceptance: `.vortex` sources are first-class Universal Ingest inputs; the default V2V path
-    does not parse compatibility source data or re-encode through the slow scan-stream writer; an
-    explicit rewrite request fails closed unless an encoded-preserving rewrite provider exists.
-  - Verification: focused Rust/CLI tests for Vortex-source prepare, targeted small V2V fixture UAT,
-    `python3 scripts/check_runtime_gap_family_burn_down.py`, and no full 100M replacement UAT until
-    the next cohesive ingest/query batch is ready.
-  - Non-goals: no query-answer sidecars, no materialized views, no DataFusion/DuckDB/Polars/pandas/
-    Spark fallback, no slow scan-stream re-encode as the default product V2V behavior.
-  - Claim boundary: local Vortex-source lifecycle readiness only; no official ClickBench load claim
-    until full replacement UAT is rerun.
-  - Fallback boundary: every V2V route must report `fallback_attempted=false` and
-    `external_engine_invoked=false`.
+  - User-visible surface: Python package import, Python/DataFrame/SQL front-door helpers, release
+    package smoke checks, and Foundry/dev-env package loading.
+  - Acceptance: `import shardloom` loads only the package metadata/version layer, public symbols
+    still resolve lazily on first access, no fallback/external engine behavior changes, and normal
+    Python examples continue to work.
+  - Verification: clean-process import module check, focused
+    `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_package_import_lazily_defers_heavy_front_door_modules`,
+    `python3 -m compileall -q python/src/shardloom`, `git diff --check`, and relevant release/user
+    surface validators.
+  - Claim boundary: local Python control-plane overhead evidence only; no benchmark superiority
+    claim.
+  - Fallback boundary: lazy imports are packaging/control-plane behavior only and must not introduce
+    Spark, DataFusion, DuckDB, Polars, pandas, Velox, or another execution fallback.
 
 - [ ] `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` Reduce the current >10s local 100M native
   Vortex query tails through shared dictionary, aggregate-state, and transform machinery.
