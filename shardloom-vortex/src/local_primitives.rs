@@ -790,6 +790,12 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
     #[cfg(feature = "vortex-local-primitives")]
     #[allow(clippy::too_many_lines)]
     fn merge_partition(&mut self, child: &Self) -> Result<()> {
+        let metadata_row_count_consumed = self
+            .planner_consumption_status
+            .contains("metadata_row_count")
+            || child
+                .planner_consumption_status
+                .contains("metadata_row_count");
         self.footer_row_count =
             self.footer_row_count
                 .checked_add(child.footer_row_count)
@@ -892,6 +898,8 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             "partitioned_metadata_first_pruning_pruned_all".to_string()
         } else if self.metadata_first_pruning_consulted {
             "partitioned_metadata_first_pruning_consulted".to_string()
+        } else if metadata_row_count_consumed {
+            "partitioned_metadata_row_count_consumed".to_string()
         } else {
             "partitioned_footer_inventory_available".to_string()
         };

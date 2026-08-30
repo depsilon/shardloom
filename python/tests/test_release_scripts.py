@@ -78,6 +78,20 @@ class ReleaseScriptTests(unittest.TestCase):
             sys.path.remove(script_dir)
         return module
 
+    def test_front_door_control_plane_probe_reports_first_and_steady_stats(self) -> None:
+        module = self._load_script_module(
+            "run_front_door_control_plane_probe.py",
+            "front_door_control_plane_probe_for_test",
+        )
+
+        split = module.first_and_steady_stats([5.0, 2.0, 4.0])
+
+        self.assertEqual(split["first_request_ms"], 5.0)
+        self.assertEqual(split["steady_state"]["count"], 2)
+        self.assertEqual(split["steady_state"]["median_ms"], 3.0)
+        self.assertEqual(split["all_requests"]["count"], 3)
+        self.assertEqual(split["all_requests"]["max_ms"], 5.0)
+
     @contextlib.contextmanager
     def _temporary_env(self, **updates: str):
         previous = {key: os.environ.get(key) for key in updates}

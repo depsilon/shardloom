@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `SOURCESTATE-DIRECTORY-FINGERPRINT-SCALING-1`, `CONTROL-PLANE-LATENCY-ATTRIBUTION-1`,
+      and `RUNTIME-EVIDENCE-SURFACE-UNIFICATION-1` closed the current post-ClickBench evidence and
+      control-plane cleanup batch.
+  - Date: 2026-08-30
+  - PR/merge: current local implementation batch; PR/merge pending.
+  - Completed scope:
+    - Changed normal Python prepared-route and session directory fingerprints to use bounded
+      root-metadata SourceState-candidate identity by default instead of recursively walking,
+      sorting, statting, and hashing every file. Explicit recursive tree SHA-256 proof remains
+      available for proof-grade validation.
+    - Added source-admission packet evidence for directory identity source, tree-walk status, files
+      walked, stats performed, SourceState/manifest preference, and proof tier.
+    - Split CLI envelope timing into build, typed-field classification, render, build/render,
+      placeholder-substitution, aggregate emit, and stdout-write-status fields. Text output now
+      resolves timing placeholders instead of exposing raw placeholder tokens.
+    - Added first-request versus steady-state splits to the front-door control-plane probe for both
+      fresh subprocess and persistent-worker status calls.
+    - Lifted compact public runtime evidence for physical policy selection, selected parallelism,
+      scan concurrency, group-state budget, heavy-hitter capacities, metadata-elimination outcome,
+      rows/decode/materialization avoided by metadata, and partitioned metadata-row-count
+      consumption.
+    - Lifted Universal Ingest layout-advisor evidence that identifies the advisor as the
+      `universal_ingest_optimizer`, preserves admitted local-product posture, requires one
+      `.vortex` artifact, disallows query-answer sidecars, and records embedded generic metadata,
+      compact derived metadata, membership-sketch, row-position-locality, and shared-surface
+      policies.
+    - Updated the front-door scope, compute-flow reference, performance-attribution doc, and phase
+      plan so already-ledgered slow-lane and ingest optimizer work is not duplicated as stale open
+      Planned text.
+  - Focused validation evidence:
+    - `python3 -m py_compile python/src/shardloom/session.py python/src/shardloom/prepared_route.py scripts/run_front_door_control_plane_probe.py python/tests/test_cli_client.py python/tests/test_prepared_route.py python/tests/test_release_scripts.py`
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_prepared_route.PreparedRouteEvidenceTests.test_directory_fingerprint_is_metadata_first_by_default python.tests.test_prepared_route.PreparedRouteEvidenceTests.test_directory_fingerprint_normal_path_is_bounded_for_many_files python.tests.test_prepared_route.PreparedRouteEvidenceTests.test_directory_fingerprint_explicit_proof_walks_tree python.tests.test_prepared_route.PreparedRouteEvidenceTests.test_reuse_request_payload_reports_directory_sourcestate_evidence`
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_session_directory_fingerprints_are_metadata_first_by_default python.tests.test_cli_client.ShardLoomClientTests.test_session_directory_fingerprints_only_walk_for_explicit_proof python.tests.test_release_scripts.ReleaseScriptTests.test_front_door_control_plane_probe_reports_first_and_steady_stats`
+    - `cargo fmt --all -- --check`
+    - `cargo test -q -p shardloom-cli --bin shardloom cli_output`
+    - `cargo test -q -p shardloom-cli --features vortex-local-primitives --test public_workflow_route public_run_native_vortex_directory_count_uses_partitioned_binding`
+    - `cargo test -q -p shardloom-cli --features vortex-local-primitives --test public_workflow_route public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence`
+    - `cargo test -q -p shardloom-cli --features release-user-surfaces --test public_workflow_route public_run_native_vortex_directory_count_uses_partitioned_binding`
+    - `cargo test -q -p shardloom-cli --features release-user-surfaces --test public_workflow_route public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence`
+    - `cargo test -q -p shardloom-vortex --features vortex-write --lib layout_write_advisor`
+    - `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib metadata_row_count`
+    - `cargo clippy -q -p shardloom-cli --features vortex-local-primitives --bin shardloom -- -D warnings`
+    - `python3 scripts/check_runtime_gap_family_burn_down.py`
+    - `git diff --check -- docs/architecture/phased-execution-plan.md docs/architecture/v1-front-door-runtime-scope.md docs/architecture/performance-attribution-and-execution-structure.md docs/architecture/compute-engine-flow-reference.md python/src/shardloom/prepared_route.py python/src/shardloom/session.py python/tests/test_cli_client.py python/tests/test_prepared_route.py python/tests/test_release_scripts.py scripts/run_front_door_control_plane_probe.py shardloom-cli/src/cli_output.rs shardloom-cli/src/public_workflow_route.rs shardloom-cli/tests/public_workflow_route.rs shardloom-vortex/src/local_primitives.rs shardloom-vortex/src/vortex_ingest.rs`
+  - Claim boundary:
+    - Evidence visibility, SourceState/control-plane scalability, and public runtime attribution
+      only. This batch does not make a new performance, superiority, official ClickBench, object
+      store, remote production, or broad SQL/DataFrame compatibility claim.
+  - Fallback boundary:
+    - No new execution provider or facade-specific route was added. Runtime paths remain
+      ShardLoom/Vortex-native and preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`; no query-answer sidecar or external engine fallback was
+      introduced.
+
 - [x] `FRONT-DOOR-CONTROL-PLANE-GUARDRAILS-23` closed remaining actionable front-door overhead
       guardrails without weakening the shared runtime.
   - Date: 2026-08-30

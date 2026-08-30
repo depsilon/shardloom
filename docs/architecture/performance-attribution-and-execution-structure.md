@@ -952,6 +952,14 @@ result_sink_plan_micros
 result_sink_replay_micros
 human_evidence_render_micros
 json_envelope_emit_micros
+json_envelope_build_micros
+json_envelope_typed_field_classification_micros
+json_envelope_render_micros
+json_envelope_build_render_micros
+json_envelope_placeholder_replace_micros
+json_envelope_emit_timing_status
+json_envelope_emit_timing_scope
+json_envelope_stdout_write_timing_status
 report_fields_build_micros
 cli_process_wall_micros
 route_timing_stage_inclusion_*
@@ -977,6 +985,13 @@ Metadata-first warm reuse must report the requested digest policy. Local non-pub
 skip full content SHA when normalized path, size, and mtime metadata plus prepared artifact digests
 are the requested proof tier; publication or claim-grade rows must request full content digest
 verification when that evidence is required.
+
+CLI envelope timing must separate control-plane work from engine runtime. `json_envelope_emit_micros`
+is retained as the legacy aggregate for typed-envelope build, field classification, JSON/text
+render, and timing-placeholder substitution. It is not stdout pipe or terminal write latency.
+`json_envelope_stdout_write_timing_status` records that stdout write is intentionally not measured
+inside the same envelope to avoid perturbing hot paths. Text-mode output may include resolved
+timing diagnostics, but raw timing placeholders must never be emitted.
 
 ## Benchmark Artifact Contract
 

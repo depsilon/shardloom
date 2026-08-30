@@ -46,6 +46,7 @@ _PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION = (
 _PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_partial_repair.v1"
 )
+_LOCAL_DIRECTORY_IDENTITY_SCHEMA_VERSION = "shardloom.python.local_directory_identity.v1"
 _PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES = "fact_input,dim_input,cdc_delta_input,prepare_policy,source_admission_packet,prepared_artifact_fact,prepared_artifact_dim,prepared_artifact_cdc_delta,no_fallback_policy"
 _ROLE_INPUT_TO_ARTIFACT = {
     "fact_input": "fact",
@@ -202,11 +203,37 @@ def _local_path_fingerprint(
             )
         return fingerprint
     if path.is_dir():
-        total_size = 0
-        max_mtime = 0
+        root_stat = path.stat()
+        if not content_digest:
+            return {
+                "path": normalized,
+                "exists": True,
+                "kind": "local_directory_root_size_mtime_source_state_candidate",
+                "size_bytes": root_stat.st_size,
+                "mtime_ns": root_stat.st_mtime_ns,
+                "content_digest": None,
+                "content_digest_status": "not_requested_metadata_first_directory_identity",
+                "digest_policy": "directory_root_metadata_normal_warm_reuse_source_state_preferred",
+                "directory_identity_schema_version": _LOCAL_DIRECTORY_IDENTITY_SCHEMA_VERSION,
+                "directory_identity_source": "root_metadata_source_state_candidate",
+                "directory_source_state_identity_preferred": True,
+                "directory_manifest_identity_preferred": True,
+                "directory_tree_walk_performed": False,
+                "directory_files_walked": 0,
+                "directory_stats_performed": 1,
+                "directory_full_validation_requires_explicit_proof": True,
+                "proof_tier": "metadata_first_hot_runtime",
+            }
+
+        total_size = root_stat.st_size
+        max_mtime = root_stat.st_mtime_ns
+        files_walked = 0
+        stats_performed = 1
         digest = hashlib.sha256()
         for child in sorted(item for item in path.rglob("*") if item.is_file()):
             stat = child.stat()
+            stats_performed += 1
+            files_walked += 1
             relative = child.relative_to(path).as_posix()
             total_size += stat.st_size
             max_mtime = max(max_mtime, stat.st_mtime_ns)
@@ -216,31 +243,27 @@ def _local_path_fingerprint(
             digest.update(b"\0")
             digest.update(str(stat.st_mtime_ns).encode("ascii"))
             digest.update(b"\0")
-            if content_digest:
-                child_digest = _file_content_digest(child)
-                digest.update(child_digest.encode("ascii"))
-                digest.update(b"\0")
+            child_digest = _file_content_digest(child)
+            digest.update(child_digest.encode("ascii"))
+            digest.update(b"\0")
         return {
             "path": normalized,
             "exists": True,
-            "kind": (
-                "local_directory_tree_sha256_size_mtime"
-                if content_digest
-                else "local_directory_tree_size_mtime"
-            ),
+            "kind": "local_directory_tree_sha256_size_mtime",
             "size_bytes": total_size,
             "mtime_ns": max_mtime,
             "content_digest": "sha256:" + digest.hexdigest(),
-            "content_digest_status": (
-                "computed_for_explicit_proof_directory_tree_fingerprint"
-                if content_digest
-                else "metadata_tree_digest_without_file_content"
-            ),
-            "digest_policy": (
-                "directory_tree_content_digest_explicit_proof"
-                if content_digest
-                else "metadata_tree_size_mtime_normal_warm_reuse"
-            ),
+            "content_digest_status": "computed_for_explicit_proof_directory_tree_fingerprint",
+            "digest_policy": "directory_tree_content_digest_explicit_proof",
+            "directory_identity_schema_version": _LOCAL_DIRECTORY_IDENTITY_SCHEMA_VERSION,
+            "directory_identity_source": "recursive_tree_explicit_proof",
+            "directory_source_state_identity_preferred": False,
+            "directory_manifest_identity_preferred": False,
+            "directory_tree_walk_performed": True,
+            "directory_files_walked": files_walked,
+            "directory_stats_performed": stats_performed,
+            "directory_full_validation_requires_explicit_proof": True,
+            "proof_tier": "explicit_recursive_proof",
         }
     return {
         "path": normalized,
@@ -260,6 +283,93 @@ def _artifact_fingerprint_from_field(fields: Mapping[str, str], *keys: str) -> d
         if value:
             return _local_path_fingerprint(value)
     return None
+
+
+def _source_fingerprints(
+    *fingerprints: Mapping[str, Any] | None,
+) -> tuple[Mapping[str, Any], ...]:
+    return tuple(fingerprint for fingerprint in fingerprints if fingerprint is not None)
+
+
+def _fingerprint_value_set(
+    fingerprints: Sequence[Mapping[str, Any]],
+    key: str,
+) -> str:
+    values = sorted(
+        {
+            str(fingerprint[key])
+            for fingerprint in fingerprints
+            if fingerprint.get(key) not in (None, "")
+        }
+    )
+    return ",".join(values) if values else "none"
+
+
+def _fingerprint_int_sum(
+    fingerprints: Sequence[Mapping[str, Any]],
+    key: str,
+) -> int:
+    total = 0
+    for fingerprint in fingerprints:
+        value = fingerprint.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            total += value
+        elif isinstance(value, str) and value.isdigit():
+            total += int(value)
+    return total
+
+
+def _fingerprint_bool_any(
+    fingerprints: Sequence[Mapping[str, Any]],
+    key: str,
+) -> bool:
+    return any(bool(fingerprint.get(key)) for fingerprint in fingerprints)
+
+
+def _source_admission_fingerprint_evidence(
+    fact_input: Mapping[str, Any] | None,
+    dim_input: Mapping[str, Any] | None,
+    cdc_delta_input: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    fingerprints = _source_fingerprints(fact_input, dim_input, cdc_delta_input)
+    directory_fingerprints = tuple(
+        fingerprint
+        for fingerprint in fingerprints
+        if str(fingerprint.get("kind") or "").startswith("local_directory_")
+    )
+    return {
+        "source_fingerprint_kinds": _fingerprint_value_set(fingerprints, "kind"),
+        "source_directory_identity_sources": _fingerprint_value_set(
+            directory_fingerprints,
+            "directory_identity_source",
+        ),
+        "source_directory_tree_walk_performed": _fingerprint_bool_any(
+            directory_fingerprints,
+            "directory_tree_walk_performed",
+        ),
+        "source_directory_files_walked": _fingerprint_int_sum(
+            directory_fingerprints,
+            "directory_files_walked",
+        ),
+        "source_directory_stats_performed": _fingerprint_int_sum(
+            directory_fingerprints,
+            "directory_stats_performed",
+        ),
+        "source_directory_source_state_identity_preferred": _fingerprint_bool_any(
+            directory_fingerprints,
+            "directory_source_state_identity_preferred",
+        ),
+        "source_directory_manifest_identity_preferred": _fingerprint_bool_any(
+            directory_fingerprints,
+            "directory_manifest_identity_preferred",
+        ),
+        "source_directory_proof_tiers": _fingerprint_value_set(
+            directory_fingerprints,
+            "proof_tier",
+        ),
+    }
 
 
 def _field_any(fields: Mapping[str, str], *keys: str, default: str = "") -> str:
@@ -856,6 +966,11 @@ class CompatibilityPreparedVortexRoute:
     ) -> dict[str, Any]:
         """Return the metadata-first source-admission packet for manifest reuse."""
 
+        fingerprint_evidence = _source_admission_fingerprint_evidence(
+            fact_input,
+            dim_input,
+            cdc_delta_input,
+        )
         packet: dict[str, Any] = {
             "schema_version": _SOURCE_ADMISSION_PACKET_SCHEMA_VERSION,
             "packet_kind": "local_source_admission_prediction",
@@ -880,6 +995,7 @@ class CompatibilityPreparedVortexRoute:
             "fact_input": fact_input,
             "dim_input": dim_input,
             "cdc_delta_input": cdc_delta_input,
+            **fingerprint_evidence,
             "artifact_root": _normalized_path(self.workspace),
             "fallback_attempted": False,
             "external_engine_invoked": False,

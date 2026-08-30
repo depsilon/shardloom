@@ -253,9 +253,10 @@ Current autonomous execution order:
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. After the post-merge Desktop query UAT, promote the next concrete shared-runtime implementation
-   item from the standing owner if the updated full-lane evidence still shows a feasible runtime
-   gap. Completed runtime-gap rows live in the completed ledger, not in this compact Planned queue.
+2. After the next targeted UAT or review packet identifies a concrete, feasible shared-runtime gap,
+   promote that work from the standing owner into a checklist item before implementation.
+3. Heavy replacement ingest, full 43-query ClickBench UAT, and broad release gates run at the end of
+   a cohesive implementation batch, not after every evidence cleanup.
 
 - [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
   gaps.

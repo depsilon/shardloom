@@ -56,6 +56,14 @@ def stats(values: list[float]) -> dict[str, float | int | None]:
     }
 
 
+def first_and_steady_stats(values: list[float]) -> dict[str, Any]:
+    return {
+        "first_request_ms": round(values[0], 6) if values else None,
+        "steady_state": stats(values[1:]),
+        "all_requests": stats(values),
+    }
+
+
 def run_import_probe(repo_root: Path, iterations: int) -> dict[str, Any]:
     command = [
         sys.executable,
@@ -152,7 +160,9 @@ def run_client_probe(repo_root: Path, iterations: int, shardloom_bin: str | None
         "binary_resolution": stats(binary_resolution),
         "metadata_fingerprint": stats(metadata_fingerprint),
         "fresh_subprocess_status": stats(subprocess_status),
+        "fresh_subprocess_status_split": first_and_steady_stats(subprocess_status),
         "persistent_worker_status": stats(worker_status),
+        "persistent_worker_status_split": first_and_steady_stats(worker_status),
         "subprocess_fields": subprocess_fields,
         "worker_fields": worker_fields,
     }
