@@ -2937,6 +2937,18 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_string_count_topk_candidate_signature_prefilter",
         ),
         (
+            "string_count_topk_candidate_code_prefilter",
+            "local_primitive_string_count_topk_candidate_code_prefilter",
+        ),
+        (
+            "string_count_topk_candidate_free_chunks_skipped",
+            "local_primitive_string_count_topk_candidate_free_chunks_skipped",
+        ),
+        (
+            "string_count_topk_candidate_free_rows_skipped",
+            "local_primitive_string_count_topk_candidate_free_rows_skipped",
+        ),
+        (
             "numeric_utf8_topk_heavy_hitter_second_pass",
             "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass",
         ),
@@ -2955,6 +2967,18 @@ fn append_local_primitive_result_summary_evidence_fields(
         (
             "numeric_utf8_topk_heavy_hitter_exact_proof",
             "local_primitive_numeric_utf8_topk_heavy_hitter_exact_proof",
+        ),
+        (
+            "numeric_utf8_topk_candidate_code_prefilter",
+            "local_primitive_numeric_utf8_topk_candidate_code_prefilter",
+        ),
+        (
+            "numeric_utf8_topk_candidate_free_chunks_skipped",
+            "local_primitive_numeric_utf8_topk_candidate_free_chunks_skipped",
+        ),
+        (
+            "numeric_utf8_topk_candidate_free_rows_skipped",
+            "local_primitive_numeric_utf8_topk_candidate_free_rows_skipped",
         ),
         (
             "string_count_distinct_topk_heavy_hitter_second_pass",
@@ -2979,6 +3003,18 @@ fn append_local_primitive_result_summary_evidence_fields(
         (
             "string_count_distinct_topk_candidate_signature_prefilter",
             "local_primitive_string_count_distinct_topk_candidate_signature_prefilter",
+        ),
+        (
+            "string_count_distinct_topk_candidate_code_prefilter",
+            "local_primitive_string_count_distinct_topk_candidate_code_prefilter",
+        ),
+        (
+            "string_count_distinct_topk_candidate_free_chunks_skipped",
+            "local_primitive_string_count_distinct_topk_candidate_free_chunks_skipped",
+        ),
+        (
+            "string_count_distinct_topk_candidate_free_rows_skipped",
+            "local_primitive_string_count_distinct_topk_candidate_free_rows_skipped",
         ),
     ] {
         if let Some(value) = object.get(summary_key) {
@@ -12132,6 +12168,49 @@ mod tests {
             "string_count_distinct_topk_heavy_hitter_exact_proof": true,
             "string_count_distinct_topk_candidate_signature_prefilter": true,
         });
+        for (key, value) in [
+            (
+                "string_count_topk_candidate_code_prefilter",
+                serde_json::Value::Bool(true),
+            ),
+            (
+                "string_count_topk_candidate_free_chunks_skipped",
+                serde_json::Value::Number(serde_json::Number::from(3)),
+            ),
+            (
+                "string_count_topk_candidate_free_rows_skipped",
+                serde_json::Value::Number(serde_json::Number::from(1_024)),
+            ),
+            (
+                "numeric_utf8_topk_candidate_code_prefilter",
+                serde_json::Value::Bool(true),
+            ),
+            (
+                "numeric_utf8_topk_candidate_free_chunks_skipped",
+                serde_json::Value::Number(serde_json::Number::from(2)),
+            ),
+            (
+                "numeric_utf8_topk_candidate_free_rows_skipped",
+                serde_json::Value::Number(serde_json::Number::from(768)),
+            ),
+            (
+                "string_count_distinct_topk_candidate_code_prefilter",
+                serde_json::Value::Bool(true),
+            ),
+            (
+                "string_count_distinct_topk_candidate_free_chunks_skipped",
+                serde_json::Value::Number(serde_json::Number::from(4)),
+            ),
+            (
+                "string_count_distinct_topk_candidate_free_rows_skipped",
+                serde_json::Value::Number(serde_json::Number::from(2_048)),
+            ),
+        ] {
+            payload
+                .as_object_mut()
+                .expect("payload object")
+                .insert(key.to_string(), value);
+        }
         payload.as_object_mut().expect("payload object").insert(
             "late_materialization_selected_row_refs_used".to_string(),
             serde_json::Value::Bool(true),
@@ -12264,6 +12343,18 @@ mod tests {
                         "true",
                     ),
                     (
+                        "local_primitive_string_count_topk_candidate_code_prefilter",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_candidate_free_chunks_skipped",
+                        "3",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_candidate_free_rows_skipped",
+                        "1024",
+                    ),
+                    (
                         "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass",
                         "true",
                     ),
@@ -12278,6 +12369,18 @@ mod tests {
                     (
                         "local_primitive_numeric_utf8_topk_heavy_hitter_exact_proof",
                         "true",
+                    ),
+                    (
+                        "local_primitive_numeric_utf8_topk_candidate_code_prefilter",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_numeric_utf8_topk_candidate_free_chunks_skipped",
+                        "2",
+                    ),
+                    (
+                        "local_primitive_numeric_utf8_topk_candidate_free_rows_skipped",
+                        "768",
                     ),
                     (
                         "local_primitive_string_count_distinct_topk_heavy_hitter_second_pass",
@@ -12298,6 +12401,18 @@ mod tests {
                     (
                         "local_primitive_string_count_distinct_topk_candidate_signature_prefilter",
                         "true",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_candidate_code_prefilter",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_candidate_free_chunks_skipped",
+                        "4",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_candidate_free_rows_skipped",
+                        "2048",
                     ),
                 ],
             );

@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `PYTHON-PACKAGE-LAZY-FRONT-DOOR-22` finished the critical Python import/front-door overhead
+      cleanup from the control-plane performance findings.
+  - Date: 2026-08-29
+  - PR/merge: PR `#1412`, merged to `main` as
+    `15d14cd Merge pull request #1412 from depsilon/codex/tail-lane-optimization-continuation`.
+  - Completed scope:
+    - Replaced eager top-level imports in `python/src/shardloom/__init__.py` with a lazy public
+      export registry that preserves direct imports, `import shardloom as sl; sl.context()`, and the
+      previous `__all__` star-export surface.
+    - Added package-module attribute resolution so public helpers such as `session` and `context`
+      keep resolving to the lazy public callables even after same-named implementation submodules
+      have been imported.
+    - Added a clean-process regression test proving plain `import shardloom` does not load
+      `shardloom.client`, `shardloom.context`, or `shardloom.query` until a public symbol needs one
+      of those modules.
+    - Updated v1 front-door scope and release inclusion docs so the public package import contract
+      is explicit for Foundry/dev-env, notebook, and normal Python users.
+  - Focused validation evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_package_import_lazily_defers_heavy_front_door_modules python.tests.test_cli_client.ShardLoomClientTests.test_package_exports_non_placeholder_version`
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client`
+    - `python3 -m compileall -q python/src/shardloom`
+    - direct lazy-import parity checks for the previous direct-import map and `__all__` star-export
+      set.
+    - `python3 scripts/run_front_door_control_plane_probe.py --iterations 10 --shardloom-bin target/release/shardloom --output target/front-door-control-plane-probe-lazy-import.json`
+    - `python3 scripts/check_public_status_docs.py`
+    - `PYTHONPATH=scripts python3 scripts/check_v1_inclusion_scope.py`
+    - `python3 scripts/check_v1_front_door_runtime_scope.py`
+    - `python3 scripts/check_user_surface_reference.py`
+    - `python3 scripts/check_runtime_gap_family_burn_down.py`
+    - `python3 scripts/check_python_user_surface_completion.py`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+    - PR `#1412` GitHub checks were green before merge, including Rust baseline, Rust feature
+      matrix, Python shards/compatibility/package smoke, release runtime/user-surface/package/
+      readiness evidence, CodeQL, dependency/security gates, website/docs validation, and Workers
+      build.
+  - Claim boundary:
+    - Local Python control-plane overhead evidence only. No official benchmark, superiority, or
+      production performance claim is made from this item.
+  - Fallback boundary:
+    - Lazy imports are package/control-plane behavior only. No Spark, DataFusion, DuckDB, Polars,
+      pandas, Velox, `vortex-datafusion`, or another external engine was added or invoked as
+      runtime fallback.
+
 - [x] `FRONT-DOOR-CONTROL-PLANE-OVERHEAD-21` removed public/user-facing control-plane overhead that
       could dwarf warm Vortex-native execution.
   - Date: 2026-08-29

@@ -8,9 +8,11 @@ import math
 import os
 import platform
 import re
+import selectors
 import shutil
 import subprocess
 import threading
+import time
 from importlib import resources as importlib_resources
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Union
@@ -133,6 +135,7 @@ DEFAULT_VORTEX_LOCAL_COMMIT_RECOVERY_SIGNALS = (
 _URI_WITH_AUTHORITY_RE = re.compile(
     r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://(?P<body>[^\s'\"<>)\],;]+)"
 )
+_MAX_COMMAND_PART_REDACTION_CHARS = 16_384
 
 
 class _ShardLoomWorkerStartupError(RuntimeError):
@@ -10987,6 +10990,7 @@ class ShardLoomClient:
         self._resolved_binary_cache: Binary | None = None
         self._use_persistent_worker = use_persistent_worker
         self._worker_process: subprocess.Popen[str] | None = None
+        self._worker_stdout_buffer = b""
         self._worker_disabled = False
         self._worker_lock = threading.Lock()
 
@@ -13618,9 +13622,18 @@ class ShardLoomClient:
                 self._worker_disabled = True
                 raise _ShardLoomWorkerStartupError("worker pipes were not available")
             request = json.dumps({"args": command_args}, separators=(",", ":"))
+            deadline = (
+                time.monotonic() + self._timeout
+                if self._timeout is not None and os.name != "nt"
+                else None
+            )
             try:
-                process.stdin.write(request + "\n")
-                process.stdin.flush()
+                self._write_worker_request(
+                    process,
+                    request + "\n",
+                    redacted_command,
+                    deadline,
+                )
             except (BrokenPipeError, OSError) as exc:
                 self._close_worker()
                 if first_request_for_process:
@@ -13630,7 +13643,11 @@ class ShardLoomClient:
                 raise ShardLoomProtocolError(
                     "ShardLoom persistent worker closed before accepting a request"
                 ) from exc
-            response_line = process.stdout.readline()
+            response_line = self._read_worker_response_line(
+                process,
+                redacted_command,
+                deadline,
+            )
             if not response_line:
                 stderr = self._worker_stderr_preview(process)
                 self._close_worker()
@@ -13662,6 +13679,135 @@ class ShardLoomClient:
             )
         return envelope
 
+    def _write_worker_request(
+        self,
+        process: subprocess.Popen[str],
+        payload: str,
+        redacted_command: Sequence[str],
+        deadline: float | None,
+    ) -> None:
+        if process.stdin is None:
+            return
+        if deadline is None:
+            process.stdin.write(payload)
+            process.stdin.flush()
+            return
+        self._write_worker_request_with_timeout(process, payload, redacted_command, deadline)
+
+    def _write_worker_request_with_timeout(
+        self,
+        process: subprocess.Popen[str],
+        payload: str,
+        redacted_command: Sequence[str],
+        deadline: float,
+    ) -> None:
+        if process.stdin is None:
+            return
+        fd = process.stdin.fileno()
+        data = payload.encode("utf-8")
+        view = memoryview(data)
+        offset = 0
+        selector = selectors.DefaultSelector()
+        previous_blocking = os.get_blocking(fd)
+        timed_out = False
+        try:
+            os.set_blocking(fd, False)
+            selector.register(fd, selectors.EVENT_WRITE)
+            while offset < len(view):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    timed_out = True
+                    raise subprocess.TimeoutExpired(redacted_command, self._timeout)
+                try:
+                    written = os.write(fd, view[offset:])
+                except BlockingIOError:
+                    written = 0
+                if written:
+                    offset += written
+                    continue
+                events = selector.select(remaining)
+                if not events:
+                    timed_out = True
+                    raise subprocess.TimeoutExpired(redacted_command, self._timeout)
+        finally:
+            selector.close()
+            try:
+                os.set_blocking(fd, previous_blocking)
+            except OSError:
+                pass
+            if timed_out:
+                self._close_worker()
+
+    def _read_worker_response_line(
+        self,
+        process: subprocess.Popen[str],
+        redacted_command: Sequence[str],
+        deadline: float | None,
+    ) -> str:
+        if process.stdout is None:
+            return ""
+        if deadline is None:
+            buffered_line = self._pop_worker_stdout_buffered_line()
+            if buffered_line is not None:
+                return buffered_line
+            if self._worker_stdout_buffer:
+                prefix = self._decode_worker_stdout(self._worker_stdout_buffer)
+                self._worker_stdout_buffer = b""
+                return prefix + process.stdout.readline()
+            return process.stdout.readline()
+        return self._read_worker_response_line_with_timeout(
+            process,
+            redacted_command,
+            deadline,
+        )
+
+    def _read_worker_response_line_with_timeout(
+        self,
+        process: subprocess.Popen[str],
+        redacted_command: Sequence[str],
+        deadline: float,
+    ) -> str:
+        selector = selectors.DefaultSelector()
+        try:
+            if process.stdout is None:
+                return ""
+            selector.register(process.stdout, selectors.EVENT_READ)
+            while True:
+                buffered_line = self._pop_worker_stdout_buffered_line()
+                if buffered_line is not None:
+                    return buffered_line
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    self._close_worker()
+                    raise subprocess.TimeoutExpired(redacted_command, self._timeout)
+                events = selector.select(remaining)
+                if not events:
+                    self._close_worker()
+                    raise subprocess.TimeoutExpired(redacted_command, self._timeout)
+                chunk = os.read(process.stdout.fileno(), 8192)
+                if not chunk:
+                    if self._worker_stdout_buffer:
+                        line = self._decode_worker_stdout(self._worker_stdout_buffer)
+                        self._worker_stdout_buffer = b""
+                        return line
+                    return ""
+                self._worker_stdout_buffer += chunk
+        finally:
+            selector.close()
+
+    def _pop_worker_stdout_buffered_line(self) -> str | None:
+        if not self._worker_stdout_buffer:
+            return None
+        line, separator, remainder = self._worker_stdout_buffer.partition(b"\n")
+        if not separator:
+            return None
+        self._worker_stdout_buffer = remainder
+        return self._decode_worker_stdout(line + separator)
+
+    @staticmethod
+    def _decode_worker_stdout(chunk: bytes) -> str:
+        return chunk.decode("utf-8")
+
     def _command(self, args: Sequence[CommandPart]) -> list[str]:
         command = self._binary_parts()
         command.extend(self._command_args(args))
@@ -13673,7 +13819,9 @@ class ShardLoomClient:
         return command_args
 
     def _worker_enabled(self) -> bool:
-        if self._worker_disabled or self._timeout is not None:
+        if self._worker_disabled:
+            return False
+        if self._timeout is not None and os.name == "nt":
             return False
         configured = self._effective_env().get(ENV_PERSISTENT_WORKER)
         if configured is not None:
@@ -13708,11 +13856,13 @@ class ShardLoomClient:
             raise _ShardLoomWorkerStartupError(
                 f"ShardLoom persistent worker could not be started: {exc}"
             ) from exc
+        self._worker_stdout_buffer = b""
         return self._worker_process
 
     def _close_worker(self) -> None:
         process = self._worker_process
         self._worker_process = None
+        self._worker_stdout_buffer = b""
         if process is None:
             return
         if process.stdin is not None:
@@ -13892,6 +14042,8 @@ def _redact_command_for_error(command: Sequence[str]) -> tuple[str, ...]:
 
 
 def _redact_command_part_for_error(part: str) -> str:
+    if len(part) > _MAX_COMMAND_PART_REDACTION_CHARS:
+        return f"<redacted-large-arg:{len(part)}chars>"
     return _URI_WITH_AUTHORITY_RE.sub(_redact_uri_match_for_error, part)
 
 

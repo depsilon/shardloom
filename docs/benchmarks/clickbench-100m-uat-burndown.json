@@ -2261,6 +2261,89 @@
       "transformed_dictionary_aggregate": 2
     }
   },
+  "latest_candidate_free_recount_uat": {
+    "schema_version": "shardloom.clickbench.targeted_candidate_free_recount_uat.v1",
+    "claim_boundary": "local_desktop_targeted_uat_only_not_official_clickbench_submission",
+    "decision": "ship_candidate_code_prefilter_runtime_slice_and_public_field_lift",
+    "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_candidate_free_recount_fixed_split_20260830T011300Z/summary.json",
+    "source_full43_summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/full43_after_q29_uncached_faststate.summary.json",
+    "attempted_query_count": 6,
+    "successful_query_count": 6,
+    "failed_query_count": 0,
+    "total_successful_elapsed_seconds": 100.341676,
+    "geomean_successful_elapsed_seconds": 15.314193,
+    "max_parallelism": 2,
+    "memory_gb": 8,
+    "fallback_attempted_any": false,
+    "external_engine_invoked_any": false,
+    "results": [
+      {
+        "query_id": "CB-Q17",
+        "source_full43_seconds": 16.509,
+        "targeted_seconds": 16.205004,
+        "delta_seconds": -0.303996,
+        "ratio": 0.981586,
+        "route": "numeric_utf8_dictionary_code_count_topk_heavy_hitter_late_recount"
+      },
+      {
+        "query_id": "CB-Q19",
+        "source_full43_seconds": 10.272,
+        "targeted_seconds": 9.702911,
+        "delta_seconds": -0.569089,
+        "ratio": 0.944597,
+        "route": "numeric_minute_string_dictionary_code_direct_group_update"
+      },
+      {
+        "query_id": "CB-Q23",
+        "source_full43_seconds": 10.667,
+        "targeted_seconds": 11.029071,
+        "delta_seconds": 0.362071,
+        "ratio": 1.033942,
+        "route": "row_state_update"
+      },
+      {
+        "query_id": "CB-Q33",
+        "source_full43_seconds": 11.125,
+        "targeted_seconds": 10.718896,
+        "delta_seconds": -0.406104,
+        "ratio": 0.963497,
+        "route": "numeric_pair_count_topk_late_measure_second_pass"
+      },
+      {
+        "query_id": "CB-Q34",
+        "source_full43_seconds": 27.449,
+        "targeted_seconds": 26.407778,
+        "delta_seconds": -1.041222,
+        "ratio": 0.962067,
+        "route": "string_dictionary_code_count_topk_heavy_hitter_late_recount"
+      },
+      {
+        "query_id": "CB-Q35",
+        "source_full43_seconds": 27.175,
+        "targeted_seconds": 26.278016,
+        "delta_seconds": -0.896984,
+        "ratio": 0.966993,
+        "route": "string_dictionary_code_count_topk_heavy_hitter_late_recount"
+      }
+    ],
+    "observed_fields_after_field_lift_patch": [
+      "local_primitive_string_count_topk_candidate_code_prefilter",
+      "local_primitive_string_count_topk_candidate_free_chunks_skipped",
+      "local_primitive_string_count_topk_candidate_free_rows_skipped",
+      "local_primitive_string_count_distinct_topk_candidate_code_prefilter",
+      "local_primitive_string_count_distinct_topk_candidate_free_chunks_skipped",
+      "local_primitive_string_count_distinct_topk_candidate_free_rows_skipped",
+      "local_primitive_numeric_utf8_topk_candidate_code_prefilter",
+      "local_primitive_numeric_utf8_topk_candidate_free_chunks_skipped",
+      "local_primitive_numeric_utf8_topk_candidate_free_rows_skipped"
+    ],
+    "ignored_run": {
+      "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_candidate_free_recount_20260830T010615Z/summary.json",
+      "reason": "ignored because the ad hoc query splitter treated a semicolon in a SQL comment as a statement delimiter and shifted query IDs"
+    },
+    "interpretation": "Candidate-code and candidate-free recount logic is retained because it improved five of six targeted tail lanes while preserving no-fallback evidence and the single .vortex artifact contract. CB-Q23 is reported for comparison but uses the row_state_update family, not the optimized string/numeric heavy-hitter recount path.",
+    "next_action": "Use the checked-in ClickBench SQL splitter for future UAT runs, then continue larger tail-lane and ingest architecture work before official ClickBench or release-performance claims."
+  },
   "latest_q29_lazy_utf8_minmax_uat": {
     "schema_version": "shardloom.clickbench.q29.lazy_utf8_minmax_uat.v1",
     "claim_boundary": "local_desktop_targeted_uat_only_not_official_clickbench_submission",
