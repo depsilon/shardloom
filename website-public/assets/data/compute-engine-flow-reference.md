@@ -135,7 +135,7 @@ flowchart LR
 | Group | Owns | Primary evidence |
 | --- | --- | --- |
 | Access and front doors | CLI, Python, SQL, adapters, planned API surfaces | typed request envelope, typed output envelope |
-| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | source fingerprints, prepared-state IDs/digests, stream batch policy, source-unit hints, dictionary handoff posture, import certificates |
+| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | metadata-first source identity, optional source-content digest proof, prepared-state IDs/digests, stream batch policy, source-unit hints, dictionary handoff posture, import certificates |
 | Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`; internal smoke is not a public lane | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
 | Engine fabric | batch, live, hybrid, auto engine mode | `requested_engine_mode`, `selected_engine_mode`, effect and state boundaries |
 | Output and materialization | `OutputPlan`, `SinkArtifact`, Vortex output, compatibility exports | decode/materialization status, result-sink replay, metadata preservation/loss |
@@ -165,6 +165,17 @@ call PulseWeave, capillary, or metadata-first APIs by hand.
 | Bounded top-K/order | Capillary select-nth retained windows, source ordinals, embedded predicate rewrites before candidate scans, dynamic row-reference candidate scans for large bounded payload projections, final retained-row materialization from the single `.vortex` artifact. | `bounded_topk_strategy`, `retention_selection_strategy`, `candidate_rows_seen`, `retained_candidate_rows`, `late_output_materialization`, `row_ref_topk_materialization_policy`, `embedded_derived_column_rewrites` |
 | Metadata/layout | Vortex footer/statistics pruning before scan where available; expression-project collect, row-transform collect, materializing filter, filter-project, distinct, drop-duplicate, sample, and schema-known structured row exports can return or write an empty result without opening a scan when footer stats prove no rows match. Transform families apply source predicates before expression rewrite, melt/explode expansion, pivot state updates, or rolling-window state, while predicate-only columns stay out of visible output. Prepared `.vortex` artifacts now expose single-artifact OLAP posture from the artifact itself: writer/layout strategy, row-block sizing, root/layout encodings, segment-map membership, dictionary/domain status, derived layout-stat posture, row-position locality, and layout-reader cache status. Richer domain-specific indexes still require measured proof before any speed claim. | `embedded_layout_planner_consumption_status`, selected/skipped segments, `layout_encoding_inventory`, `segment_membership_status`, `domain_dictionary_status`, `row_position_locality_status`, `upstream_scan_called`, `data_read`, `data_decoded`, `data_materialized`, no-query-answer-cache posture |
 
+Public runtime envelopes also lift the compact evidence a caller needs to verify that the shared
+Vortex-normalized path was used: `local_primitive_metadata_elimination_stage`,
+`local_primitive_metadata_elimination_outcome`, `local_primitive_rows_avoided_by_metadata`,
+`local_primitive_decode_avoided_by_metadata`,
+`local_primitive_materialization_avoided_by_metadata`,
+`local_primitive_physical_policy_summary`, and the selected resource-envelope budget fields.
+Universal Ingest layout-advisor output must identify itself as the
+`universal_ingest_optimizer`, state that query-answer sidecars are disallowed, and record the
+single-artifact, compact-derived-metadata, membership-sketch, row-position-locality, and
+surface-unification policies.
+
 Universal Ingest source-state evidence now separates source-native units from emitted batches:
 `source_state_stream_batch_size`, `source_state_stream_unit_count_hint`,
 `source_state_stream_unit_hint_kind`, `source_state_stream_policy`, and
@@ -172,10 +183,11 @@ Universal Ingest source-state evidence now separates source-native units from em
 by product columnar stream batches, Parquet row-group hints, Arrow IPC batch hints, or a scalar text
 adapter. Parquet product preparation can additionally report
 `source_state_ingest_executor_status=bounded_capillary_row_group_parallel_writer_budgeted` with a
-coalesced row-group task count when the requested parallelism leaves source-reader capacity after
-reserving Vortex-normalization and single `.vortex` writer/layout lanes. At `max_parallelism=2`,
-large-source preparation uses one source-to-Vortex normalization lane and one writer/layout lane;
-higher values admit additional coalesced row-group source work. Large columnar sources may use the
+coalesced metadata-reused row-group task count when the requested parallelism leaves source-reader
+capacity after reserving Vortex-normalization and single `.vortex` writer/layout lanes. At
+`max_parallelism=2`, large-source preparation uses one source-to-Vortex normalization lane and one
+writer/layout lane; higher values admit additional coalesced row-group source work. Large columnar
+sources may use the
 `product_columnar_stream_batch_size_262144_rows` capillary stream policy to reduce writer handoff
 and segment metadata churn; smaller product sources keep the 65,536-row policy.
 
@@ -540,7 +552,7 @@ not admitted, the result is an unsupported diagnostic, not external execution.
 flowchart LR
     INPUT["Input descriptor<br/>file / Vortex / generated / remote ref"]
     ADAPTER["InputAdapter<br/>format-specific recognition"]
-    SOURCE["SourceState<br/>fingerprint + schema + route"]
+    SOURCE["SourceState<br/>metadata identity + schema + route"]
     INGEST["vortex_ingest<br/>local preparation boundary"]
     PREPARED["VortexPreparedState<br/>artifact ref + digest"]
     PREPARED_ROUTE["prepared_vortex<br/>warm prepared execution"]
