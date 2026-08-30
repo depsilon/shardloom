@@ -326,6 +326,7 @@ fn vortex_prepare_usage() -> String {
          [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc|vortex] \
          [--schema name:dtype,...] [--allow-overwrite] \
          [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] \
+         [--source-fingerprint-policy metadata_only|content_digest] \
          [--max-parallelism <n>] \
          [--delta-source <local-source-path> --delta-target <delta.vortex> \
          [--delta-update-mode append-only|update|delete|upsert]] \
@@ -3455,6 +3456,38 @@ impl CsvSourceData {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+struct SourceFingerprintEvidence {
+    kind: String,
+    policy: String,
+    identity_source: String,
+    content_requested: bool,
+    content_performed: bool,
+}
+
+impl SourceFingerprintEvidence {
+    #[cfg(test)]
+    fn metadata_only() -> Self {
+        Self {
+            kind: "local_file_metadata_size_mtime".to_string(),
+            policy: "metadata_only".to_string(),
+            identity_source: "local_file_metadata_fast_prepare_identity".to_string(),
+            content_requested: false,
+            content_performed: false,
+        }
+    }
+
+    fn content_digest() -> Self {
+        Self {
+            kind: "local_file_content_digest".to_string(),
+            policy: "content_digest".to_string(),
+            identity_source: "local_file_explicit_proof_digest".to_string(),
+            content_requested: true,
+            content_performed: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct VortexIngestSourceData {
     source_adapter: LocalInputAdapterSelection,
     source_format: LocalSourceFormat,
@@ -3465,6 +3498,7 @@ struct VortexIngestSourceData {
     projection_pushdown_status: LocalSourceProjectionPushdownStatus,
     source_bytes: u64,
     source_digest: String,
+    source_fingerprint: SourceFingerprintEvidence,
     row_count: usize,
     row_count_known: bool,
     source_split_row_ranges: Vec<(usize, usize)>,
@@ -3523,6 +3557,7 @@ impl VortexIngestSourceData {
             projection_pushdown_status: source.projection_pushdown_status,
             source_bytes: source.source_bytes,
             source_digest: source.source_digest,
+            source_fingerprint: SourceFingerprintEvidence::content_digest(),
             source_metadata_scout_millis: source.source_metadata_scout_millis,
             source_byte_acquisition_millis: source.source_byte_acquisition_millis,
             source_full_body_millis: source.source_full_body_millis,
@@ -3553,6 +3588,13 @@ impl VortexIngestSourceData {
             projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
             source_bytes: scout.bytes,
             source_digest: scout.digest,
+            source_fingerprint: SourceFingerprintEvidence {
+                kind: scout.fingerprint_kind,
+                policy: scout.fingerprint_policy,
+                identity_source: scout.identity_source,
+                content_requested: scout.content_fingerprint_requested,
+                content_performed: scout.content_fingerprint_performed,
+            },
             row_count,
             row_count_known: columnar_source.row_count_hint.is_some(),
             source_split_row_ranges,
@@ -3629,9 +3671,21 @@ impl VortexIngestSourceData {
 
     fn source_read_buffer_carry_status(&self) -> &'static str {
         if self.columnar_source_preserved {
-            "streamed_source_fingerprint_reader_reopens_columnar_source"
+            if self.source_fingerprint.content_performed {
+                "streamed_source_fingerprint_reader_reopens_columnar_source"
+            } else {
+                "metadata_only_source_identity_columnar_reader_not_preopened"
+            }
         } else {
             "read_once_buffer_carried_to_text_parser"
+        }
+    }
+
+    fn source_read_scout_timing_split_status(&self) -> &'static str {
+        if self.source_fingerprint.content_performed {
+            "metadata_scout_and_content_fingerprint_split_recorded"
+        } else {
+            "metadata_scout_only_content_fingerprint_not_requested"
         }
     }
 
@@ -3673,11 +3727,15 @@ impl VortexIngestSourceData {
 
     fn source_state_digest(&self, source_schema_digest: &str) -> String {
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
             self.source_adapter.source_extension,
             self.source_adapter.inference_kind(),
             self.source_digest,
+            self.source_fingerprint.kind,
+            self.source_fingerprint.policy,
+            self.source_fingerprint.identity_source,
+            self.source_fingerprint.content_performed,
             source_schema_digest,
             self.row_count,
             self.row_count_known,
@@ -4877,6 +4935,7 @@ struct VortexIngestRequest {
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
     runtime_profile: SqlLocalSourceRuntimeProfile,
     max_parallelism: usize,
+    source_fingerprint_policy: SourceFingerprintPolicy,
     delta: Option<VortexIngestDeltaRequest>,
 }
 
@@ -4885,6 +4944,51 @@ struct VortexIngestDeltaRequest {
     source_path: PathBuf,
     target_path: PathBuf,
     update_mode: shardloom_vortex::VortexDifferentialUpdateMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SourceFingerprintPolicy {
+    MetadataOnly,
+    ContentDigest,
+}
+
+impl SourceFingerprintPolicy {
+    const DEFAULT_PUBLIC_PREPARE: Self = Self::MetadataOnly;
+
+    fn parse(value: &str) -> Result<Self, ShardLoomError> {
+        match value.trim().to_ascii_lowercase().replace('-', "_").as_str() {
+            "metadata" | "metadata_only" | "metadata_first" => Ok(Self::MetadataOnly),
+            "content" | "content_digest" | "full_content_digest" => Ok(Self::ContentDigest),
+            _ => Err(ShardLoomError::InvalidOperation(format!(
+                "source fingerprint policy must be metadata_only or content_digest, got {value:?}; no fallback execution was attempted"
+            ))),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::MetadataOnly => "metadata_only",
+            Self::ContentDigest => "content_digest",
+        }
+    }
+
+    const fn fingerprint_kind(self) -> &'static str {
+        match self {
+            Self::MetadataOnly => "local_file_metadata_size_mtime",
+            Self::ContentDigest => "local_file_content_digest",
+        }
+    }
+
+    const fn identity_source(self) -> &'static str {
+        match self {
+            Self::MetadataOnly => "local_file_metadata_fast_prepare_identity",
+            Self::ContentDigest => "local_file_explicit_proof_digest",
+        }
+    }
+
+    const fn content_fingerprint_requested(self) -> bool {
+        matches!(self, Self::ContentDigest)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -5256,6 +5360,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     let mut delta_update_mode = shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly;
     let mut runtime_profile = SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
     let mut max_parallelism = default_public_local_runtime_max_parallelism();
+    let mut source_fingerprint_policy = SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--allow-overwrite" => allow_overwrite = true,
@@ -5340,6 +5445,28 @@ pub(crate) fn handle_vortex_prepare_with_facade(
                             );
                         }
                     };
+            }
+            "--source-fingerprint-policy" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        emit_command,
+                        format,
+                        "vortex prepare failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--source-fingerprint-policy requires metadata_only or content_digest"
+                                .to_string(),
+                        ),
+                    );
+                };
+                source_fingerprint_policy = match SourceFingerprintPolicy::parse(&value) {
+                    Ok(policy) => policy,
+                    Err(error) => {
+                        return emit_error(emit_command, format, "vortex prepare failed", &error);
+                    }
+                };
+            }
+            "--source-content-fingerprint" => {
+                source_fingerprint_policy = SourceFingerprintPolicy::ContentDigest;
             }
             "--schema" | "--source-schema" => {
                 let Some(value) = args.next() else {
@@ -5473,6 +5600,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         certification_level,
         runtime_profile,
         max_parallelism,
+        source_fingerprint_policy,
         delta,
     };
 
@@ -5595,6 +5723,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     source_format: Option<&str>,
     allow_overwrite: bool,
     max_parallelism: usize,
+    source_fingerprint_policy: Option<&str>,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
         return Err(ShardLoomError::NotImplemented(
@@ -5628,6 +5757,10 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         })?),
         None => None,
     };
+    let source_fingerprint_policy = source_fingerprint_policy
+        .map(SourceFingerprintPolicy::parse)
+        .transpose()?
+        .unwrap_or(SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE);
     let target_path =
         normalize_local_vortex_ingest_target_path(&target_path.as_ref().display().to_string())?;
     if let Some(parent) = target_path.parent() {
@@ -5646,6 +5779,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
         runtime_profile: SqlLocalSourceRuntimeProfile::ProductLocalWorkflow,
         max_parallelism,
+        source_fingerprint_policy,
         delta: None,
     };
     let raw_fields = match run_vortex_prepare(request)? {
@@ -5687,6 +5821,11 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "source_read_buffer_carry_status",
         "source_read_mmap_eligibility_status",
         "source_read_many_small_file_batching_status",
+        "source_fingerprint_kind",
+        "source_fingerprint_policy",
+        "source_fingerprint_identity_source",
+        "source_content_fingerprint_requested",
+        "source_content_fingerprint_performed",
         "source_state_projection_pushdown_status",
         "source_state_materialization_layout",
         "source_state_parse_normalization",
@@ -5943,6 +6082,7 @@ fn run_vortex_prepare_with_schema(
                 certification_level: base_report.request.certification_level,
                 runtime_profile: base_report.request.runtime_profile,
                 max_parallelism: base_report.request.max_parallelism,
+                source_fingerprint_policy: base_report.request.source_fingerprint_policy,
                 delta: None,
             },
             source_schema_hints,
@@ -7008,6 +7148,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         &request.source_path,
         source_format.row_label(),
         read_limits.source_bytes,
+        request.source_fingerprint_policy,
     )?;
     let read_millis = read_start.elapsed().as_millis();
     let source_to_columnar_start = Instant::now();
@@ -7226,6 +7367,7 @@ fn try_run_inferred_text_vortex_prepare(
         &request.source_path,
         source_format.row_label(),
         read_limits.source_bytes,
+        request.source_fingerprint_policy,
     )?;
     let read_millis = read_start.elapsed().as_millis();
     let source_to_columnar_start = Instant::now();
@@ -7444,6 +7586,11 @@ fn run_text_streaming_vortex_prepare(
     let scout = ColumnarSourceScoutEvidence {
         bytes: source.source_bytes,
         digest: source.source_digest.clone(),
+        fingerprint_kind: "local_file_content_digest".to_string(),
+        fingerprint_policy: "content_digest".to_string(),
+        identity_source: "local_file_explicit_proof_digest".to_string(),
+        content_fingerprint_requested: true,
+        content_fingerprint_performed: true,
         metadata_scout_millis: source.source_metadata_scout_millis,
         byte_acquisition_millis: source.source_byte_acquisition_millis,
         full_body_millis: source.source_full_body_millis,
@@ -7606,6 +7753,7 @@ fn run_columnar_vortex_prepare(
             &request.source_path,
             source_format,
             read_limits.source_bytes,
+            request.source_fingerprint_policy,
         )?;
         partitions.evidence
     } else {
@@ -7613,6 +7761,7 @@ fn run_columnar_vortex_prepare(
             &request.source_path,
             source_format.row_label(),
             read_limits.source_bytes,
+            request.source_fingerprint_policy,
         )?
     };
     let read_millis = read_start.elapsed().as_millis();
@@ -7624,6 +7773,7 @@ fn run_columnar_vortex_prepare(
         max_rows,
         read_limits.source_bytes,
         request.max_parallelism,
+        request.source_fingerprint_policy,
     )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     for column in &columnar_source.header {
@@ -7743,6 +7893,7 @@ fn stream_columnar_vortex_ingest_source(
     max_rows: usize,
     source_byte_budget: Option<u64>,
     max_parallelism: usize,
+    source_fingerprint_policy: SourceFingerprintPolicy,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
     if path.is_dir() {
         return stream_columnar_vortex_ingest_partition_source(
@@ -7751,6 +7902,7 @@ fn stream_columnar_vortex_ingest_source(
             max_rows,
             source_byte_budget,
             max_parallelism,
+            source_fingerprint_policy,
         );
     }
     let source =
@@ -7961,9 +8113,14 @@ fn stream_columnar_vortex_ingest_partition_source(
     max_rows: usize,
     source_byte_budget: Option<u64>,
     max_parallelism: usize,
+    source_fingerprint_policy: SourceFingerprintPolicy,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
-    let partition_files =
-        scout_local_source_partition_files_with_budget(path, source_format, source_byte_budget)?;
+    let partition_files = scout_local_source_partition_files_with_budget(
+        path,
+        source_format,
+        source_byte_budget,
+        source_fingerprint_policy,
+    )?;
     let Some(first_file) = partition_files.files.first() else {
         return Err(unsupported_sql_error(&format!(
             "local {} partition source {} did not contain any admitted partition files",
@@ -8570,7 +8727,9 @@ impl VortexIngestReport {
             ),
             (
                 "source_read_scout_timing_split_status".to_string(),
-                "metadata_scout_and_byte_acquisition_split_recorded".to_string(),
+                self.source
+                    .source_read_scout_timing_split_status()
+                    .to_string(),
             ),
             (
                 "source_read_metadata_scout_millis".to_string(),
@@ -8611,7 +8770,23 @@ impl VortexIngestReport {
             ),
             (
                 "source_fingerprint_kind".to_string(),
-                "local_file_content_digest".to_string(),
+                self.source.source_fingerprint.kind.clone(),
+            ),
+            (
+                "source_fingerprint_policy".to_string(),
+                self.source.source_fingerprint.policy.clone(),
+            ),
+            (
+                "source_fingerprint_identity_source".to_string(),
+                self.source.source_fingerprint.identity_source.clone(),
+            ),
+            (
+                "source_content_fingerprint_requested".to_string(),
+                self.source.source_fingerprint.content_requested.to_string(),
+            ),
+            (
+                "source_content_fingerprint_performed".to_string(),
+                self.source.source_fingerprint.content_performed.to_string(),
             ),
             ("source_state_id".to_string(), self.source_state_id.clone()),
             (
@@ -9971,6 +10146,7 @@ fn vortex_ingest_scout_blocked_request(
             certification_level: request.certification_level,
             runtime_profile: request.runtime_profile,
             max_parallelism: request.max_parallelism,
+            source_fingerprint_policy: request.source_fingerprint_policy,
             delta: None,
         };
     }
@@ -10051,36 +10227,70 @@ fn scout_error_row_refs(error_text: &str) -> String {
 fn vortex_ingest_feature_blocked_scout_fields(
     request: &VortexIngestRequest,
 ) -> Vec<(String, String)> {
-    shardloom_vortex::evaluate_vortex_scout_ingress(shardloom_vortex::VortexScoutIngressInput {
-        source_state_id: "not_created_feature_gate_blocked".to_string(),
-        source_state_digest: "not_created_feature_gate_blocked".to_string(),
-        source_format: "unknown".to_string(),
-        source_path: request.source_path.display().to_string(),
-        source_schema_digest: "not_created_feature_gate_blocked".to_string(),
-        row_count: 0,
-        source_byte_count: 0,
-        column_count: 0,
-        read_plan: "not_started_feature_gate_blocked".to_string(),
-        metadata_range_refs: "not_reported_feature_gate_blocked".to_string(),
-        sampled_row_range_refs: "not_reported_feature_gate_blocked".to_string(),
-        anomaly_count: 0,
-        anomaly_families: "none".to_string(),
-        malformed_row_refs: "none".to_string(),
-        schema_drift_status: "not_evaluated_feature_gate_blocked".to_string(),
-        unsupported_shape_status: "not_detected".to_string(),
-        nullability_status: "not_evaluated_feature_gate_blocked".to_string(),
-        small_file_pathology_status: "not_evaluated_feature_gate_blocked".to_string(),
-        quarantine_required: false,
-        quarantine_output_plan_status: "not_started_feature_gate_blocked".to_string(),
-        quarantine_output_ref: "not_emitted".to_string(),
-        quarantine_output_digest: "not_emitted".to_string(),
-        redaction_status: "not_applicable_no_source_rows_read".to_string(),
-        unsupported_diagnostic_code: "vortex_ingest.requires_vortex_write_feature".to_string(),
-        correctness_policy: "blocked_before_scout_runtime".to_string(),
-        fallback_attempted: false,
-        external_engine_invoked: false,
-    })
-    .evidence_fields()
+    let mut fields = shardloom_vortex::evaluate_vortex_scout_ingress(
+        shardloom_vortex::VortexScoutIngressInput {
+            source_state_id: "not_created_feature_gate_blocked".to_string(),
+            source_state_digest: "not_created_feature_gate_blocked".to_string(),
+            source_format: "unknown".to_string(),
+            source_path: request.source_path.display().to_string(),
+            source_schema_digest: "not_created_feature_gate_blocked".to_string(),
+            row_count: 0,
+            source_byte_count: 0,
+            column_count: 0,
+            read_plan: "not_started_feature_gate_blocked".to_string(),
+            metadata_range_refs: "not_reported_feature_gate_blocked".to_string(),
+            sampled_row_range_refs: "not_reported_feature_gate_blocked".to_string(),
+            anomaly_count: 0,
+            anomaly_families: "none".to_string(),
+            malformed_row_refs: "none".to_string(),
+            schema_drift_status: "not_evaluated_feature_gate_blocked".to_string(),
+            unsupported_shape_status: "not_detected".to_string(),
+            nullability_status: "not_evaluated_feature_gate_blocked".to_string(),
+            small_file_pathology_status: "not_evaluated_feature_gate_blocked".to_string(),
+            quarantine_required: false,
+            quarantine_output_plan_status: "not_started_feature_gate_blocked".to_string(),
+            quarantine_output_ref: "not_emitted".to_string(),
+            quarantine_output_digest: "not_emitted".to_string(),
+            redaction_status: "not_applicable_no_source_rows_read".to_string(),
+            unsupported_diagnostic_code: "vortex_ingest.requires_vortex_write_feature".to_string(),
+            correctness_policy: "blocked_before_scout_runtime".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+    )
+    .evidence_fields();
+    fields.extend([
+        (
+            "source_fingerprint_kind".to_string(),
+            request
+                .source_fingerprint_policy
+                .fingerprint_kind()
+                .to_string(),
+        ),
+        (
+            "source_fingerprint_policy".to_string(),
+            request.source_fingerprint_policy.as_str().to_string(),
+        ),
+        (
+            "source_fingerprint_identity_source".to_string(),
+            request
+                .source_fingerprint_policy
+                .identity_source()
+                .to_string(),
+        ),
+        (
+            "source_content_fingerprint_requested".to_string(),
+            request
+                .source_fingerprint_policy
+                .content_fingerprint_requested()
+                .to_string(),
+        ),
+        (
+            "source_content_fingerprint_performed".to_string(),
+            "false".to_string(),
+        ),
+    ]);
+    fields
 }
 
 fn vortex_ingest_feature_blocked_layout_write_advisor_fields(
@@ -33504,6 +33714,11 @@ impl LocalSourceByteRead {
 struct ColumnarSourceScoutEvidence {
     bytes: u64,
     digest: String,
+    fingerprint_kind: String,
+    fingerprint_policy: String,
+    identity_source: String,
+    content_fingerprint_requested: bool,
+    content_fingerprint_performed: bool,
     metadata_scout_millis: u128,
     byte_acquisition_millis: u128,
     full_body_millis: u128,
@@ -33629,6 +33844,7 @@ fn fingerprint_local_source_file_with_budget_report(
     path: &Path,
     source_label: &str,
     max_source_bytes: Option<u64>,
+    policy: SourceFingerprintPolicy,
 ) -> Result<ColumnarSourceScoutEvidence, ShardLoomError> {
     reject_remote_source_path(path)?;
     let scout_start = Instant::now();
@@ -33653,6 +33869,20 @@ fn fingerprint_local_source_file_with_budget_report(
         )));
     }
     let source_metadata_scout_millis = scout_start.elapsed().as_millis();
+    if policy == SourceFingerprintPolicy::MetadataOnly {
+        return Ok(ColumnarSourceScoutEvidence {
+            bytes: metadata.len(),
+            digest: local_source_metadata_fingerprint(path, source_label, &metadata),
+            fingerprint_kind: policy.fingerprint_kind().to_string(),
+            fingerprint_policy: policy.as_str().to_string(),
+            identity_source: policy.identity_source().to_string(),
+            content_fingerprint_requested: policy.content_fingerprint_requested(),
+            content_fingerprint_performed: policy.content_fingerprint_requested(),
+            metadata_scout_millis: source_metadata_scout_millis,
+            byte_acquisition_millis: 0,
+            full_body_millis: 0,
+        });
+    }
     let read_start = Instant::now();
     let mut file = fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -33698,10 +33928,38 @@ fn fingerprint_local_source_file_with_budget_report(
     Ok(ColumnarSourceScoutEvidence {
         bytes: total,
         digest: format!("fnv64:{hash:016x}"),
+        fingerprint_kind: policy.fingerprint_kind().to_string(),
+        fingerprint_policy: policy.as_str().to_string(),
+        identity_source: policy.identity_source().to_string(),
+        content_fingerprint_requested: policy.content_fingerprint_requested(),
+        content_fingerprint_performed: policy.content_fingerprint_requested(),
         metadata_scout_millis: source_metadata_scout_millis,
         byte_acquisition_millis: source_byte_acquisition_millis,
         full_body_millis: 0,
     })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn local_source_metadata_fingerprint(
+    path: &Path,
+    source_label: &str,
+    metadata: &fs::Metadata,
+) -> String {
+    let modified_ns = metadata
+        .modified()
+        .ok()
+        .and_then(|modified| modified.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or_else(
+            || "unknown".to_string(),
+            |duration| duration.as_nanos().to_string(),
+        );
+    fnv64_digest(&format!(
+        "local_file_metadata_fingerprint.v1|{}|{}|{}|{}",
+        source_label,
+        path.display(),
+        metadata.len(),
+        modified_ns
+    ))
 }
 
 fn sorted_local_source_partition_entries(
@@ -33833,6 +34091,7 @@ fn scout_local_source_partition_files_with_budget(
     path: &Path,
     source_format: LocalSourceFormat,
     max_source_bytes: Option<u64>,
+    policy: SourceFingerprintPolicy,
 ) -> Result<LocalSourcePartitionScout, ShardLoomError> {
     reject_remote_source_path(path)?;
     let total_start = Instant::now();
@@ -33885,6 +34144,7 @@ fn scout_local_source_partition_files_with_budget(
             &file_path,
             source_format.row_label(),
             None,
+            policy,
         )?;
         byte_acquisition_millis =
             byte_acquisition_millis.saturating_add(file_fingerprint.byte_acquisition_millis);
@@ -33912,11 +34172,17 @@ fn scout_local_source_partition_files_with_budget(
         evidence: ColumnarSourceScoutEvidence {
             bytes: total_bytes,
             digest: fnv64_digest(&format!(
-                "partition_dir_content_fingerprint.v1|{}|{}|{}",
+                "partition_dir_{}_fingerprint.v1|{}|{}|{}",
+                policy.as_str(),
                 source_format.as_str(),
                 path.display(),
                 digest_parts.join(";")
             )),
+            fingerprint_kind: format!("partition_directory_{}", policy.fingerprint_kind()),
+            fingerprint_policy: policy.as_str().to_string(),
+            identity_source: policy.identity_source().to_string(),
+            content_fingerprint_requested: policy.content_fingerprint_requested(),
+            content_fingerprint_performed: policy.content_fingerprint_requested(),
             metadata_scout_millis: total_start.elapsed().as_millis(),
             byte_acquisition_millis,
             full_body_millis: 0,
@@ -43330,19 +43596,74 @@ mod tests {
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
-    fn product_columnar_source_fingerprint_uses_content_identity() {
+    fn product_columnar_source_fingerprint_is_metadata_only_by_default() {
         let path = sql_local_source_test_path("parquet");
         fs::write(&path, b"same-sized content variant one").expect("write source");
 
-        let first = fingerprint_local_source_file_with_budget_report(&path, "Parquet", None)
-            .expect("fingerprint first source");
+        let first = fingerprint_local_source_file_with_budget_report(
+            &path,
+            "Parquet",
+            None,
+            SourceFingerprintPolicy::MetadataOnly,
+        )
+        .expect("fingerprint first source");
         fs::write(&path, b"same-sized content variant two").expect("rewrite source");
-        let second = fingerprint_local_source_file_with_budget_report(&path, "Parquet", None)
-            .expect("fingerprint second source");
+        let second = fingerprint_local_source_file_with_budget_report(
+            &path,
+            "Parquet",
+            None,
+            SourceFingerprintPolicy::MetadataOnly,
+        )
+        .expect("fingerprint second source");
 
         assert_eq!(first.bytes, second.bytes);
         assert!(first.digest.starts_with("fnv64:"));
         assert!(second.digest.starts_with("fnv64:"));
+        assert_eq!(first.fingerprint_kind, "local_file_metadata_size_mtime");
+        assert_eq!(first.fingerprint_policy, "metadata_only");
+        assert_eq!(
+            first.identity_source,
+            "local_file_metadata_fast_prepare_identity"
+        );
+        assert!(!first.content_fingerprint_requested);
+        assert!(!first.content_fingerprint_performed);
+        assert_eq!(first.byte_acquisition_millis, 0);
+        assert_eq!(first.full_body_millis, 0);
+        assert!(!second.content_fingerprint_performed);
+
+        fs::remove_file(&path).expect("remove source");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn product_columnar_source_content_fingerprint_is_explicit_proof() {
+        let path = sql_local_source_test_path("parquet");
+        fs::write(&path, b"same-sized content variant one").expect("write source");
+
+        let first = fingerprint_local_source_file_with_budget_report(
+            &path,
+            "Parquet",
+            None,
+            SourceFingerprintPolicy::ContentDigest,
+        )
+        .expect("fingerprint first source");
+        fs::write(&path, b"same-sized content variant two").expect("rewrite source");
+        let second = fingerprint_local_source_file_with_budget_report(
+            &path,
+            "Parquet",
+            None,
+            SourceFingerprintPolicy::ContentDigest,
+        )
+        .expect("fingerprint second source");
+
+        assert_eq!(first.bytes, second.bytes);
+        assert!(first.digest.starts_with("fnv64:"));
+        assert!(second.digest.starts_with("fnv64:"));
+        assert_eq!(first.fingerprint_kind, "local_file_content_digest");
+        assert_eq!(first.fingerprint_policy, "content_digest");
+        assert_eq!(first.identity_source, "local_file_explicit_proof_digest");
+        assert!(first.content_fingerprint_requested);
+        assert!(first.content_fingerprint_performed);
         assert_ne!(first.digest, second.digest);
         assert_eq!(first.full_body_millis, 0);
         assert_eq!(second.full_body_millis, 0);
@@ -43628,6 +43949,7 @@ mod tests {
             projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
             source_bytes: 128,
             source_digest: "fnv64:test".to_string(),
+            source_fingerprint: SourceFingerprintEvidence::metadata_only(),
             row_count: 0,
             row_count_known: true,
             source_split_row_ranges: vec![(0, 0)],
@@ -43674,6 +43996,7 @@ mod tests {
             projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
             source_bytes: 1024,
             source_digest: "fnv64:test".to_string(),
+            source_fingerprint: SourceFingerprintEvidence::metadata_only(),
             row_count: 100_000_000,
             row_count_known: true,
             source_split_row_ranges: vec![(0, 100_000_000)],
@@ -44115,6 +44438,7 @@ mod tests {
             projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
             source_bytes: 1024,
             source_digest: "fnv64:test".to_string(),
+            source_fingerprint: SourceFingerprintEvidence::metadata_only(),
             row_count: 0,
             row_count_known: false,
             source_split_row_ranges: vec![(0, 0)],
@@ -44283,6 +44607,7 @@ mod tests {
             certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
             max_parallelism: 2,
+            source_fingerprint_policy: SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE,
             delta: None,
         }
     }
@@ -44704,7 +45029,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_state_ingest_executor_kind",
-            "parquet_row_group_adaptive_coalesced_reader_to_vortex_writer_with_writer_slot_reserved",
+            "parquet_row_group_adaptive_coalesced_metadata_reused_reader_to_vortex_writer_with_writer_slot_reserved",
         );
         assert_field_eq(
             &fields,
@@ -44781,8 +45106,15 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "source_read_buffer_carry_status",
-                "streamed_source_fingerprint_reader_reopens_columnar_source",
+                "metadata_only_source_identity_columnar_reader_not_preopened",
             );
+            assert_field_eq(
+                &fields,
+                "source_fingerprint_kind",
+                "local_file_metadata_size_mtime",
+            );
+            assert_field_eq(&fields, "source_fingerprint_policy", "metadata_only");
+            assert_field_eq(&fields, "source_content_fingerprint_performed", "false");
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
@@ -44854,8 +45186,15 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "source_read_buffer_carry_status",
-                "streamed_source_fingerprint_reader_reopens_columnar_source",
+                "metadata_only_source_identity_columnar_reader_not_preopened",
             );
+            assert_field_eq(
+                &fields,
+                "source_fingerprint_kind",
+                "local_file_metadata_size_mtime",
+            );
+            assert_field_eq(&fields, "source_fingerprint_policy", "metadata_only");
+            assert_field_eq(&fields, "source_content_fingerprint_performed", "false");
             assert_field_eq(
                 &fields,
                 "source_state_dictionary_preservation_status",
@@ -45107,8 +45446,10 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_read_buffer_carry_status",
-            "streamed_source_fingerprint_reader_reopens_columnar_source",
+            "metadata_only_source_identity_columnar_reader_not_preopened",
         );
+        assert_field_eq(&fields, "source_fingerprint_policy", "metadata_only");
+        assert_field_eq(&fields, "source_content_fingerprint_performed", "false");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
         assert!(product_target.exists());
@@ -45152,7 +45493,17 @@ mod tests {
         assert_field_eq(
             &inferred_fields,
             "source_read_buffer_carry_status",
-            "streamed_source_fingerprint_reader_reopens_columnar_source",
+            "metadata_only_source_identity_columnar_reader_not_preopened",
+        );
+        assert_field_eq(
+            &inferred_fields,
+            "source_fingerprint_policy",
+            "metadata_only",
+        );
+        assert_field_eq(
+            &inferred_fields,
+            "source_content_fingerprint_performed",
+            "false",
         );
         assert_field_eq(&inferred_fields, "fallback_attempted", "false");
         assert_field_eq(&inferred_fields, "external_engine_invoked", "false");

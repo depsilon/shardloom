@@ -135,7 +135,7 @@ flowchart LR
 | Group | Owns | Primary evidence |
 | --- | --- | --- |
 | Access and front doors | CLI, Python, SQL, adapters, planned API surfaces | typed request envelope, typed output envelope |
-| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | source fingerprints, prepared-state IDs/digests, stream batch policy, source-unit hints, dictionary handoff posture, import certificates |
+| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | metadata-first source identity, optional source-content digest proof, prepared-state IDs/digests, stream batch policy, source-unit hints, dictionary handoff posture, import certificates |
 | Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`; internal smoke is not a public lane | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
 | Engine fabric | batch, live, hybrid, auto engine mode | `requested_engine_mode`, `selected_engine_mode`, effect and state boundaries |
 | Output and materialization | `OutputPlan`, `SinkArtifact`, Vortex output, compatibility exports | decode/materialization status, result-sink replay, metadata preservation/loss |
@@ -183,10 +183,11 @@ Universal Ingest source-state evidence now separates source-native units from em
 by product columnar stream batches, Parquet row-group hints, Arrow IPC batch hints, or a scalar text
 adapter. Parquet product preparation can additionally report
 `source_state_ingest_executor_status=bounded_capillary_row_group_parallel_writer_budgeted` with a
-coalesced row-group task count when the requested parallelism leaves source-reader capacity after
-reserving Vortex-normalization and single `.vortex` writer/layout lanes. At `max_parallelism=2`,
-large-source preparation uses one source-to-Vortex normalization lane and one writer/layout lane;
-higher values admit additional coalesced row-group source work. Large columnar sources may use the
+coalesced metadata-reused row-group task count when the requested parallelism leaves source-reader
+capacity after reserving Vortex-normalization and single `.vortex` writer/layout lanes. At
+`max_parallelism=2`, large-source preparation uses one source-to-Vortex normalization lane and one
+writer/layout lane; higher values admit additional coalesced row-group source work. Large columnar
+sources may use the
 `product_columnar_stream_batch_size_262144_rows` capillary stream policy to reduce writer handoff
 and segment metadata churn; smaller product sources keep the 65,536-row policy.
 
@@ -551,7 +552,7 @@ not admitted, the result is an unsupported diagnostic, not external execution.
 flowchart LR
     INPUT["Input descriptor<br/>file / Vortex / generated / remote ref"]
     ADAPTER["InputAdapter<br/>format-specific recognition"]
-    SOURCE["SourceState<br/>fingerprint + schema + route"]
+    SOURCE["SourceState<br/>metadata identity + schema + route"]
     INGEST["vortex_ingest<br/>local preparation boundary"]
     PREPARED["VortexPreparedState<br/>artifact ref + digest"]
     PREPARED_ROUTE["prepared_vortex<br/>warm prepared execution"]

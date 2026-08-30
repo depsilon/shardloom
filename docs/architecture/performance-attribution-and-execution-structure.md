@@ -981,10 +981,15 @@ stage should also be classified as `included_hot_runtime`,
 `excluded_shared_preparation`, `excluded_harness`, or `diagnostic_only`. Broad shared setup timers such as
 `source_state_prepare_micros` are not source-admission timers; promotion must not
 map them into `source_admission_ms` without a direct admission/stat timing field.
-Metadata-first warm reuse must report the requested digest policy. Local non-publication rows may
-skip full content SHA when normalized path, size, and mtime metadata plus prepared artifact digests
-are the requested proof tier; publication or claim-grade rows must request full content digest
-verification when that evidence is required.
+Metadata-first warm reuse must report the requested digest policy. Public local prepare defaults to
+`source_fingerprint_policy=metadata_only`: normalized path, size, mtime metadata, source-state
+digest, and prepared artifact digest establish the normal fast-prepare identity without a full
+source-content read. `source_fingerprint_policy=content_digest` remains an explicit proof-tier
+opt-in and must report `source_content_fingerprint_requested=true` and
+`source_content_fingerprint_performed=true` when that evidence is required. Local non-publication
+rows may skip full content SHA when metadata identity plus prepared artifact digests are the
+requested proof tier; publication or claim-grade rows must request full content digest verification
+when that evidence is required.
 
 CLI envelope timing must separate control-plane work from engine runtime. `json_envelope_emit_micros`
 is retained as the legacy aggregate for typed-envelope build, field classification, JSON/text

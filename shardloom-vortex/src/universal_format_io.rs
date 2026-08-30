@@ -434,7 +434,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
         tasks: Vec<ParquetRowGroupReadTask>,
         batch_size: usize,
         applied_parallelism: usize,
-        schema_hint: Option<&SchemaRef>,
+        reader_metadata: parquet::arrow::arrow_reader::ArrowReaderMetadata,
     ) -> Self {
         let path = path.to_path_buf();
         let task_count = tasks.len();
@@ -448,7 +448,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
             let worker_path = path.clone();
             let worker_tasks = Arc::clone(&shared_tasks);
             let worker_sender = sender.clone();
-            let worker_schema_hint = schema_hint.cloned();
+            let worker_reader_metadata = reader_metadata.clone();
             workers.push(thread::spawn(move || {
                 loop {
                     let task = {
@@ -463,7 +463,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
                         task.task_index,
                         task.row_groups,
                         batch_size,
-                        worker_schema_hint.as_ref(),
+                        &worker_reader_metadata,
                         &worker_sender,
                     ) {
                         let _ = worker_sender.send(ParquetRowGroupReadResult::TaskError {
@@ -709,20 +709,14 @@ fn stream_parquet_row_group_batches(
     task_index: usize,
     row_groups: Vec<usize>,
     batch_size: usize,
-    schema_hint: Option<&SchemaRef>,
+    reader_metadata: &parquet::arrow::arrow_reader::ArrowReaderMetadata,
     sender: &SyncSender<ParquetRowGroupReadResult>,
 ) -> std::result::Result<(), ArrowError> {
     let file = File::open(path).map_err(ArrowError::from)?;
-    let builder = if let Some(schema_hint) = schema_hint {
-        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new_with_options(
-            file,
-            parquet::arrow::arrow_reader::ArrowReaderOptions::new()
-                .with_schema(Arc::clone(schema_hint)),
-        )
-    } else {
-        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
-    }
-    .map_err(|error| ArrowError::ParquetError(error.to_string()))?;
+    let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(
+        file,
+        reader_metadata.clone(),
+    );
     let reader = builder
         .with_batch_size(batch_size.max(1))
         .with_row_groups(row_groups)
@@ -2498,34 +2492,31 @@ pub fn stream_flat_parquet_columnar_source(
     stream_flat_parquet_columnar_source_with_parallelism(path, max_rows, 1)
 }
 
+fn parquet_metadata_first_reader_options() -> parquet::arrow::arrow_reader::ArrowReaderOptions {
+    parquet::arrow::arrow_reader::ArrowReaderOptions::new().with_skip_arrow_metadata(true)
+}
+
+fn parquet_reader_options_with_optional_schema_hint(
+    schema_hint: Option<&SchemaRef>,
+) -> parquet::arrow::arrow_reader::ArrowReaderOptions {
+    let options = parquet_metadata_first_reader_options();
+    if let Some(schema_hint) = schema_hint {
+        options.with_schema(Arc::clone(schema_hint))
+    } else {
+        options
+    }
+}
+
 fn parquet_stream_record_batch_reader(
     path: &Path,
-    schema_hint: Option<&SchemaRef>,
+    reader_metadata: &parquet::arrow::arrow_reader::ArrowReaderMetadata,
     batch_size: usize,
 ) -> Result<Box<dyn RecordBatchReader + Send>> {
     let file = open_local_source_file(path, "Parquet")?;
-    let builder = if let Some(schema_hint) = schema_hint {
-        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new_with_options(
-            file,
-            parquet::arrow::arrow_reader::ArrowReaderOptions::new()
-                .with_schema(Arc::clone(schema_hint)),
-        )
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to create dictionary-preserving streaming local Parquet source reader for '{}': {error}",
-                path.display()
-            ))
-        })?
-    } else {
-        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file).map_err(
-            |error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "failed to create streaming local Parquet source reader for '{}': {error}",
-                    path.display()
-                ))
-            },
-        )?
-    };
+    let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(
+        file,
+        reader_metadata.clone(),
+    );
     let reader = builder
         .with_batch_size(batch_size)
         .build()
@@ -2551,10 +2542,13 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
     requested_max_parallelism: usize,
 ) -> Result<FlatLocalColumnarStreamSource> {
     let file = open_local_source_file(path, "Parquet")?;
-    let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
-        .map_err(|error| {
+    let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new_with_options(
+        file,
+        parquet_metadata_first_reader_options(),
+    )
+    .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
-                "failed to create streaming local Parquet source reader for '{}': {error}",
+                "failed to create metadata-first streaming local Parquet source reader for '{}': {error}",
                 path.display()
             ))
         })?;
@@ -2562,6 +2556,16 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
     let schema_plan = parquet_dictionary_schema_plan(&schema);
     let row_group_metadata = parquet_row_group_stream_metadata(builder.metadata());
+    let reader_metadata = parquet::arrow::arrow_reader::ArrowReaderMetadata::try_new(
+        Arc::clone(builder.metadata()),
+        parquet_reader_options_with_optional_schema_hint(schema_plan.schema_hint.as_ref()),
+    )
+    .map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create metadata-reused local Parquet source reader state for '{}': {error}",
+            path.display()
+        ))
+    })?;
     let row_count_hint = row_group_metadata.total_hint;
     validate_known_stream_row_count(path, "Parquet", row_count_hint, max_rows)?;
     let row_group_count = row_group_metadata.group_count;
@@ -2603,24 +2607,21 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
                 tasks,
                 stream_batch_size,
                 applied_parallelism,
-                schema_plan.schema_hint.as_ref(),
+                reader_metadata,
             )),
         );
         source.ingest_executor_status =
             "bounded_capillary_row_group_parallel_writer_budgeted".to_string();
         source.ingest_executor_kind =
-            "parquet_row_group_adaptive_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
-                .to_string();
+        "parquet_row_group_adaptive_coalesced_metadata_reused_reader_to_vortex_writer_with_writer_slot_reserved"
+            .to_string();
         source.ingest_executor_requested_parallelism = requested_max_parallelism;
         source.ingest_executor_applied_parallelism = applied_parallelism;
         source.ingest_executor_unit_count_hint = Some(task_count);
         return Ok(source);
     }
-    let reader = parquet_stream_record_batch_reader(
-        path,
-        schema_plan.schema_hint.as_ref(),
-        stream_plan.stream_batch_size,
-    )?;
+    let reader =
+        parquet_stream_record_batch_reader(path, &reader_metadata, stream_plan.stream_batch_size)?;
     let source = flat_columnar_stream_source_from_reader(
         schema_plan.stream_schema.as_ref(),
         header.clone(),
@@ -6416,7 +6417,7 @@ mod tests {
         );
         assert_eq!(
             source.ingest_executor_kind,
-            "parquet_row_group_adaptive_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
+            "parquet_row_group_adaptive_coalesced_metadata_reused_reader_to_vortex_writer_with_writer_slot_reserved"
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 3);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
@@ -6494,7 +6495,7 @@ mod tests {
         );
         assert_eq!(
             source.ingest_executor_kind,
-            "parquet_row_group_adaptive_coalesced_reader_to_vortex_writer_with_writer_slot_reserved"
+            "parquet_row_group_adaptive_coalesced_metadata_reused_reader_to_vortex_writer_with_writer_slot_reserved"
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 2);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);

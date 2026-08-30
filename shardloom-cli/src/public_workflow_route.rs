@@ -64,6 +64,7 @@ struct PublicWorkflowRouteRequest {
     generated_range_step: Option<String>,
     generated_range_column: Option<String>,
     fanout_outputs: Vec<String>,
+    source_fingerprint_policy: Option<String>,
     native_vortex_operation_family: Option<String>,
     native_vortex_provider_scenario: Option<String>,
     native_vortex_right_input: Option<String>,
@@ -3312,6 +3313,7 @@ fn execute_local_file_prepare_once_first_query_run(
         &prepared_run.left_target,
         false,
         max_parallelism,
+        request.source_fingerprint_policy.as_deref(),
     ) {
         Ok(preparation) => preparation,
         Err(PreparationFacadeError::FeatureGated) => {
@@ -3341,6 +3343,7 @@ fn execute_local_file_prepare_once_first_query_run(
             &right.target,
             false,
             max_parallelism,
+            request.source_fingerprint_policy.as_deref(),
         ) {
             Ok(preparation) => preparation,
             Err(PreparationFacadeError::FeatureGated) => {
@@ -3433,6 +3436,7 @@ fn prepare_local_source_for_public_workflow(
     target: &Path,
     allow_overwrite: bool,
     max_parallelism: usize,
+    source_fingerprint_policy: Option<&str>,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
     sql_local_source_runtime::prepare_local_source_as_vortex_for_public_workflow(
         source_uri,
@@ -3440,6 +3444,7 @@ fn prepare_local_source_for_public_workflow(
         Some(source_format),
         allow_overwrite,
         max_parallelism,
+        source_fingerprint_policy,
     )
     .map_err(|error| match error {
         ShardLoomError::NotImplemented(feature)
@@ -4253,6 +4258,7 @@ pub(crate) fn handle_public_workflow_prepare(
         Path::new(&output_ref),
         request.allow_overwrite,
         max_parallelism,
+        request.source_fingerprint_policy.as_deref(),
     ) {
         Ok(preparation) => preparation,
         Err(PreparationFacadeError::FeatureGated) => {
@@ -4307,7 +4313,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <vortex_middle|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <vortex_middle|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--source-fingerprint-policy <metadata_only|content_digest>] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
                     .to_string(),
             ));
         };
@@ -4344,6 +4350,7 @@ impl PublicWorkflowRouteRequest {
             generated_range_step: None,
             generated_range_column: None,
             fanout_outputs: Vec::new(),
+            source_fingerprint_policy: None,
             native_vortex_operation_family: None,
             native_vortex_provider_scenario: None,
             native_vortex_right_input: None,
@@ -4405,6 +4412,14 @@ impl PublicWorkflowRouteRequest {
                 self.bounded = parse_bool_flag("--bounded", &required_value(args, "--bounded")?)?;
             }
             "--allow-overwrite" => self.allow_overwrite = true,
+            "--source-fingerprint-policy" => {
+                self.source_fingerprint_policy = Some(normalize_source_fingerprint_policy(
+                    &required_value(args, "--source-fingerprint-policy")?,
+                )?);
+            }
+            "--source-content-fingerprint" => {
+                self.source_fingerprint_policy = Some("content_digest".to_string());
+            }
             "--fanout-output" => self
                 .fanout_outputs
                 .push(required_value(args, "--fanout-output")?),
@@ -11255,6 +11270,13 @@ fn execution_attachment_fields(
             effective_request.allow_overwrite.to_string(),
         ),
         (
+            "public_workflow_source_fingerprint_policy".to_string(),
+            effective_request
+                .source_fingerprint_policy
+                .clone()
+                .unwrap_or_else(|| "metadata_only".to_string()),
+        ),
+        (
             "public_workflow_generated_source_kind".to_string(),
             normalized_generated_source_kind(&effective_request)
                 .unwrap_or("none")
@@ -11921,6 +11943,17 @@ fn normalize_evidence_level(value: &str) -> Result<String, ShardLoomError> {
         }
         _ => Err(ShardLoomError::InvalidOperation(format!(
             "unsupported route evidence level: {value}"
+        ))),
+    }
+}
+
+fn normalize_source_fingerprint_policy(value: &str) -> Result<String, ShardLoomError> {
+    let normalized = value.trim().to_ascii_lowercase().replace('-', "_");
+    match normalized.as_str() {
+        "metadata" | "metadata_only" | "metadata_first" => Ok("metadata_only".to_string()),
+        "content" | "content_digest" | "full_content_digest" => Ok("content_digest".to_string()),
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "unsupported route source fingerprint policy: {value}; expected metadata_only or content_digest"
         ))),
     }
 }
@@ -12981,6 +13014,81 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn route_request_source_fingerprint_policy_defaults_to_metadata_and_allows_explicit_digest() {
+        let default_request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "target/input.parquet",
+                "--input-format",
+                "parquet",
+                "--request",
+                "prepare",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("default route request");
+        let default_plan = plan_public_workflow_route(&default_request);
+        let default_fields =
+            execution_attachment_fields("prepare", &default_request, &default_plan);
+        assert_eq!(
+            field(&default_fields, "public_workflow_source_fingerprint_policy"),
+            "metadata_only"
+        );
+
+        let explicit_request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "target/input.parquet",
+                "--input-format",
+                "parquet",
+                "--request",
+                "prepare",
+                "--source-fingerprint-policy",
+                "content-digest",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("explicit content digest route request");
+        let explicit_plan = plan_public_workflow_route(&explicit_request);
+        let explicit_fields =
+            execution_attachment_fields("prepare", &explicit_request, &explicit_plan);
+        assert_eq!(
+            field(
+                &explicit_fields,
+                "public_workflow_source_fingerprint_policy"
+            ),
+            "content_digest"
+        );
+
+        let invalid = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "target/input.parquet",
+                "--input-format",
+                "parquet",
+                "--request",
+                "prepare",
+                "--source-fingerprint-policy",
+                "mandatory-sha",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect_err("invalid source fingerprint policy is rejected");
+        assert!(
+            invalid
+                .to_string()
+                .contains("unsupported route source fingerprint policy"),
+            "{invalid}"
+        );
     }
 
     #[test]

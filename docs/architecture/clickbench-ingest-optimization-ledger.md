@@ -31,6 +31,26 @@ Constraints:
 
 ## Current Branch Experiments
 
+### `2026-08-30` Metadata-First Public Source Identity
+
+- Change under validation: public `prepare dataframe` defaults to metadata-only source identity and
+  makes full source-content fingerprinting an explicit `content_digest` proof opt-in.
+- Expected gain: remove the up-front full-source read before Universal Ingest starts streaming and
+  writing the `.vortex` artifact. The replacement-ingest UAT stall observed on the 14.78 GB
+  ClickBench Parquet source was in `fingerprint_local_source_file_with_budget_report`, not in the
+  writer.
+- Evidence fields to check: `source_fingerprint_policy`, `source_fingerprint_kind`,
+  `source_fingerprint_identity_source`, `source_content_fingerprint_requested`,
+  `source_content_fingerprint_performed`, `source_read_byte_acquisition_millis`, and
+  `source_read_scout_timing_split_status`.
+- Focused validation result: ship the metadata-first source identity path. Default public prepare no
+  longer opens a whole-source content fingerprint stream; content fingerprinting is explicit proof
+  work only.
+- Desktop UAT result: gated replacement-ingest UAT on `2026-08-30T16:38:57Z` stopped before running
+  ShardLoom because `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/sources/hits.parquet`
+  reported `14779976446` logical bytes and `0` allocated bytes. The full start-to-finish ingest
+  timing remains pending until the official source is physically materialized locally.
+
 ### `2026-06-28` Deferred Large Layout Inventory
 
 - Change: large public prepares use upstream Vortex writer row-count summary plus streaming artifact
