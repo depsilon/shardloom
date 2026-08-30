@@ -16,6 +16,77 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `FRONT-DOOR-CONTROL-PLANE-GUARDRAILS-23` closed remaining actionable front-door overhead
+      guardrails without weakening the shared runtime.
+  - Date: 2026-08-30
+  - PR/merge: PR `#1414`, merged to `main` as
+    `39f7f57 Merge pull request #1414 from depsilon/codex/tail-lane-runtime-next`.
+  - Completed scope:
+    - Kept the persistent Python worker enabled when a local timeout is configured on POSIX-style
+      platforms.
+    - Enforced the timeout budget across worker request emission and response reading, including
+      request-write, no-response, and partial-response failures.
+    - Prevented timed-out worker calls from being replayed as subprocess execution after the request
+      had reached the worker boundary.
+    - Bounded oversized command-argument redaction so large inline SQL/payload arguments cannot
+      trigger expensive regex scans or leak command payload content in exceptions.
+    - Added active metadata-first session fingerprint tests proving normal collect/reuse paths do
+      not request full-file SHA-256 content digests unless explicitly asked.
+  - Focused validation evidence:
+    - `python3 -m compileall -q python/src/shardloom`
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_error_command_redaction_bounds_oversized_args python.tests.test_cli_client.ShardLoomClientTests.test_timeout_keeps_persistent_worker_enabled python.tests.test_cli_client.ShardLoomClientTests.test_persistent_worker_timeout_does_not_replay_command_in_subprocess python.tests.test_cli_client.ShardLoomClientTests.test_persistent_worker_partial_response_timeout_does_not_block python.tests.test_cli_client.ShardLoomClientTests.test_persistent_worker_request_write_timeout_does_not_replay python.tests.test_cli_client.ShardLoomClientTests.test_session_fingerprints_are_metadata_first_by_default python.tests.test_cli_client.ShardLoomClientTests.test_session_fingerprints_only_hash_when_explicitly_requested python.tests.test_cli_client.ShardLoomClientTests.test_session_read_csv_workflow_collect_reuses_source_state_when_fingerprints_match`
+    - `git diff --check -- python/src/shardloom/client.py python/tests/test_cli_client.py docs/architecture/phased-execution-plan.md`
+    - PR `#1414` GitHub checks were green before merge, including Rust baseline, Rust feature
+      matrix, Python shards/compatibility/package smoke, release runtime/user-surface/package/
+      readiness evidence, CodeQL, dependency/security gates, website/docs validation, and Workers
+      build.
+  - Claim boundary:
+    - Local Python control-plane overhead hardening only. No official benchmark, superiority, or
+      production performance claim is made from this item.
+  - Fallback boundary:
+    - Transport fallback remains distinct from runtime fallback. No Spark, DataFusion, DuckDB,
+      Polars, pandas, Velox, `vortex-datafusion`, or another external engine was added or invoked as
+      runtime fallback.
+
+- [x] `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` shipped a shared native Vortex tail-lane recount
+      optimization slice for heavy-hitter families.
+  - Date: 2026-08-30
+  - PR/merge: PR `#1414`, merged to `main` as
+    `39f7f57 Merge pull request #1414 from depsilon/codex/tail-lane-runtime-next`.
+  - Completed scope:
+    - Added candidate-code and candidate-free recount behavior for string count top-K, string
+      count-distinct top-K, and numeric/UTF-8 top-K heavy-hitter native primitive families.
+    - Kept the single `.vortex` artifact contract intact: no query-answer sidecars, no
+      ClickBench-specific result caches, and no surface-specific execution route.
+    - Lifted the candidate-code and candidate-free counters into public workflow fields so agents
+      can see whether the optimization ran.
+    - Recorded corrected targeted ClickBench local UAT evidence and explicitly ignored the earlier
+      ad hoc run where a SQL-comment semicolon shifted query IDs.
+  - Focused validation evidence:
+    - `cargo fmt --all -- --check`
+    - `python3 -m json.tool docs/benchmarks/clickbench-100m-uat-burndown.json >/dev/null`
+    - `git diff --check -- docs/architecture/phased-execution-plan.md docs/architecture/phased-execution-completed-ledger.md docs/release/v1-inclusion-scope-matrix.md docs/benchmarks/clickbench-100m-uat-burndown.json python/src/shardloom/client.py python/tests/test_cli_client.py shardloom-vortex/src/local_primitives.rs shardloom-cli/src/public_workflow_route.rs`
+    - `cargo test -q -p shardloom-cli local_primitive_result_summary_lifts_runtime_strategy_fields --features release-user-surfaces`
+    - `cargo test -q -p shardloom-vortex --features vortex-local-primitives candidate_free`
+    - `cargo test -q -p shardloom-vortex --features vortex-local-primitives proofbound_recount`
+    - `python3 scripts/check_runtime_gap_family_burn_down.py`
+    - `PYTHONPATH=scripts python3 scripts/check_v1_inclusion_scope.py`
+    - `cargo clippy -q -p shardloom-cli --features release-user-surfaces --bin shardloom -- -D warnings`
+    - PR `#1414` GitHub checks were green before merge.
+  - Targeted UAT evidence:
+    - Corrected retained summary:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_candidate_free_recount_fixed_split_20260830T011300Z/summary.json`.
+    - `6/6` targeted lanes succeeded, total successful elapsed `100.341676s`, geomean
+      `15.314193s`, `fallback_attempted_any=false`, and `external_engine_invoked_any=false`.
+    - Compared with the retained full-43 baseline, targeted results improved `CB-Q17`, `CB-Q19`,
+      `CB-Q33`, `CB-Q34`, and `CB-Q35`; `CB-Q23` was slightly slower but uses the
+      `row_state_update` family rather than the optimized heavy-hitter recount path.
+  - Claim boundary:
+    - Local Desktop UAT optimization evidence only. This is not an official ClickBench submission or
+      benchmark superiority claim.
+  - Fallback boundary:
+    - Every retained route preserves `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] `PYTHON-PACKAGE-LAZY-FRONT-DOOR-22` finished the critical Python import/front-door overhead
       cleanup from the control-plane performance findings.
   - Date: 2026-08-29

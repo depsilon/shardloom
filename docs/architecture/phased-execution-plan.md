@@ -253,13 +253,9 @@ Current autonomous execution order:
 1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. Finish `FRONT-DOOR-CONTROL-PLANE-GUARDRAILS-23` as the follow-on implementation guardrail for
-   the latest control-plane overhead packet.
-3. Work `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` because the latest local full-43 UAT is correct
-   and passing but still tail-bound by reusable high-cardinality/string/grouped-state lanes.
-4. Promote the next concrete shared-runtime implementation item from the standing owner after the
-   current measured tail-lane slice either ships or is dropped. Completed runtime-gap rows live in
-   the completed ledger, not in this compact Planned queue.
+2. After the post-merge Desktop query UAT, promote the next concrete shared-runtime implementation
+   item from the standing owner if the updated full-lane evidence still shows a feasible runtime
+   gap. Completed runtime-gap rows live in the completed ledger, not in this compact Planned queue.
 
 - [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
   gaps.
@@ -289,128 +285,6 @@ Current autonomous execution order:
     superiority claim.
   - Fallback boundary: this owner does not execute runtime work and preserves
     `fallback_attempted=false` / `external_engine_invoked=false` in its validators.
-
-- [ ] `FRONT-DOOR-CONTROL-PLANE-GUARDRAILS-23` Close the remaining actionable front-door overhead
-  findings without weakening the shared runtime.
-  - Source: maintainer-provided control-plane overhead packet on 2026-08-29. PRs `#1411` and
-    `#1412` already shipped persistent-worker defaulting, metadata-first prepared-route
-    fingerprints, opt-in large-stack CLI launch, single-pass timed envelope rendering, and lazy
-    Python package imports; this follow-on keeps those findings guarded in ordinary session usage.
-  - Current state: normal package import and non-timeout client calls are already fast-path guarded.
-    The remaining actionable gap is that a configured timeout still forced process-per-command
-    subprocess mode, and normal session collect/write reuse lacked direct regression assertions
-    proving full-file SHA-256 content digests were not requested.
-  - V1 scope classification: `required_for_v1` because managed/dev Python users may configure
-    command timeouts and still expect the default persistent worker and metadata-first reuse path.
-  - ShardLoom technique review: this item applies PulseWeave transport reuse and metadata-first
-    reuse validation above the shared runtime only. It must not introduce a new execution provider,
-    route ID, benchmark lane, or fallback path; SQL/Python/DataFrame execution still reaches the same
-    Vortex-normalized command handlers.
-  - Execution checklist:
-    - [x] Keep the persistent Python worker enabled when a local timeout is configured on
-      POSIX-style platforms, and enforce the timeout at worker response read time.
-    - [x] Preserve subprocess fallback only for worker startup misses or platforms that cannot
-      safely monitor worker pipes; do not replay timed-out effectful commands.
-    - [x] Add Python regression coverage proving timeout-configured clients still use the
-      persistent worker when the worker protocol is available, including request-write,
-      no-response, and partial-response timeout failures.
-    - [x] Add Python session collect/write reuse assertions proving normal hot/runtime reuse does
-      not request `_file_content_digest`.
-    - [x] Add active fingerprint-helper regression coverage proving source/output fingerprints stay
-      metadata-first by default and only full-hash when an explicit proof path requests it.
-    - [x] Run focused Python client/session checks after the implementation batch is complete.
-    - [ ] Move the completed summary to the ledger after merge.
-  - User-visible surface: Python `ShardLoomClient`, `ShardLoomContext`, and session-owned
-    SQL/DataFrame-style reuse.
-  - Implementation scope: `python/src/shardloom/client.py`, `python/tests/test_cli_client.py`, and
-    the completed ledger after merge.
-  - Evidence required: focused Python client tests covering persistent worker timeout behavior and
-    metadata-first session reuse.
-  - Acceptance: configured timeouts no longer disable the persistent worker on local POSIX runtimes,
-    timed-out worker calls are not retried as hidden duplicate execution, and normal session reuse
-    never full-hashes source/output files unless an explicit proof lane asks for content digests.
-  - Verification: focused `python.tests.test_cli_client` method filters for persistent worker,
-    timeout, and session reuse after all requested implementation changes are done; broad Python
-    shard only at the cohesive PR boundary if needed.
-  - Non-goals: no engine-route changes, no official benchmark claim, no query-result caching, no
-    external execution fallback.
-  - Claim boundary: local front-door/control-plane overhead hardening only.
-  - Fallback boundary: transport fallback is not runtime fallback; every envelope still reports
-    `fallback_attempted=false` and `external_engine_invoked=false` for ShardLoom execution.
-
-- [ ] `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20` Reduce the current >10s local 100M native
-  Vortex query tails through shared dictionary, aggregate-state, and transform machinery.
-  - Source: latest local Desktop full-43 UAT
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/full43_after_q29_uncached_faststate.summary.json`.
-  - Current state: full 43-query local UAT passes with `43/43` successful queries, total
-    `204.849571s`, geomean `1.387733s`, `max_parallelism=2`, `memory_gb=8`, one
-    `34.93GB` `.vortex` artifact, `fallback_attempted=false`, and
-    `external_engine_invoked=false`. Remaining >10s lanes are `CB-Q34` `27.449s`,
-    `CB-Q35` `27.175s`, `CB-Q17` `16.509s`, `CB-Q29` `14.215s`, `CB-Q33` `11.125s`,
-    `CB-Q23` `10.667s`, and `CB-Q19` `10.272s`.
-  - Current retained slice: `CB-Q29` now records
-    `local_primitive_transformed_dictionary_lazy_utf8_minmax_updates=true` and
-    `dictionary_weighted_utf8_minmax_allocation_bypass`, avoiding per-candidate UTF-8 `StatValue`
-    allocation for transformed-dictionary identity min/max. Targeted UAT evidence lives in
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/retained-evidence/q29_lazy_utf8_minmax_repeat.summary.json`
-    with `13.99s`, `fallback_attempted=false`, and `external_engine_invoked=false`; the run is
-    recorded in `docs/benchmarks/clickbench-100m-uat-burndown.json` as a retained Q29 slice, not a
-    completed tail-lane phase.
-  - Current retained multi-lane slice: candidate-code and candidate-free recount behavior now
-    applies to the string count top-K, string count-distinct top-K, and numeric/UTF-8 top-K
-    heavy-hitter families. Corrected targeted UAT evidence lives in
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_candidate_free_recount_fixed_split_20260830T011300Z/summary.json`;
-    it passes `6/6` targeted lanes with total `100.341676s`, geomean `15.314193s`,
-    `fallback_attempted=false`, and `external_engine_invoked=false`. The ignored
-    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_candidate_free_recount_20260830T010615Z/summary.json`
-    run is not used because its ad hoc query splitter treated a semicolon in a SQL comment as a
-    query boundary and shifted query IDs.
-  - V1 scope classification: `required_for_v1` for locally feasible shared runtime speedups that
-    preserve current results; official ClickBench submission and superiority claims remain outside
-    this item.
-  - ShardLoom technique review: apply only optimizations that remove a dominant cost class in the
-    shared Vortex-normalized middle: metadata-first segment pruning, dictionary-code execution,
-    capillary partial aggregates, packed-key state, transform-code reuse, row-ref late
-    materialization, PulseWeave resource envelopes, and evidence-tier controls. Do not add
-    query-answer sidecars, ClickBench-specific shortcuts, external engines, or front-door-specific
-    routes.
-  - Execution checklist:
-    - [x] Inspect the current route/evidence for each >10s lane and classify its dominant cost as
-      string heavy-hitter recount, transformed dictionary grouping, high-cardinality packed-key
-      state, or bounded materialization.
-    - [x] Implement one cohesive shared-runtime optimization that applies to at least two of the
-      remaining >10s lanes, or explicitly drop it with targeted UAT evidence if it regresses.
-    - [x] Preserve the single `.vortex` artifact contract: any new metadata must be embedded in the
-      artifact or computed run-locally from existing Vortex state, never kept as a query-specific
-      sidecar.
-    - [x] Add or update focused Rust tests for the changed primitive route, including no-fallback,
-      decoded-reference correctness where applicable, and evidence fields that show whether the
-      optimization shipped or was dropped.
-    - [x] Run targeted UAT for the affected lanes before a full replacement/full-43 UAT; retain only
-      changes that improve or hold the current best timing within expected local variance.
-    - [x] Update `docs/benchmarks/clickbench-100m-uat-burndown.json` with the ship/drop decision
-      and timing deltas.
-    - [ ] Move the completed summary to the ledger after merge.
-  - Next outcome: one coherent performance PR that improves shared native Vortex tail-lane behavior
-    without sacrificing the current fast lanes or artifact contract.
-  - User-visible surface: SQL/Python/DataFrame/CLI all benefit through the same prepared/native
-    Vortex primitive routes; UAT artifacts show CLI/runtime evidence.
-  - Implementation scope: `shardloom-vortex/src/local_primitives.rs`, physical-policy/resource
-    helpers, focused Rust tests, ClickBench UAT burndown docs, and generated evidence only where the
-    changed route requires it.
-  - Evidence required: per-lane before/after timings, route evidence, materialization/decode
-    posture, no-fallback fields, correctness tests, and ship/drop rationale.
-  - Acceptance: at least one >10s lane improves materially without a material regression in another
-    affected lane, or the attempted optimization is removed and documented as dropped with evidence.
-  - Verification: focused Rust tests for the changed primitive, targeted local UAT for affected
-    `CB-Q*` lanes, `python3 scripts/check_runtime_gap_family_burn_down.py`,
-    `PYTHONPATH=scripts python3 scripts/check_v1_inclusion_scope.py`, and full 43-query UAT only at
-    the end of a cohesive performance batch.
-  - Non-goals: no full workspace test suite for a ship/drop probe, no official ClickBench claim, no
-    query-answer cache, no hidden sidecar, no DataFusion/DuckDB/Polars/pandas/Spark fallback.
-  - Claim boundary: local Desktop UAT optimization evidence only.
-  - Fallback boundary: every successful and dropped route must preserve `fallback_attempted=false`
-    and `external_engine_invoked=false`.
 
 ## Completed
 
