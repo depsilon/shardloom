@@ -5392,7 +5392,7 @@ pub struct VortexLayoutWriteAdvisorInput {
     pub external_engine_invoked: bool,
 }
 
-/// Evidence for scoped local Vortex layout/write advisor checks.
+/// Evidence for admitted local-product Vortex layout/write advisor checks.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexLayoutWriteAdvisorReport {
@@ -5441,8 +5441,8 @@ pub struct VortexLayoutWriteAdvisorReport {
     pub external_engine_invoked: bool,
 }
 
-/// Runtime decision returned by the local Vortex writer after it validates a
-/// scoped layout/write advisor strategy and applies it to the writer path.
+/// Runtime decision returned by the local Vortex writer after it validates an
+/// admitted layout/write advisor strategy and applies it to the writer path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexLayoutWriteRuntimeDecision {
     pub runtime_decision_applied: bool,
@@ -5654,7 +5654,7 @@ impl VortexLayoutWriteAdvisorReport {
     #[must_use]
     #[allow(clippy::too_many_lines)]
     pub fn evidence_fields(&self) -> Vec<(String, String)> {
-        let mut fields = Vec::with_capacity(51);
+        let mut fields = Vec::with_capacity(64);
         Self::push_field(
             &mut fields,
             "vortex_layout_write_advisor_schema_version",
@@ -5669,6 +5669,51 @@ impl VortexLayoutWriteAdvisorReport {
             &mut fields,
             "vortex_layout_write_advisor_route",
             &self.route,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_role",
+            "universal_ingest_optimizer",
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_public_runtime_posture",
+            "admitted_local_product_workflow_not_smoke",
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_single_artifact_required",
+            "true",
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_query_answer_sidecar_allowed",
+            "false",
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_metadata_payload_policy",
+            "embedded_generic_layout_statistics_no_query_answer_sidecars",
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_compact_derived_metadata_policy",
+            "dictionary_derived_metadata_preferred_over_full_hidden_columns",
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_membership_sketch_policy",
+            "generic_segment_membership_only_not_query_result_cache",
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_row_position_locality_policy",
+            "embedded_order_key_row_position_locality_when_available",
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_surface_unification_policy",
+            "sql_python_dataframe_cli_share_vortex_normalized_physical_runtime",
         );
         Self::push_field(
             &mut fields,
@@ -5940,7 +5985,7 @@ fn workload_constitution_value<'a>(workload_constitution: &'a str, key: &str) ->
         .unwrap_or("unknown")
 }
 
-/// Evaluate scoped local Vortex layout/write advisor evidence.
+/// Evaluate admitted local-product Vortex layout/write advisor evidence.
 #[must_use]
 pub fn evaluate_vortex_layout_write_advisor(
     input: VortexLayoutWriteAdvisorInput,
@@ -6012,7 +6057,7 @@ pub fn evaluate_vortex_layout_write_advisor(
         no_standalone_lane_status:
             "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
         claim_gate_status: "not_claim_grade".to_string(),
-        claim_boundary: "VortexLayoutWriteAdvisor evidence is scoped local cold-lane layout/write admission only: it records source statistics posture, pushdown/sink requirements, writer strategy, provider boundary, tradeoffs, verification depth, correctness refs, and benchmark-ref posture without proving performance, object-store/table layout, production, SQL/DataFrame, or Spark-replacement readiness".to_string(),
+        claim_boundary: "VortexLayoutWriteAdvisor evidence is admitted local-product layout/write admission: it records source statistics posture, pushdown/sink requirements, writer strategy, provider boundary, tradeoffs, verification depth, correctness refs, and benchmark-ref posture without proving performance, object-store/table layout, remote production, SQL/DataFrame breadth, or Spark-replacement readiness".to_string(),
         fallback_attempted: input.fallback_attempted,
         external_engine_invoked: input.external_engine_invoked,
     }
@@ -15972,6 +16017,26 @@ mod tests {
         assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert!(!report.fallback_attempted);
         assert!(fields.contains(&(
+            "vortex_layout_write_advisor_role".to_string(),
+            "universal_ingest_optimizer".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_layout_write_advisor_public_runtime_posture".to_string(),
+            "admitted_local_product_workflow_not_smoke".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_layout_write_advisor_single_artifact_required".to_string(),
+            "true".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_layout_write_advisor_query_answer_sidecar_allowed".to_string(),
+            "false".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_layout_write_advisor_surface_unification_policy".to_string(),
+            "sql_python_dataframe_cli_share_vortex_normalized_physical_runtime".to_string()
+        )));
+        assert!(fields.contains(&(
             "vortex_layout_write_advisor_source_scale".to_string(),
             "unknown".to_string()
         )));
@@ -16019,6 +16084,22 @@ mod tests {
         assert!(fields.contains(&(
             "vortex_layout_write_advisor_writer_parallelism_budget".to_string(),
             "1".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_layout_write_advisor_metadata_payload_policy".to_string(),
+            "embedded_generic_layout_statistics_no_query_answer_sidecars".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_layout_write_advisor_compact_derived_metadata_policy".to_string(),
+            "dictionary_derived_metadata_preferred_over_full_hidden_columns".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_layout_write_advisor_membership_sketch_policy".to_string(),
+            "generic_segment_membership_only_not_query_result_cache".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_layout_write_advisor_row_position_locality_policy".to_string(),
+            "embedded_order_key_row_position_locality_when_available".to_string()
         )));
         assert!(fields.contains(&(
             "vortex_layout_write_advisor_source_scale".to_string(),

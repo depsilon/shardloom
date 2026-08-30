@@ -1092,6 +1092,11 @@ fn append_local_primitive_physical_policy_fields(
     );
     push_field(
         fields,
+        "local_primitive_physical_policy_summary",
+        physical_policy.compact_summary(),
+    );
+    push_field(
+        fields,
         "local_primitive_physical_policy_id",
         &physical_policy.policy_id,
     );
@@ -1104,6 +1109,44 @@ fn append_local_primitive_physical_policy_fields(
         fields,
         "local_primitive_physical_policy_state_pressure_reason",
         &physical_policy.state_pressure_reason,
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_requested_max_parallelism",
+        physical_policy.requested_max_parallelism.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_selected_max_parallelism",
+        physical_policy.selected_max_parallelism.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_selected_scan_concurrency_per_worker",
+        physical_policy
+            .selected_scan_concurrency_per_worker
+            .to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_selected_group_state_soft_item_budget",
+        physical_policy
+            .selected_group_state_soft_item_budget
+            .to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_selected_string_topk_heavy_hitter_capacity",
+        physical_policy
+            .selected_string_topk_heavy_hitter_capacity
+            .to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_physical_policy_selected_numeric_utf8_topk_heavy_hitter_capacity",
+        physical_policy
+            .selected_numeric_utf8_topk_heavy_hitter_capacity
+            .to_string(),
     );
     push_field(
         fields,
@@ -1535,6 +1578,21 @@ fn append_local_primitive_embedded_layout_fields(
         "local_primitive_metadata_first_pruning_available",
         embedded_layout.metadata_first_pruning_available,
     );
+    push_field(
+        fields,
+        "local_primitive_metadata_elimination_stage",
+        "after_vortex_normalization_before_operator_execution",
+    );
+    push_field(
+        fields,
+        "local_primitive_metadata_elimination_outcome",
+        local_primitive_metadata_elimination_outcome(embedded_layout),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_metadata_elimination_attempted",
+        embedded_layout.metadata_persisted_in_artifact,
+    );
     push_bool_field(
         fields,
         "local_primitive_metadata_first_pruning_consulted",
@@ -1554,6 +1612,28 @@ fn append_local_primitive_embedded_layout_fields(
         fields,
         "local_primitive_skipped_segment_count",
         embedded_layout.skipped_segment_count.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_rows_avoided_by_metadata",
+        if embedded_layout.metadata_pruned_entire_input {
+            embedded_layout.footer_row_count.to_string()
+        } else {
+            "0".to_string()
+        },
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_decode_avoided_by_metadata",
+        embedded_layout.metadata_pruned_entire_input
+            || embedded_layout
+                .planner_consumption_status
+                .contains("metadata_row_count"),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_materialization_avoided_by_metadata",
+        embedded_layout.metadata_pruned_entire_input,
     );
     push_bool_field(
         fields,
@@ -1585,6 +1665,30 @@ fn append_local_primitive_embedded_layout_fields(
         "local_primitive_no_query_answer_cache",
         embedded_layout.no_query_answer_cache,
     );
+}
+
+fn local_primitive_metadata_elimination_outcome(
+    embedded_layout: &shardloom_vortex::VortexLocalPrimitiveEmbeddedLayoutReport,
+) -> &'static str {
+    if !embedded_layout.metadata_persisted_in_artifact {
+        return "metadata_unavailable_operator_execution_required";
+    }
+    if embedded_layout.metadata_pruned_entire_input {
+        return "metadata_pruned_entire_input";
+    }
+    if embedded_layout
+        .planner_consumption_status
+        .contains("metadata_row_count")
+    {
+        return "metadata_answered_without_row_scan";
+    }
+    if embedded_layout.metadata_first_pruning_consulted {
+        return "metadata_consulted_operator_execution_required";
+    }
+    if embedded_layout.metadata_first_pruning_available {
+        return "metadata_available_not_consulted_for_this_shape";
+    }
+    "metadata_recorded_for_operator_selection"
 }
 
 fn native_vortex_primitive_row_export_typed_sink_contract(output_format: &str) -> &'static str {

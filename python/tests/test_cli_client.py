@@ -5102,6 +5102,37 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(output_fingerprint.fingerprint_kind, "local_file_size_mtime")
             self.assertIsNone(output_fingerprint.content_digest)
 
+    def test_session_directory_fingerprints_are_metadata_first_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            for index in range(100):
+                partition = root / f"bucket={index:03d}"
+                partition.mkdir()
+                (partition / "part.csv").write_text(
+                    f"id,label\n{index},value-{index}\n",
+                    encoding="utf-8",
+                )
+
+            with mock.patch.object(
+                Path,
+                "rglob",
+                side_effect=AssertionError("session directory fingerprint should not traverse"),
+            ):
+                fingerprint = shardloom_session_module._fingerprint_file(root)
+
+            self.assertEqual(
+                fingerprint.fingerprint_kind,
+                "local_directory_root_size_mtime_source_state_candidate",
+            )
+            self.assertEqual(
+                fingerprint.identity_source,
+                "root_metadata_source_state_candidate",
+            )
+            self.assertFalse(fingerprint.tree_walk_performed)
+            self.assertEqual(fingerprint.files_walked, 0)
+            self.assertEqual(fingerprint.stats_performed, 1)
+            self.assertIsNone(fingerprint.content_digest)
+
     def test_session_fingerprints_only_hash_when_explicitly_requested(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
@@ -5126,6 +5157,41 @@ class ShardLoomClientTests(unittest.TestCase):
                 "local_file_sha256_size_mtime",
             )
             self.assertIsNotNone(fingerprints[0].content_digest)
+
+    def test_session_directory_fingerprints_only_walk_for_explicit_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            for index in range(3):
+                partition = root / f"bucket={index:03d}"
+                partition.mkdir()
+                (partition / "part.csv").write_text(
+                    f"id,label\n{index},value-{index}\n",
+                    encoding="utf-8",
+                )
+
+            with mock.patch.object(
+                shardloom_session_module,
+                "_file_content_digest",
+                wraps=shardloom_session_module._file_content_digest,
+            ) as digest_mock:
+                fingerprint = shardloom_session_module._fingerprint_file(
+                    root,
+                    content_digest=True,
+                )
+
+            self.assertEqual(digest_mock.call_count, 3)
+            self.assertEqual(
+                fingerprint.fingerprint_kind,
+                "local_directory_tree_sha256_size_mtime",
+            )
+            self.assertEqual(
+                fingerprint.identity_source,
+                "recursive_tree_explicit_proof",
+            )
+            self.assertTrue(fingerprint.tree_walk_performed)
+            self.assertEqual(fingerprint.files_walked, 3)
+            self.assertGreaterEqual(fingerprint.stats_performed, 4)
+            self.assertIsNotNone(fingerprint.content_digest)
 
     def test_top_level_session_helper_constructs_caller_owned_session(self) -> None:
         sess = shardloom_session(

@@ -86,6 +86,10 @@ fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence
         "aggregate",
         "--vortex-aggregate",
         aggregate,
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -137,6 +141,8 @@ fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence
         "local_primitive_physical_policy_schema_version",
         "shardloom.local_vortex_physical_policy.v1"
     )));
+    assert!(stdout.contains("local_primitive_physical_policy_summary"));
+    assert!(stdout.contains("selected_max_parallelism=2"));
     assert!(stdout.contains(&field(
         "local_primitive_physical_policy_route_family",
         "stateless_scan_count"
@@ -144,6 +150,30 @@ fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence
     assert!(stdout.contains(&field(
         "local_primitive_physical_policy_state_pressure_reason",
         "scalar_aggregate_without_group_state"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_requested_max_parallelism",
+        "2"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_selected_max_parallelism",
+        "2"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_selected_scan_concurrency_per_worker",
+        "2"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_selected_group_state_soft_item_budget",
+        "33554432"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_selected_string_topk_heavy_hitter_capacity",
+        "65536"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_physical_policy_selected_numeric_utf8_topk_heavy_hitter_capacity",
+        "65536"
     )));
     assert!(stdout.contains(&field(
         "local_primitive_physical_policy_rejected_alternatives",
@@ -216,6 +246,23 @@ fn public_run_native_vortex_directory_count_uses_partitioned_binding() {
     assert!(stdout.contains(&field("local_primitive_rows_scanned", "10")));
     assert!(stdout.contains(&field("local_primitive_rows_selected", "10")));
     assert!(stdout.contains(&field("local_primitive_mode", "metadata_preserving_count")));
+    assert!(stdout.contains(&field(
+        "local_primitive_metadata_elimination_stage",
+        "after_vortex_normalization_before_operator_execution"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_metadata_elimination_outcome",
+        "metadata_answered_without_row_scan"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_metadata_elimination_attempted",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_planner_consumption_status",
+        "partitioned_metadata_row_count_consumed"
+    )));
+    assert!(stdout.contains(&field("local_primitive_decode_avoided_by_metadata", "true")));
     assert!(stdout.contains(&field(
         "local_primitive_physical_policy_route_family",
         "stateless_scan_count"
@@ -330,11 +377,11 @@ fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
     assert!(stdout.contains(&field("local_primitive_rows_projected", "1")));
     assert!(stdout.contains(&field(
         "local_primitive_capillary_work_units",
-        "partitioned_vortex_source,vortex_scan,aggregate_state"
+        "partitioned_vortex_source,vortex_scan,aggregate_state,dictionary_or_typed_direct_scalar_aggregate"
     )));
     assert!(stdout.contains(&field(
         "local_primitive_pulseweave_pressure_signals",
-        "partition_count,aggregate_measure_count,aggregate_input_rows"
+        "partition_count,aggregate_measure_count,aggregate_input_rows,row_materialization_bypass"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));

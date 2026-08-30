@@ -47,7 +47,7 @@ from .query import (
 
 @dataclass(frozen=True, slots=True)
 class LocalFileFingerprint:
-    """Evidence-safe local file fingerprint used for session reuse decisions."""
+    """Evidence-safe local path fingerprint used for session reuse decisions."""
 
     path: str
     exists: bool
@@ -55,6 +55,10 @@ class LocalFileFingerprint:
     mtime_ns: int | None
     content_digest: str | None
     fingerprint_kind: str = "local_file_size_mtime"
+    identity_source: str = "local_file_metadata"
+    tree_walk_performed: bool = False
+    files_walked: int = 0
+    stats_performed: int = 0
 
     @property
     def reuse_digest(self) -> str:
@@ -67,6 +71,10 @@ class LocalFileFingerprint:
             "" if self.size_bytes is None else str(self.size_bytes),
             "" if self.mtime_ns is None else str(self.mtime_ns),
             "" if self.content_digest is None else self.content_digest,
+            self.identity_source,
+            str(self.tree_walk_performed).lower(),
+            str(self.files_walked),
+            str(self.stats_performed),
         )
         payload = "\0".join(parts).encode("utf-8")
         return "sha256:" + hashlib.sha256(payload).hexdigest()
@@ -178,6 +186,12 @@ class SessionPreparedState:
             "prepared_state_reuse_hit": self.prepared_state_reuse_hit,
             "reuse_reason": self.reuse_reason,
             "source_fingerprint_kind": self.source_fingerprint.fingerprint_kind,
+            "source_fingerprint_identity_source": self.source_fingerprint.identity_source,
+            "source_fingerprint_tree_walk_performed": (
+                self.source_fingerprint.tree_walk_performed
+            ),
+            "source_fingerprint_files_walked": self.source_fingerprint.files_walked,
+            "source_fingerprint_stats_performed": self.source_fingerprint.stats_performed,
             "source_content_digest": self.source_fingerprint.content_digest,
             "source_size": self.source_fingerprint.size_bytes,
             "source_mtime": self.source_fingerprint.mtime_ns,
@@ -686,6 +700,23 @@ class SessionSqlResult:
             "source_schema_digest": self.source_schema_digest,
             "source_fingerprint_digests": tuple(
                 fingerprint.reuse_digest for fingerprint in self.source_fingerprints
+            ),
+            "source_fingerprint_kinds": _fingerprint_field_values(
+                self.source_fingerprints,
+                "fingerprint_kind",
+            ),
+            "source_fingerprint_identity_sources": _fingerprint_field_values(
+                self.source_fingerprints,
+                "identity_source",
+            ),
+            "source_fingerprint_tree_walk_performed": any(
+                fingerprint.tree_walk_performed for fingerprint in self.source_fingerprints
+            ),
+            "source_fingerprint_files_walked": sum(
+                fingerprint.files_walked for fingerprint in self.source_fingerprints
+            ),
+            "source_fingerprint_stats_performed": sum(
+                fingerprint.stats_performed for fingerprint in self.source_fingerprints
             ),
             "output_fingerprint_digests": tuple(
                 fingerprint.reuse_digest for fingerprint in self.output_fingerprints
@@ -2029,6 +2060,22 @@ def _fingerprint_file(
     if not metadata.exists or not content_digest:
         return metadata
     local_path = Path(path).expanduser()
+    if metadata.fingerprint_kind.startswith("local_directory_"):
+        content_digest_value, size_bytes, mtime_ns, files_walked, stats_performed = (
+            _directory_tree_content_digest(local_path)
+        )
+        return LocalFileFingerprint(
+            path=metadata.path,
+            exists=True,
+            size_bytes=size_bytes,
+            mtime_ns=mtime_ns,
+            content_digest=content_digest_value,
+            fingerprint_kind="local_directory_tree_sha256_size_mtime",
+            identity_source="recursive_tree_explicit_proof",
+            tree_walk_performed=True,
+            files_walked=files_walked,
+            stats_performed=stats_performed,
+        )
     return LocalFileFingerprint(
         path=metadata.path,
         exists=True,
@@ -2036,6 +2083,7 @@ def _fingerprint_file(
         mtime_ns=metadata.mtime_ns,
         content_digest=_file_content_digest(local_path),
         fingerprint_kind="local_file_sha256_size_mtime",
+        identity_source="local_file_explicit_proof_digest",
     )
 
 
@@ -2051,6 +2099,21 @@ def _fingerprint_file_metadata(path: str | os.PathLike[str]) -> LocalFileFingerp
             size_bytes=None,
             mtime_ns=None,
             content_digest=None,
+            fingerprint_kind="local_path_missing",
+            identity_source="missing_path",
+        )
+    if local_path.is_dir():
+        return LocalFileFingerprint(
+            path=normalized,
+            exists=True,
+            size_bytes=stat.st_size,
+            mtime_ns=stat.st_mtime_ns,
+            content_digest=None,
+            fingerprint_kind="local_directory_root_size_mtime_source_state_candidate",
+            identity_source="root_metadata_source_state_candidate",
+            tree_walk_performed=False,
+            files_walked=0,
+            stats_performed=1,
         )
     return LocalFileFingerprint(
         path=normalized,
@@ -2059,6 +2122,8 @@ def _fingerprint_file_metadata(path: str | os.PathLike[str]) -> LocalFileFingerp
         mtime_ns=stat.st_mtime_ns,
         content_digest=None,
         fingerprint_kind="local_file_size_mtime",
+        identity_source="local_file_metadata",
+        stats_performed=1,
     )
 
 
@@ -2068,6 +2133,31 @@ def _file_content_digest(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return "sha256:" + digest.hexdigest()
+
+
+def _directory_tree_content_digest(path: Path) -> tuple[str, int, int, int, int]:
+    root_stat = path.stat()
+    total_size = root_stat.st_size
+    max_mtime = root_stat.st_mtime_ns
+    files_walked = 0
+    stats_performed = 1
+    digest = hashlib.sha256()
+    for child in sorted(item for item in path.rglob("*") if item.is_file()):
+        stat = child.stat()
+        stats_performed += 1
+        files_walked += 1
+        total_size += stat.st_size
+        max_mtime = max(max_mtime, stat.st_mtime_ns)
+        relative = child.relative_to(path).as_posix()
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(stat.st_size).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(str(stat.st_mtime_ns).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(_file_content_digest(child).encode("ascii"))
+        digest.update(b"\0")
+    return "sha256:" + digest.hexdigest(), total_size, max_mtime, files_walked, stats_performed
 
 
 def _normalized_path(path: str | os.PathLike[str]) -> str:
@@ -2110,6 +2200,21 @@ def _source_fingerprints(
 ) -> tuple[LocalFileFingerprint, ...]:
     refs = _sql_source_refs(statement)
     return tuple(_fingerprint_file(ref, content_digest=content_digest) for ref in refs)
+
+
+def _fingerprint_field_values(
+    fingerprints: Sequence[LocalFileFingerprint],
+    field_name: str,
+) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                str(getattr(fingerprint, field_name))
+                for fingerprint in fingerprints
+                if getattr(fingerprint, field_name, None) not in (None, "")
+            }
+        )
+    )
 
 
 def _cacheable_sql_state(
