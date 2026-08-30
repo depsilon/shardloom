@@ -7932,12 +7932,15 @@ class ReleaseScriptTests(unittest.TestCase):
         channel_id: str = "testpypi",
         testpypi_proof_ref: str | None = None,
     ) -> dict[str, object]:
+        artifact_filename = (
+            f"shardloom-{SELECTED_PACKAGE_RELEASE_VERSION}-py3-none-any.whl"
+        )
         return {
             "schema_version": "shardloom.python_registry_package_proof.v1",
             "proof_status": "passed",
             "channel_id": channel_id,
             "package_name": "shardloom",
-            "package_version": "0.2.1",
+            "package_version": SELECTED_PACKAGE_RELEASE_VERSION,
             "download_transcript_status": "passed",
             "install_transcript_status": "passed",
             "smoke_check_status": "passed",
@@ -7957,9 +7960,9 @@ class ReleaseScriptTests(unittest.TestCase):
             "registry_artifact_digest_binding_status": "passed",
             "downloaded_registry_artifact_ref": (
                 "target/python-registry-package-proof/downloads/"
-                "shardloom-0.2.1-py3-none-any.whl"
+                f"{artifact_filename}"
             ),
-            "downloaded_registry_artifact_filename": "shardloom-0.2.1-py3-none-any.whl",
+            "downloaded_registry_artifact_filename": artifact_filename,
             "downloaded_registry_artifact_sha256": "a" * 64,
             "registry_download_isolated": True,
             "registry_download_cache_disabled": True,
@@ -7967,21 +7970,21 @@ class ReleaseScriptTests(unittest.TestCase):
             "registry_install_cache_disabled": True,
             "registry_install_cache_hit_detected": False,
             "installed_registry_artifact": {
-                "filename": "shardloom-0.2.1-py3-none-any.whl",
+                "filename": artifact_filename,
                 "sha256": "a" * 64,
-                "url": "https://example.invalid/shardloom-0.2.1-py3-none-any.whl",
+                "url": f"https://example.invalid/{artifact_filename}",
             },
-            "installed_registry_artifact_filename": "shardloom-0.2.1-py3-none-any.whl",
+            "installed_registry_artifact_filename": artifact_filename,
             "installed_registry_artifact_sha256": "a" * 64,
             "registry_release_artifact_count": 1,
             "registry_release_artifacts": [
                 {
-                    "filename": "shardloom-0.2.1-py3-none-any.whl",
+                    "filename": artifact_filename,
                     "packagetype": "bdist_wheel",
                     "python_version": "py3",
                     "sha256": "a" * 64,
                     "size": 268000,
-                    "url": "https://example.invalid/shardloom-0.2.1-py3-none-any.whl",
+                    "url": f"https://example.invalid/{artifact_filename}",
                 }
             ],
         }
@@ -8209,7 +8212,8 @@ class ReleaseScriptTests(unittest.TestCase):
         pypi_proof = self._python_registry_proof_fixture(
             channel_id="pypi",
             testpypi_proof_ref=(
-                "docs/release/channel-proofs/testpypi-v0.2.1-transcript.json"
+                "docs/release/channel-proofs/"
+                f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-transcript.json"
             ),
         )
         matrix = {
@@ -8297,9 +8301,19 @@ class ReleaseScriptTests(unittest.TestCase):
 
         blockers = "\n".join(report["blockers"])
         self.assertEqual(report["status"], "blocked")
-        self.assertIn("package_version must be 0.2.1", blockers)
-        self.assertIn("downloaded registry artifact must match 0.2.1", blockers)
-        self.assertIn("installed registry artifact must match 0.2.1", blockers)
+        self.assertIn(
+            f"package_version must be {SELECTED_PACKAGE_RELEASE_VERSION}", blockers
+        )
+        self.assertIn(
+            "downloaded registry artifact must match "
+            f"{SELECTED_PACKAGE_RELEASE_VERSION}",
+            blockers,
+        )
+        self.assertIn(
+            "installed registry artifact must match "
+            f"{SELECTED_PACKAGE_RELEASE_VERSION}",
+            blockers,
+        )
 
     def test_package_channel_registry_proofs_reject_stale_testpypi_ref(self) -> None:
         module = self._load_script_module(
@@ -8329,7 +8343,8 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "blocked")
         self.assertIn(
             "testpypi_proof_ref must be "
-            "docs/release/channel-proofs/testpypi-v0.2.1-transcript.json",
+            "docs/release/channel-proofs/"
+            f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-transcript.json",
             blockers,
         )
 
