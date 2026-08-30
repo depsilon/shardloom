@@ -25,6 +25,7 @@ UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)
 sys.path.insert(0, str(REPO_ROOT / "python" / "src"))
 
 shardloom_session_module = importlib.import_module("shardloom.session")
+client_module = importlib.import_module("shardloom.client")
 
 from shardloom import (
     __version__,
@@ -5070,6 +5071,62 @@ class ShardLoomClientTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "ShardLoomSession is closed"):
                 session.prepare_vortex(source_path, target_path)
 
+    def test_session_fingerprints_are_metadata_first_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source_path = root / "source.csv"
+            output_path = root / "out.jsonl"
+            source_path.write_text("id,label\n1,alpha\n", encoding="utf-8")
+            output_path.write_text('{"id":1}\n', encoding="utf-8")
+            statement = f"SELECT id FROM '{source_path}'"
+
+            with mock.patch.object(
+                shardloom_session_module,
+                "_file_content_digest",
+                side_effect=AssertionError(
+                    "default session fingerprints must be metadata-first"
+                ),
+            ) as digest_mock:
+                source_fingerprints = shardloom_session_module._source_fingerprints(statement)
+                output_fingerprint = shardloom_session_module._fingerprint_file(output_path)
+
+            self.assertEqual(digest_mock.call_count, 0)
+            self.assertEqual(len(source_fingerprints), 1)
+            self.assertTrue(source_fingerprints[0].exists)
+            self.assertEqual(
+                source_fingerprints[0].fingerprint_kind,
+                "local_file_size_mtime",
+            )
+            self.assertIsNone(source_fingerprints[0].content_digest)
+            self.assertTrue(output_fingerprint.exists)
+            self.assertEqual(output_fingerprint.fingerprint_kind, "local_file_size_mtime")
+            self.assertIsNone(output_fingerprint.content_digest)
+
+    def test_session_fingerprints_only_hash_when_explicitly_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source_path = root / "source.csv"
+            source_path.write_text("id,label\n1,alpha\n", encoding="utf-8")
+            statement = f"SELECT id FROM '{source_path}'"
+
+            with mock.patch.object(
+                shardloom_session_module,
+                "_file_content_digest",
+                wraps=shardloom_session_module._file_content_digest,
+            ) as digest_mock:
+                fingerprints = shardloom_session_module._source_fingerprints(
+                    statement,
+                    content_digest=True,
+                )
+
+            self.assertEqual(digest_mock.call_count, 1)
+            self.assertEqual(len(fingerprints), 1)
+            self.assertEqual(
+                fingerprints[0].fingerprint_kind,
+                "local_file_sha256_size_mtime",
+            )
+            self.assertIsNotNone(fingerprints[0].content_digest)
+
     def test_top_level_session_helper_constructs_caller_owned_session(self) -> None:
         sess = shardloom_session(
             client=ShardLoomClient(binary=[sys.executable, "-c", "raise SystemExit(0)"]),
@@ -5169,8 +5226,17 @@ class ShardLoomClientTests(unittest.TestCase):
             sess = ctx.session(session_id="ordinary-workflow-session")
             frame = sess.read_csv(source_path).select("id").limit(2)
 
-            first = frame.collect()
-            second = frame.collect()
+            with mock.patch.object(
+                shardloom_session_module,
+                "_file_content_digest",
+                side_effect=AssertionError(
+                    "normal session collect reuse must stay metadata-first"
+                ),
+            ) as digest_mock:
+                first = frame.collect()
+                second = frame.collect()
+
+                self.assertEqual(digest_mock.call_count, 0)
 
             self.assertIsInstance(frame, SessionLazyFrame)
             self.assertIsInstance(first, SessionSqlResult)
@@ -5191,7 +5257,15 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
 
             source_path.write_text("id,label\n1,alpha\n3,gamma\n", encoding="utf-8")
-            third = frame.collect()
+            with mock.patch.object(
+                shardloom_session_module,
+                "_file_content_digest",
+                side_effect=AssertionError(
+                    "normal session collect invalidation must stay metadata-first"
+                ),
+            ) as digest_mock:
+                third = frame.collect()
+                self.assertEqual(digest_mock.call_count, 0)
             self.assertFalse(third.reuse_hit)
             self.assertEqual(third.reuse_reason, "source_fingerprint_changed")
             self.assertEqual(third.source_state_id, "fake-source-state")
@@ -5269,8 +5343,17 @@ class ShardLoomClientTests(unittest.TestCase):
             sess = ctx.session(session_id="ordinary-sql-session")
             workflow = sess.sql(f"SELECT id FROM '{source_path}' LIMIT 2")
 
-            first = workflow.write_jsonl(output_path, allow_overwrite=True, check=False)
-            second = workflow.write_jsonl(output_path, check=False)
+            with mock.patch.object(
+                shardloom_session_module,
+                "_file_content_digest",
+                side_effect=AssertionError(
+                    "normal session write reuse must stay metadata-first"
+                ),
+            ) as digest_mock:
+                first = workflow.write_jsonl(output_path, allow_overwrite=True, check=False)
+                second = workflow.write_jsonl(output_path, check=False)
+
+                self.assertEqual(digest_mock.call_count, 0)
 
             self.assertIsInstance(workflow, SessionSqlWorkflow)
             self.assertIsInstance(first, SessionSqlResult)
@@ -8808,6 +8891,17 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("token=secret", message)
         self.assertNotIn("user@bucket", message)
 
+    def test_error_command_redaction_bounds_oversized_args(self) -> None:
+        large_sql = "SELECT '" + ("x" * 20_000) + "s3://user@bucket/path?token=secret'"
+
+        command = client_module._redact_command_for_error(
+            ["shardloom", "run", "sql", "--sql", large_sql]
+        )
+
+        self.assertEqual(command[-1], f"<redacted-large-arg:{len(large_sql)}chars>")
+        self.assertNotIn("token=secret", " ".join(command))
+        self.assertNotIn("user@bucket", " ".join(command))
+
     def test_workflow_error_view_preserves_normalized_diagnostic_categories(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -11508,6 +11602,199 @@ class ShardLoomClientTests(unittest.TestCase):
             "capabilities,python,--format,json",
         )
         self.assertEqual(log_path.read_text(encoding="utf-8").count("start\n"), 1)
+
+    def test_timeout_keeps_persistent_worker_enabled(self) -> None:
+        if os.name == "nt":
+            self.skipTest("timeout-configured worker pipe monitoring is POSIX-only")
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        log_path = Path(tempdir.name) / "worker-timeout-starts.txt"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+                from pathlib import Path
+
+                def emit(command, fields):
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": command,
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [{{"key": key, "value": value}} for key, value in fields],
+                    }}), flush=True)
+
+                if sys.argv[1:] == ["python-worker"]:
+                    with Path({str(log_path)!r}).open("a", encoding="utf-8") as handle:
+                        handle.write("start\\n")
+                    for line in sys.stdin:
+                        request = json.loads(line)
+                        args = request["args"]
+                        emit(args[0], [
+                            ["worker_transport", "persistent_python_worker_with_timeout"],
+                            ["observed_args", ",".join(args)],
+                            ["fallback_attempted", "false"],
+                            ["external_engine_invoked", "false"],
+                        ])
+                    raise SystemExit(0)
+
+                raise AssertionError(sys.argv)
+                """
+            ),
+            supports_worker=True,
+        )
+        client = ShardLoomClient(binary=binary, timeout=5)
+        self.addCleanup(client.close)
+
+        status = client.run(["status"])
+        capabilities = client.run(["capabilities", "python"])
+        client.close()
+
+        self.assertEqual(status.command, "status")
+        self.assertEqual(capabilities.command, "capabilities")
+        self.assertEqual(
+            status.field("worker_transport"),
+            "persistent_python_worker_with_timeout",
+        )
+        self.assertEqual(
+            capabilities.field("observed_args"),
+            "capabilities,python,--format,json",
+        )
+        self.assertEqual(log_path.read_text(encoding="utf-8").count("start\n"), 1)
+
+    def test_persistent_worker_timeout_does_not_replay_command_in_subprocess(self) -> None:
+        if os.name == "nt":
+            self.skipTest("timeout-configured worker pipe monitoring is POSIX-only")
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        log_path = Path(tempdir.name) / "worker-timeout-no-replay.txt"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys, time
+                from pathlib import Path
+
+                log_path = Path({str(log_path)!r})
+
+                if sys.argv[1:] == ["python-worker"]:
+                    with log_path.open("a", encoding="utf-8") as handle:
+                        handle.write("worker-start\\n")
+                    for line in sys.stdin:
+                        with log_path.open("a", encoding="utf-8") as handle:
+                            handle.write("worker-request\\n")
+                        time.sleep(1)
+                    raise SystemExit(0)
+
+                with log_path.open("a", encoding="utf-8") as handle:
+                    handle.write("subprocess-replay\\n")
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "status",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "worker_transport", "value": "subprocess_replay"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}}
+                    ],
+                }}))
+                """
+            ),
+            supports_worker=True,
+        )
+        client = ShardLoomClient(binary=binary, timeout=0.01)
+        self.addCleanup(client.close)
+
+        with self.assertRaises(subprocess.TimeoutExpired):
+            client.status()
+
+        log_text = log_path.read_text(encoding="utf-8")
+        self.assertIn("worker-start\n", log_text)
+        self.assertIn("worker-request\n", log_text)
+        self.assertNotIn("subprocess-replay\n", log_text)
+
+    def test_persistent_worker_partial_response_timeout_does_not_block(self) -> None:
+        if os.name == "nt":
+            self.skipTest("timeout-configured worker pipe monitoring is POSIX-only")
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys, time
+
+                if sys.argv[1:] == ["python-worker"]:
+                    for _line in sys.stdin:
+                        sys.stdout.write("{")
+                        sys.stdout.flush()
+                        time.sleep(1)
+                    raise SystemExit(0)
+
+                raise AssertionError(sys.argv)
+                """
+            ),
+            supports_worker=True,
+        )
+        client = ShardLoomClient(binary=binary, timeout=0.01)
+        self.addCleanup(client.close)
+
+        with self.assertRaises(subprocess.TimeoutExpired):
+            client.status()
+
+    def test_persistent_worker_request_write_timeout_does_not_replay(self) -> None:
+        if os.name == "nt":
+            self.skipTest("timeout-configured worker pipe monitoring is POSIX-only")
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        log_path = Path(tempdir.name) / "worker-write-timeout-no-replay.txt"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys, time
+                from pathlib import Path
+
+                log_path = Path({str(log_path)!r})
+
+                if sys.argv[1:] == ["python-worker"]:
+                    with log_path.open("a", encoding="utf-8") as handle:
+                        handle.write("worker-start\\n")
+                    time.sleep(1)
+                    raise SystemExit(0)
+
+                with log_path.open("a", encoding="utf-8") as handle:
+                    handle.write("subprocess-replay\\n")
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "worker_transport", "value": "subprocess_replay"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}}
+                    ],
+                }}))
+                """
+            ),
+            supports_worker=True,
+        )
+        client = ShardLoomClient(binary=binary, timeout=0.05)
+        self.addCleanup(client.close)
+        large_sql = "SELECT '" + ("x" * 2_000_000) + "'"
+
+        with self.assertRaises(subprocess.TimeoutExpired):
+            client.run(["run", "sql", "--sql", large_sql])
+
+        log_text = log_path.read_text(encoding="utf-8")
+        self.assertIn("worker-start\n", log_text)
+        self.assertNotIn("subprocess-replay\n", log_text)
 
     def test_explicit_binary_without_worker_falls_back_to_subprocess(self) -> None:
         binary = self.fake_cli(
