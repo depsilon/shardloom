@@ -250,13 +250,61 @@ post-merge ledger movement, follow `Current autonomous execution order`.
 
 Current autonomous execution order:
 
-1. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
+1. Complete `SOURCE-FINGERPRINT-POLICY-1` so large public prepares do not pay a full source-content
+   digest before entering Universal Ingest unless proof-tier policy explicitly requests it.
+2. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
    architecture runtime-gap families until those rows are closed or promoted into concrete runtime
    work.
-2. After the next targeted UAT or review packet identifies a concrete, feasible shared-runtime gap,
+3. After the next targeted UAT or review packet identifies a concrete, feasible shared-runtime gap,
    promote that work from the standing owner into a checklist item before implementation.
-3. Heavy replacement ingest, full 43-query ClickBench UAT, and broad release gates run at the end of
+4. Heavy replacement ingest, full 43-query ClickBench UAT, and broad release gates run at the end of
    a cohesive implementation batch, not after every evidence cleanup.
+
+- [ ] `SOURCE-FINGERPRINT-POLICY-1` make public prepare source fingerprinting metadata-first by
+  default with explicit content-digest opt-in.
+  - V1 scope classification: `required_for_v1`.
+  - Source: Desktop 100M ClickBench replacement-ingest UAT on `2026-08-30`, which showed public
+    `prepare dataframe` spending several minutes in `fingerprint_local_source_file_with_budget_report`
+    reading the full source before any `.vortex` write progress.
+  - Current state: source identity is useful evidence, but a mandatory full source-content digest is
+    too expensive for normal public/local prepare. Prepared artifact digests and Vortex writer
+    evidence remain mandatory. Full source-content digest should be an explicit proof-tier opt-in,
+    not default route work.
+  - ShardLoom technique review: metadata-first execution applies directly. PulseWeave policy should
+    choose the source identity tier before ingest; capillary ingest must not be blocked by an
+    up-front whole-file read; timing-surface evidence must separate metadata scout time from optional
+    content digest time.
+  - Execution checklist:
+    - [x] Add a public prepare source fingerprint policy with `metadata_only` default and
+      `content_digest` opt-in.
+    - [x] Thread the policy through CLI `prepare dataframe`, public workflow route/run, and
+      Universal Ingest request evidence.
+    - [x] Emit machine-readable evidence for fingerprint kind, policy, identity source, and whether
+      full source-content fingerprinting was requested/performed.
+    - [x] Reuse Parquet `ArrowReaderMetadata` across row-group workers and use metadata-first
+      Parquet reader options during source discovery.
+    - [x] Update architecture docs so SourceState identity is described as metadata-first by
+      default with explicit content-digest proof.
+    - [x] Add or update focused regression tests for default metadata-only public prepare and
+      explicit content-digest opt-in.
+    - [x] Run focused validation and rebuild the release CLI before replacement-ingest UAT.
+    - [x] Rerun the gated Desktop replacement-ingest UAT probe; the harness now fails fast when the
+      source file is sparse/nonresident instead of entering ShardLoom with misleading zero-progress
+      evidence.
+    - [ ] Rerun the full Desktop replacement-ingest UAT after the official ClickBench source is
+      physically materialized locally and confirm the route begins streaming/writing without a
+      full-source fingerprinting stall.
+    - [ ] Move this item to the completed ledger after merge.
+  - Acceptance: public local prepare defaults to `source_fingerprint_policy=metadata_only`,
+    `source_content_fingerprint_performed=false`, and no full source read during source identity
+    scout for columnar sources; `--source-fingerprint-policy content_digest` still performs an
+    explicit full content digest with evidence.
+  - User-visible surface: CLI/public workflow evidence and local prepare behavior.
+  - Verification: focused Rust check/test targets for `shardloom-cli` ingest/public workflow paths
+    plus one Desktop replacement-ingest UAT run.
+  - Claim boundary: source identity policy only; no benchmark or superiority claim.
+  - Fallback boundary: no external engine fallback; blocked and admitted paths keep
+    `fallback_attempted=false` and `external_engine_invoked=false`.
 
 - [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
   gaps.

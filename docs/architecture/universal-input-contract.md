@@ -87,7 +87,8 @@ not by compiling every reader by default. Active implementation status for input
     coercion policy before appending values directly into typed buffers for Vortex preparation.
     Admitted rows must report typed-builder status, projected/full/skipped column counts, row
     materialization status, zero row assembly or zero source-row materialization where supported,
-    source-to-Vortex handoff timing, correctness digest status,
+    source-to-Vortex handoff timing, metadata-first source identity, optional content-digest proof,
+    correctness digest status,
     `fallback_attempted=false`, `external_engine_invoked=false`, and
     `external_parser_engine_invoked=false`. Unsupported CSV/JSONL shapes beyond the admitted source
     normalization contract must produce deterministic source-scout blockers; the planned path does
@@ -143,11 +144,13 @@ not by compiling every reader by default. Active implementation status for input
 - Reusable SourceState bridge
   - `GAR-IOREUSE-1A` defines the first benchmark/report `SourceState` contract as a reusable,
     format-neutral input preparation artifact for source discovery metadata, schema/dtype metadata,
-    format-specific adapter state, content fingerprinting, parse/decode planning, and source-state
-    digest evidence.
+    format-specific adapter state, metadata-first source identity, optional content fingerprinting,
+    parse/decode planning, and source-state digest evidence.
   - Current benchmark row fields include `source_state_contract_schema_version`,
     `source_state_status`, `source_state_id`, `source_state_digest`, `source_format`,
-    `source_location`, `source_fingerprint_kind`, `schema_digest`, `row_count_known`, `file_count`,
+    `source_location`, `source_fingerprint_kind`, `source_fingerprint_policy`,
+    `source_fingerprint_identity_source`, `source_content_fingerprint_requested`,
+    `source_content_fingerprint_performed`, `schema_digest`, `row_count_known`, `file_count`,
     `byte_size`, `partition_columns`, `compression`,
     `source_state_reuse_allowed`, `source_state_reuse_hit`, and `source_state_reuse_reason`.
   - SourceState reuse is preparation evidence only. It does not imply Vortex-native execution,

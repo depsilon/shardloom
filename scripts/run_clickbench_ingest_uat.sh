@@ -21,6 +21,8 @@ stable_artifact_min_gb=25
 idle_cpu_percent=1
 min_progress_seconds=360
 min_progress_gb=1
+source_residency_check="true"
+source_residency_min_gb=1
 
 usage() {
   cat <<'USAGE'
@@ -42,6 +44,7 @@ Options:
   --idle-cpu-percent N
   --min-progress-seconds N
   --min-progress-gb N
+  --skip-source-residency-check
 USAGE
 }
 
@@ -62,6 +65,7 @@ while [[ $# -gt 0 ]]; do
     --idle-cpu-percent) idle_cpu_percent="$2"; shift 2 ;;
     --min-progress-seconds) min_progress_seconds="$2"; shift 2 ;;
     --min-progress-gb) min_progress_gb="$2"; shift 2 ;;
+    --skip-source-residency-check) source_residency_check="false"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -140,6 +144,86 @@ file_size_bytes() {
     printf '0'
   fi
 }
+
+file_allocated_bytes() {
+  if [[ ! -e "$1" ]]; then
+    printf '0\n'
+    return 0
+  fi
+  local allocated_kb
+  allocated_kb="$(du -sk "$1" | awk '{print $1}')"
+  printf '%s\n' "$((allocated_kb * 1024))"
+}
+
+preflight_source_residency() {
+  if [[ "$source_residency_check" != "true" ]]; then
+    return 0
+  fi
+  if [[ ! -f "$source_path" ]]; then
+    echo "source path does not exist or is not a file: $source_path" >&2
+    return 66
+  fi
+  local logical_bytes allocated_bytes min_bytes
+  logical_bytes="$(file_size_bytes "$source_path")"
+  allocated_bytes="$(file_allocated_bytes "$source_path")"
+  min_bytes="$((source_residency_min_gb * 1024 * 1024 * 1024))"
+  if (( logical_bytes >= min_bytes && allocated_bytes < min_bytes )); then
+    cat >&2 <<EOF
+source file appears sparse or not locally resident:
+  path: $source_path
+  logical_bytes: $logical_bytes
+  allocated_bytes: $allocated_bytes
+Download or materialize the official source before running ingest UAT, or pass --skip-source-residency-check if this is intentional.
+EOF
+    return 78
+  fi
+}
+
+preflight_status=0
+preflight_source_residency || preflight_status="$?"
+if [[ "$preflight_status" -ne 0 ]]; then
+  source_bytes="$(file_size_bytes "$source_path")"
+  source_allocated_bytes="$(file_allocated_bytes "$source_path")"
+  target_exists="false"
+  if [[ -e "$target_path" ]]; then
+    target_exists="true"
+  fi
+  target_bytes="$(file_size_bytes "$target_path")"
+  cat > "$summary_path" <<JSON
+{
+  "schema_version": "shardloom.clickbench.ingest_cli_uat_gated.v1",
+  "claim_boundary": "local CLI replacement-ingest UAT only; no official benchmark claim",
+  "created_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "command_file": "$(json_escape "$cmd_path")",
+  "stdout_path": "$(json_escape "$stdout_path")",
+  "stderr_path": "$(json_escape "$stderr_path")",
+  "progress_path": "$(json_escape "$progress_path")",
+  "log_dir": "$(json_escape "$log_dir")",
+  "returncode": $preflight_status,
+  "stop_reason": "source_residency_preflight_failed",
+  "elapsed_seconds": 0,
+  "source": "$(json_escape "$source_path")",
+  "source_bytes": $source_bytes,
+  "source_allocated_bytes": $source_allocated_bytes,
+  "target": "$(json_escape "$target_path")",
+  "target_exists": $target_exists,
+  "target_bytes": $target_bytes,
+  "max_parallelism": $max_parallelism,
+  "max_runtime_seconds": $max_runtime_seconds,
+  "max_artifact_gb": $max_artifact_gb,
+  "stable_artifact_seconds": $stable_artifact_seconds,
+  "stable_artifact_min_gb": $stable_artifact_min_gb,
+  "idle_cpu_percent": $idle_cpu_percent,
+  "min_progress_seconds": $min_progress_seconds,
+  "min_progress_gb": $min_progress_gb,
+  "progress_sample_count": 0,
+  "stdout_json_ok": false
+}
+JSON
+  printf 'SUMMARY '
+  cat "$summary_path"
+  exit "$preflight_status"
+fi
 
 candidate_bytes() {
   local total=0
@@ -267,6 +351,7 @@ fi
 end_epoch="$(date +%s)"
 elapsed=$((end_epoch - start_epoch))
 source_bytes="$(file_size_bytes "$source_path")"
+source_allocated_bytes="$(file_allocated_bytes "$source_path")"
 target_exists="false"
 if [[ -e "$target_path" ]]; then
   target_exists="true"
@@ -292,6 +377,7 @@ cat > "$summary_path" <<JSON
   "elapsed_seconds": $elapsed,
   "source": "$(json_escape "$source_path")",
   "source_bytes": $source_bytes,
+  "source_allocated_bytes": $source_allocated_bytes,
   "target": "$(json_escape "$target_path")",
   "target_exists": $target_exists,
   "target_bytes": $target_bytes,
