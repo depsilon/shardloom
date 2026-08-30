@@ -3476,6 +3476,7 @@ impl SourceFingerprintEvidence {
         }
     }
 
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     fn content_digest() -> Self {
         Self {
             kind: "local_file_content_digest".to_string(),

@@ -299,10 +299,9 @@ independently.
 Published technical-preview packages are proof-backed through GitHub release assets, PyPI,
 TestPyPI, and Homebrew channel transcripts under `docs/release/channel-proofs/`.
 
-The `v0.2.1` release uses a lightweight tag that points at a GitHub-verified merge commit. The
-checked-in channel proof records the tag ref type, target commit, and commit verification state.
-Future release trains should prefer a signed annotated tag when a maintainer signing key is
-configured.
+Release channel proof records the tag ref type, target commit, and commit verification state.
+Release trains should prefer a signed annotated tag when a maintainer signing key is configured;
+until then, tags should point at GitHub-verified merge commits.
 
 ## License
 
