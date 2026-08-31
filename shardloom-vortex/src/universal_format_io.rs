@@ -17,9 +17,11 @@ use std::{
     rc::Rc,
     sync::{
         Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
         mpsc::{self, Receiver, SyncSender},
     },
     thread::{self, JoinHandle},
+    time::Instant,
 };
 
 use arrow_array::{
@@ -215,6 +217,8 @@ pub struct FlatLocalColumnarStreamSource {
     pub ingest_executor_applied_parallelism: usize,
     /// Unit count when known before streaming.
     pub ingest_executor_unit_count_hint: Option<usize>,
+    /// Microseconds spent building embedded derived metadata while streaming.
+    pub embedded_derived_build_micros: Arc<AtomicU64>,
     /// Streaming Arrow batch reader consumed by the Vortex writer.
     pub reader: Box<dyn RecordBatchReader + Send>,
 }
@@ -302,6 +306,7 @@ enum EmbeddedDerivedColumnKind {
 enum EmbeddedDerivedColumnMode {
     FullAdapter,
     SourceNativeOnly,
+    SourceNativeLeanRuntime,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -317,6 +322,7 @@ struct EmbeddedDerivedColumnRecordBatchReader {
     schema: SchemaRef,
     inner: Box<dyn RecordBatchReader + Send>,
     specs: Vec<EmbeddedDerivedColumnSpec>,
+    embedded_derived_build_micros: Arc<AtomicU64>,
 }
 
 impl Iterator for EmbeddedDerivedColumnRecordBatchReader {
@@ -325,8 +331,12 @@ impl Iterator for EmbeddedDerivedColumnRecordBatchReader {
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|batch| {
             batch.and_then(|batch| {
-                append_embedded_derived_columns_to_batch(&batch, &self.schema, &self.specs)
-                    .map_err(|error| ArrowError::ExternalError(Box::new(error)))
+                let start = Instant::now();
+                let result =
+                    append_embedded_derived_columns_to_batch(&batch, &self.schema, &self.specs);
+                self.embedded_derived_build_micros
+                    .fetch_add(duration_micros_u64(start.elapsed()), Ordering::Relaxed);
+                result.map_err(|error| ArrowError::ExternalError(Box::new(error)))
             })
         })
     }
@@ -335,6 +345,20 @@ impl Iterator for EmbeddedDerivedColumnRecordBatchReader {
 impl RecordBatchReader for EmbeddedDerivedColumnRecordBatchReader {
     fn schema(&self) -> SchemaRef {
         Arc::clone(&self.schema)
+    }
+}
+
+#[must_use]
+pub fn new_embedded_derived_build_micros_counter() -> Arc<AtomicU64> {
+    Arc::new(AtomicU64::new(0))
+}
+
+fn duration_micros_u64(elapsed: std::time::Duration) -> u64 {
+    let micros = elapsed.as_micros();
+    if micros == 0 && elapsed.as_nanos() > 0 {
+        1
+    } else {
+        u64::try_from(micros).unwrap_or(u64::MAX)
     }
 }
 
@@ -434,7 +458,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
         tasks: Vec<ParquetRowGroupReadTask>,
         batch_size: usize,
         applied_parallelism: usize,
-        reader_metadata: parquet::arrow::arrow_reader::ArrowReaderMetadata,
+        reader_metadata: &parquet::arrow::arrow_reader::ArrowReaderMetadata,
     ) -> Self {
         let path = path.to_path_buf();
         let task_count = tasks.len();
@@ -874,6 +898,7 @@ fn flat_columnar_stream_source_from_reader(
         ingest_executor_unit_count_hint: stream_plan
             .source_unit_count_hint
             .or(stream_plan.record_batch_count_hint),
+        embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
         reader,
     };
     source.source_dictionary_preservation_status = format!(
@@ -960,6 +985,16 @@ pub fn with_source_native_embedded_derived_columns_columnar_stream_source(
     )
 }
 
+#[must_use]
+pub fn with_source_native_lean_runtime_embedded_derived_columns_columnar_stream_source(
+    source: FlatLocalColumnarStreamSource,
+) -> FlatLocalColumnarStreamSource {
+    attach_embedded_derived_columns_to_stream_source(
+        source,
+        EmbeddedDerivedColumnMode::SourceNativeLeanRuntime,
+    )
+}
+
 fn attach_embedded_derived_columns_to_stream_source(
     mut source: FlatLocalColumnarStreamSource,
     mode: EmbeddedDerivedColumnMode,
@@ -1003,12 +1038,16 @@ fn attach_embedded_derived_columns_to_stream_source(
             EmbeddedDerivedColumnMode::SourceNativeOnly => {
                 "source_native_dictionary_or_typed_time_only"
             }
+            EmbeddedDerivedColumnMode::SourceNativeLeanRuntime => {
+                "source_native_lean_runtime_dictionary_or_typed_time_only"
+            }
         }
     );
     source.reader = Box::new(EmbeddedDerivedColumnRecordBatchReader {
         schema: Arc::clone(&output_schema),
         inner: source.reader,
         specs,
+        embedded_derived_build_micros: Arc::clone(&source.embedded_derived_build_micros),
     });
     source
 }
@@ -1062,7 +1101,7 @@ fn embedded_derived_column_specs(
         let is_source_native_utf8_dictionary = is_dictionary_utf8_arrow_dtype(field.data_type());
         if is_full_utf8_source || is_source_native_utf8_dictionary {
             let length_column = shardloom_utf8_length_derived_column(source_column);
-            if should_embed_utf8_length_column(source_column)
+            if should_embed_utf8_length_column_for_mode(source_column, mode)
                 && !existing.contains(length_column.as_str())
             {
                 specs.push(EmbeddedDerivedColumnSpec {
@@ -1073,7 +1112,7 @@ fn embedded_derived_column_specs(
                     output_data_type: embedded_utf8_length_data_type(field.data_type()),
                 });
             }
-            if is_url_like_column_name(source_column) {
+            if should_embed_url_domain_column_for_mode(source_column, mode) {
                 let domain_column = shardloom_url_domain_derived_column(source_column);
                 if !existing.contains(domain_column.as_str()) {
                     let output_data_type = embedded_url_domain_data_type(field.data_type());
@@ -1088,9 +1127,10 @@ fn embedded_derived_column_specs(
             }
         }
         let minute_column = shardloom_extract_minute_derived_column(source_column);
-        if should_embed_extract_minute_column(source_column, field.data_type())
+        if should_embed_extract_minute_column_for_mode(source_column, field.data_type(), mode)
             && is_extract_minute_arrow_dtype(field.data_type())
             && (matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
+                || matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime)
                 || is_source_native_extract_minute_arrow_dtype(field.data_type()))
             && !existing.contains(minute_column.as_str())
         {
@@ -1103,7 +1143,7 @@ fn embedded_derived_column_specs(
             });
         }
         let date_trunc_minute_column = shardloom_date_trunc_minute_derived_column(source_column);
-        if should_embed_date_trunc_minute_column(source_column, field.data_type())
+        if should_embed_date_trunc_minute_column_for_mode(source_column, field.data_type(), mode)
             && is_date_trunc_minute_arrow_dtype(field.data_type())
             && !existing.contains(date_trunc_minute_column.as_str())
         {
@@ -1958,11 +1998,27 @@ fn should_embed_extract_minute_column(column: &str, data_type: &DataType) -> boo
         || lower.contains("timestamp")
 }
 
-fn should_embed_date_trunc_minute_column(column: &str, data_type: &DataType) -> bool {
+fn should_embed_extract_minute_column_for_mode(
+    column: &str,
+    data_type: &DataType,
+    mode: EmbeddedDerivedColumnMode,
+) -> bool {
+    if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
+        let lower = column.to_ascii_lowercase();
+        return lower == "eventtime" || lower == "event_time";
+    }
+    should_embed_extract_minute_column(column, data_type)
+}
+
+fn should_embed_date_trunc_minute_column_for_mode(
+    column: &str,
+    data_type: &DataType,
+    mode: EmbeddedDerivedColumnMode,
+) -> bool {
     if is_utf8_arrow_dtype(data_type) {
         return false;
     }
-    should_embed_extract_minute_column(column, data_type)
+    should_embed_extract_minute_column_for_mode(column, data_type, mode)
 }
 
 fn should_embed_utf8_length_column(column: &str) -> bool {
@@ -1971,6 +2027,26 @@ fn should_embed_utf8_length_column(column: &str) -> bool {
         || lower.contains("search")
         || lower.contains("phrase")
         || lower.contains("title")
+}
+
+fn should_embed_utf8_length_column_for_mode(column: &str, mode: EmbeddedDerivedColumnMode) -> bool {
+    if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
+        let lower = column.to_ascii_lowercase();
+        return lower == "url"
+            || lower == "referer"
+            || lower == "referrer"
+            || lower == "searchphrase"
+            || lower == "search_phrase";
+    }
+    should_embed_utf8_length_column(column)
+}
+
+fn should_embed_url_domain_column_for_mode(column: &str, mode: EmbeddedDerivedColumnMode) -> bool {
+    if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
+        let lower = column.to_ascii_lowercase();
+        return lower == "url" || lower == "referer" || lower == "referrer";
+    }
+    is_url_like_column_name(column)
 }
 
 fn is_shardloom_hidden_derived_column(column: &str) -> bool {
@@ -2253,6 +2329,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         source_stream_policy,
         source_dictionary_preservation_status,
         ingest_executor_unit_count_hint,
+        embedded_derived_build_micros,
         reader,
         ..
     } = source;
@@ -2286,6 +2363,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
             ingest_executor_requested_parallelism: requested_max_parallelism,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint,
+            embedded_derived_build_micros,
             reader,
         };
     }
@@ -2312,6 +2390,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         ingest_executor_requested_parallelism: requested_max_parallelism,
         ingest_executor_applied_parallelism: applied_parallelism,
         ingest_executor_unit_count_hint: unit_hint,
+        embedded_derived_build_micros,
         reader: Box::new(CapillaryPrefetchRecordBatchReader::new(
             reader,
             applied_parallelism,
@@ -2395,6 +2474,7 @@ pub fn stream_flat_text_rows_columnar_source(
                 ingest_executor_requested_parallelism: 1,
                 ingest_executor_applied_parallelism: 1,
                 ingest_executor_unit_count_hint: Some(0),
+                embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
                 reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::new())),
             },
             EmbeddedDerivedColumnMode::FullAdapter,
@@ -2430,6 +2510,7 @@ pub fn stream_flat_text_rows_columnar_source(
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(record_batch_count),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TextRowsRecordBatchReader::new(
                 schema, header, rows, batch_size, context,
             )),
@@ -2554,8 +2635,8 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         })?;
     let schema = Arc::clone(builder.schema());
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
-    let schema_plan = parquet_dictionary_schema_plan(&schema);
     let row_group_metadata = parquet_row_group_stream_metadata(builder.metadata());
+    let schema_plan = parquet_dictionary_schema_plan(&schema);
     let reader_metadata = parquet::arrow::arrow_reader::ArrowReaderMetadata::try_new(
         Arc::clone(builder.metadata()),
         parquet_reader_options_with_optional_schema_hint(schema_plan.schema_hint.as_ref()),
@@ -2607,7 +2688,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
                 tasks,
                 stream_batch_size,
                 applied_parallelism,
-                reader_metadata,
+                &reader_metadata,
             )),
         );
         source.ingest_executor_status =
@@ -5660,6 +5741,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -5787,6 +5869,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -5884,6 +5967,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -5997,6 +6081,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -6154,6 +6239,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
                 batches: std::collections::VecDeque::from([batch_1, batch_2]),
@@ -6233,6 +6319,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
                 batches: std::collections::VecDeque::from([batch]),
@@ -6287,6 +6374,7 @@ mod tests {
             ingest_executor_requested_parallelism: 2,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
                 batches: std::collections::VecDeque::from([batch]),
@@ -6738,6 +6826,134 @@ mod tests {
         assert!(source.reader.next().is_none());
 
         std::fs::remove_file(path).expect("remove parquet test file");
+    }
+
+    #[test]
+    fn source_native_lean_runtime_embeds_only_runtime_critical_metadata() {
+        let dictionary_array = |values: &[Option<&str>]| -> ArrayRef {
+            let mut builder = StringDictionaryBuilder::<Int32Type>::new();
+            for value in values {
+                if let Some(value) = value {
+                    builder.append(value).expect("append dictionary value");
+                } else {
+                    builder.append_null();
+                }
+            }
+            Arc::new(builder.finish()) as ArrayRef
+        };
+        let dictionary_type =
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("URL", dictionary_type.clone(), true),
+            Field::new("Referer", dictionary_type.clone(), true),
+            Field::new("SearchPhrase", dictionary_type.clone(), true),
+            Field::new("Title", dictionary_type.clone(), true),
+            Field::new("OriginalURL", dictionary_type, true),
+            Field::new("EventTime", DataType::Int64, false),
+            Field::new("ClientEventTime", DataType::Int64, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                dictionary_array(&[
+                    Some("https://www.google.com/search"),
+                    Some("https://docs.rs/crate"),
+                ]),
+                dictionary_array(&[
+                    Some("https://ref.example.com/a"),
+                    Some("https://www.google.com/ref"),
+                ]),
+                dictionary_array(&[Some("rust"), Some("shardloom")]),
+                dictionary_array(&[Some("Google title"), Some("Other title")]),
+                dictionary_array(&[
+                    Some("https://www.google.com/original"),
+                    Some("https://example.org/original"),
+                ]),
+                Arc::new(Int64Array::from(vec![60_i64, 121])) as ArrayRef,
+                Arc::new(Int64Array::from(vec![300_i64, 360])) as ArrayRef,
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarStreamSource {
+            header: vec![
+                "URL".to_string(),
+                "Referer".to_string(),
+                "SearchPhrase".to_string(),
+                "Title".to_string(),
+                "OriginalURL".to_string(),
+                "EventTime".to_string(),
+                "ClientEventTime".to_string(),
+            ],
+            column_dtypes: source_schema_column_dtypes(schema.as_ref()),
+            column_arrow_dtypes: source_schema_column_arrow_dtypes(schema.as_ref()),
+            materialized_columns: schema
+                .fields()
+                .iter()
+                .map(|field| field.name().clone())
+                .collect(),
+            reader_projection_columns: schema
+                .fields()
+                .iter()
+                .map(|field| field.name().clone())
+                .collect(),
+            row_count_hint: Some(100_000_000),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size: PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 2)]),
+            source_stream_unit_hint_kind: "test_lean_runtime_dictionary_record_batch".to_string(),
+            source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
+            source_dictionary_preservation_status: "test_dictionary_preservation_available"
+                .to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_dictionary_record_batch_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
+        };
+
+        let mut source =
+            with_source_native_lean_runtime_embedded_derived_columns_columnar_stream_source(source);
+
+        assert!(
+            source.source_dictionary_preservation_status.contains(
+                "embedded_derived_column_mode=source_native_lean_runtime_dictionary_or_typed_time_only"
+            ),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().clone())
+            .collect::<Vec<_>>();
+        for expected in [
+            "__shardloom_derived_utf8_len_URL",
+            "__shardloom_derived_url_domain_URL",
+            "__shardloom_derived_utf8_len_Referer",
+            "__shardloom_derived_url_domain_Referer",
+            "__shardloom_derived_utf8_len_SearchPhrase",
+            "__shardloom_derived_extract_minute_EventTime",
+            "__shardloom_derived_date_trunc_minute_EventTime",
+        ] {
+            assert!(names.contains(&expected.to_string()), "{names:?}");
+        }
+        for omitted in [
+            "__shardloom_derived_utf8_len_Title",
+            "__shardloom_derived_utf8_len_OriginalURL",
+            "__shardloom_derived_url_domain_OriginalURL",
+            "__shardloom_derived_extract_minute_ClientEventTime",
+            "__shardloom_derived_date_trunc_minute_ClientEventTime",
+        ] {
+            assert!(!names.contains(&omitted.to_string()), "{names:?}");
+        }
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        assert_eq!(batch.num_columns(), 14);
+        assert!(source.reader.next().is_none());
     }
 
     #[test]

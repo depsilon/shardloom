@@ -1,6 +1,8 @@
 #![allow(clippy::must_use_candidate)]
 
 use std::fmt::Write as _;
+#[cfg(feature = "vortex-local-primitives")]
+use std::time::Instant;
 
 #[cfg(feature = "vortex-local-primitives")]
 use regex::Regex;
@@ -970,6 +972,7 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub source_order_limit_rows_output: Option<u64>,
     pub state_budget: VortexLocalPrimitiveStateBudgetReport,
     pub embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport,
+    pub evidence_collector: VortexLocalPrimitiveEvidenceCollectorReport,
     pub data_read: bool,
     pub data_decoded: bool,
     pub data_materialized: bool,
@@ -984,6 +987,98 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub materialization_boundary_reported: bool,
     pub diagnostics: Vec<Diagnostic>,
 }
+
+/// Compact control-plane/evidence summary for native local Vortex primitive loops.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexLocalPrimitiveEvidenceCollectorReport {
+    pub schema_version: &'static str,
+    pub status: &'static str,
+    pub strategy: &'static str,
+    pub control_plane_micros: u128,
+    pub evidence_collection_micros: u128,
+    pub full_split_count: usize,
+    pub compact_signature_count: usize,
+    pub encoded_kernel_input_count: usize,
+    pub row_count: u64,
+    pub representative_first_split_ref: Option<String>,
+    pub representative_last_split_ref: Option<String>,
+    pub full_replay_evidence_preserved: bool,
+}
+
+impl VortexLocalPrimitiveEvidenceCollectorReport {
+    pub const SCHEMA_VERSION: &'static str = "shardloom.local_vortex_evidence_collector.v1";
+
+    #[must_use]
+    pub fn not_required() -> Self {
+        Self {
+            schema_version: Self::SCHEMA_VERSION,
+            status: "not_required",
+            strategy: "metadata_or_blocked_no_scan",
+            control_plane_micros: 0,
+            evidence_collection_micros: 0,
+            full_split_count: 0,
+            compact_signature_count: 0,
+            encoded_kernel_input_count: 0,
+            row_count: 0,
+            representative_first_split_ref: None,
+            representative_last_split_ref: None,
+            full_replay_evidence_preserved: true,
+        }
+    }
+
+    #[must_use]
+    pub fn from_scan(
+        control_plane_micros: u128,
+        evidence_collection_micros: u128,
+        reader_splits: &[VortexReaderBackedSplitEvidence],
+        reader_generated_prepared_batch_report: &VortexReaderGeneratedPreparedBatchReport,
+    ) -> Self {
+        let mut signatures: Vec<(String, String)> = reader_splits
+            .iter()
+            .map(|split| (split.dtype_summary.clone(), split.encoding_id.clone()))
+            .collect();
+        signatures.sort();
+        signatures.dedup();
+        Self {
+            schema_version: Self::SCHEMA_VERSION,
+            status: "measured",
+            strategy: "compact_signature_counts_with_full_replay_split_evidence",
+            control_plane_micros,
+            evidence_collection_micros,
+            full_split_count: reader_splits.len(),
+            compact_signature_count: signatures.len(),
+            encoded_kernel_input_count: reader_generated_prepared_batch_report
+                .encoded_kernel_input_count,
+            row_count: reader_splits.iter().fold(0_u64, |rows, split| {
+                rows.saturating_add(split.row_count as u64)
+            }),
+            representative_first_split_ref: reader_splits
+                .first()
+                .map(|split| split.split_ref.clone()),
+            representative_last_split_ref: reader_splits
+                .last()
+                .map(|split| split.split_ref.clone()),
+            full_replay_evidence_preserved: true,
+        }
+    }
+
+    #[must_use]
+    pub fn compact_summary(&self) -> String {
+        format!(
+            "status={};strategy={};control_plane_micros={};evidence_collection_micros={};splits={};signatures={};encoded_kernel_inputs={};rows={};full_replay_preserved={}",
+            self.status,
+            self.strategy,
+            self.control_plane_micros,
+            self.evidence_collection_micros,
+            self.full_split_count,
+            self.compact_signature_count,
+            self.encoded_kernel_input_count,
+            self.row_count,
+            self.full_replay_evidence_preserved
+        )
+    }
+}
+
 impl VortexLocalPrimitiveExecutionReport {
     pub fn feature_disabled(primitive_kind: VortexQueryPrimitiveKind) -> Self {
         Self {
@@ -1015,6 +1110,7 @@ impl VortexLocalPrimitiveExecutionReport {
             source_order_limit_rows_output: None,
             state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
             embedded_layout: VortexLocalPrimitiveEmbeddedLayoutReport::not_available(),
+            evidence_collector: VortexLocalPrimitiveEvidenceCollectorReport::not_required(),
             data_read: false,
             data_decoded: false,
             data_materialized: false,
@@ -1057,6 +1153,7 @@ impl VortexLocalPrimitiveExecutionReport {
         self
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn to_human_text(&self) -> String {
         let mut out = String::new();
         let _ = writeln!(out, "local primitive status: {}", self.status.as_str());
@@ -1143,6 +1240,11 @@ impl VortexLocalPrimitiveExecutionReport {
             out,
             "embedded layout: {}",
             self.embedded_layout.compact_summary()
+        );
+        let _ = writeln!(
+            out,
+            "evidence collector: {}",
+            self.evidence_collector.compact_summary()
         );
         let _ = writeln!(out, "data read: {}", self.data_read);
         let _ = writeln!(out, "data decoded: {}", self.data_decoded);
@@ -12883,6 +12985,8 @@ struct LocalVortexScan {
     arrays_read_count: usize,
     reader_splits: Vec<VortexReaderBackedSplitEvidence>,
     reader_generated_prepared_batch_report: VortexReaderGeneratedPreparedBatchReport,
+    control_plane_micros: u128,
+    evidence_collection_micros: u128,
     max_chunk_rows: usize,
     resource_envelope: VortexLocalPrimitiveResourceEnvelope,
     max_parallelism_requested: usize,
@@ -12989,6 +13093,15 @@ impl LocalVortexScan {
 
     fn residual_materialization_boundary_reported(&self) -> bool {
         self.row_read()
+    }
+
+    fn evidence_collector(&self) -> VortexLocalPrimitiveEvidenceCollectorReport {
+        VortexLocalPrimitiveEvidenceCollectorReport::from_scan(
+            self.control_plane_micros,
+            self.evidence_collection_micros,
+            &self.reader_splits,
+            &self.reader_generated_prepared_batch_report,
+        )
     }
 }
 
@@ -13329,6 +13442,9 @@ fn read_local_vortex_scan(
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
+    let control_plane_started = Instant::now();
+    let mut control_plane_micros = 0_u128;
+    let mut evidence_collection_micros = 0_u128;
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
@@ -13371,8 +13487,13 @@ fn read_local_vortex_scan(
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
+            let evidence_started = Instant::now();
             let reader_generated_prepared_batch_report =
                 plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
+            evidence_collection_micros =
+                evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
+            control_plane_micros =
+                control_plane_micros.saturating_add(control_plane_started.elapsed().as_micros());
             return Ok(LocalVortexScan {
                 source_row_count,
                 result_row_count: 0,
@@ -13380,6 +13501,8 @@ fn read_local_vortex_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros,
+                evidence_collection_micros,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -13411,6 +13534,8 @@ fn read_local_vortex_scan(
             MaterializedPredicateEvaluator::compile(predicate, &plan.projected_columns)
         })
         .transpose()?;
+    control_plane_micros =
+        control_plane_micros.saturating_add(control_plane_started.elapsed().as_micros());
     let mut result_row_count = 0usize;
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
@@ -13421,6 +13546,7 @@ fn read_local_vortex_scan(
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
         let rows = chunk.len();
+        let evidence_started = Instant::now();
         let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
             source_uri.clone(),
             arrays_read_count,
@@ -13436,6 +13562,8 @@ fn read_local_vortex_scan(
             &chunk,
         )?);
         reader_splits.push(split);
+        evidence_collection_micros =
+            evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
         let chunk_result_rows = if let Some(predicate) = residual_evaluator.as_ref() {
             if let Some(selected) =
                 predicate.fast_count_matches_in_chunk(&chunk, &plan.projected_columns)?
@@ -13486,6 +13614,7 @@ fn read_local_vortex_scan(
         }
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let evidence_started = Instant::now();
     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
     } else {
@@ -13495,6 +13624,8 @@ fn read_local_vortex_scan(
             &encoded_kernel_inputs,
         )
     };
+    evidence_collection_micros =
+        evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -13502,6 +13633,8 @@ fn read_local_vortex_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros,
+        evidence_collection_micros,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -13534,6 +13667,8 @@ fn read_local_vortex_partitioned_scan(
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
+    let mut control_plane_micros = 0_u128;
+    let mut evidence_collection_micros = 0_u128;
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut source_row_count = 0_u64;
@@ -13557,6 +13692,7 @@ fn read_local_vortex_partitioned_scan(
         if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
             break;
         }
+        let control_plane_started = Instant::now();
         let file = runtime
             .block_on(
                 session
@@ -13634,6 +13770,8 @@ fn read_local_vortex_partitioned_scan(
             partition_layout.mark_pruning_consulted(metadata_pruned);
             embedded_layout.merge_partition(&partition_layout)?;
             if metadata_pruned {
+                control_plane_micros = control_plane_micros
+                    .saturating_add(control_plane_started.elapsed().as_micros());
                 continue;
             }
         } else {
@@ -13654,12 +13792,15 @@ fn read_local_vortex_partitioned_scan(
                 MaterializedPredicateEvaluator::compile(predicate, &plan.projected_columns)
             })
             .transpose()?;
+        control_plane_micros =
+            control_plane_micros.saturating_add(control_plane_started.elapsed().as_micros());
         for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
             if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
                 break;
             }
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
+            let evidence_started = Instant::now();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
                 source.uri.clone(),
                 arrays_read_count,
@@ -13675,6 +13816,8 @@ fn read_local_vortex_partitioned_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
+            evidence_collection_micros =
+                evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
             let chunk_result_rows = if let Some(predicate) = residual_evaluator.as_ref() {
                 if let Some(selected) =
                     predicate.fast_count_matches_in_chunk(&chunk, &plan.projected_columns)?
@@ -13724,6 +13867,7 @@ fn read_local_vortex_partitioned_scan(
         }
     }
     let source = UniversalInputSource::from_dataset_uri(sources[0].uri.clone())?;
+    let evidence_started = Instant::now();
     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
     } else {
@@ -13733,6 +13877,8 @@ fn read_local_vortex_partitioned_scan(
             &encoded_kernel_inputs,
         )
     };
+    evidence_collection_micros =
+        evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -13740,6 +13886,8 @@ fn read_local_vortex_partitioned_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros,
+        evidence_collection_micros,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -14956,6 +15104,7 @@ fn count_all_metadata_report(
         source_order_limit_rows_output: None,
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout,
+        evidence_collector: VortexLocalPrimitiveEvidenceCollectorReport::not_required(),
         data_read: false,
         data_decoded: false,
         data_materialized: false,
@@ -15044,6 +15193,7 @@ fn partitioned_count_all_metadata_report(
         source_order_limit_rows_output: None,
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout,
+        evidence_collector: VortexLocalPrimitiveEvidenceCollectorReport::not_required(),
         data_read: false,
         data_decoded: false,
         data_materialized: false,
@@ -15108,6 +15258,7 @@ fn count_where_report(
         source_order_limit_rows_output: Some(rows_selected),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.residual_predicate_materialized(),
         data_materialized: scan.residual_predicate_materialized(),
@@ -15193,6 +15344,7 @@ fn predicate_report(
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.residual_predicate_materialized(),
         data_materialized: scan.residual_predicate_materialized(),
@@ -15250,6 +15402,7 @@ fn projection_report(
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.residual_predicate_materialized(),
         data_materialized: scan.residual_predicate_materialized(),
@@ -15307,6 +15460,7 @@ fn filter_and_project_report(
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.residual_predicate_materialized(),
         data_materialized: scan.residual_predicate_materialized(),
@@ -15374,6 +15528,7 @@ fn distinct_rows_report(
             "local_vortex_distinct_collect",
         ),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -15455,6 +15610,7 @@ fn drop_duplicate_rows_report(
             "local_vortex_drop_duplicates_collect",
         ),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -15520,6 +15676,7 @@ fn duplicate_mask_rows_report(
             "local_vortex_duplicate_mask_collect",
         ),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -15577,6 +15734,7 @@ fn tail_rows_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: true,
         data_materialized: true,
@@ -15641,6 +15799,7 @@ fn sample_rows_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -15706,6 +15865,7 @@ fn expression_project_rows_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -15775,6 +15935,7 @@ fn melt_rows_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -15840,6 +16001,7 @@ fn explode_rows_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -15905,6 +16067,7 @@ fn pivot_rows_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -16449,6 +16612,7 @@ fn rolling_window_rows_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: rolling_window_state_budget_report(request, scan)?,
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -16516,6 +16680,7 @@ fn simple_aggregate_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: aggregate.state_budget.clone(),
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -16583,6 +16748,7 @@ fn sort_rows_report(
         source_order_limit_rows_output: Some(rows),
         state_budget: sort_rows_state_budget_report(request, scan, input_rows)?,
         embedded_layout: scan.embedded_layout.clone(),
+        evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
         data_decoded: scan.data_read(),
         data_materialized: scan.data_read(),
@@ -16672,6 +16838,8 @@ fn read_local_vortex_distinct_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros: 0,
+                evidence_collection_micros: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -16777,6 +16945,8 @@ fn read_local_vortex_distinct_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -16860,6 +17030,8 @@ fn read_local_vortex_drop_duplicate_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros: 0,
+                evidence_collection_micros: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -16988,6 +17160,8 @@ fn read_local_vortex_drop_duplicate_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -17140,6 +17314,8 @@ fn read_local_vortex_duplicate_mask_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -17264,6 +17440,8 @@ fn read_local_vortex_tail_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -17369,6 +17547,8 @@ fn read_local_vortex_sample_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros: 0,
+                evidence_collection_micros: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -17507,6 +17687,8 @@ fn read_local_vortex_sample_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -17611,6 +17793,8 @@ fn read_local_vortex_expression_project_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros: 0,
+                evidence_collection_micros: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -17740,6 +17924,8 @@ fn read_local_vortex_expression_project_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -17831,6 +18017,8 @@ fn read_local_vortex_melt_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros: 0,
+                evidence_collection_micros: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -17939,6 +18127,8 @@ fn read_local_vortex_melt_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -18035,6 +18225,8 @@ fn read_local_vortex_pivot_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros: 0,
+                evidence_collection_micros: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -18152,6 +18344,8 @@ fn read_local_vortex_pivot_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -18245,6 +18439,8 @@ fn read_local_vortex_explode_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros: 0,
+                evidence_collection_micros: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -18357,6 +18553,8 @@ fn read_local_vortex_explode_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -18447,6 +18645,8 @@ fn read_local_vortex_rolling_window_scan(
                 arrays_read_count: 0,
                 reader_splits,
                 reader_generated_prepared_batch_report,
+                control_plane_micros: 0,
+                evidence_collection_micros: 0,
                 max_chunk_rows: 0,
                 resource_envelope: policy.resource_envelope(),
                 max_parallelism_requested: policy.max_parallelism,
@@ -18596,6 +18796,8 @@ fn read_local_vortex_rolling_window_scan(
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
+        control_plane_micros: 0,
+        evidence_collection_micros: 0,
         max_chunk_rows,
         resource_envelope: policy.resource_envelope(),
         max_parallelism_requested: policy.max_parallelism,
@@ -19427,6 +19629,8 @@ fn read_local_vortex_simple_aggregate_scan(
             arrays_read_count,
             reader_splits,
             reader_generated_prepared_batch_report,
+            control_plane_micros: 0,
+            evidence_collection_micros: 0,
             max_chunk_rows,
             resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
@@ -20097,6 +20301,8 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
             arrays_read_count,
             reader_splits,
             reader_generated_prepared_batch_report,
+            control_plane_micros: 0,
+            evidence_collection_micros: 0,
             max_chunk_rows,
             resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
@@ -20742,6 +20948,8 @@ fn read_local_vortex_sort_rows_scan(
             arrays_read_count,
             reader_splits,
             reader_generated_prepared_batch_report,
+            control_plane_micros: 0,
+            evidence_collection_micros: 0,
             max_chunk_rows,
             resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
@@ -21458,6 +21666,8 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             arrays_read_count,
             reader_splits,
             reader_generated_prepared_batch_report,
+            control_plane_micros: 0,
+            evidence_collection_micros: 0,
             max_chunk_rows,
             resource_envelope: policy.resource_envelope(),
             max_parallelism_requested: policy.max_parallelism,
@@ -46502,6 +46712,11 @@ mod tests {
         assert!(!report.upstream_scan_called);
         assert_eq!(report.arrays_read_count, 0);
         assert_eq!(report.reader_splits.len(), 0);
+        assert_eq!(report.evidence_collector.status, "measured");
+        assert_eq!(report.evidence_collector.full_split_count, 0);
+        assert_eq!(report.evidence_collector.compact_signature_count, 0);
+        assert_eq!(report.evidence_collector.encoded_kernel_input_count, 0);
+        assert!(report.evidence_collector.full_replay_evidence_preserved);
         assert!(report.embedded_layout.metadata_persisted_in_artifact);
         assert!(report.embedded_layout.metadata_first_pruning_available);
         assert!(report.embedded_layout.metadata_first_pruning_consulted);
@@ -46536,6 +46751,74 @@ mod tests {
             certificate.is_certified(),
             "metadata-pruned filter should certify as native Vortex metadata I/O without scan"
         );
+    }
+
+    #[test]
+    fn evidence_collector_compacts_repeated_signatures_without_dropping_replay_refs() {
+        let uri = DatasetUri::new("memory://local-vortex-evidence-collector").expect("uri");
+        let source = UniversalInputSource::from_dataset_uri(uri.clone()).expect("source");
+        let splits = vec![
+            VortexReaderBackedSplitEvidence::local_scan_chunk(
+                uri.clone(),
+                0,
+                10,
+                "Struct<value:Int64>",
+                "vortex.fastlanes",
+                1,
+                1,
+            )
+            .expect("split"),
+            VortexReaderBackedSplitEvidence::local_scan_chunk(
+                uri.clone(),
+                1,
+                20,
+                "Struct<value:Int64>",
+                "vortex.fastlanes",
+                1,
+                1,
+            )
+            .expect("split"),
+            VortexReaderBackedSplitEvidence::local_scan_chunk(
+                uri,
+                2,
+                30,
+                "Struct<value:Int64>",
+                "vortex.runend",
+                1,
+                2,
+            )
+            .expect("split"),
+        ];
+        let prepared_report =
+            plan_vortex_reader_generated_prepared_batch_envelopes(&source, &splits);
+
+        let report = VortexLocalPrimitiveEvidenceCollectorReport::from_scan(
+            17,
+            11,
+            &splits,
+            &prepared_report,
+        );
+
+        assert_eq!(report.status, "measured");
+        assert_eq!(
+            report.strategy,
+            "compact_signature_counts_with_full_replay_split_evidence"
+        );
+        assert_eq!(report.control_plane_micros, 17);
+        assert_eq!(report.evidence_collection_micros, 11);
+        assert_eq!(report.full_split_count, 3);
+        assert_eq!(report.compact_signature_count, 2);
+        assert_eq!(report.encoded_kernel_input_count, 0);
+        assert_eq!(report.row_count, 60);
+        assert_eq!(
+            report.representative_first_split_ref.as_deref(),
+            Some("vortex-local-scan-chunk-0")
+        );
+        assert_eq!(
+            report.representative_last_split_ref.as_deref(),
+            Some("vortex-local-scan-chunk-2")
+        );
+        assert!(report.full_replay_evidence_preserved);
     }
 
     #[test]
@@ -46682,6 +46965,28 @@ mod tests {
         assert!(!report.full_stream_collected);
         assert_eq!(report.max_parallelism_requested, 2);
         assert_eq!(report.scan_concurrency_per_worker, 2);
+        assert_eq!(report.evidence_collector.status, "measured");
+        assert_eq!(
+            report.evidence_collector.full_split_count,
+            report.reader_splits.len()
+        );
+        assert!(report.evidence_collector.compact_signature_count > 0);
+        assert_eq!(
+            report.evidence_collector.encoded_kernel_input_count,
+            report
+                .reader_generated_prepared_batch_report
+                .as_ref()
+                .map_or(0, |batch| batch.encoded_kernel_input_count)
+        );
+        assert_eq!(
+            report.evidence_collector.row_count,
+            report
+                .reader_splits
+                .iter()
+                .map(|split| split.row_count as u64)
+                .sum::<u64>()
+        );
+        assert!(report.evidence_collector.full_replay_evidence_preserved);
         assert!(report.filter_pushdown_applied);
         assert!(report.upstream_filter_expression_used);
         assert!(!report.projection_pushdown_applied);

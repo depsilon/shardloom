@@ -7831,12 +7831,127 @@ fn append_vortex_run_local_primitive_physical_policy_fields(
 }
 
 #[allow(clippy::too_many_lines)]
+fn append_vortex_run_local_primitive_evidence_collector_fields(
+    fields: &mut Vec<(String, String)>,
+    local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
+) {
+    fields.extend([
+        (
+            "local_primitive_evidence_collector_schema_version".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.evidence_collector.schema_version.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_evidence_collector_status".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.evidence_collector.status.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_evidence_collector_strategy".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.evidence_collector.strategy.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_control_plane_micros".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.evidence_collector.control_plane_micros.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_evidence_collection_micros".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .evidence_collector
+                        .evidence_collection_micros
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_evidence_full_split_count".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.evidence_collector.full_split_count.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_evidence_compact_signature_count".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.evidence_collector.compact_signature_count.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_evidence_encoded_kernel_input_count".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| {
+                    local
+                        .evidence_collector
+                        .encoded_kernel_input_count
+                        .to_string()
+                },
+            ),
+        ),
+        (
+            "local_primitive_evidence_row_count".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.evidence_collector.row_count.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_evidence_first_split_ref".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| {
+                    local
+                        .evidence_collector
+                        .representative_first_split_ref
+                        .clone()
+                        .unwrap_or_else(|| "none".to_string())
+                },
+            ),
+        ),
+        (
+            "local_primitive_evidence_last_split_ref".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| {
+                    local
+                        .evidence_collector
+                        .representative_last_split_ref
+                        .clone()
+                        .unwrap_or_else(|| "none".to_string())
+                },
+            ),
+        ),
+        (
+            "local_primitive_evidence_full_replay_preserved".to_string(),
+            local
+                .is_some_and(|local| local.evidence_collector.full_replay_evidence_preserved)
+                .to_string(),
+        ),
+    ]);
+}
+
+#[allow(clippy::too_many_lines)]
 fn append_vortex_run_local_primitive_execution_fields(
     fields: &mut Vec<(String, String)>,
     local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
 ) {
     append_vortex_run_local_primitive_resource_envelope_fields(fields, local);
     append_vortex_run_local_primitive_physical_policy_fields(fields, local);
+    append_vortex_run_local_primitive_evidence_collector_fields(fields, local);
     fields.extend([
         (
             "local_primitive_streaming_scan_used".to_string(),

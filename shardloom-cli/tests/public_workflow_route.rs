@@ -66,6 +66,7 @@ fn run_facade(args: &[&str]) -> (bool, String) {
 
 #[cfg(feature = "vortex-local-primitives")]
 #[test]
+#[allow(clippy::too_many_lines)]
 fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence() {
     let fixture = local_primitive_struct_fixture();
     let aggregate = r#"{"measures":[{"function":"sum","column":"metric","alias":"sum_metric"},{"function":"count","alias":"rows"}]}"#;

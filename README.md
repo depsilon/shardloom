@@ -77,13 +77,17 @@ blanket performance claims:
     policy, row-block sizing, footer statistics, segment-map membership, layout encoding inventory,
     dictionary/domain status, row-position locality, and layout-reader cache evidence are reported
     from the artifact instead of a query sidecar.
-  - Universal Ingest can persist exact hidden derived columns inside the same `.vortex` file when
-    the admitted source adapter can do so without adding a slower per-row preprocessing pass. The
-    retained compact family is `UInt32` UTF-8 byte length for high-value URL/search/title text
-    fields, dictionary-encoded URL/Referer/URI domain values, compact minute-of-hour keys, and
-    epoch-minute date-trunc buckets for admitted typed time-like fields. Native SQL/DataFrame-style
-    routes consume those columns automatically when present while keeping hidden fields out of
-    normal `select *` output.
+  - Universal Ingest persists reusable derived intelligence inside the same `.vortex` file. The
+    preferred shape is compact source-native or dictionary/code-derived metadata for URL/domain,
+    string length, date/time buckets, segment membership, and row-position locality; physical hidden
+    columns are used only when an admitted adapter can build them in the existing pass without
+    adding an expensive per-row preprocessing step. Large columnar ingest uses a lean runtime profile
+    first, retaining high-value URL, Referer, SearchPhrase, and EventTime helpers before broader
+    candidate metadata. Writer compression is selected from the admitted source schema, so real
+    source UTF-8 and dictionary-UTF8 payload columns can pay text-compression cost; generated hidden
+    helpers and numeric columns stay on typed layout paths. Native SQL/DataFrame-style routes consume this
+    embedded structure automatically when present while keeping implementation fields out of normal
+    `select *` output.
   - Scalar and grouped OLAP routes use typed/dictionary state where available before row export:
     direct scalar `count`/`sum`/`avg`/`min`/`max`, exact scalar distinct over used dictionary codes,
     repeated numeric SUM/AVG expression fusion, compact grouped count/sum/avg, URL-domain/length
