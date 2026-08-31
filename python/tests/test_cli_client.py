@@ -2882,6 +2882,10 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--input-format",
                     "csv",
                     "--allow-overwrite",
+                    "--memory-gb",
+                    "6",
+                    "--max-parallelism",
+                    "8",
                     "--format",
                     "json",
                 ], sys.argv
@@ -2904,6 +2908,8 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "source_adapter_feature_gate", "value": "default"},
                         {"key": "source_adapter_boundary", "value": "local_text_source_state_adapter"},
                         {"key": "vortex_ingest_status", "value": "prepared_state_created"},
+                        {"key": "vortex_ingest_requested_memory_gb", "value": "6"},
+                        {"key": "vortex_ingest_requested_max_parallelism", "value": "8"},
                         {"key": "prepared_state_id", "value": "vortex-prepared-state-fnv64-abc"},
                         {"key": "prepared_state_digest", "value": "fnv64:abc"},
                         {"key": "vortex_artifact_digest", "value": "fnv64:def"},
@@ -2999,6 +3005,8 @@ class ShardLoomClientTests(unittest.TestCase):
             "target/source.vortex",
             input_format="csv",
             allow_overwrite=True,
+            memory_gb=6,
+            max_parallelism=8,
         )
 
         self.assertIsInstance(result, VortexIngestSmokeReport)
@@ -3018,6 +3026,8 @@ class ShardLoomClientTests(unittest.TestCase):
             "local_text_source_state_adapter",
         )
         self.assertEqual(result.vortex_ingest_status, "prepared_state_created")
+        self.assertEqual(result.requested_memory_gb, 6)
+        self.assertEqual(result.requested_max_parallelism, 8)
         self.assertEqual(result.prepared_state_id, "vortex-prepared-state-fnv64-abc")
         self.assertEqual(result.prepared_state_digest, "fnv64:abc")
         self.assertEqual(result.vortex_artifact_digest, "fnv64:def")
@@ -4264,6 +4274,7 @@ class ShardLoomClientTests(unittest.TestCase):
             ctx.read_csv("source.csv").prepare_vortex(
                 workspace="target/prepared",
                 input_format="csv",
+                cdc_delta="delta.csv",
             )
 
     def test_generated_source_prepare_vortex_uses_generated_vortex_sink_evidence(

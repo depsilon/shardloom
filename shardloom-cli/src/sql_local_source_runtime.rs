@@ -48,7 +48,9 @@ use shardloom_exec::{
 use crate::{
     cli_output::{emit, emit_error, emit_error_with_fields},
     cli_unknown_arg_error,
-    runtime_defaults::default_public_local_runtime_max_parallelism,
+    runtime_defaults::{
+        default_public_local_runtime_max_parallelism, default_public_local_runtime_memory_gb,
+    },
 };
 
 const COMMAND: &str = "local-source-runtime";
@@ -327,6 +329,7 @@ fn vortex_prepare_usage() -> String {
          [--schema name:dtype,...] [--allow-overwrite] \
          [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] \
          [--source-fingerprint-policy metadata_only|content_digest] \
+         [--memory-gb <n>] \
          [--max-parallelism <n>] \
          [--delta-source <local-source-path> --delta-target <delta.vortex> \
          [--delta-update-mode append-only|update|delete|upsert]] \
@@ -3663,6 +3666,14 @@ impl VortexIngestSourceData {
         }
     }
 
+    fn source_stream_policy_evidence(&self, key: &str) -> String {
+        semicolon_evidence_value(&self.source_stream_policy, key)
+    }
+
+    fn source_dictionary_evidence(&self, key: &str) -> String {
+        semicolon_evidence_value(&self.source_dictionary_preservation_status, key)
+    }
+
     fn pruned_column_count(&self) -> usize {
         self.header
             .len()
@@ -3841,6 +3852,14 @@ fn single_source_split_row_ranges(row_count: usize) -> Vec<(usize, usize)> {
     } else {
         vec![(0, row_count)]
     }
+}
+
+fn semicolon_evidence_value(raw: &str, key: &str) -> String {
+    let prefix = format!("{key}=");
+    raw.split(';')
+        .find_map(|token| token.strip_prefix(&prefix))
+        .filter(|value| !value.trim().is_empty())
+        .map_or_else(|| "not_available".to_string(), ToString::to_string)
 }
 
 #[cfg_attr(
@@ -4938,6 +4957,7 @@ struct VortexIngestRequest {
     allow_overwrite: bool,
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
     runtime_profile: SqlLocalSourceRuntimeProfile,
+    memory_gb: u64,
     max_parallelism: usize,
     source_fingerprint_policy: SourceFingerprintPolicy,
     delta: Option<VortexIngestDeltaRequest>,
@@ -5363,6 +5383,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     let mut delta_target_path = None;
     let mut delta_update_mode = shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly;
     let mut runtime_profile = SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
+    let mut memory_gb = default_public_local_runtime_memory_gb();
     let mut max_parallelism = default_public_local_runtime_max_parallelism();
     let mut source_fingerprint_policy = SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE;
     while let Some(arg) = args.next() {
@@ -5392,6 +5413,29 @@ pub(crate) fn handle_vortex_prepare_with_facade(
                             &ShardLoomError::InvalidOperation(
                                 "max_parallelism must be >= 1".to_string(),
                             ),
+                        );
+                    }
+                };
+            }
+            "--memory-gb" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        emit_command,
+                        format,
+                        "vortex prepare failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--memory-gb requires a positive integer".to_string(),
+                        ),
+                    );
+                };
+                memory_gb = match value.parse::<u64>() {
+                    Ok(parsed) if parsed > 0 => parsed,
+                    _ => {
+                        return emit_error(
+                            emit_command,
+                            format,
+                            "vortex prepare failed",
+                            &ShardLoomError::InvalidOperation("memory_gb must be >= 1".to_string()),
                         );
                     }
                 };
@@ -5603,6 +5647,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         allow_overwrite,
         certification_level,
         runtime_profile,
+        memory_gb,
         max_parallelism,
         source_fingerprint_policy,
         delta,
@@ -5727,6 +5772,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     source_format: Option<&str>,
     allow_overwrite: bool,
     max_parallelism: usize,
+    memory_gb: Option<u64>,
     source_fingerprint_policy: Option<&str>,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
@@ -5748,9 +5794,10 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
             shardloom_vortex::VortexIngestCertificationLevel::IngestCertified.as_str(),
         )?;
         let report = shardloom_vortex::prepare_native_vortex_artifact(&request)?;
+        let raw_fields = report.evidence_fields();
         return Ok(PublicWorkflowVortexPreparation {
             target_path,
-            fields: public_workflow_preparation_fields(report.evidence_fields()),
+            fields: public_workflow_preparation_fields(&raw_fields),
         });
     }
     let source_format_override = match source_format {
@@ -5782,6 +5829,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         allow_overwrite,
         certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
         runtime_profile: SqlLocalSourceRuntimeProfile::ProductLocalWorkflow,
+        memory_gb: memory_gb.unwrap_or_else(default_public_local_runtime_memory_gb),
         max_parallelism,
         source_fingerprint_policy,
         delta: None,
@@ -5799,15 +5847,16 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     };
     Ok(PublicWorkflowVortexPreparation {
         target_path,
-        fields: public_workflow_preparation_fields(raw_fields),
+        fields: public_workflow_preparation_fields(&raw_fields),
     })
 }
 
 #[allow(clippy::too_many_lines)]
-fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<(String, String)> {
+fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(String, String)> {
     const SELECTED_FIELDS: &[&str] = &[
         "vortex_ingest_performed",
         "vortex_ingest_status",
+        "vortex_ingest_requested_memory_gb",
         "vortex_ingest_requested_max_parallelism",
         "source_format",
         "source_adapter_id",
@@ -5839,6 +5888,25 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "source_state_stream_unit_count_hint",
         "source_state_stream_unit_hint_kind",
         "source_state_stream_policy",
+        "source_state_stream_unit_interface",
+        "source_state_stream_unit_byte_range_count",
+        "source_state_stream_unit_physical_bytes",
+        "source_state_stream_unit_byte_range_sample",
+        "source_state_stream_unit_physical_source",
+        "source_state_stream_unit_scheduler_wait_status",
+        "source_state_stream_unit_decode_wait_status",
+        "source_state_stream_unit_writer_starvation_status",
+        "source_state_stream_unit_physical_bandwidth_status",
+        "source_state_parquet_extent_row_group_count",
+        "source_state_parquet_extent_row_group_byte_range_count",
+        "source_state_parquet_extent_column_chunk_count",
+        "source_state_parquet_extent_column_chunk_byte_range_count",
+        "source_state_parquet_extent_compressed_bytes",
+        "source_state_parquet_extent_uncompressed_bytes",
+        "source_state_parquet_extent_codec_summary",
+        "source_state_parquet_extent_dictionary_page_count",
+        "source_state_parquet_extent_statistics_count",
+        "source_state_parquet_extent_row_group_summary",
         "source_state_dictionary_preservation_status",
         "source_state_ingest_executor_status",
         "source_state_ingest_executor_kind",
@@ -5905,6 +5973,17 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "universal_ingest_encode_write_wall_millis",
         "universal_ingest_footer_register_millis",
         "universal_ingest_reopen_verify_millis",
+        "universal_ingest_prepare_known_component_millis",
+        "universal_ingest_prepare_unattributed_millis",
+        "universal_ingest_prepare_attribution_status",
+        "universal_ingest_prepare_attribution_policy",
+        "universal_ingest_prepare_source_hydration_millis",
+        "universal_ingest_prepare_nested_source_batch_production_millis",
+        "universal_ingest_prepare_route_bookkeeping_millis",
+        "universal_ingest_prepare_scheduler_wait_millis",
+        "universal_ingest_prepare_writer_backpressure_or_timer_overlap_millis",
+        "universal_ingest_prepare_evidence_emit_millis",
+        "universal_ingest_prepare_residual_split_policy",
         "universal_ingest_stream_timing_overlap_policy",
         "vortex_layout_write_advisor_source_scale",
         "vortex_layout_write_advisor_profile_family",
@@ -5924,6 +6003,8 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "vortex_writer_compression_policy",
         "vortex_writer_compression_field_count",
         "vortex_writer_compression_field_names",
+        "vortex_writer_compression_decision_count",
+        "vortex_writer_compression_decisions",
         "vortex_writer_compression_concurrency",
         "vortex_writer_stats_concurrency",
         "vortex_writer_profile_selection_reason",
@@ -5999,11 +6080,137 @@ fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<
         "fallback_attempted",
         "external_engine_invoked",
     ];
-    raw_fields
-        .into_iter()
-        .filter(|(key, _)| SELECTED_FIELDS.contains(&key.as_str()))
-        .map(|(key, value)| (format!("public_workflow_preparation_{key}"), value))
+    let raw_map = raw_fields
+        .iter()
+        .map(|(key, value)| (key.as_str(), value.as_str()))
+        .collect::<BTreeMap<_, _>>();
+    SELECTED_FIELDS
+        .iter()
+        .filter_map(|key| {
+            raw_map
+                .get(key)
+                .map(|value| (*value).to_string())
+                .or_else(|| public_workflow_preparation_derived_field(&raw_map, key))
+                .map(|value| (format!("public_workflow_preparation_{key}"), value))
+        })
         .collect()
+}
+
+const STREAM_POLICY_DERIVED_FIELDS: &[(&str, &str)] = &[
+    (
+        "source_state_stream_unit_interface",
+        "source_unit_interface",
+    ),
+    (
+        "source_state_stream_unit_byte_range_count",
+        "source_unit_byte_range_count",
+    ),
+    (
+        "source_state_stream_unit_physical_bytes",
+        "source_unit_physical_bytes",
+    ),
+    (
+        "source_state_stream_unit_byte_range_sample",
+        "source_unit_byte_range_sample",
+    ),
+    (
+        "source_state_stream_unit_physical_source",
+        "source_unit_physical_source",
+    ),
+    (
+        "source_state_stream_unit_scheduler_wait_status",
+        "source_unit_scheduler_wait_status",
+    ),
+    (
+        "source_state_stream_unit_decode_wait_status",
+        "source_unit_decode_wait_status",
+    ),
+    (
+        "source_state_stream_unit_writer_starvation_status",
+        "source_unit_writer_starvation_status",
+    ),
+    (
+        "source_state_stream_unit_physical_bandwidth_status",
+        "source_unit_physical_bandwidth_status",
+    ),
+    (
+        "source_state_parquet_extent_row_group_count",
+        "parquet_extent_row_groups",
+    ),
+    (
+        "source_state_parquet_extent_row_group_byte_range_count",
+        "parquet_extent_row_groups_with_byte_ranges",
+    ),
+    (
+        "source_state_parquet_extent_column_chunk_count",
+        "parquet_extent_column_chunks",
+    ),
+    (
+        "source_state_parquet_extent_column_chunk_byte_range_count",
+        "parquet_extent_column_chunks_with_byte_ranges",
+    ),
+    (
+        "source_state_parquet_extent_compressed_bytes",
+        "parquet_extent_compressed_bytes",
+    ),
+    (
+        "source_state_parquet_extent_uncompressed_bytes",
+        "parquet_extent_uncompressed_bytes",
+    ),
+    (
+        "source_state_parquet_extent_codec_summary",
+        "parquet_extent_codec_summary",
+    ),
+];
+
+const DICTIONARY_STATUS_DERIVED_FIELDS: &[(&str, &str)] = &[
+    (
+        "source_state_parquet_extent_dictionary_page_count",
+        "parquet_extent_dictionary_pages",
+    ),
+    (
+        "source_state_parquet_extent_statistics_count",
+        "parquet_extent_statistics",
+    ),
+    (
+        "source_state_parquet_extent_row_group_summary",
+        "parquet_extent_row_group_summary",
+    ),
+];
+
+fn public_workflow_preparation_derived_field(
+    raw_fields: &BTreeMap<&str, &str>,
+    key: &str,
+) -> Option<String> {
+    STREAM_POLICY_DERIVED_FIELDS
+        .iter()
+        .find_map(|(field, evidence_key)| {
+            (*field == key).then(|| {
+                semicolon_evidence_value_opt(
+                    raw_fields.get("source_state_stream_policy").copied(),
+                    evidence_key,
+                )
+            })?
+        })
+        .or_else(|| {
+            DICTIONARY_STATUS_DERIVED_FIELDS
+                .iter()
+                .find_map(|(field, evidence_key)| {
+                    (*field == key).then(|| {
+                        semicolon_evidence_value_opt(
+                            raw_fields
+                                .get("source_state_dictionary_preservation_status")
+                                .copied(),
+                            evidence_key,
+                        )
+                    })?
+                })
+        })
+}
+
+fn semicolon_evidence_value_opt(raw: Option<&str>, key: &str) -> Option<String> {
+    let value = semicolon_evidence_value(raw?, key);
+    (value != "not_available").then_some(value)
 }
 
 fn validate_sql_local_source_output_request(
@@ -6094,6 +6301,7 @@ fn run_vortex_prepare_with_schema(
                 allow_overwrite: base_report.request.allow_overwrite,
                 certification_level: base_report.request.certification_level,
                 runtime_profile: base_report.request.runtime_profile,
+                memory_gb: base_report.request.memory_gb,
                 max_parallelism: base_report.request.max_parallelism,
                 source_fingerprint_policy: base_report.request.source_fingerprint_policy,
                 delta: None,
@@ -6464,10 +6672,36 @@ fn layout_writer_compression_candidate_field(
         return None;
     }
     match arrow_dtype {
-        Some(dtype) if writer_candidate_arrow_dtype_is_utf8_like(dtype) => Some(column.to_string()),
-        None if layout_text_domain_column_name(column) => Some(column.to_string()),
+        Some(dtype)
+            if writer_candidate_arrow_dtype_is_utf8_like(dtype)
+                && layout_text_payload_compression_column_name(column) =>
+        {
+            Some(column.to_string())
+        }
+        None if layout_text_payload_compression_column_name(column) => Some(column.to_string()),
         Some(_) | None => None,
     }
+}
+
+fn layout_text_payload_compression_column_name(column: &str) -> bool {
+    let lower = column.to_ascii_lowercase();
+    lower.contains("url")
+        || lower.contains("referer")
+        || lower.contains("referrer")
+        || lower.contains("search")
+        || lower.contains("phrase")
+        || lower.contains("title")
+        || lower.contains("useragent")
+        || lower.contains("payload")
+        || lower.contains("body")
+        || lower.contains("content")
+        || lower.contains("message")
+        || lower.contains("description")
+        || lower.contains("json")
+        || lower.contains("html")
+        || lower == "params"
+        || lower.ends_with("_params")
+        || lower.ends_with("params")
 }
 
 fn writer_candidate_arrow_dtype_is_utf8_like(data_type: &DataType) -> bool {
@@ -6603,7 +6837,7 @@ fn layout_expected_read_tradeoff(source: &VortexIngestSourceData) -> &'static st
 fn layout_expected_write_tradeoff(source: &VortexIngestSourceData) -> &'static str {
     match (layout_source_scale(source), layout_source_profile(source)) {
         ("large_olap", "url_time_counter_olap" | "url_time_olap" | "url_text_olap") => {
-            "prefer_source_text_fast_zstd_for_text_columns_and_embedded_layout_statistics"
+            "prefer_column_family_fast_zstd_for_payload_text_and_embedded_layout_statistics"
         }
         ("large_olap", _) => "prefer_fast_load_uncompressed_layout_to_reduce_ingest_wall_time",
         ("medium_olap", "url_time_counter_olap" | "url_time_olap" | "url_text_olap") => {
@@ -6692,6 +6926,7 @@ fn capillary_preparation_report(
     source_state_digest: &str,
     prepared_state_id: &str,
     prepared_state_digest: &str,
+    memory_gb: u64,
     max_parallelism: usize,
 ) -> Result<shardloom_vortex::VortexCapillaryPreparationReport, ShardLoomError> {
     let native_io_certificate_status =
@@ -6753,7 +6988,7 @@ fn capillary_preparation_report(
                 .native_io_certificate_refs
                 .clone(),
             correctness_digest,
-            memory_budget_bytes: capillary_memory_budget_bytes(source, vortex_report),
+            memory_budget_bytes: memory_gb_to_bytes(memory_gb),
             max_parallelism,
             result_sink_requested: false,
             result_sink_replay_verified: false,
@@ -6770,6 +7005,7 @@ fn capillary_prewrite_input(
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
     source_state_id: &str,
     source_state_digest: &str,
+    memory_gb: u64,
     max_parallelism: usize,
 ) -> shardloom_vortex::VortexCapillaryPreparationInput {
     let prewrite_prepared_state_digest = fnv64_digest(&format!(
@@ -6843,7 +7079,7 @@ fn capillary_prewrite_input(
             "prewrite_source_shape_local_sink_policy_final_certificate_required_after_write"
                 .to_string(),
         correctness_digest,
-        memory_budget_bytes: capillary_prewrite_memory_budget_bytes(source),
+        memory_budget_bytes: memory_gb_to_bytes(memory_gb),
         max_parallelism,
         result_sink_requested: false,
         result_sink_replay_verified: false,
@@ -6853,23 +7089,12 @@ fn capillary_prewrite_input(
     }
 }
 
-fn capillary_memory_budget_bytes(
-    source: &VortexIngestSourceData,
-    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
-) -> u64 {
-    let observed_bytes = source
-        .source_bytes
-        .saturating_add(vortex_report.bytes_written)
-        .max(1);
-    observed_bytes.saturating_mul(4).max(16 * 1024 * 1024)
-}
-
-fn capillary_prewrite_memory_budget_bytes(source: &VortexIngestSourceData) -> u64 {
-    source
-        .source_bytes
+fn memory_gb_to_bytes(memory_gb: u64) -> u64 {
+    memory_gb
         .max(1)
-        .saturating_mul(4)
-        .max(16 * 1024 * 1024)
+        .saturating_mul(1024)
+        .saturating_mul(1024)
+        .saturating_mul(1024)
 }
 
 fn prepared_artifact_segment_refs_for(
@@ -7121,6 +7346,7 @@ fn run_scalar_rows_vortex_prepare(
         request.certification_level,
         &source_state_id,
         &source_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
@@ -7158,6 +7384,7 @@ fn run_scalar_rows_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     )?;
     let copy_budget = copy_budget_report(
@@ -7339,6 +7566,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         request.certification_level,
         &prewrite_source_state_id,
         &prewrite_source_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     ));
     let vortex_report =
@@ -7380,6 +7608,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     )?;
     let copy_budget = copy_budget_report(
@@ -7556,6 +7785,7 @@ fn try_run_inferred_text_vortex_prepare(
         request.certification_level,
         &prewrite_source_state_id,
         &prewrite_source_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     ));
     let vortex_report =
@@ -7597,6 +7827,7 @@ fn try_run_inferred_text_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     )?;
     let copy_budget = copy_budget_report(
@@ -7727,6 +7958,7 @@ fn run_text_streaming_vortex_prepare(
         request.certification_level,
         &prewrite_source_state_id,
         &prewrite_source_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     ));
     let vortex_report =
@@ -7768,6 +8000,7 @@ fn run_text_streaming_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     )?;
     let copy_budget = copy_budget_report(
@@ -7883,6 +8116,7 @@ fn run_columnar_vortex_prepare(
         request.certification_level,
         &prewrite_source_state_id,
         &prewrite_source_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     ));
     let vortex_report =
@@ -7924,6 +8158,7 @@ fn run_columnar_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
+        request.memory_gb,
         request.max_parallelism,
     )?;
     let copy_budget = copy_budget_report(
@@ -8542,6 +8777,55 @@ fn i128_decimal_digit_count(value: i128) -> u8 {
 
 #[allow(clippy::too_many_lines)]
 impl VortexIngestReport {
+    fn prepare_known_component_millis(&self) -> u128 {
+        self.source
+            .read_millis
+            .saturating_add(self.vortex_report.write_micros.div_ceil(1000))
+            .saturating_add(self.vortex_report.reopen_scan_micros.div_ceil(1000))
+            .min(self.prepare_once_total_millis)
+    }
+
+    fn prepare_unattributed_millis(&self) -> u128 {
+        self.prepare_once_total_millis
+            .saturating_sub(self.prepare_known_component_millis())
+    }
+
+    fn prepare_attribution_status(&self) -> &'static str {
+        if self.prepare_unattributed_millis() == 0 {
+            "fully_attributed_by_source_read_write_wall_and_reopen_verify"
+        } else {
+            "residual_prepare_bucket_contains_source_hydration_batch_production_route_bookkeeping_scheduler_wait_writer_backpressure_or_timer_overlap"
+        }
+    }
+
+    fn prepare_source_hydration_millis(&self) -> u128 {
+        self.source.source_to_columnar_millis
+    }
+
+    fn prepare_nested_source_batch_production_millis(&self) -> u128 {
+        self.vortex_report.stream_source_pull_micros.div_ceil(1000)
+    }
+
+    const fn prepare_route_bookkeeping_millis() -> u128 {
+        0
+    }
+
+    const fn prepare_scheduler_wait_millis() -> u128 {
+        0
+    }
+
+    fn prepare_evidence_emit_millis(&self) -> u128 {
+        self.evidence_render_millis
+    }
+
+    fn prepare_writer_backpressure_or_timer_overlap_millis(&self) -> u128 {
+        self.prepare_unattributed_millis()
+            .saturating_sub(self.prepare_source_hydration_millis())
+            .saturating_sub(Self::prepare_route_bookkeeping_millis())
+            .saturating_sub(Self::prepare_scheduler_wait_millis())
+            .saturating_sub(self.prepare_evidence_emit_millis())
+    }
+
     fn fields(&self) -> Vec<(String, String)> {
         let certified_reopen = self.request.certification_level
             == shardloom_vortex::VortexIngestCertificationLevel::IngestCertified;
@@ -8796,6 +9080,10 @@ impl VortexIngestReport {
                 self.request.max_parallelism.to_string(),
             ),
             (
+                "vortex_ingest_requested_memory_gb".to_string(),
+                self.request.memory_gb.to_string(),
+            ),
+            (
                 "certification_policy".to_string(),
                 format!(
                     "scoped_vortex_ingest_lifecycle_{}",
@@ -8952,6 +9240,101 @@ impl VortexIngestReport {
             (
                 "source_state_stream_policy".to_string(),
                 self.source.source_stream_policy.clone(),
+            ),
+            (
+                "source_state_stream_unit_interface".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_interface"),
+            ),
+            (
+                "source_state_stream_unit_byte_range_count".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_byte_range_count"),
+            ),
+            (
+                "source_state_stream_unit_physical_bytes".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_physical_bytes"),
+            ),
+            (
+                "source_state_stream_unit_byte_range_sample".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_byte_range_sample"),
+            ),
+            (
+                "source_state_stream_unit_physical_source".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_physical_source"),
+            ),
+            (
+                "source_state_stream_unit_scheduler_wait_status".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_scheduler_wait_status"),
+            ),
+            (
+                "source_state_stream_unit_decode_wait_status".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_decode_wait_status"),
+            ),
+            (
+                "source_state_stream_unit_writer_starvation_status".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_writer_starvation_status"),
+            ),
+            (
+                "source_state_stream_unit_physical_bandwidth_status".to_string(),
+                self.source
+                    .source_stream_policy_evidence("source_unit_physical_bandwidth_status"),
+            ),
+            (
+                "source_state_parquet_extent_row_group_count".to_string(),
+                self.source
+                    .source_stream_policy_evidence("parquet_extent_row_groups"),
+            ),
+            (
+                "source_state_parquet_extent_row_group_byte_range_count".to_string(),
+                self.source
+                    .source_stream_policy_evidence("parquet_extent_row_groups_with_byte_ranges"),
+            ),
+            (
+                "source_state_parquet_extent_column_chunk_count".to_string(),
+                self.source
+                    .source_stream_policy_evidence("parquet_extent_column_chunks"),
+            ),
+            (
+                "source_state_parquet_extent_column_chunk_byte_range_count".to_string(),
+                self.source
+                    .source_stream_policy_evidence("parquet_extent_column_chunks_with_byte_ranges"),
+            ),
+            (
+                "source_state_parquet_extent_compressed_bytes".to_string(),
+                self.source
+                    .source_stream_policy_evidence("parquet_extent_compressed_bytes"),
+            ),
+            (
+                "source_state_parquet_extent_uncompressed_bytes".to_string(),
+                self.source
+                    .source_stream_policy_evidence("parquet_extent_uncompressed_bytes"),
+            ),
+            (
+                "source_state_parquet_extent_codec_summary".to_string(),
+                self.source
+                    .source_stream_policy_evidence("parquet_extent_codec_summary"),
+            ),
+            (
+                "source_state_parquet_extent_dictionary_page_count".to_string(),
+                self.source
+                    .source_dictionary_evidence("parquet_extent_dictionary_pages"),
+            ),
+            (
+                "source_state_parquet_extent_statistics_count".to_string(),
+                self.source
+                    .source_dictionary_evidence("parquet_extent_statistics"),
+            ),
+            (
+                "source_state_parquet_extent_row_group_summary".to_string(),
+                self.source
+                    .source_dictionary_evidence("parquet_extent_row_group_summary"),
             ),
             (
                 "source_state_dictionary_preservation_status".to_string(),
@@ -9293,6 +9676,55 @@ impl VortexIngestReport {
                     .to_string(),
             ),
             (
+                "universal_ingest_prepare_known_component_millis".to_string(),
+                self.prepare_known_component_millis().to_string(),
+            ),
+            (
+                "universal_ingest_prepare_unattributed_millis".to_string(),
+                self.prepare_unattributed_millis().to_string(),
+            ),
+            (
+                "universal_ingest_prepare_attribution_status".to_string(),
+                self.prepare_attribution_status().to_string(),
+            ),
+            (
+                "universal_ingest_prepare_attribution_policy".to_string(),
+                "source_read_plus_vortex_write_wall_plus_reopen_verify_are_non_overlapping_primary_buckets;stream_decode_derive_convert_are_nested_writer_components"
+                    .to_string(),
+            ),
+            (
+                "universal_ingest_prepare_source_hydration_millis".to_string(),
+                self.prepare_source_hydration_millis().to_string(),
+            ),
+            (
+                "universal_ingest_prepare_nested_source_batch_production_millis".to_string(),
+                self.prepare_nested_source_batch_production_millis()
+                    .to_string(),
+            ),
+            (
+                "universal_ingest_prepare_route_bookkeeping_millis".to_string(),
+                Self::prepare_route_bookkeeping_millis().to_string(),
+            ),
+            (
+                "universal_ingest_prepare_scheduler_wait_millis".to_string(),
+                Self::prepare_scheduler_wait_millis().to_string(),
+            ),
+            (
+                "universal_ingest_prepare_writer_backpressure_or_timer_overlap_millis"
+                    .to_string(),
+                self.prepare_writer_backpressure_or_timer_overlap_millis()
+                    .to_string(),
+            ),
+            (
+                "universal_ingest_prepare_evidence_emit_millis".to_string(),
+                self.prepare_evidence_emit_millis().to_string(),
+            ),
+            (
+                "universal_ingest_prepare_residual_split_policy".to_string(),
+                "non_overlapping_known_components_plus_source_hydration_and_evidence_emit;source_batch_production_is_nested_stream_timing;writer_backpressure_or_timer_overlap_is_residual_upper_bound"
+                    .to_string(),
+            ),
+            (
                 "universal_ingest_stream_timing_overlap_policy".to_string(),
                 if self.vortex_report.array_build_prefetch_window > 0 {
                     "capillary_prefetch_may_overlap_decode_derive_with_encode_write_wall_time"
@@ -9414,6 +9846,16 @@ impl VortexIngestReport {
             (
                 "vortex_writer_compression_field_names".to_string(),
                 self.vortex_report.writer_compression_field_names(),
+            ),
+            (
+                "vortex_writer_compression_decision_count".to_string(),
+                self.vortex_report
+                    .writer_compression_decision_count()
+                    .to_string(),
+            ),
+            (
+                "vortex_writer_compression_decisions".to_string(),
+                self.vortex_report.writer_compression_decisions(),
             ),
             (
                 "vortex_writer_compression_concurrency".to_string(),
@@ -10010,6 +10452,14 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
             "blocked_feature_gate".to_string(),
         ),
         (
+            "vortex_ingest_requested_memory_gb".to_string(),
+            request.memory_gb.to_string(),
+        ),
+        (
+            "vortex_ingest_requested_max_parallelism".to_string(),
+            request.max_parallelism.to_string(),
+        ),
+        (
             "certification_level".to_string(),
             request.certification_level.as_str().to_string(),
         ),
@@ -10027,7 +10477,7 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
         request,
     ));
     fields.extend(vortex_ingest_feature_blocked_spine_fields());
-    fields.extend(vortex_ingest_feature_blocked_capillary_fields());
+    fields.extend(vortex_ingest_feature_blocked_capillary_fields(request));
     fields.extend(vortex_ingest_feature_blocked_copy_budget_fields(request));
     fields.extend([
         ("prepared_state_created".to_string(), "false".to_string()),
@@ -10200,6 +10650,14 @@ fn vortex_ingest_scout_blocked_fields(
             "blocked_scout_ingress".to_string(),
         ),
         (
+            "vortex_ingest_requested_memory_gb".to_string(),
+            blocked_request.memory_gb.to_string(),
+        ),
+        (
+            "vortex_ingest_requested_max_parallelism".to_string(),
+            blocked_request.max_parallelism.to_string(),
+        ),
+        (
             "certification_level".to_string(),
             blocked_request.certification_level.as_str().to_string(),
         ),
@@ -10214,6 +10672,7 @@ fn vortex_ingest_scout_blocked_fields(
     ];
     fields.extend(scout_report.evidence_fields());
     fields.extend(vortex_ingest_scout_blocked_layout_write_advisor_fields(
+        &blocked_request,
         &scout_report,
         classifier.diagnostic_code,
     ));
@@ -10303,6 +10762,7 @@ fn vortex_ingest_scout_blocked_request(
             allow_overwrite: request.allow_overwrite,
             certification_level: request.certification_level,
             runtime_profile: request.runtime_profile,
+            memory_gb: request.memory_gb,
             max_parallelism: request.max_parallelism,
             source_fingerprint_policy: request.source_fingerprint_policy,
             delta: None,
@@ -10452,7 +10912,7 @@ fn vortex_ingest_feature_blocked_scout_fields(
 }
 
 fn vortex_ingest_feature_blocked_layout_write_advisor_fields(
-    _request: &VortexIngestRequest,
+    request: &VortexIngestRequest,
 ) -> Vec<(String, String)> {
     shardloom_vortex::evaluate_vortex_layout_write_advisor(
         shardloom_vortex::VortexLayoutWriteAdvisorInput {
@@ -10475,7 +10935,7 @@ fn vortex_ingest_feature_blocked_layout_write_advisor_fields(
             writer_provider_kind: "none_feature_gate_blocked".to_string(),
             writer_provider_surface: "none_feature_gate_blocked".to_string(),
             writer_admission_policy: "blocked_before_vortex_write_feature".to_string(),
-            writer_parallelism_budget: 1,
+            writer_parallelism_budget: request.max_parallelism,
             writer_compression_candidate_fields: Vec::new(),
             write_reopen_verification_depth: "not_started_feature_gate_blocked".to_string(),
             materialization_boundary_status: "not_started_feature_gate_blocked".to_string(),
@@ -10533,6 +10993,7 @@ fn vortex_ingest_feature_blocked_copy_budget_fields(
 }
 
 fn vortex_ingest_scout_blocked_layout_write_advisor_fields(
+    request: &VortexIngestRequest,
     scout_report: &shardloom_vortex::VortexScoutIngressReport,
     blocker_code: &str,
 ) -> Vec<(String, String)> {
@@ -10557,7 +11018,7 @@ fn vortex_ingest_scout_blocked_layout_write_advisor_fields(
             writer_provider_kind: "none_scout_ingress_blocked".to_string(),
             writer_provider_surface: "none_scout_ingress_blocked".to_string(),
             writer_admission_policy: "blocked_before_vortex_write_by_scout_ingress".to_string(),
-            writer_parallelism_budget: 1,
+            writer_parallelism_budget: request.max_parallelism,
             writer_compression_candidate_fields: Vec::new(),
             write_reopen_verification_depth: "not_started_scout_ingress_blocked".to_string(),
             materialization_boundary_status: "not_started_scout_ingress_blocked".to_string(),
@@ -10660,7 +11121,9 @@ fn vortex_ingest_feature_blocked_spine_fields() -> Vec<(String, String)> {
     ]
 }
 
-fn vortex_ingest_feature_blocked_capillary_fields() -> Vec<(String, String)> {
+fn vortex_ingest_feature_blocked_capillary_fields(
+    request: &VortexIngestRequest,
+) -> Vec<(String, String)> {
     vec![
         (
             "vortex_capillary_preparation_schema_version".to_string(),
@@ -10689,6 +11152,14 @@ fn vortex_ingest_feature_blocked_capillary_fields() -> Vec<(String, String)> {
         (
             "vortex_capillary_preparation_execution_window_size".to_string(),
             "0".to_string(),
+        ),
+        (
+            "vortex_capillary_preparation_memory_budget_bytes".to_string(),
+            memory_gb_to_bytes(request.memory_gb).to_string(),
+        ),
+        (
+            "vortex_capillary_preparation_max_parallelism".to_string(),
+            request.max_parallelism.to_string(),
         ),
         (
             "vortex_capillary_preparation_execution_window_ids".to_string(),
@@ -16674,6 +17145,7 @@ fn plan_sql_output_layout_write_advisor_prewrite(
                 "result_batch_state_materialized_before_vortex_output_write",
             )
         };
+    let writer_parallelism_budget = default_public_local_runtime_max_parallelism();
     let vortex_writer_advisor = has_vortex_sink.then(|| {
         shardloom_vortex::evaluate_vortex_layout_write_advisor(
             shardloom_vortex::VortexLayoutWriteAdvisorInput {
@@ -16703,7 +17175,7 @@ fn plan_sql_output_layout_write_advisor_prewrite(
                 writer_admission_policy:
                     shardloom_vortex::VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
                         .to_string(),
-                writer_parallelism_budget: 1,
+                writer_parallelism_budget,
                 writer_compression_candidate_fields: batch
                     .columns
                     .iter()
@@ -31482,6 +31954,22 @@ impl SqlLocalSourceReport {
                 self.vortex_writer_compression_policies(),
             ),
             (
+                "vortex_writer_compression_field_counts".to_string(),
+                self.vortex_writer_compression_field_counts(),
+            ),
+            (
+                "vortex_writer_compression_field_names".to_string(),
+                self.vortex_writer_compression_field_names(),
+            ),
+            (
+                "vortex_writer_compression_decision_counts".to_string(),
+                self.vortex_writer_compression_decision_counts(),
+            ),
+            (
+                "vortex_writer_compression_decisions".to_string(),
+                self.vortex_writer_compression_decisions(),
+            ),
+            (
                 "vortex_writer_compression_concurrencies".to_string(),
                 self.vortex_writer_compression_concurrencies(),
             ),
@@ -32516,6 +33004,41 @@ impl SqlLocalSourceReport {
                 .vortex_report
                 .as_ref()
                 .map(|report| report.writer_compression_policy.clone())
+        }))
+    }
+
+    fn vortex_writer_compression_field_counts(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_compression_field_count().to_string())
+        }))
+    }
+
+    fn vortex_writer_compression_field_names(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output.vortex_report.as_ref().map(
+                shardloom_vortex::VortexPreparedStateWriteReport::writer_compression_field_names,
+            )
+        }))
+    }
+
+    fn vortex_writer_compression_decision_counts(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.writer_compression_decision_count().to_string())
+        }))
+    }
+
+    fn vortex_writer_compression_decisions(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(shardloom_vortex::VortexPreparedStateWriteReport::writer_compression_decisions)
         }))
     }
 
@@ -43984,7 +44507,7 @@ mod tests {
 
     #[test]
     fn public_workflow_preparation_fields_keep_product_stream_source_evidence() {
-        let fields = public_workflow_preparation_fields(vec![
+        let raw_fields = vec![
             ("source_state_stream_batch_size".to_string(), "262144".to_string()),
             (
                 "source_state_stream_unit_count_hint".to_string(),
@@ -43996,19 +44519,19 @@ mod tests {
             ),
             (
                 "source_state_stream_policy".to_string(),
-                "product_columnar_stream_batch_size_262144_rows".to_string(),
+                "product_columnar_stream_batch_size_262144_rows;source_unit_interface=capillary_source_extents;source_unit_byte_range_count=8;source_unit_physical_bytes=8192;source_unit_byte_range_sample=0..1024|1024..2048;source_unit_physical_source=file_local_range_read_eligible;source_unit_scheduler_wait_status=bounded_ordered_delivery;source_unit_decode_wait_status=measured_in_stream_source_pull_micros;source_unit_writer_starvation_status=surfaced_as_prepare_writer_backpressure_or_timer_overlap;source_unit_physical_bandwidth_status=derivable_from_source_bytes_and_prepare_source_hydration_millis;parquet_extent_row_groups=8;parquet_extent_row_groups_with_byte_ranges=8;parquet_extent_column_chunks=64;parquet_extent_column_chunks_with_byte_ranges=64;parquet_extent_compressed_bytes=8192;parquet_extent_uncompressed_bytes=16384;parquet_extent_codec_summary=SNAPPY:64".to_string(),
             ),
             (
                 "source_state_dictionary_preservation_status".to_string(),
-                "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary"
+                "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary;parquet_extent_dictionary_pages=8;parquet_extent_statistics=64;parquet_extent_row_group_summary=rg=0,rows=2,chunks=8,compressed_bytes=1024,uncompressed_bytes=2048,start=0,len=1024"
                     .to_string(),
             ),
             (
                 "not_selected_internal_field".to_string(),
                 "should_drop".to_string(),
             ),
-        ]);
-        let fields = field_map(fields);
+        ];
+        let fields = field_map(public_workflow_preparation_fields(&raw_fields));
 
         assert_field_eq(
             &fields,
@@ -44028,12 +44551,62 @@ mod tests {
         assert_field_eq(
             &fields,
             "public_workflow_preparation_source_state_stream_policy",
-            "product_columnar_stream_batch_size_262144_rows",
+            "product_columnar_stream_batch_size_262144_rows;source_unit_interface=capillary_source_extents;source_unit_byte_range_count=8;source_unit_physical_bytes=8192;source_unit_byte_range_sample=0..1024|1024..2048;source_unit_physical_source=file_local_range_read_eligible;source_unit_scheduler_wait_status=bounded_ordered_delivery;source_unit_decode_wait_status=measured_in_stream_source_pull_micros;source_unit_writer_starvation_status=surfaced_as_prepare_writer_backpressure_or_timer_overlap;source_unit_physical_bandwidth_status=derivable_from_source_bytes_and_prepare_source_hydration_millis;parquet_extent_row_groups=8;parquet_extent_row_groups_with_byte_ranges=8;parquet_extent_column_chunks=64;parquet_extent_column_chunks_with_byte_ranges=64;parquet_extent_compressed_bytes=8192;parquet_extent_uncompressed_bytes=16384;parquet_extent_codec_summary=SNAPPY:64",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_stream_unit_interface",
+            "capillary_source_extents",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_stream_unit_byte_range_count",
+            "8",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_stream_unit_physical_bytes",
+            "8192",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_stream_unit_physical_source",
+            "file_local_range_read_eligible",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_parquet_extent_row_group_count",
+            "8",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_parquet_extent_column_chunk_count",
+            "64",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_parquet_extent_compressed_bytes",
+            "8192",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_parquet_extent_codec_summary",
+            "SNAPPY:64",
         );
         assert_field_eq(
             &fields,
             "public_workflow_preparation_source_state_dictionary_preservation_status",
-            "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary",
+            "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary;parquet_extent_dictionary_pages=8;parquet_extent_statistics=64;parquet_extent_row_group_summary=rg=0,rows=2,chunks=8,compressed_bytes=1024,uncompressed_bytes=2048,start=0,len=1024",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_parquet_extent_dictionary_page_count",
+            "8",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_source_state_parquet_extent_statistics_count",
+            "64",
         );
         assert!(!fields.contains_key("public_workflow_preparation_not_selected_internal_field"));
     }
@@ -44214,7 +44787,7 @@ mod tests {
         );
         assert_eq!(
             layout_expected_write_tradeoff(&source),
-            "prefer_source_text_fast_zstd_for_text_columns_and_embedded_layout_statistics"
+            "prefer_column_family_fast_zstd_for_payload_text_and_embedded_layout_statistics"
         );
     }
 
@@ -44231,6 +44804,9 @@ mod tests {
                 "ClientIP".to_string(),
                 "__shardloom_derived_utf8_len_URL".to_string(),
                 "SearchPhrase".to_string(),
+                "BrowserCountry".to_string(),
+                "ParamCurrency".to_string(),
+                "Params".to_string(),
             ],
             column_arrow_dtypes: vec![
                 Some(DataType::Utf8),
@@ -44241,6 +44817,9 @@ mod tests {
                 Some(DataType::UInt32),
                 Some(DataType::UInt32),
                 None,
+                Some(DataType::Utf8),
+                Some(DataType::Utf8),
+                Some(DataType::Utf8),
             ],
             read_plan: LocalSourceReadPlan::full("test_writer_candidates"),
             materialized_columns: vec!["URL".to_string(), "Title".to_string()],
@@ -44282,6 +44861,7 @@ mod tests {
                 "URL".to_string(),
                 "Title".to_string(),
                 "SearchPhrase".to_string(),
+                "Params".to_string(),
             ]
         );
     }
@@ -44675,7 +45255,7 @@ mod tests {
 
     #[test]
     fn public_workflow_preparation_keeps_layout_profile_fields() {
-        let fields = field_map(public_workflow_preparation_fields(vec![
+        let raw_fields = vec![
             (
                 "vortex_layout_write_advisor_source_scale".to_string(),
                 "large_olap".to_string(),
@@ -44715,7 +45295,7 @@ mod tests {
             ),
             (
                 "vortex_layout_write_advisor_expected_write_tradeoff".to_string(),
-                "prefer_source_text_fast_zstd_for_text_columns_and_embedded_layout_statistics"
+                "prefer_column_family_fast_zstd_for_payload_text_and_embedded_layout_statistics"
                     .to_string(),
             ),
             (
@@ -44726,7 +45306,16 @@ mod tests {
                 "vortex_writer_compression_field_names".to_string(),
                 "URL,Referer,SearchPhrase".to_string(),
             ),
-        ]));
+            (
+                "vortex_writer_compression_decision_count".to_string(),
+                "3".to_string(),
+            ),
+            (
+                "vortex_writer_compression_decisions".to_string(),
+                "field=URL;decision=compress;codec=zstd|field=Referer;decision=compress;codec=zstd|field=SearchPhrase;decision=compress;codec=zstd".to_string(),
+            ),
+        ];
+        let fields = field_map(public_workflow_preparation_fields(&raw_fields));
 
         assert_field_eq(
             &fields,
@@ -44776,7 +45365,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "public_workflow_preparation_vortex_layout_write_advisor_expected_write_tradeoff",
-            "prefer_source_text_fast_zstd_for_text_columns_and_embedded_layout_statistics",
+            "prefer_column_family_fast_zstd_for_payload_text_and_embedded_layout_statistics",
         );
         assert_field_eq(
             &fields,
@@ -44787,6 +45376,16 @@ mod tests {
             &fields,
             "public_workflow_preparation_vortex_writer_compression_field_names",
             "URL,Referer,SearchPhrase",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_writer_compression_decision_count",
+            "3",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_writer_compression_decisions",
+            "field=URL;decision=compress;codec=zstd|field=Referer;decision=compress;codec=zstd|field=SearchPhrase;decision=compress;codec=zstd",
         );
     }
 
@@ -44973,6 +45572,7 @@ mod tests {
             allow_overwrite,
             certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
+            memory_gb: 4,
             max_parallelism: 2,
             source_fingerprint_policy: SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE,
             delta: None,
@@ -45233,6 +45833,12 @@ mod tests {
                 "universal_ingest_encode_write_wall_millis",
                 "universal_ingest_footer_register_millis",
                 "universal_ingest_reopen_verify_millis",
+                "universal_ingest_prepare_source_hydration_millis",
+                "universal_ingest_prepare_nested_source_batch_production_millis",
+                "universal_ingest_prepare_route_bookkeeping_millis",
+                "universal_ingest_prepare_scheduler_wait_millis",
+                "universal_ingest_prepare_writer_backpressure_or_timer_overlap_millis",
+                "universal_ingest_prepare_evidence_emit_millis",
                 "vortex_writer_runtime_requested_parallelism",
                 "vortex_writer_runtime_applied_parallelism",
                 "vortex_writer_runtime_background_workers",
@@ -45272,6 +45878,7 @@ mod tests {
         fs::write(&source, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
 
         let mut request = vortex_ingest_reuse_request(source, target, false);
+        request.memory_gb = 6;
         request.max_parallelism = 4;
 
         let outcome = run_vortex_prepare(request)
@@ -45279,8 +45886,9 @@ mod tests {
         let report = prepared_vortex_ingest_report(outcome);
         let raw_fields = report.fields();
         let fields = field_map(raw_fields.clone());
-        let public_fields = field_map(public_workflow_preparation_fields(raw_fields));
+        let public_fields = field_map(public_workflow_preparation_fields(&raw_fields));
 
+        assert_field_eq(&fields, "vortex_ingest_requested_memory_gb", "6");
         assert_field_eq(&fields, "vortex_ingest_requested_max_parallelism", "4");
         assert_field_eq(
             &fields,
@@ -45310,6 +45918,16 @@ mod tests {
         );
         assert_field_eq(&fields, "vortex_capillary_preparation_max_parallelism", "4");
         assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_memory_budget_bytes",
+            &(6_u64 * 1024 * 1024 * 1024).to_string(),
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_ingest_requested_memory_gb",
+            "6",
+        );
+        assert_field_eq(
             &public_fields,
             "public_workflow_preparation_vortex_layout_write_advisor_writer_parallelism_budget",
             "4",
@@ -45320,9 +45938,77 @@ mod tests {
             "public workflow preparation projection should expose ingest timing split status"
         );
         assert!(
+            public_fields.contains_key(
+                "public_workflow_preparation_universal_ingest_prepare_known_component_millis"
+            ),
+            "public workflow preparation projection should expose known prepare attribution"
+        );
+        assert!(
+            public_fields.contains_key(
+                "public_workflow_preparation_universal_ingest_prepare_unattributed_millis"
+            ),
+            "public workflow preparation projection should expose residual prepare attribution"
+        );
+        assert!(
+            public_fields.contains_key(
+                "public_workflow_preparation_universal_ingest_prepare_attribution_status"
+            ),
+            "public workflow preparation projection should expose prepare attribution status"
+        );
+        assert!(
+            public_fields.contains_key(
+                "public_workflow_preparation_universal_ingest_prepare_source_hydration_millis"
+            ),
+            "public workflow preparation projection should expose source hydration attribution"
+        );
+        assert!(
+            public_fields.contains_key(
+                "public_workflow_preparation_universal_ingest_prepare_nested_source_batch_production_millis"
+            ),
+            "public workflow preparation projection should expose nested source batch production timing"
+        );
+        assert!(
+            public_fields.contains_key(
+                "public_workflow_preparation_universal_ingest_prepare_writer_backpressure_or_timer_overlap_millis"
+            ),
+            "public workflow preparation projection should expose residual writer/backpressure attribution"
+        );
+        let prepare_total_millis = fields
+            .get("prepare_once_millis")
+            .expect("prepare total field")
+            .parse::<u128>()
+            .expect("prepare total millis");
+        let known_prepare_millis = fields
+            .get("universal_ingest_prepare_known_component_millis")
+            .expect("known prepare attribution")
+            .parse::<u128>()
+            .expect("known prepare attribution millis");
+        let unattributed_prepare_millis = fields
+            .get("universal_ingest_prepare_unattributed_millis")
+            .expect("unattributed prepare attribution")
+            .parse::<u128>()
+            .expect("unattributed prepare attribution millis");
+        assert!(known_prepare_millis <= prepare_total_millis);
+        assert!(unattributed_prepare_millis <= prepare_total_millis);
+        assert_eq!(
+            known_prepare_millis.saturating_add(unattributed_prepare_millis),
+            prepare_total_millis
+        );
+        assert!(
             public_fields
                 .contains_key("public_workflow_preparation_vortex_writer_stats_concurrency"),
             "public workflow preparation projection should expose writer stats concurrency"
+        );
+        assert!(
+            public_fields.contains_key(
+                "public_workflow_preparation_vortex_writer_compression_decision_count"
+            ),
+            "public workflow preparation projection should expose writer compression decisions"
+        );
+        assert!(
+            public_fields
+                .contains_key("public_workflow_preparation_vortex_writer_compression_decisions"),
+            "public workflow preparation projection should expose writer compression decision details"
         );
         assert!(
             public_fields
@@ -48979,6 +49665,16 @@ mod tests {
             &fields,
             "vortex_output_column_families",
             "id:int64,values:list,payload:struct",
+        );
+        assert_field_eq(&fields, "vortex_writer_compression_field_counts", "0");
+        assert_field_eq(&fields, "vortex_writer_compression_field_names", "none");
+        assert_field_eq(&fields, "vortex_writer_compression_decision_counts", "1");
+        assert!(
+            fields
+                .get("vortex_writer_compression_decisions")
+                .is_some_and(|decisions| decisions.contains("field=payload;decision=skip")),
+            "vortex_writer_compression_decisions={:?}",
+            fields.get("vortex_writer_compression_decisions")
         );
         assert_field_eq(
             &fields,

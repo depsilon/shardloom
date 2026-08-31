@@ -1437,7 +1437,7 @@ class ShardLoomSession:
         )
         self.session_state_scope = "in_process_python_local"
         self._prepared_cache: dict[
-            tuple[str, str, str],
+            tuple[str, str, str, int | None, int | None],
             _PreparedCacheEntry,
         ] = {}
         self._sql_cache: dict[tuple[object, ...], _SqlCacheEntry] = {}
@@ -1707,12 +1707,9 @@ class ShardLoomSession:
             for value in (
                 dim,
                 workspace,
-                input_format,
                 cdc_delta,
                 result_workspace,
                 evidence_level,
-                memory_gb,
-                max_parallelism,
             )
         )
         if route_requested:
@@ -1765,7 +1762,13 @@ class ShardLoomSession:
             "certification_level",
             certification_level,
         )
-        key = (normalized_source, normalized_target, normalized_certification)
+        key = (
+            normalized_source,
+            normalized_target,
+            normalized_certification,
+            memory_gb,
+            max_parallelism,
+        )
         source_fingerprint = _fingerprint_file_metadata(source_path)
         target_fingerprint = _fingerprint_file_metadata(target_vortex_path)
         entry = self._prepared_cache.get(key)
@@ -1803,8 +1806,11 @@ class ShardLoomSession:
         report = self.client.vortex_prepare(
             source_path,
             target_vortex_path,
+            input_format=input_format,
             allow_overwrite=allow_overwrite,
             certification_level=normalized_certification,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
             check=check,
         )
         source_fingerprint = _fingerprint_file(source_path)

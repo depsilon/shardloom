@@ -5466,6 +5466,7 @@ pub struct VortexLayoutWriteRuntimeDecision {
     pub writer_block_target_bytes: u64,
     pub writer_compression_policy: String,
     pub writer_compression_field_names: Vec<String>,
+    pub writer_compression_field_decisions: Vec<String>,
     pub writer_compression_concurrency: usize,
     pub writer_stats_concurrency: usize,
     pub writer_runtime_requested_parallelism: usize,
@@ -5492,6 +5493,7 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_compression_policy: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY
                 .to_string(),
             writer_compression_field_names: Vec::new(),
+            writer_compression_field_decisions: Vec::new(),
             writer_compression_concurrency:
                 VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY,
             writer_stats_concurrency: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY,
@@ -5517,6 +5519,11 @@ impl VortexLayoutWriteRuntimeDecision {
         let writer_compression_policy = admitted_layout_writer_compression_policy(advisor);
         let writer_compression_field_names =
             admitted_layout_writer_compression_field_names(advisor, writer_compression_policy);
+        let writer_compression_field_decisions = admitted_layout_writer_compression_field_decisions(
+            advisor,
+            writer_compression_policy,
+            &writer_compression_field_names,
+        );
         let writer_compression_concurrency =
             admitted_layout_writer_compression_concurrency(advisor);
         let writer_stats_concurrency = admitted_layout_writer_stats_concurrency(advisor);
@@ -5530,7 +5537,7 @@ impl VortexLayoutWriteRuntimeDecision {
         let writer_profile_regression_guard =
             admitted_layout_writer_profile_regression_guard(advisor);
         let strategy_decision_digest = fnv64_digest_text(&format!(
-            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             advisor.schema_version,
             advisor.source_state_digest,
             advisor.source_schema_digest,
@@ -5543,6 +5550,7 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_block_target_bytes,
             writer_compression_policy,
             writer_compression_field_names.join(","),
+            writer_compression_field_decisions.join("|"),
             writer_compression_concurrency,
             writer_stats_concurrency,
             writer_runtime_requested_parallelism,
@@ -5561,6 +5569,7 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_block_target_bytes,
             writer_compression_policy: writer_compression_policy.to_string(),
             writer_compression_field_names,
+            writer_compression_field_decisions,
             writer_compression_concurrency,
             writer_stats_concurrency,
             writer_runtime_requested_parallelism,
@@ -5587,7 +5596,9 @@ fn admitted_layout_writer_block_target_bytes(advisor: &VortexLayoutWriteAdvisorR
     if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
         return VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES;
     }
-    if !layout_advisor_has_text_writer_profile(advisor) {
+    if !layout_advisor_has_text_writer_profile(advisor)
+        || !admitted_layout_writer_has_storage_compression_fields(advisor)
+    {
         return VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES;
     }
     if advisor.source_byte_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES
@@ -5604,7 +5615,9 @@ fn admitted_layout_writer_compression_policy(
     advisor: &VortexLayoutWriteAdvisorReport,
 ) -> &'static str {
     if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
-        if layout_advisor_has_text_writer_profile(advisor) {
+        if layout_advisor_has_text_writer_profile(advisor)
+            && admitted_layout_writer_has_storage_compression_fields(advisor)
+        {
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
         } else {
             VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_POLICY
@@ -5628,11 +5641,74 @@ fn admitted_layout_writer_compression_field_names(
         .writer_compression_candidate_fields
         .iter()
         .filter(|field| !field.trim().is_empty())
-        .filter(|field| !field.starts_with("__shardloom_derived_"))
+        .filter(|field| admitted_layout_writer_storage_compression_field(field))
         .cloned()
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect()
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_compression_field_decisions(
+    advisor: &VortexLayoutWriteAdvisorReport,
+    writer_compression_policy: &str,
+    selected_fields: &[String],
+) -> Vec<String> {
+    let selected_fields = selected_fields.iter().cloned().collect::<BTreeSet<_>>();
+    advisor
+        .writer_compression_candidate_fields
+        .iter()
+        .filter(|field| !field.trim().is_empty())
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(|field| {
+            admitted_layout_writer_compression_field_decision(
+                &field,
+                writer_compression_policy,
+                selected_fields.contains(&field),
+            )
+        })
+        .collect::<Vec<_>>()
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_compression_field_decision(
+    field: &str,
+    writer_compression_policy: &str,
+    selected: bool,
+) -> String {
+    let field_is_shardloom_derived = field.starts_with("__shardloom_derived_");
+    let field_is_query_hot_domain = admitted_layout_writer_query_hot_domain_field(field);
+    let field = compact_field_evidence_token(field);
+    if field_is_shardloom_derived {
+        return format!(
+            "field={field};decision=skip;codec=none;level=none;reason=generated_derived_metadata;expected_byte_benefit=low;expected_cpu_cost=avoided;dictionary_posture=prefer_compact_dictionary_code_metadata;retain_drop_guard=never_compress_materialized_hidden_derivative"
+        );
+    }
+    if field_is_query_hot_domain {
+        return format!(
+            "field={field};decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved;expected_byte_benefit=unknown;expected_cpu_cost=avoided;dictionary_posture=preserve_dictionary_codes_for_predicates_grouping_and_topk;retain_drop_guard=drop_compression_if_uat_query_lanes_regress"
+        );
+    }
+    if writer_compression_policy
+        != VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
+    {
+        return format!(
+            "field={field};decision=skip;codec=none;level=none;reason={};expected_byte_benefit=policy_disabled;expected_cpu_cost=avoided;dictionary_posture=preserve_existing_encoding;retain_drop_guard=fast_load_or_default_policy",
+            compact_metadata_token(writer_compression_policy)
+        );
+    }
+    if selected {
+        format!(
+            "field={field};decision=compress;codec=zstd;level={};reason=payload_text_storage_benefit;expected_byte_benefit=medium_to_high;expected_cpu_cost=high;dictionary_posture=preserve_source_dictionary_when_provider_exposes_it;retain_drop_guard=drop_or_revise_if_uat_lacks_artifact_or_query_benefit",
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL
+        )
+    } else {
+        format!(
+            "field={field};decision=skip;codec=none;level=none;reason=field_level_profile_did_not_prove_compression_benefit;expected_byte_benefit=unknown;expected_cpu_cost=avoided;dictionary_posture=preserve_existing_encoding;retain_drop_guard=skip_until_field_level_evidence_supports_compression"
+        )
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -5641,6 +5717,7 @@ fn admitted_layout_writer_compression_concurrency(
 ) -> usize {
     if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD
         && layout_advisor_has_text_writer_profile(advisor)
+        && admitted_layout_writer_has_storage_compression_fields(advisor)
     {
         advisor.writer_parallelism_budget.max(1)
     } else {
@@ -5676,6 +5753,8 @@ fn admitted_layout_writer_profile_selection_reason(
         "small_source_fine_row_blocks_default_writer_profile"
     } else if !layout_advisor_has_text_writer_profile(advisor) {
         "large_non_text_source_fast_load_uncompressed_layout_statistics"
+    } else if !admitted_layout_writer_has_storage_compression_fields(advisor) {
+        "large_text_source_fast_load_encoded_domain_preserved"
     } else if advisor.source_byte_count
         >= VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES
         && layout_advisor_has_high_cardinality_profile(advisor)
@@ -5694,6 +5773,8 @@ fn admitted_layout_writer_profile_regression_guard(
         "small_source_default_profile_preserves_fixture_latency"
     } else if !layout_advisor_has_text_writer_profile(advisor) {
         "non_text_large_source_allows_uncompressed_fast_load"
+    } else if !admitted_layout_writer_has_storage_compression_fields(advisor) {
+        "query_hot_text_domain_compression_disabled_until_uat_proves_benefit"
     } else {
         "text_large_source_fast_zstd_profile_is_full_replacement_uat_backed"
     }
@@ -5705,6 +5786,50 @@ fn layout_advisor_has_text_writer_profile(advisor: &VortexLayoutWriteAdvisorRepo
         .writer_compression_candidate_fields
         .iter()
         .any(|field| !field.trim().is_empty() && !field.starts_with("__shardloom_derived_"))
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_has_storage_compression_fields(
+    advisor: &VortexLayoutWriteAdvisorReport,
+) -> bool {
+    advisor
+        .writer_compression_candidate_fields
+        .iter()
+        .any(|field| admitted_layout_writer_storage_compression_field(field))
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_storage_compression_field(field: &str) -> bool {
+    let lower = field.trim().to_ascii_lowercase();
+    if lower.is_empty() || lower.starts_with("__shardloom_derived_") {
+        return false;
+    }
+    lower.contains("payload")
+        || lower.contains("body")
+        || lower.contains("content")
+        || lower.contains("message")
+        || lower.contains("description")
+        || lower.contains("json")
+        || lower.contains("html")
+        || lower == "params"
+        || lower.ends_with("_params")
+        || lower.ends_with("params")
+}
+
+#[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_query_hot_domain_field(field: &str) -> bool {
+    let lower = field.trim().to_ascii_lowercase();
+    if lower.is_empty() || lower.starts_with("__shardloom_derived_") {
+        return false;
+    }
+    lower.contains("url")
+        || lower.contains("referer")
+        || lower.contains("referrer")
+        || lower.contains("search")
+        || lower.contains("phrase")
+        || lower.contains("title")
+        || lower.contains("useragent")
+        || lower.contains("domain")
 }
 
 #[cfg(feature = "vortex-write")]
@@ -8103,7 +8228,7 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn encoding_summary(&self) -> String {
         format!(
-            "upstream_vortex_writer={};coalescing_policy={};row_block_size={};block_target_bytes={};compression_policy={};compression_field_count={};compression_fields={};compression_concurrency={};stats_concurrency={};writer_runtime={};writer_runtime_parallelism={};writer_runtime_workers={};profile_reason={};regression_guard={};{}",
+            "upstream_vortex_writer={};coalescing_policy={};row_block_size={};block_target_bytes={};compression_policy={};compression_field_count={};compression_fields={};compression_decision_count={};compression_decisions={};compression_concurrency={};stats_concurrency={};writer_runtime={};writer_runtime_parallelism={};writer_runtime_workers={};profile_reason={};regression_guard={};{}",
             self.writer_layout_strategy_applied,
             self.writer_coalescing_policy_status,
             self.writer_layout_row_block_size,
@@ -8111,6 +8236,8 @@ impl VortexPreparedStateWriteReport {
             self.writer_compression_policy,
             self.writer_compression_field_count(),
             self.writer_compression_field_names(),
+            self.writer_compression_decision_count(),
+            self.writer_compression_decisions(),
             self.writer_compression_concurrency,
             self.writer_stats_concurrency,
             self.writer_runtime_kind,
@@ -8159,6 +8286,51 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     #[cfg(not(feature = "vortex-write"))]
     pub fn writer_compression_field_names(&self) -> String {
+        "none".to_string()
+    }
+
+    /// Return the number of column compression decisions attached to the writer policy.
+    #[must_use]
+    #[cfg(feature = "vortex-write")]
+    pub fn writer_compression_decision_count(&self) -> usize {
+        if vortex_layout_write_strategy_applies(&self.layout_write_decision) {
+            self.layout_write_decision
+                .writer_compression_field_decisions
+                .len()
+        } else {
+            0
+        }
+    }
+
+    /// Return the number of column compression decisions attached to the writer policy.
+    #[must_use]
+    #[cfg(not(feature = "vortex-write"))]
+    pub const fn writer_compression_decision_count(&self) -> usize {
+        0
+    }
+
+    /// Return a stable list of per-column compression decisions for evidence.
+    #[must_use]
+    #[cfg(feature = "vortex-write")]
+    pub fn writer_compression_decisions(&self) -> String {
+        if vortex_layout_write_strategy_applies(&self.layout_write_decision)
+            && !self
+                .layout_write_decision
+                .writer_compression_field_decisions
+                .is_empty()
+        {
+            self.layout_write_decision
+                .writer_compression_field_decisions
+                .join("|")
+        } else {
+            "none".to_string()
+        }
+    }
+
+    /// Return a stable list of per-column compression decisions for evidence.
+    #[must_use]
+    #[cfg(not(feature = "vortex-write"))]
+    pub fn writer_compression_decisions(&self) -> String {
         "none".to_string()
     }
 
@@ -12114,6 +12286,26 @@ fn compact_metadata_token(value: &str) -> String {
 }
 
 #[cfg(feature = "vortex-write")]
+fn compact_field_evidence_token(value: &str) -> String {
+    let mut out = String::new();
+    let mut last_was_separator = false;
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.') {
+            out.push(ch);
+            last_was_separator = false;
+        } else if !last_was_separator {
+            out.push('_');
+            last_was_separator = true;
+        }
+    }
+    if out.is_empty() {
+        "unnamed".to_string()
+    } else {
+        out
+    }
+}
+
+#[cfg(feature = "vortex-write")]
 fn read_prepared_vortex_artifact_layout_inventory(
     path: &Path,
 ) -> Result<VortexPreparedOlapLayoutInventory> {
@@ -13576,6 +13768,7 @@ mod tests {
             "URL".to_string(),
             "Title".to_string(),
             "__shardloom_derived_utf8_len_URL".to_string(),
+            "Params".to_string(),
             "URL".to_string(),
         ];
         let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
@@ -13593,7 +13786,39 @@ mod tests {
 
         assert_eq!(
             decision.writer_compression_field_names,
-            vec!["Title".to_string(), "URL".to_string()]
+            vec!["Params".to_string()]
+        );
+        assert_eq!(decision.writer_compression_field_decisions.len(), 4);
+        assert!(
+            decision
+                .writer_compression_field_decisions
+                .iter()
+                .any(|decision| decision.contains(
+                    "field=URL;decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved"
+                ))
+        );
+        assert!(
+            decision
+                .writer_compression_field_decisions
+                .iter()
+                .any(|decision| decision.contains(
+                    "field=Title;decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved"
+                ))
+        );
+        assert!(
+            decision
+                .writer_compression_field_decisions
+                .iter()
+                .any(|decision| decision.contains(
+                    "field=Params;decision=compress;codec=zstd;level=-3;reason=payload_text_storage_benefit"
+                ))
+        );
+        assert!(
+            decision
+                .writer_compression_field_decisions
+                .iter()
+                .any(|decision| decision
+                    .contains("field=__shardloom_derived_utf8_len_URL;decision=skip;codec=none"))
         );
     }
 
@@ -13628,17 +13853,20 @@ mod tests {
         advisor_input.row_count = VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD;
         advisor_input.source_byte_count = 1_073_741_824;
         advisor_input.writer_parallelism_budget = 2;
-        advisor_input.writer_compression_candidate_fields = vec!["label".to_string()];
+        advisor_input.writer_compression_candidate_fields = vec!["payload".to_string()];
         advisor_input.workload_constitution =
             "product_vortex_prepare_once;format=parquet;scale=large_olap;adapter=streaming_columnar_source_state;profile=url_time_counter_olap;layout_family=url_time_counter_dictionary_stats_layout;text_domain=true;time_bucket=true;counter=true;key_profile=high_cardinality_numeric_text_time_keys;dictionary=source_dictionary_or_derived_dictionary_evidence"
                 .to_string();
         let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
         let request = VortexPreparedStateWriteRequest::new(
             &path,
-            vec!["id".to_string(), "label".to_string()],
+            vec!["id".to_string(), "payload".to_string()],
             vec![vec![
                 ("id".to_string(), ScalarValue::Int64(1)),
-                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                (
+                    "payload".to_string(),
+                    ScalarValue::Utf8("alpha".to_string()),
+                ),
             ]],
         )
         .layout_write_advisor(advisor);
@@ -13680,11 +13908,22 @@ mod tests {
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
         );
         assert_eq!(report.writer_compression_field_count(), 1);
-        assert_eq!(report.writer_compression_field_names(), "label");
+        assert_eq!(report.writer_compression_field_names(), "payload");
+        assert_eq!(report.writer_compression_decision_count(), 1);
+        assert!(
+            report
+                .writer_compression_decisions()
+                .contains("field=payload;decision=compress;codec=zstd")
+        );
         assert!(
             report
                 .encoding_summary()
                 .contains("compression_field_count=1")
+        );
+        assert!(
+            report
+                .encoding_summary()
+                .contains("compression_decision_count=1")
         );
         assert_eq!(report.writer_runtime_requested_parallelism, 2);
         assert_eq!(report.writer_runtime_applied_parallelism, 2);
@@ -13747,30 +13986,38 @@ mod tests {
         );
         assert_eq!(
             report.layout_write_decision.writer_block_target_bytes,
-            VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
+            VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES
         );
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_8mb_fast_load_uncompressed_embedded_olap_layout_statistics"
         );
-        assert_eq!(report.writer_compression_concurrency, 2);
-        assert_eq!(report.writer_compression_field_count(), 1);
-        assert_eq!(report.writer_compression_field_names(), "URL");
+        assert_eq!(
+            report.writer_compression_concurrency,
+            VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY
+        );
+        assert_eq!(report.writer_compression_field_count(), 0);
+        assert_eq!(report.writer_compression_field_names(), "none");
+        assert!(
+            report
+                .writer_compression_decisions()
+                .contains("field=URL;decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved")
+        );
         assert_eq!(report.writer_runtime_requested_parallelism, 2);
         assert_eq!(report.writer_runtime_applied_parallelism, 2);
         assert_eq!(report.writer_runtime_background_workers, 1);
         assert_eq!(report.writer_stats_concurrency, 2);
         assert_eq!(
             report.writer_layout_block_target_bytes,
-            VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
+            VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES
         );
         assert_eq!(
             report.writer_profile_selection_reason,
-            "large_text_high_cardinality_source_coalesced_fast_zstd_profile"
+            "large_text_source_fast_load_encoded_domain_preserved"
         );
         assert_eq!(
             report.writer_profile_regression_guard,
-            "text_large_source_fast_zstd_profile_is_full_replacement_uat_backed"
+            "query_hot_text_domain_compression_disabled_until_uat_proves_benefit"
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());
@@ -16312,7 +16559,7 @@ mod tests {
             "prefer_metadata_pruning_dictionary_domain_length_and_time_bucket_execution"
                 .to_string();
         input.expected_write_tradeoff =
-            "prefer_source_text_fast_zstd_for_text_columns_and_embedded_layout_statistics"
+            "prefer_column_family_fast_zstd_for_payload_text_and_embedded_layout_statistics"
                 .to_string();
 
         let report = evaluate_vortex_layout_write_advisor(input);
@@ -16381,7 +16628,7 @@ mod tests {
         assert!(
             fields.contains(&(
                 "vortex_layout_write_advisor_expected_write_tradeoff".to_string(),
-                "prefer_source_text_fast_zstd_for_text_columns_and_embedded_layout_statistics"
+                "prefer_column_family_fast_zstd_for_payload_text_and_embedded_layout_statistics"
                     .to_string()
             ))
         );

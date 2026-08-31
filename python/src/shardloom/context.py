@@ -13757,12 +13757,9 @@ class ShardLoomContext:
             for value in (
                 dim,
                 workspace,
-                input_format,
                 cdc_delta,
                 result_workspace,
                 evidence_level,
-                memory_gb,
-                max_parallelism,
             )
         )
         if not route_requested:
@@ -13775,8 +13772,11 @@ class ShardLoomContext:
             return self.client.vortex_prepare(
                 source_path,
                 target_vortex_path,
+                input_format=input_format,
                 allow_overwrite=allow_overwrite,
                 certification_level=certification_level,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
                 check=check,
             )
 

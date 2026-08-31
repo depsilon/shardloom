@@ -13438,14 +13438,13 @@ fn read_local_vortex_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
     let control_plane_started = Instant::now();
     let mut control_plane_micros = 0_u128;
     let mut evidence_collection_micros = 0_u128;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -13663,13 +13662,12 @@ fn read_local_vortex_partitioned_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
     let mut control_plane_micros = 0_u128;
     let mut evidence_collection_micros = 0_u128;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut source_row_count = 0_u64;
     let mut result_row_count = 0_usize;
@@ -15050,11 +15048,10 @@ fn count_all_metadata_report(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -15129,11 +15126,10 @@ fn partitioned_count_all_metadata_report(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut rows = 0_u64;
     let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::partitioned();
@@ -18826,12 +18822,11 @@ fn read_local_vortex_simple_aggregate_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
     let aggregate = required_simple_aggregate(request)?;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
@@ -19913,12 +19908,11 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
     let aggregate = required_simple_aggregate(request)?;
-    let runtime = SingleThreadRuntime::default();
+    let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let first_file = runtime
         .block_on(

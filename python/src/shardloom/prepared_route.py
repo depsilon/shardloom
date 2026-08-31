@@ -1284,6 +1284,8 @@ class CompatibilityPreparedVortexRoute:
                 target_path,
                 input_format=self.input_format,
                 allow_overwrite=True,
+                memory_gb=self.memory_gb,
+                max_parallelism=self.max_parallelism,
                 check=check,
             )
             ingest_fields = ingest_report.envelope.field_map
