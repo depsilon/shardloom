@@ -7,9 +7,8 @@ Status: canonical v1 SourceState and VortexPreparedState reuse scope.
 Schema marker: `shardloom.v1_source_prepared_state_scope.v1`.
 
 This document defines the local compatibility-source normalization and prepared-state reuse surface
-admitted for ShardLoom v1. It is a scoped local route contract, not a broad input-adapter,
-object-store, table/catalog, persistent-cache, production-readiness, or performance-superiority
-claim.
+admitted for ShardLoom v1. It is the product local Vortex preparation contract, not an
+object-store, table/catalog, persistent-cache, remote-production, or performance-superiority claim.
 
 Every admitted row in this scope must preserve:
 
@@ -71,9 +70,9 @@ avro
 orc
 ```
 
-Structured formats remain feature-gated where the current build requires it. The scope admits
-format normalization into SourceState/prepared-state evidence for the existing local benchmark and
-user route families only.
+Structured formats remain feature-gated where the current build requires it. Local format
+normalization is an input adapter lifecycle that feeds SourceState and prepared Vortex evidence for
+the shared product runtime; it does not create separate CSV/JSONL/Parquet execution engines.
 
 ## Prepared Route Families
 
@@ -87,19 +86,21 @@ The v1 route ids that require or consume `VortexPreparedState` are:
 | `prepared_vortex_warm_query` | Start from an explicit prepared local Vortex state. | `explicit_prepared_state_input` |
 
 Prepared local Vortex artifacts may contain ShardLoom-internal derived columns such as compact
-`UInt32` UTF-8 byte length for high-value URL/search/title text fields and dictionary-encoded
-URL/Referer/URI domain values. These are part of the single `.vortex` artifact and are not adjacent
-manifests, query-answer caches, or public output columns. Native planning may consume them for
-admitted string predicates and aggregate expressions when present. Product columnar source adapters
-must not synthesize those physical columns through a slower per-row preprocessing pass; they should
-report the derived-column posture in source evidence and only embed them when a source-native or
-dictionary-aware generator is admitted.
+`UInt32` UTF-8 byte length and dictionary-encoded URL/Referer/URI domain values. These are part of
+the single `.vortex` artifact and are not adjacent manifests, query-answer caches, or public output
+columns. Native planning may consume them for admitted string predicates and aggregate expressions
+when present. Large product columnar source adapters use the lean source-native runtime profile by
+default, retaining URL, Referer, SearchPhrase, and EventTime helpers before broader candidate
+metadata. They must not synthesize physical columns through a slower per-row preprocessing pass;
+they should report the derived-column posture in source evidence and only embed broader helpers when
+a source-native or dictionary-aware generator is admitted.
 
 Large local compatibility-source preparation remains a single-artifact route. Source evidence must
 record the active capillary stream policy, including adaptive large-source batch sizing such as
 `product_columnar_stream_batch_size_262144_rows`, source-unit hints such as Parquet row-group count,
-and the writer/layout profile. Current local 100M UAT retains source-text dictionary-Zstd writer
-coverage for the official ClickBench text-shaped columns and leaves writer profile timing as a
+and the writer/layout profile. Current local 100M UAT retains source-schema-admitted text
+compression for real source UTF-8 and dictionary-UTF8 payload columns while excluding generated
+hidden helpers and numeric columns from text-compression cost. Writer profile timing remains a
 tuning item; it is not a performance-superiority or load-speed claim.
 
 The source-free generated route id in this scope is:

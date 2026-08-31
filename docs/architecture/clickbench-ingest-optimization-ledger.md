@@ -15,21 +15,119 @@ Constraints:
 - Public/local CLI execution counts as public runtime. No smoke caps or direct compatibility routes
   should appear in the public path.
 
-## Best-Known Baseline To Beat
+## Best-Known Retained Local Evidence
 
 - Profile: single `.vortex` artifact, Parquet official source, source-text fast Zstd writer profile,
-  embedded OLAP layout/statistics in the artifact, max parallelism `2`.
+  lean source-native embedded runtime metadata, embedded OLAP layout/statistics in the artifact,
+  max parallelism `12`.
 - Artifact: `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex`.
 - Source: `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/sources/hits.parquet`
-  (`14.78 GB` local file).
-- Typical artifact size: about `34.93 GB`.
-- Best retained full replacement evidence:
-  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260628T040813Z`.
+  (`14.78 GB` logical file). macOS file-provider behavior can report `0` allocated source bytes
+  before and after a run; the `2026-08-31T15:41:42Z` replacement ingest proved the source can
+  hydrate transiently during the run, but wall time includes that local source-availability delay.
+- Current artifact size: `38,148,327,444` bytes.
+- Latest full replacement evidence:
+  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260831T154142Z`.
+- Current retained result:
+  - `elapsed_seconds=601` local wall time, including the delayed source-file hydration phase
+  - `prepare_once_millis=560724`
+  - `vortex_write_millis=256228`
+  - `vortex_segment_write_millis=256220`
+  - `vortex_compression_millis=112451`
+  - `vortex_encode_write_millis=143769`
+  - `universal_ingest_decode_millis=3688`
+  - `universal_ingest_derived_metadata_build_millis=29980`
+  - `footer_segment_count=34371`
+  - `vortex_writer_runtime_applied_parallelism=12`
+  - `vortex_writer_compression_field_count=28`
+- Current branch adjustment: source-text compression fields are now derived from the admitted
+  source schema instead of a static ClickBench field list. Hidden derived metadata and numeric
+  fields cannot activate the text-compression strategy; a text-heavy writer profile requires at
+  least one real source UTF-8 or dictionary-UTF8 candidate field.
+- Current branch full UAT reference:
+  `docs/benchmarks/clickbench-100m-current-branch-uat.json`.
+- Current branch full query UAT after replacement ingest:
+  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_replacement_ingest_current_branch_20260831T155208Z/summary.json`
+  completed `43/43` with `fallback_attempted=false`, `external_engine_invoked=false`, query total
+  `200.904s`, geomean `1.382s`, and local end-to-end `801.904s` using the `601s` replacement-ingest
+  wall time.
 - Current known pain: prepare/load remains writer/encode/segment dominated. Earlier evidence recorded
-  prepare around `515s`, with Vortex write/segment write around `455s`; the latest retained run is
-  faster but still dominated by Vortex write/segment work.
+  prepare around `515s`, with Vortex write/segment write around `455s`; the latest retained lean
+  metadata run reduces artifact size but remains dominated by Vortex compression plus encode/write
+  work.
 
 ## Current Branch Experiments
+
+### `2026-08-30` Resource-Envelope Writer And Compact Artifact Shape
+
+- Change under validation: public prepare/load now wires the layout-advisor writer parallelism into
+  Vortex's `CurrentThreadRuntime` worker pool, reuses the shared local resource-envelope row-block
+  and coalescing defaults, applies explicit fast-Zstd compression only to source-schema-admitted
+  UTF-8 and dictionary-UTF8 payload/text fields while excluding numeric and generated derived metadata columns,
+  adds a lean source-native runtime metadata profile for large columnar sources, and records source decode,
+  derived metadata build, Arrow-to-Vortex, compression, encode/write, segment write, and final
+  commit timing fields.
+- Artifact-shape rule: large columnar sources now prefer a lean source-native/dictionary-derived
+  runtime metadata profile that keeps the high-value URL, Referer, SearchPhrase, and EventTime
+  helpers while omitting broader candidate columns such as OriginalURL, ClientEventTime,
+  LocalEventTime, and Title length unless a cheaper adapter path is available. Text-row adapters may
+  still emit admitted hidden derived columns when they can build them during the existing typed-row
+  path without adding a separate preprocessing pass. Writer compression candidates come from the
+  actual source schema and Arrow dtypes, not a benchmark-specific field list.
+- Expected gain: reduce avoidable single-thread writer bottlenecks and expose enough stage timing
+  evidence to make ship/drop decisions without weakening the single `.vortex` artifact contract.
+- Evidence fields to check: `vortex_writer_runtime_kind`,
+  `vortex_writer_runtime_requested_parallelism`, `vortex_writer_runtime_applied_parallelism`,
+  `vortex_writer_runtime_background_workers`, `vortex_writer_compression_field_count`,
+  `vortex_writer_compression_field_names`, `universal_ingest_decode_millis`,
+  `universal_ingest_derived_metadata_build_millis`, `universal_ingest_arrow_to_vortex_convert_millis`,
+  `vortex_compression_millis`, `vortex_encode_write_millis`, `vortex_segment_write_millis`, and
+  `vortex_final_commit_millis`.
+- Focused validation result: Rust Vortex and CLI contract tests pass locally for the new evidence
+  fields, source-native compact metadata preference, lean large-columnar metadata profile, selected
+  compression field list, and writer runtime worker-pool evidence.
+- Desktop UAT result:
+  - Dropped: first retest of a six-field URL/search/payload-only compression profile exceeded the
+    `80 GB` artifact guard after `452s` with no completed JSON report.
+  - Retained: rebuilt release CLI with broad source UTF-8 text compression completed replacement
+    ingest in `273s` wall time and reported `prepare_once_millis=204074`,
+    `vortex_segment_write_millis=203821`, `vortex_compression_millis=134621`,
+    `vortex_encode_write_millis=69200`, `universal_ingest_decode_millis=2953`,
+    `universal_ingest_derived_metadata_build_millis=44104`,
+    `vortex_writer_runtime_applied_parallelism=12`, `fallback_attempted=false`, and
+    `external_engine_invoked=false`.
+  - Query sanity: targeted post-ingest run
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_ingest_shape_query_uat_20260831T020821Z`
+    completed Q01/Q21/Q23/Q24/Q29/Q33/Q34/Q35 with zero failures; selected-lane total was
+    `93.089s` and geomean was `4.702s`.
+  - Full UAT after current branch replacement ingest:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_replacement_ingest_current_branch_20260831T155208Z/summary.json`
+    completed all `43` query lanes with query total `200.904s`, geomean `1.382s`, zero fallback,
+    and zero external engine invocation.
+- Decision: retain the writer worker-pool, timing split, broad source UTF-8 compression, and compact
+  source-native metadata preference as the current best local evidence. Do not ship the six-field
+  compression profile.
+
+### `2026-08-31` Replacement-Ingest Harness Safety And Query UAT
+
+- Change retained: `scripts/run_clickbench_ingest_uat.sh --replace-existing` now runs source
+  residency preflight before deleting the current target or temporary candidates. This prevents a
+  sparse/nonresident official-source placeholder from removing the only usable single `.vortex`
+  artifact before ingest can start.
+- Evidence:
+  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260831T145517Z/prepare_summary.json`
+  stopped at `source_residency_preflight_failed`, reported source logical bytes `14779976446`,
+  source allocated bytes `0`, `target_exists=true`, and target bytes `38148327444`.
+- Query evidence:
+  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_current_branch_query_uat_20260831T145526Z/summary.json`
+  completed one run of all `43` ClickBench query lanes with zero failures, zero fallback, and zero
+  external-engine invocation. Query total was `205.642s`; query geomean was `1.507s`.
+- Decision: ship the harness safety fix. The query path is clean on the existing artifact. A true
+  replacement-ingest run for the newest writer compression/admission changes completed later in the
+  same session at
+  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260831T154142Z`;
+  keep the earlier preflight failure as proof that the harness no longer deletes the current target
+  before source checks.
 
 ### `2026-08-30` Metadata-First Public Source Identity
 
@@ -219,6 +317,17 @@ Constraints:
 
 ## Dropped Or Not-Yet-Shipped Profiles
 
+- Dense indexed 4-ary heap for proofbound heavy-hitter sketches:
+  - Reason dropped: correct and slightly faster, but below the material-gain threshold.
+  - Evidence:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/heavy_hitter_indexed_heap_20260831T124753Z/summary.json`.
+  - Result: targeted original Q23/Q34/Q35 UAT completed `9/9` runs with
+    `fallback_attempted=false` and `external_engine_invoked=false`. Best retained timings were
+    Q23 `10.912s`, Q34 `28.043s`, and Q35 `28.085s` versus the restored-lean retained baseline
+    Q23 `11.152s`, Q34 `30.821s`, and Q35 `29.525s`.
+  - Decision: dropped and reverted because Q34+Q35 improved by about `7%` combined, below the
+    `10%` ship threshold. Keep optimizing these lanes through dictionary/code summaries,
+    candidate-free pruning, and aggregate-state/layout changes rather than an isolated heap swap.
 - Large-source uncompressed fast load:
   - Reason dropped: previous branch evidence showed artifact-size regression.
   - Relevant ledger area:
@@ -228,6 +337,31 @@ Constraints:
   - Reason dropped: previous branch evidence rejected it versus source-text profile.
 - Ad hoc Python replacement-ingest harness:
   - Reason dropped: it can measure Python pipe blocking instead of ShardLoom ingest runtime.
+- Exact per-segment string-frequency summaries:
+  - Reason not active: under the current single `.vortex` artifact rule, Vortex 0.75 exposes
+    standard file statistics (`is_constant`, sortedness, min, max, sum, null count,
+    uncompressed-size, and NaN count) through the public writer, but not a stable arbitrary
+    in-file frequency-summary page for ShardLoom-owned exact string maps.
+  - Decision: do not implement this as a sidecar, materialized view, query-answer cache, or broad
+    hidden physical-column expansion. Re-open only if upstream Vortex adds a stable in-file
+    metadata/custom-stat provider or ShardLoom has an approved single-file extension-column design
+    that improves load, artifact size, and Q23/Q34/Q35-style runtime together.
+- Release PGO/native allocator matrix:
+  - Reason not active: `GAR-PERF-2H` already shipped the optimized build-profile evidence lane,
+    including `release-lto`, `release-pgo`, `release-native-benchmark`, and
+    `scripts/build_shardloom_pgo.py`.
+  - Decision: keep allocator experiments out of the current runtime optimization queue until a
+    fresh local profile shows material runtime benefit without portability, memory, packaging, or
+    reproducibility regressions.
+- Generic cross-thread grouped-aggregate state fork:
+  - Reason not active: the shared grouped aggregate runtime already ships capillary partial paths
+    for dictionary counts, transformed dictionary code-pair measures, materialized string partials
+    after direct-provider misses, compact count/sum/avg state, and top-K retained windows. A second
+    worker-local aggregate engine would duplicate that path and risks reintroducing the prior
+    Q33-like near-input-cardinality regression.
+  - Decision: keep aggregate optimization inside the existing shared runtime unless a targeted
+    ship/drop pass proves a narrower worker-state fork materially improves eligible lanes without
+    slowing Q33/Q34/Q35-style guards.
 
 ## Open Material Hypotheses
 

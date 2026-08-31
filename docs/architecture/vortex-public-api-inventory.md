@@ -35,7 +35,7 @@ phase note. They are not active queue state and do not override `phased-executio
   evidence carries `VortexNativeProviderBoundary` with provider kind, crate/version, API surface,
   feature gate, admission policy, certificate requirement, external-engine status, and fallback
   status.
-- Scoped native Vortex admission framing: `compute-capability-matrix` and
+- Local native Vortex admission framing: `compute-capability-matrix` and
   `vortex-count-benchmark` now expose the admitted `local_vortex_count_scalar` lane for local
   Vortex scan `CountAll` to typed scalar result evidence. Local primitive scan/filter/project/count
   lanes are feature-gated runtime evidence; broad object-store/table reader, generalized schema
@@ -56,14 +56,15 @@ phase note. They are not active queue state and do not override `phased-executio
 - Arrow RecordBatch provider admission: the feature-gated local `vortex_ingest` columnar
   SourceState path uses upstream Vortex `ArrayRef::from_arrow(RecordBatch)` for non-empty flat
   Parquet/Arrow IPC/Avro/ORC batches. The traditional benchmark compatibility-import writer uses
-  the same provider surface for scoped local fact/dimension/CDC table artifact creation. The CLI
+  the same provider surface for local fact/dimension/CDC table artifact creation. The CLI
   and benchmark reports expose provider kind/surface/strategy, input layout, record-batch count,
   scalar-copy-avoidance evidence, and `vortex_preparation_spine_*` provider/source/sink/split
   evidence. The preparation spine classifies each route with the Vortex-first decision, feature
   gate, provider crate/version/API surface, source split refs, whole-local-file byte ranges, row
   ranges, Vortex write/reopen surfaces, prepared-artifact segment evidence, Native I/O certificate
-  posture, and no-fallback fields. This is scoped prepare-once artifact creation only; it is not
-  Arrow-default execution, broad structured-format support, or a performance claim.
+  posture, and no-fallback fields. This is product local prepare-once artifact creation; it is not
+  Arrow-default execution, object-store/table support, remote production support, or a performance
+  claim.
 - Differential preparation overlay admission: the same `vortex_ingest` route can now prepare a
   declared append-only delta source into a separate local Vortex artifact and emit
   `vortex_differential_preparation_*` evidence linking base SourceState/VortexPreparedState
@@ -241,6 +242,7 @@ Runtime-relevant 0.75 API/opportunity map:
 | Grouped `sum` / `count` aggregate kernels | `current_runtime_drop_decision` for flat-column routes | Feed `PERF-RUNTIME-7B` only when the route already has pre-grouped Vortex list/fixed-size-list values or evidence proves grouped-list construction is cheaper than ShardLoom's packed-key/dictionary-code/capillary state. The 0.75 source exposes grouped kernels for already-grouped arrays, not a full SQL/hash group-by provider for flat ClickBench-style columns. | No grouped aggregate runtime claim from dependency availability alone. Current SQL/Python/DataFrame aggregate routes should continue using ShardLoom-native grouped state unless a focused route proves Vortex grouped arrays avoid more work than they add. |
 | Validity/mask execution context, `definitely_no_nulls`, `execute_no_nulls`, mask `AllTrue`/`AllFalse`, branchless zip, dictionary/FSST/layout-cache optimizations | `native_provider_candidate` with shared runtime evidence for mask metadata, layout-reader cache, and scoped FSST `LikeKernel` helpers | Feed `PERF-RUNTIME-7B` and `PROD-READY-1A` as no-null/null-heavy operator and adapter fast paths. Existing ShardLoom validity diagnostics remain authoritative until provider-gated tests prove equivalent null semantics. Current ShardLoom local primitive tests prove FSST string-contains count/row-index paths call Vortex's native `LikeKernel` without row materialization or fallback; masked dictionary/FSST/direct UTF-8 helpers consume Vortex mask `AllTrue`/`AllFalse`/`true_count` metadata before row work; dictionary code histograms remain ShardLoom-owned runtime state. Shared local open paths use Vortex 0.75 layout-reader cache and report `layout_reader_cache_status` in embedded layout evidence. | No broad nullable, grouped aggregate, dictionary/FSST reuse, or performance claim from dependency availability alone. Mask metadata support is bounded to shared masked UTF-8 helper evidence; layout-cache support is bounded to shared local-open evidence until lane-specific performance proof exists. |
 | Layout reader context/cache and child-layout cache work | `wrap_vortex_concept` | Feed `PROD-READY-1A` broad local Vortex read/write certification and `PERF-RUNTIME-7C` prepared/read-through attribution only when reader construction, cache scope, source fingerprints, and Native I/O certificates are explicit. | Layout-reader caching may be reported as diagnostic/planning evidence only until no-decode/no-materialization behavior is certified. |
+| Local primitive evidence collector | `shardloom_native_runtime_evidence` | Shared local Vortex primitive loops report `local_primitive_control_plane_micros`, `local_primitive_evidence_collection_micros`, compact layout/encoding signature counts, representative first/last split refs, full split count, and replay-preservation status. The collector is ShardLoom-owned evidence over Vortex reader/provider output; it does not replace reader split evidence or hide execution work. | Evidence-size/control-plane clarity only. No runtime speed claim until UAT or benchmarks show material improvement. |
 | JSON extension Arrow import/export | `native_provider_candidate` | Feed `PROD-READY-1A` JSON/NDJSON and Arrow-boundary adapter certification. It must preserve extension dtype metadata, fail closed on unsupported nested/variant shapes, and stay a translation/provider boundary rather than an execution fallback. | No broad JSON, semi-structured, or Arrow-default execution claim. |
 | WKB/geospatial extension import/export, Point, `GeoDistance` | `blocked_until_vortex_or_shardloom_evidence` | Record as future extension/geospatial adapter evidence. v1 local I/O can preserve or block extension metadata, but geospatial runtime needs its own semantics, correctness, and certificate item before support. | No geospatial execution claim. |
 | Interleave array encoding | `wrap_vortex_concept` | Feed `PROD-READY-1A` Vortex-native fidelity profiles and encoded-layout admission. ShardLoom must report whether interleave is preserved, blocked, or materialized with metadata loss. | No interleave-aware execution claim until encoded reader/operator evidence exists. |
@@ -1111,6 +1113,18 @@ fallback execution.
   `WriteOptionsSessionExt`, `PrimitiveArray`, `Validity`, and `buffer!` inside `shardloom-vortex`
   under `vortex-write`.
 - Upstream `Vortex` write APIs for broader payload writes remain deferred.
+
+- Public prepared-state ingest writes use upstream `VortexSessionDefault`,
+  `CurrentThreadRuntime`, `CurrentThreadWorkerPool`, `WriteOptionsSessionExt`, table/flat/chunked
+  layout strategies, and feature-gated Zstd compression inside `shardloom-vortex` under
+  `vortex-write` and `universal-format-io`.
+- The prepared-state writer is admitted only through ShardLoom Universal Ingest policy and reports
+  writer runtime parallelism, selected compression fields, stage timing splits, single-artifact
+  persistence, and no-fallback evidence. It does not use Vortex query-engine integrations.
+- Large product columnar preparation adds a ShardLoom-owned lean source-native metadata policy
+  before writing through the Vortex provider: dictionary-backed URL, Referer, SearchPhrase, and
+  EventTime helpers are retained for shared SQL/Python/DataFrame routes, while broader hidden
+  candidate metadata is omitted unless the source adapter can provide a cheaper compact boundary.
 
 
 ## CG-3 clarification

@@ -236,8 +236,7 @@ def first_unchecked_phase_item(repo_root: Path) -> str:
             break
         if not in_planned:
             continue
-        stripped = line.strip()
-        match = re.match(r"(?:[-*]|\d+\.) \[ \] (.+)", stripped)
+        match = re.match(r"(?:[-*]|\d+\.) \[ \] (.+)", line)
         if match:
             return match.group(1).strip()
     return "none"

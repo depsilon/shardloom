@@ -2371,5 +2371,26 @@
     },
     "interpretation": "The primitive now updates transformed-dictionary identity UTF-8 min/max without allocating a candidate StatValue for every weighted dictionary value. The retained targeted Q29 summary is below the latest full-43 Q29 baseline and the shipped field lift makes the allocation-bypass evidence machine-readable.",
     "next_action": "Continue the broader ClickBench tail-lane item with multi-lane string heavy-hitter/high-cardinality state work; this Q29-only slice does not close the phase-plan item."
+  },
+  "latest_current_branch_full_uat": {
+    "reference": "docs/benchmarks/clickbench-100m-current-branch-uat.json",
+    "run_id": "full43_after_replacement_ingest_current_branch_20260831T155208Z",
+    "ingest_run_id": "ingest_cli_uat_gated_20260831T154142Z",
+    "claim_boundary": "local Desktop UAT only; not an official ClickBench submission or superiority claim",
+    "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
+    "prepared_artifact_size_bytes": 38148327444,
+    "source_format": "parquet",
+    "max_parallelism": 12,
+    "memory_gb": 24,
+    "ingest_elapsed_seconds_wall": 601,
+    "query_total_seconds": 200.904058,
+    "query_geomean_seconds": 1.382332,
+    "end_to_end_seconds": 801.904058,
+    "completed_runs": 43,
+    "failed_runs": 0,
+    "fallback_attempted": false,
+    "external_engine_invoked": false,
+    "prepared_artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
+    "timing_note": "Current branch full Desktop UAT after replacement ingest and one run of all 43 ClickBench queries; local UAT only, not official ClickBench hardware or claim."
   }
 }

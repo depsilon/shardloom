@@ -109,10 +109,6 @@ remove_existing_candidates() {
   fi
 }
 
-if [[ "$replace_existing" == "true" ]]; then
-  remove_existing_candidates
-fi
-
 cmd=(
   "$binary" prepare dataframe
   --input "$source_path"
@@ -223,6 +219,10 @@ JSON
   printf 'SUMMARY '
   cat "$summary_path"
   exit "$preflight_status"
+fi
+
+if [[ "$replace_existing" == "true" ]]; then
+  remove_existing_candidates
 fi
 
 candidate_bytes() {

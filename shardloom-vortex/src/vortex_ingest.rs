@@ -19,13 +19,16 @@ use std::{
 use std::{
     cell::{Cell, RefCell},
     collections::BTreeSet,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Instant,
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use std::sync::{
-    Arc,
-    atomic::{AtomicU64, AtomicUsize, Ordering},
+    atomic::AtomicUsize,
     mpsc::{self, Receiver},
 };
 
@@ -75,10 +78,10 @@ const VORTEX_CAPILLARY_ACTIVATION_THRESHOLD_ROW_COLUMN_PRODUCT: u64 = 32_000_000
 const VORTEX_CAPILLARY_ACTIVATION_MEMORY_PRESSURE_DENOMINATOR: u64 = 4;
 /// Evidence schema emitted by scoped local scout ingress and triage.
 pub const VORTEX_SCOUT_INGRESS_SCHEMA_VERSION: &str = "shardloom.vortex_scout_ingress.v1";
-/// Evidence schema emitted by scoped local layout/write advisor checks.
+/// Evidence schema emitted by product local layout/write advisor checks.
 pub const VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION: &str =
     "shardloom.vortex_layout_write_advisor.v1";
-/// Evidence schema emitted by scoped local copy-budget and buffer-lifecycle checks.
+/// Evidence schema emitted by product local copy-budget and buffer-lifecycle checks.
 pub const VORTEX_COPY_BUDGET_SCHEMA_VERSION: &str = "shardloom.vortex_copy_budget.v1";
 /// Evidence schema emitted by scoped local prepared-state reuse manifests.
 pub const VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION: &str =
@@ -100,6 +103,12 @@ pub const VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION: &str =
 /// single prepared Vortex artifact.
 pub const VORTEX_PREPARED_OLAP_STATE_POLICY: &str =
     "single_vortex_artifact_embedded_olap_layout_statistics.v1";
+/// Admission policy for the public local prepare-once Vortex writer route.
+///
+/// This is product runtime policy, not a benchmark or smoke-only route. Fixture
+/// and smoke language stays on the lower-level diagnostic commands only.
+pub const VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY: &str =
+    "product_local_vortex_ingest_prepare_once";
 const VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY: &str =
     "single_vortex_artifact_embedded_vortex_layout_statistics_v1";
 const VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS: &str =
@@ -118,7 +127,8 @@ const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE: usize = 8192;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE: usize = 4096;
 #[cfg(feature = "vortex-write")]
-const VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE: usize = 262_144;
+const VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_BLOCK_SIZE: usize =
+    crate::local_primitives::VortexLocalPrimitiveResourceEnvelope::DEFAULT_WRITER_ROW_BLOCK_TARGET_ROWS;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD: u64 = 10_000_000;
 #[cfg(feature = "vortex-write")]
@@ -128,7 +138,8 @@ const VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES: u64 =
     VORTEX_PREPARED_OLAP_WRITER_ONE_MIB;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES: u64 =
-    8 * VORTEX_PREPARED_OLAP_WRITER_ONE_MIB;
+    crate::local_primitives::VortexLocalPrimitiveResourceEnvelope::DEFAULT_WRITER_COALESCING_TARGET_BYTES
+        as u64;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES: u64 =
     8 * 1024 * VORTEX_PREPARED_OLAP_WRITER_ONE_MIB;
@@ -5379,6 +5390,7 @@ pub struct VortexLayoutWriteAdvisorInput {
     pub writer_provider_surface: String,
     pub writer_admission_policy: String,
     pub writer_parallelism_budget: usize,
+    pub writer_compression_candidate_fields: Vec<String>,
     pub write_reopen_verification_depth: String,
     pub materialization_boundary_status: String,
     pub decode_boundary_status: String,
@@ -5420,6 +5432,7 @@ pub struct VortexLayoutWriteAdvisorReport {
     pub writer_provider_surface: String,
     pub writer_admission_policy: String,
     pub writer_parallelism_budget: usize,
+    pub writer_compression_candidate_fields: Vec<String>,
     pub write_reopen_verification_depth: String,
     pub materialization_boundary_status: String,
     pub decode_boundary_status: String,
@@ -5452,8 +5465,12 @@ pub struct VortexLayoutWriteRuntimeDecision {
     pub writer_row_block_size: usize,
     pub writer_block_target_bytes: u64,
     pub writer_compression_policy: String,
+    pub writer_compression_field_names: Vec<String>,
     pub writer_compression_concurrency: usize,
     pub writer_stats_concurrency: usize,
+    pub writer_runtime_requested_parallelism: usize,
+    pub writer_runtime_applied_parallelism: usize,
+    pub writer_runtime_background_workers: usize,
     pub writer_profile_selection_reason: String,
     pub writer_profile_regression_guard: String,
     pub blocker: String,
@@ -5474,9 +5491,13 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_block_target_bytes: 0,
             writer_compression_policy: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY
                 .to_string(),
+            writer_compression_field_names: Vec::new(),
             writer_compression_concurrency:
                 VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY,
             writer_stats_concurrency: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY,
+            writer_runtime_requested_parallelism: 1,
+            writer_runtime_applied_parallelism: 1,
+            writer_runtime_background_workers: 0,
             writer_profile_selection_reason: "not_requested".to_string(),
             writer_profile_regression_guard: "not_applicable".to_string(),
             blocker,
@@ -5494,15 +5515,22 @@ impl VortexLayoutWriteRuntimeDecision {
         let writer_row_block_size = admitted_layout_writer_row_block_size(advisor);
         let writer_block_target_bytes = admitted_layout_writer_block_target_bytes(advisor);
         let writer_compression_policy = admitted_layout_writer_compression_policy(advisor);
+        let writer_compression_field_names =
+            admitted_layout_writer_compression_field_names(advisor, writer_compression_policy);
         let writer_compression_concurrency =
             admitted_layout_writer_compression_concurrency(advisor);
         let writer_stats_concurrency = admitted_layout_writer_stats_concurrency(advisor);
+        let writer_runtime_requested_parallelism =
+            admitted_layout_writer_runtime_requested_parallelism(advisor);
+        let writer_runtime_applied_parallelism = writer_runtime_requested_parallelism.max(1);
+        let writer_runtime_background_workers =
+            writer_runtime_applied_parallelism.saturating_sub(1);
         let writer_profile_selection_reason =
             admitted_layout_writer_profile_selection_reason(advisor);
         let writer_profile_regression_guard =
             admitted_layout_writer_profile_regression_guard(advisor);
         let strategy_decision_digest = fnv64_digest_text(&format!(
-            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             advisor.schema_version,
             advisor.source_state_digest,
             advisor.source_schema_digest,
@@ -5514,8 +5542,12 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_row_block_size,
             writer_block_target_bytes,
             writer_compression_policy,
+            writer_compression_field_names.join(","),
             writer_compression_concurrency,
             writer_stats_concurrency,
+            writer_runtime_requested_parallelism,
+            writer_runtime_applied_parallelism,
+            writer_runtime_background_workers,
             writer_profile_selection_reason,
             writer_profile_regression_guard,
             target_path.display()
@@ -5528,8 +5560,12 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_row_block_size,
             writer_block_target_bytes,
             writer_compression_policy: writer_compression_policy.to_string(),
+            writer_compression_field_names,
             writer_compression_concurrency,
             writer_stats_concurrency,
+            writer_runtime_requested_parallelism,
+            writer_runtime_applied_parallelism,
+            writer_runtime_background_workers,
             writer_profile_selection_reason: writer_profile_selection_reason.to_string(),
             writer_profile_regression_guard: writer_profile_regression_guard.to_string(),
             blocker: "none".to_string(),
@@ -5551,7 +5587,7 @@ fn admitted_layout_writer_block_target_bytes(advisor: &VortexLayoutWriteAdvisorR
     if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
         return VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES;
     }
-    if !layout_advisor_has_text_domain_profile(advisor) {
+    if !layout_advisor_has_text_writer_profile(advisor) {
         return VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES;
     }
     if advisor.source_byte_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES
@@ -5568,7 +5604,7 @@ fn admitted_layout_writer_compression_policy(
     advisor: &VortexLayoutWriteAdvisorReport,
 ) -> &'static str {
     if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
-        if layout_advisor_has_text_domain_profile(advisor) {
+        if layout_advisor_has_text_writer_profile(advisor) {
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
         } else {
             VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_POLICY
@@ -5579,11 +5615,32 @@ fn admitted_layout_writer_compression_policy(
 }
 
 #[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_compression_field_names(
+    advisor: &VortexLayoutWriteAdvisorReport,
+    writer_compression_policy: &str,
+) -> Vec<String> {
+    if writer_compression_policy
+        != VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
+    {
+        return Vec::new();
+    }
+    advisor
+        .writer_compression_candidate_fields
+        .iter()
+        .filter(|field| !field.trim().is_empty())
+        .filter(|field| !field.starts_with("__shardloom_derived_"))
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+#[cfg(feature = "vortex-write")]
 fn admitted_layout_writer_compression_concurrency(
     advisor: &VortexLayoutWriteAdvisorReport,
 ) -> usize {
     if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD
-        && layout_advisor_has_text_domain_profile(advisor)
+        && layout_advisor_has_text_writer_profile(advisor)
     {
         advisor.writer_parallelism_budget.max(1)
     } else {
@@ -5601,12 +5658,23 @@ fn admitted_layout_writer_stats_concurrency(advisor: &VortexLayoutWriteAdvisorRe
 }
 
 #[cfg(feature = "vortex-write")]
+fn admitted_layout_writer_runtime_requested_parallelism(
+    advisor: &VortexLayoutWriteAdvisorReport,
+) -> usize {
+    if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
+        advisor.writer_parallelism_budget.max(1)
+    } else {
+        1
+    }
+}
+
+#[cfg(feature = "vortex-write")]
 fn admitted_layout_writer_profile_selection_reason(
     advisor: &VortexLayoutWriteAdvisorReport,
 ) -> &'static str {
     if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
         "small_source_fine_row_blocks_default_writer_profile"
-    } else if !layout_advisor_has_text_domain_profile(advisor) {
+    } else if !layout_advisor_has_text_writer_profile(advisor) {
         "large_non_text_source_fast_load_uncompressed_layout_statistics"
     } else if advisor.source_byte_count
         >= VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES
@@ -5624,7 +5692,7 @@ fn admitted_layout_writer_profile_regression_guard(
 ) -> &'static str {
     if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
         "small_source_default_profile_preserves_fixture_latency"
-    } else if !layout_advisor_has_text_domain_profile(advisor) {
+    } else if !layout_advisor_has_text_writer_profile(advisor) {
         "non_text_large_source_allows_uncompressed_fast_load"
     } else {
         "text_large_source_fast_zstd_profile_is_full_replacement_uat_backed"
@@ -5632,13 +5700,11 @@ fn admitted_layout_writer_profile_regression_guard(
 }
 
 #[cfg(feature = "vortex-write")]
-fn layout_advisor_has_text_domain_profile(advisor: &VortexLayoutWriteAdvisorReport) -> bool {
-    advisor.workload_constitution.contains("text_domain=true")
-        || advisor.workload_constitution.contains("url_text_olap")
-        || advisor.workload_constitution.contains("url_time_olap")
-        || advisor
-            .workload_constitution
-            .contains("url_time_counter_olap")
+fn layout_advisor_has_text_writer_profile(advisor: &VortexLayoutWriteAdvisorReport) -> bool {
+    advisor
+        .writer_compression_candidate_fields
+        .iter()
+        .any(|field| !field.trim().is_empty() && !field.starts_with("__shardloom_derived_"))
 }
 
 #[cfg(feature = "vortex-write")]
@@ -5862,6 +5928,20 @@ impl VortexLayoutWriteAdvisorReport {
         );
         Self::push_field(
             &mut fields,
+            "vortex_layout_write_advisor_writer_compression_candidate_field_count",
+            self.writer_compression_candidate_fields.len().to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_writer_compression_candidate_fields",
+            if self.writer_compression_candidate_fields.is_empty() {
+                "none".to_string()
+            } else {
+                self.writer_compression_candidate_fields.join(",")
+            },
+        );
+        Self::push_field(
+            &mut fields,
             "vortex_layout_write_advisor_write_reopen_verification_depth",
             &self.write_reopen_verification_depth,
         );
@@ -6040,6 +6120,7 @@ pub fn evaluate_vortex_layout_write_advisor(
         writer_provider_surface: input.writer_provider_surface,
         writer_admission_policy: input.writer_admission_policy,
         writer_parallelism_budget,
+        writer_compression_candidate_fields: input.writer_compression_candidate_fields,
         write_reopen_verification_depth: input.write_reopen_verification_depth,
         materialization_boundary_status: input.materialization_boundary_status,
         decode_boundary_status: input.decode_boundary_status,
@@ -6066,6 +6147,10 @@ pub fn evaluate_vortex_layout_write_advisor(
 fn layout_write_advisor_status(input: &VortexLayoutWriteAdvisorInput) -> &'static str {
     if input.unsupported_diagnostic_code == "vortex_ingest.requires_vortex_write_feature" {
         "blocked_feature_gate"
+    } else if input.writer_admission_policy
+        != VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
+    {
+        "vortex_layout_write_advisor.unsupported_writer_admission_policy"
     } else if !input.strategy_admitted || input.unsupported_diagnostic_code != "none" {
         "blocked_layout_write_strategy"
     } else {
@@ -6128,12 +6213,14 @@ fn layout_write_runtime_blocker(
     if advisor.sink_requirements != "workspace_safe_local_vortex_file_sink" {
         return "vortex_layout_write_advisor.unsupported_sink_requirements".to_string();
     }
-    if advisor.writer_admission_policy != "scoped_local_vortex_ingest_prepare_once" {
+    if advisor.writer_admission_policy != VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
+    {
         return "vortex_layout_write_advisor.unsupported_writer_admission_policy".to_string();
     }
     if !matches!(
         advisor.chunking_strategy.as_str(),
-        "single_chunk_for_scoped_local_fixture"
+        "single_chunk_for_product_local_small_source"
+            | "single_chunk_for_scoped_local_fixture"
             | "single_chunk_for_scoped_fixture"
             | "writer_default_chunking_no_performance_claim"
             | "upstream_vortex_writer_default_zoned_row_blocks"
@@ -7945,6 +8032,8 @@ pub struct VortexPreparedStateWriteReport {
     pub reopen_row_count: u64,
     pub array_build_micros: u128,
     pub stream_source_pull_micros: u128,
+    pub stream_decode_micros: u128,
+    pub stream_derived_metadata_build_micros: u128,
     pub stream_array_convert_micros: u128,
     pub stream_timing_split_status: String,
     pub write_micros: u128,
@@ -7957,10 +8046,17 @@ pub struct VortexPreparedStateWriteReport {
     pub writer_compression_policy: String,
     pub writer_compression_concurrency: usize,
     pub writer_stats_concurrency: usize,
+    pub writer_runtime_kind: String,
+    pub writer_runtime_requested_parallelism: usize,
+    pub writer_runtime_applied_parallelism: usize,
+    pub writer_runtime_background_workers: usize,
     pub writer_profile_selection_reason: String,
     pub writer_profile_regression_guard: String,
     pub vortex_segment_write_micros: u128,
+    pub vortex_compression_micros: u128,
+    pub vortex_encode_write_micros: u128,
     pub workspace_stage_micros: u128,
+    pub vortex_final_commit_micros: u128,
     pub reopen_scan_micros: u128,
     pub reopen_verification_status: String,
     pub timing_scope: String,
@@ -8007,7 +8103,7 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn encoding_summary(&self) -> String {
         format!(
-            "upstream_vortex_writer={};coalescing_policy={};row_block_size={};block_target_bytes={};compression_policy={};compression_field_count={};compression_fields={};compression_concurrency={};stats_concurrency={};profile_reason={};regression_guard={};{}",
+            "upstream_vortex_writer={};coalescing_policy={};row_block_size={};block_target_bytes={};compression_policy={};compression_field_count={};compression_fields={};compression_concurrency={};stats_concurrency={};writer_runtime={};writer_runtime_parallelism={};writer_runtime_workers={};profile_reason={};regression_guard={};{}",
             self.writer_layout_strategy_applied,
             self.writer_coalescing_policy_status,
             self.writer_layout_row_block_size,
@@ -8017,6 +8113,9 @@ impl VortexPreparedStateWriteReport {
             self.writer_compression_field_names(),
             self.writer_compression_concurrency,
             self.writer_stats_concurrency,
+            self.writer_runtime_kind,
+            self.writer_runtime_applied_parallelism,
+            self.writer_runtime_background_workers,
             self.writer_profile_selection_reason,
             self.writer_profile_regression_guard,
             self.column_family_summary()
@@ -8028,7 +8127,9 @@ impl VortexPreparedStateWriteReport {
     #[cfg(feature = "vortex-write")]
     pub fn writer_compression_field_count(&self) -> usize {
         if vortex_writer_uses_large_source_text(&self.layout_write_decision) {
-            source_text_compression_field_names().len()
+            self.layout_write_decision
+                .writer_compression_field_names
+                .len()
         } else {
             0
         }
@@ -8046,7 +8147,9 @@ impl VortexPreparedStateWriteReport {
     #[cfg(feature = "vortex-write")]
     pub fn writer_compression_field_names(&self) -> String {
         if vortex_writer_uses_large_source_text(&self.layout_write_decision) {
-            source_text_compression_field_names().join(",")
+            self.layout_write_decision
+                .writer_compression_field_names
+                .join(",")
         } else {
             "none".to_string()
         }
@@ -8342,9 +8445,12 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     capillary_prewrite_control.apply_task_role_gate("read_chunk", "read_chunk")?;
     capillary_prewrite_control.apply_task_role_gate("columnarize_encode", "array_build")?;
 
+    let embedded_derived_build_micros = Arc::clone(&request.source.embedded_derived_build_micros);
     let mut reader = request.source.reader;
     let array_build_start = Instant::now();
-    let stream_timing = VortexStreamingIngestTiming::default();
+    let stream_timing = VortexStreamingIngestTiming::with_derived_metadata_build_micros(
+        embedded_derived_build_micros,
+    );
     let first_source_pull_start = Instant::now();
     let Some(first_batch) =
         next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")?
@@ -8752,32 +8858,68 @@ struct VortexPreparationSpineFinalizeInput {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Debug, Default, Clone)]
 struct VortexStreamingIngestTiming {
-    source_pull_micros: Arc<AtomicU64>,
-    array_convert_micros: Arc<AtomicU64>,
+    source_pull: Arc<AtomicU64>,
+    array_convert: Arc<AtomicU64>,
+    derived_metadata_build: Arc<AtomicU64>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl VortexStreamingIngestTiming {
+    fn with_derived_metadata_build_micros(derived_metadata_build_micros: Arc<AtomicU64>) -> Self {
+        Self {
+            source_pull: Arc::new(AtomicU64::new(0)),
+            array_convert: Arc::new(AtomicU64::new(0)),
+            derived_metadata_build: derived_metadata_build_micros,
+        }
+    }
+
     fn add_source_pull_elapsed(&self, elapsed: std::time::Duration) {
-        self.source_pull_micros
+        self.source_pull
             .fetch_add(duration_micros_u64(elapsed), Ordering::Relaxed);
     }
 
     fn add_array_convert_elapsed(&self, elapsed: std::time::Duration) {
-        self.array_convert_micros
+        self.array_convert
             .fetch_add(duration_micros_u64(elapsed), Ordering::Relaxed);
     }
 
     fn source_pull_micros(&self) -> u128 {
-        u128::from(self.source_pull_micros.load(Ordering::Relaxed))
+        u128::from(self.source_pull.load(Ordering::Relaxed))
     }
 
     fn array_convert_micros(&self) -> u128 {
-        u128::from(self.array_convert_micros.load(Ordering::Relaxed))
+        u128::from(self.array_convert.load(Ordering::Relaxed))
+    }
+
+    fn derived_metadata_build_micros(&self) -> u128 {
+        u128::from(self.derived_metadata_build.load(Ordering::Relaxed))
+    }
+
+    fn decode_without_derived_micros(&self) -> u128 {
+        self.source_pull_micros()
+            .saturating_sub(self.derived_metadata_build_micros())
     }
 }
 
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(feature = "vortex-write")]
+#[derive(Debug, Default, Clone)]
+struct VortexWriterStageTiming {
+    compression_micros: Arc<AtomicU64>,
+}
+
+#[cfg(feature = "vortex-write")]
+impl VortexWriterStageTiming {
+    fn add_compression_elapsed(&self, elapsed: std::time::Duration) {
+        self.compression_micros
+            .fetch_add(duration_micros_u64(elapsed), Ordering::Relaxed);
+    }
+
+    fn compression_micros(&self) -> u128 {
+        u128::from(self.compression_micros.load(Ordering::Relaxed))
+    }
+}
+
+#[cfg(feature = "vortex-write")]
 fn duration_micros_u64(elapsed: std::time::Duration) -> u64 {
     let micros = elapsed.as_micros();
     if micros == 0 && elapsed.as_nanos() > 0 {
@@ -9199,6 +9341,8 @@ fn finalize_vortex_prepared_state_write(
         reopen_row_count,
         array_build_micros: input.array_build_micros,
         stream_source_pull_micros: 0,
+        stream_decode_micros: 0,
+        stream_derived_metadata_build_micros: 0,
         stream_array_convert_micros: 0,
         stream_timing_split_status: "not_streaming_buffered_or_scalar_vortex_prepare".to_string(),
         write_micros: write_result.write_micros,
@@ -9211,10 +9355,17 @@ fn finalize_vortex_prepared_state_write(
         writer_compression_policy: write_result.writer_compression_policy,
         writer_compression_concurrency: write_result.writer_compression_concurrency,
         writer_stats_concurrency: write_result.writer_stats_concurrency,
+        writer_runtime_kind: write_result.writer_runtime_kind,
+        writer_runtime_requested_parallelism: write_result.writer_runtime_requested_parallelism,
+        writer_runtime_applied_parallelism: write_result.writer_runtime_applied_parallelism,
+        writer_runtime_background_workers: write_result.writer_runtime_background_workers,
         writer_profile_selection_reason: write_result.writer_profile_selection_reason,
         writer_profile_regression_guard: write_result.writer_profile_regression_guard,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
+        vortex_compression_micros: write_result.vortex_compression_micros,
+        vortex_encode_write_micros: write_result.vortex_encode_write_micros,
         workspace_stage_micros: write_result.workspace_stage_micros,
+        vortex_final_commit_micros: write_result.vortex_final_commit_micros,
         reopen_scan_micros,
         reopen_verification_status,
         timing_scope: "vortex_ingest_prepare_once".to_string(),
@@ -9349,9 +9500,12 @@ where
         reopen_row_count,
         array_build_micros: input.array_build_micros,
         stream_source_pull_micros: input.stream_timing.source_pull_micros(),
+        stream_decode_micros: input.stream_timing.decode_without_derived_micros(),
+        stream_derived_metadata_build_micros: input.stream_timing.derived_metadata_build_micros(),
         stream_array_convert_micros: input.stream_timing.array_convert_micros(),
         stream_timing_split_status:
-            "streaming_source_pull_and_arrow_to_vortex_convert_timing_recorded".to_string(),
+            "streaming_source_pull_decode_derive_and_arrow_to_vortex_convert_timing_recorded"
+                .to_string(),
         write_micros: write_result.write_micros,
         writer_context_open_micros: write_result.writer_context_open_micros,
         writer_context_reuse_status: write_result.writer_context_reuse_status,
@@ -9362,10 +9516,17 @@ where
         writer_compression_policy: write_result.writer_compression_policy,
         writer_compression_concurrency: write_result.writer_compression_concurrency,
         writer_stats_concurrency: write_result.writer_stats_concurrency,
+        writer_runtime_kind: write_result.writer_runtime_kind,
+        writer_runtime_requested_parallelism: write_result.writer_runtime_requested_parallelism,
+        writer_runtime_applied_parallelism: write_result.writer_runtime_applied_parallelism,
+        writer_runtime_background_workers: write_result.writer_runtime_background_workers,
         writer_profile_selection_reason: write_result.writer_profile_selection_reason,
         writer_profile_regression_guard: write_result.writer_profile_regression_guard,
         vortex_segment_write_micros: write_result.vortex_segment_write_micros,
+        vortex_compression_micros: write_result.vortex_compression_micros,
+        vortex_encode_write_micros: write_result.vortex_encode_write_micros,
         workspace_stage_micros: write_result.workspace_stage_micros,
+        vortex_final_commit_micros: write_result.vortex_final_commit_micros,
         reopen_scan_micros,
         reopen_verification_status,
         timing_scope: "vortex_ingest_prepare_once".to_string(),
@@ -10921,19 +11082,36 @@ struct LocalVortexWriteResult {
     writer_compression_policy: String,
     writer_compression_concurrency: usize,
     writer_stats_concurrency: usize,
+    writer_runtime_kind: String,
+    writer_runtime_requested_parallelism: usize,
+    writer_runtime_applied_parallelism: usize,
+    writer_runtime_background_workers: usize,
     writer_profile_selection_reason: String,
     writer_profile_regression_guard: String,
     vortex_segment_write_micros: u128,
+    vortex_compression_micros: u128,
+    vortex_encode_write_micros: u128,
     workspace_stage_micros: u128,
+    vortex_final_commit_micros: u128,
     workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
 
 #[cfg(feature = "vortex-write")]
 struct LocalVortexWriteContext {
-    runtime: vortex::io::runtime::single::SingleThreadRuntime,
+    runtime: vortex::io::runtime::current::CurrentThreadRuntime,
+    worker_pool: vortex::io::runtime::current::CurrentThreadWorkerPool,
     session: vortex::session::VortexSession,
     open_micros: u128,
     writes_started: Cell<u64>,
+}
+
+#[cfg(feature = "vortex-write")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalVortexWriterRuntimePolicy {
+    kind: &'static str,
+    requested_parallelism: usize,
+    applied_parallelism: usize,
+    background_workers: usize,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -10941,15 +11119,17 @@ impl LocalVortexWriteContext {
     fn open() -> Self {
         use vortex::VortexSessionDefault as _;
         use vortex::io::runtime::BlockingRuntime as _;
-        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::runtime::current::CurrentThreadRuntime;
         use vortex::io::session::RuntimeSessionExt as _;
         use vortex::session::VortexSession;
 
         let open_start = Instant::now();
-        let runtime = SingleThreadRuntime::default();
+        let runtime = CurrentThreadRuntime::new();
+        let worker_pool = runtime.new_pool();
         let session = VortexSession::default().with_handle(runtime.handle());
         Self {
             runtime,
+            worker_pool,
             session,
             open_micros: open_start.elapsed().as_micros(),
             writes_started: Cell::new(0),
@@ -10963,6 +11143,30 @@ impl LocalVortexWriteContext {
             "thread_local_write_context_opened_for_first_artifact"
         } else {
             "thread_local_write_context_reused_for_artifact"
+        }
+    }
+
+    fn apply_runtime_policy(
+        &self,
+        layout_write_decision: &VortexLayoutWriteRuntimeDecision,
+    ) -> LocalVortexWriterRuntimePolicy {
+        let requested_parallelism = layout_write_decision
+            .writer_runtime_requested_parallelism
+            .max(1);
+        let applied_parallelism = layout_write_decision
+            .writer_runtime_applied_parallelism
+            .max(1);
+        let background_workers = applied_parallelism.saturating_sub(1);
+        self.worker_pool.set_workers(background_workers);
+        LocalVortexWriterRuntimePolicy {
+            kind: if background_workers > 0 {
+                "vortex_current_thread_worker_pool"
+            } else {
+                "vortex_current_thread_runtime"
+            },
+            requested_parallelism,
+            applied_parallelism,
+            background_workers,
         }
     }
 
@@ -10990,10 +11194,14 @@ impl LocalVortexWriteContext {
         let writer_compression_concurrency =
             vortex_writer_compression_concurrency(layout_write_decision);
         let writer_stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
+        let writer_runtime_policy = self.apply_runtime_policy(layout_write_decision);
         let writer_profile_selection_reason =
             vortex_writer_profile_selection_reason(layout_write_decision).to_string();
         let writer_profile_regression_guard =
             vortex_writer_profile_regression_guard(layout_write_decision).to_string();
+        let writer_stage_timing = VortexWriterStageTiming::default();
+        let write_options =
+            self.write_options_for_decision(layout_write_decision, &writer_stage_timing);
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -11002,8 +11210,7 @@ impl LocalVortexWriteContext {
                 "local vortex_ingest artifact",
                 |writer| {
                     let segment_write_start = Instant::now();
-                    let result = self
-                        .write_options_for_decision(layout_write_decision)
+                    let result = write_options
                         .blocking(&self.runtime)
                         .write(writer, array.to_array_iterator())
                         .map_err(vortex_error);
@@ -11024,6 +11231,9 @@ impl LocalVortexWriteContext {
         let bytes_written = workspace_write_report.bytes_written;
         let write_micros = write_start.elapsed().as_micros();
         let workspace_stage_micros = write_micros.saturating_sub(vortex_segment_write_micros);
+        let vortex_compression_micros = writer_stage_timing.compression_micros();
+        let vortex_encode_write_micros =
+            vortex_segment_write_micros.saturating_sub(vortex_compression_micros);
         Ok(LocalVortexWriteResult {
             writer_row_count: summary.row_count(),
             bytes_written,
@@ -11040,10 +11250,17 @@ impl LocalVortexWriteContext {
             writer_compression_policy,
             writer_compression_concurrency,
             writer_stats_concurrency,
+            writer_runtime_kind: writer_runtime_policy.kind.to_string(),
+            writer_runtime_requested_parallelism: writer_runtime_policy.requested_parallelism,
+            writer_runtime_applied_parallelism: writer_runtime_policy.applied_parallelism,
+            writer_runtime_background_workers: writer_runtime_policy.background_workers,
             writer_profile_selection_reason,
             writer_profile_regression_guard,
             vortex_segment_write_micros,
+            vortex_compression_micros,
+            vortex_encode_write_micros,
             workspace_stage_micros,
+            vortex_final_commit_micros: workspace_stage_micros,
             workspace_write_report,
         })
     }
@@ -11076,10 +11293,14 @@ impl LocalVortexWriteContext {
         let writer_compression_concurrency =
             vortex_writer_compression_concurrency(layout_write_decision);
         let writer_stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
+        let writer_runtime_policy = self.apply_runtime_policy(layout_write_decision);
         let writer_profile_selection_reason =
             vortex_writer_profile_selection_reason(layout_write_decision).to_string();
         let writer_profile_regression_guard =
             vortex_writer_profile_regression_guard(layout_write_decision).to_string();
+        let writer_stage_timing = VortexWriterStageTiming::default();
+        let write_options =
+            self.write_options_for_decision(layout_write_decision, &writer_stage_timing);
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -11088,8 +11309,7 @@ impl LocalVortexWriteContext {
                 "streaming local vortex_ingest artifact",
                 |writer| {
                     let segment_write_start = Instant::now();
-                    let result = self
-                        .write_options_for_decision(layout_write_decision)
+                    let result = write_options
                         .blocking(&self.runtime)
                         .write(writer, iter)
                         .map_err(vortex_error);
@@ -11111,6 +11331,9 @@ impl LocalVortexWriteContext {
         let bytes_written = workspace_write_report.bytes_written;
         let write_micros = write_start.elapsed().as_micros();
         let workspace_stage_micros = write_micros.saturating_sub(vortex_segment_write_micros);
+        let vortex_compression_micros = writer_stage_timing.compression_micros();
+        let vortex_encode_write_micros =
+            vortex_segment_write_micros.saturating_sub(vortex_compression_micros);
         Ok(LocalVortexWriteResult {
             writer_row_count: summary.row_count(),
             bytes_written,
@@ -11127,10 +11350,17 @@ impl LocalVortexWriteContext {
             writer_compression_policy,
             writer_compression_concurrency,
             writer_stats_concurrency,
+            writer_runtime_kind: writer_runtime_policy.kind.to_string(),
+            writer_runtime_requested_parallelism: writer_runtime_policy.requested_parallelism,
+            writer_runtime_applied_parallelism: writer_runtime_policy.applied_parallelism,
+            writer_runtime_background_workers: writer_runtime_policy.background_workers,
             writer_profile_selection_reason,
             writer_profile_regression_guard,
             vortex_segment_write_micros,
+            vortex_compression_micros,
+            vortex_encode_write_micros,
             workspace_stage_micros,
+            vortex_final_commit_micros: workspace_stage_micros,
             workspace_write_report,
         })
     }
@@ -11138,6 +11368,7 @@ impl LocalVortexWriteContext {
     fn write_options_for_decision(
         &self,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
+        writer_stage_timing: &VortexWriterStageTiming,
     ) -> vortex::file::VortexWriteOptions {
         use vortex::compressor::BtrBlocksCompressorBuilder;
         use vortex::file::{WriteOptionsSessionExt as _, WriteStrategyBuilder};
@@ -11166,6 +11397,8 @@ impl LocalVortexWriteContext {
                     block_target_bytes,
                     vortex_writer_compression_concurrency(layout_write_decision),
                     stats_concurrency,
+                    &layout_write_decision.writer_compression_field_names,
+                    writer_stage_timing,
                 )
             } else {
                 WriteStrategyBuilder::default()
@@ -11288,6 +11521,7 @@ fn vortex_writer_uses_large_source_text(decision: &VortexLayoutWriteRuntimeDecis
         && decision.writer_compression_policy
             == VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
         && decision.writer_compression_concurrency > 0
+        && !decision.writer_compression_field_names.is_empty()
 }
 
 #[cfg(feature = "vortex-write")]
@@ -11392,19 +11626,24 @@ fn large_source_text_vortex_write_strategy(
     block_target_bytes: u64,
     compression_concurrency: usize,
     stats_concurrency: usize,
+    compression_field_names: &[String],
+    writer_stage_timing: &VortexWriterStageTiming,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
     use vortex::array::dtype::FieldPath;
 
-    let text_strategy =
-        large_source_fast_zstd_text_leaf_strategy(row_block_size, compression_concurrency);
+    let text_strategy = large_source_fast_zstd_text_leaf_strategy(
+        row_block_size,
+        compression_concurrency,
+        writer_stage_timing,
+    );
     let mut strategy = large_source_fast_load_table_strategy(
         row_block_size,
         block_target_bytes,
         stats_concurrency,
     );
-    for field in source_text_compression_field_names() {
+    for field in compression_field_names {
         strategy = strategy.with_field_writer(
-            FieldPath::from_name(*field),
+            FieldPath::from_name(field.as_str()),
             std::sync::Arc::clone(&text_strategy),
         );
     }
@@ -11424,6 +11663,7 @@ fn vortex_writer_buffered_target_bytes(block_target_bytes: u64) -> u64 {
 fn large_source_fast_zstd_text_leaf_strategy(
     row_block_size: usize,
     compression_concurrency: usize,
+    writer_stage_timing: &VortexWriterStageTiming,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
     use vortex::array::arrays::VarBinViewArray;
     use vortex::array::{Executable as _, IntoArray as _};
@@ -11435,59 +11675,29 @@ fn large_source_fast_zstd_text_leaf_strategy(
         1,
         VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_VALUES_PER_FRAME,
     );
+    let writer_stage_timing = writer_stage_timing.clone();
     let compressor = move |chunk: &vortex::array::ArrayRef,
                            ctx: &mut vortex::array::ExecutionCtx| {
         if !chunk.dtype().is_utf8() {
             return Ok(chunk.clone());
         }
+        let compression_start = Instant::now();
         let varbin = VarBinViewArray::execute(chunk.clone(), ctx)?.compact_buffers(ctx)?;
-        Ok(vortex_zstd::Zstd::from_var_bin_view_without_dict(
+        let compressed = vortex_zstd::Zstd::from_var_bin_view_without_dict(
             &varbin,
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL,
             values_per_frame,
             ctx,
         )?
-        .into_array())
+        .into_array();
+        writer_stage_timing.add_compression_elapsed(compression_start.elapsed());
+        Ok(compressed)
     };
     let chunked = ChunkedLayoutStrategy::new(FlatLayoutStrategy::default());
     std::sync::Arc::new(
         CompressingStrategy::new(chunked, compressor)
             .with_concurrency(compression_concurrency.max(1)),
     )
-}
-
-#[cfg(feature = "vortex-write")]
-fn source_text_compression_field_names() -> &'static [&'static str] {
-    &[
-        "BrowserCountry",
-        "BrowserLanguage",
-        "FlashMinor2",
-        "FromTag",
-        "HitColor",
-        "MobilePhoneModel",
-        "OpenstatAdID",
-        "OpenstatCampaignID",
-        "OpenstatServiceName",
-        "OpenstatSourceID",
-        "OriginalURL",
-        "PageCharset",
-        "ParamCurrency",
-        "ParamOrderID",
-        "Params",
-        "Referer",
-        "SearchPhrase",
-        "SocialAction",
-        "SocialNetwork",
-        "SocialSourcePage",
-        "Title",
-        "UTMCampaign",
-        "UTMContent",
-        "UTMMedium",
-        "UTMSource",
-        "UTMTerm",
-        "URL",
-        "UserAgentMinor",
-    ]
 }
 
 #[cfg(feature = "vortex-write")]
@@ -13301,6 +13511,10 @@ mod tests {
             "product_vortex_prepare_once;format=parquet;scale=large_olap;adapter=streaming_columnar_source_state;profile=url_time_counter_olap;layout_family=url_time_counter_dictionary_stats_layout;text_domain=true;time_bucket=true;counter=true;key_profile=high_cardinality_numeric_text_time_keys;dictionary=source_dictionary_or_derived_dictionary_evidence"
                 .to_string();
         let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
+        assert_eq!(
+            advisor.writer_admission_policy,
+            VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
+        );
         let decision = VortexLayoutWriteRuntimeDecision::applied(
             &advisor,
             &path,
@@ -13346,60 +13560,60 @@ mod tests {
     }
 
     #[test]
-    fn source_text_large_source_writer_profile_covers_clickbench_text_fields() {
-        let fields = source_text_compression_field_names();
-        for expected in [
-            "BrowserCountry",
-            "BrowserLanguage",
-            "FlashMinor2",
-            "FromTag",
-            "HitColor",
-            "MobilePhoneModel",
-            "OpenstatAdID",
-            "OpenstatCampaignID",
-            "OpenstatServiceName",
-            "OpenstatSourceID",
-            "PageCharset",
-            "ParamCurrency",
-            "ParamOrderID",
-            "SocialAction",
-            "SocialNetwork",
-            "SocialSourcePage",
-            "Title",
-            "URL",
-            "Referer",
-            "Params",
-            "SearchPhrase",
-            "OriginalURL",
-            "UTMCampaign",
-            "UTMContent",
-            "UTMMedium",
-            "UTMSource",
-            "UTMTerm",
-            "UserAgentMinor",
-        ] {
-            assert!(
-                fields.contains(&expected),
-                "missing source text writer override for {expected}"
-            );
-        }
-        assert_eq!(fields.len(), 28);
-        assert!(
-            !fields.contains(&"MobilePhone"),
-            "MobilePhone is numeric in ClickBench and should not use the text writer override"
+    fn source_text_large_source_writer_profile_uses_advisor_candidate_fields() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-layout-advisor-field-list-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let mut advisor_input = layout_advisor_input(true, "none");
+        advisor_input.row_count = VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD;
+        advisor_input.source_byte_count = 1_073_741_824;
+        advisor_input.workload_constitution =
+            "product_vortex_prepare_once;format=parquet;scale=large_olap;adapter=streaming_columnar_source_state;profile=url_time_counter_olap;layout_family=url_time_counter_dictionary_stats_layout;text_domain=true;time_bucket=true;counter=true;key_profile=high_cardinality_numeric_text_time_keys;dictionary=source_dictionary_or_derived_dictionary_evidence"
+                .to_string();
+        advisor_input.writer_compression_candidate_fields = vec![
+            "URL".to_string(),
+            "Title".to_string(),
+            "__shardloom_derived_utf8_len_URL".to_string(),
+            "URL".to_string(),
+        ];
+        let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
+        assert_eq!(
+            advisor.writer_admission_policy,
+            VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
         );
-        assert!(
-            !fields.contains(&"__shardloom_derived_utf8_len_URL"),
-            "hidden length metadata is numeric/dictionary metadata and should stay on the typed layout path"
+        let decision = VortexLayoutWriteRuntimeDecision::applied(
+            &advisor,
+            &path,
+            "vortex_array_kernel",
+            "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
+            VortexIngestCertificationLevel::IngestCertified,
         );
-        assert!(
-            !fields.contains(&"__shardloom_derived_url_domain_URL"),
-            "hidden URL-domain metadata is generated dictionary metadata and should stay on the typed layout path"
+
+        assert_eq!(
+            decision.writer_compression_field_names,
+            vec!["Title".to_string(), "URL".to_string()]
         );
-        assert!(
-            !fields.contains(&"__shardloom_derived_url_domain_Referer"),
-            "hidden Referer-domain metadata is generated dictionary metadata and should stay on the typed layout path"
+    }
+
+    #[test]
+    fn layout_writer_rejects_legacy_scoped_public_admission_policy() {
+        let mut advisor_input = layout_advisor_input(true, "none");
+        advisor_input.writer_admission_policy =
+            "scoped_local_vortex_ingest_prepare_once".to_string();
+
+        let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
+
+        assert_eq!(
+            advisor.status,
+            "vortex_layout_write_advisor.unsupported_writer_admission_policy"
         );
+        assert_eq!(
+            advisor.blocker,
+            "vortex_layout_write_advisor.unsupported_writer_admission_policy"
+        );
+        assert!(!advisor.provider_admitted);
     }
 
     #[test]
@@ -13414,6 +13628,7 @@ mod tests {
         advisor_input.row_count = VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD;
         advisor_input.source_byte_count = 1_073_741_824;
         advisor_input.writer_parallelism_budget = 2;
+        advisor_input.writer_compression_candidate_fields = vec!["label".to_string()];
         advisor_input.workload_constitution =
             "product_vortex_prepare_once;format=parquet;scale=large_olap;adapter=streaming_columnar_source_state;profile=url_time_counter_olap;layout_family=url_time_counter_dictionary_stats_layout;text_domain=true;time_bucket=true;counter=true;key_profile=high_cardinality_numeric_text_time_keys;dictionary=source_dictionary_or_derived_dictionary_evidence"
                 .to_string();
@@ -13464,15 +13679,19 @@ mod tests {
             report.writer_compression_policy,
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
         );
-        assert_eq!(report.writer_compression_field_count(), 28);
-        assert_eq!(
-            report.writer_compression_field_names(),
-            "BrowserCountry,BrowserLanguage,FlashMinor2,FromTag,HitColor,MobilePhoneModel,OpenstatAdID,OpenstatCampaignID,OpenstatServiceName,OpenstatSourceID,OriginalURL,PageCharset,ParamCurrency,ParamOrderID,Params,Referer,SearchPhrase,SocialAction,SocialNetwork,SocialSourcePage,Title,UTMCampaign,UTMContent,UTMMedium,UTMSource,UTMTerm,URL,UserAgentMinor"
-        );
+        assert_eq!(report.writer_compression_field_count(), 1);
+        assert_eq!(report.writer_compression_field_names(), "label");
         assert!(
             report
                 .encoding_summary()
-                .contains("compression_field_count=28")
+                .contains("compression_field_count=1")
+        );
+        assert_eq!(report.writer_runtime_requested_parallelism, 2);
+        assert_eq!(report.writer_runtime_applied_parallelism, 2);
+        assert_eq!(report.writer_runtime_background_workers, 1);
+        assert_eq!(
+            report.writer_runtime_kind,
+            "vortex_current_thread_worker_pool"
         );
         assert_eq!(report.writer_compression_concurrency, 2);
         assert_eq!(report.writer_stats_concurrency, 2);
@@ -13502,6 +13721,7 @@ mod tests {
         advisor_input.source_byte_count =
             VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_SOURCE_BYTES;
         advisor_input.writer_parallelism_budget = 2;
+        advisor_input.writer_compression_candidate_fields = vec!["URL".to_string()];
         advisor_input.workload_constitution =
             "product_vortex_prepare_once;format=parquet;scale=large_olap;adapter=streaming_columnar_source_state;profile=url_time_counter_olap;layout_family=url_time_counter_dictionary_stats_layout;text_domain=true;time_bucket=true;counter=true;key_profile=high_cardinality_numeric_text_time_keys;dictionary=source_dictionary_or_derived_dictionary_evidence"
                 .to_string();
@@ -13534,11 +13754,11 @@ mod tests {
             "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_embedded_olap_layout_statistics"
         );
         assert_eq!(report.writer_compression_concurrency, 2);
-        assert_eq!(report.writer_compression_field_count(), 28);
-        assert_eq!(
-            report.writer_compression_field_names(),
-            "BrowserCountry,BrowserLanguage,FlashMinor2,FromTag,HitColor,MobilePhoneModel,OpenstatAdID,OpenstatCampaignID,OpenstatServiceName,OpenstatSourceID,OriginalURL,PageCharset,ParamCurrency,ParamOrderID,Params,Referer,SearchPhrase,SocialAction,SocialNetwork,SocialSourcePage,Title,UTMCampaign,UTMContent,UTMMedium,UTMSource,UTMTerm,URL,UserAgentMinor"
-        );
+        assert_eq!(report.writer_compression_field_count(), 1);
+        assert_eq!(report.writer_compression_field_names(), "URL");
+        assert_eq!(report.writer_runtime_requested_parallelism, 2);
+        assert_eq!(report.writer_runtime_applied_parallelism, 2);
+        assert_eq!(report.writer_runtime_background_workers, 1);
         assert_eq!(report.writer_stats_concurrency, 2);
         assert_eq!(
             report.writer_layout_block_target_bytes,
@@ -13972,6 +14192,8 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
+            embedded_derived_build_micros:
+                crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
         };
         let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
@@ -13998,7 +14220,7 @@ mod tests {
         );
         assert_eq!(
             report.stream_timing_split_status,
-            "streaming_source_pull_and_arrow_to_vortex_convert_timing_recorded"
+            "streaming_source_pull_decode_derive_and_arrow_to_vortex_convert_timing_recorded"
         );
         assert!(
             report.stream_source_pull_micros > 0,
@@ -14007,6 +14229,10 @@ mod tests {
         assert!(
             report.stream_array_convert_micros > 0,
             "streaming Arrow-to-Vortex conversion timing should be recorded"
+        );
+        assert_eq!(
+            report.stream_derived_metadata_build_micros, 0,
+            "no embedded derived columns were attached in this stream"
         );
         assert_eq!(
             report.writer_coalescing_policy_status,
@@ -14122,6 +14348,8 @@ mod tests {
             ingest_executor_requested_parallelism: 2,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
+            embedded_derived_build_micros:
+                crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
                 batches: VecDeque::from([batch_1, batch_2]),
@@ -14257,6 +14485,10 @@ mod tests {
 
         assert_eq!(report.row_count, 2);
         assert_eq!(report.reopen_row_count, 2);
+        assert!(
+            report.stream_derived_metadata_build_micros > 0,
+            "embedded derived metadata build timing should be recorded"
+        );
         assert_eq!(
             report
                 .prepared_olap_layout_inventory
@@ -14392,6 +14624,8 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros:
+                crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
                 batches: VecDeque::from([batch]),
@@ -14525,6 +14759,8 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(0),
+            embedded_derived_build_micros:
+                crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
         };
         let mut advisor_input = layout_advisor_input(true, "none");
@@ -15610,6 +15846,8 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros:
+                crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
         };
         let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source);
@@ -17162,8 +17400,10 @@ mod tests {
             writer_provider_surface:
                 "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)"
                     .to_string(),
-            writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
+            writer_admission_policy: VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
+                .to_string(),
             writer_parallelism_budget: 1,
+            writer_compression_candidate_fields: Vec::new(),
             write_reopen_verification_depth: "writer_and_reopen_row_count".to_string(),
             materialization_boundary_status: "materialized_scalar_rows_before_write".to_string(),
             decode_boundary_status: "compatibility_parse_to_scalar_values".to_string(),
