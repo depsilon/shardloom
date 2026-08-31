@@ -781,6 +781,18 @@ class VortexIngestSmokeReport:
         return _required_field(self.envelope, "vortex_ingest_status")
 
     @property
+    def requested_memory_gb(self) -> int | None:
+        """Return the requested Vortex preparation memory envelope."""
+
+        return self.envelope.field_int("vortex_ingest_requested_memory_gb")
+
+    @property
+    def requested_max_parallelism(self) -> int | None:
+        """Return the requested Vortex preparation parallelism envelope."""
+
+        return self.envelope.field_int("vortex_ingest_requested_max_parallelism")
+
+    @property
     def prepared_state_id(self) -> str:
         """Return the prepared-state identifier."""
 
@@ -11976,6 +11988,7 @@ class ShardLoomClient:
         schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
+        memory_gb: int | None = None,
         max_parallelism: int | None = None,
         delta_source_path: str | os.PathLike[str] | None = None,
         delta_target_vortex_path: str | os.PathLike[str] | None = None,
@@ -11998,8 +12011,15 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         if certification_level != "ingest_certified":
             command.extend(["--certification-level", certification_level])
+        if memory_gb is not None:
+            command.extend(["--memory-gb", str(_positive_int("memory_gb", memory_gb))])
         if max_parallelism is not None:
-            command.extend(["--max-parallelism", str(max_parallelism)])
+            command.extend(
+                [
+                    "--max-parallelism",
+                    str(_positive_int("max_parallelism", max_parallelism)),
+                ]
+            )
         if delta_source_path is not None:
             command.extend(["--delta-source", str(delta_source_path)])
         if delta_target_vortex_path is not None:
@@ -12017,6 +12037,8 @@ class ShardLoomClient:
         schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         delta_source_path: str | os.PathLike[str] | None = None,
         delta_target_vortex_path: str | os.PathLike[str] | None = None,
         delta_update_mode: str = "append-only",
@@ -12031,6 +12053,8 @@ class ShardLoomClient:
             schema=schema,
             allow_overwrite=allow_overwrite,
             certification_level=certification_level,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
             delta_source_path=delta_source_path,
             delta_target_vortex_path=delta_target_vortex_path,
             delta_update_mode=delta_update_mode,

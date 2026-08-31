@@ -53,6 +53,7 @@ const PARQUET_PARALLEL_ROW_GROUPS_PER_TASK: usize = 16;
 const PARQUET_PARALLEL_MAX_ROW_GROUPS_PER_TASK: usize = 64;
 const PARQUET_PARALLEL_TARGET_TASK_BATCH_MULTIPLE: usize = 4;
 const PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER: usize = 2;
+const PARQUET_EXTENT_PLAN_SAMPLE_LIMIT: usize = 8;
 const PRODUCT_COLUMNAR_STREAM_POLICY: &str = "product_columnar_stream_batch_size_65536_rows";
 const PRODUCT_COLUMNAR_LARGE_STREAM_POLICY: &str = "product_columnar_stream_batch_size_262144_rows";
 
@@ -689,6 +690,279 @@ struct ParquetRowGroupStreamMetadata {
     ranges: Option<Vec<(usize, usize)>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParquetRowGroupExtent {
+    row_group_index: usize,
+    row_count: Option<usize>,
+    column_chunk_count: usize,
+    compressed_bytes: u64,
+    uncompressed_bytes: u64,
+    byte_start: Option<u64>,
+    byte_length: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParquetExtentPlan {
+    row_groups: Vec<ParquetRowGroupExtent>,
+    column_chunk_count: usize,
+    column_chunk_byte_range_count: usize,
+    dictionary_page_count: usize,
+    statistics_count: usize,
+    compressed_bytes: u64,
+    uncompressed_bytes: u64,
+    codec_counts: BTreeMap<String, usize>,
+    column_chunk_sample: Vec<String>,
+}
+
+impl ParquetExtentPlan {
+    fn from_metadata(metadata: &parquet::file::metadata::ParquetMetaData) -> Self {
+        let mut row_groups = Vec::with_capacity(metadata.num_row_groups());
+        let mut column_chunk_count = 0usize;
+        let mut column_chunk_byte_range_count = 0usize;
+        let mut dictionary_page_count = 0usize;
+        let mut statistics_count = 0usize;
+        let mut compressed_bytes = 0u64;
+        let mut uncompressed_bytes = 0u64;
+        let mut codec_counts = BTreeMap::new();
+        let mut column_chunk_sample = Vec::new();
+
+        for row_group_index in 0..metadata.num_row_groups() {
+            let row_group = metadata.row_group(row_group_index);
+            let row_count = usize::try_from(row_group.num_rows()).ok();
+            let mut row_group_compressed_bytes = 0u64;
+            let mut row_group_uncompressed_bytes = 0u64;
+            let mut row_group_start: Option<u64> = None;
+            let mut row_group_end: Option<u64> = None;
+
+            for column_index in 0..row_group.num_columns() {
+                let column = row_group.column(column_index);
+                column_chunk_count = column_chunk_count.saturating_add(1);
+                let column_compressed =
+                    non_negative_i64_to_u64(column.compressed_size()).unwrap_or_default();
+                let column_uncompressed =
+                    non_negative_i64_to_u64(column.uncompressed_size()).unwrap_or_default();
+                compressed_bytes = compressed_bytes.saturating_add(column_compressed);
+                uncompressed_bytes = uncompressed_bytes.saturating_add(column_uncompressed);
+                row_group_compressed_bytes =
+                    row_group_compressed_bytes.saturating_add(column_compressed);
+                row_group_uncompressed_bytes =
+                    row_group_uncompressed_bytes.saturating_add(column_uncompressed);
+
+                let codec = format!("{:?}", column.compression());
+                *codec_counts.entry(codec.clone()).or_insert(0) += 1;
+                if column.dictionary_page_offset().is_some() {
+                    dictionary_page_count = dictionary_page_count.saturating_add(1);
+                }
+                if column.statistics().is_some() {
+                    statistics_count = statistics_count.saturating_add(1);
+                }
+                if let Some((byte_start, byte_length)) = parquet_column_chunk_byte_range(column) {
+                    column_chunk_byte_range_count = column_chunk_byte_range_count.saturating_add(1);
+                    let byte_end = byte_start.saturating_add(byte_length);
+                    row_group_start =
+                        Some(row_group_start.map_or(byte_start, |start| start.min(byte_start)));
+                    row_group_end = Some(row_group_end.map_or(byte_end, |end| end.max(byte_end)));
+                    if column_chunk_sample.len() < PARQUET_EXTENT_PLAN_SAMPLE_LIMIT {
+                        column_chunk_sample.push(format!(
+                            "rg={row_group_index},col={column_index},path={},start={byte_start},len={byte_length},codec={codec}",
+                            column.column_path().string()
+                        ));
+                    }
+                }
+            }
+
+            row_groups.push(ParquetRowGroupExtent {
+                row_group_index,
+                row_count,
+                column_chunk_count: row_group.num_columns(),
+                compressed_bytes: row_group_compressed_bytes,
+                uncompressed_bytes: row_group_uncompressed_bytes,
+                byte_start: row_group_start,
+                byte_length: row_group_start
+                    .and_then(|start| row_group_end.map(|end| end.saturating_sub(start))),
+            });
+        }
+
+        Self {
+            row_groups,
+            column_chunk_count,
+            column_chunk_byte_range_count,
+            dictionary_page_count,
+            statistics_count,
+            compressed_bytes,
+            uncompressed_bytes,
+            codec_counts,
+            column_chunk_sample,
+        }
+    }
+
+    fn stream_policy_fragment(&self, source_unit_byte_ranges: Option<&[(u64, u64)]>) -> String {
+        format!(
+            "parquet_extent_plan=footer_column_chunk_extents;parquet_extent_row_groups={};parquet_extent_row_groups_with_byte_ranges={};parquet_extent_column_chunks={};parquet_extent_column_chunks_with_byte_ranges={};parquet_extent_compressed_bytes={};parquet_extent_uncompressed_bytes={};parquet_extent_codec_summary={};parquet_extent_sample={};{}",
+            self.row_groups.len(),
+            self.row_group_byte_range_count(),
+            self.column_chunk_count,
+            self.column_chunk_byte_range_count,
+            self.compressed_bytes,
+            self.uncompressed_bytes,
+            self.codec_summary(),
+            self.column_chunk_sample_summary(),
+            self.source_unit_physical_fragment(source_unit_byte_ranges)
+        )
+    }
+
+    fn dictionary_status_fragment(&self) -> String {
+        format!(
+            "parquet_extent_dictionary_pages={};parquet_extent_statistics={};parquet_extent_row_group_summary={}",
+            self.dictionary_page_count,
+            self.statistics_count,
+            self.row_group_summary()
+        )
+    }
+
+    fn row_group_byte_range_count(&self) -> usize {
+        self.row_groups
+            .iter()
+            .filter(|row_group| row_group.byte_start.is_some() && row_group.byte_length.is_some())
+            .count()
+    }
+
+    fn row_group_summary(&self) -> String {
+        let mut parts = self
+            .row_groups
+            .iter()
+            .take(PARQUET_EXTENT_PLAN_SAMPLE_LIMIT)
+            .map(|row_group| {
+                format!(
+                    "rg={},rows={},chunks={},compressed_bytes={},uncompressed_bytes={},start={},len={}",
+                    row_group.row_group_index,
+                    row_group
+                        .row_count
+                        .map_or_else(|| "unknown".to_string(), |rows| rows.to_string()),
+                    row_group.column_chunk_count,
+                    row_group.compressed_bytes,
+                    row_group.uncompressed_bytes,
+                    row_group
+                        .byte_start
+                        .map_or_else(|| "unknown".to_string(), |start| start.to_string()),
+                    row_group
+                        .byte_length
+                        .map_or_else(|| "unknown".to_string(), |length| length.to_string())
+                )
+            })
+            .collect::<Vec<_>>();
+        if self.row_groups.len() > PARQUET_EXTENT_PLAN_SAMPLE_LIMIT {
+            parts.push(format!(
+                "more={}",
+                self.row_groups.len() - PARQUET_EXTENT_PLAN_SAMPLE_LIMIT
+            ));
+        }
+        if parts.is_empty() {
+            "none".to_string()
+        } else {
+            parts.join("|")
+        }
+    }
+
+    fn row_group_byte_ranges(&self) -> Option<Vec<(u64, u64)>> {
+        self.row_groups
+            .iter()
+            .map(|row_group| {
+                Some((
+                    row_group.byte_start?,
+                    row_group.byte_start?.saturating_add(row_group.byte_length?),
+                ))
+            })
+            .collect()
+    }
+
+    fn task_byte_ranges(&self, tasks: &[ParquetRowGroupReadTask]) -> Option<Vec<(u64, u64)>> {
+        let row_group_ranges = self.row_group_byte_ranges()?;
+        tasks
+            .iter()
+            .map(|task| {
+                let mut start: Option<u64> = None;
+                let mut end: Option<u64> = None;
+                for row_group_index in &task.row_groups {
+                    let (row_group_start, row_group_end) =
+                        *row_group_ranges.get(*row_group_index)?;
+                    start = Some(start.map_or(row_group_start, |value| value.min(row_group_start)));
+                    end = Some(end.map_or(row_group_end, |value| value.max(row_group_end)));
+                }
+                Some((start?, end?))
+            })
+            .collect()
+    }
+
+    fn source_unit_physical_fragment(
+        &self,
+        source_unit_byte_ranges: Option<&[(u64, u64)]>,
+    ) -> String {
+        let ranges = source_unit_byte_ranges.unwrap_or(&[]);
+        let physical_bytes = ranges.iter().fold(0u64, |total, (start, end)| {
+            total.saturating_add(end.saturating_sub(*start))
+        });
+        format!(
+            "source_unit_interface=capillary_source_extents;source_unit_byte_range_count={};source_unit_physical_bytes={};source_unit_byte_range_sample={};source_unit_physical_source=file_local_range_read_eligible;source_unit_scheduler_wait_status=bounded_ordered_delivery;source_unit_decode_wait_status=measured_in_stream_source_pull_micros;source_unit_writer_starvation_status=surfaced_as_prepare_writer_backpressure_or_timer_overlap;source_unit_physical_bandwidth_status=derivable_from_source_bytes_and_prepare_source_hydration_millis",
+            ranges.len(),
+            physical_bytes,
+            summarize_u64_ranges(ranges)
+        )
+    }
+
+    fn codec_summary(&self) -> String {
+        if self.codec_counts.is_empty() {
+            return "none".to_string();
+        }
+        self.codec_counts
+            .iter()
+            .map(|(codec, count)| format!("{codec}:{count}"))
+            .collect::<Vec<_>>()
+            .join("|")
+    }
+
+    fn column_chunk_sample_summary(&self) -> String {
+        if self.column_chunk_sample.is_empty() {
+            "none".to_string()
+        } else {
+            self.column_chunk_sample.join("|")
+        }
+    }
+}
+
+fn non_negative_i64_to_u64(value: i64) -> Option<u64> {
+    u64::try_from(value).ok()
+}
+
+fn parquet_column_chunk_byte_range(
+    column: &parquet::file::metadata::ColumnChunkMetaData,
+) -> Option<(u64, u64)> {
+    let start = column
+        .dictionary_page_offset()
+        .unwrap_or_else(|| column.data_page_offset());
+    let start = non_negative_i64_to_u64(start)?;
+    let length = non_negative_i64_to_u64(column.compressed_size())?;
+    Some((start, length))
+}
+
+fn summarize_u64_ranges(ranges: &[(u64, u64)]) -> String {
+    if ranges.is_empty() {
+        return "none".to_string();
+    }
+    let mut parts = ranges
+        .iter()
+        .take(PARQUET_EXTENT_PLAN_SAMPLE_LIMIT)
+        .map(|(start, end)| format!("{start}..{end}"))
+        .collect::<Vec<_>>();
+    if ranges.len() > PARQUET_EXTENT_PLAN_SAMPLE_LIMIT {
+        parts.push(format!(
+            "more={}",
+            ranges.len() - PARQUET_EXTENT_PLAN_SAMPLE_LIMIT
+        ));
+    }
+    parts.join("|")
+}
+
 fn parquet_row_group_stream_metadata(
     metadata: &parquet::file::metadata::ParquetMetaData,
 ) -> ParquetRowGroupStreamMetadata {
@@ -719,6 +993,24 @@ fn parquet_row_group_stream_metadata(
         group_rows: row_group_ranges_exact.then_some(row_group_rows),
         ranges: row_group_ranges_exact.then_some(row_group_row_ranges),
     }
+}
+
+fn annotate_parquet_extent_plan_source(
+    mut source: FlatLocalColumnarStreamSource,
+    extent_plan: &ParquetExtentPlan,
+    source_unit_byte_ranges: Option<&[(u64, u64)]>,
+) -> FlatLocalColumnarStreamSource {
+    source.source_stream_policy = format!(
+        "{};{}",
+        source.source_stream_policy,
+        extent_plan.stream_policy_fragment(source_unit_byte_ranges)
+    );
+    source.source_dictionary_preservation_status = format!(
+        "{};{}",
+        source.source_dictionary_preservation_status,
+        extent_plan.dictionary_status_fragment()
+    );
+    source
 }
 
 fn parquet_row_group_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
@@ -2636,6 +2928,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
     let schema = Arc::clone(builder.schema());
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
     let row_group_metadata = parquet_row_group_stream_metadata(builder.metadata());
+    let extent_plan = ParquetExtentPlan::from_metadata(builder.metadata());
     let schema_plan = parquet_dictionary_schema_plan(&schema);
     let reader_metadata = parquet::arrow::arrow_reader::ArrowReaderMetadata::try_new(
         Arc::clone(builder.metadata()),
@@ -2675,6 +2968,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         stream_plan.source_unit_hint_kind = "parquet_adaptive_row_group_task_count";
         stream_plan.source_unit_row_ranges =
             parquet_row_group_task_row_ranges(&tasks, row_group_metadata.ranges.as_deref());
+        let task_byte_ranges = extent_plan.task_byte_ranges(&tasks);
         let mut source = flat_columnar_stream_source_from_reader(
             schema_plan.stream_schema.as_ref(),
             header.clone(),
@@ -2699,8 +2993,13 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         source.ingest_executor_requested_parallelism = requested_max_parallelism;
         source.ingest_executor_applied_parallelism = applied_parallelism;
         source.ingest_executor_unit_count_hint = Some(task_count);
-        return Ok(source);
+        return Ok(annotate_parquet_extent_plan_source(
+            source,
+            &extent_plan,
+            task_byte_ranges.as_deref(),
+        ));
     }
+    let row_group_byte_ranges = extent_plan.row_group_byte_ranges();
     let reader =
         parquet_stream_record_batch_reader(path, &reader_metadata, stream_plan.stream_batch_size)?;
     let source = flat_columnar_stream_source_from_reader(
@@ -2713,7 +3012,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         reader,
     );
     Ok(with_capillary_prefetch_columnar_stream_source(
-        source,
+        annotate_parquet_extent_plan_source(source, &extent_plan, row_group_byte_ranges.as_deref()),
         requested_max_parallelism,
     ))
 }
@@ -6526,9 +6825,68 @@ mod tests {
             source.source_stream_unit_hint_kind,
             "parquet_adaptive_row_group_task_count"
         );
-        assert_eq!(
-            source.source_stream_policy,
-            "product_columnar_stream_batch_size_262144_rows"
+        assert!(
+            source
+                .source_stream_policy
+                .contains("product_columnar_stream_batch_size_262144_rows"),
+            "{}",
+            source.source_stream_policy
+        );
+        assert!(
+            source
+                .source_stream_policy
+                .contains("parquet_extent_plan=footer_column_chunk_extents"),
+            "{}",
+            source.source_stream_policy
+        );
+        assert!(
+            source
+                .source_stream_policy
+                .contains("parquet_extent_column_chunks_with_byte_ranges="),
+            "{}",
+            source.source_stream_policy
+        );
+        assert!(
+            source
+                .source_stream_policy
+                .contains("source_unit_interface=capillary_source_extents"),
+            "{}",
+            source.source_stream_policy
+        );
+        assert!(
+            source
+                .source_stream_policy
+                .contains("source_unit_byte_range_count=1"),
+            "{}",
+            source.source_stream_policy
+        );
+        assert!(
+            source
+                .source_stream_policy
+                .contains("source_unit_physical_bytes="),
+            "{}",
+            source.source_stream_policy
+        );
+        assert!(
+            source
+                .source_stream_policy
+                .contains("source_unit_physical_source=file_local_range_read_eligible"),
+            "{}",
+            source.source_stream_policy
+        );
+        assert!(
+            source
+                .source_dictionary_preservation_status
+                .contains("parquet_extent_dictionary_pages="),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        assert!(
+            source
+                .source_dictionary_preservation_status
+                .contains("parquet_extent_statistics="),
+            "{}",
+            source.source_dictionary_preservation_status
         );
 
         let mut ids = Vec::new();

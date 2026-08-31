@@ -2741,7 +2741,12 @@ class SqlWorkflow:
             and _vortex_sql_user_route_shape(candidate.workflow.statement) is None
         ):
             return None
-        preparation = self._prepare_local_sql_vortex_sources(candidate, check=check)
+        preparation = self._prepare_local_sql_vortex_sources(
+            candidate,
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
         if preparation is not None and preparation.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self._report_workflow(),
@@ -2780,7 +2785,12 @@ class SqlWorkflow:
         )
         if candidate is None:
             return None
-        preparation = self._prepare_local_sql_vortex_sources(candidate, check=check)
+        preparation = self._prepare_local_sql_vortex_sources(
+            candidate,
+            check=check,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        )
         if preparation is not None and preparation.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self._report_workflow(),
@@ -2812,7 +2822,12 @@ class SqlWorkflow:
         )
         if candidate is None:
             return None
-        preparation = self._prepare_local_sql_vortex_sources(candidate, check=check)
+        preparation = self._prepare_local_sql_vortex_sources(
+            candidate,
+            check=check,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        )
         if preparation is not None and preparation.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self._report_workflow(),
@@ -2858,7 +2873,12 @@ class SqlWorkflow:
         )
         if provider_shape is None and primitive_payload is None:
             return None
-        preparation = self._prepare_local_sql_vortex_sources(candidate, check=check)
+        preparation = self._prepare_local_sql_vortex_sources(
+            candidate,
+            check=check,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        )
         if preparation is not None and preparation.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self._report_workflow(),
@@ -2901,6 +2921,8 @@ class SqlWorkflow:
         candidate: _PreparedVortexSqlCandidate,
         *,
         check: bool,
+        memory_gb: int,
+        max_parallelism: int,
     ) -> OutputEnvelope | None:
         first_preparation: OutputEnvelope | None = None
         for source in candidate.sources:
@@ -2911,6 +2933,8 @@ class SqlWorkflow:
                 input_format=source.source_format,
                 allow_overwrite=False,
                 certification_level="ingest_certified",
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
                 check=check,
             )
             if first_preparation is None:
@@ -7030,12 +7054,9 @@ class LazyFrame:
             value is not None
             for value in (
                 dim,
-                input_format,
                 cdc_delta,
                 result_workspace,
                 evidence_level,
-                memory_gb,
-                max_parallelism,
             )
         )
         if route_requested:
@@ -7085,9 +7106,12 @@ class LazyFrame:
         return self.client.vortex_prepare(
             self.source.uri,
             target,
+            input_format=input_format,
             schema=_prepare_vortex_schema_hints(self.source),
             allow_overwrite=allow_overwrite,
             certification_level=certification_level,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
             check=check,
         )
 
@@ -7818,7 +7842,12 @@ class LazyFrame:
             and candidate.frame._native_vortex_user_route_shape() is None
         ):
             return None
-        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        preparation = self._prepare_vortex_candidate(
+            candidate,
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
         if preparation.envelope.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self,
@@ -7856,7 +7885,12 @@ class LazyFrame:
         candidate = self._prepared_vortex_candidate_for_admitted_runtime()
         if candidate is None or candidate.frame._vortex_primitive_shape() is None:
             return None
-        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        preparation = self._prepare_vortex_candidate(
+            candidate,
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
         if preparation.envelope.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self,
@@ -7922,7 +7956,12 @@ class LazyFrame:
         } and candidate.frame._has_structured_binary_export_shape()
         if provider_shape is None and primitive_payload is None and not structured_binary_payload:
             return None
-        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        preparation = self._prepare_vortex_candidate(
+            candidate,
+            check=check,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        )
         if preparation.envelope.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self,
@@ -7960,7 +7999,12 @@ class LazyFrame:
         candidate = self._prepared_vortex_candidate_for_admitted_runtime()
         if candidate is None:
             return None
-        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        preparation = self._prepare_vortex_candidate(
+            candidate,
+            check=check,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        )
         if preparation.envelope.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self,
@@ -7992,7 +8036,12 @@ class LazyFrame:
         candidate = self._prepared_vortex_candidate_for_admitted_runtime()
         if candidate is None:
             return None
-        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        preparation = self._prepare_vortex_candidate(
+            candidate,
+            check=check,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        )
         if preparation.envelope.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self,
@@ -8028,7 +8077,12 @@ class LazyFrame:
         candidate = self._prepared_vortex_candidate_for_admitted_runtime()
         if candidate is None:
             return None
-        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        preparation = self._prepare_vortex_candidate(
+            candidate,
+            check=check,
+            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        )
         if preparation.envelope.status != "success":
             return VortexWorkflowExecutionReport(
                 workflow=self,
@@ -8096,6 +8150,8 @@ class LazyFrame:
         candidate: _PreparedVortexWorkflowCandidate,
         *,
         check: bool,
+        memory_gb: int,
+        max_parallelism: int,
     ) -> VortexIngestSmokeReport:
         candidate.left_target.parent.mkdir(parents=True, exist_ok=True)
         if candidate.right_target is not None:
@@ -8108,6 +8164,8 @@ class LazyFrame:
                 input_format=candidate.right_source_format,
                 allow_overwrite=True,
                 certification_level="ingest_certified",
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
                 check=check,
             )
             if right_preparation.envelope.status != "success":
@@ -8119,6 +8177,8 @@ class LazyFrame:
             schema=self.source.schema or None,
             allow_overwrite=True,
             certification_level="ingest_certified",
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
             check=check,
         )
 

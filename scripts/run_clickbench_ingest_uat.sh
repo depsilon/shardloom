@@ -11,18 +11,19 @@ binary="${SHARDLOOM_BIN:-$repo_root/target/release/shardloom}"
 source_path="$uat_root/sources/hits.parquet"
 input_format="parquet"
 target_path="$uat_root/vortex/hits-parquet-100m.vortex"
+memory_gb="${SHARDLOOM_MEMORY_GB:-24}"
 max_parallelism="${SHARDLOOM_MAX_PARALLELISM:-2}"
 replace_existing="false"
-progress_interval_seconds=30
-max_runtime_seconds=720
-max_artifact_gb=38
-stable_artifact_seconds=90
-stable_artifact_min_gb=25
-idle_cpu_percent=1
-min_progress_seconds=360
-min_progress_gb=1
-source_residency_check="true"
-source_residency_min_gb=1
+progress_interval_seconds="${SHARDLOOM_CLICKBENCH_UAT_PROGRESS_INTERVAL_SECONDS:-30}"
+max_runtime_seconds="${SHARDLOOM_CLICKBENCH_UAT_MAX_RUNTIME_SECONDS:-1800}"
+max_artifact_gb="${SHARDLOOM_CLICKBENCH_UAT_MAX_ARTIFACT_GB:-64}"
+stable_artifact_seconds="${SHARDLOOM_CLICKBENCH_UAT_STABLE_ARTIFACT_SECONDS:-120}"
+stable_artifact_min_gb="${SHARDLOOM_CLICKBENCH_UAT_STABLE_ARTIFACT_MIN_GB:-25}"
+idle_cpu_percent="${SHARDLOOM_CLICKBENCH_UAT_IDLE_CPU_PERCENT:-1}"
+min_progress_seconds="${SHARDLOOM_CLICKBENCH_UAT_MIN_PROGRESS_SECONDS:-360}"
+min_progress_gb="${SHARDLOOM_CLICKBENCH_UAT_MIN_PROGRESS_GB:-1}"
+source_residency_check="${SHARDLOOM_CLICKBENCH_UAT_SOURCE_RESIDENCY_CHECK:-true}"
+source_residency_min_gb="${SHARDLOOM_CLICKBENCH_UAT_SOURCE_RESIDENCY_MIN_GB:-1}"
 
 usage() {
   cat <<'USAGE'
@@ -34,6 +35,7 @@ Options:
   --source PATH
   --input-format FORMAT
   --target PATH
+  --memory-gb N
   --max-parallelism N
   --replace-existing
   --progress-interval-seconds N
@@ -55,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     --source) source_path="$2"; shift 2 ;;
     --input-format) input_format="$2"; shift 2 ;;
     --target) target_path="$2"; shift 2 ;;
+    --memory-gb) memory_gb="$2"; shift 2 ;;
     --max-parallelism) max_parallelism="$2"; shift 2 ;;
     --replace-existing) replace_existing="true"; shift ;;
     --progress-interval-seconds) progress_interval_seconds="$2"; shift 2 ;;
@@ -114,6 +117,7 @@ cmd=(
   --input "$source_path"
   --input-format "$input_format"
   --output "$target_path"
+  --memory-gb "$memory_gb"
   --max-parallelism "$max_parallelism"
   --format json
 )
@@ -204,6 +208,7 @@ if [[ "$preflight_status" -ne 0 ]]; then
   "target": "$(json_escape "$target_path")",
   "target_exists": $target_exists,
   "target_bytes": $target_bytes,
+  "memory_gb": $memory_gb,
   "max_parallelism": $max_parallelism,
   "max_runtime_seconds": $max_runtime_seconds,
   "max_artifact_gb": $max_artifact_gb,
@@ -381,6 +386,7 @@ cat > "$summary_path" <<JSON
   "target": "$(json_escape "$target_path")",
   "target_exists": $target_exists,
   "target_bytes": $target_bytes,
+  "memory_gb": $memory_gb,
   "max_parallelism": $max_parallelism,
   "max_runtime_seconds": $max_runtime_seconds,
   "max_artifact_gb": $max_artifact_gb,

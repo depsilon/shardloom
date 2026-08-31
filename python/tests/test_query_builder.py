@@ -753,7 +753,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
             candidate = frame._prepared_vortex_candidate_for_admitted_runtime()
             self.assertIsNotNone(candidate)
-            frame._prepare_vortex_candidate(candidate, check=False)  # type: ignore[arg-type]
+            frame._prepare_vortex_candidate(  # type: ignore[arg-type]
+                candidate,
+                check=False,
+                memory_gb=6,
+                max_parallelism=8,
+            )
 
         self.assertEqual(len(client.calls), 1)
         self.assertTrue(client.calls[0]["kwargs"]["allow_overwrite"])  # type: ignore[index]
@@ -766,6 +771,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             client.calls[0]["kwargs"]["certification_level"],  # type: ignore[index]
             "ingest_certified",
         )
+        self.assertEqual(client.calls[0]["kwargs"]["memory_gb"], 6)  # type: ignore[index]
+        self.assertEqual(client.calls[0]["kwargs"]["max_parallelism"], 8)  # type: ignore[index]
 
     def test_auto_prepared_vortex_jsonl_collect_uses_jsonl_format_and_schema(self) -> None:
         class CapturingClient:
@@ -803,7 +810,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
             candidate = frame._prepared_vortex_candidate_for_admitted_runtime()
             self.assertIsNotNone(candidate)
-            frame._prepare_vortex_candidate(candidate, check=False)  # type: ignore[arg-type]
+            frame._prepare_vortex_candidate(  # type: ignore[arg-type]
+                candidate,
+                check=False,
+                memory_gb=5,
+                max_parallelism=7,
+            )
 
         self.assertEqual(len(client.calls), 1)
         self.assertEqual(client.calls[0]["kwargs"]["input_format"], "jsonl")  # type: ignore[index]
@@ -812,6 +824,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             (("id", "int64"), ("nested_payload", "utf8")),
         )
         self.assertTrue(client.calls[0]["kwargs"]["allow_overwrite"])  # type: ignore[index]
+        self.assertEqual(client.calls[0]["kwargs"]["memory_gb"], 5)  # type: ignore[index]
+        self.assertEqual(client.calls[0]["kwargs"]["max_parallelism"], 7)  # type: ignore[index]
 
     def assert_public_local_file_vortex_middle_blocked(
         self,

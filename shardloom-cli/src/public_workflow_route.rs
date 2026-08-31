@@ -2573,6 +2573,15 @@ fn public_workflow_effective_max_parallelism(
     Ok(requested.max(MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM))
 }
 
+fn public_workflow_effective_resource_envelope(
+    request: &PublicWorkflowRouteRequest,
+) -> Result<(u64, usize), ShardLoomError> {
+    Ok((
+        public_workflow_effective_memory_gb(request)?,
+        public_workflow_effective_max_parallelism(request)?,
+    ))
+}
+
 fn public_workflow_dynamic_parallelism_floor_applied(request: &PublicWorkflowRouteRequest) -> bool {
     public_workflow_requested_max_parallelism(request) < MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
 }
@@ -3266,6 +3275,14 @@ struct PreparedLocalWorkflowRightSource {
     target: PathBuf,
 }
 
+#[derive(Clone, Copy)]
+struct PublicWorkflowPreparationInput<'a> {
+    source_uri: &'a str,
+    source_format: &'a str,
+    target: &'a Path,
+    error_title: &'static str,
+}
+
 fn execute_local_file_prepare_once_first_query_run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -3290,13 +3307,13 @@ fn execute_local_file_prepare_once_first_query_run(
         Ok(prepared_run) => prepared_run,
         Err(blocked) => return emit_blocked_facade("run", format, request, &blocked),
     };
-    let max_parallelism = match public_workflow_effective_max_parallelism(request) {
-        Ok(value) => value,
+    let (memory_gb, max_parallelism) = match public_workflow_effective_resource_envelope(request) {
+        Ok(values) => values,
         Err(error) => {
             return emit_error(
                 "run",
                 format,
-                "public workflow max parallelism validation failed",
+                "public workflow resource validation failed",
                 &error,
             );
         }
@@ -3307,27 +3324,21 @@ fn execute_local_file_prepare_once_first_query_run(
         return emit_blocked_facade("run", format, &prepared_run.request, &native_plan);
     }
 
-    let left_preparation = match prepare_local_source_for_public_workflow(
-        &prepared_run.left_source_uri,
-        &prepared_run.left_source_format,
-        &prepared_run.left_target,
-        false,
+    let left_input = PublicWorkflowPreparationInput {
+        source_uri: &prepared_run.left_source_uri,
+        source_format: &prepared_run.left_source_format,
+        target: &prepared_run.left_target,
+        error_title: "public local Vortex preparation failed",
+    };
+    let left_preparation = match prepare_local_source_for_public_workflow_or_emit(
+        left_input,
+        request,
+        format,
+        memory_gb,
         max_parallelism,
-        request.source_fingerprint_policy.as_deref(),
     ) {
         Ok(preparation) => preparation,
-        Err(PreparationFacadeError::FeatureGated) => {
-            let blocked = local_file_vortex_ingest_feature_gated_route(request);
-            return emit_blocked_facade("run", format, request, &blocked);
-        }
-        Err(PreparationFacadeError::Runtime(error)) => {
-            return emit_error(
-                "run",
-                format,
-                "public local Vortex preparation failed",
-                &error,
-            );
-        }
+        Err(exit) => return exit,
     };
 
     let mut extra_fields = local_prepared_vortex_execution_attachment_fields(
@@ -3337,27 +3348,21 @@ fn execute_local_file_prepare_once_first_query_run(
         prepared_run.right_source.is_some(),
     );
     if let Some(right) = &prepared_run.right_source {
-        let right_preparation = match prepare_local_source_for_public_workflow(
-            &right.source_uri,
-            &right.source_format,
-            &right.target,
-            false,
+        let right_input = PublicWorkflowPreparationInput {
+            source_uri: &right.source_uri,
+            source_format: &right.source_format,
+            target: &right.target,
+            error_title: "public local Vortex right-input preparation failed",
+        };
+        let right_preparation = match prepare_local_source_for_public_workflow_or_emit(
+            right_input,
+            request,
+            format,
+            memory_gb,
             max_parallelism,
-            request.source_fingerprint_policy.as_deref(),
         ) {
             Ok(preparation) => preparation,
-            Err(PreparationFacadeError::FeatureGated) => {
-                let blocked = local_file_vortex_ingest_feature_gated_route(request);
-                return emit_blocked_facade("run", format, request, &blocked);
-            }
-            Err(PreparationFacadeError::Runtime(error)) => {
-                return emit_error(
-                    "run",
-                    format,
-                    "public local Vortex right-input preparation failed",
-                    &error,
-                );
-            }
+            Err(exit) => return exit,
         };
         extra_fields.extend(local_prepared_vortex_right_execution_attachment_fields(
             &right_preparation,
@@ -3430,11 +3435,39 @@ enum PreparationFacadeError {
     Runtime(ShardLoomError),
 }
 
+fn prepare_local_source_for_public_workflow_or_emit(
+    input: PublicWorkflowPreparationInput<'_>,
+    request: &PublicWorkflowRouteRequest,
+    format: OutputFormat,
+    memory_gb: u64,
+    max_parallelism: usize,
+) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, ExitCode> {
+    match prepare_local_source_for_public_workflow(
+        input.source_uri,
+        input.source_format,
+        input.target,
+        false,
+        memory_gb,
+        max_parallelism,
+        request.source_fingerprint_policy.as_deref(),
+    ) {
+        Ok(preparation) => Ok(preparation),
+        Err(PreparationFacadeError::FeatureGated) => {
+            let blocked = local_file_vortex_ingest_feature_gated_route(request);
+            Err(emit_blocked_facade("run", format, request, &blocked))
+        }
+        Err(PreparationFacadeError::Runtime(error)) => {
+            Err(emit_error("run", format, input.error_title, &error))
+        }
+    }
+}
+
 fn prepare_local_source_for_public_workflow(
     source_uri: &str,
     source_format: &str,
     target: &Path,
     allow_overwrite: bool,
+    memory_gb: u64,
     max_parallelism: usize,
     source_fingerprint_policy: Option<&str>,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
@@ -3444,6 +3477,7 @@ fn prepare_local_source_for_public_workflow(
         Some(source_format),
         allow_overwrite,
         max_parallelism,
+        Some(memory_gb),
         source_fingerprint_policy,
     )
     .map_err(|error| match error {
@@ -4241,13 +4275,13 @@ pub(crate) fn handle_public_workflow_prepare(
         .input_format
         .clone()
         .unwrap_or_else(|| "csv".to_string());
-    let max_parallelism = match public_workflow_effective_max_parallelism(&request) {
-        Ok(value) => value,
+    let (memory_gb, max_parallelism) = match public_workflow_effective_resource_envelope(&request) {
+        Ok(values) => values,
         Err(error) => {
             return emit_error(
                 "prepare",
                 format,
-                "public workflow max parallelism validation failed",
+                "public workflow resource validation failed",
                 &error,
             );
         }
@@ -4257,6 +4291,7 @@ pub(crate) fn handle_public_workflow_prepare(
         &source_format,
         Path::new(&output_ref),
         request.allow_overwrite,
+        memory_gb,
         max_parallelism,
         request.source_fingerprint_policy.as_deref(),
     ) {

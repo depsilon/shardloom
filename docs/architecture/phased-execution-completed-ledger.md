@@ -16,6 +16,133 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `PARQUET-ROWGROUP-EXTENT-COMPILER-1`, `CODE-SPACE-OLAP-RUNTIME-1`,
+      `DICTIONARY-TRANSDUCER-VIRTUAL-DERIVED-1`, `ADOPTED-PARQUET-CHUNK-ENCODING-1`,
+      `VORTEX-FRAGMENT-ASSEMBLER-1`, and `SHARDLOOM-EXECUTION-CAPSULE-1` closed the
+      maintainer-supplied material architecture-bet queue.
+  - Date: 2026-08-31
+  - PR/merge: current local implementation batch; PR/merge pending.
+  - Completed scope:
+    - Parquet product ingest now builds footer-first row-group and column-chunk extent evidence,
+      including row-group counts, byte ranges, codec mix, compressed/uncompressed bytes,
+      dictionary-page presence, statistics presence, physical source-unit bytes, scheduler/decode
+      wait hooks, writer-starvation attribution hooks, and bandwidth derivation hooks.
+    - Public SourceState/preparation fields now lift those source-unit and Parquet extent values
+      as named fields instead of forcing humans or agents to parse opaque stream-policy prose.
+    - Existing code-space, transformed-dictionary, packed-key, dense distinct, candidate recount,
+      metadata-first pruning, and row-ref top-K runtime families were reconciled as the shipped
+      implementation below SQL/Python/DataFrame/CLI wrappers.
+    - Adopted Parquet page/chunk execution was dropped for this batch because no stable
+      ShardLoom/Vortex in-artifact physical encoding/provider contract exists yet; source-extent
+      evidence and canonical Vortex writer policy remain the active design.
+    - Random-access Vortex fragment assembly was dropped for this batch because simulating a footer
+      merge with temporary fragments would violate the one `.vortex` public artifact contract and
+      introduce partial-artifact cleanup risk without provider evidence.
+    - A new long-lived engine daemon was dropped for this batch because current attribution points
+      at writer/source/query-tail work rather than reusable process-start/footer setup; the existing
+      Python session worker remains transport-only and result-cache-free.
+  - Focused validation evidence:
+    - Pending after this edit: `cargo fmt --all -- --check`, focused SourceState/public-preparation
+      tests, and lightweight Python compile checks.
+  - Next validation:
+    - Desktop replacement-ingest UAT and the full 43-query lane pass should run only after this PR
+      lands and the Desktop has enough free space for a full replacement `.vortex` artifact.
+  - Claim boundary:
+    - Implementation/architecture closure and focused validation readiness only. No official
+      ClickBench, superiority, object-store, Foundry, or production-environment claim is made.
+  - Fallback boundary:
+    - Public runtime remains ShardLoom/Vortex-native with `fallback_attempted=false` and
+      `external_engine_invoked=false`; no Spark, DataFusion, DuckDB, Polars, pandas, Velox,
+      `vortex-datafusion`, query-answer cache, or sidecar execution path was introduced.
+
+- [x] `GLOBAL-PREPARE-LOAD-ATTRIBUTION-1`, `GLOBAL-WRITER-ENCODE-COALESCING-1`,
+      `GLOBAL-COMPRESSION-ADVISOR-1`, `GLOBAL-DICTIONARY-DERIVED-METADATA-1`,
+      `GLOBAL-STRING-DOMAIN-EXECUTION-1`, `GLOBAL-HIGH-CARDINALITY-AGGREGATION-1`,
+      `GLOBAL-EXACT-DISTINCT-GROUPED-1`, `GLOBAL-ROWREF-TOPK-PRUNING-1`,
+      `GLOBAL-METADATA-FIRST-FAST-LANES-1`, and
+      `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` closed the current global runtime optimization queue
+      ahead of Desktop UAT.
+  - Date: 2026-08-31
+  - PR/merge: current local implementation batch; PR/merge pending.
+  - Completed scope:
+    - Public prepare/load evidence separates known writer, reopen, source-hydration, scheduler,
+      route-bookkeeping, writer-backpressure/timer-overlap, and residual attribution fields without
+      changing no-fallback posture.
+    - The shared resource envelope now flows through CLI, Python, DataFrame, SQL
+      auto-normalization, session reuse keys, public prepare/run facades, Vortex writer policy, and
+      local primitive execution policy.
+    - Native local Vortex scan, partitioned scan, aggregate scan, partitioned aggregate scan, and
+      metadata-count open paths use the shared runtime policy instead of hardcoded product
+      single-thread runtime opens.
+    - Universal Ingest writer policy records row-block/coalescing decisions, source-scale and
+      column-family compression decisions, query-hot encoded-domain preservation, compact derived
+      metadata posture, and single `.vortex` artifact persistence.
+    - Dictionary/source-native derived metadata, transformed dictionary aggregates, Vortex
+      LIKE/contains pushdown, string heavy-hitter exact recounts, candidate bitsets/code prefilters,
+      packed numeric/dictionary aggregate keys, dense integer exact distinct, row-ref top-K late
+      materialization, metadata-first pruning, layout-reader-cache evidence, and deterministic
+      spill-or-block evidence are implemented below the SQL/Python/DataFrame/CLI surfaces.
+    - The active phase plan now keeps UAT retain/drop criteria as validation gates instead of open
+      implementation checkboxes.
+  - Focused validation evidence:
+    - `cargo fmt --all -- --check`
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/context.py python/src/shardloom/prepared_route.py python/src/shardloom/query.py python/src/shardloom/session.py python/tests/test_cli_client.py python/tests/test_query_builder.py`
+    - `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib physical_policy`
+    - `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib count_all_metadata`
+    - `cargo test -q -p shardloom-vortex --features vortex-local-primitives --lib grouped_aggregate`
+    - `cargo test -q -p shardloom-vortex --features vortex-write --lib writer_profile`
+    - `cargo test -q -p shardloom-cli --features release-user-surfaces --test public_workflow_route public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence`
+    - `python3 scripts/check_runtime_gap_family_burn_down.py`
+  - Next validation:
+    - Desktop replacement-ingest UAT and full 43-query lane pass against the current single
+      `.vortex` artifact, replacing prior local artifacts rather than creating duplicate large
+      files.
+  - Claim boundary:
+    - Implementation and focused validation readiness only. No official ClickBench, superiority,
+      object-store, Foundry, or production-environment claim is made until UAT and release gates
+      support it.
+  - Fallback boundary:
+    - Public runtime remains ShardLoom/Vortex-native with
+      `fallback_attempted=false` and `external_engine_invoked=false`; no Spark, DataFusion,
+      DuckDB, Polars, pandas, Velox, `vortex-datafusion`, query-answer cache, or sidecar execution
+      path was introduced.
+
+- [x] `UNIVERSAL-INGEST-WRITER-RESOURCE-ARTIFACT-1`, `SOURCE-FINGERPRINT-POLICY-1`,
+      `AGGREGATE-PARTIAL-PARALLELISM-1`, and `RUNTIME-EVIDENCE-COLLECTOR-1` closed the ingest
+      resource-policy, source-fingerprint, aggregate-policy, and compact evidence collector batch.
+  - Date: 2026-08-31
+  - PR/merge: PR `#1420`, merged to `main` as
+    `5f4f2e00 Checkpoint ingest resource policy and ClickBench UAT (#1420)`.
+  - Completed scope:
+    - Public prepare defaults to metadata-first source identity with explicit source-content digest
+      opt-in and no up-front full-source hash requirement.
+    - Universal Ingest writer evidence now reports requested/applied writer runtime parallelism,
+      source-schema-selected compression fields, compact derived metadata posture, Vortex
+      compression/encode/segment-write/final-commit timing splits, and single `.vortex` artifact
+      persistence.
+    - The shared grouped aggregate runtime keeps route-aware physical policies for scalar,
+      transformed dictionary, numeric-pair, numeric/UTF-8 heavy-hitter, string heavy-hitter, and
+      general grouped aggregate families without reviving the Q33-regressing generic worker fork.
+    - Native Vortex runtime evidence now exposes compact split-signature/control-plane fields while
+      preserving deeper replay/publication proof lanes.
+    - Desktop UAT evidence is recorded in
+      `docs/benchmarks/clickbench-100m-current-branch-uat.json`: `43/43` query lanes completed,
+      query total `200.904058s`, query geomean `1.382332s`, ingest wall `601s`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Focused validation evidence:
+    - `python3 -m unittest python.tests.test_release_scripts`
+    - green PR #1420 CI rollup: Rust fmt/clippy/test, feature matrix lanes, Python shards and
+      package smoke, dependency/security gates, release runtime/package/user-surface/readiness
+      evidence, website/docs validation, CodeQL, and Workers build.
+  - Claim boundary:
+    - Local ingest/resource/evidence and Desktop UAT evidence only. No official ClickBench,
+      performance superiority, object-store, Foundry, broad SQL/DataFrame parity, or production
+      environment claim is made.
+  - Fallback boundary:
+    - Public local workflows remain Vortex-normalized/native with
+      `fallback_attempted=false` and `external_engine_invoked=false`; no query-answer sidecar or
+      external query-engine fallback was introduced.
+
 - [x] `SOURCESTATE-DIRECTORY-FINGERPRINT-SCALING-1`, `CONTROL-PLANE-LATENCY-ATTRIBUTION-1`,
       and `RUNTIME-EVIDENCE-SURFACE-UNIFICATION-1` closed the current post-ClickBench evidence and
       control-plane cleanup batch.

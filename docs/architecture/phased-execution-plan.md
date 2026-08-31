@@ -245,259 +245,37 @@ the ledger.
 ## Planned
 
 Use this section for the next implementation sequence. Keep it ordered by dependency and user value.
-When checkbox order and workflow order differ because a completed row is waiting only for
-post-merge ledger movement, follow `Current autonomous execution order`.
+When a work item is implemented, move the detailed completed record to
+`docs/architecture/phased-execution-completed-ledger.md` and leave this section focused on open
+checkbox work only.
+
+Global-runtime rule: performance entries in this queue are shared ShardLoom engine/runtime
+enhancements, not ClickBench-only fixes. Implement them below the SQL/Python/DataFrame/CLI front
+doors after Vortex normalization so every admitted public surface benefits from the same prepared
+Vortex layout, metadata-first planning, capillary work shaping, resource envelope, writer, and
+evidence contracts. Retain an optimization only when focused or UAT evidence shows a material
+improvement without correctness, no-fallback, or single-artifact regressions; otherwise drop or
+revise it before moving on.
+
+Active queue status: no unchecked phase-plan implementation items remain in this branch. The
+completed material architecture-bet queue, global prepare/load attribution work, writer/compression
+policy work, dictionary-derived metadata work, string/domain execution work, high-cardinality state
+work, exact distinct/grouped aggregate work, row-ref top-K pruning work, metadata-first fast-lane
+work, and runtime gap carry-forward ownership have been reconciled in the completed ledger.
 
 Current autonomous execution order:
 
-1. Finalize `RUNTIME-EVIDENCE-COLLECTOR-1`; the shared native Vortex loops now expose
-   control-plane/evidence micros plus compact split-signature evidence while preserving replay
-   split records.
-2. Close `AGGREGATE-PARTIAL-PARALLELISM-1` around the existing shared capillary aggregate runtime:
-   chunk dictionary counts, transformed dictionary code-pair partials, materialized string partials,
-   count/sum/avg compact state, top-K retained windows, and state-budget evidence are the current
-   shipped path. Do not add a second cross-thread aggregate state fork until targeted evidence shows
-   it beats the existing route without Q33/Q34/Q35-style regressions.
-3. Keep `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active as the standing owner for unchecked global
-   architecture runtime-gap families until those rows are closed or promoted into concrete runtime
-   work.
-4. Treat `UNIVERSAL-INGEST-WRITER-RESOURCE-ARTIFACT-1` and
-   `SOURCE-FINGERPRINT-POLICY-1` as implemented rows waiting only for post-merge ledger movement.
-5. Do not keep provider-bound experiments in the active queue. `EXACT-STRING-SUMMARY-LAYOUT-1` is
-   closed as a current Vortex 0.75 provider-bound drop decision because the public writer exposes
-   standard file statistics but no stable arbitrary in-file frequency-summary payload; re-open only
-   if upstream Vortex adds a stable in-file metadata/custom-stat provider or ShardLoom has an
-   approved single-file extension-column design that does not bloat or regress load/query time.
-6. Keep optimized build profiles out of the active runtime queue. The PGO/native benchmark lane is
-   already completed in the ledger under `GAR-PERF-2H`; optional allocator experiments need fresh
-   evidence before becoming active release work.
-7. After the next targeted UAT or review packet identifies a concrete, feasible shared-runtime gap,
-   promote that work from the standing owner into a checklist item before implementation.
-8. Heavy replacement ingest, full 43-query ClickBench UAT, and broad release gates run at the end
-   of a cohesive implementation batch, not after every evidence cleanup.
+1. Prepare the cohesive PR/merge review for this completed batch. Use focused validation already
+   recorded here and CI for Rust execution if the local Cargo runner still idles before compiling.
+2. After merge and only when the machine has enough free space, run Desktop replacement-ingest UAT
+   and the full 43-query lane pass against the single current `.vortex` artifact.
+3. Compare UAT against the latest recorded baseline, then retain, revise, or drop any optimization
+   that regresses correctness, no-fallback evidence, single-artifact persistence, or material timing.
 
-- [x] `UNIVERSAL-INGEST-WRITER-RESOURCE-ARTIFACT-1` make Universal Ingest writer/runtime policy
-  honor the shared resource envelope and reduce single-artifact bloat.
-  - V1 scope classification: `required_for_v1`.
-  - Source: Desktop 100M ClickBench replacement-ingest evidence on `2026-08-30`, where
-    `prepare_once` was writer dominated (`vortex_write/segment_write` hundreds of seconds) and
-    artifact size was materially larger than the official Parquet source even though query routing
-    was clean.
-  - Prior state: public prepare routes passed `max_parallelism` into SourceState and
-    layout-advisor evidence, but the Vortex writer runtime still drove through a single-thread
-    blocking runtime; hidden derived metadata was compact for dictionary-shaped batches but could
-    still be emitted as physical hidden columns where no compact source dictionary/code boundary
-    existed; timing folded compression into segment write and derived metadata into stream source
-    pull.
-  - ShardLoom technique review: PulseWeave/resource policy applies directly; capillary ingest
-    should size source/read/derive/encode/write units from one resource envelope; dynamic work
-    shaping should select writer runtime, row-block/coalescing, and compression policy from source
-    shape; metadata-first execution requires compact dictionary/code-derived metadata where
-    possible; timing-surface discipline requires source read, decode/derive, Arrow-to-Vortex,
-    compression, segment write, and final commit to be visible without changing claims.
-  - Execution checklist:
-    - [x] Wire `VortexLayoutWriteRuntimeDecision` writer parallelism into the actual Vortex writer
-      runtime instead of always using a single-thread runtime.
-    - [x] Reuse the shared local resource-envelope writer row-block/coalescing defaults for
-      layout-advisor decisions instead of duplicating hardcoded ingest-only constants.
-    - [x] Preserve dictionary/code-derived hidden metadata for columns that already arrive as
-      dictionaries and make large non-dictionary derived metadata selection explicit in evidence.
-    - [x] Add a lean source-native runtime metadata profile for large product columnar ingest so
-      runtime-critical URL, Referer, SearchPhrase, and EventTime helpers are retained while broader
-      candidate columns are omitted unless a cheaper adapter path is available.
-    - [x] Rework text compression overrides so only source-schema-admitted UTF-8 and
-      dictionary-UTF8 payload/text columns pay explicit fast-Zstd compression cost while numeric and
-      generated derived metadata stay on typed layout paths.
-    - [x] Replace static benchmark-specific compression field lists with dynamic advisor-selected
-      candidates derived from source column names and Arrow dtypes.
-    - [x] Add measured timing fields for derived metadata build, Arrow-to-Vortex conversion,
-      Vortex compression/encode work, segment write, and final commit/workspace stage.
-    - [x] Update tests and readiness expectations for writer runtime parallelism, compression
-      field selection, compact derived metadata evidence, and timing split fields.
-    - [x] Run focused validation for the changed Rust/Python evidence surfaces.
-    - [x] Rebuild the local release CLI and rerun a targeted Desktop ingest/UAT pass to compare
-      prepare/load time, artifact size, and no-fallback evidence.
-    - Post-merge ledger movement remains after this branch lands.
-  - Acceptance: public prepare/load evidence shows the requested/applied writer runtime
-    parallelism, product-local Vortex writer admission policy, lean compact derived metadata policy
-    for large columnar sources, selected source-schema compression fields, stage timing splits,
-    single `.vortex` artifact persistence,
-    `fallback_attempted=false`, and
-    `external_engine_invoked=false`; artifact-size and load-time changes are retained only if the
-    targeted retest does not show a meaningful regression.
-  - User-visible surface: CLI/public workflow prepare evidence, package/Homebrew runtime behavior,
-    and Desktop ClickBench UAT artifacts.
-  - Implementation scope: `shardloom-vortex/src/vortex_ingest.rs`,
-    `shardloom-vortex/src/universal_format_io.rs`, `shardloom-cli/src/sql_local_source_runtime.rs`,
-    focused tests, and architecture docs.
-  - Evidence required: focused Rust tests plus targeted ingest/UAT evidence after rebuild.
-  - Verification: `cargo test -p shardloom-vortex --lib <focused filters>`,
-    `cargo test -p shardloom-cli --bin shardloom <focused filters>`, then a bounded Desktop
-    replacement-ingest/UAT run when the build is ready.
-  - Non-goals: no benchmark-page rebuild, no query-result sidecars, no external query-engine
-    fallback, and no full workspace suite until the cohesive ingest batch is complete.
-  - Claim boundary: ingest/write resource-policy and artifact-shape evidence only; no superiority
-    claim until a full benchmark/UAT refresh supports it.
-  - Fallback boundary: no DuckDB, Polars, pandas, Spark, DataFusion, or Vortex query-engine
-    integration executes runtime work.
-
-- [x] `SOURCE-FINGERPRINT-POLICY-1` make public prepare source fingerprinting metadata-first by
-  default with explicit content-digest opt-in.
-  - V1 scope classification: `required_for_v1`.
-  - Source: Desktop 100M ClickBench replacement-ingest UAT on `2026-08-30`, which showed public
-    `prepare dataframe` spending several minutes in `fingerprint_local_source_file_with_budget_report`
-    reading the full source before any `.vortex` write progress.
-  - Current state: source identity is useful evidence, but a mandatory full source-content digest is
-    too expensive for normal public/local prepare. Prepared artifact digests and Vortex writer
-    evidence remain mandatory. Full source-content digest should be an explicit proof-tier opt-in,
-    not default route work.
-  - ShardLoom technique review: metadata-first execution applies directly. PulseWeave policy should
-    choose the source identity tier before ingest; capillary ingest must not be blocked by an
-    up-front whole-file read; timing-surface evidence must separate metadata scout time from optional
-    content digest time.
-  - Execution checklist:
-    - [x] Add a public prepare source fingerprint policy with `metadata_only` default and
-      `content_digest` opt-in.
-    - [x] Thread the policy through CLI `prepare dataframe`, public workflow route/run, and
-      Universal Ingest request evidence.
-    - [x] Emit machine-readable evidence for fingerprint kind, policy, identity source, and whether
-      full source-content fingerprinting was requested/performed.
-    - [x] Reuse Parquet `ArrowReaderMetadata` across row-group workers and use metadata-first
-      Parquet reader options during source discovery.
-    - [x] Update architecture docs so SourceState identity is described as metadata-first by
-      default with explicit content-digest proof.
-    - [x] Add or update focused regression tests for default metadata-only public prepare and
-      explicit content-digest opt-in.
-    - [x] Run focused validation and rebuild the release CLI before replacement-ingest UAT.
-    - [x] Rerun the gated Desktop replacement-ingest UAT probe; the harness now fails fast when the
-      source file is sparse/nonresident instead of entering ShardLoom with misleading zero-progress
-      evidence.
-    - [x] Rerun the full Desktop replacement-ingest UAT after the official ClickBench source is
-      physically materialized locally and confirm the route begins streaming/writing without a
-      full-source fingerprinting stall.
-    - Post-merge ledger movement remains after this branch lands.
-  - Acceptance: public local prepare defaults to `source_fingerprint_policy=metadata_only`,
-    `source_content_fingerprint_performed=false`, and no full source read during source identity
-    scout for columnar sources; `--source-fingerprint-policy content_digest` still performs an
-    explicit full content digest with evidence.
-  - User-visible surface: CLI/public workflow evidence and local prepare behavior.
-  - Verification: focused Rust check/test targets for `shardloom-cli` ingest/public workflow paths
-    plus one Desktop replacement-ingest UAT run.
-  - Claim boundary: source identity policy only; no benchmark or superiority claim.
-  - Fallback boundary: no external engine fallback; blocked and admitted paths keep
-    `fallback_attempted=false` and `external_engine_invoked=false`.
-
-- [x] `AGGREGATE-PARTIAL-PARALLELISM-1` close the feasible associative partial aggregate work on
-  the existing shared capillary grouped aggregate runtime.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - Source: external review packet `2026-08-31` and UAT showing Q17, Q19, and Q29 still spend
-    meaningful time after Vortex scan concurrency because aggregate state mutation is mostly serial.
-  - Current state: Vortex scans use bounded concurrency and the grouped aggregate runtime already
-    selects merge-safe chunk-local partial paths for dictionary counts, transformed dictionary
-    code-pair measures, materialized string partials after direct-provider misses, compact
-    count/sum/avg state, top-K retained windows, exact dictionary/count-distinct paths, and
-    state-budget evidence. Prior fixed partitioning for Q33 regressed and must not be revived as a
-    generic split.
-  - Intake review: accepted only as a selective shared-runtime closure. A second cross-thread
-    aggregate engine is not active because it would duplicate the existing grouped-state runtime and
-    has a known regression risk on near-input-cardinality and heavy-hitter lanes.
-  - ShardLoom technique review: capillary units should split chunk-local aggregate work, PulseWeave
-    should share the worker budget with Vortex scan/decode, dynamic work shaping should admit only
-    shapes where partial states reduce merge volume, and ProofBound must block unsafe order-sensitive
-    or count-distinct shapes until correctness evidence exists.
-  - Execution checklist:
-    - [x] Keep the physical-policy classifier route-aware for scalar, transformed dictionary,
-      numeric-pair, numeric/UTF-8 heavy-hitter, string heavy-hitter, and general grouped aggregate
-      families.
-    - [x] Exclude Q33-like near-input-cardinality, source-order-sensitive, general distinct, and
-      proofbound heavy-hitter lanes from any broad worker-state fork.
-    - [x] Use existing bounded capillary partial paths inside the shared grouped-state runtime
-      instead of adding a duplicate aggregate route.
-    - [x] Emit deterministic route evidence for aggregate update strategy, compact group-state
-      strategy, accessor/materialization posture, spill posture, capillary work units, PulseWeave
-      pressure signals, and rejected/provider-bound alternatives.
-    - [x] Preserve focused correctness coverage for nulls, empty groups, duplicate keys,
-      count-distinct, top-K/source-order, transformed dictionary groups, materialized string
-      partials, and compact numeric measures.
-    - [x] Drop the generic cross-thread worker-local fork for this batch because it is not a clear
-      material improvement and would risk reintroducing the prior Q33 regression.
-    - Post-merge ledger movement remains after this branch lands.
-  - User-visible surface: all admitted SQL/Python/DataFrame grouped aggregate calls that lower into
-    the shared native Vortex aggregate runtime.
-  - Implementation scope: `shardloom-vortex/src/local_primitives.rs`, physical-policy helpers,
-    focused tests, and docs/evidence summaries.
-  - Evidence required: aggregate parity tests, no-fallback route evidence, and targeted UAT.
-  - Acceptance: shared capillary partial aggregation is selected only for proven merge-safe routes,
-    while Q33-like and heavy-hitter routes keep their specialized policies instead of receiving a
-    slower generic split.
-  - Verification: focused `shardloom-vortex` aggregate tests; Desktop UAT remains an end-of-batch
-    verification step, not a prerequisite for adding a duplicate route.
-  - Non-goals: no external parallel execution engine, no Q33 fixed-partition retry, no unsafe
-    source-order or distinct-state parallelization.
-  - Claim boundary: workload-scoped query optimization evidence only.
-  - Fallback boundary: no fallback/external engine execution.
-
-- [x] `RUNTIME-EVIDENCE-COLLECTOR-1` measure and compact per-chunk runtime evidence construction
-  without weakening proof depth.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - Source: external review packet `2026-08-31`; candidate control-plane overhead from per-chunk
-    split/kernel evidence construction in scan loops.
-  - Current state: evidence records are useful and proof-preserving, but repeated string/layout/
-    encoding construction may be measurable on fast or highly segmented routes.
-  - Intake review: accepted as measurement-first. It should be dropped if a no-op collector probe
-    shows less than `2-3%` runtime cost.
-  - ShardLoom technique review: evidence-tier controls apply directly; hot runtime should aggregate
-    repeated signatures while full replay/publication proof can retain deeper records; timing
-    surfaces must expose control-plane and evidence collection time separately.
-  - Execution checklist:
-    - [x] Add explicit `control_plane_micros` and `evidence_collection_micros` fields for relevant
-      native Vortex runtime loops.
-    - [x] Add a compact signature collector keyed by layout/encoding signatures with counts,
-      representative first/last splits, row totals, and child/buffer totals.
-    - [x] Preserve full per-chunk evidence for replay/publication proof tiers where required.
-    - [x] Add focused tests for metadata-pruned and scanned local Vortex paths plus explicit compact
-      collector signature behavior.
-    - [x] Ship compact collection as an evidence-size/control-plane clarity improvement, with
-      runtime overhead exposed through route fields rather than hidden in query timing.
-    - [ ] Move this item to the completed ledger after merge.
-  - User-visible surface: route evidence JSON and diagnostics.
-  - Implementation scope: native runtime evidence collectors, timing fields, tests, docs.
-  - Evidence required: focused tests and timing comparison.
-  - Acceptance: proof semantics remain intact and evidence collection cost is measurable,
-    controlled, and non-regressing.
-  - Verification: focused evidence tests and targeted fast/segmented-route UAT.
-  - Non-goals: no removal of required certificate evidence and no benchmark-only proof weakening.
-  - Claim boundary: evidence-overhead clarity only.
-  - Fallback boundary: no runtime fallback involved.
-
-- [ ] `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` active owner for unchecked global architecture runtime
-  gaps.
-  - V1 scope classification: `required_for_v1`.
-  - Source: `scripts/check_runtime_gap_family_burn_down.py`,
-    `docs/architecture/global-architecture-review.md`, and the release/readiness validators that
-    require active ownership for unchecked global review rows.
-  - Current state: this is a governance owner, not a separate implementation surface. Runtime
-    gap-family mappings preserve provenance back to completed GAR items, but unchecked global
-    architecture review rows still need a current active owner while concrete runtime work remains
-    open or external-gated.
-  - ShardLoom technique review: evidence-tier controls and no-fallback discipline apply. Concrete
-    implementation still belongs in shared Vortex-normalized runtime, ingest, operator, sink, or
-    evidence components, not one-off route splits.
-  - Execution checklist:
-    - [ ] Keep this active owner present while any mapped global architecture review runtime gap
-      remains unchecked.
-    - [ ] For each mapped gap family, either close the global review row with runtime evidence or
-      promote the next concrete shared-runtime implementation item before removing this owner.
-    - [ ] Run `python3 scripts/check_runtime_gap_family_burn_down.py` whenever this owner,
-      global-review rows, or runtime gap-family mappings change.
-    - [ ] Move this item to the completed ledger only after all mapped unchecked global review rows
-      are closed or replaced by more specific active phase-plan owners.
-  - Acceptance: runtime gap-family reports always show both historical provenance and at least one
-    active phase-plan owner for unchecked global architecture review rows.
-  - Claim boundary: governance traceability only; no runtime, performance, production, or
-    superiority claim.
-  - Fallback boundary: this owner does not execute runtime work and preserves
-    `fallback_attempted=false` / `external_engine_invoked=false` in its validators.
+Validator ownership note: `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains named here as the active
+global-review runtime-gap owner required by `scripts/check_runtime_gap_family_burn_down.py`. It is a
+traceability owner, not an open implementation item; concrete completed work lives in the completed
+ledger.
 
 ## Completed
 
