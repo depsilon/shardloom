@@ -3115,6 +3115,26 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_string_count_distinct_topk_heavy_hitter_exact_proof",
         ),
         (
+            "string_count_distinct_topk_exact_sets_source",
+            "local_primitive_string_count_distinct_topk_exact_sets_source",
+        ),
+        (
+            "string_count_distinct_topk_first_pass_exact_sets",
+            "local_primitive_string_count_distinct_topk_first_pass_exact_sets",
+        ),
+        (
+            "string_count_distinct_topk_first_pass_exact_sets_disabled",
+            "local_primitive_string_count_distinct_topk_first_pass_exact_sets_disabled",
+        ),
+        (
+            "string_count_distinct_topk_first_pass_exact_set_entries",
+            "local_primitive_string_count_distinct_topk_first_pass_exact_set_entries",
+        ),
+        (
+            "string_count_distinct_topk_first_pass_exact_set_entry_budget",
+            "local_primitive_string_count_distinct_topk_first_pass_exact_set_entry_budget",
+        ),
+        (
             "string_count_distinct_topk_candidate_signature_prefilter",
             "local_primitive_string_count_distinct_topk_candidate_signature_prefilter",
         ),
@@ -12377,6 +12397,26 @@ mod tests {
                 "string_count_distinct_topk_candidate_free_rows_skipped",
                 serde_json::Value::Number(serde_json::Number::from(2_048)),
             ),
+            (
+                "string_count_distinct_topk_exact_sets_source",
+                serde_json::Value::String("first_pass_bounded_exact_sets".to_string()),
+            ),
+            (
+                "string_count_distinct_topk_first_pass_exact_sets",
+                serde_json::Value::Bool(true),
+            ),
+            (
+                "string_count_distinct_topk_first_pass_exact_sets_disabled",
+                serde_json::Value::Bool(false),
+            ),
+            (
+                "string_count_distinct_topk_first_pass_exact_set_entries",
+                serde_json::Value::Number(serde_json::Number::from(2_930_104)),
+            ),
+            (
+                "string_count_distinct_topk_first_pass_exact_set_entry_budget",
+                serde_json::Value::Number(serde_json::Number::from(50_331_648)),
+            ),
         ] {
             payload
                 .as_object_mut()
@@ -12569,6 +12609,26 @@ mod tests {
                     (
                         "local_primitive_string_count_distinct_topk_heavy_hitter_exact_proof",
                         "true",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_exact_sets_source",
+                        "first_pass_bounded_exact_sets",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_first_pass_exact_sets",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_first_pass_exact_sets_disabled",
+                        "false",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_first_pass_exact_set_entries",
+                        "2930104",
+                    ),
+                    (
+                        "local_primitive_string_count_distinct_topk_first_pass_exact_set_entry_budget",
+                        "50331648",
                     ),
                     (
                         "local_primitive_string_count_distinct_topk_candidate_signature_prefilter",

@@ -5686,11 +5686,6 @@ fn admitted_layout_writer_compression_field_decision(
             "field={field};decision=skip;codec=none;level=none;reason=generated_derived_metadata;expected_byte_benefit=low;expected_cpu_cost=avoided;dictionary_posture=prefer_compact_dictionary_code_metadata;retain_drop_guard=never_compress_materialized_hidden_derivative"
         );
     }
-    if field_is_query_hot_domain {
-        return format!(
-            "field={field};decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved;expected_byte_benefit=unknown;expected_cpu_cost=avoided;dictionary_posture=preserve_dictionary_codes_for_predicates_grouping_and_topk;retain_drop_guard=drop_compression_if_uat_query_lanes_regress"
-        );
-    }
     if writer_compression_policy
         != VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
     {
@@ -5700,15 +5695,23 @@ fn admitted_layout_writer_compression_field_decision(
         );
     }
     if selected {
-        format!(
-            "field={field};decision=compress;codec=zstd;level={};reason=payload_text_storage_benefit;expected_byte_benefit=medium_to_high;expected_cpu_cost=high;dictionary_posture=preserve_source_dictionary_when_provider_exposes_it;retain_drop_guard=drop_or_revise_if_uat_lacks_artifact_or_query_benefit",
-            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL
-        )
-    } else {
-        format!(
-            "field={field};decision=skip;codec=none;level=none;reason=field_level_profile_did_not_prove_compression_benefit;expected_byte_benefit=unknown;expected_cpu_cost=avoided;dictionary_posture=preserve_existing_encoding;retain_drop_guard=skip_until_field_level_evidence_supports_compression"
-        )
+        let reason = if field_is_query_hot_domain {
+            "large_source_artifact_size_guard_query_hot_text"
+        } else {
+            "payload_text_storage_benefit"
+        };
+        return format!(
+            "field={field};decision=compress;codec=zstd;level={VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL};reason={reason};expected_byte_benefit=medium_to_high;expected_cpu_cost=high;dictionary_posture=preserve_source_dictionary_when_provider_exposes_it;retain_drop_guard=drop_or_revise_if_uat_lacks_artifact_or_query_benefit"
+        );
     }
+    if field_is_query_hot_domain {
+        return format!(
+            "field={field};decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved;expected_byte_benefit=unknown;expected_cpu_cost=avoided;dictionary_posture=preserve_dictionary_codes_for_predicates_grouping_and_topk;retain_drop_guard=drop_compression_if_uat_query_lanes_regress"
+        );
+    }
+    format!(
+        "field={field};decision=skip;codec=none;level=none;reason=field_level_profile_did_not_prove_compression_benefit;expected_byte_benefit=unknown;expected_cpu_cost=avoided;dictionary_posture=preserve_existing_encoding;retain_drop_guard=skip_until_field_level_evidence_supports_compression"
+    )
 }
 
 #[cfg(feature = "vortex-write")]
@@ -5804,16 +5807,7 @@ fn admitted_layout_writer_storage_compression_field(field: &str) -> bool {
     if lower.is_empty() || lower.starts_with("__shardloom_derived_") {
         return false;
     }
-    lower.contains("payload")
-        || lower.contains("body")
-        || lower.contains("content")
-        || lower.contains("message")
-        || lower.contains("description")
-        || lower.contains("json")
-        || lower.contains("html")
-        || lower == "params"
-        || lower.ends_with("_params")
-        || lower.ends_with("params")
+    true
 }
 
 #[cfg(feature = "vortex-write")]
@@ -13786,7 +13780,7 @@ mod tests {
 
         assert_eq!(
             decision.writer_compression_field_names,
-            vec!["Params".to_string()]
+            vec!["Params".to_string(), "Title".to_string(), "URL".to_string()]
         );
         assert_eq!(decision.writer_compression_field_decisions.len(), 4);
         assert!(
@@ -13794,7 +13788,7 @@ mod tests {
                 .writer_compression_field_decisions
                 .iter()
                 .any(|decision| decision.contains(
-                    "field=URL;decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved"
+                    "field=URL;decision=compress;codec=zstd;level=-3;reason=large_source_artifact_size_guard_query_hot_text"
                 ))
         );
         assert!(
@@ -13802,7 +13796,7 @@ mod tests {
                 .writer_compression_field_decisions
                 .iter()
                 .any(|decision| decision.contains(
-                    "field=Title;decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved"
+                    "field=Title;decision=compress;codec=zstd;level=-3;reason=large_source_artifact_size_guard_query_hot_text"
                 ))
         );
         assert!(
@@ -13990,18 +13984,15 @@ mod tests {
         );
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_target_8mb_fast_load_uncompressed_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_embedded_olap_layout_statistics"
         );
-        assert_eq!(
-            report.writer_compression_concurrency,
-            VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY
-        );
-        assert_eq!(report.writer_compression_field_count(), 0);
-        assert_eq!(report.writer_compression_field_names(), "none");
+        assert_eq!(report.writer_compression_concurrency, 2);
+        assert_eq!(report.writer_compression_field_count(), 1);
+        assert_eq!(report.writer_compression_field_names(), "URL");
         assert!(
             report
                 .writer_compression_decisions()
-                .contains("field=URL;decision=skip;codec=none;level=none;reason=query_hot_encoded_domain_preserved")
+                .contains("field=URL;decision=compress;codec=zstd;level=-3;reason=large_source_artifact_size_guard_query_hot_text")
         );
         assert_eq!(report.writer_runtime_requested_parallelism, 2);
         assert_eq!(report.writer_runtime_applied_parallelism, 2);
@@ -14013,11 +14004,11 @@ mod tests {
         );
         assert_eq!(
             report.writer_profile_selection_reason,
-            "large_text_source_fast_load_encoded_domain_preserved"
+            "large_text_high_cardinality_source_coalesced_fast_zstd_profile"
         );
         assert_eq!(
             report.writer_profile_regression_guard,
-            "query_hot_text_domain_compression_disabled_until_uat_proves_benefit"
+            "text_large_source_fast_zstd_profile_is_full_replacement_uat_backed"
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());

@@ -6672,36 +6672,10 @@ fn layout_writer_compression_candidate_field(
         return None;
     }
     match arrow_dtype {
-        Some(dtype)
-            if writer_candidate_arrow_dtype_is_utf8_like(dtype)
-                && layout_text_payload_compression_column_name(column) =>
-        {
-            Some(column.to_string())
-        }
-        None if layout_text_payload_compression_column_name(column) => Some(column.to_string()),
+        Some(dtype) if writer_candidate_arrow_dtype_is_utf8_like(dtype) => Some(column.to_string()),
+        None if layout_text_domain_column_name(column) => Some(column.to_string()),
         Some(_) | None => None,
     }
-}
-
-fn layout_text_payload_compression_column_name(column: &str) -> bool {
-    let lower = column.to_ascii_lowercase();
-    lower.contains("url")
-        || lower.contains("referer")
-        || lower.contains("referrer")
-        || lower.contains("search")
-        || lower.contains("phrase")
-        || lower.contains("title")
-        || lower.contains("useragent")
-        || lower.contains("payload")
-        || lower.contains("body")
-        || lower.contains("content")
-        || lower.contains("message")
-        || lower.contains("description")
-        || lower.contains("json")
-        || lower.contains("html")
-        || lower == "params"
-        || lower.ends_with("_params")
-        || lower.ends_with("params")
 }
 
 fn writer_candidate_arrow_dtype_is_utf8_like(data_type: &DataType) -> bool {
@@ -8245,10 +8219,13 @@ fn columnar_stream_source_prefers_lean_source_native_embedded_metadata(
         .is_some_and(|rows| rows >= LOCAL_OLAP_MEDIUM_SOURCE_ROW_THRESHOLD)
         || source.source_stream_batch_size
             >= shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS;
-    medium_or_larger
-        && source.source_dictionary_preservation_status.contains(
+    let source_native_lean_text_metadata_available =
+        source.source_dictionary_preservation_status.contains(
             "parquet_arrow_reader_requested_dictionary_preservation_for_string_derived_columns",
-        )
+        ) || source.source_dictionary_preservation_status.contains(
+            "parquet_arrow_reader_uses_plain_utf8_for_large_olap_text_zstd_artifact_size_guard",
+        );
+    medium_or_larger && source_native_lean_text_metadata_available
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -44861,6 +44838,8 @@ mod tests {
                 "URL".to_string(),
                 "Title".to_string(),
                 "SearchPhrase".to_string(),
+                "BrowserCountry".to_string(),
+                "ParamCurrency".to_string(),
                 "Params".to_string(),
             ]
         );
@@ -44966,6 +44945,143 @@ mod tests {
         assert_eq!(names, vec!["id".to_string(), "Referer".to_string()]);
         let batch = source.reader.next().expect("batch").expect("batch ok");
         assert_eq!(batch.num_columns(), 2);
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn large_plain_utf8_parquet_guard_uses_lean_runtime_metadata_profile() {
+        use arrow_array::{ArrayRef, Int64Array, RecordBatch, RecordBatchReader, StringArray};
+        use arrow_schema::{DataType, Field, Schema, SchemaRef};
+        use std::collections::VecDeque;
+        use std::sync::Arc;
+
+        struct TestRecordBatchReader {
+            schema: SchemaRef,
+            batches: VecDeque<RecordBatch>,
+        }
+
+        impl Iterator for TestRecordBatchReader {
+            type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.batches.pop_front().map(Ok)
+            }
+        }
+
+        impl RecordBatchReader for TestRecordBatchReader {
+            fn schema(&self) -> SchemaRef {
+                Arc::clone(&self.schema)
+            }
+        }
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("URL", DataType::Utf8, true),
+            Field::new("SearchPhrase", DataType::Utf8, true),
+            Field::new("Title", DataType::Utf8, true),
+            Field::new("EventTime", DataType::Int64, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(StringArray::from(vec![
+                    Some("https://www.google.com/a"),
+                    Some("https://docs.rs/b"),
+                ])) as ArrayRef,
+                Arc::new(StringArray::from(vec![Some("rust"), Some("shardloom")])) as ArrayRef,
+                Arc::new(StringArray::from(vec![
+                    Some("Google title"),
+                    Some("Other title"),
+                ])) as ArrayRef,
+                Arc::new(Int64Array::from(vec![60_i64, 121])) as ArrayRef,
+            ],
+        )
+        .expect("record batch");
+        let source = shardloom_vortex::FlatLocalColumnarStreamSource {
+            header: vec![
+                "URL".to_string(),
+                "SearchPhrase".to_string(),
+                "Title".to_string(),
+                "EventTime".to_string(),
+            ],
+            column_dtypes: vec![
+                Some(LogicalDType::Utf8),
+                Some(LogicalDType::Utf8),
+                Some(LogicalDType::Utf8),
+                Some(LogicalDType::Int64),
+            ],
+            column_arrow_dtypes: schema
+                .fields()
+                .iter()
+                .map(|field| Some(field.data_type().clone()))
+                .collect(),
+            materialized_columns: vec![
+                "URL".to_string(),
+                "SearchPhrase".to_string(),
+                "Title".to_string(),
+                "EventTime".to_string(),
+            ],
+            reader_projection_columns: vec![
+                "URL".to_string(),
+                "SearchPhrase".to_string(),
+                "Title".to_string(),
+                "EventTime".to_string(),
+            ],
+            row_count_hint: Some(100_000_000),
+            record_batch_count_hint: Some(1),
+            source_stream_batch_size:
+                shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+            source_stream_unit_count_hint: Some(1),
+            source_stream_unit_row_ranges: Some(vec![(0, 2)]),
+            source_stream_unit_hint_kind: "test_plain_utf8_large_parquet_guard".to_string(),
+            source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
+            source_dictionary_preservation_status:
+                "parquet_arrow_reader_uses_plain_utf8_for_large_olap_text_zstd_artifact_size_guard"
+                    .to_string(),
+            ingest_executor_status: "serial_pull_reader".to_string(),
+            ingest_executor_kind: "test_plain_utf8_large_parquet_reader".to_string(),
+            ingest_executor_requested_parallelism: 1,
+            ingest_executor_applied_parallelism: 1,
+            ingest_executor_unit_count_hint: Some(1),
+            embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
+            ),
+            reader: Box::new(TestRecordBatchReader {
+                schema,
+                batches: VecDeque::from([batch]),
+            }),
+        };
+
+        let mut source =
+            with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
+
+        assert!(
+            source.source_dictionary_preservation_status.contains(
+                "embedded_derived_column_mode=source_native_lean_runtime_dictionary_or_typed_time_only"
+            ),
+            "{}",
+            source.source_dictionary_preservation_status
+        );
+        let names = source
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().clone())
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"__shardloom_derived_utf8_len_URL".to_string()));
+        assert!(names.contains(&"__shardloom_derived_url_domain_URL".to_string()));
+        assert!(names.contains(&"__shardloom_derived_utf8_len_SearchPhrase".to_string()));
+        assert!(names.contains(&"__shardloom_derived_extract_minute_EventTime".to_string()));
+        assert!(names.contains(&"__shardloom_derived_date_trunc_minute_EventTime".to_string()));
+        assert!(!names.contains(&"__shardloom_derived_utf8_len_Title".to_string()));
+        assert_eq!(
+            source
+                .reader
+                .next()
+                .expect("batch")
+                .expect("batch ok")
+                .num_columns(),
+            9
+        );
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
