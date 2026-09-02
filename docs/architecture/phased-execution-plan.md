@@ -257,15 +257,142 @@ evidence contracts. Retain an optimization only when focused or UAT evidence sho
 improvement without correctness, no-fallback, or single-artifact regressions; otherwise drop or
 revise it before moving on.
 
-Active queue status: no open planned work remains in this branch. The aggregate-lane recovery item
-has been implemented, targeted-UAT validated, and moved to
-`docs/architecture/phased-execution-completed-ledger.md`.
+- [ ] `CLICKBENCH-DOMAIN-TRANSFER-1` - ClickBench leaderboard domain-transfer runtime batch
+
+  Source: user-requested ClickBench leaderboard research on September 2, 2026, the official
+  ClickBench methodology and generated leaderboard data, current local
+  `docs/benchmarks/clickbench-100m-current-branch-uat.json`, and
+  `docs/benchmarks/clickbench-100m-uat-burndown.json`.
+
+  Current state: the current local 100M-row UAT evidence is not official ClickBench evidence and is
+  not claim-grade. It reports a single prepared `.vortex` artifact of 38,147,848,068 bytes
+  (35.53 GiB), source bytes of 14,779,976,446, ingest wall time of 301s, query total of 215.637s,
+  local geomean of 1.2845s, derived hot total of 216.334s, and derived cold total of 223.587s.
+  Slow rows are concentrated in high-cardinality/string top-K, transformed URL/domain grouping,
+  bounded wide-row top-K, string predicate counts, and exact distinct. Official ClickBench ranks
+  still require an official-compatible runner, hardware normalization, full 43-query reproducibility,
+  and CG-5/CG-6 claim evidence.
+
+  Intake review: accepted the five legally appropriate transfer candidates as implementation
+  slices, not copied algorithms or competitor-derived code. Segment/granule metadata, morsel-style
+  scheduling, specialized kernels, ingest-as-query-serving-layout, and columnar result discipline
+  are accepted as general systems patterns to implement with original ShardLoom code. External
+  engines remain baselines only; no leaderboard implementation, GPL/AGPL/SSPL/BUSL/proprietary
+  code, source-available code, or query-engine integration may be copied or invoked.
+
+  V1 scope classification: `v1_candidate_pending_feasibility` for the runtime optimizations, with
+  `required_for_v1` evidence obligations for explicit no-fallback reporting, Native I/O
+  certificates, correctness checks, and claim-gate wording on any benchmark output this item
+  touches.
+
+  ShardLoom technique review: metadata-first execution applies through per-segment/granule
+  summaries and prepared source-state admission before row work; capillary work units apply through
+  bounded scan morsels with thread-local state and deterministic merge; dynamic admission/work
+  shaping applies to retaining only measured improvements and dropping slower profiles; route
+  timing surface separation applies because ingest, source-state build, scan, operator, sink, and
+  wrapper timing must stay separate; evidence-tier controls apply because local UAT, focused
+  microbenchmarks, and official leaderboard claims require different proof levels. PulseWeave is
+  relevant only as runtime-control policy after these CPU/local path changes produce stable
+  telemetry, so this item must not introduce autonomous adaptive policy without measured gates.
+
+  Vortex-first provider check: checked Vortex concepts, encodings/layouts/statistics, file I/O,
+  scan/source/sink, and versioning guardrails. Use admitted upstream Vortex array/scan/file/sink
+  APIs only inside `shardloom-vortex` provider boundaries, wrap Vortex-native metadata where it is
+  already present, implement ShardLoom-native metadata/index state where the provider surface does
+  not expose the needed ClickBench-style summaries, and reject query-engine integrations
+  (`vortex-datafusion`, DuckDB, Spark, Polars, Velox, Trino, Dask, Ray) as runtime helpers.
+
+  Execution checklist:
+  - [x] Add this detailed phase-plan item with accepted transfer candidates, source/current-state
+    evidence, Vortex-first decisions, no-fallback boundaries, and validation gates.
+  - [x] Seed prepared/native source-state for single high-cost category, grouped-category,
+    ranked/top-K, and selective predicate lanes without counting that as multi-query reuse.
+  - [ ] Implement segment/granule metadata as an execution primitive: embed or derive
+    min/max/null/cardinality/string-absence/top-K candidate summaries from the single Vortex
+    artifact; surface deterministic metadata coverage fields; use metadata-only answers or segment
+    pruning before scans; verify no sidecars and `fallback_attempted=false`.
+  - [ ] Implement capillary/morsel scheduling for the prepared Vortex scan path: partition reader
+    chunks into bounded work units, keep thread-local aggregate/top-K/distinct state, merge
+    deterministically, report queue/parallelism/memory evidence, and keep single-thread fallback
+    impossible as a silent external-engine delegation.
+  - [ ] Implement specialized native kernel dispatch for the accepted hot lanes:
+    string predicate count, exact distinct, high-cardinality/grouped top-K, transformed URL/domain
+    grouping, and bounded wide-row top-K. Reuse `shardloom-core` specialization identifiers and
+    `shardloom-vortex` runtime evidence; compare against decoded reference behavior in tests.
+  - [ ] Implement ingest-as-query-serving-layout policy: update the layout/write advisor from
+    report-only guidance toward measured, gated writer choices for chunk sizing, dictionary/string
+    handling, clustering hints, and statistics preservation; retain only changes that improve
+    load/size or query timing in focused evidence.
+  - [ ] Strengthen columnar result/data-plane discipline: keep row references and compact columnar
+    result batches until the declared sink boundary, avoid wide row JSON/string assembly on hot
+    paths, and keep result-sink replay certificates for written Vortex outputs.
+  - [ ] Run focused unit/integration checks for each shipped slice, then the required workspace
+    gates: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+    and `cargo test --workspace --all-targets`.
+  - [ ] Run targeted 100M ClickBench UAT for changed hot lanes and the full 43-query local UAT only
+    after the runtime batch stabilizes; record retain/drop decisions and update the burndown.
+  - [ ] Move the completed implementation details to
+    `docs/architecture/phased-execution-completed-ledger.md` after merge or session completion.
+
+  Completed slice evidence:
+  - Focused source-state tests:
+    `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark source_state`.
+  - Required gates: `cargo fmt --all -- --check`,
+    `cargo clippy --workspace --all-targets -- -D warnings`, and
+    `cargo test --workspace --all-targets`.
+
+  Next outcome: a cohesive PR that implements the segment/granule metadata execution primitive,
+  surfaces deterministic metadata coverage evidence, and uses metadata-only answers or segment
+  pruning before scans where the current Vortex provider boundary admits it.
+
+  User-visible surface: benchmark reports, CLI prepared/native Vortex batch evidence fields,
+  diagnostics/capability evidence, and phase-plan documentation.
+
+  Implementation scope: `docs/architecture/phased-execution-plan.md`,
+  `shardloom-vortex/src/traditional_analytics.rs`, follow-on shared runtime helpers in
+  `shardloom-core` and `shardloom-cli` only when a slice needs public route binding, and benchmark
+  artifacts under `docs/benchmarks/` when UAT is rerun.
+
+  Evidence required: exact output correctness for every optimized lane, decoded reference or
+  fixture oracle checks where appropriate, Native I/O certificate evidence, materialization/decode
+  boundary evidence, per-stage timing, source-state/metadata coverage, result-sink replay evidence
+  for written outputs, and no-fallback/no-external-engine fields.
+
+  Acceptance: optimized lanes produce the same results as the current decoded/reference behavior;
+  performance rows either show material improvement and are retained or are removed/revised;
+  prepared source-state and metadata fields classify every requested scenario; single `.vortex`
+  artifact discipline is preserved; unsupported work fails deterministically; and no public
+  superiority or Spark-displacement claim is emitted.
+
+  Verification: focused `cargo test -p shardloom-vortex --lib --features
+  vortex-traditional-analytics-benchmark <test-filter>` checks for each runtime slice, targeted CLI
+  route tests when public SQL/Python/CLI surfaces change, required workspace validation commands,
+  and local ClickBench UAT artifacts only after a stable performance batch.
+
+  Non-goals: no copied implementation code from ClickBench competitors, no new external execution
+  fallback, no Spark/DataFusion/DuckDB/Polars/Velox runtime delegation, no official ClickBench
+  leaderboard claim, no object-store/distributed/spill expansion, no package release, and no
+  one-off ClickBench-only route that bypasses shared Vortex-normalized runtime families.
+
+  Claim boundary: until CG-5 correctness and CG-6 benchmark evidence are satisfied, this item may
+  claim only local implementation/evidence improvements and measured local UAT changes. It may not
+  claim ClickBench rank, production readiness, broad SQL/DataFrame coverage, or Spark displacement.
+
+  Fallback boundary: all affected fields must preserve `fallback_attempted=false`,
+  `external_engine_invoked=false`, `fallback_execution_allowed=false`, and deterministic
+  unsupported diagnostics for unimplemented behavior.
+
+  Ledger rule: completed detail moves to
+  `docs/architecture/phased-execution-completed-ledger.md`.
 
 Current autonomous execution order:
 
-1. Prepare the cohesive PR/merge review for this completed batch.
-2. After merge, run the next full 43-query UAT only when a larger runtime batch warrants replacing
-   the current full-run reference.
+1. Implement the segment/granule metadata execution-primitive slice for
+   `CLICKBENCH-DOMAIN-TRANSFER-1`.
+2. Validate the focused Vortex metadata/pruning evidence and update this checklist.
+3. Continue through capillary/morsel scheduling, specialized kernels, ingest-layout policy, and
+   columnar result-boundary slices only while each can be retained by measured
+   correctness and performance evidence.
 
 Validator ownership note: `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains named here as the active
 global-review runtime-gap owner required by `scripts/check_runtime_gap_family_burn_down.py`. It is a

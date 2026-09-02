@@ -19,8 +19,11 @@ Every scenario family is classified with one of these statuses:
 
 - `source-state-reused`: a scoped in-process source-state family is shared by multiple requested
   child scenarios.
+- `source-state-seeded`: a single high-cost child scenario uses a scoped in-process source-state
+  family as lazily seeded metadata/index-like execution state without claiming multi-query reuse.
 - `source-state-not-needed`: the scenario has no reusable derived source-state family in the
-  current batch lane, or there is only one consumer for the relevant family.
+  current batch lane, or the relevant family intentionally keeps single-consumer scenario-local scan
+  evidence explicit.
 - `blocked-with-reason`: the scenario family is intentionally outside the scoped prepared/native
   source-state reuse lane.
 - `unsupported-with-reason`: the source-state coverage contract does not support that scenario
@@ -33,6 +36,15 @@ The batch evidence emits:
 - `source_state_coverage_status_vocabulary`
 - `source_state_coverage_all_requested_scenarios_classified=true`
 - `source_state_coverage_matrix`
+- `source_state_coverage_reused_scenario_count`
+- `source_state_coverage_seeded_scenario_count`
+- `source_state_coverage_not_needed_scenario_count`
+- `source_state_coverage_blocked_scenario_count`
+- `source_state_coverage_unsupported_scenario_count`
+- `source_state_seed_policy`
+- `source_state_seeded`
+- `source_state_seeded_family_count`
+- `source_state_seeded_consumer_count`
 - `scenario_<slug>_source_state_coverage_status`
 - `scenario_<slug>_source_state_coverage_family`
 - `scenario_<slug>_source_state_coverage_reason`
@@ -60,12 +72,12 @@ and cross-format prepared/output reuse remain follow-up work.
 | Scenario family | Scenario rows | Coverage status | Source-state family | Evidence fields | Reason |
 | --- | --- | --- | --- | --- | --- |
 | Basic ingest/sum and many-file scalar scan | `csv/file ingest`, `many-small-files scan` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `fact_metric` | `source_state_fact_metric_*`, `source_state_coverage_*`, `source_metadata_snapshot_*` | The shared fact metric-sum state is prewarmed before the per-scenario loop when both scalar consumers are present; single-consumer runs keep scenario-local scan evidence explicit. |
-| Selective filter and filter/project/limit | `selective filter`, `filter + projection + limit` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `selective_filter` | `source_state_selective_filter_*`, `batch_source_state_metric_aggregation_used` | The shared filtered `id,value,metric` state is reused across the pair; single-consumer runs keep scenario-local scan evidence explicit. |
+| Selective filter and filter/project/limit | `selective filter`, `filter + projection + limit` | `source-state-reused` when both rows are requested; `source-state-seeded` for one requested row | `selective_filter` | `source_state_selective_filter_*`, `batch_source_state_metric_aggregation_used`, `source_state_seed_*` | The shared filtered `id,value,metric` state is reused across the pair and is lazily seeded for a single high-cost predicate lane. |
 | Projection-only | `wide projection` | `source-state-not-needed` | `projection_only` | `source_state_coverage_*`, `source_backed_scan_*` | Projection-only execution does not currently build a reusable derived source-state family. |
-| Grouped aggregation | `group by aggregation`, `multi-key group by` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `group_category_metric` | `source_state_group_category_metric_*` | The shared `group_key,category,metric` grouped state is reused across the pair. |
-| Distinct and high-cardinality grouping | `distinct count`, `high-cardinality string group/distinct` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `category_metric` | `source_state_category_metric_*` | The shared `category,metric` grouped state is reused across the pair. |
+| Grouped aggregation | `group by aggregation`, `multi-key group by` | `source-state-reused` when both rows are requested; `source-state-seeded` for one requested row | `group_category_metric` | `source_state_group_category_metric_*`, `source_state_seed_*` | The shared `group_key,category,metric` grouped state is reused across the pair and is lazily seeded for a single high-cost grouped aggregation lane. |
+| Distinct and high-cardinality grouping | `distinct count`, `high-cardinality string group/distinct` | `source-state-reused` when both rows are requested; `source-state-seeded` for one requested row | `category_metric` | `source_state_category_metric_*`, `source_state_seed_*` | The shared `category,metric` grouped state is reused across the pair and is lazily seeded for a single high-cost distinct/string grouping lane. |
 | Joins | `hash join`, `join + aggregate` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `dimension_label` | `source_state_dimension_label_*` | The shared dimension-label lookup state is reused across the pair. |
-| Ranking/window | `sort and top-k`, `top-N per group`, `row number window` | `source-state-reused` when at least two ranked rows are requested; otherwise `source-state-not-needed` | `ranked_metric` | `source_state_ranked_metric_*` | The shared ranked `group_key,id,metric` state is reused across ranked consumers. |
+| Ranking/window | `sort and top-k`, `top-N per group`, `row number window` | `source-state-reused` when at least two ranked rows are requested; `source-state-seeded` for one requested row | `ranked_metric` | `source_state_ranked_metric_*`, `source_state_seed_*` | The shared ranked `group_key,id,metric` state is reused across ranked consumers and is lazily seeded for a single high-cost top-K/window lane. |
 | Date/null metrics | `partition pruning`, `null-heavy aggregate` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `date_null_metric` | `source_state_date_null_metric_*` | The shared `event_date,metric,nullable_metric_00` state is reused across the pair. |
 | Dirty input cleanup | `clean/cast/filter/write`, `malformed timestamp / dirty CSV` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `dirty_input` | `source_state_dirty_input_*` | The shared dirty-input cleanup state is reused across the pair. |
 | CDC overlay | `small change over large base` | `source-state-not-needed` | `cdc_overlay` | `source_state_coverage_*`, CDC preparation fields | The CDC overlay row is a single incremental-state workflow in the current batch lane. |

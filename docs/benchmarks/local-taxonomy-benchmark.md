@@ -281,9 +281,11 @@ envelope, no-fallback evidence, and the relevant runtime gates.
 `docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
 `source_state_coverage_*` fields into prepared/native batch evidence. Those
 fields classify requested scenario rows as `source-state-reused`,
-`source-state-not-needed`, `blocked-with-reason`, or
-`unsupported-with-reason`. The rows also make the current digest boundary
-explicit with `source_state_digest_status=emitted_scoped_in_memory_source_state_digest`,
+`source-state-seeded`, `source-state-not-needed`, `blocked-with-reason`, or
+`unsupported-with-reason`. Seeded rows are single high-cost consumers that use a
+lazy in-process source-state family without claiming multi-query reuse. The rows also make the
+current digest boundary explicit with
+`source_state_digest_status=emitted_scoped_in_memory_source_state_digest`,
 `source_state_digest_algorithm=fnv1a64`, `source_state_digest_scope`, and
 `source_state_family_digests`; benchmark rows expose the direct scoped batch digest as
 `batch_source_state_digest` to avoid colliding with the universal SourceState row digest. Those
