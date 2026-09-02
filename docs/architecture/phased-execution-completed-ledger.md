@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `CLICKBENCH-DOMAIN-TRANSFER-1` implemented the ClickBench domain-transfer runtime batch
+      slices for prepared/native Vortex analytics.
+  - Date: 2026-09-02
+  - PR/merge: local branch `codex/clickbench-domain-transfer-runtime-complete`; merge pending.
+  - Completed scope:
+    - Added bounded capillary/morsel scheduling to the prepared Vortex source-state scan path for
+      `category_metric`, `group_category_metric`, `ranked_metric`, and `selective_filter`, with
+      per-morsel local state and deterministic family merge evidence.
+    - Added hot-lane native dispatch evidence for string predicate counts, exact distinct,
+      high-cardinality/grouped top-K, transformed URL/domain grouping, and bounded wide-row top-K.
+    - Promoted query-serving layout policy evidence to measured, gated writer choices when native
+      metadata and certified sink replay evidence are present, while keeping improvement claims
+      blocked until UAT evidence exists.
+    - Added compact columnar result/data-plane evidence that keeps row references and compact batch
+      posture visible until the declared JSON/result-sink boundary.
+    - Updated the source-state coverage matrix and phase plan to document the new evidence schemas:
+      `shardloom.traditional_analytics.capillary_morsel_scheduling.v1`,
+      `shardloom.traditional_analytics.hot_lane_native_kernel_dispatch.v1`,
+      `shardloom.traditional_analytics.query_serving_layout_policy.v1`, and
+      `shardloom.traditional_analytics.columnar_result_data_plane.v1`.
+  - Focused validation evidence:
+    - `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark source_state`
+    - `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark all_accepted_hot_lanes`
+    - `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark expanded_taxonomy_scenarios_run_against_local_vortex_outputs`
+    - `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark computed_result_vortex_sink_writes_and_replays_result_artifact`
+  - Required validation evidence:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+  - Residual work:
+    - Full-scale local 100M ClickBench UAT and burndown retain/drop updates remain open in
+      `docs/architecture/phased-execution-plan.md` as claim/evidence work, not unimplemented runtime
+      code in this slice.
+  - Claim boundary:
+    - Local implementation and focused/workspace validation evidence only. This is not an official
+      ClickBench submission, public superiority claim, production proof, object-store proof, or
+      Spark-displacement claim.
+  - Fallback boundary:
+    - Runtime remains ShardLoom/Vortex-native with `fallback_attempted=false` and
+      `external_engine_invoked=false`; no Spark, DataFusion, DuckDB, Polars, pandas, Velox,
+      `vortex-datafusion`, query-answer cache, or copied competitor implementation was added.
+
 - [x] `CLICKBENCH-100M-REGRESSED-AGGREGATE-LANE-RECOVERY-1` closed the latest aggregate/string lane
       recovery batch as shared Vortex-normalized runtime work, not ClickBench-specific routing.
   - Date: 2026-09-01

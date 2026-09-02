@@ -112,6 +112,132 @@ general file-statistics catalog, and not permission to use DataFusion, DuckDB, S
 Velox, Trino, Dask, Ray, `vortex-datafusion`, or another query-engine integration as a runtime
 fallback.
 
+## Capillary/Morsel Scheduling
+
+`CLICKBENCH-DOMAIN-TRANSFER-1` also adds
+`capillary_morsel_scheduling_schema_version=shardloom.traditional_analytics.capillary_morsel_scheduling.v1`
+for prepared/native source-state families that scan the fact `.vortex` artifact. The scan path can
+partition each reader chunk into bounded morsels, build per-morsel local aggregate/top-K/distinct
+state, and merge those states deterministically into the prepared source-state family result.
+
+Current morsel-enabled families:
+
+- `category_metric`
+- `group_category_metric`
+- `ranked_metric`
+- `selective_filter`
+
+The batch evidence emits:
+
+- `capillary_morsel_scheduling_status`
+- `capillary_morsel_scheduling_matrix_ref`
+- `capillary_morsel_scheduling_summary_family_count`
+- `capillary_morsel_scheduled_count`
+- `capillary_morsel_completed_count`
+- `capillary_morsel_failed_count`
+- `capillary_morsel_reader_chunk_count`
+- `capillary_morsel_max_rows`
+- `capillary_morsel_target_rows`
+- `capillary_morsel_max_parallelism`
+- `capillary_morsel_queue_limit`
+- `capillary_morsel_queue_limit_enforced`
+- `capillary_morsel_thread_local_state_count`
+- `capillary_morsel_deterministic_merge_count`
+- `capillary_morsel_memory_evidence_status`
+- `scenario_<slug>_capillary_morsel_*`
+- `capillary_morsel_fallback_attempted=false`
+- `capillary_morsel_external_engine_invoked=false`
+
+This is bounded in-process work shaping for native Vortex scans. It is not permission to invoke a
+single-thread external engine, a runtime scheduler from another query engine, or a hidden cache.
+
+## Hot-Lane Native Kernel Dispatch
+
+`CLICKBENCH-DOMAIN-TRANSFER-1` adds
+`hot_lane_native_kernel_dispatch_schema_version=shardloom.traditional_analytics.hot_lane_native_kernel_dispatch.v1`
+to the prepared/native batch row. The dispatch matrix binds accepted hot ClickBench-style lanes to
+existing ShardLoom-native source-state/runtime families and records whether each lane was requested
+in the current batch.
+
+Current accepted lanes:
+
+- `string_predicate_count`: selective predicate state using bitpacked/integer predicate evidence and
+  selected metric aggregation.
+- `exact_distinct`: category interner cardinality from `category_metric`.
+- `high_cardinality_grouped_topk`: bounded per-group top-K heaps from `ranked_metric`.
+- `transformed_url_domain_grouping`: generated string interner plus packed grouped accumulator from
+  `group_category_metric`.
+- `bounded_wide_row_topk`: global/top-K and filtered projection limit row references from
+  `ranked_metric`/`selective_filter` state.
+
+The batch evidence emits:
+
+- `hot_lane_native_kernel_dispatch_status`
+- `hot_lane_native_kernel_dispatch_candidate_count=5`
+- `hot_lane_native_kernel_dispatch_executed_count`
+- `hot_lane_native_kernel_dispatch_matrix`
+- `hot_lane_native_kernel_dispatch_digest`
+- `hot_lane_native_kernel_dispatch_provider_scope`
+- `hot_lane_native_kernel_dispatch_decoded_reference_status`
+- `hot_lane_native_kernel_dispatch_fallback_attempted=false`
+- `hot_lane_native_kernel_dispatch_external_engine_invoked=false`
+
+The dispatch evidence is original ShardLoom routing over local runtime state. It does not copy
+ClickBench competitor implementations, query plans, or engine code.
+
+## Query-Serving Layout Policy
+
+`CLICKBENCH-DOMAIN-TRANSFER-1` promotes the layout advisor from pure report-only text to measured,
+gated writer-choice evidence when Native I/O certificates and segment/granule metadata evidence are
+present. The current implementation records chunk sizing, string/dictionary handling, clustering
+hints, and statistics-preservation intent without rewriting an existing artifact in-place.
+
+The batch evidence emits:
+
+- `query_serving_layout_policy_schema_version=shardloom.traditional_analytics.query_serving_layout_policy.v1`
+- `query_serving_layout_policy_status`
+- `query_serving_layout_policy_matrix`
+- `query_serving_layout_policy_digest`
+- `query_serving_layout_policy_recommended_chunk_rows`
+- `query_serving_layout_policy_recommended_chunk_bytes`
+- `query_serving_layout_policy_dictionary_string_handling`
+- `query_serving_layout_policy_clustering_hints`
+- `query_serving_layout_policy_statistics_preservation`
+- `query_serving_layout_policy_write_layout_execution_allowed`
+- `query_serving_layout_policy_current_artifact_rewrite_performed=false`
+- `query_serving_layout_policy_retain_decision`
+- `query_serving_layout_policy_improvement_claim_allowed=false`
+- `query_serving_layout_policy_fallback_attempted=false`
+- `query_serving_layout_policy_external_engine_invoked=false`
+
+The local `traditional_layout_advisor_report` may report
+`status=measured_gated_writer_choices` only when the result sink write/replay is certified. It does
+not make a superiority claim or authorize broad writer-policy changes without follow-up UAT.
+
+## Columnar Result/Data-Plane Discipline
+
+`CLICKBENCH-DOMAIN-TRANSFER-1` adds
+`columnar_result_data_plane_schema_version=shardloom.traditional_analytics.columnar_result_data_plane.v1`
+for compact result-boundary evidence. The prepared/native batch path records row-reference and
+compact batch posture through the hot runtime path and keeps JSON/string assembly at the declared
+result boundary.
+
+The batch evidence emits:
+
+- `columnar_result_data_plane_status`
+- `columnar_result_data_plane_digest`
+- `columnar_result_data_plane_row_reference_strategy`
+- `columnar_result_data_plane_compact_batch_status`
+- `columnar_result_data_plane_json_assembly_boundary`
+- `columnar_result_data_plane_wide_row_json_hot_path_avoided`
+- `columnar_result_data_plane_result_sink_replay_status`
+- `columnar_result_data_plane_result_rows`
+- `columnar_result_data_plane_fallback_attempted=false`
+- `columnar_result_data_plane_external_engine_invoked=false`
+
+Written Vortex result artifacts still require result-sink replay certificates. Compatibility output
+and JSON are boundary formats, not internal execution fallbacks.
+
 The current scoped source-state families are in-memory derived runtime state. Batch rows emit a
 stable evidence digest over source artifact digests, requested execution mode, and family reuse
 posture; the digest is a reuse/coverage identity only, not a persistent cache key or performance

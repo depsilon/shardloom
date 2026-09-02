@@ -257,149 +257,89 @@ evidence contracts. Retain an optimization only when focused or UAT evidence sho
 improvement without correctness, no-fallback, or single-artifact regressions; otherwise drop or
 revise it before moving on.
 
-- [ ] `CLICKBENCH-DOMAIN-TRANSFER-1` - ClickBench leaderboard domain-transfer runtime batch
+- [ ] `CLICKBENCH-DOMAIN-TRANSFER-100M-UAT-1` - Local 100M ClickBench UAT after domain-transfer
+      runtime implementation
 
-  Source: user-requested ClickBench leaderboard research on September 2, 2026, the official
-  ClickBench methodology and generated leaderboard data, current local
+  Source: completed `CLICKBENCH-DOMAIN-TRANSFER-1` implementation ledger entry, the official
+  ClickBench query fixture in `benchmarks/clickbench/queries.sql`, current local
   `docs/benchmarks/clickbench-100m-current-branch-uat.json`, and
   `docs/benchmarks/clickbench-100m-uat-burndown.json`.
 
-  Current state: the current local 100M-row UAT evidence is not official ClickBench evidence and is
-  not claim-grade. It reports a single prepared `.vortex` artifact of 38,147,848,068 bytes
-  (35.53 GiB), source bytes of 14,779,976,446, ingest wall time of 301s, query total of 215.637s,
-  local geomean of 1.2845s, derived hot total of 216.334s, and derived cold total of 223.587s.
-  Slow rows are concentrated in high-cardinality/string top-K, transformed URL/domain grouping,
-  bounded wide-row top-K, string predicate counts, and exact distinct. Official ClickBench ranks
-  still require an official-compatible runner, hardware normalization, full 43-query reproducibility,
-  and CG-5/CG-6 claim evidence.
+  Current state: the domain-transfer implementation slices are complete and validated locally. The
+  current retained 100M UAT evidence is still the pre-rerun local Desktop artifact summary: single
+  prepared `.vortex` artifact size `38,147,848,068` bytes, source bytes `14,779,976,446`, ingest wall
+  time `301s`, best-of-3 query total `215.637s`, local geomean `1.2845s`,
+  `fallback_attempted=false`, and `external_engine_invoked=false`. This is not official ClickBench
+  evidence and is not claim-grade.
 
-  Intake review: accepted the five legally appropriate transfer candidates as implementation
-  slices, not copied algorithms or competitor-derived code. Segment/granule metadata, morsel-style
-  scheduling, specialized kernels, ingest-as-query-serving-layout, and columnar result discipline
-  are accepted as general systems patterns to implement with original ShardLoom code. External
-  engines remain baselines only; no leaderboard implementation, GPL/AGPL/SSPL/BUSL/proprietary
-  code, source-available code, or query-engine integration may be copied or invoked.
+  Intake review: full 100M UAT is benchmark evidence, not additional runtime implementation. It was
+  promoted out of the implementation checklist because the local ClickBench runner is manual/offline
+  and can consume significant wall time and disk/thermal budget. External engines remain baselines
+  only; no runtime fallback, query-answer cache, sidecar, copied competitor code, or official rank
+  claim is allowed.
 
-  V1 scope classification: `v1_candidate_pending_feasibility` for the runtime optimizations, with
-  `required_for_v1` evidence obligations for explicit no-fallback reporting, Native I/O
-  certificates, correctness checks, and claim-gate wording on any benchmark output this item
-  touches.
+  V1 scope classification: `required_for_v1` for any benchmark-retain/drop decision or public
+  performance wording derived from the domain-transfer batch; otherwise local implementation claims
+  remain limited to focused/workspace validation evidence in the completed ledger.
 
-  ShardLoom technique review: metadata-first execution applies through per-segment/granule
-  summaries and prepared source-state admission before row work; capillary work units apply through
-  bounded scan morsels with thread-local state and deterministic merge; dynamic admission/work
-  shaping applies to retaining only measured improvements and dropping slower profiles; route
-  timing surface separation applies because ingest, source-state build, scan, operator, sink, and
-  wrapper timing must stay separate; evidence-tier controls apply because local UAT, focused
-  microbenchmarks, and official leaderboard claims require different proof levels. PulseWeave is
-  relevant only as runtime-control policy after these CPU/local path changes produce stable
-  telemetry, so this item must not introduce autonomous adaptive policy without measured gates.
-
-  Vortex-first provider check: checked Vortex concepts, encodings/layouts/statistics, file I/O,
-  scan/source/sink, and versioning guardrails. Use admitted upstream Vortex array/scan/file/sink
-  APIs only inside `shardloom-vortex` provider boundaries, wrap Vortex-native metadata where it is
-  already present, implement ShardLoom-native metadata/index state where the provider surface does
-  not expose the needed ClickBench-style summaries, and reject query-engine integrations
-  (`vortex-datafusion`, DuckDB, Spark, Polars, Velox, Trino, Dask, Ray) as runtime helpers.
+  ShardLoom technique review: evidence-tier controls and route timing separation are the main work
+  here. Metadata-first, capillary morsel, layout-policy, hot-lane dispatch, and compact data-plane
+  implementation already landed; this item measures whether those changes should be retained for
+  the local ClickBench burndown and keeps PulseWeave or adaptive-policy claims disabled.
 
   Execution checklist:
-  - [x] Add this detailed phase-plan item with accepted transfer candidates, source/current-state
-    evidence, Vortex-first decisions, no-fallback boundaries, and validation gates.
-  - [x] Seed prepared/native source-state for single high-cost category, grouped-category,
-    ranked/top-K, and selective predicate lanes without counting that as multi-query reuse.
-  - [x] Implement segment/granule metadata as an execution primitive: embed or derive
-    min/max/null/cardinality/string-absence/top-K candidate summaries from the single Vortex
-    artifact; surface deterministic metadata coverage fields; use metadata-only answers or segment
-    pruning before scans; verify no sidecars and `fallback_attempted=false`.
-  - [ ] Implement capillary/morsel scheduling for the prepared Vortex scan path: partition reader
-    chunks into bounded work units, keep thread-local aggregate/top-K/distinct state, merge
-    deterministically, report queue/parallelism/memory evidence, and keep single-thread fallback
-    impossible as a silent external-engine delegation.
-  - [ ] Implement specialized native kernel dispatch for the accepted hot lanes:
-    string predicate count, exact distinct, high-cardinality/grouped top-K, transformed URL/domain
-    grouping, and bounded wide-row top-K. Reuse `shardloom-core` specialization identifiers and
-    `shardloom-vortex` runtime evidence; compare against decoded reference behavior in tests.
-  - [ ] Implement ingest-as-query-serving-layout policy: update the layout/write advisor from
-    report-only guidance toward measured, gated writer choices for chunk sizing, dictionary/string
-    handling, clustering hints, and statistics preservation; retain only changes that improve
-    load/size or query timing in focused evidence.
-  - [ ] Strengthen columnar result/data-plane discipline: keep row references and compact columnar
-    result batches until the declared sink boundary, avoid wide row JSON/string assembly on hot
-    paths, and keep result-sink replay certificates for written Vortex outputs.
-  - [ ] Run focused unit/integration checks for each shipped slice, then the required workspace
-    gates: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
-    and `cargo test --workspace --all-targets`.
-  - [ ] Run targeted 100M ClickBench UAT for changed hot lanes and the full 43-query local UAT only
-    after the runtime batch stabilizes; record retain/drop decisions and update the burndown.
-  - [ ] Move the completed implementation details to
-    `docs/architecture/phased-execution-completed-ledger.md` after merge or session completion.
+  - [ ] Build a release binary from the merged implementation state with the same feature posture as
+    the retained local UAT runner.
+  - [ ] Run targeted 100M local UAT for the changed hot-lane families when a targeted runner is
+    available, or explicitly record why targeted selection is not applicable to the feature-gated
+    prepared/native benchmark path.
+  - [ ] Run the full 43-query local 100M UAT with the existing single `.vortex` artifact only when
+    disk space, memory, and thermal budget are acceptable.
+  - [ ] Confirm every successful row reports `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+  - [ ] Update `docs/benchmarks/clickbench-100m-current-branch-uat.json` and
+    `docs/benchmarks/clickbench-100m-uat-burndown.json` with retain/drop decisions.
+  - [ ] Add a completed ledger entry for the UAT evidence run after the benchmark artifact update.
 
-  Completed slice evidence:
-  - Focused source-state tests:
-    `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark source_state`.
-  - Segment/granule metadata execution primitive:
-    `shardloom-vortex/src/traditional_analytics.rs` now derives exact category/group/ranked/
-    selective summaries during the existing prepared/native source-state build, emits
-    `segment_granule_metadata_schema_version=shardloom.traditional_analytics.segment_granule_metadata.v1`,
-    reports min/max, null, cardinality, string-absence, top-K candidate, metadata-only answer, and
-    predicate-pruning decisions, and verifies `segment_granule_metadata_sidecar_used=false`,
-    `segment_granule_metadata_fallback_attempted=false`, and
-    `segment_granule_metadata_external_engine_invoked=false` in focused tests.
-  - Required gates: `cargo fmt --all -- --check`,
-    `cargo clippy --workspace --all-targets -- -D warnings`, and
-    `cargo test --workspace --all-targets`.
+  Next outcome: a benchmark-evidence PR/session that records targeted/full 100M UAT results and
+  retain/drop decisions without changing runtime behavior unless the evidence reveals a correctness,
+  no-fallback, or material performance issue.
 
-  Next outcome: a cohesive PR that implements capillary/morsel scheduling for the prepared Vortex
-  scan path with bounded work units, deterministic merge evidence, queue/parallelism/memory fields,
-  and no external-engine fallback.
+  User-visible surface: benchmark artifacts and phase/ledger documentation.
 
-  User-visible surface: benchmark reports, CLI prepared/native Vortex batch evidence fields,
-  diagnostics/capability evidence, and phase-plan documentation.
+  Implementation scope: benchmark runner invocation and JSON/docs updates only. Runtime code changes
+  belong in a new implementation item if UAT reveals a defect.
 
-  Implementation scope: `docs/architecture/phased-execution-plan.md`,
-  `shardloom-vortex/src/traditional_analytics.rs`, follow-on shared runtime helpers in
-  `shardloom-core` and `shardloom-cli` only when a slice needs public route binding, and benchmark
-  artifacts under `docs/benchmarks/` when UAT is rerun.
+  Evidence required: local 100M summary path, query-count/run-count/failure counts, no-fallback and
+  no-external-engine fields, per-query timing deltas against the retained current-branch reference,
+  and claim-boundary text.
 
-  Evidence required: exact output correctness for every optimized lane, decoded reference or
-  fixture oracle checks where appropriate, Native I/O certificate evidence, materialization/decode
-  boundary evidence, per-stage timing, source-state/metadata coverage, result-sink replay evidence
-  for written outputs, and no-fallback/no-external-engine fields.
+  Acceptance: targeted/full local UAT either passes with retained timing evidence and updated
+  burndown, or produces a precise failure/regression record that promotes a new runtime fix item.
+  No official ClickBench rank, production readiness, or Spark-displacement claim is emitted.
 
-  Acceptance: optimized lanes produce the same results as the current decoded/reference behavior;
-  performance rows either show material improvement and are retained or are removed/revised;
-  prepared source-state and metadata fields classify every requested scenario; single `.vortex`
-  artifact discipline is preserved; unsupported work fails deterministically; and no public
-  superiority or Spark-displacement claim is emitted.
+  Verification: `cargo build --release --features release-user-surfaces`; then run the local UAT
+  harness with `target/release/shardloom`, `benchmarks/clickbench/queries.sql`, and
+  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex`; then validate
+  the JSON artifact and run `python3 scripts/check_clickbench_olap_runtime_coverage.py` plus
+  `git diff --check`.
 
-  Verification: focused `cargo test -p shardloom-vortex --lib --features
-  vortex-traditional-analytics-benchmark <test-filter>` checks for each runtime slice, targeted CLI
-  route tests when public SQL/Python/CLI surfaces change, required workspace validation commands,
-  and local ClickBench UAT artifacts only after a stable performance batch.
+  Non-goals: no source re-ingest unless explicitly needed, no duplicate large `.vortex` artifact, no
+  official submission, no public superiority claim, and no external engine fallback.
 
-  Non-goals: no copied implementation code from ClickBench competitors, no new external execution
-  fallback, no Spark/DataFusion/DuckDB/Polars/Velox runtime delegation, no official ClickBench
-  leaderboard claim, no object-store/distributed/spill expansion, no package release, and no
-  one-off ClickBench-only route that bypasses shared Vortex-normalized runtime families.
+  Claim boundary: local Desktop UAT only. Official ClickBench ranking still requires official
+  runner/hardware normalization and CG-5/CG-6 evidence.
 
-  Claim boundary: until CG-5 correctness and CG-6 benchmark evidence are satisfied, this item may
-  claim only local implementation/evidence improvements and measured local UAT changes. It may not
-  claim ClickBench rank, production readiness, broad SQL/DataFrame coverage, or Spark displacement.
+  Fallback boundary: every row must preserve `fallback_attempted=false`,
+  `external_engine_invoked=false`, and `fallback_execution_allowed=false`.
 
-  Fallback boundary: all affected fields must preserve `fallback_attempted=false`,
-  `external_engine_invoked=false`, `fallback_execution_allowed=false`, and deterministic
-  unsupported diagnostics for unimplemented behavior.
-
-  Ledger rule: completed detail moves to
+  Ledger rule: completed UAT detail moves to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
 Current autonomous execution order:
 
-1. Implement capillary/morsel scheduling for `CLICKBENCH-DOMAIN-TRANSFER-1`.
-2. Validate focused Vortex scheduling/merge evidence and update this checklist.
-3. Continue through specialized kernels, ingest-layout policy, and
-   columnar result-boundary slices only while each can be retained by measured
-   correctness and performance evidence.
+1. Merge the completed `CLICKBENCH-DOMAIN-TRANSFER-1` implementation branch after validation.
+2. Run `CLICKBENCH-DOMAIN-TRANSFER-100M-UAT-1` only as a separate benchmark-evidence pass.
 
 Validator ownership note: `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains named here as the active
 global-review runtime-gap owner required by `scripts/check_runtime_gap_family_burn_down.py`. It is a

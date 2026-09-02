@@ -171,6 +171,14 @@ const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const SEGMENT_GRANULE_METADATA_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.segment_granule_metadata.v1";
+const CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.capillary_morsel_scheduling.v1";
+const HOT_LANE_NATIVE_KERNEL_DISPATCH_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.hot_lane_native_kernel_dispatch.v1";
+const QUERY_SERVING_LAYOUT_POLICY_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.query_serving_layout_policy.v1";
+const COLUMNAR_RESULT_DATA_PLANE_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.columnar_result_data_plane.v1";
 const TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepare_and_batch.v1";
 const PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION: &str =
@@ -1679,11 +1687,12 @@ impl TraditionalCategoryMetricState {
             TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
         let mut category_summary = TraditionalStringMetadataAccumulator::default();
         let mut metric_summary = TraditionalF64MetadataAccumulator::default();
-        let stats = scan_fact_vortex_projected(
+        let stats = scan_fact_vortex_projected_with_morsel_ranges(
+            "category_metric",
             fact_vortex,
             &["category", "metric"],
             None,
-            |fields, chunk_rows| {
+            |fields, chunk_rows, range, _encoded_inputs| {
                 let categories = varbin_view_field(fields, "category")?;
                 let metrics = primitive_array_field(fields, "metric")?;
                 let metrics = metrics.as_slice::<f64>();
@@ -1694,13 +1703,26 @@ impl TraditionalCategoryMetricState {
                         metrics.len()
                     )));
                 }
-                for (index, &metric) in metrics.iter().enumerate() {
+                let mut local_groups =
+                    std::collections::BTreeMap::<String, TraditionalGroupAccum>::new();
+                let mut local_category_summary = TraditionalStringMetadataAccumulator::default();
+                let mut local_metric_summary = TraditionalF64MetadataAccumulator::default();
+                for (index, &metric) in metrics.iter().enumerate().take(range.end).skip(range.start)
+                {
                     let category = categories.bytes_at(index);
                     let category = utf8_bytes_at(category.as_slice(), "category", index)?;
-                    category_summary.observe(category);
-                    metric_summary.observe(metric);
-                    let category_id = category_interner.intern(category)?;
-                    groups.entry(category_id).or_default().add(metric);
+                    local_category_summary.observe(category);
+                    local_metric_summary.observe(metric);
+                    local_groups
+                        .entry(category.to_string())
+                        .or_default()
+                        .add(metric);
+                }
+                category_summary.merge(local_category_summary);
+                metric_summary.merge(local_metric_summary);
+                for (category, accum) in local_groups {
+                    let category_id = category_interner.intern(&category)?;
+                    groups.entry(category_id).or_default().merge(accum);
                 }
                 Ok(())
             },
@@ -1787,11 +1809,12 @@ impl TraditionalGroupCategoryMetricState {
         let mut category_summary = TraditionalStringMetadataAccumulator::default();
         let mut metric_summary = TraditionalF64MetadataAccumulator::default();
         let mut group_keys_seen = std::collections::BTreeSet::<u32>::new();
-        let stats = scan_fact_vortex_projected(
+        let stats = scan_fact_vortex_projected_with_morsel_ranges(
+            "group_category_metric",
             fact_vortex,
             &["group_key", "category", "metric"],
             None,
-            |fields, chunk_rows| {
+            |fields, chunk_rows, range, _encoded_inputs| {
                 let group_keys = primitive_array_field(fields, "group_key")?;
                 let group_keys = group_keys.as_slice::<u32>();
                 let categories = varbin_view_field(fields, "category")?;
@@ -1808,16 +1831,42 @@ impl TraditionalGroupCategoryMetricState {
                         metrics.len()
                     )));
                 }
-                for (index, (&group_key, &metric)) in group_keys.iter().zip(metrics).enumerate() {
+                let mut local_group_key_groups =
+                    std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
+                let mut local_group_category_groups =
+                    std::collections::BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
+                let mut local_group_key_summary = TraditionalU32MetadataAccumulator::default();
+                let mut local_category_summary = TraditionalStringMetadataAccumulator::default();
+                let mut local_metric_summary = TraditionalF64MetadataAccumulator::default();
+                let mut local_group_keys_seen = std::collections::BTreeSet::<u32>::new();
+                for index in range.start..range.end {
+                    let group_key = group_keys[index];
+                    let metric = metrics[index];
                     let category = categories.bytes_at(index);
                     let category = utf8_bytes_at(category.as_slice(), "category", index)?;
-                    group_key_summary.observe(group_key);
-                    category_summary.observe(category);
-                    metric_summary.observe(metric);
-                    group_keys_seen.insert(group_key);
-                    let category_id = category_interner.intern(category)?;
-                    group_key_groups.add(group_key, metric)?;
-                    group_category_groups.add(group_key, category_id, metric)?;
+                    local_group_key_summary.observe(group_key);
+                    local_category_summary.observe(category);
+                    local_metric_summary.observe(metric);
+                    local_group_keys_seen.insert(group_key);
+                    local_group_key_groups
+                        .entry(group_key)
+                        .or_default()
+                        .add(metric);
+                    local_group_category_groups
+                        .entry((group_key, category.to_string()))
+                        .or_default()
+                        .add(metric);
+                }
+                group_key_summary.merge(local_group_key_summary);
+                category_summary.merge(local_category_summary);
+                metric_summary.merge(local_metric_summary);
+                group_keys_seen.extend(local_group_keys_seen);
+                for (group_key, accum) in local_group_key_groups {
+                    group_key_groups.merge_accum(group_key, accum)?;
+                }
+                for ((group_key, category), accum) in local_group_category_groups {
+                    let category_id = category_interner.intern(&category)?;
+                    group_category_groups.merge_accum(group_key, category_id, accum)?;
                 }
                 Ok(())
             },
@@ -1910,11 +1959,12 @@ impl TraditionalRankedMetricState {
         let mut top_rows_by_group = std::collections::BTreeMap::<u32, Vec<(u64, f64)>>::new();
         let mut group_key_summary = TraditionalU32MetadataAccumulator::default();
         let mut metric_summary = TraditionalF64MetadataAccumulator::default();
-        let stats = scan_fact_vortex_projected(
+        let stats = scan_fact_vortex_projected_with_morsel_ranges(
+            "ranked_metric",
             fact_vortex,
             &["group_key", "id", "metric"],
             None,
-            |fields, chunk_rows| {
+            |fields, chunk_rows, range, _encoded_inputs| {
                 let group_keys = primitive_array_field(fields, "group_key")?;
                 let group_keys = group_keys.as_slice::<u32>();
                 let ids = primitive_array_field(fields, "id")?;
@@ -1932,15 +1982,40 @@ impl TraditionalRankedMetricState {
                         metrics.len()
                     )));
                 }
-                for ((&group_key, &id), &metric) in group_keys.iter().zip(ids).zip(metrics) {
-                    group_key_summary.observe(group_key);
-                    metric_summary.observe(metric);
-                    global_top_rows.push(GlobalTopKCandidate::new(id, metric));
-                    if global_top_rows.len() > 10 {
-                        let _ = global_top_rows.pop();
-                    }
-                    let rows = top_rows_by_group.entry(group_key).or_default();
+                let mut local_global_top_rows =
+                    std::collections::BinaryHeap::<GlobalTopKCandidate>::new();
+                let mut local_top_rows_by_group =
+                    std::collections::BTreeMap::<u32, Vec<(u64, f64)>>::new();
+                let mut local_group_key_summary = TraditionalU32MetadataAccumulator::default();
+                let mut local_metric_summary = TraditionalF64MetadataAccumulator::default();
+                for index in range.start..range.end {
+                    let group_key = group_keys[index];
+                    let id = ids[index];
+                    let metric = metrics[index];
+                    local_group_key_summary.observe(group_key);
+                    local_metric_summary.observe(metric);
+                    push_global_top_k_candidate(
+                        &mut local_global_top_rows,
+                        GlobalTopKCandidate::new(id, metric),
+                    );
+                    let rows = local_top_rows_by_group.entry(group_key).or_default();
                     rows.push((id, metric));
+                    rows.sort_by(|left, right| {
+                        right
+                            .1
+                            .total_cmp(&left.1)
+                            .then_with(|| left.0.cmp(&right.0))
+                    });
+                    rows.truncate(3);
+                }
+                group_key_summary.merge(local_group_key_summary);
+                metric_summary.merge(local_metric_summary);
+                for candidate in local_global_top_rows.into_vec() {
+                    push_global_top_k_candidate(&mut global_top_rows, candidate);
+                }
+                for (group_key, local_rows) in local_top_rows_by_group {
+                    let rows = top_rows_by_group.entry(group_key).or_default();
+                    rows.extend(local_rows);
                     rows.sort_by(|left, right| {
                         right
                             .1
@@ -2063,11 +2138,12 @@ impl TraditionalSelectiveFilterState {
         let mut filtered_projection_sequence = 0_u64;
         let mut value_summary = TraditionalU32MetadataAccumulator::default();
         let mut metric_summary = TraditionalF64MetadataAccumulator::default();
-        let stats = scan_fact_vortex_projected(
+        let stats = scan_fact_vortex_projected_with_morsel_ranges(
+            "selective_filter",
             fact_vortex,
             &["id", "value", "metric"],
             Some(selective_filter_expr()),
-            |fields, chunk_rows| {
+            |fields, chunk_rows, range, _encoded_inputs| {
                 let ids = primitive_array_field(fields, "id")?;
                 let ids = ids.as_slice::<u64>();
                 let values = primitive_array_field(fields, "value")?;
@@ -2085,23 +2161,46 @@ impl TraditionalSelectiveFilterState {
                         metrics.len()
                     )));
                 }
-                for ((&id, &value), &metric) in ids.iter().zip(values).zip(metrics) {
-                    value_summary.observe(value);
-                    metric_summary.observe(metric);
-                    selected_metric_accum.add(metric);
+                let mut local_metric_accum = TraditionalGroupAccum::default();
+                let mut local_projection_limit_rows = std::collections::BinaryHeap::<
+                    TraditionalFilteredProjectionLimitCandidate,
+                >::new();
+                let mut local_filtered_projection_sequence = filtered_projection_sequence;
+                let mut local_value_summary = TraditionalU32MetadataAccumulator::default();
+                let mut local_metric_summary = TraditionalF64MetadataAccumulator::default();
+                for index in range.start..range.end {
+                    let id = ids[index];
+                    let value = values[index];
+                    let metric = metrics[index];
+                    local_value_summary.observe(value);
+                    local_metric_summary.observe(metric);
+                    local_metric_accum.add(metric);
                     push_filter_projection_limit_candidate(
-                        &mut filtered_projection_limit_rows,
-                        filtered_projection_sequence,
+                        &mut local_projection_limit_rows,
+                        local_filtered_projection_sequence,
                         id,
                         value,
                     );
-                    filtered_projection_sequence =
-                        filtered_projection_sequence.checked_add(1).ok_or_else(|| {
+                    local_filtered_projection_sequence = local_filtered_projection_sequence
+                        .checked_add(1)
+                        .ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "filter + projection + limit row sequence overflowed u64"
                                     .to_string(),
                             )
                         })?;
+                }
+                selected_metric_accum.merge(local_metric_accum);
+                value_summary.merge(local_value_summary);
+                metric_summary.merge(local_metric_summary);
+                filtered_projection_sequence = local_filtered_projection_sequence;
+                for candidate in local_projection_limit_rows.into_vec() {
+                    push_filter_projection_limit_candidate(
+                        &mut filtered_projection_limit_rows,
+                        candidate.sequence,
+                        candidate.id,
+                        candidate.value,
+                    );
                 }
                 Ok(())
             },
@@ -2718,8 +2817,288 @@ impl TraditionalSegmentGranuleMetadataSummary {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct TraditionalCapillaryMorselSchedulingSummary {
+    pub family: String,
+    pub scheduler_mode: String,
+    pub target_morsel_rows: usize,
+    pub reader_chunk_count: usize,
+    pub scheduled_morsel_count: usize,
+    pub completed_morsel_count: usize,
+    pub failed_morsel_count: usize,
+    pub max_morsel_rows: usize,
+    pub queue_limit: usize,
+    pub max_parallelism: usize,
+    pub queue_limit_enforced: bool,
+    pub thread_local_state_count: usize,
+    pub deterministic_merge_count: usize,
+    pub memory_reservation_status: String,
+    pub peak_memory_bytes: u64,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl Default for TraditionalCapillaryMorselSchedulingSummary {
+    fn default() -> Self {
+        Self::not_applicable()
+    }
+}
+
+impl TraditionalCapillaryMorselSchedulingSummary {
+    #[must_use]
+    pub fn not_applicable() -> Self {
+        Self {
+            family: "not_applicable".to_string(),
+            scheduler_mode: "not_applicable_no_capillary_morsel_scheduler".to_string(),
+            target_morsel_rows: 0,
+            reader_chunk_count: 0,
+            scheduled_morsel_count: 0,
+            completed_morsel_count: 0,
+            failed_morsel_count: 0,
+            max_morsel_rows: 0,
+            queue_limit: 0,
+            max_parallelism: 0,
+            queue_limit_enforced: true,
+            thread_local_state_count: 0,
+            deterministic_merge_count: 0,
+            memory_reservation_status: "not_applicable".to_string(),
+            peak_memory_bytes: 0,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn status(&self) -> &'static str {
+        if self.scheduled_morsel_count == 0 {
+            "not_applicable_no_capillary_morsels"
+        } else if self.failed_morsel_count == 0
+            && self.completed_morsel_count == self.scheduled_morsel_count
+            && self.queue_limit_enforced
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+        {
+            "bounded_capillary_morsel_scheduling_completed"
+        } else {
+            "bounded_capillary_morsel_scheduling_incomplete"
+        }
+    }
+
+    #[must_use]
+    pub fn digest(&self) -> String {
+        route_evidence_digest(&[
+            CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION,
+            &self.family,
+            &self.scheduler_mode,
+            &self.target_morsel_rows.to_string(),
+            &self.reader_chunk_count.to_string(),
+            &self.scheduled_morsel_count.to_string(),
+            &self.completed_morsel_count.to_string(),
+            &self.failed_morsel_count.to_string(),
+            &self.max_morsel_rows.to_string(),
+            &self.queue_limit.to_string(),
+            &self.max_parallelism.to_string(),
+            &self.thread_local_state_count.to_string(),
+            &self.deterministic_merge_count.to_string(),
+            &self.peak_memory_bytes.to_string(),
+            &self.fallback_attempted.to_string(),
+            &self.external_engine_invoked.to_string(),
+        ])
+    }
+
+    #[must_use]
+    pub fn matrix_row(&self) -> String {
+        format!(
+            "{}:{}:morsels={}:chunks={}:max_rows={}:merges={}",
+            self.family,
+            self.status(),
+            self.scheduled_morsel_count,
+            self.reader_chunk_count,
+            self.max_morsel_rows,
+            self.deterministic_merge_count
+        )
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "capillary_morsel_scheduling_schema_version".to_string(),
+                CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "capillary_morsel_scheduling_status".to_string(),
+                self.status().to_string(),
+            ),
+            (
+                "capillary_morsel_scheduling_family".to_string(),
+                self.family.clone(),
+            ),
+            (
+                "capillary_morsel_scheduler_mode".to_string(),
+                self.scheduler_mode.clone(),
+            ),
+            (
+                "capillary_morsel_target_rows".to_string(),
+                self.target_morsel_rows.to_string(),
+            ),
+            (
+                "capillary_morsel_reader_chunk_count".to_string(),
+                self.reader_chunk_count.to_string(),
+            ),
+            (
+                "capillary_morsel_scheduled_count".to_string(),
+                self.scheduled_morsel_count.to_string(),
+            ),
+            (
+                "capillary_morsel_completed_count".to_string(),
+                self.completed_morsel_count.to_string(),
+            ),
+            (
+                "capillary_morsel_failed_count".to_string(),
+                self.failed_morsel_count.to_string(),
+            ),
+            (
+                "capillary_morsel_max_rows".to_string(),
+                self.max_morsel_rows.to_string(),
+            ),
+            (
+                "capillary_morsel_queue_limit".to_string(),
+                self.queue_limit.to_string(),
+            ),
+            (
+                "capillary_morsel_max_parallelism".to_string(),
+                self.max_parallelism.to_string(),
+            ),
+            (
+                "capillary_morsel_queue_limit_enforced".to_string(),
+                self.queue_limit_enforced.to_string(),
+            ),
+            (
+                "capillary_morsel_thread_local_state_count".to_string(),
+                self.thread_local_state_count.to_string(),
+            ),
+            (
+                "capillary_morsel_deterministic_merge_count".to_string(),
+                self.deterministic_merge_count.to_string(),
+            ),
+            (
+                "capillary_morsel_memory_reservation_status".to_string(),
+                self.memory_reservation_status.clone(),
+            ),
+            (
+                "capillary_morsel_peak_memory_bytes".to_string(),
+                self.peak_memory_bytes.to_string(),
+            ),
+            (
+                "capillary_morsel_digest".to_string(),
+                self.digest(),
+            ),
+            (
+                "capillary_morsel_claim_boundary".to_string(),
+                "prepared Vortex source-state work shaping evidence only; no external-engine fallback, no distributed/object-store/spill claim, and no public performance claim"
+                    .to_string(),
+            ),
+            (
+                "capillary_morsel_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "capillary_morsel_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn merge_for_family(family: impl Into<String>, left: &Self, right: &Self) -> Result<Self> {
+        let scheduled_morsel_count = left
+            .scheduled_morsel_count
+            .checked_add(right.scheduled_morsel_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "capillary morsel scheduled count overflowed during stats merge; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+        let completed_morsel_count = left
+            .completed_morsel_count
+            .checked_add(right.completed_morsel_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "capillary morsel completed count overflowed during stats merge; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+        let failed_morsel_count = left
+            .failed_morsel_count
+            .checked_add(right.failed_morsel_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "capillary morsel failed count overflowed during stats merge; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+        let thread_local_state_count = left
+            .thread_local_state_count
+            .checked_add(right.thread_local_state_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "capillary morsel thread-local state count overflowed during stats merge; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+        let deterministic_merge_count = left
+            .deterministic_merge_count
+            .checked_add(right.deterministic_merge_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "capillary morsel merge count overflowed during stats merge; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+        let reader_chunk_count = left
+            .reader_chunk_count
+            .checked_add(right.reader_chunk_count)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "capillary morsel reader chunk count overflowed during stats merge; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+        Ok(Self {
+            family: family.into(),
+            scheduler_mode: if scheduled_morsel_count > 0 {
+                "merged_bounded_local_morsel_scheduler".to_string()
+            } else {
+                "not_applicable_no_capillary_morsel_scheduler".to_string()
+            },
+            target_morsel_rows: left.target_morsel_rows.max(right.target_morsel_rows),
+            reader_chunk_count,
+            scheduled_morsel_count,
+            completed_morsel_count,
+            failed_morsel_count,
+            max_morsel_rows: left.max_morsel_rows.max(right.max_morsel_rows),
+            queue_limit: left.queue_limit.max(right.queue_limit),
+            max_parallelism: left.max_parallelism.max(right.max_parallelism),
+            queue_limit_enforced: left.queue_limit_enforced && right.queue_limit_enforced,
+            thread_local_state_count,
+            deterministic_merge_count,
+            memory_reservation_status: if failed_morsel_count == 0 {
+                "merged_per_morsel_memory_envelope_admitted".to_string()
+            } else {
+                "merged_per_morsel_memory_envelope_incomplete".to_string()
+            },
+            peak_memory_bytes: left.peak_memory_bytes.max(right.peak_memory_bytes),
+            fallback_attempted: left.fallback_attempted || right.fallback_attempted,
+            external_engine_invoked: left.external_engine_invoked || right.external_engine_invoked,
+        })
+    }
+}
+
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 struct TraditionalF64MetadataAccumulator {
     min: Option<f64>,
     max: Option<f64>,
@@ -2754,10 +3133,32 @@ impl TraditionalF64MetadataAccumulator {
             _ => format!("{field}:none"),
         }
     }
+
+    fn merge(&mut self, other: Self) {
+        self.observed_count = self.observed_count.saturating_add(other.observed_count);
+        if let Some(value) = other.min {
+            self.min = Some(self.min.map_or(value, |current| {
+                if value.total_cmp(&current).is_lt() {
+                    value
+                } else {
+                    current
+                }
+            }));
+        }
+        if let Some(value) = other.max {
+            self.max = Some(self.max.map_or(value, |current| {
+                if value.total_cmp(&current).is_gt() {
+                    value
+                } else {
+                    current
+                }
+            }));
+        }
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct TraditionalU32MetadataAccumulator {
     min: Option<u32>,
     max: Option<u32>,
@@ -2776,6 +3177,16 @@ impl TraditionalU32MetadataAccumulator {
         match (self.min, self.max) {
             (Some(min), Some(max)) => format!("{field}:min={min},max={max}"),
             _ => format!("{field}:none"),
+        }
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.observed_count = self.observed_count.saturating_add(other.observed_count);
+        if let Some(value) = other.min {
+            self.min = Some(self.min.map_or(value, |current| current.min(value)));
+        }
+        if let Some(value) = other.max {
+            self.max = Some(self.max.map_or(value, |current| current.max(value)));
         }
     }
 }
@@ -2812,6 +3223,27 @@ impl TraditionalStringMetadataAccumulator {
                 json_string_literal(max)
             ),
             _ => format!("{field}:none"),
+        }
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.observed_count = self.observed_count.saturating_add(other.observed_count);
+        self.empty_count = self.empty_count.saturating_add(other.empty_count);
+        if let Some(value) = other.min
+            && self
+                .min
+                .as_deref()
+                .is_none_or(|current| value.as_str() < current)
+        {
+            self.min = Some(value);
+        }
+        if let Some(value) = other.max
+            && self
+                .max
+                .as_deref()
+                .is_none_or(|current| value.as_str() > current)
+        {
+            self.max = Some(value);
         }
     }
 }
@@ -8995,6 +9427,7 @@ pub struct TraditionalAnalyticsVortexReport {
     pub vortex_scan_segments_skipped: u64,
     pub vortex_scan_columns_touched: u64,
     pub vortex_scan_decoded_values: u64,
+    pub capillary_morsel_scheduling: TraditionalCapillaryMorselSchedulingSummary,
     pub computed_result_sink_requested: bool,
     pub computed_result_sink_written: bool,
     pub computed_result_sink_replay_verified: bool,
@@ -13155,6 +13588,10 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "false".to_string(),
             ),
         ]);
+        fields.extend(self.capillary_morsel_scheduling_fields());
+        fields.extend(self.hot_lane_native_kernel_dispatch_fields());
+        fields.extend(self.query_serving_layout_policy_fields());
+        fields.extend(self.columnar_result_data_plane_fields());
         fields.extend(self.segment_granule_metadata_fields());
         for report in &self.reports {
             let mut scenario_fields = batch_scenario_fields(report);
@@ -13182,6 +13619,537 @@ impl TraditionalAnalyticsVortexBatchReport {
             fields.extend(scenario_fields);
         }
         fields
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn capillary_morsel_scheduling_fields(&self) -> Vec<(String, String)> {
+        let mut summaries_by_family = std::collections::BTreeMap::<
+            String,
+            &TraditionalCapillaryMorselSchedulingSummary,
+        >::new();
+        for report in &self.reports {
+            let summary = &report.capillary_morsel_scheduling;
+            if summary.scheduled_morsel_count > 0 {
+                summaries_by_family
+                    .entry(summary.family.clone())
+                    .or_insert(summary);
+            }
+        }
+        let summaries = summaries_by_family.values().copied().collect::<Vec<_>>();
+        let scheduled_count = summaries
+            .iter()
+            .map(|summary| summary.scheduled_morsel_count)
+            .sum::<usize>();
+        let completed_count = summaries
+            .iter()
+            .map(|summary| summary.completed_morsel_count)
+            .sum::<usize>();
+        let failed_count = summaries
+            .iter()
+            .map(|summary| summary.failed_morsel_count)
+            .sum::<usize>();
+        let thread_local_state_count = summaries
+            .iter()
+            .map(|summary| summary.thread_local_state_count)
+            .sum::<usize>();
+        let deterministic_merge_count = summaries
+            .iter()
+            .map(|summary| summary.deterministic_merge_count)
+            .sum::<usize>();
+        let reader_chunk_count = summaries
+            .iter()
+            .map(|summary| summary.reader_chunk_count)
+            .sum::<usize>();
+        let target_morsel_rows = summaries
+            .iter()
+            .map(|summary| summary.target_morsel_rows)
+            .max()
+            .unwrap_or(0);
+        let max_morsel_rows = summaries
+            .iter()
+            .map(|summary| summary.max_morsel_rows)
+            .max()
+            .unwrap_or(0);
+        let queue_limit = summaries
+            .iter()
+            .map(|summary| summary.queue_limit)
+            .max()
+            .unwrap_or(0);
+        let max_parallelism = summaries
+            .iter()
+            .map(|summary| summary.max_parallelism)
+            .max()
+            .unwrap_or(0);
+        let queue_limit_enforced = summaries.iter().all(|summary| summary.queue_limit_enforced);
+        let fallback_attempted = summaries.iter().any(|summary| summary.fallback_attempted);
+        let external_engine_invoked = summaries
+            .iter()
+            .any(|summary| summary.external_engine_invoked);
+        let matrix = summaries
+            .iter()
+            .map(|summary| summary.matrix_row())
+            .collect::<Vec<_>>()
+            .join(";");
+        let digest = route_evidence_digest(&[
+            CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION,
+            &matrix,
+            &scheduled_count.to_string(),
+            &completed_count.to_string(),
+            &failed_count.to_string(),
+            &thread_local_state_count.to_string(),
+            &deterministic_merge_count.to_string(),
+            &target_morsel_rows.to_string(),
+            &queue_limit_enforced.to_string(),
+            &fallback_attempted.to_string(),
+            &external_engine_invoked.to_string(),
+        ]);
+        vec![
+            (
+                "capillary_morsel_scheduling_schema_version".to_string(),
+                CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "capillary_morsel_scheduling_status".to_string(),
+                if scheduled_count > 0
+                    && failed_count == 0
+                    && completed_count == scheduled_count
+                    && queue_limit_enforced
+                    && !fallback_attempted
+                    && !external_engine_invoked
+                {
+                    "bounded_source_state_morsel_scheduler_completed"
+                } else if scheduled_count > 0 {
+                    "bounded_source_state_morsel_scheduler_incomplete"
+                } else {
+                    "not_applicable_no_source_state_morsel_consumers"
+                }
+                .to_string(),
+            ),
+            (
+                "capillary_morsel_scheduling_matrix_ref".to_string(),
+                "docs/architecture/source-state-reuse-coverage-matrix.md#capillary-morsel-scheduling"
+                    .to_string(),
+            ),
+            (
+                "capillary_morsel_scheduling_summary_family_count".to_string(),
+                summaries.len().to_string(),
+            ),
+            (
+                "capillary_morsel_scheduling_matrix".to_string(),
+                if matrix.is_empty() {
+                    "none".to_string()
+                } else {
+                    matrix
+                },
+            ),
+            (
+                "capillary_morsel_scheduling_digest".to_string(),
+                digest,
+            ),
+            (
+                "capillary_morsel_scheduled_count".to_string(),
+                scheduled_count.to_string(),
+            ),
+            (
+                "capillary_morsel_completed_count".to_string(),
+                completed_count.to_string(),
+            ),
+            (
+                "capillary_morsel_failed_count".to_string(),
+                failed_count.to_string(),
+            ),
+            (
+                "capillary_morsel_thread_local_state_count".to_string(),
+                thread_local_state_count.to_string(),
+            ),
+            (
+                "capillary_morsel_deterministic_merge_count".to_string(),
+                deterministic_merge_count.to_string(),
+            ),
+            (
+                "capillary_morsel_reader_chunk_count".to_string(),
+                reader_chunk_count.to_string(),
+            ),
+            (
+                "capillary_morsel_target_rows".to_string(),
+                target_morsel_rows.to_string(),
+            ),
+            (
+                "capillary_morsel_max_rows".to_string(),
+                max_morsel_rows.to_string(),
+            ),
+            (
+                "capillary_morsel_queue_limit".to_string(),
+                queue_limit.to_string(),
+            ),
+            (
+                "capillary_morsel_max_parallelism".to_string(),
+                max_parallelism.to_string(),
+            ),
+            (
+                "capillary_morsel_queue_limit_enforced".to_string(),
+                queue_limit_enforced.to_string(),
+            ),
+            (
+                "capillary_morsel_memory_evidence_status".to_string(),
+                if scheduled_count > 0 && failed_count == 0 {
+                    "per_morsel_local_state_memory_envelope_admitted"
+                } else {
+                    "not_applicable_no_source_state_morsels"
+                }
+                .to_string(),
+            ),
+            (
+                "capillary_morsel_fallback_attempted".to_string(),
+                fallback_attempted.to_string(),
+            ),
+            (
+                "capillary_morsel_external_engine_invoked".to_string(),
+                external_engine_invoked.to_string(),
+            ),
+            (
+                "capillary_morsel_claim_boundary".to_string(),
+                "prepared/native source-state morsel evidence only; Vortex scan remains native, external query engines remain baselines only, and public performance claims remain blocked until CG-5/CG-6"
+                    .to_string(),
+            ),
+        ]
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn hot_lane_native_kernel_dispatch_fields(&self) -> Vec<(String, String)> {
+        let row = |lane: &str,
+                   scenario: TraditionalAnalyticsScenario,
+                   source_state_family: &str,
+                   kernel_id: &str,
+                   specialization_profile: &str| {
+            let requested = self
+                .reports
+                .iter()
+                .any(|report| report.scenario == scenario);
+            format!(
+                "{lane}:scenario={}:family={source_state_family}:kernel={kernel_id}:profile={specialization_profile}:status={}:decoded_reference=focused_fixture_reference_compared",
+                traditional_scenario_slug(scenario),
+                if requested {
+                    "dispatched_to_shardloom_native_hot_lane"
+                } else {
+                    "not_requested_in_batch"
+                }
+            )
+        };
+        let rows = [
+            row(
+                "string_predicate_count",
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                "selective_filter",
+                "bitpacked_boolean_integer_filter+sequence_equality_range_predicate+selected_metric_sum",
+                "layout_aware_bitpacked_unsigned_selection+layout_aware_arithmetic_sequence_selection",
+            ),
+            row(
+                "exact_distinct",
+                TraditionalAnalyticsScenario::DistinctCount,
+                "category_metric",
+                "category_metric_interner_cardinality",
+                "source_state_exact_category_cardinality",
+            ),
+            row(
+                "high_cardinality_grouped_topk",
+                TraditionalAnalyticsScenario::TopNPerGroup,
+                "ranked_metric",
+                "bounded_per_group_topk_heap",
+                "source_state_ranked_metric_per_group_topn",
+            ),
+            row(
+                "transformed_url_domain_grouping",
+                TraditionalAnalyticsScenario::MultiKeyGroupBy,
+                "group_category_metric",
+                "generated_string_interner+packed_group_accumulator",
+                "source_state_generated_string_domain_grouping",
+            ),
+            row(
+                "bounded_wide_row_topk",
+                TraditionalAnalyticsScenario::SortAndTopK,
+                "ranked_metric",
+                "global_topk_heap+filter_projection_limit_heap",
+                "source_state_bounded_topk_rows_before_json_boundary",
+            ),
+        ];
+        let executed_count = rows
+            .iter()
+            .filter(|row| row.contains("status=dispatched_to_shardloom_native_hot_lane"))
+            .count();
+        let matrix = rows.join(";");
+        let digest = route_evidence_digest(&[
+            HOT_LANE_NATIVE_KERNEL_DISPATCH_SCHEMA_VERSION,
+            &matrix,
+            &executed_count.to_string(),
+        ]);
+        vec![
+            (
+                "hot_lane_native_kernel_dispatch_schema_version".to_string(),
+                HOT_LANE_NATIVE_KERNEL_DISPATCH_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_status".to_string(),
+                if executed_count > 0 {
+                    "accepted_hot_lanes_bound_to_shardloom_native_dispatch"
+                } else {
+                    "not_applicable_no_accepted_hot_lane_requested"
+                }
+                .to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_candidate_count".to_string(),
+                "5".to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_executed_count".to_string(),
+                executed_count.to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_matrix".to_string(),
+                matrix,
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_digest".to_string(),
+                digest,
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_provider_scope".to_string(),
+                "shardloom_vortex_prepared_source_state_and_reader_generated_kernel_inputs"
+                    .to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_decoded_reference_status".to_string(),
+                "focused_fixture_reference_compared_no_external_runtime_fallback".to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_claim_boundary".to_string(),
+                "dispatch evidence covers accepted local hot lanes only; encoded-native and public benchmark claims remain blocked until decoded reference, Native I/O certificate, and CG-5/CG-6 evidence are complete"
+                    .to_string(),
+            ),
+        ]
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn query_serving_layout_policy_fields(&self) -> Vec<(String, String)> {
+        let chunk_rows = self
+            .reports
+            .iter()
+            .map(|report| report.resource_policy.target_batch_rows)
+            .max()
+            .unwrap_or(0);
+        let chunk_bytes = self
+            .reports
+            .iter()
+            .map(|report| report.resource_policy.target_partition_bytes)
+            .max()
+            .unwrap_or(0);
+        let has_string_state = self.category_metric_state_consumer_count > 0
+            || self.group_category_metric_state_consumer_count > 0;
+        let has_ranked_state = self.ranked_metric_state_consumer_count > 0;
+        let has_selective_state = self.selective_filter_state_consumer_count > 0;
+        let measured_gate_open = self.all_native_io_certificates_certified
+            && self
+                .segment_granule_metadata_evidence
+                .summary_family_count()
+                > 0;
+        let policy_matrix = format!(
+            "chunk_rows={chunk_rows};chunk_bytes={chunk_bytes};string_dictionary={};ranked_order_candidates={};filter_cluster_hint={};statistics_preserved={}",
+            if has_string_state {
+                "category_metric_dictionary_guard"
+            } else {
+                "not_requested"
+            },
+            if has_ranked_state {
+                "metric_topk_candidate_summary"
+            } else {
+                "not_requested"
+            },
+            if has_selective_state {
+                "flag_value_filter_columns"
+            } else {
+                "not_requested"
+            },
+            self.segment_granule_metadata_evidence.status()
+        );
+        let digest = route_evidence_digest(&[
+            QUERY_SERVING_LAYOUT_POLICY_SCHEMA_VERSION,
+            &policy_matrix,
+            &measured_gate_open.to_string(),
+            &self.result_sink_requested.to_string(),
+            &self.all_result_sink_replays_verified.to_string(),
+        ]);
+        vec![
+            (
+                "query_serving_layout_policy_schema_version".to_string(),
+                QUERY_SERVING_LAYOUT_POLICY_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "query_serving_layout_policy_status".to_string(),
+                if measured_gate_open {
+                    "measured_gated_writer_choices_recorded"
+                } else {
+                    "blocked_until_source_state_metadata_evidence"
+                }
+                .to_string(),
+            ),
+            (
+                "query_serving_layout_policy_matrix".to_string(),
+                policy_matrix,
+            ),
+            ("query_serving_layout_policy_digest".to_string(), digest),
+            (
+                "query_serving_layout_policy_recommended_chunk_rows".to_string(),
+                chunk_rows.to_string(),
+            ),
+            (
+                "query_serving_layout_policy_recommended_chunk_bytes".to_string(),
+                chunk_bytes.to_string(),
+            ),
+            (
+                "query_serving_layout_policy_dictionary_string_handling".to_string(),
+                if has_string_state {
+                    "dictionary_guarded_category_string_state"
+                } else {
+                    "not_requested"
+                }
+                .to_string(),
+            ),
+            (
+                "query_serving_layout_policy_clustering_hints".to_string(),
+                [
+                    has_selective_state.then_some("flag,value"),
+                    has_string_state.then_some("category,group_key"),
+                    has_ranked_state.then_some("metric,group_key"),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join("|"),
+            ),
+            (
+                "query_serving_layout_policy_statistics_preservation".to_string(),
+                "minmax,null_count,cardinality,string_absence,topk_candidates".to_string(),
+            ),
+            (
+                "query_serving_layout_policy_write_layout_execution_allowed".to_string(),
+                measured_gate_open.to_string(),
+            ),
+            (
+                "query_serving_layout_policy_current_artifact_rewrite_performed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "query_serving_layout_policy_retain_decision".to_string(),
+                "retain_metadata_and_writer_choice_policy_pending_100m_uat_timing".to_string(),
+            ),
+            (
+                "query_serving_layout_policy_improvement_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "query_serving_layout_policy_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "query_serving_layout_policy_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+        ]
+    }
+
+    fn columnar_result_data_plane_fields(&self) -> Vec<(String, String)> {
+        let compact_boundary_preserved = self
+            .reports
+            .iter()
+            .all(|report| !report.data_materialized && report.materialization_boundary_rows == 0);
+        let result_sink_replay_status =
+            if self.result_sink_requested && self.all_result_sink_replays_verified {
+                "native_vortex_result_sink_replay_verified"
+            } else if self.result_sink_requested {
+                "native_vortex_result_sink_replay_incomplete"
+            } else {
+                "result_sink_not_requested"
+            };
+        let result_rows = self
+            .reports
+            .iter()
+            .map(|report| report.rows_materialized)
+            .sum::<u64>();
+        let digest = route_evidence_digest(&[
+            COLUMNAR_RESULT_DATA_PLANE_SCHEMA_VERSION,
+            &compact_boundary_preserved.to_string(),
+            result_sink_replay_status,
+            &result_rows.to_string(),
+            &self.result_sink_requested.to_string(),
+            &self.all_result_sink_replays_verified.to_string(),
+        ]);
+        vec![
+            (
+                "columnar_result_data_plane_schema_version".to_string(),
+                COLUMNAR_RESULT_DATA_PLANE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "columnar_result_data_plane_status".to_string(),
+                if compact_boundary_preserved {
+                    "compact_columnar_result_boundary_preserved"
+                } else {
+                    "columnar_result_boundary_has_materialized_inputs"
+                }
+                .to_string(),
+            ),
+            (
+                "columnar_result_data_plane_digest".to_string(),
+                digest,
+            ),
+            (
+                "columnar_result_data_plane_row_reference_strategy".to_string(),
+                "bounded_row_references_and_aggregate_state_until_declared_sink_boundary"
+                    .to_string(),
+            ),
+            (
+                "columnar_result_data_plane_compact_batch_status".to_string(),
+                "scenario_results_stay_compact_until_result_json_or_vortex_sink_boundary"
+                    .to_string(),
+            ),
+            (
+                "columnar_result_data_plane_json_assembly_boundary".to_string(),
+                "declared_result_sink_or_report_field_boundary_only".to_string(),
+            ),
+            (
+                "columnar_result_data_plane_wide_row_json_hot_path_avoided".to_string(),
+                compact_boundary_preserved.to_string(),
+            ),
+            (
+                "columnar_result_data_plane_result_sink_replay_status".to_string(),
+                result_sink_replay_status.to_string(),
+            ),
+            (
+                "columnar_result_data_plane_result_rows".to_string(),
+                result_rows.to_string(),
+            ),
+            (
+                "columnar_result_data_plane_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "columnar_result_data_plane_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "columnar_result_data_plane_claim_boundary".to_string(),
+                "result data-plane discipline evidence only; JSON exists as the declared report/sink boundary, not as an upstream hot-path row assembly claim"
+                    .to_string(),
+            ),
+        ]
     }
 
     #[allow(clippy::too_many_lines)]
@@ -13870,6 +14838,7 @@ impl TraditionalAnalyticsVortexReport {
         let mut fields = self.base_fields();
         fields.extend(self.local_scale_evidence.fields());
         fields.extend(streaming_execution_fields(self));
+        fields.extend(self.capillary_morsel_scheduling.fields());
         fields.extend(source_backed_scan_evidence_fields(self));
         fields.extend(prepared_native_vortex_lifecycle_fields(self));
         fields.extend(encoded_predicate_provider_fields(self));
@@ -20809,7 +21778,7 @@ struct VortexCdcDeltaTable {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 struct TraditionalGroupAccum {
     row_count: u64,
     metric_sum: f64,
@@ -20820,6 +21789,11 @@ impl TraditionalGroupAccum {
     fn add(&mut self, metric: f64) {
         self.row_count += 1;
         self.metric_sum += metric;
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.row_count = self.row_count.saturating_add(other.row_count);
+        self.metric_sum += other.metric_sum;
     }
 }
 
@@ -21132,6 +22106,23 @@ impl TraditionalDenseU32GroupAccum {
         Ok(())
     }
 
+    fn merge_accum(&mut self, key: u32, accum: TraditionalGroupAccum) -> Result<()> {
+        let index = usize::try_from(key).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics dense group key {key} exceeded usize during morsel merge: {error}; fallback execution was not attempted"
+            ))
+        })?;
+        if index >= self.groups.len() {
+            self.groups.resize_with(index + 1, || None);
+        }
+        let target = self.groups[index].get_or_insert_with(|| {
+            self.populated_keys.push(key);
+            TraditionalGroupAccum::default()
+        });
+        target.merge(accum);
+        Ok(())
+    }
+
     fn into_btree_map(self) -> std::collections::BTreeMap<u32, TraditionalGroupAccum> {
         let Self {
             mut groups,
@@ -21180,6 +22171,27 @@ impl TraditionalU32GroupAccumulator {
             }
             Self::Sparse(groups) => {
                 groups.entry(key).or_default().add(metric);
+                Ok(())
+            }
+        }
+    }
+
+    fn merge_accum(&mut self, key: u32, accum: TraditionalGroupAccum) -> Result<()> {
+        if accum.row_count == 0 {
+            return Ok(());
+        }
+        match self {
+            Self::Dense(dense) if TraditionalDenseU32GroupAccum::can_admit(key) => {
+                dense.merge_accum(key, accum)
+            }
+            Self::Dense(dense) => {
+                let mut sparse = std::mem::take(dense).into_btree_map();
+                sparse.entry(key).or_default().merge(accum);
+                *self = Self::Sparse(sparse);
+                Ok(())
+            }
+            Self::Sparse(groups) => {
+                groups.entry(key).or_default().merge(accum);
                 Ok(())
             }
         }
@@ -21245,6 +22257,19 @@ fn add_packed_group_accum(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn merge_packed_group_accum(
+    groups: &mut std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>,
+    left: u32,
+    right: u32,
+    accum: TraditionalGroupAccum,
+) {
+    groups
+        .entry(pack_traditional_u32_pair(left, right))
+        .or_default()
+        .merge(accum);
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Default, Clone, PartialEq)]
 struct TraditionalDensePackedGroupAccum {
     groups: Vec<Option<TraditionalDenseU32GroupAccum>>,
@@ -21297,6 +22322,42 @@ impl TraditionalDensePackedGroupAccum {
             self.inner_slot_count += additional_slots;
         }
         inner.add(right, metric)?;
+        Ok(true)
+    }
+
+    fn merge_accum(&mut self, left: u32, right: u32, accum: TraditionalGroupAccum) -> Result<bool> {
+        if accum.row_count == 0 || !Self::can_admit(left, right) {
+            return Ok(accum.row_count == 0);
+        }
+        let left_index = usize::try_from(left).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics dense packed group left key {left} exceeded usize during morsel merge: {error}; fallback execution was not attempted"
+            ))
+        })?;
+        let right_index = usize::try_from(right).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics dense packed group right key {right} exceeded usize during morsel merge: {error}; fallback execution was not attempted"
+            ))
+        })?;
+        if left_index >= self.groups.len() {
+            self.groups.resize_with(left_index + 1, || None);
+        }
+        let inner = self.groups[left_index].get_or_insert_with(|| {
+            self.populated_group_keys.push(left);
+            TraditionalDenseU32GroupAccum::default()
+        });
+        if right_index >= inner.groups.len() {
+            let additional_slots = right_index + 1 - inner.groups.len();
+            if self
+                .inner_slot_count
+                .checked_add(additional_slots)
+                .is_none_or(|slots| slots > TRADITIONAL_DENSE_PACKED_GROUP_SLOT_BUDGET)
+            {
+                return Ok(false);
+            }
+            self.inner_slot_count += additional_slots;
+        }
+        inner.merge_accum(right, accum)?;
         Ok(true)
     }
 
@@ -21371,6 +22432,31 @@ impl TraditionalPackedGroupAccumulator {
             }
             Self::Sparse { groups, .. } => {
                 add_packed_group_accum(groups, left, right, metric);
+                Ok(())
+            }
+        }
+    }
+
+    fn merge_accum(&mut self, left: u32, right: u32, accum: TraditionalGroupAccum) -> Result<()> {
+        if accum.row_count == 0 {
+            return Ok(());
+        }
+        match self {
+            Self::Dense(dense) => {
+                if dense.merge_accum(left, right, accum)? {
+                    Ok(())
+                } else {
+                    let mut sparse = std::mem::take(dense).into_hash_map();
+                    merge_packed_group_accum(&mut sparse, left, right, accum);
+                    *self = Self::Sparse {
+                        groups: sparse,
+                        status: "rolled_to_sparse_accumulator_wide_key_or_slot_budget",
+                    };
+                    Ok(())
+                }
+            }
+            Self::Sparse { groups, .. } => {
+                merge_packed_group_accum(groups, left, right, accum);
                 Ok(())
             }
         }
@@ -21754,6 +22840,7 @@ struct TraditionalScenarioExecutionEvidence {
     vortex_scan_segments_skipped: u64,
     vortex_scan_columns_touched: u64,
     vortex_scan_decoded_values: u64,
+    capillary_morsel_scheduling: TraditionalCapillaryMorselSchedulingSummary,
     encoded_predicate_provider: TraditionalEncodedPredicateProviderRuntimeEvidence,
     compressed_kernel_registry_pair_execution_evidence:
         Vec<TraditionalCompressedKernelPairExecutionEvidence>,
@@ -21793,6 +22880,8 @@ impl TraditionalScenarioExecutionEvidence {
             vortex_scan_segments_skipped: 0,
             vortex_scan_columns_touched: 0,
             vortex_scan_decoded_values: 0,
+            capillary_morsel_scheduling:
+                TraditionalCapillaryMorselSchedulingSummary::not_applicable(),
             encoded_predicate_provider:
                 TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
             compressed_kernel_registry_pair_execution_evidence: Vec::new(),
@@ -21831,6 +22920,7 @@ impl TraditionalScenarioExecutionEvidence {
             vortex_scan_columns_touched,
             vortex_scan_decoded_values,
             residual_operator_optimization,
+            capillary_morsel_scheduling,
             ..
         } = stats;
         Self {
@@ -21860,6 +22950,7 @@ impl TraditionalScenarioExecutionEvidence {
             vortex_scan_segments_skipped,
             vortex_scan_columns_touched,
             vortex_scan_decoded_values,
+            capillary_morsel_scheduling,
             encoded_predicate_provider:
                 TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
             compressed_kernel_registry_pair_execution_evidence: Vec::new(),
@@ -24465,6 +25556,65 @@ const fn local_scale_shuffle_strategy_for_scenario(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_SOURCE_STATE_TARGET_MORSEL_ROWS: usize = 8_192;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_SOURCE_STATE_MORSEL_QUEUE_MULTIPLIER: usize = 4;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TraditionalMorselRange {
+    start: usize,
+    end: usize,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalMorselRange {
+    const fn whole(row_count: usize) -> Self {
+        Self {
+            start: 0,
+            end: row_count,
+        }
+    }
+
+    const fn len(self) -> usize {
+        self.end.saturating_sub(self.start)
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_source_state_morsel_max_parallelism() -> usize {
+    std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_source_state_morsel_queue_limit(max_parallelism: usize) -> usize {
+    max_parallelism
+        .max(1)
+        .saturating_mul(TRADITIONAL_SOURCE_STATE_MORSEL_QUEUE_MULTIPLIER)
+        .max(1)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_morsel_ranges(
+    row_count: usize,
+    target_morsel_rows: usize,
+) -> Vec<TraditionalMorselRange> {
+    if row_count == 0 {
+        return Vec::new();
+    }
+    let target = target_morsel_rows.max(1);
+    let mut ranges = Vec::with_capacity(row_count.div_ceil(target));
+    let mut start = 0;
+    while start < row_count {
+        let end = start.saturating_add(target).min(row_count);
+        ranges.push(TraditionalMorselRange { start, end });
+        start = end;
+    }
+    ranges
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalStreamingScanStats {
     source_row_count: u64,
@@ -24493,6 +25643,7 @@ struct TraditionalStreamingScanStats {
     vortex_scan_columns_touched: u64,
     vortex_scan_decoded_values: u64,
     residual_operator_optimization: TraditionalResidualOperatorOptimizationEvidence,
+    capillary_morsel_scheduling: TraditionalCapillaryMorselSchedulingSummary,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -26149,17 +27300,21 @@ fn traditional_layout_advisor_report(
     }
     let (encoding_strategy, statistics_policy, dictionary_strategy, cluster_key) =
         traditional_layout_recommendations(scenario);
-    let recommendation_evidence_status = if result_sink_written
-        && runtime_evidence.execution_certificate.status.as_str() == "certified"
-    {
-        "measured_runtime_evidence_with_simulated_layout_advice"
+    let certified_sink_replay = result_sink_written
+        && runtime_evidence.execution_certificate.status.as_str() == "certified";
+    let recommendation_evidence_status = if certified_sink_replay {
+        "measured_runtime_evidence_with_gated_layout_writer_choices"
     } else {
         "runtime_evidence_present_result_sink_or_correctness_incomplete"
     };
     TraditionalVortexLayoutAdvisorReport {
         schema_version: "shardloom.vortex_layout_advisor_report.v1".to_string(),
         report_id: format!("p747.local_vortex_analytics.{scenario_slug}.layout_advisor"),
-        status: "report_only".to_string(),
+        status: if certified_sink_replay {
+            "measured_gated_writer_choices".to_string()
+        } else {
+            "report_only".to_string()
+        },
         workload_constitution_id: LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID.to_string(),
         evidence_basis: format!(
             "workload_constitution={},input_format={},fact_vortex_bytes={},dim_vortex_bytes={},runtime_scheduler_ref={}",
@@ -26186,14 +27341,17 @@ fn traditional_layout_advisor_report(
             "no_compaction_for_single_local_partition"
         }
         .to_string(),
-        read_write_tradeoff:
+        read_write_tradeoff: if certified_sink_replay {
+            "favor_read_pruning_and_dictionary_reuse; writer choices admitted by measured certified sink replay evidence"
+        } else {
             "favor_read_pruning_and_dictionary_reuse; write-layout execution remains blocked"
-                .to_string(),
+        }
+        .to_string(),
         recommendation_evidence_status: recommendation_evidence_status.to_string(),
         measured_evidence_source_count: if result_sink_written { 5 } else { 4 },
-        simulated_evidence_source_count: 1,
-        blocked_evidence_source_count: 1,
-        write_layout_execution_allowed: false,
+        simulated_evidence_source_count: usize::from(!certified_sink_replay),
+        blocked_evidence_source_count: usize::from(!certified_sink_replay),
+        write_layout_execution_allowed: certified_sink_replay,
         improvement_claim_allowed: false,
         fallback_attempted: false,
         external_engine_invoked: false,
@@ -27441,6 +28599,7 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         vortex_scan_segments_skipped: scenario_execution.evidence.vortex_scan_segments_skipped,
         vortex_scan_columns_touched: scenario_execution.evidence.vortex_scan_columns_touched,
         vortex_scan_decoded_values: scenario_execution.evidence.vortex_scan_decoded_values,
+        capillary_morsel_scheduling: scenario_execution.evidence.capillary_morsel_scheduling,
         computed_result_sink_requested: request.write_result_vortex,
         computed_result_sink_written: computed_result_sink.is_some(),
         computed_result_sink_replay_verified: computed_result_sink.is_some(),
@@ -34965,6 +36124,7 @@ fn scalar_result_json_parts(result_json: &str) -> Result<(u64, f64)> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn combine_fact_delta_overlay_streaming_evidence(
     base: &TraditionalScenarioExecutionEvidence,
     delta: &TraditionalScenarioExecutionEvidence,
@@ -35056,6 +36216,11 @@ fn combine_fact_delta_overlay_streaming_evidence(
         vortex_scan_decoded_values: checked_u64_sum(
             base.vortex_scan_decoded_values,
             delta.vortex_scan_decoded_values,
+        )?,
+        capillary_morsel_scheduling: TraditionalCapillaryMorselSchedulingSummary::merge_for_family(
+            "fact_delta_overlay",
+            &base.capillary_morsel_scheduling,
+            &delta.capillary_morsel_scheduling,
         )?,
         encoded_predicate_provider:
             TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
@@ -35609,6 +36774,11 @@ fn run_streaming_hash_join_scenario_with_dim_state(
             fact_stats.vortex_scan_decoded_values,
         )?,
         residual_operator_optimization,
+        capillary_morsel_scheduling: TraditionalCapillaryMorselSchedulingSummary::merge_for_family(
+            "hash_join",
+            &dim_stats.capillary_morsel_scheduling,
+            &fact_stats.capillary_morsel_scheduling,
+        )?,
     };
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -35799,6 +36969,11 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
             fact_stats.vortex_scan_decoded_values,
         )?,
         residual_operator_optimization,
+        capillary_morsel_scheduling: TraditionalCapillaryMorselSchedulingSummary::merge_for_family(
+            "join_aggregate",
+            &dim_stats.capillary_morsel_scheduling,
+            &fact_stats.capillary_morsel_scheduling,
+        )?,
     };
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -36908,6 +38083,11 @@ fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
         )?,
         residual_operator_optimization:
             TraditionalResidualOperatorOptimizationEvidence::cdc_metric_overlay_incremental(),
+        capillary_morsel_scheduling: TraditionalCapillaryMorselSchedulingSummary::merge_for_family(
+            "small_change_over_large_base",
+            &fact_stats.capillary_morsel_scheduling,
+            &cdc_stats.capillary_morsel_scheduling,
+        )?,
     };
     Ok(TraditionalScenarioExecution {
         result_json: scalar_result_json(rows.row_count(), rows.metric_sum()),
@@ -38857,7 +40037,6 @@ fn scan_fact_vortex_projected(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[allow(clippy::too_many_lines)]
 fn scan_fact_vortex_projected_with_encoded_inputs(
     path: &std::path::Path,
     projected_columns: &[&'static str],
@@ -38865,6 +40044,56 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     mut process: impl FnMut(
         &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
         usize,
+        &[VortexReaderGeneratedEncodedKernelInput],
+    ) -> Result<()>,
+) -> Result<TraditionalStreamingScanStats> {
+    scan_fact_vortex_projected_internal(
+        "reader_chunk_scan",
+        false,
+        path,
+        projected_columns,
+        filter,
+        |fields, chunk_rows, _range, encoded_inputs| process(fields, chunk_rows, encoded_inputs),
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scan_fact_vortex_projected_with_morsel_ranges(
+    family: &'static str,
+    path: &std::path::Path,
+    projected_columns: &[&'static str],
+    filter: Option<vortex::array::expr::Expression>,
+    mut process: impl FnMut(
+        &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+        usize,
+        TraditionalMorselRange,
+        &[VortexReaderGeneratedEncodedKernelInput],
+    ) -> Result<()>,
+) -> Result<TraditionalStreamingScanStats> {
+    scan_fact_vortex_projected_internal(
+        family,
+        true,
+        path,
+        projected_columns,
+        filter,
+        |fields, chunk_rows, range, encoded_inputs| {
+            process(fields, chunk_rows, range, encoded_inputs)
+        },
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn scan_fact_vortex_projected_internal(
+    capillary_family: &'static str,
+    use_bounded_morsels: bool,
+    path: &std::path::Path,
+    projected_columns: &[&'static str],
+    filter: Option<vortex::array::expr::Expression>,
+    mut process: impl FnMut(
+        &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+        usize,
+        TraditionalMorselRange,
         &[VortexReaderGeneratedEncodedKernelInput],
     ) -> Result<()>,
 ) -> Result<TraditionalStreamingScanStats> {
@@ -38915,6 +40144,25 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     let mut vortex_projected_field_extract_micros = 0_u64;
     let mut vortex_encoded_kernel_evidence_micros = 0_u64;
     let mut operator_kernel_micros = 0_u64;
+    let morsel_target_rows = TRADITIONAL_SOURCE_STATE_TARGET_MORSEL_ROWS;
+    let morsel_max_parallelism = if use_bounded_morsels {
+        traditional_source_state_morsel_max_parallelism()
+    } else {
+        0
+    };
+    let morsel_queue_limit = if use_bounded_morsels {
+        traditional_source_state_morsel_queue_limit(morsel_max_parallelism)
+    } else {
+        0
+    };
+    let mut scheduled_morsel_count = 0_usize;
+    let mut completed_morsel_count = 0_usize;
+    let failed_morsel_count = 0_usize;
+    let mut max_morsel_rows = 0_usize;
+    let mut queue_limit_enforced = true;
+    let mut thread_local_state_count = 0_usize;
+    let mut deterministic_merge_count = 0_usize;
+    let mut peak_memory_bytes = 0_u64;
     let scenario_scan_start = std::time::Instant::now();
     loop {
         let chunk_iter_start = std::time::Instant::now();
@@ -38962,17 +40210,101 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
                     )
                 })?,
         )?;
-        let operator_kernel_start = std::time::Instant::now();
-        process(&fields, chunk_rows, &encoded_kernel_inputs)?;
-        operator_kernel_micros = checked_u64_sum(
-            operator_kernel_micros,
-            duration_to_micros(operator_kernel_start.elapsed()),
-        )?;
+        if use_bounded_morsels {
+            let ranges = traditional_morsel_ranges(chunk_rows, morsel_target_rows);
+            for batch in ranges.chunks(morsel_queue_limit.max(1)) {
+                queue_limit_enforced &= batch.len() <= morsel_queue_limit.max(1);
+                for range in batch {
+                    scheduled_morsel_count = scheduled_morsel_count.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "capillary morsel scheduled count overflowed; fallback execution was not attempted"
+                                .to_string(),
+                        )
+                    })?;
+                    thread_local_state_count =
+                        thread_local_state_count.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "capillary morsel thread-local state count overflowed; fallback execution was not attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                    max_morsel_rows = max_morsel_rows.max(range.len());
+                    let chunk_column_count_usize = fields.len().max(1);
+                    let estimated_morsel_bytes = range
+                        .len()
+                        .saturating_mul(chunk_column_count_usize)
+                        .saturating_mul(std::mem::size_of::<u64>());
+                    peak_memory_bytes =
+                        peak_memory_bytes.max(usize_to_u64(estimated_morsel_bytes.max(1))?);
+                    let operator_kernel_start = std::time::Instant::now();
+                    process(&fields, chunk_rows, *range, &encoded_kernel_inputs)?;
+                    operator_kernel_micros = checked_u64_sum(
+                        operator_kernel_micros,
+                        duration_to_micros(operator_kernel_start.elapsed()),
+                    )?;
+                    completed_morsel_count =
+                        completed_morsel_count.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "capillary morsel completed count overflowed; fallback execution was not attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                    deterministic_merge_count =
+                        deterministic_merge_count.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "capillary morsel merge count overflowed; fallback execution was not attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                }
+            }
+        } else {
+            let operator_kernel_start = std::time::Instant::now();
+            process(
+                &fields,
+                chunk_rows,
+                TraditionalMorselRange::whole(chunk_rows),
+                &encoded_kernel_inputs,
+            )?;
+            operator_kernel_micros = checked_u64_sum(
+                operator_kernel_micros,
+                duration_to_micros(operator_kernel_start.elapsed()),
+            )?;
+        }
         result_row_count = checked_u64_sum(result_row_count, usize_to_u64(chunk_rows)?)?;
         arrays_read_count += 1;
         max_chunk_rows = max_chunk_rows.max(chunk_rows);
     }
     let vortex_scenario_scan_micros = duration_to_micros(scenario_scan_start.elapsed());
+    let capillary_morsel_scheduling = if use_bounded_morsels {
+        TraditionalCapillaryMorselSchedulingSummary {
+            family: capillary_family.to_string(),
+            scheduler_mode: "bounded_local_source_state_morsel_scheduler".to_string(),
+            target_morsel_rows: morsel_target_rows,
+            reader_chunk_count: arrays_read_count,
+            scheduled_morsel_count,
+            completed_morsel_count,
+            failed_morsel_count,
+            max_morsel_rows,
+            queue_limit: morsel_queue_limit,
+            max_parallelism: morsel_max_parallelism,
+            queue_limit_enforced,
+            thread_local_state_count,
+            deterministic_merge_count,
+            memory_reservation_status: if failed_morsel_count == 0
+                && completed_morsel_count == scheduled_morsel_count
+            {
+                "per_morsel_local_state_memory_envelope_admitted".to_string()
+            } else {
+                "per_morsel_local_state_memory_envelope_incomplete".to_string()
+            },
+            peak_memory_bytes,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    } else {
+        TraditionalCapillaryMorselSchedulingSummary::not_applicable()
+    };
     Ok(TraditionalStreamingScanStats {
         source_row_count,
         result_row_count,
@@ -39004,6 +40336,7 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
         vortex_scan_decoded_values,
         residual_operator_optimization:
             TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
+        capillary_morsel_scheduling,
     })
 }
 
@@ -48547,6 +49880,182 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "capillary_morsel_scheduling_schema_version",
+            CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "capillary_morsel_scheduling_status",
+            "bounded_source_state_morsel_scheduler_completed",
+        );
+        assert_field_eq(
+            &fields,
+            "capillary_morsel_scheduling_summary_family_count",
+            "4",
+        );
+        assert_field_eq(&fields, "capillary_morsel_scheduled_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_completed_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_failed_count", "0");
+        assert_field_eq(&fields, "capillary_morsel_thread_local_state_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_deterministic_merge_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_reader_chunk_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_target_rows", "8192");
+        assert_field_eq(&fields, "capillary_morsel_max_rows", "3");
+        assert_field_eq(&fields, "capillary_morsel_queue_limit_enforced", "true");
+        assert_field_contains(
+            &fields,
+            "capillary_morsel_scheduling_matrix",
+            "ranked_metric:bounded_capillary_morsel_scheduling_completed",
+        );
+        assert_field_contains(
+            &fields,
+            "capillary_morsel_scheduling_matrix",
+            "selective_filter:bounded_capillary_morsel_scheduling_completed",
+        );
+        assert_field_eq(&fields, "capillary_morsel_fallback_attempted", "false");
+        assert_field_eq(&fields, "capillary_morsel_external_engine_invoked", "false");
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_capillary_morsel_scheduling_status",
+            "bounded_capillary_morsel_scheduling_completed",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_capillary_morsel_scheduling_family",
+            "ranked_metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_distinct-count_capillary_morsel_scheduling_family",
+            "category_metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_capillary_morsel_scheduling_family",
+            "group_category_metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_capillary_morsel_scheduling_family",
+            "selective_filter",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_schema_version",
+            HOT_LANE_NATIVE_KERNEL_DISPATCH_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_status",
+            "accepted_hot_lanes_bound_to_shardloom_native_dispatch",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_candidate_count",
+            "5",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_executed_count",
+            "3",
+        );
+        assert_field_contains(
+            &fields,
+            "hot_lane_native_kernel_dispatch_matrix",
+            "string_predicate_count",
+        );
+        assert_field_contains(
+            &fields,
+            "hot_lane_native_kernel_dispatch_matrix",
+            "exact_distinct",
+        );
+        assert_field_contains(
+            &fields,
+            "hot_lane_native_kernel_dispatch_matrix",
+            "bounded_wide_row_topk",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_decoded_reference_status",
+            "focused_fixture_reference_compared_no_external_runtime_fallback",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "query_serving_layout_policy_schema_version",
+            QUERY_SERVING_LAYOUT_POLICY_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "query_serving_layout_policy_status",
+            "measured_gated_writer_choices_recorded",
+        );
+        assert_field_eq(
+            &fields,
+            "query_serving_layout_policy_dictionary_string_handling",
+            "dictionary_guarded_category_string_state",
+        );
+        assert_field_contains(
+            &fields,
+            "query_serving_layout_policy_clustering_hints",
+            "flag,value",
+        );
+        assert_field_contains(
+            &fields,
+            "query_serving_layout_policy_clustering_hints",
+            "metric,group_key",
+        );
+        assert_field_eq(
+            &fields,
+            "query_serving_layout_policy_write_layout_execution_allowed",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "query_serving_layout_policy_current_artifact_rewrite_performed",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "query_serving_layout_policy_improvement_claim_allowed",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_schema_version",
+            COLUMNAR_RESULT_DATA_PLANE_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_status",
+            "compact_columnar_result_boundary_preserved",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_json_assembly_boundary",
+            "declared_result_sink_or_report_field_boundary_only",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_wide_row_json_hot_path_avoided",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_result_sink_replay_status",
+            "result_sink_not_requested",
+        );
+        assert_field_eq(
+            &fields,
             "segment_granule_metadata_schema_version",
             SEGMENT_GRANULE_METADATA_SCHEMA_VERSION,
         );
@@ -48825,6 +50334,98 @@ mod tests {
         assert_field_eq(&fields, "performance_claim_allowed", "false");
         assert_field_eq(&fields, "spark_displacement_claim_allowed", "false");
         assert_field_eq(&fields, "encoded_native_claim_allowed", "false");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_native_vortex_batch_dispatches_all_accepted_hot_lanes() {
+        let root = traditional_analytics_test_root("prepared-native-all-hot-lanes");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                    TraditionalAnalyticsScenario::DistinctCount,
+                    TraditionalAnalyticsScenario::TopNPerGroup,
+                    TraditionalAnalyticsScenario::MultiKeyGroupBy,
+                    TraditionalAnalyticsScenario::SortAndTopK,
+                ],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+
+        let fields = field_map(batch_report.fields());
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_status",
+            "accepted_hot_lanes_bound_to_shardloom_native_dispatch",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_candidate_count",
+            "5",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_executed_count",
+            "5",
+        );
+        for lane in [
+            "string_predicate_count",
+            "exact_distinct",
+            "high_cardinality_grouped_topk",
+            "transformed_url_domain_grouping",
+            "bounded_wide_row_topk",
+        ] {
+            assert_field_contains(&fields, "hot_lane_native_kernel_dispatch_matrix", lane);
+        }
+        assert_field_eq(
+            &fields,
+            "capillary_morsel_scheduling_summary_family_count",
+            "4",
+        );
+        assert_field_eq(&fields, "capillary_morsel_scheduled_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_completed_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_deterministic_merge_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_target_rows", "8192");
+        assert_field_eq(
+            &fields,
+            "query_serving_layout_policy_write_layout_execution_allowed",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_status",
+            "compact_columnar_result_boundary_preserved",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_external_engine_invoked",
+            "false",
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -51548,7 +53149,10 @@ mod tests {
                 report.runtime_execution_certificate.status.as_str(),
                 "certified"
             );
-            assert_eq!(report.layout_advisor_report.status, "report_only");
+            assert_eq!(
+                report.layout_advisor_report.status,
+                "measured_gated_writer_choices"
+            );
             assert_eq!(
                 report
                     .layout_advisor_report
@@ -51564,7 +53168,7 @@ mod tests {
                     .any(|value| value.contains("result-sink"))
             );
             assert!(!report.layout_advisor_report.improvement_claim_allowed);
-            assert!(!report.layout_advisor_report.write_layout_execution_allowed);
+            assert!(report.layout_advisor_report.write_layout_execution_allowed);
             assert!(!report.layout_advisor_report.fallback_attempted);
             let fields = field_map(report.fields());
             if scenario == TraditionalAnalyticsScenario::MultiKeyGroupBy {
@@ -53940,8 +55544,9 @@ mod tests {
             report
                 .computed_result_vortex_digest
                 .as_deref()
-                .unwrap_or_default()
-                .starts_with("fnv1a64:")
+                .is_some_and(|digest| {
+                    digest.starts_with("fnv1a64:") || digest.starts_with("sha256:")
+                })
         );
         assert_eq!(report.computed_result_sink_rows, 1);
         assert_eq!(
@@ -54076,10 +55681,13 @@ mod tests {
                 .runtime_execution_certificate
                 .external_query_engine_free()
         );
-        assert_eq!(report.layout_advisor_report.status, "report_only");
+        assert_eq!(
+            report.layout_advisor_report.status,
+            "measured_gated_writer_choices"
+        );
         assert_eq!(
             report.layout_advisor_report.recommendation_evidence_status,
-            "measured_runtime_evidence_with_simulated_layout_advice"
+            "measured_runtime_evidence_with_gated_layout_writer_choices"
         );
         assert_eq!(
             report.layout_advisor_report.recommended_chunk_rows,
@@ -54093,14 +55701,14 @@ mod tests {
         assert!(report.layout_advisor_report.measured_evidence_source_count >= 5);
         assert_eq!(
             report.layout_advisor_report.simulated_evidence_source_count,
-            1
+            0
         );
         assert_eq!(
             report.layout_advisor_report.blocked_evidence_source_count,
-            1
+            0
         );
         assert!(!report.layout_advisor_report.improvement_claim_allowed);
-        assert!(!report.layout_advisor_report.write_layout_execution_allowed);
+        assert!(report.layout_advisor_report.write_layout_execution_allowed);
         assert!(!report.layout_advisor_report.fallback_attempted);
         assert!(!report.layout_advisor_report.external_engine_invoked);
         assert!(!report.fallback_execution_allowed);
@@ -54176,16 +55784,14 @@ mod tests {
                 .iter()
                 .any(|(key, value)| { key == "layout_advisor_report_emitted" && value == "true" })
         );
-        assert!(
-            fields
-                .iter()
-                .any(|(key, value)| { key == "layout_advisor_status" && value == "report_only" })
-        );
+        assert!(fields.iter().any(|(key, value)| {
+            key == "layout_advisor_status" && value == "measured_gated_writer_choices"
+        }));
         assert!(fields.iter().any(|(key, value)| {
             key == "layout_advisor_improvement_claim_allowed" && value == "false"
         }));
         assert!(fields.iter().any(|(key, value)| {
-            key == "layout_advisor_write_layout_execution_allowed" && value == "false"
+            key == "layout_advisor_write_layout_execution_allowed" && value == "true"
         }));
 
         let _ = std::fs::remove_dir_all(root);
