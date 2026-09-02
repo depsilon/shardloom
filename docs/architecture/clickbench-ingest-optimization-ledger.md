@@ -58,6 +58,27 @@ Constraints:
 
 ## Current Branch Experiments
 
+### `2026-09-01` Aggregate Lane Recovery Targeted UAT
+
+- Change tested: shared Vortex-normalized aggregate recovery for regressed string/exact-distinct and
+  numeric+UTF8 lanes, including dedicated string count-distinct top-K policy, bounded first-pass
+  exact distinct sets, dictionary-code candidate recount histograms, candidate-free chunk skips, and
+  public field lifts for exact-set source/budget evidence.
+- Evidence:
+  `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_regressed_lanes_20260901T160520Z/summary.json`.
+- Baseline: `docs/benchmarks/clickbench-100m-current-branch-uat.json`, run
+  `full43_20260901T1342Z`, with one single `.vortex` artifact, `memory_gb=24`,
+  `max_parallelism=12`, and no fallback/external execution.
+- Result: retained. Targeted best-of-3 improved every selected lane while preserving
+  `fallback_attempted=false` and `external_engine_invoked=false`: Q13 `9.400321s -> 7.107471s`,
+  Q14 `10.652015s -> 5.942042s`, Q15 `10.890026s -> 8.394676s`, Q17
+  `19.422580s -> 16.401620s`, Q21 `1.033923s -> 0.685716s`, Q29
+  `11.303367s -> 10.915976s`, Q34 `28.714856s -> 27.109423s`, and Q35
+  `28.744922s -> 27.101249s`.
+- Decision: ship this runtime slice. It is a generic aggregate-state/policy improvement below the
+  SQL/Python/DataFrame/CLI front doors, not a ClickBench-specific query rewrite or cache. Keep Q34
+  and Q35 as slow-lane targets for future dictionary/code-summary and string-grouping work.
+
 ### `2026-08-30` Resource-Envelope Writer And Compact Artifact Shape
 
 - Change under validation: public prepare/load now wires the layout-advisor writer parallelism into

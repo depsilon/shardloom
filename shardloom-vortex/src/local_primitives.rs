@@ -1586,6 +1586,13 @@ impl VortexLocalPrimitiveExecutionPolicy {
                     .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
                 rejected_alternatives.push("near_input_cardinality_numeric_pair_late_measure");
             }
+            "string_count_distinct_heavy_hitter_topk" => {
+                envelope.string_topk_heavy_hitter_capacity = envelope
+                    .string_topk_heavy_hitter_capacity
+                    .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+                rejected_alternatives.push("generic_count_distinct_group_state");
+                rejected_alternatives.push("full_string_distinct_state_before_topk");
+            }
             "numeric_utf8_heavy_hitter_topk" => {
                 envelope.numeric_utf8_topk_heavy_hitter_capacity = envelope
                     .numeric_utf8_topk_heavy_hitter_capacity
@@ -1700,6 +1707,12 @@ fn local_vortex_simple_aggregate_physical_policy_family(
             "embedded_dictionary_or_derived_metadata_can_replace_per_row_transform",
         );
     }
+    if simple_aggregate_string_count_distinct_heavy_hitter_shape(aggregate, request) {
+        return (
+            "string_count_distinct_heavy_hitter_topk",
+            "string_dictionary_count_distinct_topk_prefers_candidate_exact_recount",
+        );
+    }
     if simple_aggregate_numeric_utf8_heavy_hitter_shape(aggregate, request) {
         return (
             "numeric_utf8_heavy_hitter_topk",
@@ -1770,6 +1783,57 @@ fn simple_aggregate_string_heavy_hitter_shape(
             }))
 }
 
+fn simple_aggregate_string_count_distinct_heavy_hitter_shape(
+    aggregate: &VortexSimpleAggregateRequest,
+    request: &VortexQueryPrimitiveRequest,
+) -> bool {
+    if request.source_order_limit.is_none()
+        || aggregate.order_by.len() != 1
+        || aggregate.group_by.len() != 1
+        || !aggregate.having.is_empty()
+        || !simple_aggregate_group_expressions_are_reconstructable_constants(aggregate)
+    {
+        return false;
+    }
+    let [measure] = aggregate.measures.as_slice() else {
+        return false;
+    };
+    if !is_count_distinct_measure(measure)
+        || measure.column.is_none()
+        || measure.argument_offset.is_some()
+        || measure.value_transform.is_some()
+        || measure.alias.trim().is_empty()
+    {
+        return false;
+    }
+    aggregate
+        .order_by
+        .as_slice()
+        .first()
+        .is_some_and(|order| order.descending && order.column == measure.alias)
+        && (aggregate
+            .group_by
+            .iter()
+            .any(|column| column_name_looks_textual(column.as_str()))
+            || aggregate.group_expressions.iter().any(|expression| {
+                column_name_looks_textual(expression.column.as_str())
+                    || expression_function_looks_string_transform(&expression.function)
+            }))
+}
+
+fn simple_aggregate_group_expressions_are_reconstructable_constants(
+    aggregate: &VortexSimpleAggregateRequest,
+) -> bool {
+    aggregate.group_expressions.iter().all(|expression| {
+        expression.extra_columns.is_empty()
+            && matches!(
+                expression.function.trim().to_ascii_lowercase().as_str(),
+                "constant_int" | "literal_int"
+            )
+            && expression.argument_offset.is_some()
+    })
+}
+
 fn simple_aggregate_transformed_dictionary_shape(aggregate: &VortexSimpleAggregateRequest) -> bool {
     aggregate
         .group_expressions
@@ -1812,6 +1876,9 @@ fn is_numeric_measure(measure: &VortexSimpleAggregateMeasure) -> bool {
 
 fn column_name_looks_textual(column: &str) -> bool {
     let lower = column.to_ascii_lowercase();
+    if lower.ends_with("id") || lower.ends_with("_id") {
+        return false;
+    }
     [
         "url", "domain", "search", "phrase", "title", "referer", "referrer", "text", "string",
         "utf8", "path", "query",
@@ -19460,7 +19527,11 @@ fn read_local_vortex_simple_aggregate_scan(
         grouped_states.as_mut()
         && states.needs_string_count_distinct_topk_heavy_hitter_second_pass()
     {
-        if states.string_count_distinct_topk_heavy_hitter_exact_proof_possible(result_limit)? {
+        if states.promote_string_count_distinct_topk_exact_first_pass_if_possible(result_limit)? {
+            false
+        } else if states
+            .string_count_distinct_topk_heavy_hitter_exact_proof_possible(result_limit)?
+        {
             states.prepare_string_count_distinct_topk_heavy_hitter_second_pass()?;
             let projection = projection_request_from_declared_columns(&declared_columns)?;
             let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
@@ -23413,6 +23484,7 @@ struct GroupedAggregateStates<'a> {
     string_count_topk_exact_counts_source: Option<&'static str>,
     string_count_topk_dictionary_code_reuse: bool,
     string_count_topk_late_measure_direct_updates: bool,
+    string_count_topk_dictionary_histogram_recount: bool,
     string_count_topk_candidate_free_chunks_skipped: u64,
     string_count_topk_candidate_free_rows_skipped: u64,
     string_count_distinct_topk_heavy_hitter_enabled: bool,
@@ -23426,6 +23498,10 @@ struct GroupedAggregateStates<'a> {
     string_count_distinct_topk_candidate_free_rows_skipped: u64,
     string_count_distinct_topk_exact_sets:
         Option<rustc_hash::FxHashMap<u64, rustc_hash::FxHashSet<AggregateDistinctValue>>>,
+    string_count_distinct_topk_exact_sets_source: Option<&'static str>,
+    string_count_distinct_topk_first_pass_exact_sets: bool,
+    string_count_distinct_topk_first_pass_exact_sets_disabled: bool,
+    string_count_distinct_topk_first_pass_exact_set_entries: u64,
     string_count_distinct_topk_total_weight: u64,
     string_count_distinct_topk_string_group_index: Option<usize>,
     string_count_distinct_topk_distinct_column_index: Option<usize>,
@@ -25870,6 +25946,7 @@ impl<'a> GroupedAggregateStates<'a> {
             string_count_topk_exact_counts_source: None,
             string_count_topk_dictionary_code_reuse: false,
             string_count_topk_late_measure_direct_updates: false,
+            string_count_topk_dictionary_histogram_recount: false,
             string_count_topk_candidate_free_chunks_skipped: 0,
             string_count_topk_candidate_free_rows_skipped: 0,
             string_count_distinct_topk_heavy_hitter_enabled: false,
@@ -25881,6 +25958,10 @@ impl<'a> GroupedAggregateStates<'a> {
             string_count_distinct_topk_candidate_free_chunks_skipped: 0,
             string_count_distinct_topk_candidate_free_rows_skipped: 0,
             string_count_distinct_topk_exact_sets: None,
+            string_count_distinct_topk_exact_sets_source: None,
+            string_count_distinct_topk_first_pass_exact_sets: false,
+            string_count_distinct_topk_first_pass_exact_sets_disabled: false,
+            string_count_distinct_topk_first_pass_exact_set_entries: 0,
             string_count_distinct_topk_total_weight: 0,
             string_count_distinct_topk_string_group_index: None,
             string_count_distinct_topk_distinct_column_index: None,
@@ -27688,83 +27769,6 @@ impl<'a> GroupedAggregateStates<'a> {
         self.update_string_count_topk_heavy_hitter_exact_from_accessors(&accessors, row_indices)
     }
 
-    fn update_string_count_topk_exact_counts_from_candidate_row_ids(
-        &mut self,
-        row_ids: &[u32],
-        candidate_code_ids: &[Option<u64>],
-        row_indices: Option<&[usize]>,
-        candidate_count: usize,
-    ) -> Result<()> {
-        self.string_count_topk_candidate_code_prefilter = true;
-        let skipped_rows = row_indices.map_or(row_ids.len(), <[usize]>::len);
-        if !candidate_code_ids.iter().any(Option::is_some) {
-            self.mark_string_count_topk_candidate_free_chunk(skipped_rows)?;
-            return Ok(());
-        }
-        let mut matched_rows = 0usize;
-        {
-            let exact_counts = self.string_count_topk_exact_counts.as_mut().ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex string top-K heavy-hitter exact count state was missing; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })?;
-            reserve_hash_map_capacity(
-                exact_counts,
-                candidate_count,
-                "string top-K heavy-hitter exact counts",
-            )?;
-            let mut visit_row = |row_index: usize| -> Result<()> {
-                let code = row_ids.get(row_index).copied().ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex string top-K heavy-hitter exact recount row id was missing; no fallback execution was attempted"
-                            .to_string(),
-                    )
-                })?;
-                let code_index = usize::try_from(code).map_err(|error| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "local Vortex string top-K heavy-hitter exact recount dictionary code overflowed usize: {error}; no fallback execution was attempted"
-                    ))
-                })?;
-                let Some(value_id) = candidate_code_ids.get(code_index).copied().ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex string top-K heavy-hitter exact recount candidate code exceeded dictionary value count; no fallback execution was attempted"
-                            .to_string(),
-                    )
-                })? else {
-                    return Ok(());
-                };
-                let count = exact_counts.entry(value_id).or_insert(0);
-                *count = count.checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex string top-K heavy-hitter exact count overflowed u64"
-                            .to_string(),
-                    )
-                })?;
-                matched_rows = matched_rows.checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex string top-K heavy-hitter exact recount matched row count overflowed usize"
-                            .to_string(),
-                    )
-                })?;
-                Ok(())
-            };
-            if let Some(row_indices) = row_indices {
-                for &row_index in row_indices {
-                    visit_row(row_index)?;
-                }
-            } else {
-                for row_index in 0..row_ids.len() {
-                    visit_row(row_index)?;
-                }
-            }
-        }
-        if matched_rows == 0 {
-            self.mark_string_count_topk_candidate_free_chunk(skipped_rows)?;
-        }
-        Ok(())
-    }
-
     fn update_string_count_topk_heavy_hitter_exact_from_accessors(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
@@ -27885,12 +27889,50 @@ impl<'a> GroupedAggregateStates<'a> {
                     .to_string(),
             ));
         }
-        self.update_string_count_topk_exact_counts_from_candidate_row_ids(
-            row_ids,
-            &candidate_code_ids,
-            row_indices,
+        self.string_count_topk_candidate_code_prefilter = true;
+        let skipped_rows = row_indices.map_or(row_ids.len(), <[usize]>::len);
+        if !candidate_code_ids.iter().any(Option::is_some) {
+            self.mark_string_count_topk_candidate_free_chunk(skipped_rows)?;
+            return Ok(());
+        }
+        let counts = dictionary_value_counts_for_rows(row_ids, values.len(), row_indices)?;
+        let exact_counts = self.string_count_topk_exact_counts.as_mut().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex string top-K heavy-hitter exact count state was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        reserve_hash_map_capacity(
+            exact_counts,
             candidate_ids.len(),
-        )
+            "string top-K heavy-hitter exact counts",
+        )?;
+        let mut matched_rows = 0_u64;
+        for (candidate_value_id, count) in candidate_code_ids.into_iter().zip(counts) {
+            let Some(value_id) = candidate_value_id else {
+                continue;
+            };
+            if count == 0 {
+                continue;
+            }
+            matched_rows = matched_rows.checked_add(count).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex string top-K heavy-hitter exact recount matched row count overflowed u64"
+                        .to_string(),
+                )
+            })?;
+            let entry = exact_counts.entry(value_id).or_insert(0);
+            *entry = entry.checked_add(count).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex string top-K heavy-hitter exact count overflowed u64".to_string(),
+                )
+            })?;
+        }
+        if matched_rows == 0 {
+            self.mark_string_count_topk_candidate_free_chunk(skipped_rows)?;
+        }
+        self.string_count_topk_dictionary_histogram_recount = true;
+        Ok(())
     }
 
     fn update_string_count_topk_late_measure_groups_from_accessors(
@@ -28188,11 +28230,23 @@ impl<'a> GroupedAggregateStates<'a> {
                             .to_string(),
                     )
         })?;
+        let distinct_accessor = accessors.get(distinct_column_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex string count-distinct top-K heavy-hitter distinct column was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        if distinct_accessor.len() != row_ids.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex string count-distinct top-K heavy-hitter key/value columns had inconsistent row counts; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
         let capacity = self.string_count_topk_heavy_hitter_capacity();
         let sketch = self
             .string_count_distinct_topk_heavy_hitter_sketch
             .get_or_insert_with(|| StringCountTopKHeavyHitterSketch::new(capacity));
-        for (value_id, count) in dictionary_string_ids.into_iter().zip(counts) {
+        for (value_id, count) in dictionary_string_ids.iter().copied().zip(counts) {
             if count == 0 {
                 continue;
             }
@@ -28207,12 +28261,117 @@ impl<'a> GroupedAggregateStates<'a> {
                     )
                 })?;
         }
+        self.update_string_count_distinct_topk_first_pass_exact_sets(
+            row_ids,
+            &dictionary_string_ids,
+            distinct_accessor,
+            row_indices,
+        )?;
         self.string_count_distinct_topk_string_group_index = Some(group_index);
         self.string_count_distinct_topk_distinct_column_index = Some(distinct_column_index);
         self.string_count_distinct_topk_heavy_hitter_direct_updates = true;
         self.chunk_dictionary_direct_updates = true;
         self.string_count_distinct_topk_dictionary_code_reuse = true;
         Ok(true)
+    }
+
+    fn update_string_count_distinct_topk_first_pass_exact_sets(
+        &mut self,
+        group_row_ids: &[u32],
+        dictionary_string_ids: &[u64],
+        distinct_accessor: &AggregateDirectColumnAccessor,
+        row_indices: Option<&[usize]>,
+    ) -> Result<()> {
+        if self.string_count_distinct_topk_first_pass_exact_sets_disabled {
+            return Ok(());
+        }
+        if distinct_accessor.len() != group_row_ids.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex string count-distinct top-K first-pass exact-set key/value columns had inconsistent row counts; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        let budget = self.string_count_distinct_topk_first_pass_exact_set_entry_budget()?;
+        let exact_sets = self
+            .string_count_distinct_topk_exact_sets
+            .get_or_insert_with(rustc_hash::FxHashMap::default);
+        reserve_hash_map_capacity(
+            exact_sets,
+            dictionary_string_ids.len(),
+            "string count-distinct top-K first-pass exact sets",
+        )?;
+        let mut next_entry_count = self.string_count_distinct_topk_first_pass_exact_set_entries;
+        let mut visit_row = |exact_sets: &mut rustc_hash::FxHashMap<
+            u64,
+            rustc_hash::FxHashSet<AggregateDistinctValue>,
+        >,
+                             row_index: usize|
+         -> Result<bool> {
+            let code = group_row_ids.get(row_index).copied().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex string count-distinct top-K first-pass exact-set row id was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            let code_index = usize::try_from(code).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local Vortex string count-distinct top-K first-pass exact-set dictionary code overflowed usize: {error}; no fallback execution was attempted"
+                ))
+            })?;
+            let value_id = dictionary_string_ids.get(code_index).copied().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex string count-distinct top-K first-pass exact-set dictionary code exceeded dictionary id count; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            let exact_set = exact_sets.entry(value_id).or_default();
+            let distinct_value = aggregate_direct_distinct_value(distinct_accessor, row_index)?;
+            if matches!(distinct_value, AggregateDistinctValue::Null) {
+                return Ok(false);
+            }
+            if exact_set.insert(distinct_value) {
+                next_entry_count = next_entry_count.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex string count-distinct top-K first-pass exact-set entry count overflowed u64"
+                        .to_string(),
+                    )
+                })?;
+                if next_entry_count > budget {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        };
+        let mut disable_first_pass = false;
+        match row_indices {
+            Some(row_indices) => {
+                for &row_index in row_indices {
+                    disable_first_pass = visit_row(exact_sets, row_index)?;
+                    if disable_first_pass {
+                        break;
+                    }
+                }
+            }
+            None => {
+                for row_index in 0..group_row_ids.len() {
+                    disable_first_pass = visit_row(exact_sets, row_index)?;
+                    if disable_first_pass {
+                        break;
+                    }
+                }
+            }
+        }
+        if disable_first_pass {
+            self.string_count_distinct_topk_exact_sets = None;
+            self.string_count_distinct_topk_exact_sets_source = None;
+            self.string_count_distinct_topk_first_pass_exact_sets = false;
+            self.string_count_distinct_topk_first_pass_exact_sets_disabled = true;
+            self.string_count_distinct_topk_first_pass_exact_set_entries = 0;
+            return Ok(());
+        }
+        self.string_count_distinct_topk_exact_sets_source = Some("first_pass_bounded_exact_sets");
+        self.string_count_distinct_topk_first_pass_exact_set_entries = next_entry_count;
+        Ok(())
     }
 
     fn string_count_distinct_topk_roles_for_accessors(
@@ -28268,6 +28427,32 @@ impl<'a> GroupedAggregateStates<'a> {
             && self.string_count_distinct_topk_candidate_ids.is_none()
     }
 
+    fn promote_string_count_distinct_topk_exact_first_pass_if_possible(
+        &mut self,
+        limit: Option<usize>,
+    ) -> Result<bool> {
+        if limit.is_none() || self.string_count_distinct_topk_first_pass_exact_sets_disabled {
+            return Ok(false);
+        }
+        if self.string_count_distinct_topk_exact_sets_source
+            != Some("first_pass_bounded_exact_sets")
+        {
+            return Ok(false);
+        }
+        let Some(exact_sets) = self.string_count_distinct_topk_exact_sets.as_ref() else {
+            return Ok(false);
+        };
+        if exact_sets.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex string count-distinct top-K first-pass exact sets produced no candidates; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        self.string_count_distinct_topk_candidate_ids = Some(exact_sets.keys().copied().collect());
+        self.string_count_distinct_topk_first_pass_exact_sets = true;
+        Ok(true)
+    }
+
     fn prepare_string_count_distinct_topk_heavy_hitter_second_pass(&mut self) -> Result<()> {
         let Some(sketch) = self.string_count_distinct_topk_heavy_hitter_sketch.as_ref() else {
             return Ok(());
@@ -28294,6 +28479,9 @@ impl<'a> GroupedAggregateStates<'a> {
         self.string_count_distinct_topk_candidate_ids = Some(candidate_ids);
         self.string_count_distinct_topk_candidate_id_prefilter = true;
         self.string_count_distinct_topk_exact_sets = Some(exact_sets);
+        self.string_count_distinct_topk_exact_sets_source = Some("candidate_recount_second_pass");
+        self.string_count_distinct_topk_first_pass_exact_sets = false;
+        self.string_count_distinct_topk_first_pass_exact_set_entries = 0;
         Ok(())
     }
 
@@ -28430,14 +28618,12 @@ impl<'a> GroupedAggregateStates<'a> {
                         .to_string(),
                 )
             })?;
+            let exact_set = exact_sets.entry(value_id).or_default();
             let distinct_value = aggregate_direct_distinct_value(distinct_accessor, row_index)?;
             if matches!(distinct_value, AggregateDistinctValue::Null) {
                 continue;
             }
-            exact_sets
-                .entry(value_id)
-                .or_default()
-                .insert(distinct_value);
+            exact_set.insert(distinct_value);
         }
         if matched_rows == 0 {
             self.mark_string_count_distinct_topk_candidate_free_chunk(row_ids.len())?;
@@ -28480,6 +28666,9 @@ impl<'a> GroupedAggregateStates<'a> {
         let Some(sketch) = self.string_count_distinct_topk_heavy_hitter_sketch.as_ref() else {
             return Ok(false);
         };
+        if self.string_count_distinct_topk_first_pass_exact_sets {
+            return Ok(!exact_sets.is_empty());
+        }
         let retained_cap = self.request.offset.saturating_add(limit);
         if retained_cap == 0 || exact_sets.len() < retained_cap {
             return Ok(false);
@@ -28530,6 +28719,17 @@ impl<'a> GroupedAggregateStates<'a> {
             return Ok(u64::MAX);
         }
         Ok(self.string_count_distinct_topk_total_weight / denominator)
+    }
+
+    fn string_count_distinct_topk_first_pass_exact_set_entry_budget(&self) -> Result<u64> {
+        let group_state_share = self.resource_envelope.group_state_soft_item_budget / 4;
+        let retained_candidate_share = self
+            .string_count_topk_heavy_hitter_capacity()
+            .saturating_mul(128);
+        let candidate_window_budget = retained_candidate_share
+            .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+        let budget = candidate_window_budget.min(group_state_share);
+        usize_to_u64(budget)
     }
 
     #[allow(clippy::unused_self)]
@@ -30939,6 +31139,11 @@ impl<'a> GroupedAggregateStates<'a> {
         )?;
         json_object_insert_bool(
             &mut payload,
+            "string_count_topk_dictionary_histogram_recount",
+            self.string_count_topk_dictionary_histogram_recount,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
             "string_count_topk_late_measure_second_pass",
             has_late_measures,
         )?;
@@ -31108,6 +31313,19 @@ impl<'a> GroupedAggregateStates<'a> {
             .map(|sketch| self.string_count_distinct_topk_heavy_hitter_threshold(sketch))
             .transpose()?
             .unwrap_or(0);
+        let exact_sets_source = self
+            .string_count_distinct_topk_exact_sets_source
+            .unwrap_or("candidate_recount_second_pass");
+        let group_output_strategy = if self.string_count_distinct_topk_first_pass_exact_sets {
+            "proofbound_heavy_hitter_string_count_distinct_topk_first_pass_exact"
+        } else {
+            "proofbound_heavy_hitter_string_count_distinct_topk_late_recount"
+        };
+        let uniqueness_proof_status = if self.string_count_distinct_topk_first_pass_exact_sets {
+            "proofbound_string_count_distinct_exact_first_pass_bounded_sets"
+        } else {
+            "proofbound_string_count_distinct_exact_topk"
+        };
         let mut payload = serde_json::json!({
             "rows": rows.len(),
             "group_by": group_by.join(","),
@@ -31124,7 +31342,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "aggregate_materialized_accessor_columns": self.aggregate_materialized_accessor_columns(),
             "aggregate_accessor_blockers": self.aggregate_accessor_blockers(),
             "distinct_state_strategy": "proofbound_candidate_exact_distinct_sets",
-            "group_output_strategy": "proofbound_heavy_hitter_string_count_distinct_topk_late_recount",
+            "group_output_strategy": group_output_strategy,
             "candidate_groups": counts.len(),
             "retained_candidate_groups": retained_cap.min(counts.len()),
             "evicted_or_spilled_group_count": 0,
@@ -31138,7 +31356,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "decoded_string_count": counts.len(),
             "estimated_group_key_storage_bytes": self.estimated_group_key_storage_bytes(),
             "estimated_group_string_storage_bytes": self.estimated_group_string_storage_bytes(),
-            "uniqueness_proof_status": "proofbound_string_count_distinct_exact_topk",
+            "uniqueness_proof_status": uniqueness_proof_status,
             "spill_state": "not_spilled",
             "order_by": self
                 .request
@@ -31148,7 +31366,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 .collect::<Vec<_>>()
                 .join(","),
             "offset": self.request.offset,
-            "string_count_distinct_topk_heavy_hitter_second_pass": true,
+            "string_count_distinct_topk_heavy_hitter_second_pass": !self.string_count_distinct_topk_first_pass_exact_sets,
             "string_count_distinct_topk_heavy_hitter_candidate_groups": counts.len(),
             "string_count_distinct_topk_heavy_hitter_capacity": self.string_count_topk_heavy_hitter_capacity(),
             "string_count_distinct_topk_heavy_hitter_threshold": threshold,
@@ -31161,6 +31379,31 @@ impl<'a> GroupedAggregateStates<'a> {
             "string_count_distinct_topk_candidate_signature_prefilter",
             self.string_count_distinct_topk_candidate_signatures
                 .is_some(),
+        )?;
+        json_object_insert_str(
+            &mut payload,
+            "string_count_distinct_topk_exact_sets_source",
+            exact_sets_source,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "string_count_distinct_topk_first_pass_exact_sets",
+            self.string_count_distinct_topk_first_pass_exact_sets,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "string_count_distinct_topk_first_pass_exact_sets_disabled",
+            self.string_count_distinct_topk_first_pass_exact_sets_disabled,
+        )?;
+        json_object_insert_u64(
+            &mut payload,
+            "string_count_distinct_topk_first_pass_exact_set_entries",
+            self.string_count_distinct_topk_first_pass_exact_set_entries,
+        )?;
+        json_object_insert_u64(
+            &mut payload,
+            "string_count_distinct_topk_first_pass_exact_set_entry_budget",
+            self.string_count_distinct_topk_first_pass_exact_set_entry_budget()?,
         )?;
         json_object_insert_bool(
             &mut payload,
@@ -32307,6 +32550,12 @@ impl<'a> GroupedAggregateStates<'a> {
             } else {
                 "string_count_topk_heavy_hitter_late_recount"
             }
+        } else if self.string_count_distinct_topk_first_pass_exact_sets {
+            if self.string_count_distinct_topk_dictionary_code_reuse {
+                "string_dictionary_code_count_distinct_topk_heavy_hitter_first_pass_exact"
+            } else {
+                "string_count_distinct_topk_heavy_hitter_first_pass_exact"
+            }
         } else if self.string_count_distinct_topk_heavy_hitter_direct_updates {
             if self.string_count_distinct_topk_dictionary_code_reuse {
                 "string_dictionary_code_count_distinct_topk_heavy_hitter_late_recount"
@@ -32401,6 +32650,12 @@ impl<'a> GroupedAggregateStates<'a> {
             } else {
                 "string_heavy_hitter_candidate_count_star_group_state"
             }
+        } else if self.string_count_distinct_topk_first_pass_exact_sets {
+            if self.string_count_distinct_topk_dictionary_code_reuse {
+                "string_dictionary_code_heavy_hitter_exact_count_distinct_group_state"
+            } else {
+                "string_heavy_hitter_exact_count_distinct_group_state"
+            }
         } else if self.string_count_distinct_topk_heavy_hitter_direct_updates {
             if self.string_count_distinct_topk_dictionary_code_reuse {
                 "string_dictionary_code_heavy_hitter_candidate_count_distinct_group_state"
@@ -32472,7 +32727,11 @@ impl<'a> GroupedAggregateStates<'a> {
         } else if self.string_count_distinct_topk_exact_sets.is_some()
             || self.string_count_distinct_topk_candidate_ids.is_some()
         {
-            if self.string_count_distinct_topk_dictionary_code_reuse {
+            if self.string_count_distinct_topk_first_pass_exact_sets
+                && self.string_count_distinct_topk_dictionary_code_reuse
+            {
+                "bounded_string_dictionary_code_count_distinct_exact_groups"
+            } else if self.string_count_distinct_topk_dictionary_code_reuse {
                 "bounded_string_dictionary_code_count_distinct_heavy_hitter_candidates"
             } else {
                 "bounded_string_count_distinct_heavy_hitter_candidates"
@@ -32526,7 +32785,13 @@ impl<'a> GroupedAggregateStates<'a> {
                 "string_heavy_hitter_candidate_state_then_exact_recount"
             }
         } else if self.string_count_distinct_topk_heavy_hitter_direct_updates {
-            if self.string_count_distinct_topk_dictionary_code_reuse {
+            if self.string_count_distinct_topk_first_pass_exact_sets
+                && self.string_count_distinct_topk_dictionary_code_reuse
+            {
+                "string_dictionary_code_count_distinct_exact_first_pass"
+            } else if self.string_count_distinct_topk_first_pass_exact_sets {
+                "string_count_distinct_exact_first_pass"
+            } else if self.string_count_distinct_topk_dictionary_code_reuse {
                 "string_dictionary_code_count_distinct_candidate_state_then_exact_recount"
             } else {
                 "string_count_distinct_heavy_hitter_candidate_state_then_exact_recount"
@@ -33488,6 +33753,10 @@ impl<'a> GroupedAggregateStates<'a> {
                     pulseweave_pressure_signals
                         .push("string_candidate_dictionary_code_prefilter_hits");
                 }
+                if self.string_count_topk_dictionary_histogram_recount {
+                    capillary_work_units.push("string_topk_candidate_dictionary_histogram_recount");
+                    pulseweave_pressure_signals.push("string_topk_dictionary_histogram_recount");
+                }
                 if self.string_count_topk_late_measure_direct_updates {
                     capillary_work_units.push("string_topk_candidate_late_measure_recount");
                     capillary_work_units.push("retained_string_topk_measure_state");
@@ -33508,10 +33777,25 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.string_count_distinct_topk_heavy_hitter_direct_updates {
             capillary_work_units.push("string_count_distinct_heavy_hitter_sketch_update");
             capillary_work_units.push("proofbound_string_count_distinct_topk_retention");
-            capillary_work_units.push("string_count_distinct_candidate_exact_recount");
             pulseweave_pressure_signals.push("string_count_distinct_candidate_groups");
             pulseweave_pressure_signals.push("string_count_distinct_heavy_hitter_threshold");
-            pulseweave_pressure_signals.push("string_count_distinct_exact_recount_scan");
+            if self.string_count_distinct_topk_first_pass_exact_sets {
+                capillary_work_units
+                    .push("string_count_distinct_heavy_hitter_first_pass_exact_sets");
+                pulseweave_pressure_signals
+                    .push("string_count_distinct_first_pass_exact_set_entries");
+                pulseweave_pressure_signals
+                    .push("string_count_distinct_first_pass_exact_set_entry_budget");
+            } else {
+                capillary_work_units.push("string_count_distinct_candidate_exact_recount");
+                pulseweave_pressure_signals.push("string_count_distinct_exact_recount_scan");
+            }
+            if self.string_count_distinct_topk_first_pass_exact_sets_disabled {
+                capillary_work_units
+                    .push("string_count_distinct_first_pass_exact_sets_budget_guard");
+                pulseweave_pressure_signals
+                    .push("string_count_distinct_first_pass_exact_sets_disabled");
+            }
             if self.string_count_distinct_topk_dictionary_code_reuse {
                 capillary_work_units.push("dictionary_code_bound_string_count_distinct_topk_key");
                 pulseweave_pressure_signals.push("dictionary_code_string_key_reuse");
@@ -41879,7 +42163,7 @@ mod tests {
 
         let numeric_utf8_aggregate = VortexSimpleAggregateRequest::grouped(
             vec![
-                ColumnRef::new("UserID").expect("column"),
+                ColumnRef::new("SearchEngineID").expect("column"),
                 ColumnRef::new("SearchPhrase").expect("column"),
             ],
             vec![crate::VortexSimpleAggregateMeasure::new(
@@ -41890,13 +42174,37 @@ mod tests {
         )
         .with_order_by(vec![VortexAggregateOrderExpr::new("rows", true)]);
         let numeric_utf8_request =
-            VortexQueryPrimitiveRequest::simple_aggregate(uri, numeric_utf8_aggregate)
+            VortexQueryPrimitiveRequest::simple_aggregate(uri.clone(), numeric_utf8_aggregate)
                 .with_source_order_limit(10);
         let (_effective, numeric_utf8_report) =
             policy.with_physical_policy_for_request(&numeric_utf8_request);
         assert_eq!(
             numeric_utf8_report.route_family,
             "numeric_utf8_heavy_hitter_topk"
+        );
+
+        let count_distinct_aggregate = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("SearchPhrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count_distinct",
+                Some(ColumnRef::new("UserID").expect("column")),
+                "users".to_string(),
+            )],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("users", true)]);
+        let count_distinct_request =
+            VortexQueryPrimitiveRequest::simple_aggregate(uri, count_distinct_aggregate)
+                .with_source_order_limit(10);
+        let (_effective, count_distinct_report) =
+            policy.with_physical_policy_for_request(&count_distinct_request);
+        assert_eq!(
+            count_distinct_report.route_family,
+            "string_count_distinct_heavy_hitter_topk"
+        );
+        assert!(
+            count_distinct_report
+                .rejected_alternatives
+                .contains(&"generic_count_distinct_group_state".to_string())
         );
     }
 
@@ -53926,6 +54234,11 @@ mod tests {
         );
         assert!(
             budget
+                .capillary_work_units
+                .contains(&"string_topk_candidate_dictionary_histogram_recount".to_string())
+        );
+        assert!(
+            budget
                 .pulseweave_pressure_signals
                 .contains(&"string_candidate_id_prefilter_hits".to_string())
         );
@@ -53975,6 +54288,10 @@ mod tests {
         );
         assert_eq!(
             payload["string_count_topk_candidate_code_prefilter"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_topk_dictionary_histogram_recount"],
             serde_json::json!(true)
         );
         assert_eq!(
@@ -54427,11 +54744,20 @@ mod tests {
                 .capillary_work_units
                 .contains(&"string_topk_candidate_free_chunk_skip".to_string())
         );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_topk_candidate_dictionary_histogram_recount".to_string())
+        );
         let (_row_count, summary) = states
             .result_row_count_and_summary(Some(1))
             .expect("result summary");
         let payload: serde_json::Value =
             serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(
+            payload["string_count_topk_dictionary_histogram_recount"],
+            serde_json::json!(true)
+        );
         assert_eq!(
             payload["string_count_topk_candidate_free_chunks_skipped"],
             serde_json::json!(1)
@@ -55012,6 +55338,276 @@ mod tests {
         assert_eq!(payload["values"][0]["users"], serde_json::json!(2));
         assert_eq!(payload["values"][1]["phrase"], serde_json::json!("warm"));
         assert_eq!(payload["values"][1]["users"], serde_json::json!(2));
+    }
+
+    #[test]
+    fn grouped_aggregate_string_count_distinct_topk_skips_recount_when_first_pass_is_exact() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("phrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count_distinct",
+                Some(ColumnRef::new("user_id").expect("column")),
+                "users".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("users", true)]);
+        let declared_columns = vec!["phrase".to_string(), "user_id".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        states.enable_string_count_distinct_topk_heavy_hitter();
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 0, 0, 1, 1, 2],
+                values: vec![
+                    std::sync::Arc::<str>::from("hot"),
+                    std::sync::Arc::<str>::from("warm"),
+                    std::sync::Arc::<str>::from("cold"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+            AggregateDirectColumnAccessor::UInt64(vec![1, 2, 1, 3, 4, 5]),
+        ];
+
+        assert!(
+            states
+                .update_string_count_distinct_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("heavy-hitter distinct bound pass")
+        );
+        assert!(states.needs_string_count_distinct_topk_heavy_hitter_second_pass());
+        assert!(
+            states
+                .promote_string_count_distinct_topk_exact_first_pass_if_possible(Some(2))
+                .expect("promote first pass exact sets")
+        );
+        assert!(!states.needs_string_count_distinct_topk_heavy_hitter_second_pass());
+        assert!(
+            states
+                .string_count_distinct_topk_exact_proved(Some(2))
+                .expect("first pass exact proof")
+        );
+        assert_eq!(
+            states.string_count_distinct_topk_first_pass_exact_set_entries,
+            5
+        );
+        let budget = states
+            .state_budget_report(&request, 6, 2)
+            .expect("state budget");
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_count_distinct_heavy_hitter_first_pass_exact_sets".to_string())
+        );
+        assert!(
+            !budget
+                .capillary_work_units
+                .contains(&"string_count_distinct_candidate_exact_recount".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"dictionary_code_bound_string_count_distinct_topk_key".to_string())
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["group_output_strategy"],
+            "proofbound_heavy_hitter_string_count_distinct_topk_first_pass_exact"
+        );
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "string_dictionary_code_count_distinct_topk_heavy_hitter_first_pass_exact"
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "string_dictionary_code_heavy_hitter_exact_count_distinct_group_state"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "string_dictionary_code_count_distinct_exact_first_pass"
+        );
+        assert_eq!(
+            payload["string_count_distinct_topk_exact_sets_source"],
+            "first_pass_bounded_exact_sets"
+        );
+        assert_eq!(
+            payload["string_count_distinct_topk_heavy_hitter_second_pass"],
+            serde_json::json!(false)
+        );
+        assert_eq!(
+            payload["string_count_distinct_topk_first_pass_exact_sets"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_distinct_topk_first_pass_exact_sets_disabled"],
+            serde_json::json!(false)
+        );
+        assert_eq!(
+            payload["string_count_distinct_topk_first_pass_exact_set_entries"],
+            serde_json::json!(5)
+        );
+        assert_eq!(payload["values"][0]["phrase"], serde_json::json!("hot"));
+        assert_eq!(payload["values"][0]["users"], serde_json::json!(2));
+        assert_eq!(payload["values"][1]["phrase"], serde_json::json!("warm"));
+        assert_eq!(payload["values"][1]["users"], serde_json::json!(2));
+    }
+
+    #[test]
+    fn grouped_aggregate_string_count_distinct_topk_first_pass_retains_all_null_groups() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("phrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count_distinct",
+                Some(ColumnRef::new("user_id").expect("column")),
+                "users".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("users", true)]);
+        let declared_columns = vec!["phrase".to_string(), "user_id".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        states.enable_string_count_distinct_topk_heavy_hitter();
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 1, 0],
+                values: vec![
+                    std::sync::Arc::<str>::from("alpha"),
+                    std::sync::Arc::<str>::from("beta"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+            AggregateDirectColumnAccessor::NullableUInt64 {
+                values: vec![0, 0, 0],
+                row_nulls: vec![true, true, true],
+            },
+        ];
+
+        assert!(
+            states
+                .update_string_count_distinct_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("heavy-hitter distinct bound pass")
+        );
+        assert!(
+            states
+                .promote_string_count_distinct_topk_exact_first_pass_if_possible(Some(2))
+                .expect("promote first pass exact sets")
+        );
+        assert!(
+            states
+                .string_count_distinct_topk_exact_proved(Some(2))
+                .expect("first pass exact proof")
+        );
+        assert_eq!(
+            states.string_count_distinct_topk_first_pass_exact_set_entries,
+            0
+        );
+        let exact_sets = states
+            .string_count_distinct_topk_exact_sets
+            .as_ref()
+            .expect("first pass exact sets");
+        assert_eq!(exact_sets.len(), 2);
+        assert!(exact_sets.values().all(rustc_hash::FxHashSet::is_empty));
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["string_count_distinct_topk_first_pass_exact_sets"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_distinct_topk_first_pass_exact_set_entries"],
+            serde_json::json!(0)
+        );
+        assert_eq!(payload["values"][0]["phrase"], serde_json::json!("alpha"));
+        assert_eq!(payload["values"][0]["users"], serde_json::json!(0));
+        assert_eq!(payload["values"][1]["phrase"], serde_json::json!("beta"));
+        assert_eq!(payload["values"][1]["users"], serde_json::json!(0));
+    }
+
+    #[test]
+    fn string_count_distinct_topk_first_pass_exact_set_budget_respects_group_state_share() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("phrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count_distinct",
+                Some(ColumnRef::new("user_id").expect("column")),
+                "users".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("users", true)]);
+        let declared_columns = vec!["phrase".to_string(), "user_id".to_string()];
+        let envelope = VortexLocalPrimitiveResourceEnvelope::new(1, 1).expect("resource envelope");
+        let expected_budget = envelope.group_state_soft_item_budget / 4;
+        let states = GroupedAggregateStates::new_with_resource_envelope(
+            &request,
+            Some(2),
+            &declared_columns,
+            false,
+            false,
+            envelope,
+        )
+        .expect("states");
+
+        assert_eq!(
+            states
+                .string_count_distinct_topk_first_pass_exact_set_entry_budget()
+                .expect("exact-set entry budget"),
+            u64::try_from(expected_budget).expect("budget fits u64")
+        );
+
+        let mut constrained_envelope = envelope;
+        constrained_envelope.group_state_soft_item_budget = 8;
+        let mut constrained_states = GroupedAggregateStates::new_with_resource_envelope(
+            &request,
+            Some(1),
+            &declared_columns,
+            false,
+            false,
+            constrained_envelope,
+        )
+        .expect("constrained states");
+        constrained_states.enable_string_count_distinct_topk_heavy_hitter();
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 0, 0],
+                values: vec![std::sync::Arc::<str>::from("hot")],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+            AggregateDirectColumnAccessor::UInt64(vec![1, 2, 3]),
+        ];
+
+        assert_eq!(
+            constrained_states
+                .string_count_distinct_topk_first_pass_exact_set_entry_budget()
+                .expect("constrained exact-set entry budget"),
+            2
+        );
+        assert!(
+            constrained_states
+                .update_string_count_distinct_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("heavy-hitter distinct bound pass")
+        );
+        assert!(constrained_states.string_count_distinct_topk_first_pass_exact_sets_disabled);
+        assert!(
+            !constrained_states
+                .promote_string_count_distinct_topk_exact_first_pass_if_possible(Some(1))
+                .expect("budget-disabled promotion")
+        );
     }
 
     #[test]

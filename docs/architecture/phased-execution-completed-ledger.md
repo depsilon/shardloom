@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `CLICKBENCH-100M-REGRESSED-AGGREGATE-LANE-RECOVERY-1` closed the latest aggregate/string lane
+      recovery batch as shared Vortex-normalized runtime work, not ClickBench-specific routing.
+  - Date: 2026-09-01
+  - PR/merge: current local implementation batch; PR/merge pending.
+  - Completed scope:
+    - Q14-style `GROUP BY string ORDER BY count_distinct DESC LIMIT K` now reports a dedicated
+      `string_count_distinct_heavy_hitter_topk` physical-policy family instead of falling through
+      generic grouped aggregate policy.
+    - String count-distinct top-K can promote bounded first-pass exact sets when they fit the shared
+      `ResourceEnvelope`, avoiding the second broad exact recount scan while preserving exact
+      semantics. If the exact-set budget is exceeded, the route disables that fast path and keeps
+      the existing proof-bound candidate recount path.
+    - String count top-K recount uses dictionary-code candidate histograms and candidate-free chunk
+      skip evidence to reduce Q13/Q34/Q35-style row/string work without adding sidecars or
+      query-specific summaries.
+    - Numeric+UTF8 top-K policy avoids treating `*ID` columns as textual solely because names contain
+      search-like substrings, keeping Q15/Q17-family lanes on the packed numeric plus dictionary-code
+      route.
+    - Public workflow evidence now lifts count-distinct exact-set source, first-pass status, disabled
+      status, entry count, and entry-budget fields for CLI/SQL/Python/DataFrame wrappers.
+  - Targeted local UAT:
+    `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_regressed_lanes_20260901T160520Z/summary.json`
+    completed `24/24` CLI runs across Q13/Q14/Q15/Q17/Q21/Q29/Q34/Q35 with
+    `fallback_attempted=false`, `external_engine_invoked=false`, and no failures.
+  - Targeted best-of-3 deltas versus `docs/benchmarks/clickbench-100m-current-branch-uat.json`:
+    Q13 `9.400321s -> 7.107471s`, Q14 `10.652015s -> 5.942042s`, Q15
+    `10.890026s -> 8.394676s`, Q17 `19.422580s -> 16.401620s`, Q21
+    `1.033923s -> 0.685716s`, Q29 `11.303367s -> 10.915976s`, Q34
+    `28.714856s -> 27.109423s`, and Q35 `28.744922s -> 27.101249s`.
+  - Focused validation:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-vortex --lib --features release-user-surfaces -- -D warnings`
+    - `cargo test -p shardloom-vortex --lib physical_policy_classifies_string_and_numeric_utf8_heavy_hitters --features release-user-surfaces`
+    - `cargo test -p shardloom-vortex --lib grouped_aggregate_string_count_distinct_topk_skips_recount_when_first_pass_is_exact --features release-user-surfaces`
+    - `cargo test -p shardloom-vortex --lib grouped_aggregate_string_count_distinct_topk_uses_proofbound_recount --features release-user-surfaces`
+    - `cargo test -p shardloom-vortex --lib grouped_aggregate_string_count_distinct_topk_skips_candidate_free_chunks --features release-user-surfaces`
+    - `cargo test -p shardloom-vortex --lib grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount --features release-user-surfaces`
+    - `cargo test -p shardloom-vortex --lib grouped_aggregate_string_count_topk_skips_candidate_free_count_only_chunks --features release-user-surfaces`
+    - `cargo test -p shardloom-cli local_primitive_result_summary_lifts_runtime_strategy_fields --features release-user-surfaces`
+  - Claim boundary:
+    - Local implementation/UAT evidence only. This is not an official ClickBench submission,
+      superiority claim, production-environment proof, object-store proof, or Foundry proof.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, Velox, `vortex-datafusion`, query-result cache,
+      materialized-view shortcut, sidecar artifact, or ClickBench-specific SQL rewrite was added.
+
 - [x] `PARQUET-ROWGROUP-EXTENT-COMPILER-1`, `CODE-SPACE-OLAP-RUNTIME-1`,
       `DICTIONARY-TRANSDUCER-VIRTUAL-DERIVED-1`, `ADOPTED-PARQUET-CHUNK-ENCODING-1`,
       `VORTEX-FRAGMENT-ASSEMBLER-1`, and `SHARDLOOM-EXECUTION-CAPSULE-1` closed the

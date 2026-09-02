@@ -807,7 +807,7 @@ impl ParquetExtentPlan {
             self.uncompressed_bytes,
             self.codec_summary(),
             self.column_chunk_sample_summary(),
-            self.source_unit_physical_fragment(source_unit_byte_ranges)
+            Self::source_unit_physical_fragment(source_unit_byte_ranges)
         )
     }
 
@@ -894,10 +894,7 @@ impl ParquetExtentPlan {
             .collect()
     }
 
-    fn source_unit_physical_fragment(
-        &self,
-        source_unit_byte_ranges: Option<&[(u64, u64)]>,
-    ) -> String {
+    fn source_unit_physical_fragment(source_unit_byte_ranges: Option<&[(u64, u64)]>) -> String {
         let ranges = source_unit_byte_ranges.unwrap_or(&[]);
         let physical_bytes = ranges.iter().fold(0u64, |total, (start, end)| {
             total.saturating_add(end.saturating_sub(*start))
@@ -1206,7 +1203,17 @@ struct ParquetDictionarySchemaPlan {
     dictionary_preservation_status: &'static str,
 }
 
-fn parquet_dictionary_schema_plan(schema: &SchemaRef) -> ParquetDictionarySchemaPlan {
+fn parquet_dictionary_schema_plan(
+    schema: &SchemaRef,
+    row_count_hint: Option<usize>,
+) -> ParquetDictionarySchemaPlan {
+    if row_count_hint.is_some_and(|rows| rows >= PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD) {
+        return ParquetDictionarySchemaPlan {
+            stream_schema: Arc::clone(schema),
+            schema_hint: None,
+            dictionary_preservation_status: "parquet_arrow_reader_uses_plain_utf8_for_large_olap_text_zstd_artifact_size_guard",
+        };
+    }
     let schema_hint = parquet_dictionary_preserving_schema_hint(schema.as_ref());
     let stream_schema = schema_hint
         .as_ref()
@@ -1390,8 +1397,11 @@ fn embedded_derived_column_specs(
         }
         let is_full_utf8_source = matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
             && is_utf8_arrow_dtype(field.data_type());
+        let is_lean_runtime_utf8_source =
+            matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime)
+                && is_utf8_arrow_dtype(field.data_type());
         let is_source_native_utf8_dictionary = is_dictionary_utf8_arrow_dtype(field.data_type());
-        if is_full_utf8_source || is_source_native_utf8_dictionary {
+        if is_full_utf8_source || is_lean_runtime_utf8_source || is_source_native_utf8_dictionary {
             let length_column = shardloom_utf8_length_derived_column(source_column);
             if should_embed_utf8_length_column_for_mode(source_column, mode)
                 && !existing.contains(length_column.as_str())
@@ -2909,6 +2919,7 @@ fn parquet_stream_record_batch_reader(
 /// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
 /// the Parquet reader cannot be constructed, or known file metadata exceeds
 /// `max_rows`.
+#[allow(clippy::too_many_lines)]
 pub fn stream_flat_parquet_columnar_source_with_parallelism(
     path: &Path,
     max_rows: usize,
@@ -2929,7 +2940,7 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
     let row_group_metadata = parquet_row_group_stream_metadata(builder.metadata());
     let extent_plan = ParquetExtentPlan::from_metadata(builder.metadata());
-    let schema_plan = parquet_dictionary_schema_plan(&schema);
+    let schema_plan = parquet_dictionary_schema_plan(&schema, row_group_metadata.total_hint);
     let reader_metadata = parquet::arrow::arrow_reader::ArrowReaderMetadata::try_new(
         Arc::clone(builder.metadata()),
         parquet_reader_options_with_optional_schema_hint(schema_plan.schema_hint.as_ref()),
@@ -7184,6 +7195,26 @@ mod tests {
         assert!(source.reader.next().is_none());
 
         std::fs::remove_file(path).expect("remove parquet test file");
+    }
+
+    #[test]
+    fn parquet_large_olap_stream_uses_plain_utf8_for_writer_text_compression() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("URL", DataType::Utf8, true),
+            Field::new("PlainNote", DataType::Utf8, true),
+        ]));
+
+        let plan = parquet_dictionary_schema_plan(
+            &schema,
+            Some(PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD),
+        );
+
+        assert!(plan.schema_hint.is_none());
+        assert_eq!(plan.stream_schema.as_ref(), schema.as_ref());
+        assert_eq!(
+            plan.dictionary_preservation_status,
+            "parquet_arrow_reader_uses_plain_utf8_for_large_olap_text_zstd_artifact_size_guard"
+        );
     }
 
     #[test]

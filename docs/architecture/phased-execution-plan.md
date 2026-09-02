@@ -257,20 +257,15 @@ evidence contracts. Retain an optimization only when focused or UAT evidence sho
 improvement without correctness, no-fallback, or single-artifact regressions; otherwise drop or
 revise it before moving on.
 
-Active queue status: no unchecked phase-plan implementation items remain in this branch. The
-completed material architecture-bet queue, global prepare/load attribution work, writer/compression
-policy work, dictionary-derived metadata work, string/domain execution work, high-cardinality state
-work, exact distinct/grouped aggregate work, row-ref top-K pruning work, metadata-first fast-lane
-work, and runtime gap carry-forward ownership have been reconciled in the completed ledger.
+Active queue status: no open planned work remains in this branch. The aggregate-lane recovery item
+has been implemented, targeted-UAT validated, and moved to
+`docs/architecture/phased-execution-completed-ledger.md`.
 
 Current autonomous execution order:
 
-1. Prepare the cohesive PR/merge review for this completed batch. Use focused validation already
-   recorded here and CI for Rust execution if the local Cargo runner still idles before compiling.
-2. After merge and only when the machine has enough free space, run Desktop replacement-ingest UAT
-   and the full 43-query lane pass against the single current `.vortex` artifact.
-3. Compare UAT against the latest recorded baseline, then retain, revise, or drop any optimization
-   that regresses correctness, no-fallback evidence, single-artifact persistence, or material timing.
+1. Prepare the cohesive PR/merge review for this completed batch.
+2. After merge, run the next full 43-query UAT only when a larger runtime batch warrants replacing
+   the current full-run reference.
 
 Validator ownership note: `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains named here as the active
 global-review runtime-gap owner required by `scripts/check_runtime_gap_family_burn_down.py`. It is a
