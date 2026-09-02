@@ -28324,15 +28324,12 @@ impl<'a> GroupedAggregateStates<'a> {
                         .to_string(),
                 )
             })?;
+            let exact_set = exact_sets.entry(value_id).or_default();
             let distinct_value = aggregate_direct_distinct_value(distinct_accessor, row_index)?;
             if matches!(distinct_value, AggregateDistinctValue::Null) {
                 return Ok(false);
             }
-            if exact_sets
-                .entry(value_id)
-                .or_default()
-                .insert(distinct_value)
-            {
+            if exact_set.insert(distinct_value) {
                 next_entry_count = next_entry_count.checked_add(1).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
                         "local Vortex string count-distinct top-K first-pass exact-set entry count overflowed u64"
@@ -28621,14 +28618,12 @@ impl<'a> GroupedAggregateStates<'a> {
                         .to_string(),
                 )
             })?;
+            let exact_set = exact_sets.entry(value_id).or_default();
             let distinct_value = aggregate_direct_distinct_value(distinct_accessor, row_index)?;
             if matches!(distinct_value, AggregateDistinctValue::Null) {
                 continue;
             }
-            exact_sets
-                .entry(value_id)
-                .or_default()
-                .insert(distinct_value);
+            exact_set.insert(distinct_value);
         }
         if matched_rows == 0 {
             self.mark_string_count_distinct_topk_candidate_free_chunk(row_ids.len())?;
@@ -28731,9 +28726,9 @@ impl<'a> GroupedAggregateStates<'a> {
         let retained_candidate_share = self
             .string_count_topk_heavy_hitter_capacity()
             .saturating_mul(128);
-        let budget = group_state_share
-            .max(retained_candidate_share)
+        let candidate_window_budget = retained_candidate_share
             .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+        let budget = candidate_window_budget.min(group_state_share);
         usize_to_u64(budget)
     }
 
@@ -55461,6 +55456,158 @@ mod tests {
         assert_eq!(payload["values"][0]["users"], serde_json::json!(2));
         assert_eq!(payload["values"][1]["phrase"], serde_json::json!("warm"));
         assert_eq!(payload["values"][1]["users"], serde_json::json!(2));
+    }
+
+    #[test]
+    fn grouped_aggregate_string_count_distinct_topk_first_pass_retains_all_null_groups() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("phrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count_distinct",
+                Some(ColumnRef::new("user_id").expect("column")),
+                "users".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("users", true)]);
+        let declared_columns = vec!["phrase".to_string(), "user_id".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        states.enable_string_count_distinct_topk_heavy_hitter();
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 1, 0],
+                values: vec![
+                    std::sync::Arc::<str>::from("alpha"),
+                    std::sync::Arc::<str>::from("beta"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+            AggregateDirectColumnAccessor::NullableUInt64 {
+                values: vec![0, 0, 0],
+                row_nulls: vec![true, true, true],
+            },
+        ];
+
+        assert!(
+            states
+                .update_string_count_distinct_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("heavy-hitter distinct bound pass")
+        );
+        assert!(
+            states
+                .promote_string_count_distinct_topk_exact_first_pass_if_possible(Some(2))
+                .expect("promote first pass exact sets")
+        );
+        assert!(
+            states
+                .string_count_distinct_topk_exact_proved(Some(2))
+                .expect("first pass exact proof")
+        );
+        assert_eq!(
+            states.string_count_distinct_topk_first_pass_exact_set_entries,
+            0
+        );
+        let exact_sets = states
+            .string_count_distinct_topk_exact_sets
+            .as_ref()
+            .expect("first pass exact sets");
+        assert_eq!(exact_sets.len(), 2);
+        assert!(exact_sets.values().all(rustc_hash::FxHashSet::is_empty));
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["string_count_distinct_topk_first_pass_exact_sets"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_distinct_topk_first_pass_exact_set_entries"],
+            serde_json::json!(0)
+        );
+        assert_eq!(payload["values"][0]["phrase"], serde_json::json!("alpha"));
+        assert_eq!(payload["values"][0]["users"], serde_json::json!(0));
+        assert_eq!(payload["values"][1]["phrase"], serde_json::json!("beta"));
+        assert_eq!(payload["values"][1]["users"], serde_json::json!(0));
+    }
+
+    #[test]
+    fn string_count_distinct_topk_first_pass_exact_set_budget_respects_group_state_share() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("phrase").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count_distinct",
+                Some(ColumnRef::new("user_id").expect("column")),
+                "users".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("users", true)]);
+        let declared_columns = vec!["phrase".to_string(), "user_id".to_string()];
+        let envelope = VortexLocalPrimitiveResourceEnvelope::new(1, 1).expect("resource envelope");
+        let expected_budget = envelope.group_state_soft_item_budget / 4;
+        let states = GroupedAggregateStates::new_with_resource_envelope(
+            &request,
+            Some(2),
+            &declared_columns,
+            false,
+            false,
+            envelope,
+        )
+        .expect("states");
+
+        assert_eq!(
+            states
+                .string_count_distinct_topk_first_pass_exact_set_entry_budget()
+                .expect("exact-set entry budget"),
+            u64::try_from(expected_budget).expect("budget fits u64")
+        );
+
+        let mut constrained_envelope = envelope;
+        constrained_envelope.group_state_soft_item_budget = 8;
+        let mut constrained_states = GroupedAggregateStates::new_with_resource_envelope(
+            &request,
+            Some(1),
+            &declared_columns,
+            false,
+            false,
+            constrained_envelope,
+        )
+        .expect("constrained states");
+        constrained_states.enable_string_count_distinct_topk_heavy_hitter();
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 0, 0],
+                values: vec![std::sync::Arc::<str>::from("hot")],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+            AggregateDirectColumnAccessor::UInt64(vec![1, 2, 3]),
+        ];
+
+        assert_eq!(
+            constrained_states
+                .string_count_distinct_topk_first_pass_exact_set_entry_budget()
+                .expect("constrained exact-set entry budget"),
+            2
+        );
+        assert!(
+            constrained_states
+                .update_string_count_distinct_topk_heavy_hitter_from_accessors(&accessors, None)
+                .expect("heavy-hitter distinct bound pass")
+        );
+        assert!(constrained_states.string_count_distinct_topk_first_pass_exact_sets_disabled);
+        assert!(
+            !constrained_states
+                .promote_string_count_distinct_topk_exact_first_pass_if_possible(Some(1))
+                .expect("budget-disabled promotion")
+        );
     }
 
     #[test]
