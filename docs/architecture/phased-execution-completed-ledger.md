@@ -19,7 +19,8 @@ phase plan first.
 - [x] `CLICKBENCH-DOMAIN-TRANSFER-1` implemented the ClickBench domain-transfer runtime batch
       slices for prepared/native Vortex analytics.
   - Date: 2026-09-02
-  - PR/merge: local branch `codex/clickbench-domain-transfer-runtime-complete`; merge pending.
+  - PR/merge: local branch `codex/clickbench-domain-transfer-runtime-complete`, fast-forwarded
+    into local `main` as `5b15d0b7`.
   - Completed scope:
     - Added bounded capillary/morsel scheduling to the prepared Vortex source-state scan path for
       `category_metric`, `group_category_metric`, `ranked_metric`, and `selective_filter`, with
