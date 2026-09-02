@@ -307,7 +307,7 @@ revise it before moving on.
     evidence, Vortex-first decisions, no-fallback boundaries, and validation gates.
   - [x] Seed prepared/native source-state for single high-cost category, grouped-category,
     ranked/top-K, and selective predicate lanes without counting that as multi-query reuse.
-  - [ ] Implement segment/granule metadata as an execution primitive: embed or derive
+  - [x] Implement segment/granule metadata as an execution primitive: embed or derive
     min/max/null/cardinality/string-absence/top-K candidate summaries from the single Vortex
     artifact; surface deterministic metadata coverage fields; use metadata-only answers or segment
     pruning before scans; verify no sidecars and `fallback_attempted=false`.
@@ -337,13 +337,21 @@ revise it before moving on.
   Completed slice evidence:
   - Focused source-state tests:
     `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark source_state`.
+  - Segment/granule metadata execution primitive:
+    `shardloom-vortex/src/traditional_analytics.rs` now derives exact category/group/ranked/
+    selective summaries during the existing prepared/native source-state build, emits
+    `segment_granule_metadata_schema_version=shardloom.traditional_analytics.segment_granule_metadata.v1`,
+    reports min/max, null, cardinality, string-absence, top-K candidate, metadata-only answer, and
+    predicate-pruning decisions, and verifies `segment_granule_metadata_sidecar_used=false`,
+    `segment_granule_metadata_fallback_attempted=false`, and
+    `segment_granule_metadata_external_engine_invoked=false` in focused tests.
   - Required gates: `cargo fmt --all -- --check`,
     `cargo clippy --workspace --all-targets -- -D warnings`, and
     `cargo test --workspace --all-targets`.
 
-  Next outcome: a cohesive PR that implements the segment/granule metadata execution primitive,
-  surfaces deterministic metadata coverage evidence, and uses metadata-only answers or segment
-  pruning before scans where the current Vortex provider boundary admits it.
+  Next outcome: a cohesive PR that implements capillary/morsel scheduling for the prepared Vortex
+  scan path with bounded work units, deterministic merge evidence, queue/parallelism/memory fields,
+  and no external-engine fallback.
 
   User-visible surface: benchmark reports, CLI prepared/native Vortex batch evidence fields,
   diagnostics/capability evidence, and phase-plan documentation.
@@ -387,10 +395,9 @@ revise it before moving on.
 
 Current autonomous execution order:
 
-1. Implement the segment/granule metadata execution-primitive slice for
-   `CLICKBENCH-DOMAIN-TRANSFER-1`.
-2. Validate the focused Vortex metadata/pruning evidence and update this checklist.
-3. Continue through capillary/morsel scheduling, specialized kernels, ingest-layout policy, and
+1. Implement capillary/morsel scheduling for `CLICKBENCH-DOMAIN-TRANSFER-1`.
+2. Validate focused Vortex scheduling/merge evidence and update this checklist.
+3. Continue through specialized kernels, ingest-layout policy, and
    columnar result-boundary slices only while each can be retained by measured
    correctness and performance evidence.
 

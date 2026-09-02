@@ -59,6 +59,59 @@ The batch evidence emits:
 - `source_state_fallback_attempted=false`
 - `source_state_external_engine_invoked=false`
 
+## Segment/Granule Metadata
+
+`CLICKBENCH-DOMAIN-TRANSFER-1` adds
+`segment_granule_metadata_schema_version=shardloom.traditional_analytics.segment_granule_metadata.v1`
+to the prepared/native batch row. The metadata rows are derived during the same in-process
+`shardloom-vortex` source-state build over the caller-supplied fact `.vortex` artifact; they do not
+create sidecars, persistent indexes, query-engine integration paths, or hidden warm-cache claims.
+
+Current metadata families:
+
+- `category_metric`: exact `category,metric` min/max, required-field null absence, category
+  cardinality, empty-category count, and preassembled metadata-only distinct/string-group result
+  payloads.
+- `group_category_metric`: exact `group_key,category,metric` min/max, required-field null absence,
+  group/category/pair cardinality, empty-category count, and preassembled metadata-only
+  group-by/multi-key result payloads.
+- `ranked_metric`: exact `group_key,metric` min/max, required-field null absence, group
+  cardinality, top-K candidate counts, and preassembled metadata-only ranking/window result
+  payloads.
+- `selective_filter`: exact selected `value,metric` min/max, required-field null absence, selected
+  row/candidate cardinality, preassembled selective payloads, and Vortex filter-pushdown/segment
+  pruning decision evidence before source-state scan work.
+
+The batch evidence emits:
+
+- `segment_granule_metadata_status`
+- `segment_granule_metadata_matrix_ref`
+- `segment_granule_metadata_artifact_scope=single_fact_vortex_artifact`
+- `segment_granule_metadata_provider_scope=shardloom_vortex_native_source_state_no_query_engine_integration`
+- `segment_granule_metadata_summary_family_count`
+- `segment_granule_metadata_consumer_count`
+- `segment_granule_metadata_source_rows_summarized`
+- `segment_granule_metadata_source_granules_summarized`
+- `segment_granule_metadata_matrix`
+- `segment_granule_metadata_digest`
+- `segment_granule_metadata_minmax_summary_count`
+- `segment_granule_metadata_null_summary_count`
+- `segment_granule_metadata_cardinality_summary_count`
+- `segment_granule_metadata_string_absence_summary_count`
+- `segment_granule_metadata_topk_candidate_summary_count`
+- `segment_granule_metadata_metadata_only_answer_family_count`
+- `segment_granule_metadata_segment_pruning_family_count`
+- `segment_granule_metadata_<family>_*`
+- `scenario_<slug>_segment_granule_metadata_*`
+- `segment_granule_metadata_sidecar_used=false`
+- `segment_granule_metadata_fallback_attempted=false`
+- `segment_granule_metadata_external_engine_invoked=false`
+
+These fields are focused runtime evidence. They are not claim-grade performance evidence, not a
+general file-statistics catalog, and not permission to use DataFusion, DuckDB, Spark, Polars,
+Velox, Trino, Dask, Ray, `vortex-datafusion`, or another query-engine integration as a runtime
+fallback.
+
 The current scoped source-state families are in-memory derived runtime state. Batch rows emit a
 stable evidence digest over source artifact digests, requested execution mode, and family reuse
 posture; the digest is a reuse/coverage identity only, not a persistent cache key or performance

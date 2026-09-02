@@ -169,6 +169,8 @@ const PREPARED_STATE_DELTA_OVERLAY_MANIFEST_FILE: &str =
     "prepared-state-delta-overlay-manifest.json";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
+const SEGMENT_GRANULE_METADATA_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.segment_granule_metadata.v1";
 const TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepare_and_batch.v1";
 const PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION: &str =
@@ -1663,16 +1665,20 @@ struct TraditionalCategoryMetricState {
     distinct_count_rows_materialized: u64,
     result_preassembly_micros: u64,
     stats: TraditionalStreamingScanStats,
+    segment_metadata: TraditionalSegmentGranuleMetadataSummary,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalCategoryMetricState {
-    fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
+    #[allow(clippy::too_many_lines)]
+    fn from_path(fact_vortex: &std::path::Path, consumer_count: usize) -> Result<Self> {
         let mut groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::with_capacity(
             TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY,
         );
         let mut category_interner =
             TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
+        let mut category_summary = TraditionalStringMetadataAccumulator::default();
+        let mut metric_summary = TraditionalF64MetadataAccumulator::default();
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["category", "metric"],
@@ -1689,17 +1695,51 @@ impl TraditionalCategoryMetricState {
                     )));
                 }
                 for (index, &metric) in metrics.iter().enumerate() {
-                    let category_id = intern_utf8_value_at(
-                        &mut category_interner,
-                        &categories,
-                        "category",
-                        index,
-                    )?;
+                    let category = categories.bytes_at(index);
+                    let category = utf8_bytes_at(category.as_slice(), "category", index)?;
+                    category_summary.observe(category);
+                    metric_summary.observe(metric);
+                    let category_id = category_interner.intern(category)?;
                     groups.entry(category_id).or_default().add(metric);
                 }
                 Ok(())
             },
         )?;
+        let segment_metadata = TraditionalSegmentGranuleMetadataSummary {
+            family: "category_metric".to_string(),
+            source_state_status: category_metric_state_reuse_status_for_consumer_count(
+                consumer_count,
+            )
+            .to_string(),
+            artifact_scope: "single_fact_vortex_artifact".to_string(),
+            artifact_role: "fact_vortex".to_string(),
+            columns: "category,metric".to_string(),
+            consumer_count,
+            rows_summarized: stats.source_row_count,
+            result_rows_summarized: stats.result_row_count,
+            granule_count: usize_to_u64(stats.arrays_read_count)?,
+            minmax_summary_status:
+                "exact_category_and_metric_minmax_derived_from_source_state_scan".to_string(),
+            minmax_summary: format!(
+                "{};{}",
+                category_summary.bound_summary("category"),
+                metric_summary.bound_summary("metric")
+            ),
+            null_summary_status: "exact_required_field_null_absence".to_string(),
+            null_count: "category=0,metric=0".to_string(),
+            cardinality_summary_status: "exact_category_cardinality_from_interner".to_string(),
+            cardinality_summary: format!("category_distinct={}", category_interner.len()),
+            string_absence_summary_status: "exact_empty_category_count".to_string(),
+            string_absence_count: category_summary.empty_count.to_string(),
+            topk_candidate_summary_status: "not_applicable_not_ranked_family".to_string(),
+            topk_candidate_count: "none".to_string(),
+            metadata_only_answer_status:
+                "metadata_only_distinct_and_string_group_payloads_preassembled".to_string(),
+            segment_pruning_status: "metadata_only_payload_before_child_route_scan".to_string(),
+            sidecar_used: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        };
         let result_preassembly_start = std::time::Instant::now();
         let distinct_count_result_json = format!(
             "{{\"distinct_category_count\":{}}}",
@@ -1717,6 +1757,7 @@ impl TraditionalCategoryMetricState {
             distinct_count_rows_materialized,
             result_preassembly_micros,
             stats,
+            segment_metadata,
         })
     }
 }
@@ -1731,15 +1772,21 @@ struct TraditionalGroupCategoryMetricState {
     result_preassembly_micros: u64,
     stats: TraditionalStreamingScanStats,
     residual_operator_optimization: TraditionalResidualOperatorOptimizationEvidence,
+    segment_metadata: TraditionalSegmentGranuleMetadataSummary,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalGroupCategoryMetricState {
-    fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
+    #[allow(clippy::too_many_lines)]
+    fn from_path(fact_vortex: &std::path::Path, consumer_count: usize) -> Result<Self> {
         let mut group_key_groups = TraditionalU32GroupAccumulator::default();
         let mut group_category_groups = TraditionalPackedGroupAccumulator::default();
         let mut category_interner =
             TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
+        let mut group_key_summary = TraditionalU32MetadataAccumulator::default();
+        let mut category_summary = TraditionalStringMetadataAccumulator::default();
+        let mut metric_summary = TraditionalF64MetadataAccumulator::default();
+        let mut group_keys_seen = std::collections::BTreeSet::<u32>::new();
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["group_key", "category", "metric"],
@@ -1762,12 +1809,13 @@ impl TraditionalGroupCategoryMetricState {
                     )));
                 }
                 for (index, (&group_key, &metric)) in group_keys.iter().zip(metrics).enumerate() {
-                    let category_id = intern_utf8_value_at(
-                        &mut category_interner,
-                        &categories,
-                        "category",
-                        index,
-                    )?;
+                    let category = categories.bytes_at(index);
+                    let category = utf8_bytes_at(category.as_slice(), "category", index)?;
+                    group_key_summary.observe(group_key);
+                    category_summary.observe(category);
+                    metric_summary.observe(metric);
+                    group_keys_seen.insert(group_key);
+                    let category_id = category_interner.intern(category)?;
                     group_key_groups.add(group_key, metric)?;
                     group_category_groups.add(group_key, category_id, metric)?;
                 }
@@ -1783,12 +1831,55 @@ impl TraditionalGroupCategoryMetricState {
         let group_by_result_json =
             numeric_group_rows_json(group_key_groups.into_btree_map(), "group_key");
         let group_by_rows_materialized = result_rows_materialized(&group_by_result_json)?;
-        let multi_key_result_json = group_category_packed_id_rows_json(
-            group_category_groups.into_hash_map(),
-            &category_interner,
-        )?;
+        let group_category_groups = group_category_groups.into_hash_map();
+        let group_category_cardinality = group_category_groups.len();
+        let multi_key_result_json =
+            group_category_packed_id_rows_json(group_category_groups, &category_interner)?;
         let multi_key_rows_materialized = result_rows_materialized(&multi_key_result_json)?;
         let result_preassembly_micros = duration_to_micros(result_preassembly_start.elapsed());
+        let segment_metadata = TraditionalSegmentGranuleMetadataSummary {
+            family: "group_category_metric".to_string(),
+            source_state_status: group_category_metric_state_reuse_status_for_consumer_count(
+                consumer_count,
+            )
+            .to_string(),
+            artifact_scope: "single_fact_vortex_artifact".to_string(),
+            artifact_role: "fact_vortex".to_string(),
+            columns: "group_key,category,metric".to_string(),
+            consumer_count,
+            rows_summarized: stats.source_row_count,
+            result_rows_summarized: stats.result_row_count,
+            granule_count: usize_to_u64(stats.arrays_read_count)?,
+            minmax_summary_status:
+                "exact_group_key_category_and_metric_minmax_derived_from_source_state_scan"
+                    .to_string(),
+            minmax_summary: format!(
+                "{};{};{}",
+                group_key_summary.bound_summary("group_key"),
+                category_summary.bound_summary("category"),
+                metric_summary.bound_summary("metric")
+            ),
+            null_summary_status: "exact_required_field_null_absence".to_string(),
+            null_count: "group_key=0,category=0,metric=0".to_string(),
+            cardinality_summary_status: "exact_group_category_cardinality_from_accumulators"
+                .to_string(),
+            cardinality_summary: format!(
+                "group_key_distinct={},category_distinct={},group_category_distinct={}",
+                group_keys_seen.len(),
+                category_interner.len(),
+                group_category_cardinality
+            ),
+            string_absence_summary_status: "exact_empty_category_count".to_string(),
+            string_absence_count: category_summary.empty_count.to_string(),
+            topk_candidate_summary_status: "not_applicable_not_ranked_family".to_string(),
+            topk_candidate_count: "none".to_string(),
+            metadata_only_answer_status: "metadata_only_group_and_multi_key_payloads_preassembled"
+                .to_string(),
+            segment_pruning_status: "metadata_only_payload_before_child_route_scan".to_string(),
+            sidecar_used: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        };
         Ok(Self {
             group_by_result_json,
             group_by_rows_materialized,
@@ -1797,6 +1888,7 @@ impl TraditionalGroupCategoryMetricState {
             result_preassembly_micros,
             stats,
             residual_operator_optimization,
+            segment_metadata,
         })
     }
 }
@@ -1807,13 +1899,17 @@ struct TraditionalRankedMetricState {
     global_top_rows: Vec<(u64, f64)>,
     top_rows_by_group: std::collections::BTreeMap<u32, Vec<(u64, f64)>>,
     stats: TraditionalStreamingScanStats,
+    segment_metadata: TraditionalSegmentGranuleMetadataSummary,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalRankedMetricState {
-    fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
+    #[allow(clippy::too_many_lines)]
+    fn from_path(fact_vortex: &std::path::Path, consumer_count: usize) -> Result<Self> {
         let mut global_top_rows = std::collections::BinaryHeap::<GlobalTopKCandidate>::new();
         let mut top_rows_by_group = std::collections::BTreeMap::<u32, Vec<(u64, f64)>>::new();
+        let mut group_key_summary = TraditionalU32MetadataAccumulator::default();
+        let mut metric_summary = TraditionalF64MetadataAccumulator::default();
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["group_key", "id", "metric"],
@@ -1837,6 +1933,8 @@ impl TraditionalRankedMetricState {
                     )));
                 }
                 for ((&group_key, &id), &metric) in group_keys.iter().zip(ids).zip(metrics) {
+                    group_key_summary.observe(group_key);
+                    metric_summary.observe(metric);
                     global_top_rows.push(GlobalTopKCandidate::new(id, metric));
                     if global_top_rows.len() > 10 {
                         let _ = global_top_rows.pop();
@@ -1861,14 +1959,56 @@ impl TraditionalRankedMetricState {
                 .total_cmp(&left.metric)
                 .then_with(|| left.id.cmp(&right.id))
         });
-        let global_top_rows = global_top_rows
+        let global_top_rows: Vec<(u64, f64)> = global_top_rows
             .into_iter()
             .map(|row| (row.id, row.metric))
             .collect();
+        let grouped_top_candidate_count = top_rows_by_group.values().map(Vec::len).sum::<usize>();
+        let segment_metadata = TraditionalSegmentGranuleMetadataSummary {
+            family: "ranked_metric".to_string(),
+            source_state_status: ranked_metric_state_reuse_status_for_consumer_count(
+                consumer_count,
+            )
+            .to_string(),
+            artifact_scope: "single_fact_vortex_artifact".to_string(),
+            artifact_role: "fact_vortex".to_string(),
+            columns: "group_key,id,metric".to_string(),
+            consumer_count,
+            rows_summarized: stats.source_row_count,
+            result_rows_summarized: stats.result_row_count,
+            granule_count: usize_to_u64(stats.arrays_read_count)?,
+            minmax_summary_status:
+                "exact_group_key_and_metric_minmax_derived_from_source_state_scan".to_string(),
+            minmax_summary: format!(
+                "{};{}",
+                group_key_summary.bound_summary("group_key"),
+                metric_summary.bound_summary("metric")
+            ),
+            null_summary_status: "exact_required_field_null_absence".to_string(),
+            null_count: "group_key=0,id=0,metric=0".to_string(),
+            cardinality_summary_status: "exact_group_cardinality_from_ranked_state".to_string(),
+            cardinality_summary: format!("group_key_distinct={}", top_rows_by_group.len()),
+            string_absence_summary_status: "not_applicable_no_string_column".to_string(),
+            string_absence_count: "none".to_string(),
+            topk_candidate_summary_status: "exact_topk_candidate_summaries_from_ranked_state"
+                .to_string(),
+            topk_candidate_count: format!(
+                "global={},grouped={}",
+                global_top_rows.len(),
+                grouped_top_candidate_count
+            ),
+            metadata_only_answer_status: "metadata_only_ranked_and_window_payloads_preassembled"
+                .to_string(),
+            segment_pruning_status: "metadata_only_payload_before_child_route_scan".to_string(),
+            sidecar_used: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        };
         Ok(Self {
             global_top_rows,
             top_rows_by_group,
             stats,
+            segment_metadata,
         })
     }
 }
@@ -1910,15 +2050,19 @@ struct TraditionalSelectiveFilterState {
     selected_metric_accum: TraditionalGroupAccum,
     filtered_projection_rows: Vec<TraditionalFilteredProjectionRow>,
     stats: TraditionalStreamingScanStats,
+    segment_metadata: TraditionalSegmentGranuleMetadataSummary,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalSelectiveFilterState {
-    fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
+    #[allow(clippy::too_many_lines)]
+    fn from_path(fact_vortex: &std::path::Path, consumer_count: usize) -> Result<Self> {
         let mut selected_metric_accum = TraditionalGroupAccum::default();
         let mut filtered_projection_limit_rows =
             std::collections::BinaryHeap::<TraditionalFilteredProjectionLimitCandidate>::new();
         let mut filtered_projection_sequence = 0_u64;
+        let mut value_summary = TraditionalU32MetadataAccumulator::default();
+        let mut metric_summary = TraditionalF64MetadataAccumulator::default();
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["id", "value", "metric"],
@@ -1942,6 +2086,8 @@ impl TraditionalSelectiveFilterState {
                     )));
                 }
                 for ((&id, &value), &metric) in ids.iter().zip(values).zip(metrics) {
+                    value_summary.observe(value);
+                    metric_summary.observe(metric);
                     selected_metric_accum.add(metric);
                     push_filter_projection_limit_candidate(
                         &mut filtered_projection_limit_rows,
@@ -1960,12 +2106,60 @@ impl TraditionalSelectiveFilterState {
                 Ok(())
             },
         )?;
+        let filtered_projection_rows =
+            filter_projection_limit_rows_from_heap(filtered_projection_limit_rows);
+        let segment_pruning_status = if stats.vortex_scan_segments_skipped > 0 {
+            "filter_segment_pruning_before_source_state_scan"
+        } else if stats.filter_pushdown_applied {
+            "filter_pushdown_before_source_state_scan_no_segment_skip"
+        } else {
+            "blocked_filter_pushdown_not_applied_before_source_state_scan"
+        };
+        let segment_metadata = TraditionalSegmentGranuleMetadataSummary {
+            family: "selective_filter".to_string(),
+            source_state_status: selective_filter_state_reuse_status_for_consumer_count(
+                consumer_count,
+            )
+            .to_string(),
+            artifact_scope: "single_fact_vortex_artifact".to_string(),
+            artifact_role: "fact_vortex".to_string(),
+            columns: "id,value,metric".to_string(),
+            consumer_count,
+            rows_summarized: stats.source_row_count,
+            result_rows_summarized: stats.result_row_count,
+            granule_count: usize_to_u64(stats.arrays_read_count)?,
+            minmax_summary_status:
+                "exact_selected_value_and_metric_minmax_derived_from_source_state_scan".to_string(),
+            minmax_summary: format!(
+                "{};{}",
+                value_summary.bound_summary("value"),
+                metric_summary.bound_summary("metric")
+            ),
+            null_summary_status: "exact_required_field_null_absence".to_string(),
+            null_count: "id=0,value=0,metric=0".to_string(),
+            cardinality_summary_status:
+                "exact_selected_row_cardinality_from_predicate_source_state".to_string(),
+            cardinality_summary: format!(
+                "selected_rows={},filter_projection_candidates={}",
+                selected_metric_accum.row_count,
+                filtered_projection_rows.len()
+            ),
+            string_absence_summary_status: "not_applicable_no_string_column".to_string(),
+            string_absence_count: "none".to_string(),
+            topk_candidate_summary_status: "not_applicable_not_ranked_family".to_string(),
+            topk_candidate_count: "none".to_string(),
+            metadata_only_answer_status: "metadata_only_selective_filter_payloads_preassembled"
+                .to_string(),
+            segment_pruning_status: segment_pruning_status.to_string(),
+            sidecar_used: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        };
         Ok(Self {
             selected_metric_accum,
-            filtered_projection_rows: filter_projection_limit_rows_from_heap(
-                filtered_projection_limit_rows,
-            ),
+            filtered_projection_rows,
             stats,
+            segment_metadata,
         })
     }
 }
@@ -2344,6 +2538,284 @@ struct TraditionalSourceStateFamilyDigestRow {
     prepared: bool,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TraditionalSegmentGranuleMetadataEvidence {
+    pub summaries: Vec<TraditionalSegmentGranuleMetadataSummary>,
+    pub digest: String,
+}
+
+impl TraditionalSegmentGranuleMetadataEvidence {
+    #[must_use]
+    pub fn summary_family_count(&self) -> usize {
+        self.summaries.len()
+    }
+
+    #[must_use]
+    pub fn consumer_count(&self) -> usize {
+        self.summaries
+            .iter()
+            .map(|summary| summary.consumer_count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn source_rows_summarized(&self) -> u64 {
+        self.summaries
+            .iter()
+            .map(|summary| summary.rows_summarized)
+            .max()
+            .unwrap_or_default()
+    }
+
+    #[must_use]
+    pub fn source_granules_summarized(&self) -> u64 {
+        self.summaries
+            .iter()
+            .map(|summary| summary.granule_count)
+            .max()
+            .unwrap_or_default()
+    }
+
+    #[must_use]
+    pub fn minmax_summary_count(&self) -> usize {
+        self.summaries
+            .iter()
+            .filter(|summary| summary.minmax_summary_status.starts_with("exact_"))
+            .count()
+    }
+
+    #[must_use]
+    pub fn null_summary_count(&self) -> usize {
+        self.summaries
+            .iter()
+            .filter(|summary| summary.null_summary_status.starts_with("exact_"))
+            .count()
+    }
+
+    #[must_use]
+    pub fn cardinality_summary_count(&self) -> usize {
+        self.summaries
+            .iter()
+            .filter(|summary| summary.cardinality_summary_status.starts_with("exact_"))
+            .count()
+    }
+
+    #[must_use]
+    pub fn string_absence_summary_count(&self) -> usize {
+        self.summaries
+            .iter()
+            .filter(|summary| summary.string_absence_summary_status.starts_with("exact_"))
+            .count()
+    }
+
+    #[must_use]
+    pub fn topk_candidate_summary_count(&self) -> usize {
+        self.summaries
+            .iter()
+            .filter(|summary| summary.topk_candidate_summary_status.starts_with("exact_"))
+            .count()
+    }
+
+    #[must_use]
+    pub fn metadata_only_answer_family_count(&self) -> usize {
+        self.summaries
+            .iter()
+            .filter(|summary| {
+                summary
+                    .metadata_only_answer_status
+                    .starts_with("metadata_only_")
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn segment_pruning_family_count(&self) -> usize {
+        self.summaries
+            .iter()
+            .filter(|summary| {
+                summary
+                    .segment_pruning_status
+                    .contains("pushdown_before_source_state_scan")
+                    || summary
+                        .segment_pruning_status
+                        .contains("segment_pruning_before_source_state_scan")
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn status(&self) -> &'static str {
+        if self.summaries.is_empty() {
+            "not_applicable_no_segment_granule_metadata_consumers"
+        } else {
+            "derived_from_single_vortex_artifact_source_state"
+        }
+    }
+
+    #[must_use]
+    pub fn matrix(&self) -> String {
+        if self.summaries.is_empty() {
+            return "none".to_string();
+        }
+        self.summaries
+            .iter()
+            .map(TraditionalSegmentGranuleMetadataSummary::matrix_row)
+            .collect::<Vec<_>>()
+            .join(";")
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn from_summaries(
+        summaries: Vec<TraditionalSegmentGranuleMetadataSummary>,
+        source_state: &TraditionalVortexBatchSourceState,
+    ) -> Self {
+        let digest = source_state.segment_granule_metadata_digest(&summaries);
+        Self { summaries, digest }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraditionalSegmentGranuleMetadataSummary {
+    pub family: String,
+    pub source_state_status: String,
+    pub artifact_scope: String,
+    pub artifact_role: String,
+    pub columns: String,
+    pub consumer_count: usize,
+    pub rows_summarized: u64,
+    pub result_rows_summarized: u64,
+    pub granule_count: u64,
+    pub minmax_summary_status: String,
+    pub minmax_summary: String,
+    pub null_summary_status: String,
+    pub null_count: String,
+    pub cardinality_summary_status: String,
+    pub cardinality_summary: String,
+    pub string_absence_summary_status: String,
+    pub string_absence_count: String,
+    pub topk_candidate_summary_status: String,
+    pub topk_candidate_count: String,
+    pub metadata_only_answer_status: String,
+    pub segment_pruning_status: String,
+    pub sidecar_used: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl TraditionalSegmentGranuleMetadataSummary {
+    #[must_use]
+    pub fn matrix_row(&self) -> String {
+        format!(
+            "{}:{}:columns={}:rows={}:granules={}:answer={}:pruning={}",
+            self.family,
+            self.source_state_status,
+            self.columns,
+            self.rows_summarized,
+            self.granule_count,
+            self.metadata_only_answer_status,
+            self.segment_pruning_status
+        )
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Default, PartialEq)]
+struct TraditionalF64MetadataAccumulator {
+    min: Option<f64>,
+    max: Option<f64>,
+    observed_count: u64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalF64MetadataAccumulator {
+    fn observe(&mut self, value: f64) {
+        self.observed_count = self.observed_count.saturating_add(1);
+        self.min = Some(self.min.map_or(value, |current| {
+            if value.total_cmp(&current).is_lt() {
+                value
+            } else {
+                current
+            }
+        }));
+        self.max = Some(self.max.map_or(value, |current| {
+            if value.total_cmp(&current).is_gt() {
+                value
+            } else {
+                current
+            }
+        }));
+    }
+
+    fn bound_summary(&self, field: &str) -> String {
+        match (self.min, self.max) {
+            (Some(min), Some(max)) => {
+                format!("{field}:min={},max={}", json_float(min), json_float(max))
+            }
+            _ => format!("{field}:none"),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct TraditionalU32MetadataAccumulator {
+    min: Option<u32>,
+    max: Option<u32>,
+    observed_count: u64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalU32MetadataAccumulator {
+    fn observe(&mut self, value: u32) {
+        self.observed_count = self.observed_count.saturating_add(1);
+        self.min = Some(self.min.map_or(value, |current| current.min(value)));
+        self.max = Some(self.max.map_or(value, |current| current.max(value)));
+    }
+
+    fn bound_summary(&self, field: &str) -> String {
+        match (self.min, self.max) {
+            (Some(min), Some(max)) => format!("{field}:min={min},max={max}"),
+            _ => format!("{field}:none"),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct TraditionalStringMetadataAccumulator {
+    min: Option<String>,
+    max: Option<String>,
+    observed_count: u64,
+    empty_count: u64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalStringMetadataAccumulator {
+    fn observe(&mut self, value: &str) {
+        self.observed_count = self.observed_count.saturating_add(1);
+        if value.is_empty() {
+            self.empty_count = self.empty_count.saturating_add(1);
+        }
+        if self.min.as_deref().is_none_or(|current| value < current) {
+            self.min = Some(value.to_string());
+        }
+        if self.max.as_deref().is_none_or(|current| value > current) {
+            self.max = Some(value.to_string());
+        }
+    }
+
+    fn bound_summary(&self, field: &str) -> String {
+        match (self.min.as_deref(), self.max.as_deref()) {
+            (Some(min), Some(max)) => format!(
+                "{field}:min={},max={}",
+                json_string_literal(min),
+                json_string_literal(max)
+            ),
+            _ => format!("{field}:none"),
+        }
+    }
+}
+
 fn dimension_label_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
     match consumer_count {
         0 => "not_applicable_no_dimension_label_state_consumers",
@@ -2659,7 +3131,12 @@ impl TraditionalVortexBatchSourceState {
             return Ok(None);
         }
         self.category_metric_state
-            .get_or_try_build(|| TraditionalCategoryMetricState::from_path(&self.fact_vortex_path))
+            .get_or_try_build(|| {
+                TraditionalCategoryMetricState::from_path(
+                    &self.fact_vortex_path,
+                    self.category_metric_state_consumer_count,
+                )
+            })
             .map(Some)
     }
 
@@ -2671,7 +3148,10 @@ impl TraditionalVortexBatchSourceState {
         }
         self.group_category_metric_state
             .get_or_try_build(|| {
-                TraditionalGroupCategoryMetricState::from_path(&self.fact_vortex_path)
+                TraditionalGroupCategoryMetricState::from_path(
+                    &self.fact_vortex_path,
+                    self.group_category_metric_state_consumer_count,
+                )
             })
             .map(Some)
     }
@@ -2683,7 +3163,12 @@ impl TraditionalVortexBatchSourceState {
             return Ok(None);
         }
         self.ranked_metric_state
-            .get_or_try_build(|| TraditionalRankedMetricState::from_path(&self.fact_vortex_path))
+            .get_or_try_build(|| {
+                TraditionalRankedMetricState::from_path(
+                    &self.fact_vortex_path,
+                    self.ranked_metric_state_consumer_count,
+                )
+            })
             .map(Some)
     }
 
@@ -2694,7 +3179,12 @@ impl TraditionalVortexBatchSourceState {
             return Ok(None);
         }
         self.selective_filter_state
-            .get_or_try_build(|| TraditionalSelectiveFilterState::from_path(&self.fact_vortex_path))
+            .get_or_try_build(|| {
+                TraditionalSelectiveFilterState::from_path(
+                    &self.fact_vortex_path,
+                    self.selective_filter_state_consumer_count,
+                )
+            })
             .map(Some)
     }
 
@@ -2747,6 +3237,63 @@ impl TraditionalVortexBatchSourceState {
             date_null_metric_build_count: self.date_null_metric_state.build_count(),
             date_null_metric_reuse_hit_count: self.date_null_metric_state.reuse_hit_count(),
         }
+    }
+
+    fn segment_granule_metadata_evidence(&self) -> TraditionalSegmentGranuleMetadataEvidence {
+        let mut summaries = Vec::new();
+        if let Some(state) = self.category_metric_state.value.borrow().as_ref() {
+            summaries.push(state.segment_metadata.clone());
+        }
+        if let Some(state) = self.group_category_metric_state.value.borrow().as_ref() {
+            summaries.push(state.segment_metadata.clone());
+        }
+        if let Some(state) = self.ranked_metric_state.value.borrow().as_ref() {
+            summaries.push(state.segment_metadata.clone());
+        }
+        if let Some(state) = self.selective_filter_state.value.borrow().as_ref() {
+            summaries.push(state.segment_metadata.clone());
+        }
+        TraditionalSegmentGranuleMetadataEvidence::from_summaries(summaries, self)
+    }
+
+    fn segment_granule_metadata_digest(
+        &self,
+        summaries: &[TraditionalSegmentGranuleMetadataSummary],
+    ) -> String {
+        let mut digest = Fnv1a64::new();
+        digest.update(b"traditional_segment_granule_metadata.v1");
+        self.update_source_snapshot_digest(&mut digest);
+        for summary in summaries {
+            digest.update(summary.family.as_bytes());
+            digest.update(summary.source_state_status.as_bytes());
+            digest.update(summary.artifact_scope.as_bytes());
+            digest.update(summary.artifact_role.as_bytes());
+            digest.update(summary.columns.as_bytes());
+            digest.update(summary.consumer_count.to_string().as_bytes());
+            digest.update(summary.rows_summarized.to_string().as_bytes());
+            digest.update(summary.result_rows_summarized.to_string().as_bytes());
+            digest.update(summary.granule_count.to_string().as_bytes());
+            digest.update(summary.minmax_summary_status.as_bytes());
+            digest.update(summary.minmax_summary.as_bytes());
+            digest.update(summary.null_summary_status.as_bytes());
+            digest.update(summary.null_count.as_bytes());
+            digest.update(summary.cardinality_summary_status.as_bytes());
+            digest.update(summary.cardinality_summary.as_bytes());
+            digest.update(summary.string_absence_summary_status.as_bytes());
+            digest.update(summary.string_absence_count.as_bytes());
+            digest.update(summary.topk_candidate_summary_status.as_bytes());
+            digest.update(summary.topk_candidate_count.as_bytes());
+            digest.update(summary.metadata_only_answer_status.as_bytes());
+            digest.update(summary.segment_pruning_status.as_bytes());
+            digest.update(summary.sidecar_used.to_string().as_bytes());
+            digest.update(summary.fallback_attempted.to_string().as_bytes());
+            digest.update(summary.external_engine_invoked.to_string().as_bytes());
+        }
+        format!(
+            "{}:{:016x}",
+            OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
+            digest.finish()
+        )
     }
 
     fn group_category_metric_result_preassembly_micros(&self) -> u64 {
@@ -8554,6 +9101,7 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub source_state_family_prewarm_prepared_before_child_route_count: usize,
     pub source_state_family_prewarm_micros: u64,
     pub source_state_family_runtime_evidence: TraditionalSourceStateFamilyRuntimeEvidence,
+    pub segment_granule_metadata_evidence: TraditionalSegmentGranuleMetadataEvidence,
     pub source_state_digest_micros: u64,
     pub source_state_digest: String,
     pub source_state_family_digests: String,
@@ -12607,6 +13155,7 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "false".to_string(),
             ),
         ]);
+        fields.extend(self.segment_granule_metadata_fields());
         for report in &self.reports {
             let mut scenario_fields = batch_scenario_fields(report);
             let prefix = format!("scenario_{}", traditional_scenario_slug(report.scenario));
@@ -12629,9 +13178,306 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "runtime-plumbing coverage classification only; not a performance, encoded-native, production, SQL/DataFrame, object-store, lakehouse, or Spark-displacement claim"
                     .to_string(),
             ));
+            scenario_fields.extend(self.segment_granule_metadata_scenario_fields(report.scenario));
             fields.extend(scenario_fields);
         }
         fields
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn segment_granule_metadata_fields(&self) -> Vec<(String, String)> {
+        let evidence = &self.segment_granule_metadata_evidence;
+        let sidecar_used = evidence
+            .summaries
+            .iter()
+            .any(|summary| summary.sidecar_used);
+        let fallback_attempted = evidence
+            .summaries
+            .iter()
+            .any(|summary| summary.fallback_attempted);
+        let external_engine_invoked = evidence
+            .summaries
+            .iter()
+            .any(|summary| summary.external_engine_invoked);
+        let mut fields = vec![
+            (
+                "segment_granule_metadata_schema_version".to_string(),
+                SEGMENT_GRANULE_METADATA_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "segment_granule_metadata_status".to_string(),
+                evidence.status().to_string(),
+            ),
+            (
+                "segment_granule_metadata_matrix_ref".to_string(),
+                "docs/architecture/source-state-reuse-coverage-matrix.md#segmentgranule-metadata"
+                    .to_string(),
+            ),
+            (
+                "segment_granule_metadata_artifact_scope".to_string(),
+                "single_fact_vortex_artifact".to_string(),
+            ),
+            (
+                "segment_granule_metadata_provider_scope".to_string(),
+                "shardloom_vortex_native_source_state_no_query_engine_integration".to_string(),
+            ),
+            (
+                "segment_granule_metadata_summary_family_count".to_string(),
+                evidence.summary_family_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_consumer_count".to_string(),
+                evidence.consumer_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_source_rows_summarized".to_string(),
+                evidence.source_rows_summarized().to_string(),
+            ),
+            (
+                "segment_granule_metadata_source_granules_summarized".to_string(),
+                evidence.source_granules_summarized().to_string(),
+            ),
+            (
+                "segment_granule_metadata_matrix".to_string(),
+                evidence.matrix(),
+            ),
+            (
+                "segment_granule_metadata_digest".to_string(),
+                evidence.digest.clone(),
+            ),
+            (
+                "segment_granule_metadata_digest_algorithm".to_string(),
+                OUTPUT_ARTIFACT_DIGEST_ALGORITHM.to_string(),
+            ),
+            (
+                "segment_granule_metadata_minmax_summary_count".to_string(),
+                evidence.minmax_summary_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_null_summary_count".to_string(),
+                evidence.null_summary_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_cardinality_summary_count".to_string(),
+                evidence.cardinality_summary_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_string_absence_summary_count".to_string(),
+                evidence.string_absence_summary_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_topk_candidate_summary_count".to_string(),
+                evidence.topk_candidate_summary_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_metadata_only_answer_family_count".to_string(),
+                evidence.metadata_only_answer_family_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_segment_pruning_family_count".to_string(),
+                evidence.segment_pruning_family_count().to_string(),
+            ),
+            (
+                "segment_granule_metadata_sidecar_used".to_string(),
+                sidecar_used.to_string(),
+            ),
+            (
+                "segment_granule_metadata_fallback_attempted".to_string(),
+                fallback_attempted.to_string(),
+            ),
+            (
+                "segment_granule_metadata_external_engine_invoked".to_string(),
+                external_engine_invoked.to_string(),
+            ),
+            (
+                "segment_granule_metadata_claim_gate_status".to_string(),
+                "not_claim_grade".to_string(),
+            ),
+            (
+                "segment_granule_metadata_claim_boundary".to_string(),
+                "scoped prepared/native benchmark metadata execution evidence only; no sidecars, no persistent index, no SQL/DataFrame/object-store/lakehouse/production/performance/Spark-displacement claim".to_string(),
+            ),
+        ];
+
+        for summary in &evidence.summaries {
+            let prefix = format!("segment_granule_metadata_{}", summary.family);
+            fields.extend(vec![
+                (
+                    format!("{prefix}_source_state_status"),
+                    summary.source_state_status.clone(),
+                ),
+                (
+                    format!("{prefix}_artifact_scope"),
+                    summary.artifact_scope.clone(),
+                ),
+                (
+                    format!("{prefix}_artifact_role"),
+                    summary.artifact_role.clone(),
+                ),
+                (format!("{prefix}_columns"), summary.columns.clone()),
+                (
+                    format!("{prefix}_consumer_count"),
+                    summary.consumer_count.to_string(),
+                ),
+                (
+                    format!("{prefix}_rows_summarized"),
+                    summary.rows_summarized.to_string(),
+                ),
+                (
+                    format!("{prefix}_result_rows_summarized"),
+                    summary.result_rows_summarized.to_string(),
+                ),
+                (
+                    format!("{prefix}_granule_count"),
+                    summary.granule_count.to_string(),
+                ),
+                (
+                    format!("{prefix}_minmax_summary_status"),
+                    summary.minmax_summary_status.clone(),
+                ),
+                (
+                    format!("{prefix}_minmax_summary"),
+                    summary.minmax_summary.clone(),
+                ),
+                (
+                    format!("{prefix}_null_summary_status"),
+                    summary.null_summary_status.clone(),
+                ),
+                (format!("{prefix}_null_count"), summary.null_count.clone()),
+                (
+                    format!("{prefix}_cardinality_summary_status"),
+                    summary.cardinality_summary_status.clone(),
+                ),
+                (
+                    format!("{prefix}_cardinality_summary"),
+                    summary.cardinality_summary.clone(),
+                ),
+                (
+                    format!("{prefix}_string_absence_summary_status"),
+                    summary.string_absence_summary_status.clone(),
+                ),
+                (
+                    format!("{prefix}_string_absence_count"),
+                    summary.string_absence_count.clone(),
+                ),
+                (
+                    format!("{prefix}_topk_candidate_summary_status"),
+                    summary.topk_candidate_summary_status.clone(),
+                ),
+                (
+                    format!("{prefix}_topk_candidate_count"),
+                    summary.topk_candidate_count.clone(),
+                ),
+                (
+                    format!("{prefix}_metadata_only_answer_status"),
+                    summary.metadata_only_answer_status.clone(),
+                ),
+                (
+                    format!("{prefix}_segment_pruning_status"),
+                    summary.segment_pruning_status.clone(),
+                ),
+                (
+                    format!("{prefix}_sidecar_used"),
+                    summary.sidecar_used.to_string(),
+                ),
+                (
+                    format!("{prefix}_fallback_attempted"),
+                    summary.fallback_attempted.to_string(),
+                ),
+                (
+                    format!("{prefix}_external_engine_invoked"),
+                    summary.external_engine_invoked.to_string(),
+                ),
+            ]);
+        }
+        fields
+    }
+
+    fn segment_granule_metadata_scenario_fields(
+        &self,
+        scenario: TraditionalAnalyticsScenario,
+    ) -> Vec<(String, String)> {
+        let prefix = format!("scenario_{}", traditional_scenario_slug(scenario));
+        let family = Self::source_state_coverage_family(scenario);
+        let summary = self
+            .segment_granule_metadata_evidence
+            .summaries
+            .iter()
+            .find(|summary| summary.family == family);
+        let coverage_status = self.source_state_coverage_status(scenario);
+        let status = if summary.is_some() {
+            "metadata-summary-derived"
+        } else if matches!(
+            coverage_status,
+            "source-state-reused" | "source-state-seeded"
+        ) {
+            "metadata-summary-missing"
+        } else {
+            "not-applicable"
+        };
+        vec![
+            (
+                format!("{prefix}_segment_granule_metadata_status"),
+                status.to_string(),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_family"),
+                family.to_string(),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_artifact_scope"),
+                summary.map_or_else(
+                    || "not_applicable".to_string(),
+                    |summary| summary.artifact_scope.clone(),
+                ),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_minmax_summary_status"),
+                summary.map_or_else(
+                    || "not_applicable".to_string(),
+                    |summary| summary.minmax_summary_status.clone(),
+                ),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_cardinality_summary_status"),
+                summary.map_or_else(
+                    || "not_applicable".to_string(),
+                    |summary| summary.cardinality_summary_status.clone(),
+                ),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_metadata_only_answer_status"),
+                summary.map_or_else(
+                    || "not_applicable".to_string(),
+                    |summary| summary.metadata_only_answer_status.clone(),
+                ),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_segment_pruning_status"),
+                summary.map_or_else(
+                    || "not_applicable".to_string(),
+                    |summary| summary.segment_pruning_status.clone(),
+                ),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_sidecar_used"),
+                summary
+                    .is_some_and(|summary| summary.sidecar_used)
+                    .to_string(),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_fallback_attempted"),
+                summary
+                    .is_some_and(|summary| summary.fallback_attempted)
+                    .to_string(),
+            ),
+            (
+                format!("{prefix}_segment_granule_metadata_external_engine_invoked"),
+                summary
+                    .is_some_and(|summary| summary.external_engine_invoked)
+                    .to_string(),
+            ),
+        ]
     }
 
     fn scenario_order(&self) -> Vec<String> {
@@ -26136,6 +26982,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let source_state_family_build_micros =
         source_state_family_runtime_evidence.total_build_micros();
     let source_state_family_build_count = source_state_family_runtime_evidence.total_build_count();
+    let segment_granule_metadata_evidence =
+        session.source_state.segment_granule_metadata_evidence();
     let category_metric_result_preassembly_micros = session
         .source_state
         .category_metric_result_preassembly_micros();
@@ -26244,6 +27092,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             .prepared_before_child_route_family_count,
         source_state_family_prewarm_micros: source_state_family_prewarm.prewarm_micros,
         source_state_family_runtime_evidence,
+        segment_granule_metadata_evidence,
         source_state_digest_micros,
         source_state_digest,
         source_state_family_digests,
@@ -47698,6 +48547,134 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "segment_granule_metadata_schema_version",
+            SEGMENT_GRANULE_METADATA_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_status",
+            "derived_from_single_vortex_artifact_source_state",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_artifact_scope",
+            "single_fact_vortex_artifact",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_provider_scope",
+            "shardloom_vortex_native_source_state_no_query_engine_integration",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_summary_family_count",
+            "4",
+        );
+        assert_field_eq(&fields, "segment_granule_metadata_consumer_count", "4");
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_source_rows_summarized",
+            "3",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_source_granules_summarized",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_minmax_summary_count",
+            "4",
+        );
+        assert_field_eq(&fields, "segment_granule_metadata_null_summary_count", "4");
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_cardinality_summary_count",
+            "4",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_string_absence_summary_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_topk_candidate_summary_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_metadata_only_answer_family_count",
+            "4",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_segment_pruning_family_count",
+            "1",
+        );
+        assert_field_eq(&fields, "segment_granule_metadata_sidecar_used", "false");
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_external_engine_invoked",
+            "false",
+        );
+        assert!(
+            fields
+                .get("segment_granule_metadata_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_contains(
+            &fields,
+            "segment_granule_metadata_matrix",
+            "ranked_metric:single_consumer_ranked_metric_state_seeded",
+        );
+        assert_field_contains(
+            &fields,
+            "segment_granule_metadata_matrix",
+            "category_metric:single_consumer_category_metric_state_seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_category_metric_columns",
+            "category,metric",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_category_metric_minmax_summary",
+            "category:min=\"A\",max=\"B\";metric:min=2.5,max=4.0",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_category_metric_cardinality_summary",
+            "category_distinct=2",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_group_category_metric_cardinality_summary",
+            "group_key_distinct=2,category_distinct=2,group_category_distinct=2",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_ranked_metric_topk_candidate_count",
+            "global=3,grouped=3",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_selective_filter_cardinality_summary",
+            "selected_rows=2,filter_projection_candidates=2",
+        );
+        assert_field_eq(
+            &fields,
+            "segment_granule_metadata_selective_filter_segment_pruning_status",
+            "filter_pushdown_before_source_state_scan_no_segment_skip",
+        );
+        assert_field_eq(
+            &fields,
             "source_state_category_metric_reuse_status",
             "single_consumer_category_metric_state_seeded",
         );
@@ -47785,6 +48762,51 @@ mod tests {
             &fields,
             "scenario_selective-filter_source_state_coverage_status",
             "source-state-seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_segment_granule_metadata_status",
+            "metadata-summary-derived",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_distinct-count_segment_granule_metadata_status",
+            "metadata-summary-derived",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_segment_granule_metadata_status",
+            "metadata-summary-derived",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_segment_granule_metadata_status",
+            "metadata-summary-derived",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_distinct-count_segment_granule_metadata_metadata_only_answer_status",
+            "metadata_only_distinct_and_string_group_payloads_preassembled",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_segment_granule_metadata_metadata_only_answer_status",
+            "metadata_only_group_and_multi_key_payloads_preassembled",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_segment_granule_metadata_metadata_only_answer_status",
+            "metadata_only_ranked_and_window_payloads_preassembled",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_segment_granule_metadata_segment_pruning_status",
+            "filter_pushdown_before_source_state_scan_no_segment_skip",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_segment_granule_metadata_sidecar_used",
+            "false",
         );
         assert_field_eq(
             &fields,
