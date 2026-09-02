@@ -111,7 +111,7 @@ flowchart LR
     ADMISSION["Admission<br/>policy + capability + semantics"]
     SOURCE["Source route<br/>UniversalIngress / SourceState"]
     PREPARE["Preparation<br/>vortex-prepare / VortexPreparedState"]
-    EXECUTE["Execution route<br/>compatibility / prepared / native / direct"]
+    EXECUTE["Execution route<br/>compatibility import / prepared Vortex / native Vortex"]
     OUTPUT["Output route<br/>OutputPlan / SinkArtifact"]
     TIMING["Timing surface<br/>hot_runtime / replay / publication"]
     CLAIM["Claim gate<br/>evidence + blockers + no fallback"]
@@ -170,7 +170,14 @@ Vortex-normalized path was used: `local_primitive_metadata_elimination_stage`,
 `local_primitive_metadata_elimination_outcome`, `local_primitive_rows_avoided_by_metadata`,
 `local_primitive_decode_avoided_by_metadata`,
 `local_primitive_materialization_avoided_by_metadata`,
-`local_primitive_physical_policy_summary`, and the selected resource-envelope budget fields.
+`local_primitive_physical_policy_summary`,
+`local_primitive_evidence_collector_status`,
+`local_primitive_control_plane_micros`,
+`local_primitive_evidence_collection_micros`,
+`local_primitive_evidence_compact_signature_count`,
+`local_primitive_evidence_full_split_count`, and the selected resource-envelope budget fields. The
+compact evidence collector reports repeated layout/encoding signatures and representative split
+references while retaining the full replay split evidence required for proof lanes.
 Universal Ingest layout-advisor output must identify itself as the
 `universal_ingest_optimizer`, state that query-answer sidecars are disallowed, and record the
 single-artifact, compact-derived-metadata, membership-sketch, row-position-locality, and
@@ -211,10 +218,14 @@ upstream-default writer substitution.
 
 Universal Ingest can also embed exact reusable derived columns in that same `.vortex` artifact when
 the source adapter can produce them without making large preparation slower. The retained derived
-families are compact `UInt32` UTF-8 byte length for high-value URL/search/title text fields,
-dictionary-encoded URL/Referer/URI domain extraction for URL-like fields, and compact `UInt8`
-minute-of-hour keys plus `Int64` epoch-minute date-trunc buckets for admitted typed time-like
-fields. These columns are internal storage/layout features: user `select *` output hides
+families are compact `UInt32` UTF-8 byte length, dictionary-encoded URL/Referer/URI domain
+extraction for URL-like fields, and compact `UInt8` minute-of-hour keys plus `Int64` epoch-minute
+date-trunc buckets for admitted typed time-like fields. Large product columnar preparation uses a
+lean runtime profile first: URL, Referer, SearchPhrase, and EventTime helpers are retained because
+they feed shared SQL/Python/DataFrame predicate, aggregate, and top-K lanes; broader candidates such
+as OriginalURL, ClientEventTime, LocalEventTime, and Title length are omitted unless the adapter can
+provide a cheaper compact boundary. These columns are internal storage/layout features: user
+`select *` output hides
 `__shardloom_derived_*` fields, while native predicate, aggregate, bounded sort/top-K, and admitted
 row-export/sample planning can consume them for `length(...)`, URL-domain grouping,
 `extract(minute ...)`, `DATE_TRUNC('minute', ...)`, and non-empty string predicates before row
@@ -238,7 +249,7 @@ dictionary/typed-time wrapper when the source already exposes a safe layout: dic
 URL-like fields derive byte length and domain by transforming dictionary values once and remapping
 existing codes while preserving the source Arrow dictionary key width, and typed numeric/time
 fields plus Arrow timestamp columns across second/millisecond/microsecond/nanosecond units may
-derive compact minute keys. Plain UTF-8 columnar batches still report
+derive compact minute keys when admitted by the lean or broader source-native profile. Plain UTF-8 columnar batches still report
 `source_native_embedded_derived_columns=not_available_for_current_arrow_layout` rather than paying a
 large preparation-time string scan.
 

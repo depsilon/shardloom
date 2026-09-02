@@ -2363,7 +2363,7 @@ fn fact_metric_state_reuse_status_for_consumer_count(consumer_count: usize) -> &
 fn category_metric_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
     match consumer_count {
         0 => "not_applicable_no_category_metric_state_consumers",
-        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        1 => "single_consumer_category_metric_state_seeded",
         _ => "per_batch_category_metric_state_reused",
     }
 }
@@ -2373,7 +2373,7 @@ fn group_category_metric_state_reuse_status_for_consumer_count(
 ) -> &'static str {
     match consumer_count {
         0 => "not_applicable_no_group_category_metric_state_consumers",
-        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        1 => "single_consumer_group_category_metric_state_seeded",
         _ => "per_batch_group_category_metric_state_reused",
     }
 }
@@ -2381,7 +2381,7 @@ fn group_category_metric_state_reuse_status_for_consumer_count(
 fn ranked_metric_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
     match consumer_count {
         0 => "not_applicable_no_ranked_metric_state_consumers",
-        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        1 => "single_consumer_ranked_metric_state_seeded",
         _ => "per_batch_ranked_metric_state_reused",
     }
 }
@@ -2389,7 +2389,7 @@ fn ranked_metric_state_reuse_status_for_consumer_count(consumer_count: usize) ->
 fn selective_filter_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
     match consumer_count {
         0 => "not_applicable_no_selective_filter_state_consumers",
-        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        1 => "single_consumer_selective_filter_state_seeded",
         _ => "per_batch_selective_filter_state_reused",
     }
 }
@@ -2655,7 +2655,7 @@ impl TraditionalVortexBatchSourceState {
     fn category_metric_state(
         &self,
     ) -> Result<Option<std::cell::Ref<'_, TraditionalCategoryMetricState>>> {
-        if self.category_metric_state_consumer_count <= 1 {
+        if self.category_metric_state_consumer_count == 0 {
             return Ok(None);
         }
         self.category_metric_state
@@ -2666,7 +2666,7 @@ impl TraditionalVortexBatchSourceState {
     fn group_category_metric_state(
         &self,
     ) -> Result<Option<std::cell::Ref<'_, TraditionalGroupCategoryMetricState>>> {
-        if self.group_category_metric_state_consumer_count <= 1 {
+        if self.group_category_metric_state_consumer_count == 0 {
             return Ok(None);
         }
         self.group_category_metric_state
@@ -2679,7 +2679,7 @@ impl TraditionalVortexBatchSourceState {
     fn ranked_metric_state(
         &self,
     ) -> Result<Option<std::cell::Ref<'_, TraditionalRankedMetricState>>> {
-        if self.ranked_metric_state_consumer_count <= 1 {
+        if self.ranked_metric_state_consumer_count == 0 {
             return Ok(None);
         }
         self.ranked_metric_state
@@ -2690,7 +2690,7 @@ impl TraditionalVortexBatchSourceState {
     fn selective_filter_state(
         &self,
     ) -> Result<Option<std::cell::Ref<'_, TraditionalSelectiveFilterState>>> {
-        if self.selective_filter_state_consumer_count <= 1 {
+        if self.selective_filter_state_consumer_count == 0 {
             return Ok(None);
         }
         self.selective_filter_state
@@ -2850,8 +2850,14 @@ impl TraditionalVortexBatchSourceState {
     }
 
     fn group_category_metric_result_cache_status(&self) -> &'static str {
-        if self.group_category_metric_state_consumer_count <= 1 {
-            "not_applicable_single_or_no_group_category_metric_consumer"
+        if self.group_category_metric_state_consumer_count == 0 {
+            "not_applicable_no_group_category_metric_consumer"
+        } else if self.group_category_metric_state_consumer_count == 1
+            && self.group_category_metric_state.is_built()
+        {
+            "single_consumer_group_category_metric_result_payloads_preassembled"
+        } else if self.group_category_metric_state_consumer_count == 1 {
+            "pending_single_consumer_group_category_metric_result_payload_preassembly"
         } else if self.group_category_metric_state.is_built() {
             "per_batch_group_category_metric_result_payloads_preassembled"
         } else {
@@ -2860,8 +2866,14 @@ impl TraditionalVortexBatchSourceState {
     }
 
     fn category_metric_result_cache_status(&self) -> &'static str {
-        if self.category_metric_state_consumer_count <= 1 {
-            "not_applicable_single_or_no_category_metric_consumer"
+        if self.category_metric_state_consumer_count == 0 {
+            "not_applicable_no_category_metric_consumer"
+        } else if self.category_metric_state_consumer_count == 1
+            && self.category_metric_state.is_built()
+        {
+            "single_consumer_category_metric_result_payloads_preassembled"
+        } else if self.category_metric_state_consumer_count == 1 {
+            "pending_single_consumer_category_metric_result_payload_preassembly"
         } else if self.category_metric_state.is_built() {
             "per_batch_category_metric_result_payloads_preassembled"
         } else {
@@ -11920,7 +11932,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
             (
                 "source_state_coverage_status_vocabulary".to_string(),
-                "source-state-reused,source-state-not-needed,blocked-with-reason,unsupported-with-reason"
+                "source-state-reused,source-state-seeded,source-state-not-needed,blocked-with-reason,unsupported-with-reason"
                     .to_string(),
             ),
             (
@@ -11934,6 +11946,11 @@ impl TraditionalAnalyticsVortexBatchReport {
             (
                 "source_state_coverage_reused_scenario_count".to_string(),
                 self.source_state_coverage_status_count("source-state-reused")
+                    .to_string(),
+            ),
+            (
+                "source_state_coverage_seeded_scenario_count".to_string(),
+                self.source_state_coverage_status_count("source-state-seeded")
                     .to_string(),
             ),
             (
@@ -11991,6 +12008,25 @@ impl TraditionalAnalyticsVortexBatchReport {
             (
                 "source_state_recompute_avoided_count".to_string(),
                 self.source_state_recompute_avoided_count().to_string(),
+            ),
+            (
+                "source_state_seed_policy".to_string(),
+                "seed_single_high_cost_category_group_ranked_and_selective_filter_families_lazily"
+                    .to_string(),
+            ),
+            (
+                "source_state_seeded".to_string(),
+                self.source_state_single_consumer_seeded().to_string(),
+            ),
+            (
+                "source_state_seeded_family_count".to_string(),
+                self.source_state_single_consumer_seeded_family_count()
+                    .to_string(),
+            ),
+            (
+                "source_state_seeded_consumer_count".to_string(),
+                self.source_state_single_consumer_seeded_consumer_count()
+                    .to_string(),
             ),
             (
                 "source_state_family_count".to_string(),
@@ -12637,6 +12673,21 @@ impl TraditionalAnalyticsVortexBatchReport {
             + self.date_null_metric_state_recompute_avoided_count
     }
 
+    fn source_state_single_consumer_seeded(&self) -> bool {
+        self.source_state_single_consumer_seeded_consumer_count() > 0
+    }
+
+    fn source_state_single_consumer_seeded_consumer_count(&self) -> usize {
+        usize::from(self.category_metric_state_consumer_count == 1)
+            + usize::from(self.group_category_metric_state_consumer_count == 1)
+            + usize::from(self.ranked_metric_state_consumer_count == 1)
+            + usize::from(self.selective_filter_state_consumer_count == 1)
+    }
+
+    fn source_state_single_consumer_seeded_family_count(&self) -> usize {
+        self.source_state_single_consumer_seeded_consumer_count()
+    }
+
     fn source_state_family_count(&self) -> usize {
         usize::from(self.dimension_label_state_consumer_count > 0)
             + usize::from(self.fact_metric_state_consumer_count > 0)
@@ -12714,6 +12765,9 @@ impl TraditionalAnalyticsVortexBatchReport {
             reused_statuses.push(self.date_null_metric_state_reuse_status());
         }
         match reused_statuses.as_slice() {
+            [] if self.source_state_single_consumer_seeded_family_count() > 1 => {
+                "per_batch_multi_family_source_state_seeded_single_consumers"
+            }
             [] if self.source_state_family_count() > 1 => {
                 "per_batch_multi_family_source_state_available_single_consumers"
             }
@@ -12831,35 +12885,35 @@ impl TraditionalAnalyticsVortexBatchReport {
             }
             TraditionalAnalyticsScenario::DistinctCount
             | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
-                if self.category_metric_state_consumer_count > 1 {
-                    "source-state-reused"
-                } else {
-                    "source-state-not-needed"
+                match self.category_metric_state_consumer_count {
+                    0 => "source-state-not-needed",
+                    1 => "source-state-seeded",
+                    _ => "source-state-reused",
                 }
             }
             TraditionalAnalyticsScenario::GroupByAggregation
             | TraditionalAnalyticsScenario::MultiKeyGroupBy => {
-                if self.group_category_metric_state_consumer_count > 1 {
-                    "source-state-reused"
-                } else {
-                    "source-state-not-needed"
+                match self.group_category_metric_state_consumer_count {
+                    0 => "source-state-not-needed",
+                    1 => "source-state-seeded",
+                    _ => "source-state-reused",
                 }
             }
             TraditionalAnalyticsScenario::SortAndTopK
             | TraditionalAnalyticsScenario::TopNPerGroup
             | TraditionalAnalyticsScenario::RowNumberWindow => {
-                if self.ranked_metric_state_consumer_count > 1 {
-                    "source-state-reused"
-                } else {
-                    "source-state-not-needed"
+                match self.ranked_metric_state_consumer_count {
+                    0 => "source-state-not-needed",
+                    1 => "source-state-seeded",
+                    _ => "source-state-reused",
                 }
             }
             TraditionalAnalyticsScenario::SelectiveFilter
             | TraditionalAnalyticsScenario::FilterProjectionLimit => {
-                if self.selective_filter_state_consumer_count > 1 {
-                    "source-state-reused"
-                } else {
-                    "source-state-not-needed"
+                match self.selective_filter_state_consumer_count {
+                    0 => "source-state-not-needed",
+                    1 => "source-state-seeded",
+                    _ => "source-state-reused",
                 }
             }
             TraditionalAnalyticsScenario::CleanCastFilterWrite
@@ -12917,6 +12971,9 @@ impl TraditionalAnalyticsVortexBatchReport {
         match self.source_state_coverage_status(scenario) {
             "source-state-reused" => {
                 "batch has multiple consumers for this prepared/native source-state family"
+            }
+            "source-state-seeded" => {
+                "single high-cost consumer uses the prepared/native source-state family as a lazily seeded metadata/index-like execution state"
             }
             "blocked-with-reason" => {
                 "stress scenarios are outside the scoped prepared/native source-state reuse smoke lane"
@@ -34270,6 +34327,9 @@ fn run_fact_metric_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
+    if !fact_metric_state_reuse_candidate(scenario) {
+        return Ok(None);
+    }
     let Some(fact_metric_state) = source_state.fact_metric_state()? else {
         return Ok(None);
     };
@@ -34300,6 +34360,9 @@ fn run_dimension_label_batch_source_state_scenario(
     fact_path: &std::path::Path,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
+    if !dimension_label_state_reuse_candidate(scenario) {
+        return Ok(None);
+    }
     let Some(dim_state) = source_state.dimension_label_state()? else {
         return Ok(None);
     };
@@ -34320,6 +34383,9 @@ fn run_category_metric_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
+    if !category_metric_state_reuse_candidate(scenario) {
+        return Ok(None);
+    }
     let Some(category_state) = source_state.category_metric_state()? else {
         return Ok(None);
     };
@@ -34346,6 +34412,9 @@ fn run_group_category_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
+    if !group_category_metric_state_reuse_candidate(scenario) {
+        return Ok(None);
+    }
     let Some(group_state) = source_state.group_category_metric_state()? else {
         return Ok(None);
     };
@@ -34372,6 +34441,9 @@ fn run_ranked_metric_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
+    if !ranked_metric_state_reuse_candidate(scenario) {
+        return Ok(None);
+    }
     let Some(ranked_state) = source_state.ranked_metric_state()? else {
         return Ok(None);
     };
@@ -34407,6 +34479,9 @@ fn run_selective_filter_batch_source_state_scenario(
     fact_path: &std::path::Path,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
+    if !selective_filter_state_reuse_candidate(scenario) {
+        return Ok(None);
+    }
     let Some(selective_state) = source_state.selective_filter_state()? else {
         return Ok(None);
     };
@@ -34434,6 +34509,9 @@ fn run_dirty_input_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
+    if !dirty_input_state_reuse_candidate(scenario) {
+        return Ok(None);
+    }
     let Some(dirty_state) = source_state.dirty_input_state()? else {
         return Ok(None);
     };
@@ -34460,6 +34538,9 @@ fn run_date_null_metric_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
+    if !date_null_metric_state_reuse_candidate(scenario) {
+        return Ok(None);
+    }
     let Some(date_null_state) = source_state.date_null_metric_state()? else {
         return Ok(None);
     };
@@ -43644,7 +43725,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_state_group_category_metric_reuse_status",
-            "not_prepared_single_consumer_uses_scenario_scan",
+            "single_consumer_group_category_metric_state_seeded",
         );
         assert_field_eq(
             &fields,
@@ -43660,7 +43741,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_state_selective_filter_reuse_status",
-            "not_prepared_single_consumer_uses_scenario_scan",
+            "single_consumer_selective_filter_state_seeded",
         );
         assert_field_eq(&fields, "source_state_selective_filter_reused", "false");
         assert_field_eq(
@@ -47482,6 +47563,246 @@ mod tests {
             "scenario_filter---projection---limit_external_engine_invoked",
             "false",
         );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn prepared_native_vortex_batch_seeds_single_high_cost_source_state_families() {
+        let root = traditional_analytics_test_root("prepared-native-single-high-cost-seeded");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::SortAndTopK,
+                    TraditionalAnalyticsScenario::DistinctCount,
+                    TraditionalAnalyticsScenario::GroupByAggregation,
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                ],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+
+        assert_eq!(batch_report.reports.len(), 4);
+        assert!(batch_report.all_native_io_certificates_certified);
+        assert!(
+            batch_report
+                .reports
+                .iter()
+                .all(|report| !report.fallback_execution_allowed)
+        );
+        let sort_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::SortAndTopK)
+            .unwrap();
+        assert_eq!(
+            sort_report.result_json,
+            "[{\"id\":3,\"metric\":4.0},{\"id\":2,\"metric\":3.5},{\"id\":1,\"metric\":2.5}]"
+        );
+        let distinct_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::DistinctCount)
+            .unwrap();
+        assert_eq!(
+            distinct_report.result_json,
+            "{\"distinct_category_count\":2}"
+        );
+        let group_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::GroupByAggregation)
+            .unwrap();
+        assert_eq!(
+            group_report.result_json,
+            "[{\"group_key\":10,\"row_count\":2,\"metric_sum\":6.5},{\"group_key\":11,\"row_count\":1,\"metric_sum\":3.5}]"
+        );
+        let selective_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::SelectiveFilter)
+            .unwrap();
+        assert_eq!(
+            selective_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":6.5}"
+        );
+        assert_cached_source_state_handoff_timings(sort_report);
+        assert_cached_source_state_handoff_timings(distinct_report);
+        assert_cached_source_state_handoff_timings(group_report);
+        assert_cached_source_state_handoff_timings(selective_report);
+
+        let fields = field_map(batch_report.fields());
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_status",
+            "per_batch_multi_family_source_state_seeded_single_consumers",
+        );
+        assert_field_eq(&fields, "source_state_reused", "false");
+        assert_field_eq(&fields, "source_state_recompute_avoided_count", "0");
+        assert_field_eq(&fields, "source_state_reuse_consumer_count", "4");
+        assert_field_eq(&fields, "source_state_family_count", "4");
+        assert_field_eq(
+            &fields,
+            "source_state_seed_policy",
+            "seed_single_high_cost_category_group_ranked_and_selective_filter_families_lazily",
+        );
+        assert_field_eq(&fields, "source_state_seeded", "true");
+        assert_field_eq(&fields, "source_state_seeded_family_count", "4");
+        assert_field_eq(&fields, "source_state_seeded_consumer_count", "4");
+        assert_field_eq(
+            &fields,
+            "source_state_family_prewarm_status",
+            "not_applicable_no_reused_source_state_families",
+        );
+        assert_field_eq(&fields, "source_state_family_prewarm_eligible_count", "0");
+        assert_field_eq(&fields, "source_state_family_prewarm_count", "0");
+        assert_field_eq(&fields, "source_state_family_build_count", "4");
+        assert_field_eq(&fields, "source_state_family_reuse_hit_count", "0");
+        assert_field_eq(&fields, "source_state_family_reuse_hit", "false");
+        assert_field_eq(&fields, "source_state_family_recompute_avoided", "false");
+        assert_field_eq(
+            &fields,
+            "source_state_coverage_status_vocabulary",
+            "source-state-reused,source-state-seeded,source-state-not-needed,blocked-with-reason,unsupported-with-reason",
+        );
+        assert_field_eq(&fields, "source_state_coverage_reused_scenario_count", "0");
+        assert_field_eq(&fields, "source_state_coverage_seeded_scenario_count", "4");
+        assert_field_eq(
+            &fields,
+            "source_state_coverage_not_needed_scenario_count",
+            "0",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_coverage_matrix",
+            "sort-and-top-k:source-state-seeded:ranked_metric;distinct-count:source-state-seeded:category_metric;group-by-aggregation:source-state-seeded:group_category_metric;selective-filter:source-state-seeded:selective_filter",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_category_metric_reuse_status",
+            "single_consumer_category_metric_state_seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_category_metric_family_build_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_category_metric_family_reuse_hit",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_category_metric_result_cache_status",
+            "single_consumer_category_metric_result_payloads_preassembled",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_group_category_metric_reuse_status",
+            "single_consumer_group_category_metric_state_seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_group_category_metric_family_build_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_group_category_metric_family_reuse_hit",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_group_category_metric_result_cache_status",
+            "single_consumer_group_category_metric_result_payloads_preassembled",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_reuse_status",
+            "single_consumer_ranked_metric_state_seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_family_build_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_family_reuse_hit",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_selective_filter_reuse_status",
+            "single_consumer_selective_filter_state_seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_selective_filter_family_build_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_selective_filter_family_reuse_hit",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_source_state_coverage_status",
+            "source-state-seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_distinct-count_source_state_coverage_status",
+            "source-state-seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_source_state_coverage_status",
+            "source-state-seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_source_state_coverage_status",
+            "source-state-seeded",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_encoded_predicate_provider_selected_metric_aggregation_status",
+            "batch_source_state_metric_aggregation_used",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_encoded_predicate_provider_selected_metric_source",
+            "per_batch_selective_filter_source_state",
+        );
+        assert_field_eq(&fields, "source_state_fallback_attempted", "false");
+        assert_field_eq(&fields, "source_state_external_engine_invoked", "false");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_field_eq(&fields, "performance_claim_allowed", "false");
+        assert_field_eq(&fields, "spark_displacement_claim_allowed", "false");
+        assert_field_eq(&fields, "encoded_native_claim_allowed", "false");
 
         let _ = std::fs::remove_dir_all(root);
     }

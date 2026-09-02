@@ -570,8 +570,9 @@ work. GAR-PERF-1B closes the source-state classification gap with
 `source_state_coverage_matrix_ref`, `source_state_coverage_status_vocabulary`,
 `source_state_coverage_all_requested_scenarios_classified`, `source_state_coverage_matrix`, and
 per-child `scenario_<slug>_source_state_coverage_*` fields. The status vocabulary is
-`source-state-reused`, `source-state-not-needed`, `blocked-with-reason`, and
-`unsupported-with-reason`. The matrix also records
+`source-state-reused`, `source-state-seeded`, `source-state-not-needed`, `blocked-with-reason`, and
+`unsupported-with-reason`. Seeded rows are single high-cost consumers that use a lazy in-process
+source-state family without claiming multi-query reuse. The matrix also records
 `source_state_digest_status=emitted_scoped_in_memory_source_state_digest`,
 `source_state_digest_algorithm=fnv1a64`, `source_state_digest_scope`, and
 `source_state_family_digests` for the scoped in-process derived source states; benchmark rows carry
