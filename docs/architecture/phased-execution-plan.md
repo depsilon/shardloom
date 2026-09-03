@@ -347,6 +347,17 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
       - Retain/drop gate: retain only if replacement-ingest UAT beats `271s` or improves stage
         attribution without artifact-size/query-UAT regression that the maintainer explicitly
         accepts.
+      - Rejected 2026-09-03 implementation slice: an ordered embedded-derived prefetch reader moved
+        URL/length/minute derived construction outside the shared writer pull lock, added bounded
+        sequence-preserving derived channels, and raised the planned array-prefetch window for
+        12-lane ingest from `4` to `8`. Focused `shardloom-vortex` ordering/error tests and the
+        CLI Parquet prepare evidence test passed, but replacement-ingest UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260903T224544Z`
+        completed in `361s` versus the protected `271s` clean-ingest reference with the same
+        `38,147,848,068` byte artifact. The runtime change was dropped. Do not retry derived
+        prefetch by adding another post-reader queue or widening the array queue unless the source
+        row-group reader, derived workers, and Vortex writer share one measured lane/memory
+        governor and the old run is cleaned before UAT.
     - [ ] Implement H/VH ingest packet `dictionary-lifted derived-column construction`.
       - Ideas covered: dictionary-lifted derivation, URL-domain and UTF-8 length computation against
         unique dictionary values, and reuse of derived dictionary ids across chunks where safe.
@@ -398,6 +409,16 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
       - Retain/drop gate: no candidate can ship if it is slower than `271s`, grows artifact size
         materially, or worsens full 43-query UAT unless explicitly accepted as a correctness or
         artifact-fidelity tradeoff.
+      - Rejected 2026-09-03 implementation slice: a writer-boundary query-hot compression admission
+        gate kept only URL/Referer/SearchPhrase/Title/OriginalURL/UserAgent-family fields compressed
+        for very large high-cardinality text sources while leaving cold text fields visible as
+        skipped writer decisions. Focused writer/CLI tests passed, but replacement ingest was
+        terminated at `385.01s` after the partial artifact reached `75,723,542,388` bytes versus the
+        protected `38,147,848,068` byte artifact. Evidence is recorded at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_queryhot_writer_admission_20260903T212035Z/`.
+        The runtime change was dropped and the protected artifact was restored. Do not retry
+        compression narrowing without a portfolio gate that accounts for whole-artifact byte growth
+        before committing a full replacement write.
     - [ ] Build a staged pipeline for source read, embedded-derived construction, Arrow-to-Vortex
       conversion, compression/layout preparation, ordered final writer feed, digest, and atomic
       commit, with bounded queues and explicit single-artifact cleanup.
@@ -760,6 +781,12 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         fallback status.
       - Retain/drop gate: retain only if correctness holds and targeted UAT improves or memory drops
         materially without any Q17/Q34/Q35 timing regression.
+      - Rejected 2026-09-03 implementation slice: a generation-checked reclaimable interner arena
+        with mirror-only cleanup reduced Q34/Q35 active string storage to about `4.9MB` from about
+        `3.916GB` historical string bytes, but targeted UAT regressed Q34 from `25.657s` to
+        `32.117s` best and Q35 from `25.658s` to `32.430s` best. Do not reattempt this design
+        without moving reclamation out of the hot eviction loop or proving a lower-overhead
+        dictionary-id lifetime path first.
     - [ ] Implement H/VH kernel packet `Q35 constant-key canonicalization`.
       - Ideas covered: Q35 constant grouping-key elimination, Q34/Q35 shared fingerprinting, and
         planner proof that constant keys do not change grouping semantics.
@@ -775,6 +802,14 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         non-application when an expression is not provably constant.
       - Retain/drop gate: retain if Q35 converges to the Q34 physical route or removes measurable
         planner/state overhead without changing output JSON shape.
+      - Completed implementation slice: the ClickBench Q35 literal-int ordinal-group shape is already
+        admitted through the shared proof-bound URL string heavy-hitter route. Current evidence shows
+        `SELECT 1, URL, COUNT(*) ... GROUP BY 1, URL` lowering to physical `group_by=["URL"]` plus
+        a reconstructable `constant_int` group expression, and runtime state evidence includes
+        `functional_dependency_key_pruning` with `fallback_attempted=false` and
+        `external_engine_invoked=false`. This avoids duplicating the Q34/Q35 physical route. The
+        remaining packet scope is generalized constant string/null and non-Q35 expression variants,
+        not the ClickBench Q35 hot path.
     - [ ] Implement H/VH kernel packet `exact string heavy-hitter histogram replay`.
       - Ideas covered: Q34/Q35 exact histogram replay, compact first-pass replay, stable dictionary
         ids, and global URL identity synopsis when exact and bounded.
@@ -791,6 +826,30 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         skipped segments, active bytes, and selected kernel.
       - Retain/drop gate: retain only if Q34/Q35 targeted UAT improves with unchanged exactness; if
         metadata is insufficient, keep the existing exact route and record blocked kernel evidence.
+      - Rejected 2026-09-03 implementation slice: replacing the count-only exact recount's
+        dictionary-sized `Vec<Option<u64>>` candidate map with a sparse candidate-code list kept
+        correctness but did not beat the protected local timing reference. Targeted Q34/Q35 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_sparse_recount_20260903T204734Z/summary.json`
+        produced Q34 best `26.297s` and Q35 best `26.122s` versus the protected Q34/Q35
+        `25.657s`/`25.658s` best-of-3 reference, so the runtime code was dropped. Do not retry
+        this shape unless paired with a larger recount scan reduction or persisted exact histogram
+        summary.
+      - Completed 2026-09-03 implementation slice: the Q34/Q35 string count top-K result builder now
+        caches the current worst retained candidate and avoids fetching/cloning URL strings for
+        exact-count candidates that cannot enter the bounded retained window by count. Ties still
+        fetch and compare the actual string, so `COUNT(*) DESC, URL ASC` ordering remains exact.
+        This keeps the existing dictionary-histogram recount, candidate signature/id/code
+        prefilters, and no-fallback route unchanged; it is retained-window bookkeeping, not the full
+        persisted histogram-replay kernel. Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`.
+        Targeted local 100M Q34/Q35 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_cached_worst_string_topk_20260903T215808Z/summary.json`
+        produced Q34 best `25.385012249986175s` versus protected `25.657463999988977s`
+        (`1.06%` faster) and Q35 best `25.479101791977882s` versus protected
+        `25.6583917090029s` (`0.70%` faster), with
+        `topk_retention_strategy=cached_worst_string_count_retained_window`,
+        `string_count_topk_dictionary_histogram_recount=true`, and
+        `fallback_attempted=false` / `external_engine_invoked=false`.
     - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
       - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
         recount, and adaptive radix exact path for high-cardinality numeric+string grouping.
@@ -807,6 +866,19 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         materialized strings.
       - Retain/drop gate: retain only if Q17 targeted UAT improves and final output remains
         byte-for-byte stable across parallelism settings.
+      - Completed 2026-09-03 implementation slice: Q17 candidate recount now builds a reusable
+        interned UTF-8-id to numeric-partition map once after heavy-hitter candidate freeze, then
+        binds each chunk dictionary code to that cached partition and reuses the interned UTF-8 id
+        during exact recount key construction. This removes the repeated per-chunk candidate-set
+        scan and row-level recount string lookup while preserving the existing proof-bound late
+        recount route, null/signedness checks, and no-fallback diagnostics. Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives numeric_utf8 -- --nocapture`.
+        Targeted local 100M Q17 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q17_utf8_id_partition_reuse_20260903T_now/summary.json`
+        produced best-of-3 `14.60625249997247s` versus protected `15.930786915996578s`
+        (`8.31%` faster), with `59979` candidate groups, `1871` candidate string-id partitions,
+        `numeric_utf8_topk_candidate_utf8_id_partition_reuse=true`, and no fallback/external-engine
+        invocation.
     - [ ] Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.
       - Ideas covered: Q29 fused weighted-dictionary kernel, cross-chunk transform memo, persisted
         exact transform code, dense domain partial states, and exact segment dictionary summaries.
@@ -825,6 +897,29 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         kernel.
       - Retain/drop gate: retain only if Q29 targeted UAT improves or if the same kernel also
         improves Q34/Q35 domain-heavy lanes without artifact-size regression.
+      - Completed implementation slice: the Q29-class transformed-dictionary general-measure path
+        now interns transformed URL-domain group keys instead of allocating a fresh owned UTF-8
+        group key for every source dictionary value. This preserves the existing weighted
+        dictionary update contract, keeps exact HAVING/order semantics, and changes key evidence to
+        `typed_single_key+interned_utf8`. Targeted local 100M Q29 UAT improved best-of-3 from the
+        protected `10.730s` reference to `10.52268858399475s` at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_interned_domain_keys_20260903T210441Z/summary.json`.
+        The same run reported `74` output candidate groups after HAVING/order, `1,798,248`
+        interned transformed strings, `14,385,984` estimated group-key bytes, and `137,156,417`
+        estimated group-string bytes, so the remaining Q29 work should focus on HAVING-aware
+        delayed measure materialization and dense domain-id accumulators rather than another
+        string-key allocation-only pass.
+      - Rejected 2026-09-03 implementation slice: a two-pass HAVING-aware late-min route stored
+        only `(count, sum(length))` for interned URL-domain groups in pass one, retained the
+        ordered/HAVING-matched domains, then rescanned selected `Referer` dictionary values to fill
+        exact `MIN(Referer)` only for retained output groups. Focused transformed-dictionary tests
+        passed, but targeted local 100M Q29 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_late_min_20260903T222456Z/summary.json`
+        produced best-of-3 `17.43963470804738s`, worse than the retained
+        `10.52268858399475s` interned-domain route and the older protected `10.730s` reference.
+        The runtime change was removed. Do not retry a full second scan for this shape unless
+        persisted exact transform summaries or segment-level min metadata can avoid rereading the
+        `81,032,736` selected referer rows.
     - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
       - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
         conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.
@@ -842,6 +937,29 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         fallback status.
       - Retain/drop gate: retain only if Q23 targeted UAT improves and the route preserves exact
         predicate semantics; no regex/LIKE approximation can ship without a decoded-reference proof.
+      - Completed implementation slice: Q23-class residual `AND` predicates now refine admitted
+        candidate row lists through column-scoped predicate materialization before falling back to
+        the older all-projected-column candidate export. The retained change keeps exact predicate
+        semantics, preserves the no-fallback path, and limits each refinement step to the predicate
+        column it actually needs. Focused coverage exercises `LIKE`/contains plus `SearchPhrase <>
+        ''` candidate filtering and existing grouped aggregate residual row filtering. Targeted
+        local 100M Q23 UAT improved best-of-3 from the protected `10.257s` reference to
+        `10.207678083039355s` at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q23_column_scoped_predicate_20260903T205926Z/summary.json`.
+      - Completed 2026-09-03 implementation slice: simple aggregate `StringContains` predicates now
+        remain eligible for upstream Vortex scan pushdown instead of being forced into ShardLoom
+        residual filtering. The route still uses ShardLoom-native aggregate/update state and the
+        upstream provider boundary is Vortex scan/LIKE expression evaluation, not a query-engine
+        fallback. Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_contains -- --nocapture`.
+        Targeted local 100M Q22/Q23 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q22_q23_vortex_contains_pushdown_20260903T220500Z/summary.json`
+        produced Q22 best `2.691731749975588s` versus protected `5.710917625023285s`
+        (`52.87%` faster) and Q23 best `9.49373608303722s` versus the protected full-run
+        `10.256865292001748s` / retained column-scoped `10.207678083039355s` references
+        (`7.44%` / `7.00%` faster). Evidence reports `local_primitive_mode=vortex_scan_pushdown`,
+        `local_primitive_filter_pushdown_applied=true`, selected rows `1038` for Q22 and `7128`
+        for Q23, and `fallback_attempted=false` / `external_engine_invoked=false`.
     - [ ] Implement H/VH kernel packet `Q19 fixed-width tri-key grouped top-K`.
       - Ideas covered: Q19 three-key heavy-hitter, fixed-width tri-key, duplicate-promotion filter,
         morsel-local sketches, and radix exact fallback.
@@ -857,6 +975,17 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         string active bytes, and selected kernel.
       - Retain/drop gate: retain only if Q19 targeted UAT improves or if memory drops materially
         with no full-43 regression.
+      - Completed 2026-09-03 implementation slice: Q19 numeric-minute-string exact output retention
+        now caches the current worst retained candidate and only recomputes the retained-window worst
+        when a new exact group displaces it. This keeps the single-pass exact hash-state contract and
+        final tie semantics intact while removing the repeated per-group retained-window scan across
+        `56384822` candidate groups. Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives numeric_minute_string -- --nocapture`.
+        Targeted local 100M Q19 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q19_cached_worst_topk_20260903T_now/summary.json`
+        produced best-of-3 `9.213867459038738s` versus protected `9.730688542011194s`
+        (`5.31%` faster), retained `topk_retention_strategy=cached_worst_numeric_minute_string_retained_window`,
+        and kept `fallback_attempted=false` / `external_engine_invoked=false`.
     - [ ] Implement H/VH kernel packet `Q33 duplicate-promotion packed-pair aggregate`.
       - Ideas covered: Q33 duplicate-promotion Bloom/filter strategy, packed pair table, radix
         sort/RLE, parallel partitioned aggregation, and candidate segment directory.
@@ -873,11 +1002,36 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         exact verification rows, candidate groups avoided, and selected kernel.
       - Retain/drop gate: retain only if Q33 targeted UAT improves and exact verification proves no
         false negatives.
+      - Completed 2026-09-03 implementation slice: Q33 numeric-pair late-measure retained candidate
+        selection now caches the current worst retained pair from the first exact count pass and only
+        recomputes that slot when a new exact pair enters the retained top-K window. This keeps the
+        two-pass exact count-then-measure route, count-state release, retained-key second pass, and
+        tie ordering unchanged while avoiding a retained-window scan for each of the `99997493`
+        first-pass candidate groups. This is not yet the Bloom/radix duplicate-promotion packet.
+        Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives numeric_pair -- --nocapture`.
+        Targeted local 100M Q33 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_cached_worst_topk_20260903T_now/summary.json`
+        produced best-of-3 `8.731495374988299s` versus protected `9.72064512502402s`
+        (`10.18%` faster), retained `topk_retention_strategy=cached_worst_numeric_pair_retained_window`,
+        and kept exact route evidence with `fallback_attempted=false` / `external_engine_invoked=false`.
     - [ ] Implement H/VH kernel packet `Q10 exact distinct family split`.
       - Ideas covered: Q10 separate aggregate families, partition-by-UserID hash, radix pair
         sort/dedup, adaptive exact containers, and global ids/Roaring-style bitmap evaluation.
       - Current evidence: Q10 emits only `9040` groups but exact distinct still updates per row
         through `direct_accessor_count_distinct_group_update`.
+      - Completed implementation slice: Q10-like mixed aggregates with exactly one identity integer
+        group key and exactly one identity integer `COUNT(DISTINCT ...)` measure now use a
+        chunk-local packed `(group, distinct)` preunion before updating the existing exact per-group
+        distinct sets. Non-distinct measures still update per input row, the legacy single-state
+        grouped count-distinct route remains unchanged, and unsupported/non-integer/null-admitting
+        shapes fall through to the existing exact path without fallback. Evidence emits
+        `direct_accessor_count_distinct_pair_preunion_group_update`,
+        `typed_hash_exact+packed_integer_pair_preunion`, and
+        `grouped_aggregate_state+count_distinct+topk+direct_accessor_general_state+pre_reserved+direct_count_distinct+packed_integer_pair_preunion`.
+        Targeted local 100M Q10 UAT improved best-of-3 from `8.909421833988745s` to
+        `4.80588679201901s` at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q10_preunion_20260903T194121Z/summary.json`.
       - Implementation steps: split count-distinct execution into dense-group, sparse-group,
         high-cardinality, and packed-pair strategies; partition by `UserID` hash to deduplicate
         before group insertion; choose radix sort/dedup when exact container pressure is high; use
@@ -1031,9 +1185,10 @@ Current autonomous execution order:
    decoupled ordered pre-writer pipeline, dictionary-lifted derived-column construction, single
    resource governor, then retained layout/codec portfolio admission. The `271s` replacement-ingest
    run is the protected local reference until a fresh UAT improves or explicitly supersedes it.
-3. Implement the string identity/reclaimable arena packet before broad Q34/Q35/Q17 heavy-hitter
-   work; otherwise those rows risk retaining historical evicted strings and hiding the effect of
-   scheduler/kernel changes.
+3. Do not retry the rejected hot-loop string identity/reclaimable arena packet. Revisit that packet
+   only through a lower-overhead dictionary-id lifetime design that moves reclamation out of the
+   eviction path; otherwise proceed to the next measured Q34/Q35/Q17 heavy-hitter packet with the
+   memory caveat visible in evidence.
 4. Then proceed through metadata summaries, scheduler state-family routing, specialized kernels, and
    columnar result packets in the order that maximizes shared reuse: Q34/Q35 shared string
    heavy-hitter, Q29 transformed dictionary-domain aggregate, Q23 encoded predicate/selected-row
