@@ -284,6 +284,15 @@ These entries use the official ClickBench generated leaderboard data and public 
 directional strategy input only. ShardLoom local Desktop UAT is not official ClickBench hardware and
 must not be reported as a leaderboard or superiority claim.
 
+The 2026-09-03 material-optimization ideation intake is now incorporated below as implementation
+packets rather than a separate idea list. The retained local reference point for this intake is
+replacement ingest `271s`, full 43-query best-of-3 total `189.197s`, and the remaining slow rows:
+`Q35 25.658s`, `Q34 25.657s`, `Q17 15.931s`, `Q29 10.730s`, `Q23 10.257s`,
+`Q19 9.731s`, `Q33 9.721s`, and `Q10 8.909s`. Every `H`/`VH` idea is mapped into the existing
+production ownership items so implementation can happen in shared ShardLoom/Vortex-normalized
+components rather than duplicate ClickBench-only phase IDs. Borderline ideas are included only
+where they ride on the same exactness, metadata, or scheduler contract and are retain/drop gated.
+
 - [ ] `CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1` build a real production Universal Ingest
       writer physical-design pipeline instead of writer-policy constants.
   - Source: maintainer correction on 2026-09-02 that the domain-transfer writer overhaul was marked
@@ -318,6 +327,77 @@ must not be reported as a leaderboard or superiority claim.
       retain/drop thresholds.
     - [x] Replace hardcoded large-source writer constants with planner decisions that are stable,
       digestible, and explainable in public prepare evidence.
+    - [ ] Implement H/VH ingest packet `decoupled ordered pre-writer pipeline`.
+      - Ideas covered: decoupled ordered ingest pipeline, CPU-heavy pre-writer parallelism, ordered
+        final Vortex sink feed, and production writer overhaul completion.
+      - Current evidence: the clean `271s` ingest still reports `prepare_once=231107ms`,
+        `vortex_write=230761ms`, `compression=100702ms`, `encode/write=130036ms`,
+        `decode+derive=111319ms`, and the derived wrapper is inside
+        `EmbeddedDerivedColumnRecordBatchReader::next()` while workers pull through a shared reader
+        lock.
+      - Implementation steps: split ingest into `SourceBatchTask`, `DerivedBatchTask`,
+        `VortexArrayTask`, `CompressedLayoutTask`, and `OrderedWriterFeedTask`; move derived-column
+        construction outside the shared reader lock; preserve source row order with sequence IDs;
+        keep a bounded channel per stage; propagate deterministic errors and cleanup through the
+        existing single-artifact commit boundary.
+      - Tests/evidence: unit tests for ordering, bounded queues, early error propagation,
+        source-lock release before derived work, and single-artifact cleanup; prepare evidence for
+        per-stage wall/CPU time, queue depth, worker utilization, final writer wait, and
+        `fallback_attempted=false` / `external_engine_invoked=false`.
+      - Retain/drop gate: retain only if replacement-ingest UAT beats `271s` or improves stage
+        attribution without artifact-size/query-UAT regression that the maintainer explicitly
+        accepts.
+    - [ ] Implement H/VH ingest packet `dictionary-lifted derived-column construction`.
+      - Ideas covered: dictionary-lifted derivation, URL-domain and UTF-8 length computation against
+        unique dictionary values, and reuse of derived dictionary ids across chunks where safe.
+      - Current evidence: derived metadata build is `110037ms` while decode itself is only
+        `1283ms`; current code computes appended derived columns per record batch rather than
+        lifting transforms to source dictionaries and replaying codes.
+      - Implementation steps: detect dictionary-compatible source columns before derive; compute
+        `url_domain`, `utf8_length`, `extract_minute`, and `date_trunc_minute` over unique values or
+        typed temporal dictionaries; build derived arrays by remapping codes with validity
+        preserved; fall back only to ShardLoom-native row/batch derivation with explicit evidence
+        when dictionary lifting is unsupported.
+      - Tests/evidence: decoded-reference parity for empty, null, all-null, mixed-null,
+        low-cardinality, high-cardinality, direct UTF-8, dictionary UTF-8, temporal, and unsupported
+        source shapes; evidence fields for unique values transformed, codes replayed, rows avoided,
+        and derived build millis by transform.
+      - Retain/drop gate: retain only if it materially reduces derived-build time or enables the
+        staged pipeline without correctness, null, ordering, or artifact regressions.
+    - [ ] Implement H/VH ingest packet `single resource governor`.
+      - Ideas covered: one governor for source workers, derived builders, Arrow-to-Vortex
+        conversion, compression, writer feed, and final Vortex sink pressure.
+      - Current evidence: ingest reports source executor applied parallelism `11` and writer
+        background workers `11`, but the slowest stage is still serialized work plus overlapping
+        writer/compression timing rather than a globally shaped 12-core plan.
+      - Implementation steps: add an `IngestResourceGovernor` derived from
+        `VortexWriterPhysicalDesignPlan`; reserve lanes for final sink feed and compression; let
+        source/derive/convert stages borrow idle capacity with starvation limits; expose memory
+        reservations per queued batch and fail before OOM when bounded memory cannot be honored.
+      - Tests/evidence: deterministic tests for `max_parallelism=1,2,3,12`, low-memory admission,
+        writer-reserved lane behavior, queue backpressure, and cancellation/error release;
+        evidence fields for requested/applied lanes by stage, idle/starved millis, max in-flight
+        batches, memory budget, and pressure decisions.
+      - Retain/drop gate: retain only if UAT shows improved ingest or stable ingest with clearer
+        production-grade attribution needed to retain later writer/layout changes.
+    - [ ] Implement H/VH ingest packet `retained layout/codec portfolio admission`.
+      - Ideas covered: sampled layout/codec portfolio, derived-column admission, and load-time
+        physical design without committing to unproven writer constants.
+      - Current evidence: the rejected 2026-09-02 tuning patch regressed ingest to `360s`, so
+        future layout/codec work needs an automatic ship/drop loop instead of manual constant
+        tweaking.
+      - Implementation steps: run tiny deterministic source samples through candidate writer
+        profiles inside an isolated temp workspace; compare profile digest, artifact bytes,
+        segment count, compression time, and downstream targeted-query probes; store only the
+        selected single `.vortex` artifact; prune derived columns only when the workload profile
+        proves they are not needed for admitted queries or public workflow contracts.
+      - Tests/evidence: unit tests for profile enumeration, deterministic profile choice, cleanup
+        after rejected profiles, workload-derived-column admission, and tie-breaking; evidence fields
+        for candidate count, rejected reasons, chosen profile, expected read/write tradeoff, and
+        `query_answer_sidecar_status=disabled`.
+      - Retain/drop gate: no candidate can ship if it is slower than `271s`, grows artifact size
+        materially, or worsens full 43-query UAT unless explicitly accepted as a correctness or
+        artifact-fidelity tradeoff.
     - [ ] Build a staged pipeline for source read, embedded-derived construction, Arrow-to-Vortex
       conversion, compression/layout preparation, ordered final writer feed, digest, and atomic
       commit, with bounded queues and explicit single-artifact cleanup.
@@ -405,6 +485,57 @@ must not be reported as a leaderboard or superiority claim.
     - [x] Persist or reconstruct the metadata through the single `.vortex` artifact contract; any
       temporary ingest-only structure must either be embedded, derivable from Vortex footer/layout
       facts, or marked non-production.
+    - [ ] Implement H/VH metadata packet `false-negative-safe string absence summaries`.
+      - Ideas covered: Q23 ngram absence pruning, Q23 adaptive predicate ordering, and Q34/Q35
+        segment-level URL/string candidate pruning where conservative metadata can remove work.
+      - Current evidence: Q23 selects only `7128` rows but still scans every row/segment; Q34/Q35
+        read all `34371` segments and report zero candidate-free chunks skipped.
+      - Implementation steps: build per-segment conservative ngram/token absence summaries for
+        admitted literal predicates; include dictionary-derived summaries when source chunks are
+        dictionary encoded; store exactness/provenance with the metadata primitive; make planner
+        admission fail closed to read the segment when the summary is missing, approximate-only, or
+        incompatible with predicate semantics.
+      - Tests/evidence: decoded-reference predicate parity for empty strings, nulls, mixed case,
+        UTF-8, dictionary/direct string chunks, predicates shorter than the ngram width, and missing
+        metadata; public evidence for `segments_pruned`, `rows_pruned`, `bytes_pruned`,
+        `false_negative_policy=prohibited`, and fallback status.
+      - Retain/drop gate: retain only when targeted Q23/Q34/Q35 UAT shows measurable work avoided
+        without any false-negative risk or artifact-size regression that outweighs query gain.
+    - [ ] Implement H/VH metadata packet `stable transform and frequency summaries`.
+      - Ideas covered: Q29 exact segment dictionary summaries, Q29 persisted transform code,
+        Q34/Q35 segment frequency metadata, and global URL/domain identity synopsis.
+      - Current evidence: Q29 has only `74` final groups but still transforms dictionary values and
+        updates general measure state; Q34/Q35 heavy-hitter first pass already builds chunk-local
+        histograms but has no reusable segment/global value identity or persisted exact transform
+        codes.
+      - Implementation steps: assign stable value identities for admitted derived URL-domain and
+        UTF-8 length columns within the prepared artifact; persist per-segment value counts or
+        exact transform-code maps when bounded; expose a conservative summary status for values too
+        large to persist; feed these summaries into transformed grouping, heavy-hitter candidate
+        generation, and exact replay.
+      - Tests/evidence: parity tests for URL parsing, length transforms, null propagation, repeated
+        values across chunks, dictionary id reuse, overflow/budget blockers, and artifact reopen;
+        evidence for transform-code hits, metadata summary bytes, candidate rows skipped, and
+        exactness level.
+      - Retain/drop gate: retain only if targeted Q29/Q34/Q35 UAT improves or the summary is reused
+        by at least two slow-row families without increasing the single artifact beyond the accepted
+        size budget.
+    - [ ] Implement H/VH metadata packet `candidate segment directories for duplicate-heavy lanes`.
+      - Ideas covered: Q33 candidate segment directory, Q10 global identity support, Q19 duplicate
+        promotion metadata, and metadata-first exact distinct planning.
+      - Current evidence: Q33 has `99997493` candidate groups for `99997497` rows, Q10 exact
+        distinct scans every row for only `9040` groups, and Q19 builds tens of millions of
+        candidate groups with large key/string storage.
+      - Implementation steps: build per-segment key-frequency and duplicate-presence summaries for
+        admitted packed numeric pair, tri-key, and distinct-user families; use summaries to choose
+        direct exact aggregation, duplicate-promotion, radix sort/RLE, or conservative full scan;
+        record when metadata is not exact enough and the runtime must read all segments.
+      - Tests/evidence: exactness tests for all-unique, all-duplicate, skewed, sparse-null,
+        mixed-null, and missing-summary cases; evidence fields for duplicate directory hits,
+        candidate-free segments, promoted duplicate keys, chosen aggregate strategy, and no-fallback
+        status.
+      - Retain/drop gate: retain only if Q10/Q19/Q33 targeted UAT improves or if the metadata
+        becomes required by a later exact kernel that separately passes its retain gate.
     - [ ] Feed the metadata primitive into predicate pruning, URL/domain grouping, heavy-hitter
       candidate generation, exact distinct, row-ref top-K, writer layout advice, and estimate/explain
       evidence.
@@ -476,6 +607,66 @@ must not be reported as a leaderboard or superiority claim.
       queueing and stable work IDs.
     - [ ] Define thread-local state traits for count, sum/avg, grouped aggregate, exact distinct,
       string heavy-hitter, numeric/string top-K, row-ref top-K, and predicate count families.
+    - [ ] Implement H/VH scheduler packet `mergeable string heavy-hitter top-K states`.
+      - Ideas covered: Q34/Q35 morsel-local sketches, parallel mergeable heavy hitters, compact
+        first-pass replay, and shared scheduler execution for string count-distinct top-K families.
+      - Current evidence: Q34 and Q35 both spend about `25.657s`, build `48086` active candidates,
+        and scan all rows/segments; the current heavy-hitter sketch is route-local and the exact
+        recount path is not yet a shared scheduler state family.
+      - Implementation steps: define a `ThreadLocalStringHeavyHitterState` with mergeable
+        SpaceSaving/Misra-Gries-style candidate state plus exact recount hooks; partition segment
+        morsels by stable work id; merge candidates in deterministic worker-index order; run the
+        second pass over only admitted candidates with shared interner identity and tie policy.
+      - Tests/evidence: deterministic output across `max_parallelism=1,2,3,12`, exact tie ordering,
+        all-null/empty string behavior, candidate eviction correctness, exact recount parity, and
+        scheduler evidence for worker time, skew, merge time, candidate count, and rows avoided.
+      - Retain/drop gate: retain only if Q34/Q35 targeted UAT improves or if it unlocks the shared
+        reclaimable interner and exact replay packets with no timing regression.
+    - [ ] Implement H/VH scheduler packet `numeric-plus-UTF8 heavy-hitter candidate and recount`.
+      - Ideas covered: Q17 parallel candidate generation, partitioned recount, and reusable
+        composite-key top-K scheduler state.
+      - Current evidence: Q17 remains `15.931s` with `59979` candidates and hundreds of MB of
+        retained string storage; the current route uses specialized helpers but not a fully
+        scheduler-driven candidate/recount contract.
+      - Implementation steps: shard candidate generation by numeric key hash and segment id; keep
+        thread-local packed numeric plus interned UTF-8 ids; merge sketches deterministically; run
+        exact recount by candidate partition; preserve null, signedness, and tie policy in the
+        state trait.
+      - Tests/evidence: decoded-reference parity for signed/unsigned numerics, null strings,
+        duplicate strings, high cardinality, low cardinality, tie ordering, and worker-count
+        determinism; evidence for candidate partitions, recount partitions, string bytes retained,
+        and scheduler utilization.
+      - Retain/drop gate: retain only if Q17 targeted UAT improves and string memory does not exceed
+        the current active-candidate footprint after reclaiming evictions.
+    - [ ] Implement H/VH scheduler packet `tri-key grouped aggregate state`.
+      - Ideas covered: Q19 three-key heavy-hitter path, morsel-local sketches, duplicate-promotion
+        filtering, and radix fallback admission.
+      - Current evidence: Q19 remains `9.731s` with `56384822` candidate groups and large key/string
+        storage; it uses `numeric_minute_string_dictionary_code_direct_group_update`, not a
+        thread-local merge family.
+      - Implementation steps: define thread-local tri-key states over packed numeric, minute, and
+        dictionary/string ids; choose sketch, duplicate-promotion, or exact radix path from segment
+        metadata; merge partial counts with deterministic ordering and exact top-K proof.
+      - Tests/evidence: parity tests for minute extraction, dictionary id reuse, null strings,
+        duplicate-heavy data, all-unique data, radix fallback equivalence, and scheduler
+        determinism; evidence for promoted duplicate keys, exact group count, memory bytes, and
+        chosen strategy.
+      - Retain/drop gate: retain only if Q19 targeted UAT improves or if exactness/memory evidence
+        proves the route is safer under the same timing.
+    - [ ] Implement H/VH scheduler packet `packed pair and grouped distinct states`.
+      - Ideas covered: Q33 parallel partitioned aggregation and Q10 partition-by-UserID exact
+        distinct, with shared duplicate-promotion work distribution.
+      - Current evidence: Q33 remains `9.721s` with almost one group per row, while Q10 remains
+        `8.909s` using `direct_accessor_count_distinct_group_update` over all rows.
+      - Implementation steps: route packed numeric-pair and `(group, UserID)` distinct morsels
+        through the scheduler; partition by high bits of the packed key or UserID hash; keep
+        thread-local dense/sparse containers; merge deterministic partitions without global lock
+        contention.
+      - Tests/evidence: exact parity for all-unique, duplicate-heavy, skewed, empty, all-null,
+        mixed-null, and high-group-count fixtures; evidence for partitions, duplicate promotion,
+        merge time, local container kind, and global distinct count.
+      - Retain/drop gate: retain only if Q33/Q10 targeted UAT improves or if it enables a later
+        packed/radix kernel with a separate UAT retain decision.
     - [x] Implement deterministic merge ordering for the shared scheduler state contract, including
       stable worker-index merge ordering and test coverage across requested worker counts. Every
       concrete top-K/distinct/aggregate family still needs its own tie/null/floating-point policy
@@ -552,6 +743,153 @@ must not be reported as a leaderboard or superiority claim.
     - [x] Define a kernel registry schema with operator family, input dtype, encoding/layout
       preconditions, null semantics, determinism, memory envelope, materialization level, Vortex
       provider surface, fallback prohibition, and unsupported diagnostic.
+    - [ ] Implement H/VH kernel packet `reclaimable string identity and active-candidate arena`.
+      - Ideas covered: Q35 reclaimable arena, Q34 candidate lifetime fix, Q17 reclaimed composite
+        candidates, active-candidate memory accounting, and exact top-K eviction safety.
+      - Current evidence: `AggregateStringInterner::forget_id()` removes an id from the active map
+        but leaves the `Arc<str>` in `values`; Q34/Q35 retain about `3.889GB` of string storage for
+        `48086` active candidates, and Q17 retains about `392MB` for `59979` candidates.
+      - Implementation steps: replace append-only string storage with a generation-checked
+        reclaimable arena or slab; keep stable ids for active candidates; recycle dropped slots
+        only after no state references remain; separate `active_bytes`, `historical_bytes`, and
+        `arena_capacity_bytes`; update every group-key, sketch, result-rendering, and comparison
+        path to reject stale generation ids deterministically.
+      - Tests/evidence: unit tests for intern/reuse/forget, stale id rejection, result rendering
+        after eviction, exact recount after candidate churn, empty/null strings, and memory counters;
+        targeted Q34/Q35/Q17 evidence for active candidates, reclaimed bytes, peak arena bytes, and
+        fallback status.
+      - Retain/drop gate: retain only if correctness holds and targeted UAT improves or memory drops
+        materially without any Q17/Q34/Q35 timing regression.
+    - [ ] Implement H/VH kernel packet `Q35 constant-key canonicalization`.
+      - Ideas covered: Q35 constant grouping-key elimination, Q34/Q35 shared fingerprinting, and
+        planner proof that constant keys do not change grouping semantics.
+      - Current evidence: Q34 and Q35 have effectively identical timing and physical work, which
+        suggests Q35's constant grouping dimension can be canonicalized to the Q34 heavy-hitter
+        route when SQL semantics prove the key is constant and non-null.
+      - Implementation steps: add a planner rule that recognizes constant group expressions,
+        records their output rendering requirement separately from physical grouping, and reuses
+        the same string heavy-hitter route fingerprint as the non-constant-key plan; preserve
+        grouping output shape by reattaching the constant column at result assembly.
+      - Tests/evidence: planner and decoded-reference tests for constant int/string/null group
+        expressions, mixed constants with real keys, order/tie stability, explain evidence, and
+        non-application when an expression is not provably constant.
+      - Retain/drop gate: retain if Q35 converges to the Q34 physical route or removes measurable
+        planner/state overhead without changing output JSON shape.
+    - [ ] Implement H/VH kernel packet `exact string heavy-hitter histogram replay`.
+      - Ideas covered: Q34/Q35 exact histogram replay, compact first-pass replay, stable dictionary
+        ids, and global URL identity synopsis when exact and bounded.
+      - Current evidence: the first pass already computes chunk dictionary counts and a heavy-hitter
+        sketch, but exact replay still performs broad candidate recount work and keeps a large
+        append-only string interner.
+      - Implementation steps: introduce a registry-admitted kernel that consumes per-segment
+        dictionary histograms, maps dictionary values to stable active ids, merges weighted counts,
+        emits a bounded candidate set with exactness proof, and replays only segments that can
+        affect top-K proof thresholds; use full segment reads when exact metadata is absent.
+      - Tests/evidence: decoded-reference parity for dictionary/direct chunks, candidate eviction,
+        ties, nulls, non-UTF8 blockers, missing metadata, and proof-bound recount decisions;
+        evidence for histogram entries consumed, exact first-pass candidates, second-pass rows,
+        skipped segments, active bytes, and selected kernel.
+      - Retain/drop gate: retain only if Q34/Q35 targeted UAT improves with unchanged exactness; if
+        metadata is insufficient, keep the existing exact route and record blocked kernel evidence.
+    - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
+      - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
+        recount, and adaptive radix exact path for high-cardinality numeric+string grouping.
+      - Current evidence: Q17 uses the numeric+UTF8 heavy-hitter family but still retains large
+        string state and does not route through a packed generation-safe state across scheduler
+        partitions.
+      - Implementation steps: pack numeric key bits, signedness, and string arena id/generation into
+        a compact candidate key; provide a direct dictionary-code path when string chunks expose
+        reusable codes; choose sketch-plus-recount or radix exact by cardinality/selectivity; render
+        final strings only after exact top-K ordering is known.
+      - Tests/evidence: parity tests for signedness, null ordering, UTF-8 ties, dictionary/direct
+        encodings, adaptive path selection, overflow blockers, and worker-count determinism;
+        evidence for packed key bytes, string active bytes, path selected, recount rows, and
+        materialized strings.
+      - Retain/drop gate: retain only if Q17 targeted UAT improves and final output remains
+        byte-for-byte stable across parallelism settings.
+    - [ ] Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.
+      - Ideas covered: Q29 fused weighted-dictionary kernel, cross-chunk transform memo, persisted
+        exact transform code, dense domain partial states, and exact segment dictionary summaries.
+      - Current evidence: Q29 has only `74` output groups but `transformed_dictionary_group_key_uncached()`
+        creates fresh `Arc<str>` domain keys per chunk dictionary value and the route uses general
+        measure-state update logic.
+      - Implementation steps: register a transformed dictionary aggregate kernel that computes URL
+        domain once per dictionary value, maps domain to dense ids, accumulates `count`, `sum`,
+        `min`, `max`, and `avg(length(...))` with vector/dictionary weights, memoizes transform
+        codes across chunks, and persists exact transform summaries when bounded by the prepared
+        artifact policy.
+      - Tests/evidence: decoded-reference parity for URL-domain parsing, length measures, nulls,
+        empty domains, dictionary/direct strings, repeated domains across chunks, dense id overflow,
+        persisted summary reopen, and unsupported transforms; evidence for dictionary values
+        transformed, memo hits, dense groups, measure updates, rows materialized, and selected
+        kernel.
+      - Retain/drop gate: retain only if Q29 targeted UAT improves or if the same kernel also
+        improves Q34/Q35 domain-heavy lanes without artifact-size regression.
+    - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
+      - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
+        conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.
+      - Current evidence: Q23 selects `7128` rows and `3673` groups but reports generic
+        `row_state_update`; existing local primitives have dictionary/FSST/memmem predicate helpers
+        that are not yet admitted through the route used by this query.
+      - Implementation steps: register predicate kernels for dictionary, FSST, and direct UTF-8
+        contains/LIKE literals; order conjuncts by conservative selectivity and kernel cost; build a
+        selection vector before reading measure columns; run aggregate/group updates only over
+        selected row refs and materialize payload strings at the sink boundary.
+      - Tests/evidence: parity tests for literal contains, LIKE, empty predicates, nulls,
+        dictionary/direct/FSST encodings, conjunct non-application, selected-row aggregation,
+        materialization counters, and unsupported pattern diagnostics; evidence for predicate
+        kernel selected, rows tested, rows selected, measure rows decoded, groups emitted, and
+        fallback status.
+      - Retain/drop gate: retain only if Q23 targeted UAT improves and the route preserves exact
+        predicate semantics; no regex/LIKE approximation can ship without a decoded-reference proof.
+    - [ ] Implement H/VH kernel packet `Q19 fixed-width tri-key grouped top-K`.
+      - Ideas covered: Q19 three-key heavy-hitter, fixed-width tri-key, duplicate-promotion filter,
+        morsel-local sketches, and radix exact fallback.
+      - Current evidence: Q19 uses a numeric-minute-string dictionary-code state but still creates
+        many candidate groups and retains large key/string storage.
+      - Implementation steps: pack numeric id, minute bucket, and string dictionary/arena id into a
+        fixed-width key; choose exact hash, sketch-plus-recount, duplicate-promotion, or radix/RLE
+        path from segment metadata; keep measures in dense partial arrays where cardinality permits;
+        render string keys only for retained final groups.
+      - Tests/evidence: parity tests for minute extraction, numeric overflow, null strings,
+        dictionary id reuse, all-unique/all-duplicate/skewed data, path selection, and deterministic
+        ties; evidence for packed key width, candidate count, promoted duplicates, radix runs,
+        string active bytes, and selected kernel.
+      - Retain/drop gate: retain only if Q19 targeted UAT improves or if memory drops materially
+        with no full-43 regression.
+    - [ ] Implement H/VH kernel packet `Q33 duplicate-promotion packed-pair aggregate`.
+      - Ideas covered: Q33 duplicate-promotion Bloom/filter strategy, packed pair table, radix
+        sort/RLE, parallel partitioned aggregation, and candidate segment directory.
+      - Current evidence: Q33 has almost one candidate group per row, so a normal hash table pays
+        per-row group-state cost even when only duplicates can affect `count > 1` style top-K
+        outcomes.
+      - Implementation steps: pack the numeric pair into fixed-width keys; run a first duplicate
+        promotion pass using a false-negative-free exact directory or a Bloom-assisted prefilter
+        followed by exact verification; aggregate only promoted candidates; choose radix sort/RLE
+        when the all-unique signal makes hashing wasteful; merge partitions deterministically.
+      - Tests/evidence: parity tests for all-unique, one-duplicate, many-duplicate, nulls,
+        high-cardinality skew, Bloom false-positive handling, exact verification, radix/hash path
+        equivalence, and worker-count determinism; evidence for keys promoted, false positives,
+        exact verification rows, candidate groups avoided, and selected kernel.
+      - Retain/drop gate: retain only if Q33 targeted UAT improves and exact verification proves no
+        false negatives.
+    - [ ] Implement H/VH kernel packet `Q10 exact distinct family split`.
+      - Ideas covered: Q10 separate aggregate families, partition-by-UserID hash, radix pair
+        sort/dedup, adaptive exact containers, and global ids/Roaring-style bitmap evaluation.
+      - Current evidence: Q10 emits only `9040` groups but exact distinct still updates per row
+        through `direct_accessor_count_distinct_group_update`.
+      - Implementation steps: split count-distinct execution into dense-group, sparse-group,
+        high-cardinality, and packed-pair strategies; partition by `UserID` hash to deduplicate
+        before group insertion; choose radix sort/dedup when exact container pressure is high; use
+        Roaring-style containers only after license/provenance review or implement a local
+        Apache-compatible bitmap container.
+      - Tests/evidence: parity tests for empty/all-null/mixed-null, duplicate-heavy users,
+        all-unique users, dense groups, sparse groups, high group count, container switching, and
+        worker-count determinism; evidence for container kind, dedup pairs avoided, partitions,
+        peak memory, selected kernel, and dependency/provenance status.
+      - Retain/drop gate: retain only if Q10 targeted UAT improves and dependency/provenance review
+        confirms any third-party bitmap crate is Apache-2.0-compatible; otherwise keep a local
+        implementation or the existing exact route.
     - [ ] Register first production kernels for string heavy-hitter top-K, transformed
       dictionary URL/domain grouping, numeric-pair aggregate, numeric+UTF8 grouped top-K, dense
       exact distinct, row-ref top-K, exact predicate count, and direct primitive aggregate.
@@ -617,6 +955,37 @@ must not be reported as a leaderboard or superiority claim.
     - [x] Define a shared `ColumnarResultBatch`/`RetainedRowSet` contract that carries selected
       columns, row refs/source ordinals, validity/null semantics, order/tie metadata, and sink
       materialization requirements.
+    - [ ] Implement H/VH result packet `selected-row aggregate and retained-row handoff`.
+      - Ideas covered: Q23 true late measure materialization, Q23 selected-row aggregate kernel,
+        row-ref retained result flow, and sink-boundary materialization proof.
+      - Current evidence: Q23 selects only `7128` rows but still reports generic row-state update
+        posture; several hot routes expose columnar evidence without routing every retained-row and
+        aggregate path through the shared result dataplane.
+      - Implementation steps: make predicate kernels emit `RetainedRowSet` selections; make grouped
+        aggregate/top-K paths consume selected column batches instead of row JSON values; keep
+        measure columns decoded only for selected row refs; render JSON/CSV/CLI/Python rows from
+        `ColumnarResultBatch` at the declared sink boundary.
+      - Tests/evidence: parity tests for JSON output shape, null rendering, output order/ties,
+        selected-column projection, grouped aggregate results, distinct results, and wide payload
+        top-K; evidence for rows retained, rows materialized, columns decoded, payload bytes
+        decoded, sink adapter selected, and fallback status.
+      - Retain/drop gate: retain only if Q23 targeted UAT improves or if broad result-path tests
+        prove lower materialization with no timing regression across Q23/Q24/Q25/top-K rows.
+    - [ ] Implement H/VH result packet `columnar sink parity for exact aggregate families`.
+      - Ideas covered: sink-facing handoff for Q10 exact distinct, Q17/Q19/Q34/Q35 top-K outputs,
+        Q29 transformed grouping outputs, and route-wide columnar result completion.
+      - Current evidence: `ColumnarResultBatch` and materialization certificates exist, but the
+        broad route conversion remains open; query families can still build row-shaped result
+        values earlier than the declared JSON/CSV/user-row boundary.
+      - Implementation steps: add adapters from every admitted aggregate/top-K state family into
+        `ColumnarResultBatch`; preserve group-key dictionary/string ids until final rendering; make
+        Vortex/Arrow-compatible sinks consume columnar batches directly where admitted; keep
+        compatibility-output metadata-loss reports explicit.
+      - Tests/evidence: parity tests for Q10/Q17/Q19/Q29/Q33/Q34/Q35-style result rows, JSON/CSV
+        rendering, Vortex/Arrow-compatible local sink replay, null/group-key ordering, and blocked
+        remote sinks; evidence for per-family row-materialization boundary and no-fallback status.
+      - Retain/drop gate: retain only if full 43-query UAT remains stable and at least one slow-row
+        family improves or reports materially lower decoded/materialized bytes without output drift.
     - [ ] Route filter/project/limit, sort/top-K, grouped aggregate, distinct, and row export
       through columnar result batches until JSON/CSV/user-row rendering requires row materialization.
     - [x] Add sink adapters that can consume columnar batches for Vortex/Arrow-compatible local
@@ -658,11 +1027,21 @@ Current autonomous execution order:
 
 1. Do not start implementation from the rejected 2026-09-02 writer-tuning diff. If implementation is
    resumed, first retain/drop or remove that experimental patch using the `360s` UAT evidence.
-2. Start with `CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1` unless the maintainer explicitly
-   chooses another item; the writer/ingest path is the currently measured load long pole.
-3. Then proceed through segment metadata, morsel scheduling, specialized kernels, and columnar
-   result data-plane work in that order unless fresh evidence changes the dependency order.
-4. Keep all runtime work attached to shared ShardLoom/Vortex-native execution surfaces, with
+2. Start with the `CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1` H/VH packets in this order:
+   decoupled ordered pre-writer pipeline, dictionary-lifted derived-column construction, single
+   resource governor, then retained layout/codec portfolio admission. The `271s` replacement-ingest
+   run is the protected local reference until a fresh UAT improves or explicitly supersedes it.
+3. Implement the string identity/reclaimable arena packet before broad Q34/Q35/Q17 heavy-hitter
+   work; otherwise those rows risk retaining historical evicted strings and hiding the effect of
+   scheduler/kernel changes.
+4. Then proceed through metadata summaries, scheduler state-family routing, specialized kernels, and
+   columnar result packets in the order that maximizes shared reuse: Q34/Q35 shared string
+   heavy-hitter, Q29 transformed dictionary-domain aggregate, Q23 encoded predicate/selected-row
+   path, Q17 packed numeric-plus-UTF8 top-K, Q33 packed-pair duplicate promotion, Q10 exact distinct,
+   and Q19 tri-key grouped aggregate unless fresh targeted evidence changes the dependency order.
+5. After each retained implementation batch, run targeted UAT for the touched rows first and reserve
+   replacement-ingest plus full 43-query UAT for the cohesive batch boundary.
+6. Keep all runtime work attached to shared ShardLoom/Vortex-native execution surfaces, with
    external engines restricted to baseline/oracle evidence only.
 
 Validator ownership note: `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains named here as the active
