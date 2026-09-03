@@ -920,6 +920,29 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         The runtime change was removed. Do not retry a full second scan for this shape unless
         persisted exact transform summaries or segment-level min metadata can avoid rereading the
         `81,032,736` selected referer rows.
+      - Completed 2026-09-03 implementation slice: the Q29-class URL-domain general-measure path
+        now admits a dense transformed-dictionary accumulator keyed by interned domain id. The
+        retained route stores direct `count`, weighted `length` sum/count, and exact UTF-8
+        min/max candidates instead of allocating a cloned generic aggregate-state vector per
+        transformed domain. It preserves exact HAVING/order/LIMIT semantics, keeps final string
+        rendering at result construction, and falls through to the older generic route for
+        non-URL-domain, nullable, count-distinct, offset, or unsupported transform shapes. Focused
+        validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives transformed_dictionary -- --nocapture`.
+        Targeted local 100M Q29 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_dense_domain_accumulator_20260903T231012Z/summary.json`
+        produced best-of-3 `9.870339999964926s` and mean `10.399488527657619s`, improving the
+        retained `10.52268858399475s` best by `6.20%` and the older protected `10.730s` reference
+        by `8.01%`. Evidence reports
+        `aggregate_update_strategy=transformed_dictionary_dense_general_measure_group_update`,
+        `compact_group_state_strategy=dense_transformed_dictionary_general_measure_group_state`,
+        `group_state_mode=dense_transformed_dictionary_general_accumulators`,
+        `group_key_storage=dense_transformed_dictionary_interned_utf8_key`,
+        `group_output_strategy=capillary_transformed_dictionary_dense_general_topk`, `74` selected
+        candidate groups, `25` retained rows, `1,798,248` decoded/interned domain strings, and
+        `fallback_attempted=false` / `external_engine_invoked=false`. Remaining Q29 work should
+        focus on persisted exact transform summaries or segment-level domain/min metadata that can
+        reduce the `1,798,248` transformed group keys themselves, not another second pass.
     - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
       - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
         conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.

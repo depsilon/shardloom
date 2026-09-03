@@ -23725,6 +23725,9 @@ struct GroupedAggregateStates<'a> {
     numeric_utf8_topk_chunk_compacted_updates: bool,
     group_order: Vec<AggregateGroupKey>,
     string_interner: AggregateStringInterner,
+    transformed_dictionary_dense_general_groups:
+        Option<rustc_hash::FxHashMap<u64, TransformedDictionaryDenseGeneralState>>,
+    transformed_dictionary_dense_general_plan: Option<TransformedDictionaryDenseGeneralPlan>,
     count_star_direct_updates: bool,
     single_numeric_count_direct_updates: bool,
     compact_measure_direct_updates: bool,
@@ -23751,6 +23754,8 @@ struct GroupedAggregateStates<'a> {
     transformed_dictionary_key_cache_misses: u64,
     transformed_dictionary_key_cache_saturated: bool,
     dictionary_group_compact_measure_direct_updates: bool,
+    transformed_dictionary_dense_general_direct_updates: bool,
+    transformed_dictionary_dense_general_transform_fusion: bool,
     transformed_dictionary_general_direct_updates: bool,
     transformed_dictionary_general_transform_fusion: bool,
     transformed_dictionary_lazy_utf8_minmax_updates: bool,
@@ -23817,6 +23822,34 @@ struct NumericPairCompactMeasurePlan {
 #[cfg(feature = "vortex-local-primitives")]
 struct TransformedDictionaryCompactMeasurePlan {
     updates: Vec<TransformedDictionaryCompactMeasureUpdate>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+struct TransformedDictionaryDenseGeneralPlan {
+    needs_length_additive: bool,
+    needs_length_min: bool,
+    needs_length_max: bool,
+    needs_utf8_min: bool,
+    needs_utf8_max: bool,
+    fused_transform: bool,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Default)]
+struct TransformedDictionaryDenseGeneralState {
+    row_count: u64,
+    length_sum: f64,
+    min_length: Option<u64>,
+    max_length: Option<u64>,
+    min_utf8: Option<std::sync::Arc<str>>,
+    max_utf8: Option<std::sync::Arc<str>>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct TransformedDictionaryDenseGeneralOrderCandidate {
+    key_id: u64,
+    order_values: Vec<GroupedAggregateOrderValue>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -25637,6 +25670,300 @@ impl TransformedDictionaryCompactMeasurePlan {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+impl TransformedDictionaryDenseGeneralPlan {
+    fn from_template(
+        template: &SimpleAggregateStates,
+        dictionary_column_index: usize,
+    ) -> Option<Self> {
+        if template.states.is_empty() {
+            return None;
+        }
+        let mut plan = Self::default();
+        let mut length_consumers = 0_usize;
+        let mut identity_stat_consumers = 0_usize;
+        for state in &template.states {
+            if state.argument_offset.is_some() {
+                return None;
+            }
+            match state.function {
+                SimpleAggregateFunction::Count => {
+                    if !state.column_index.is_none_or(|column_index| {
+                        column_index == dictionary_column_index
+                            && matches!(
+                                state.value_transform,
+                                AggregateValueTransform::Identity | AggregateValueTransform::Length
+                            )
+                    }) {
+                        return None;
+                    }
+                }
+                SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
+                    if state.column_index != Some(dictionary_column_index)
+                        || !matches!(state.value_transform, AggregateValueTransform::Length)
+                    {
+                        return None;
+                    }
+                    plan.needs_length_additive = true;
+                    length_consumers += 1;
+                }
+                SimpleAggregateFunction::Min => {
+                    if state.column_index != Some(dictionary_column_index) {
+                        return None;
+                    }
+                    match state.value_transform {
+                        AggregateValueTransform::Identity => {
+                            plan.needs_utf8_min = true;
+                            identity_stat_consumers += 1;
+                        }
+                        AggregateValueTransform::Length => {
+                            plan.needs_length_min = true;
+                            length_consumers += 1;
+                        }
+                        AggregateValueTransform::ConstantInt(_)
+                        | AggregateValueTransform::AddOffset(_)
+                        | AggregateValueTransform::ExtractMinute
+                        | AggregateValueTransform::DateTruncMinute
+                        | AggregateValueTransform::UrlDomain
+                        | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
+                            return None;
+                        }
+                    }
+                }
+                SimpleAggregateFunction::Max => {
+                    if state.column_index != Some(dictionary_column_index) {
+                        return None;
+                    }
+                    match state.value_transform {
+                        AggregateValueTransform::Identity => {
+                            plan.needs_utf8_max = true;
+                            identity_stat_consumers += 1;
+                        }
+                        AggregateValueTransform::Length => {
+                            plan.needs_length_max = true;
+                            length_consumers += 1;
+                        }
+                        AggregateValueTransform::ConstantInt(_)
+                        | AggregateValueTransform::AddOffset(_)
+                        | AggregateValueTransform::ExtractMinute
+                        | AggregateValueTransform::DateTruncMinute
+                        | AggregateValueTransform::UrlDomain
+                        | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
+                            return None;
+                        }
+                    }
+                }
+                SimpleAggregateFunction::CountDistinct => return None,
+            }
+        }
+        plan.fused_transform = length_consumers > 1 || identity_stat_consumers > 1;
+        Some(plan)
+    }
+
+    const fn needs_length(self) -> bool {
+        self.needs_length_additive || self.needs_length_min || self.needs_length_max
+    }
+
+    const fn needs_utf8_minmax(self) -> bool {
+        self.needs_utf8_min || self.needs_utf8_max
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl TransformedDictionaryDenseGeneralState {
+    #[allow(clippy::cast_precision_loss)]
+    fn update_weighted_utf8_dictionary_value(
+        &mut self,
+        plan: TransformedDictionaryDenseGeneralPlan,
+        value: &std::sync::Arc<str>,
+        weight: u64,
+    ) -> Result<()> {
+        if weight == 0 {
+            return Ok(());
+        }
+        self.row_count = self.row_count.checked_add(weight).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex dense transformed-dictionary aggregate count overflowed u64"
+                    .to_string(),
+            )
+        })?;
+        if plan.needs_length() {
+            let length = usize_to_u64(value.len())?;
+            if plan.needs_length_additive {
+                self.length_sum += uint64_stat_to_float64(length) * uint64_stat_to_float64(weight);
+                if !self.length_sum.is_finite() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex dense transformed-dictionary aggregate length sum became non-finite; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+            }
+            if plan.needs_length_min {
+                self.min_length = Some(
+                    self.min_length
+                        .map_or(length, |current| current.min(length)),
+                );
+            }
+            if plan.needs_length_max {
+                self.max_length = Some(
+                    self.max_length
+                        .map_or(length, |current| current.max(length)),
+                );
+            }
+        }
+        if plan.needs_utf8_min {
+            match self.min_utf8.as_ref() {
+                Some(current) if current.as_ref() <= value.as_ref() => {}
+                Some(_) | None => self.min_utf8 = Some(std::sync::Arc::clone(value)),
+            }
+        }
+        if plan.needs_utf8_max {
+            match self.max_utf8.as_ref() {
+                Some(current) if current.as_ref() >= value.as_ref() => {}
+                Some(_) | None => self.max_utf8 = Some(std::sync::Arc::clone(value)),
+            }
+        }
+        Ok(())
+    }
+
+    fn result_value_pairs(
+        &self,
+        template: &SimpleAggregateStates,
+    ) -> Result<Vec<(String, serde_json::Value)>> {
+        template
+            .states
+            .iter()
+            .map(|state| Ok((state.alias.clone(), self.result_json(state)?)))
+            .collect()
+    }
+
+    fn result_value_for_alias(
+        &self,
+        template: &SimpleAggregateStates,
+        alias: &str,
+    ) -> Result<Option<serde_json::Value>> {
+        template
+            .states
+            .iter()
+            .find(|state| state.alias == alias)
+            .map(|state| self.result_json(state))
+            .transpose()
+    }
+
+    fn order_value_for_alias(
+        &self,
+        template: &SimpleAggregateStates,
+        alias: &str,
+    ) -> Result<Option<GroupedAggregateOrderValue>> {
+        template
+            .states
+            .iter()
+            .find(|state| state.alias == alias)
+            .map(|state| self.order_value(state))
+            .transpose()
+    }
+
+    fn order_value(&self, state: &SimpleAggregateState) -> Result<GroupedAggregateOrderValue> {
+        match state.function {
+            SimpleAggregateFunction::Count => Ok(GroupedAggregateOrderValue::CountStar(
+                self.row_count,
+            )),
+            SimpleAggregateFunction::Sum => {
+                if self.row_count == 0 {
+                    Ok(GroupedAggregateOrderValue::Null)
+                } else {
+                    Ok(GroupedAggregateOrderValue::Float64(self.length_sum))
+                }
+            }
+            SimpleAggregateFunction::Avg => {
+                if self.row_count == 0 {
+                    Ok(GroupedAggregateOrderValue::Null)
+                } else {
+                    Ok(GroupedAggregateOrderValue::Float64(simple_average_value(
+                        self.length_sum,
+                        self.row_count,
+                    )))
+                }
+            }
+            SimpleAggregateFunction::Min | SimpleAggregateFunction::Max => {
+                self.result_json(state).map(GroupedAggregateOrderValue::Json)
+            }
+            SimpleAggregateFunction::CountDistinct => Err(ShardLoomError::InvalidOperation(
+                "local Vortex dense transformed-dictionary aggregate does not admit count-distinct; no fallback execution was attempted"
+                    .to_string(),
+            )),
+        }
+    }
+
+    fn result_json(&self, state: &SimpleAggregateState) -> Result<serde_json::Value> {
+        match state.function {
+            SimpleAggregateFunction::Count => Ok(serde_json::Value::Number(self.row_count.into())),
+            SimpleAggregateFunction::Sum => {
+                if self.row_count == 0 {
+                    Ok(serde_json::Value::Null)
+                } else {
+                    json_number_from_f64(self.length_sum)
+                }
+            }
+            SimpleAggregateFunction::Avg => {
+                if self.row_count == 0 {
+                    Ok(serde_json::Value::Null)
+                } else {
+                    json_number_from_f64(simple_average_value(self.length_sum, self.row_count))
+                }
+            }
+            SimpleAggregateFunction::Min => match state.value_transform {
+                AggregateValueTransform::Identity => Ok(self
+                    .min_utf8
+                    .as_ref()
+                    .map_or(serde_json::Value::Null, |value| {
+                        serde_json::Value::String(value.to_string())
+                    })),
+                AggregateValueTransform::Length => Ok(self
+                    .min_length
+                    .map_or(serde_json::Value::Null, |value| value.into())),
+                AggregateValueTransform::ConstantInt(_)
+                | AggregateValueTransform::AddOffset(_)
+                | AggregateValueTransform::ExtractMinute
+                | AggregateValueTransform::DateTruncMinute
+                | AggregateValueTransform::UrlDomain
+                | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
+                    Err(ShardLoomError::InvalidOperation(
+                        "local Vortex dense transformed-dictionary aggregate reached unsupported min transform; no fallback execution was attempted"
+                            .to_string(),
+                    ))
+                }
+            },
+            SimpleAggregateFunction::Max => match state.value_transform {
+                AggregateValueTransform::Identity => Ok(self
+                    .max_utf8
+                    .as_ref()
+                    .map_or(serde_json::Value::Null, |value| {
+                        serde_json::Value::String(value.to_string())
+                    })),
+                AggregateValueTransform::Length => Ok(self
+                    .max_length
+                    .map_or(serde_json::Value::Null, |value| value.into())),
+                AggregateValueTransform::ConstantInt(_)
+                | AggregateValueTransform::AddOffset(_)
+                | AggregateValueTransform::ExtractMinute
+                | AggregateValueTransform::DateTruncMinute
+                | AggregateValueTransform::UrlDomain
+                | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
+                    Err(ShardLoomError::InvalidOperation(
+                        "local Vortex dense transformed-dictionary aggregate reached unsupported max transform; no fallback execution was attempted"
+                            .to_string(),
+                    ))
+                }
+            },
+            SimpleAggregateFunction::CountDistinct => Err(ShardLoomError::InvalidOperation(
+                "local Vortex dense transformed-dictionary aggregate does not admit count-distinct; no fallback execution was attempted"
+                    .to_string(),
+            )),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 impl NumericPairCompactMeasures {
     fn new(plan: &NumericPairCompactMeasurePlan) -> Self {
         Self {
@@ -26201,6 +26528,8 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_utf8_topk_chunk_compacted_updates: false,
             group_order: Vec::new(),
             string_interner: AggregateStringInterner::default(),
+            transformed_dictionary_dense_general_groups: None,
+            transformed_dictionary_dense_general_plan: None,
             count_star_direct_updates: false,
             single_numeric_count_direct_updates: false,
             compact_measure_direct_updates: false,
@@ -26226,6 +26555,8 @@ impl<'a> GroupedAggregateStates<'a> {
             transformed_dictionary_key_cache_misses: 0,
             transformed_dictionary_key_cache_saturated: false,
             dictionary_group_compact_measure_direct_updates: false,
+            transformed_dictionary_dense_general_direct_updates: false,
+            transformed_dictionary_dense_general_transform_fusion: false,
             transformed_dictionary_general_direct_updates: false,
             transformed_dictionary_general_transform_fusion: false,
             transformed_dictionary_lazy_utf8_minmax_updates: false,
@@ -29000,6 +29331,9 @@ impl<'a> GroupedAggregateStates<'a> {
                 return Ok(true);
             }
         }
+        if self.update_dense_general_direct_from_transformed_dictionary(&accessors, row_indices)? {
+            return Ok(true);
+        }
         if self.update_general_direct_from_transformed_dictionary(&accessors, row_indices)? {
             return Ok(true);
         }
@@ -29460,6 +29794,130 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     #[allow(clippy::too_many_lines)]
+    fn update_dense_general_direct_from_transformed_dictionary(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+    ) -> Result<bool> {
+        if self.group_key_indices.len() != 1 || self.group_columns.len() != 1 {
+            return Ok(false);
+        }
+        if self.source_order_group_admission_limit().is_some() || self.request.order_by.is_empty() {
+            return Ok(false);
+        }
+        if !self.groups.is_empty()
+            || !self.group_order.is_empty()
+            || self.single_numeric_count_groups.is_some()
+            || self.numeric_pair_compact_groups.is_some()
+            || self.numeric_pair_late_measure_count_groups.is_some()
+            || self.numeric_minute_string_count_groups.is_some()
+            || self.string_count_topk_heavy_hitter_sketch.is_some()
+            || self.string_count_topk_exact_counts.is_some()
+            || self
+                .string_count_distinct_topk_heavy_hitter_sketch
+                .is_some()
+            || self.string_count_distinct_topk_exact_sets.is_some()
+            || self.numeric_utf8_topk_heavy_hitter_sketch.is_some()
+            || self.numeric_utf8_topk_exact_counts.is_some()
+        {
+            return Ok(false);
+        }
+        let group_index = self.group_key_indices[0];
+        let group_column = self.group_columns.get(group_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex dense transformed-dictionary aggregate group index was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        if !group_column.extra_column_indices.is_empty()
+            || !matches!(group_column.transform, AggregateValueTransform::UrlDomain)
+        {
+            return Ok(false);
+        }
+        let group_accessor_index = group_column.column_index;
+        let Some(AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids: group_row_ids,
+            values: group_values,
+            value_nulls: group_value_nulls,
+            row_nulls: group_row_nulls,
+            ..
+        }) = accessors.get(group_accessor_index)
+        else {
+            return Ok(false);
+        };
+        if !aggregate_utf8_dictionary_rows_are_non_null(
+            group_row_ids,
+            group_values.len(),
+            group_value_nulls.as_deref(),
+            group_row_nulls.as_deref(),
+            row_indices,
+        ) {
+            return Ok(false);
+        }
+        let Some(plan) = TransformedDictionaryDenseGeneralPlan::from_template(
+            &self.state_template,
+            group_accessor_index,
+        ) else {
+            return Ok(false);
+        };
+        if let Some(existing) = self.transformed_dictionary_dense_general_plan {
+            if existing != plan {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex dense transformed-dictionary aggregate plan changed across chunks; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+        } else {
+            self.transformed_dictionary_dense_general_plan = Some(plan);
+        }
+        let counts =
+            dictionary_value_counts_for_rows(group_row_ids, group_values.len(), row_indices)?;
+        if self.transformed_dictionary_dense_general_groups.is_none() {
+            self.transformed_dictionary_dense_general_groups =
+                Some(rustc_hash::FxHashMap::default());
+        }
+        if let Some(groups) = self.transformed_dictionary_dense_general_groups.as_mut() {
+            reserve_hash_map_capacity(
+                groups,
+                group_values.len(),
+                "dense transformed-dictionary general grouped aggregate",
+            )?;
+        }
+        for (value, count) in group_values.iter().zip(counts) {
+            if count == 0 {
+                continue;
+            }
+            let key_id = self
+                .string_interner
+                .intern(aggregate_url_domain_str(value))?;
+            let groups = self
+                .transformed_dictionary_dense_general_groups
+                .as_mut()
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex dense transformed-dictionary aggregate state was missing; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+            groups
+                .entry(key_id)
+                .or_default()
+                .update_weighted_utf8_dictionary_value(plan, value, count)?;
+        }
+        self.count_star_direct_updates = self.state_template.has_count_star_measure();
+        self.chunk_dictionary_direct_updates = true;
+        self.transformed_dictionary_direct_updates = true;
+        self.transformed_dictionary_dense_general_direct_updates = true;
+        if plan.fused_transform {
+            self.transformed_dictionary_dense_general_transform_fusion = true;
+        }
+        if plan.needs_utf8_minmax() {
+            self.transformed_dictionary_lazy_utf8_minmax_updates = true;
+        }
+        Ok(true)
+    }
+
+    #[allow(clippy::too_many_lines)]
     fn update_general_direct_from_transformed_dictionary(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
@@ -29477,6 +29935,7 @@ impl<'a> GroupedAggregateStates<'a> {
             || self.numeric_minute_string_count_groups.is_some()
             || self.string_count_topk_heavy_hitter_sketch.is_some()
             || self.string_count_topk_exact_counts.is_some()
+            || self.transformed_dictionary_dense_general_groups.is_some()
         {
             return Ok(false);
         }
@@ -30936,6 +31395,11 @@ impl<'a> GroupedAggregateStates<'a> {
                 limit, &group_by,
             );
         }
+        if self.transformed_dictionary_dense_general_groups.is_some() {
+            return self.transformed_dictionary_dense_general_result_row_count_and_summary(
+                limit, &group_by,
+            );
+        }
         if self.admits_generic_count_star_streaming_topk(limit) {
             return self.generic_count_star_streaming_topk_result_row_count_and_summary(
                 limit.expect("checked by admits_generic_count_star_streaming_topk"),
@@ -31032,6 +31496,300 @@ impl<'a> GroupedAggregateStates<'a> {
             self.transformed_dictionary_lazy_utf8_minmax_updates,
         )?;
         Ok((row_count, payload.to_string()))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn transformed_dictionary_dense_general_result_row_count_and_summary(
+        &self,
+        limit: Option<usize>,
+        group_by: &[&str],
+    ) -> Result<(usize, String)> {
+        let groups = self
+            .transformed_dictionary_dense_general_groups
+            .as_ref()
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex dense transformed-dictionary aggregate state was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        let mut candidates = self.transformed_dictionary_dense_general_ordered_candidates()?;
+        let candidate_groups = candidates.len();
+        let available = candidate_groups.saturating_sub(self.request.offset);
+        let row_count = limit.map_or(available, |limit| available.min(limit));
+        let retained_cap = self.request.offset.saturating_add(row_count);
+        let group_output_strategy = if limit.is_some() && retained_cap < candidates.len() {
+            self.capillary_select_transformed_dictionary_dense_general_candidates(
+                &mut candidates,
+                retained_cap,
+            );
+            "capillary_transformed_dictionary_dense_general_topk"
+        } else {
+            "ordered_group_sort"
+        };
+        self.sort_transformed_dictionary_dense_general_candidates(&mut candidates);
+        let rows = candidates
+            .into_iter()
+            .skip(self.request.offset)
+            .take(row_count)
+            .map(|candidate| {
+                let state = groups.get(&candidate.key_id).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex dense transformed-dictionary retained candidate key was missing; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+                self.result_row_for_transformed_dictionary_dense_general_group(
+                    candidate.key_id,
+                    state,
+                )
+                .map(serde_json::Value::Object)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let functions = self.state_template.functions_summary();
+        let row_count = rows.len();
+        let estimated_group_key_storage_bytes = self.estimated_group_key_storage_bytes();
+        let estimated_group_string_storage_bytes = self.estimated_group_string_storage_bytes();
+        let mut payload = serde_json::json!({
+            "rows": rows.len(),
+            "group_by": group_by.join(","),
+            "functions": functions,
+            "aggregate_key_encoding_mode": self.aggregate_key_encoding_mode(),
+            "aggregate_update_strategy": self.aggregate_update_strategy(),
+            "expression_fusion_strategy": self.expression_fusion_strategy(),
+            "expression_plan_fingerprint_status": self.expression_plan_fingerprint_status(),
+            "aggregate_accessor_summary": self.aggregate_accessor_summary(),
+            "aggregate_accessor_materialization_status": self.aggregate_accessor_materialization_status(),
+            "aggregate_vortex_dictionary_accessor_columns": self.aggregate_vortex_dictionary_accessor_columns(),
+            "aggregate_chunk_dictionary_accessor_columns": self.aggregate_chunk_dictionary_accessor_columns(),
+            "aggregate_primitive_accessor_columns": self.aggregate_primitive_accessor_columns(),
+            "aggregate_materialized_accessor_columns": self.aggregate_materialized_accessor_columns(),
+            "aggregate_accessor_blockers": self.aggregate_accessor_blockers(),
+            "distinct_state_strategy": "none",
+            "group_output_strategy": group_output_strategy,
+            "candidate_groups": candidate_groups,
+            "retained_candidate_groups": retained_cap.min(candidate_groups),
+            "evicted_or_spilled_group_count": 0,
+            "compact_group_state_strategy": self.compact_group_state_strategy(),
+            "group_state_mode": self.group_state_mode(),
+            "group_key_storage": self.group_key_storage(),
+            "group_key_comparison_strategy": "interned_utf8_domain_id_then_string",
+            "source_order_key_retention": self.source_order_key_retention(),
+            "topk_retention_after_update": retained_cap.min(candidate_groups),
+            "materialized_group_value_count": self.materialized_group_value_count(),
+            "decoded_string_count": self.string_interner.len(),
+            "estimated_group_key_storage_bytes": estimated_group_key_storage_bytes,
+            "estimated_group_string_storage_bytes": estimated_group_string_storage_bytes,
+            "uniqueness_proof_status": "not_proved",
+            "spill_state": "not_spilled",
+            "order_by": self
+                .request
+                .order_by
+                .iter()
+                .map(crate::VortexAggregateOrderExpr::summary)
+                .collect::<Vec<_>>()
+                .join(","),
+            "offset": self.request.offset,
+            "transformed_dictionary_dense_general_pre_having_groups": groups.len(),
+            "transformed_dictionary_dense_general_selected_groups": candidate_groups,
+            "values": rows,
+        });
+        json_object_insert_bool(
+            &mut payload,
+            "transformed_dictionary_dense_general_updates",
+            self.transformed_dictionary_dense_general_direct_updates,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "transformed_dictionary_lazy_utf8_minmax_updates",
+            self.transformed_dictionary_lazy_utf8_minmax_updates,
+        )?;
+        Ok((row_count, payload.to_string()))
+    }
+
+    fn transformed_dictionary_dense_general_ordered_candidates(
+        &self,
+    ) -> Result<Vec<TransformedDictionaryDenseGeneralOrderCandidate>> {
+        let groups = self
+            .transformed_dictionary_dense_general_groups
+            .as_ref()
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex dense transformed-dictionary aggregate state was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        let prepared_having = prepare_aggregate_having(&self.request.having);
+        let mut candidates = Vec::new();
+        for (key_id, state) in groups {
+            if !self.transformed_dictionary_dense_general_matches_prepared_having(
+                *key_id,
+                state,
+                &prepared_having,
+            )? {
+                continue;
+            }
+            let order_values = self
+                .request
+                .order_by
+                .iter()
+                .map(|order| {
+                    self.transformed_dictionary_dense_general_order_value_for_column(
+                        *key_id,
+                        state,
+                        &order.column,
+                    )
+                })
+                .collect::<Result<Vec<_>>>()?;
+            candidates.push(TransformedDictionaryDenseGeneralOrderCandidate {
+                key_id: *key_id,
+                order_values,
+            });
+        }
+        Ok(candidates)
+    }
+
+    fn result_row_for_transformed_dictionary_dense_general_group(
+        &self,
+        key_id: u64,
+        state: &TransformedDictionaryDenseGeneralState,
+    ) -> Result<serde_json::Map<String, serde_json::Value>> {
+        let mut row = serde_json::Map::new();
+        let group_column = self.group_columns.first().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex dense transformed-dictionary aggregate group column was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        row.insert(
+            group_column.name.clone(),
+            serde_json::Value::String(self.string_interner.value(key_id)?.to_string()),
+        );
+        for (alias, value) in state.result_value_pairs(&self.state_template)? {
+            row.insert(alias, value);
+        }
+        Ok(row)
+    }
+
+    fn transformed_dictionary_dense_general_matches_prepared_having(
+        &self,
+        key_id: u64,
+        state: &TransformedDictionaryDenseGeneralState,
+        having: &[PreparedAggregateHavingExpr<'_>],
+    ) -> Result<bool> {
+        for expression in having {
+            let ordering = if let Some(value) =
+                state.order_value_for_alias(&self.state_template, expression.column)?
+            {
+                compare_grouped_order_value_to_json(&value, &expression.value)
+            } else {
+                let left = self.transformed_dictionary_dense_general_result_value_for_column(
+                    key_id,
+                    state,
+                    expression.column,
+                )?;
+                compare_json_values(&left, &expression.value)
+            };
+            if !aggregate_having_ordering_matches(ordering, expression.op) {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    fn transformed_dictionary_dense_general_result_value_for_column(
+        &self,
+        key_id: u64,
+        state: &TransformedDictionaryDenseGeneralState,
+        column: &str,
+    ) -> Result<serde_json::Value> {
+        if let Some(value) = state.result_value_for_alias(&self.state_template, column)? {
+            return Ok(value);
+        }
+        if self
+            .group_columns
+            .iter()
+            .any(|group_column| group_column.name == column)
+        {
+            return Ok(serde_json::Value::String(
+                self.string_interner.value(key_id)?.to_string(),
+            ));
+        }
+        Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex dense transformed-dictionary aggregate references missing output column '{column}'; no fallback execution was attempted"
+        )))
+    }
+
+    fn transformed_dictionary_dense_general_order_value_for_column(
+        &self,
+        key_id: u64,
+        state: &TransformedDictionaryDenseGeneralState,
+        column: &str,
+    ) -> Result<GroupedAggregateOrderValue> {
+        if let Some(value) = state.order_value_for_alias(&self.state_template, column)? {
+            return Ok(value);
+        }
+        self.transformed_dictionary_dense_general_result_value_for_column(key_id, state, column)
+            .map(GroupedAggregateOrderValue::Json)
+    }
+
+    fn sort_transformed_dictionary_dense_general_candidates(
+        &self,
+        candidates: &mut [TransformedDictionaryDenseGeneralOrderCandidate],
+    ) {
+        candidates.sort_by(|left, right| {
+            self.compare_transformed_dictionary_dense_general_candidates(left, right)
+        });
+    }
+
+    fn compare_transformed_dictionary_dense_general_candidates(
+        &self,
+        left: &TransformedDictionaryDenseGeneralOrderCandidate,
+        right: &TransformedDictionaryDenseGeneralOrderCandidate,
+    ) -> std::cmp::Ordering {
+        for (index, order) in self.request.order_by.iter().enumerate() {
+            let ordering = match (left.order_values.get(index), right.order_values.get(index)) {
+                (Some(left_value), Some(right_value)) => {
+                    compare_grouped_order_values(left_value, right_value)
+                }
+                (None, None) => std::cmp::Ordering::Equal,
+                (None, Some(right_value)) => {
+                    compare_grouped_order_values(&GroupedAggregateOrderValue::Null, right_value)
+                }
+                (Some(left_value), None) => {
+                    compare_grouped_order_values(left_value, &GroupedAggregateOrderValue::Null)
+                }
+            };
+            if ordering != std::cmp::Ordering::Equal {
+                return if order.descending {
+                    ordering.reverse()
+                } else {
+                    ordering
+                };
+            }
+        }
+        self.string_interner
+            .value(left.key_id)
+            .unwrap_or_default()
+            .cmp(self.string_interner.value(right.key_id).unwrap_or_default())
+    }
+
+    fn capillary_select_transformed_dictionary_dense_general_candidates(
+        &self,
+        candidates: &mut Vec<TransformedDictionaryDenseGeneralOrderCandidate>,
+        retained_cap: usize,
+    ) {
+        if retained_cap >= candidates.len() {
+            return;
+        }
+        if retained_cap == 0 {
+            candidates.clear();
+            return;
+        }
+        candidates.select_nth_unstable_by(retained_cap, |left, right| {
+            self.compare_transformed_dictionary_dense_general_candidates(left, right)
+        });
+        candidates.truncate(retained_cap);
     }
 
     #[allow(clippy::too_many_lines)]
@@ -32863,6 +33621,9 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             return "proofbound_string_heavy_hitter_key";
         }
+        if self.transformed_dictionary_dense_general_groups.is_some() {
+            return "dense_transformed_dictionary_interned_utf8_hash_key";
+        }
         if self.group_key_indices.len() == self.group_columns.len() {
             "typed_hash_key"
         } else {
@@ -33021,6 +33782,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "dictionary_group_compact_count_sum_avg_group_update"
         } else if self.transformed_dictionary_compact_direct_updates {
             "transformed_dictionary_compact_count_sum_avg_group_update"
+        } else if self.transformed_dictionary_dense_general_direct_updates {
+            "transformed_dictionary_dense_general_measure_group_update"
         } else if self.transformed_dictionary_general_direct_updates {
             "transformed_dictionary_general_measure_group_update"
         } else if self.transformed_dictionary_direct_updates {
@@ -33047,7 +33810,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn expression_fusion_strategy(&self) -> &'static str {
-        if self.transformed_dictionary_general_transform_fusion {
+        if self.transformed_dictionary_dense_general_transform_fusion
+            || self.transformed_dictionary_general_transform_fusion
+        {
             "dictionary_weighted_transform_fusion"
         } else {
             "none"
@@ -33055,7 +33820,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn expression_plan_fingerprint_status(&self) -> &'static str {
-        if self.transformed_dictionary_general_transform_fusion {
+        if self.transformed_dictionary_dense_general_transform_fusion
+            || self.transformed_dictionary_general_transform_fusion
+        {
             "shared_dictionary_value_transform_update"
         } else {
             "not_required"
@@ -33123,6 +33890,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "chunk_dictionary_compact_count_sum_avg_group_state"
         } else if self.transformed_dictionary_compact_direct_updates {
             "chunk_dictionary_transformed_compact_count_sum_avg_group_state"
+        } else if self.transformed_dictionary_dense_general_direct_updates {
+            "dense_transformed_dictionary_general_measure_group_state"
         } else if self.transformed_dictionary_general_direct_updates {
             "chunk_dictionary_transformed_general_measure_group_state"
         } else if self.transformed_dictionary_direct_updates {
@@ -33193,6 +33962,8 @@ impl<'a> GroupedAggregateStates<'a> {
             } else {
                 "bounded_string_count_distinct_heavy_hitter_candidates"
             }
+        } else if self.transformed_dictionary_dense_general_groups.is_some() {
+            "dense_transformed_dictionary_interned_utf8_key"
         } else if self.grouped_count_distinct_pair_preunion_updates {
             "typed_single_key+packed_integer_pair_preunion"
         } else if self.string_interner.len() > 0 && self.group_key_indices.len() > 1 {
@@ -33261,6 +34032,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "chunk_dictionary_compact_measure_code_map"
         } else if self.transformed_dictionary_compact_direct_updates {
             "transformed_chunk_dictionary_compact_measure_code_map"
+        } else if self.transformed_dictionary_dense_general_direct_updates {
+            "dense_transformed_dictionary_general_accumulators"
         } else if self.transformed_dictionary_general_direct_updates {
             "transformed_chunk_dictionary_general_measure_code_map"
         } else if self.transformed_dictionary_direct_updates {
@@ -33311,6 +34084,9 @@ impl<'a> GroupedAggregateStates<'a> {
             return groups.len();
         }
         if let Some(groups) = self.numeric_utf8_topk_exact_counts.as_ref() {
+            return groups.len();
+        }
+        if let Some(groups) = self.transformed_dictionary_dense_general_groups.as_ref() {
             return groups.len();
         }
         self.groups.len()
@@ -33392,6 +34168,9 @@ impl<'a> GroupedAggregateStates<'a> {
             return 0;
         }
         if self.string_count_distinct_topk_exact_sets.is_some() {
+            return 0;
+        }
+        if self.transformed_dictionary_dense_general_groups.is_some() {
             return 0;
         }
         self.groups
@@ -33511,6 +34290,9 @@ impl<'a> GroupedAggregateStates<'a> {
             );
         }
         if let Some(groups) = self.string_count_distinct_topk_exact_sets.as_ref() {
+            return groups.len().saturating_mul(std::mem::size_of::<u64>());
+        }
+        if let Some(groups) = self.transformed_dictionary_dense_general_groups.as_ref() {
             return groups.len().saturating_mul(std::mem::size_of::<u64>());
         }
         self.groups
@@ -33876,8 +34658,11 @@ impl<'a> GroupedAggregateStates<'a> {
                             "local Vortex proofbound string count-distinct state entry count overflowed u64; no fallback execution was attempted"
                                 .to_string(),
                         )
-                    })
+                })
             });
+        }
+        if self.transformed_dictionary_dense_general_groups.is_some() {
+            return Ok(0);
         }
         self.groups.values().try_fold(0_u64, |total, group| {
             total
@@ -33958,6 +34743,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 if self.transformed_dictionary_compact_code_pair_partials {
                     state_family.push_str("+code_pair_partials");
                 }
+            } else if self.transformed_dictionary_dense_general_direct_updates {
+                state_family.push_str("+chunk_dictionary_transformed_dense_general_measures");
             } else if self.transformed_dictionary_general_direct_updates {
                 state_family.push_str("+chunk_dictionary_transformed_general_measures");
             } else {
@@ -33965,6 +34752,7 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             if self.transformed_dictionary_direct_updates
                 && !self.transformed_dictionary_compact_direct_updates
+                && !self.transformed_dictionary_dense_general_direct_updates
                 && !self.transformed_dictionary_general_direct_updates
             {
                 state_family.push_str("+transformed");
@@ -34009,6 +34797,9 @@ impl<'a> GroupedAggregateStates<'a> {
         }
         if self.numeric_pair_chunk_compacted_updates {
             state_family.push_str("+chunk_compacted_partials");
+        }
+        if self.transformed_dictionary_dense_general_transform_fusion {
+            state_family.push_str("+expression_fusion");
         }
         if self.transformed_dictionary_general_transform_fusion {
             state_family.push_str("+expression_fusion");
@@ -34079,6 +34870,13 @@ impl<'a> GroupedAggregateStates<'a> {
                 pulseweave_pressure_signals.push("row_state_update_bypass");
             }
         }
+        if self.transformed_dictionary_dense_general_direct_updates {
+            capillary_work_units.push("transformed_dictionary_dense_general_measure_update");
+            capillary_work_units.push("dense_transformed_dictionary_accumulator_state");
+            pulseweave_pressure_signals.push("dense_general_measure_state_memory");
+            pulseweave_pressure_signals.push("dictionary_group_transform_reuse");
+            pulseweave_pressure_signals.push("row_state_update_bypass");
+        }
         if self.dictionary_group_compact_measure_direct_updates {
             capillary_work_units.push("dictionary_group_compact_measure_update");
             capillary_work_units.push("dictionary_code_group_measure_merge");
@@ -34090,6 +34888,10 @@ impl<'a> GroupedAggregateStates<'a> {
             capillary_work_units.push("dictionary_value_transform_group_cache");
             pulseweave_pressure_signals.push("general_measure_state_memory");
             pulseweave_pressure_signals.push("dictionary_group_transform_reuse");
+        }
+        if self.transformed_dictionary_dense_general_transform_fusion {
+            capillary_work_units.push("dictionary_weighted_transform_fusion");
+            pulseweave_pressure_signals.push("repeated_string_transform_evaluation_bypass");
         }
         if self.transformed_dictionary_general_transform_fusion {
             capillary_work_units.push("dictionary_weighted_transform_fusion");
@@ -59723,6 +60525,132 @@ mod tests {
         assert_eq!(rows[1]["l"], serde_json::json!(values[1].len() as f64));
         assert_eq!(rows[1]["s"], serde_json::json!(values[1].len() as f64));
         assert_eq!(rows[1]["m"], serde_json::json!("https://other.test/b"));
+    }
+
+    #[test]
+    fn grouped_dense_general_measures_transformed_dictionary_uses_compact_domain_state() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            Vec::new(),
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "c".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(ColumnRef::new("Referer").expect("column")),
+                    "l".to_string(),
+                )
+                .with_value_transform("length"),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "min",
+                    Some(ColumnRef::new("Referer").expect("column")),
+                    "m".to_string(),
+                ),
+            ],
+        )
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "k".to_string(),
+            ColumnRef::new("Referer").expect("column"),
+            "url_domain",
+        )])
+        .with_having(vec![crate::VortexAggregateHavingExpr::new(
+            "c",
+            ComparisonOp::GtEq,
+            "2",
+        )])
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("l", true)]);
+        let declared_columns = vec!["Referer".to_string()];
+        let values = vec![
+            std::sync::Arc::<str>::from("http://example.test/z"),
+            std::sync::Arc::<str>::from("https://other.test/b"),
+            std::sync::Arc::<str>::from("http://example.test/a"),
+            std::sync::Arc::<str>::from("www.example.test/q"),
+        ];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        let accessors = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids: vec![0, 2, 0, 1, 2, 3],
+            values: values.clone(),
+            value_nulls: None,
+            row_nulls: None,
+            source: AggregateUtf8DictionarySource::VortexDictArray,
+        }];
+
+        assert!(
+            states
+                .update_dense_general_direct_from_transformed_dictionary(
+                    &accessors,
+                    Some(&[0, 2, 3, 4, 5]),
+                )
+                .expect("dense transformed dictionary general update")
+        );
+
+        let budget = states
+            .state_budget_report(&request, 5, 1)
+            .expect("state budget");
+        assert_eq!(
+            budget.state_family,
+            "grouped_aggregate_state+topk+count_star_direct+chunk_dictionary_transformed_dense_general_measures"
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"transformed_dictionary_dense_general_measure_update".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"dense_general_measure_state_memory".to_string())
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 1);
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "transformed_dictionary_dense_general_measure_group_update"
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "dense_transformed_dictionary_general_measure_group_state"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "dense_transformed_dictionary_general_accumulators"
+        );
+        assert_eq!(
+            payload["group_key_storage"],
+            "dense_transformed_dictionary_interned_utf8_key"
+        );
+        assert_eq!(
+            payload["materialized_group_value_count"],
+            serde_json::json!(0)
+        );
+        assert_eq!(payload["decoded_string_count"], serde_json::json!(2));
+        assert_eq!(
+            payload["transformed_dictionary_dense_general_updates"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["transformed_dictionary_lazy_utf8_minmax_updates"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["transformed_dictionary_dense_general_pre_having_groups"],
+            serde_json::json!(2)
+        );
+        assert_eq!(
+            payload["transformed_dictionary_dense_general_selected_groups"],
+            serde_json::json!(1)
+        );
+        let rows = payload["values"].as_array().expect("values");
+        let example_sum = values[0].len() * 2 + values[2].len() + values[3].len();
+        let example_avg = (example_sum as f64) / 4.0;
+        assert_eq!(rows[0]["k"], serde_json::json!("example.test"));
+        assert_eq!(rows[0]["c"], serde_json::json!(4));
+        assert_eq!(rows[0]["l"], serde_json::json!(example_avg));
+        assert_eq!(rows[0]["m"], serde_json::json!("http://example.test/a"));
     }
 
     #[test]
