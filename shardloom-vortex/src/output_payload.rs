@@ -509,6 +509,11 @@ impl VortexOutputPayloadContentDescriptor {
     }
     /// # Errors
     /// Returns an error when the summary is empty or whitespace.
+    pub fn encoded_batch_payload(summary: impl Into<String>) -> Result<Self> {
+        Self::new(VortexOutputPayloadContentKind::EncodedBatchPayload, summary)
+    }
+    /// # Errors
+    /// Returns an error when the summary is empty or whitespace.
     pub fn unknown(summary: impl Into<String>) -> Result<Self> {
         Self::new(VortexOutputPayloadContentKind::Unknown, summary)
     }

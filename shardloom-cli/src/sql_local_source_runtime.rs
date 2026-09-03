@@ -5985,6 +5985,14 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
         "universal_ingest_prepare_evidence_emit_millis",
         "universal_ingest_prepare_residual_split_policy",
         "universal_ingest_stream_timing_overlap_policy",
+        "vortex_array_build_millis",
+        "vortex_array_build_provider_kind",
+        "vortex_array_build_provider_surface",
+        "vortex_array_build_strategy",
+        "vortex_array_build_prefetch_window",
+        "vortex_array_build_input_layout",
+        "vortex_array_build_record_batch_count",
+        "vortex_array_build_manual_scalar_copy_avoided",
         "vortex_layout_write_advisor_source_scale",
         "vortex_layout_write_advisor_profile_family",
         "vortex_layout_write_advisor_prepared_layout_family",
@@ -6009,6 +6017,93 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
         "vortex_writer_stats_concurrency",
         "vortex_writer_profile_selection_reason",
         "vortex_writer_profile_regression_guard",
+        "vortex_writer_physical_design_schema_version",
+        "vortex_writer_physical_design_status",
+        "vortex_writer_physical_design_planner",
+        "vortex_writer_physical_design_selected_strategy",
+        "vortex_writer_physical_design_decision_digest",
+        "vortex_writer_physical_design_provider_decision",
+        "vortex_writer_physical_design_provider_kind",
+        "vortex_writer_physical_design_provider_surface",
+        "vortex_writer_physical_design_admission_policy",
+        "vortex_writer_physical_design_certification_level",
+        "vortex_writer_physical_design_source_stage_plan",
+        "vortex_writer_physical_design_derived_metadata_stage_plan",
+        "vortex_writer_physical_design_array_build_stage_plan",
+        "vortex_writer_physical_design_compression_layout_stage_plan",
+        "vortex_writer_physical_design_writer_feed_stage_plan",
+        "vortex_writer_physical_design_commit_stage_plan",
+        "vortex_writer_physical_design_source_format",
+        "vortex_writer_physical_design_source_stream_batch_size",
+        "vortex_writer_physical_design_source_stream_unit_count_hint",
+        "vortex_writer_physical_design_source_stream_unit_hint_kind",
+        "vortex_writer_physical_design_source_stream_policy",
+        "vortex_writer_physical_design_source_executor_status",
+        "vortex_writer_physical_design_source_executor_kind",
+        "vortex_writer_physical_design_source_executor_requested_parallelism",
+        "vortex_writer_physical_design_source_executor_applied_parallelism",
+        "vortex_writer_physical_design_source_executor_unit_count_hint",
+        "vortex_writer_physical_design_array_build_prefetch_window",
+        "vortex_writer_physical_design_array_build_worker_count",
+        "vortex_writer_physical_design_array_build_input_layout",
+        "vortex_writer_physical_design_writer_row_block_size",
+        "vortex_writer_physical_design_writer_block_target_bytes",
+        "vortex_writer_physical_design_writer_compression_policy",
+        "vortex_writer_physical_design_writer_compression_field_count",
+        "vortex_writer_physical_design_writer_compression_field_names",
+        "vortex_writer_physical_design_writer_compression_decision_count",
+        "vortex_writer_physical_design_writer_compression_decisions",
+        "vortex_writer_physical_design_writer_compression_concurrency",
+        "vortex_writer_physical_design_writer_stats_concurrency",
+        "vortex_writer_physical_design_writer_runtime_kind",
+        "vortex_writer_physical_design_writer_runtime_requested_parallelism",
+        "vortex_writer_physical_design_writer_runtime_applied_parallelism",
+        "vortex_writer_physical_design_writer_runtime_background_workers",
+        "vortex_writer_physical_design_writer_queue_topology",
+        "vortex_writer_physical_design_writer_backpressure_policy",
+        "vortex_writer_physical_design_writer_profile_selection_reason",
+        "vortex_writer_physical_design_writer_profile_regression_guard",
+        "vortex_writer_physical_design_retained_ingest_baseline_seconds",
+        "vortex_writer_physical_design_rejected_experimental_patch_seconds",
+        "vortex_writer_physical_design_retention_status",
+        "vortex_writer_physical_design_no_fallback_policy",
+        "vortex_writer_physical_design_fallback_attempted",
+        "vortex_writer_physical_design_external_engine_invoked",
+        "vortex_segment_metadata_schema_version",
+        "vortex_segment_metadata_status",
+        "vortex_segment_metadata_primitive_id",
+        "vortex_segment_metadata_source",
+        "vortex_segment_metadata_inventory_status",
+        "vortex_segment_metadata_inventory_digest",
+        "vortex_segment_metadata_writer_physical_design_digest",
+        "vortex_segment_metadata_row_count",
+        "vortex_segment_metadata_segment_count",
+        "vortex_segment_metadata_row_count_proven",
+        "vortex_segment_metadata_segment_count_proven",
+        "vortex_segment_metadata_statistics_status",
+        "vortex_segment_metadata_row_range_coverage",
+        "vortex_segment_metadata_physical_byte_range_status",
+        "vortex_segment_metadata_null_count_status",
+        "vortex_segment_metadata_min_max_status",
+        "vortex_segment_metadata_byte_length_bounds_status",
+        "vortex_segment_metadata_dictionary_membership_status",
+        "vortex_segment_metadata_domain_absence_status",
+        "vortex_segment_metadata_cardinality_sketch_status",
+        "vortex_segment_metadata_row_position_locality_status",
+        "vortex_segment_metadata_encoded_layout_status",
+        "vortex_segment_metadata_per_column_contract",
+        "vortex_segment_metadata_read_plan",
+        "vortex_segment_metadata_query_use_policy",
+        "vortex_segment_metadata_metadata_count_admission",
+        "vortex_segment_metadata_predicate_pruning_admission",
+        "vortex_segment_metadata_group_by_admission",
+        "vortex_segment_metadata_topk_admission",
+        "vortex_segment_metadata_dictionary_distinct_admission",
+        "vortex_segment_metadata_no_false_negative_policy",
+        "vortex_segment_metadata_query_answer_sidecar_status",
+        "vortex_segment_metadata_digest",
+        "vortex_segment_metadata_fallback_attempted",
+        "vortex_segment_metadata_external_engine_invoked",
         "vortex_prepared_state_reuse_index_schema_version",
         "vortex_prepared_state_reuse_index_lookup_status",
         "vortex_prepared_state_reuse_index_cache_scope",
@@ -10033,6 +10128,12 @@ impl VortexIngestReport {
         ];
         fields.extend(self.scout_ingress.evidence_fields());
         fields.extend(self.layout_write_advisor.evidence_fields());
+        fields.extend(self.vortex_report.writer_physical_design.evidence_fields());
+        fields.extend(
+            self.vortex_report
+                .segment_metadata_primitive
+                .evidence_fields(),
+        );
         fields.extend(self.vortex_report.preparation_spine.evidence_fields());
         fields.extend(self.preparation_spine_source_fields(certified_reopen));
         fields.extend(
@@ -46030,7 +46131,70 @@ mod tests {
         assert_field_eq(
             &fields,
             "vortex_array_build_strategy",
-            "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
+            "ordered_morsel_vortex_array_prefetch_threadlocal_conversion_merge",
+        );
+        assert_field_eq(&fields, "vortex_writer_physical_design_status", "applied");
+        assert_field_eq(
+            &fields,
+            "vortex_writer_physical_design_provider_decision",
+            "use_vortex_native_provider",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_writer_physical_design_source_executor_requested_parallelism",
+            "4",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_writer_physical_design_source_executor_applied_parallelism",
+            "3",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_writer_physical_design_array_build_prefetch_window",
+            "3",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_writer_physical_design_array_build_worker_count",
+            "3",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_writer_physical_design_writer_backpressure_policy",
+            "bounded_sync_channel_backpressures_source_reader_and_preserves_order",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_writer_physical_design_no_fallback_policy",
+            "native_vortex_writer_provider_only_no_spark_datafusion_duckdb_polars_velox_fallback",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_segment_metadata_status",
+            "admitted_footer_segment_metadata",
+        );
+        assert_field_eq(&fields, "vortex_segment_metadata_row_count", "2");
+        assert_field_eq(&fields, "vortex_segment_metadata_row_count_proven", "true");
+        assert_field_eq(
+            &fields,
+            "vortex_segment_metadata_metadata_count_admission",
+            "admitted_metadata_count_from_prepared_footer_or_writer_summary",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_segment_metadata_predicate_pruning_admission",
+            "admitted_conservative_metadata_pruning_for_predicate_ranges_and_domain_absence",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_segment_metadata_no_false_negative_policy",
+            "unknown_or_inconclusive_segments_are_read_no_false_negative_pruning",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_segment_metadata_query_answer_sidecar_status",
+            "disabled_rejected_for_public_default_runtime",
         );
         assert_field_eq(&fields, "vortex_capillary_preparation_max_parallelism", "4");
         assert_field_eq(
@@ -46135,6 +46299,56 @@ mod tests {
             public_fields
                 .contains_key("public_workflow_preparation_vortex_writer_profile_regression_guard"),
             "public workflow preparation projection should expose writer profile regression guard"
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_array_build_prefetch_window",
+            "3",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_array_build_strategy",
+            "ordered_morsel_vortex_array_prefetch_threadlocal_conversion_merge",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_writer_physical_design_status",
+            "applied",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_writer_physical_design_array_build_prefetch_window",
+            "3",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_writer_physical_design_array_build_worker_count",
+            "3",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_writer_physical_design_no_fallback_policy",
+            "native_vortex_writer_provider_only_no_spark_datafusion_duckdb_polars_velox_fallback",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_segment_metadata_status",
+            "admitted_footer_segment_metadata",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_segment_metadata_metadata_count_admission",
+            "admitted_metadata_count_from_prepared_footer_or_writer_summary",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_segment_metadata_predicate_pruning_admission",
+            "admitted_conservative_metadata_pruning_for_predicate_ranges_and_domain_absence",
+        );
+        assert_field_eq(
+            &public_fields,
+            "public_workflow_preparation_vortex_segment_metadata_no_false_negative_policy",
+            "unknown_or_inconclusive_segments_are_read_no_false_negative_pruning",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");

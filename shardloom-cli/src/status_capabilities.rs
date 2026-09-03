@@ -22,7 +22,7 @@ use shardloom_core::{
 };
 use shardloom_exec::StreamingCapabilityMatrixReport;
 use shardloom_vortex::{
-    vortex_encoded_count_local_guard_discovery_report,
+    plan_vortex_specialized_kernel_registry, vortex_encoded_count_local_guard_discovery_report,
     vortex_encoded_count_physical_kernel_discovery_report,
     vortex_encoded_predicate_evaluation_discovery_report,
     vortex_selection_vector_filter_kernel_discovery_report,
@@ -9389,6 +9389,7 @@ fn append_physical_operator_execution_profile_fields(
 }
 
 fn append_physical_kernel_discovery_fields(fields: &mut Vec<(String, String)>) {
+    append_specialized_kernel_registry_discovery_fields(fields);
     append_metadata_physical_kernel_discovery_fields(fields);
     append_metadata_count_kernel_admission_discovery_fields(fields);
     append_metadata_filter_kernel_admission_discovery_fields(fields);
@@ -9401,6 +9402,13 @@ fn append_physical_kernel_discovery_fields(fields: &mut Vec<(String, String)>) {
     append_selection_vector_filter_kernel_admission_discovery_fields(fields);
     append_encoded_count_local_guard_discovery_fields(fields);
     append_local_vortex_primitive_execution_discovery_fields(fields);
+}
+
+fn append_specialized_kernel_registry_discovery_fields(fields: &mut Vec<(String, String)>) {
+    let report = plan_vortex_specialized_kernel_registry();
+    for (key, value) in report.evidence_fields() {
+        push_field(fields, &key, &value);
+    }
 }
 
 fn append_physical_operator_execution_level_fields(

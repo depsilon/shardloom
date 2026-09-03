@@ -51,6 +51,7 @@ pub use adapter::{
 };
 
 pub mod bounded_execution;
+pub mod columnar_result_dataplane;
 pub mod commit_execution_gate;
 pub mod commit_intent;
 pub mod commit_marker;
@@ -101,6 +102,7 @@ pub mod scheduler_bridge;
 pub mod selection_vector_filter_kernel;
 pub mod source_backed_benchmark_matrix;
 pub mod source_backed_encoded_execution;
+pub mod specialized_kernel_registry;
 pub mod staged_manifest;
 pub mod staged_output;
 pub mod streaming_batch_runtime;
@@ -119,6 +121,16 @@ pub mod write_intent;
 
 // Report-only compatibility, provider-boundary, runtime-utilization, and
 // benchmark-matrix surfaces.
+pub use columnar_result_dataplane::{
+    VORTEX_COLUMNAR_RESULT_DATAPLANE_SCHEMA_VERSION,
+    VORTEX_COLUMNAR_RESULT_MATERIALIZATION_SCHEMA_VERSION, VortexColumnarResultBatch,
+    VortexColumnarResultColumn, VortexColumnarResultColumnStorage,
+    VortexColumnarResultMaterializationCertificate, VortexColumnarResultMaterializationReport,
+    VortexColumnarResultMaterializationStatus, VortexColumnarResultOrdering,
+    VortexColumnarResultSinkBoundary, VortexRetainedRowSet,
+    materialize_columnar_result_batch_for_sink,
+    output_payload_descriptor_from_columnar_result_batch,
+};
 pub use composite_pushdown::{
     CompositePushdownCapabilityMatrix, CompositePushdownCapabilityRow, CompositePushdownStatus,
     plan_composite_pushdown_capability_matrix,
@@ -191,6 +203,14 @@ pub use source_backed_encoded_execution::{
     execute_vortex_source_backed_projection_from_encoded_projection_batches,
     plan_vortex_reader_generated_prepared_batch_envelopes,
     plan_vortex_reader_generated_prepared_batch_kernel_inputs,
+};
+pub use specialized_kernel_registry::{
+    VORTEX_SPECIALIZED_KERNEL_REGISTRY_ID, VORTEX_SPECIALIZED_KERNEL_REGISTRY_SCHEMA_VERSION,
+    VortexKernelMaterializationLevel, VortexSpecializedKernelAdmissionReport,
+    VortexSpecializedKernelAdmissionStatus, VortexSpecializedKernelContract,
+    VortexSpecializedKernelRegistryReport, VortexSpecializedKernelRequest,
+    VortexSpecializedKernelRuntimeLane, admit_vortex_specialized_kernel,
+    plan_vortex_specialized_kernel_registry,
 };
 pub use vortex_compatibility::{
     VortexCompatibilityMatrixReport, VortexCompatibilityMatrixRow, VortexCompatibilityStatus,
@@ -586,20 +606,21 @@ pub use vortex_ingest::{
     VORTEX_PREPARED_OLAP_STATE_POLICY, VORTEX_PREPARED_OLAP_STATE_SCHEMA_VERSION,
     VORTEX_PREPARED_STATE_REUSE_POLICY, VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION,
     VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY, VORTEX_SCOUT_INGRESS_SCHEMA_VERSION,
-    VortexCapillaryPreparationInput, VortexCapillaryPreparationReport, VortexCopyBudgetInput,
-    VortexCopyBudgetReport, VortexDifferentialPreparationInput,
-    VortexDifferentialPreparationReport, VortexDifferentialRefinementManifestReport,
-    VortexDifferentialUpdateMode, VortexIngestCertificationLevel, VortexLayoutWriteAdvisorInput,
-    VortexLayoutWriteAdvisorReport, VortexLayoutWriteRuntimeDecision,
-    VortexNativeArtifactPrepareReport, VortexNativeArtifactPrepareRequest,
-    VortexPreparationSpineReport, VortexPreparedOlapStateReport,
-    VortexPreparedOlapStateWriteRequest, VortexPreparedStateAppendOnlyRefinementDecision,
-    VortexPreparedStateReuseReport, VortexPreparedStateReuseRequest,
-    VortexPreparedStateReuseWriteEvidence, VortexPreparedStateWriteReport,
-    VortexPreparedStateWriteRequest, VortexScoutIngressInput, VortexScoutIngressReport,
-    evaluate_vortex_capillary_preparation, evaluate_vortex_copy_budget,
-    evaluate_vortex_differential_preparation, evaluate_vortex_layout_write_advisor,
-    evaluate_vortex_prepared_olap_single_artifact_state,
+    VORTEX_SEGMENT_METADATA_PRIMITIVE_SCHEMA_VERSION, VortexCapillaryPreparationInput,
+    VortexCapillaryPreparationReport, VortexCopyBudgetInput, VortexCopyBudgetReport,
+    VortexDifferentialPreparationInput, VortexDifferentialPreparationReport,
+    VortexDifferentialRefinementManifestReport, VortexDifferentialUpdateMode,
+    VortexIngestCertificationLevel, VortexLayoutWriteAdvisorInput, VortexLayoutWriteAdvisorReport,
+    VortexLayoutWriteRuntimeDecision, VortexNativeArtifactPrepareReport,
+    VortexNativeArtifactPrepareRequest, VortexPreparationSpineReport,
+    VortexPreparedOlapStateReport, VortexPreparedOlapStateWriteRequest,
+    VortexPreparedStateAppendOnlyRefinementDecision, VortexPreparedStateReuseReport,
+    VortexPreparedStateReuseRequest, VortexPreparedStateReuseWriteEvidence,
+    VortexPreparedStateWriteReport, VortexPreparedStateWriteRequest, VortexScoutIngressInput,
+    VortexScoutIngressReport, VortexSegmentMetadataPrimitiveReport,
+    VortexSegmentMetadataQueryFamily, evaluate_vortex_capillary_preparation,
+    evaluate_vortex_copy_budget, evaluate_vortex_differential_preparation,
+    evaluate_vortex_layout_write_advisor, evaluate_vortex_prepared_olap_single_artifact_state,
     evaluate_vortex_prepared_state_append_only_refinement, evaluate_vortex_prepared_state_reuse,
     evaluate_vortex_scout_ingress, prepare_native_vortex_artifact,
     publish_vortex_prepared_olap_single_artifact_state,
@@ -633,9 +654,14 @@ pub use runtime_bridge::{
 };
 
 pub use scheduler_bridge::{
-    VortexSchedulerBridgeInput, VortexSchedulerBridgeMode, VortexSchedulerBridgeReport,
-    VortexSchedulerBridgeStatus, VortexSchedulingDecisionKind, VortexTaskBatchPlan,
-    VortexTaskQueueClass, VortexTaskSchedulingDecision, plan_vortex_scheduler_queue,
+    VORTEX_MORSEL_SCHEDULER_SCHEMA_VERSION, VortexMorselRowCountState,
+    VortexMorselSchedulerExecutionReport, VortexMorselSchedulerPlan, VortexMorselSchedulerPolicy,
+    VortexMorselSchedulerRun, VortexMorselSchedulerStatus, VortexMorselThreadLocalState,
+    VortexMorselWorkUnit, VortexMorselWorkerUtilization, VortexSchedulerBridgeInput,
+    VortexSchedulerBridgeMode, VortexSchedulerBridgeReport, VortexSchedulerBridgeStatus,
+    VortexSchedulingDecisionKind, VortexTaskBatchPlan, VortexTaskQueueClass,
+    VortexTaskSchedulingDecision, execute_vortex_morsel_scheduler_with_observer,
+    execute_vortex_morsel_scheduler_with_state, plan_vortex_scheduler_queue,
     vortex_scheduler_bridge_is_side_effect_free,
 };
 

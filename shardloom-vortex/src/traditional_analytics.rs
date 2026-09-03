@@ -1,11 +1,26 @@
 use std::path::PathBuf;
 
 use shardloom_core::{
-    Diagnostic, ExecutionCertificate, NativeIoCertificate, Result, ShardLoomError,
-    ShardLoomExecutionMode, ShardLoomExecutionModeSelectionReport,
+    BenchmarkEvidenceState, Diagnostic, ExecutionCertificate, NativeIoCertificate,
+    PhysicalOperatorKind, Result, ShardLoomError, ShardLoomExecutionMode,
+    ShardLoomExecutionModeSelectionReport,
 };
 use shardloom_exec::PulseWeaveReport;
 
+use crate::columnar_result_dataplane::{
+    VortexColumnarResultBatch, VortexColumnarResultOrdering, VortexColumnarResultSinkBoundary,
+    materialize_columnar_result_batch_for_sink,
+};
+use crate::query_primitive::VortexQueryPrimitiveKind;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+use crate::scheduler_bridge::{
+    VortexMorselRowCountState, VortexMorselSchedulerPlan, VortexMorselSchedulerPolicy,
+    VortexMorselSchedulerStatus, VortexMorselWorkUnit, execute_vortex_morsel_scheduler_with_state,
+};
+use crate::specialized_kernel_registry::{
+    VortexKernelMaterializationLevel, VortexSpecializedKernelRequest,
+    admit_vortex_specialized_kernel,
+};
 use crate::vortex_ingest::{
     VortexCapillaryPreparationInput, evaluate_vortex_capillary_preparation,
 };
@@ -2820,6 +2835,9 @@ impl TraditionalSegmentGranuleMetadataSummary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct TraditionalCapillaryMorselSchedulingSummary {
+    pub shared_scheduler_schema_version: String,
+    pub shared_scheduler_id: String,
+    pub shared_scheduler_status: String,
     pub family: String,
     pub scheduler_mode: String,
     pub target_morsel_rows: usize,
@@ -2833,6 +2851,14 @@ pub struct TraditionalCapillaryMorselSchedulingSummary {
     pub queue_limit_enforced: bool,
     pub thread_local_state_count: usize,
     pub deterministic_merge_count: usize,
+    pub worker_summaries: Vec<String>,
+    pub rows_processed: u64,
+    pub mean_stage_micros: u128,
+    pub max_stage_micros: u128,
+    pub skew_ratio_x1000: u128,
+    pub merge_micros: u128,
+    pub rows_per_second: u64,
+    pub memory_envelope_admitted: bool,
     pub memory_reservation_status: String,
     pub peak_memory_bytes: u64,
     pub fallback_attempted: bool,
@@ -2849,6 +2875,9 @@ impl TraditionalCapillaryMorselSchedulingSummary {
     #[must_use]
     pub fn not_applicable() -> Self {
         Self {
+            shared_scheduler_schema_version: "not_applicable".to_string(),
+            shared_scheduler_id: "not_applicable".to_string(),
+            shared_scheduler_status: "not_applicable".to_string(),
             family: "not_applicable".to_string(),
             scheduler_mode: "not_applicable_no_capillary_morsel_scheduler".to_string(),
             target_morsel_rows: 0,
@@ -2862,6 +2891,14 @@ impl TraditionalCapillaryMorselSchedulingSummary {
             queue_limit_enforced: true,
             thread_local_state_count: 0,
             deterministic_merge_count: 0,
+            worker_summaries: Vec::new(),
+            rows_processed: 0,
+            mean_stage_micros: 0,
+            max_stage_micros: 0,
+            skew_ratio_x1000: 0,
+            merge_micros: 0,
+            rows_per_second: 0,
+            memory_envelope_admitted: true,
             memory_reservation_status: "not_applicable".to_string(),
             peak_memory_bytes: 0,
             fallback_attempted: false,
@@ -2876,6 +2913,8 @@ impl TraditionalCapillaryMorselSchedulingSummary {
         } else if self.failed_morsel_count == 0
             && self.completed_morsel_count == self.scheduled_morsel_count
             && self.queue_limit_enforced
+            && self.shared_scheduler_status == "executed"
+            && self.memory_envelope_admitted
             && !self.fallback_attempted
             && !self.external_engine_invoked
         {
@@ -2889,6 +2928,9 @@ impl TraditionalCapillaryMorselSchedulingSummary {
     pub fn digest(&self) -> String {
         route_evidence_digest(&[
             CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION,
+            &self.shared_scheduler_schema_version,
+            &self.shared_scheduler_id,
+            &self.shared_scheduler_status,
             &self.family,
             &self.scheduler_mode,
             &self.target_morsel_rows.to_string(),
@@ -2901,6 +2943,13 @@ impl TraditionalCapillaryMorselSchedulingSummary {
             &self.max_parallelism.to_string(),
             &self.thread_local_state_count.to_string(),
             &self.deterministic_merge_count.to_string(),
+            &self.rows_processed.to_string(),
+            &self.mean_stage_micros.to_string(),
+            &self.max_stage_micros.to_string(),
+            &self.skew_ratio_x1000.to_string(),
+            &self.merge_micros.to_string(),
+            &self.rows_per_second.to_string(),
+            &self.memory_envelope_admitted.to_string(),
             &self.peak_memory_bytes.to_string(),
             &self.fallback_attempted.to_string(),
             &self.external_engine_invoked.to_string(),
@@ -2910,9 +2959,10 @@ impl TraditionalCapillaryMorselSchedulingSummary {
     #[must_use]
     pub fn matrix_row(&self) -> String {
         format!(
-            "{}:{}:morsels={}:chunks={}:max_rows={}:merges={}",
+            "{}:{}:scheduler={}:morsels={}:chunks={}:max_rows={}:merges={}",
             self.family,
             self.status(),
+            self.shared_scheduler_status,
             self.scheduled_morsel_count,
             self.reader_chunk_count,
             self.max_morsel_rows,
@@ -2921,11 +2971,24 @@ impl TraditionalCapillaryMorselSchedulingSummary {
     }
 
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn fields(&self) -> Vec<(String, String)> {
         vec![
             (
                 "capillary_morsel_scheduling_schema_version".to_string(),
                 CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "capillary_morsel_shared_scheduler_schema_version".to_string(),
+                self.shared_scheduler_schema_version.clone(),
+            ),
+            (
+                "capillary_morsel_shared_scheduler_id".to_string(),
+                self.shared_scheduler_id.clone(),
+            ),
+            (
+                "capillary_morsel_shared_scheduler_status".to_string(),
+                self.shared_scheduler_status.clone(),
             ),
             (
                 "capillary_morsel_scheduling_status".to_string(),
@@ -2984,6 +3047,38 @@ impl TraditionalCapillaryMorselSchedulingSummary {
                 self.deterministic_merge_count.to_string(),
             ),
             (
+                "capillary_morsel_worker_summaries".to_string(),
+                self.worker_summaries.join("|"),
+            ),
+            (
+                "capillary_morsel_rows_processed".to_string(),
+                self.rows_processed.to_string(),
+            ),
+            (
+                "capillary_morsel_mean_stage_micros".to_string(),
+                self.mean_stage_micros.to_string(),
+            ),
+            (
+                "capillary_morsel_max_stage_micros".to_string(),
+                self.max_stage_micros.to_string(),
+            ),
+            (
+                "capillary_morsel_skew_ratio_x1000".to_string(),
+                self.skew_ratio_x1000.to_string(),
+            ),
+            (
+                "capillary_morsel_merge_micros".to_string(),
+                self.merge_micros.to_string(),
+            ),
+            (
+                "capillary_morsel_rows_per_second".to_string(),
+                self.rows_per_second.to_string(),
+            ),
+            (
+                "capillary_morsel_memory_envelope_admitted".to_string(),
+                self.memory_envelope_admitted.to_string(),
+            ),
+            (
                 "capillary_morsel_memory_reservation_status".to_string(),
                 self.memory_reservation_status.clone(),
             ),
@@ -3013,6 +3108,7 @@ impl TraditionalCapillaryMorselSchedulingSummary {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn merge_for_family(family: impl Into<String>, left: &Self, right: &Self) -> Result<Self> {
+        let family = family.into();
         let scheduled_morsel_count = left
             .scheduled_morsel_count
             .checked_add(right.scheduled_morsel_count)
@@ -3068,7 +3164,24 @@ impl TraditionalCapillaryMorselSchedulingSummary {
                 )
             })?;
         Ok(Self {
-            family: family.into(),
+            shared_scheduler_schema_version: if scheduled_morsel_count > 0 {
+                left.shared_scheduler_schema_version.clone()
+            } else {
+                "not_applicable".to_string()
+            },
+            shared_scheduler_id: if scheduled_morsel_count > 0 {
+                format!("merged:vortex.morsel-scheduler.{family}")
+            } else {
+                "not_applicable".to_string()
+            },
+            shared_scheduler_status: if failed_morsel_count == 0 && scheduled_morsel_count > 0 {
+                "executed".to_string()
+            } else if scheduled_morsel_count > 0 {
+                "blocked_or_incomplete".to_string()
+            } else {
+                "not_applicable".to_string()
+            },
+            family,
             scheduler_mode: if scheduled_morsel_count > 0 {
                 "merged_bounded_local_morsel_scheduler".to_string()
             } else {
@@ -3085,6 +3198,31 @@ impl TraditionalCapillaryMorselSchedulingSummary {
             queue_limit_enforced: left.queue_limit_enforced && right.queue_limit_enforced,
             thread_local_state_count,
             deterministic_merge_count,
+            worker_summaries: left
+                .worker_summaries
+                .iter()
+                .chain(right.worker_summaries.iter())
+                .cloned()
+                .collect(),
+            rows_processed: left
+                .rows_processed
+                .checked_add(right.rows_processed)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "capillary morsel row count overflowed during stats merge; fallback execution was not attempted"
+                            .to_string(),
+                    )
+                })?,
+            mean_stage_micros: left
+                .mean_stage_micros
+                .saturating_add(right.mean_stage_micros)
+                / 2,
+            max_stage_micros: left.max_stage_micros.max(right.max_stage_micros),
+            skew_ratio_x1000: left.skew_ratio_x1000.max(right.skew_ratio_x1000),
+            merge_micros: left.merge_micros.saturating_add(right.merge_micros),
+            rows_per_second: left.rows_per_second.saturating_add(right.rows_per_second),
+            memory_envelope_admitted: left.memory_envelope_admitted
+                && right.memory_envelope_admitted,
             memory_reservation_status: if failed_morsel_count == 0 {
                 "merged_per_morsel_memory_envelope_admitted".to_string()
             } else {
@@ -13685,6 +13823,59 @@ impl TraditionalAnalyticsVortexBatchReport {
         let external_engine_invoked = summaries
             .iter()
             .any(|summary| summary.external_engine_invoked);
+        let shared_scheduler_schema_version = summaries.first().map_or_else(
+            || "not_applicable".to_string(),
+            |summary| summary.shared_scheduler_schema_version.clone(),
+        );
+        let shared_scheduler_status = if scheduled_count > 0
+            && summaries
+                .iter()
+                .all(|summary| summary.shared_scheduler_status == "executed")
+        {
+            "executed"
+        } else if scheduled_count > 0 {
+            "blocked_or_incomplete"
+        } else {
+            "not_applicable"
+        };
+        let worker_summaries = summaries
+            .iter()
+            .flat_map(|summary| summary.worker_summaries.iter().cloned())
+            .collect::<Vec<_>>();
+        let rows_processed = summaries
+            .iter()
+            .map(|summary| summary.rows_processed)
+            .sum::<u64>();
+        let mean_stage_micros = if summaries.is_empty() {
+            0
+        } else {
+            summaries
+                .iter()
+                .map(|summary| summary.mean_stage_micros)
+                .sum::<u128>()
+                / u128::try_from(summaries.len()).unwrap_or(u128::MAX).max(1)
+        };
+        let max_stage_micros = summaries
+            .iter()
+            .map(|summary| summary.max_stage_micros)
+            .max()
+            .unwrap_or(0);
+        let skew_ratio_x1000 = summaries
+            .iter()
+            .map(|summary| summary.skew_ratio_x1000)
+            .max()
+            .unwrap_or(0);
+        let merge_micros = summaries
+            .iter()
+            .map(|summary| summary.merge_micros)
+            .sum::<u128>();
+        let rows_per_second = summaries
+            .iter()
+            .map(|summary| summary.rows_per_second)
+            .sum::<u64>();
+        let memory_envelope_admitted = summaries
+            .iter()
+            .all(|summary| summary.memory_envelope_admitted);
         let matrix = summaries
             .iter()
             .map(|summary| summary.matrix_row())
@@ -13692,12 +13883,21 @@ impl TraditionalAnalyticsVortexBatchReport {
             .join(";");
         let digest = route_evidence_digest(&[
             CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION,
+            &shared_scheduler_schema_version,
+            shared_scheduler_status,
             &matrix,
             &scheduled_count.to_string(),
             &completed_count.to_string(),
             &failed_count.to_string(),
             &thread_local_state_count.to_string(),
             &deterministic_merge_count.to_string(),
+            &rows_processed.to_string(),
+            &mean_stage_micros.to_string(),
+            &max_stage_micros.to_string(),
+            &skew_ratio_x1000.to_string(),
+            &merge_micros.to_string(),
+            &rows_per_second.to_string(),
+            &memory_envelope_admitted.to_string(),
             &target_morsel_rows.to_string(),
             &queue_limit_enforced.to_string(),
             &fallback_attempted.to_string(),
@@ -13709,11 +13909,21 @@ impl TraditionalAnalyticsVortexBatchReport {
                 CAPILLARY_MORSEL_SCHEDULING_SCHEMA_VERSION.to_string(),
             ),
             (
+                "capillary_morsel_shared_scheduler_schema_version".to_string(),
+                shared_scheduler_schema_version,
+            ),
+            (
+                "capillary_morsel_shared_scheduler_status".to_string(),
+                shared_scheduler_status.to_string(),
+            ),
+            (
                 "capillary_morsel_scheduling_status".to_string(),
                 if scheduled_count > 0
                     && failed_count == 0
                     && completed_count == scheduled_count
                     && queue_limit_enforced
+                    && shared_scheduler_status == "executed"
+                    && memory_envelope_admitted
                     && !fallback_attempted
                     && !external_engine_invoked
                 {
@@ -13767,6 +13977,34 @@ impl TraditionalAnalyticsVortexBatchReport {
                 deterministic_merge_count.to_string(),
             ),
             (
+                "capillary_morsel_worker_summaries".to_string(),
+                worker_summaries.join("|"),
+            ),
+            (
+                "capillary_morsel_rows_processed".to_string(),
+                rows_processed.to_string(),
+            ),
+            (
+                "capillary_morsel_mean_stage_micros".to_string(),
+                mean_stage_micros.to_string(),
+            ),
+            (
+                "capillary_morsel_max_stage_micros".to_string(),
+                max_stage_micros.to_string(),
+            ),
+            (
+                "capillary_morsel_skew_ratio_x1000".to_string(),
+                skew_ratio_x1000.to_string(),
+            ),
+            (
+                "capillary_morsel_merge_micros".to_string(),
+                merge_micros.to_string(),
+            ),
+            (
+                "capillary_morsel_rows_per_second".to_string(),
+                rows_per_second.to_string(),
+            ),
+            (
                 "capillary_morsel_reader_chunk_count".to_string(),
                 reader_chunk_count.to_string(),
             ),
@@ -13792,12 +14030,18 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
             (
                 "capillary_morsel_memory_evidence_status".to_string(),
-                if scheduled_count > 0 && failed_count == 0 {
-                    "per_morsel_local_state_memory_envelope_admitted"
+                if scheduled_count > 0 && failed_count == 0 && memory_envelope_admitted {
+                    "shared_scheduler_per_morsel_memory_envelope_admitted"
+                } else if scheduled_count > 0 {
+                    "shared_scheduler_per_morsel_memory_envelope_incomplete"
                 } else {
                     "not_applicable_no_source_state_morsels"
                 }
                 .to_string(),
+            ),
+            (
+                "capillary_morsel_memory_envelope_admitted".to_string(),
+                memory_envelope_admitted.to_string(),
             ),
             (
                 "capillary_morsel_fallback_attempted".to_string(),
@@ -13821,19 +14065,74 @@ impl TraditionalAnalyticsVortexBatchReport {
                    scenario: TraditionalAnalyticsScenario,
                    source_state_family: &str,
                    kernel_id: &str,
-                   specialization_profile: &str| {
+                   specialization_profile: &str,
+                   registry_operator: PhysicalOperatorKind,
+                   registry_dtype: &str,
+                   registry_encoding: &str,
+                   registry_nulls: &str,
+                   registry_materialization: VortexKernelMaterializationLevel,
+                   registry_primitive: VortexQueryPrimitiveKind| {
             let requested = self
                 .reports
                 .iter()
                 .any(|report| report.scenario == scenario);
+            let admission = requested
+                .then(|| {
+                    admit_vortex_specialized_kernel(
+                        &VortexSpecializedKernelRequest::new(
+                            lane,
+                            registry_operator,
+                            registry_dtype,
+                            registry_encoding,
+                            registry_nulls,
+                        )
+                        .with_primitive_kind(registry_primitive)
+                        .with_materialization_level(registry_materialization)
+                        .with_correctness_evidence(BenchmarkEvidenceState::Present)
+                        .with_decoded_reference_compared(true),
+                    )
+                })
+                .transpose();
+            let (dispatch_status, registry_kernel_id, registry_status, registry_physical_status) =
+                match admission {
+                    Ok(Some(admission)) if admission.is_admitted() => (
+                        "dispatched_to_shardloom_native_hot_lane".to_string(),
+                        admission
+                            .selected_kernel_id
+                            .unwrap_or_else(|| "none".to_string()),
+                        admission.status.as_str().to_string(),
+                        admission.physical_admission_status.map_or_else(
+                            || "not_evaluated".to_string(),
+                            |status| status.as_str().to_string(),
+                        ),
+                    ),
+                    Ok(Some(admission)) => (
+                        admission.status.as_str().to_string(),
+                        admission
+                            .selected_kernel_id
+                            .unwrap_or_else(|| "none".to_string()),
+                        admission.status.as_str().to_string(),
+                        admission.physical_admission_status.map_or_else(
+                            || "not_evaluated".to_string(),
+                            |status| status.as_str().to_string(),
+                        ),
+                    ),
+                    Ok(None) => (
+                        "not_requested_in_batch".to_string(),
+                        "not_requested".to_string(),
+                        "not_requested".to_string(),
+                        "not_evaluated".to_string(),
+                    ),
+                    Err(_) => (
+                        "blocked_registry_contract_error".to_string(),
+                        "none".to_string(),
+                        "blocked_registry_contract_error".to_string(),
+                        "not_evaluated".to_string(),
+                    ),
+                };
             format!(
-                "{lane}:scenario={}:family={source_state_family}:kernel={kernel_id}:profile={specialization_profile}:status={}:decoded_reference=focused_fixture_reference_compared",
+                "{lane}:scenario={}:family={source_state_family}:kernel={kernel_id}:profile={specialization_profile}:status={dispatch_status}:registry_kernel={registry_kernel_id}:registry_status={registry_status}:registry_physical_status={registry_physical_status}:decoded_reference=focused_fixture_reference_compared",
                 traditional_scenario_slug(scenario),
-                if requested {
-                    "dispatched_to_shardloom_native_hot_lane"
-                } else {
-                    "not_requested_in_batch"
-                }
             )
         };
         let rows = [
@@ -13843,6 +14142,12 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "selective_filter",
                 "bitpacked_boolean_integer_filter+sequence_equality_range_predicate+selected_metric_sum",
                 "layout_aware_bitpacked_unsigned_selection+layout_aware_arithmetic_sequence_selection",
+                PhysicalOperatorKind::Filter,
+                "integer",
+                "fastlanes.bitpacked+vortex.sequence",
+                "non_null",
+                VortexKernelMaterializationLevel::EncodedNoMaterialization,
+                VortexQueryPrimitiveKind::CountWhere,
             ),
             row(
                 "exact_distinct",
@@ -13850,6 +14155,12 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "category_metric",
                 "category_metric_interner_cardinality",
                 "source_state_exact_category_cardinality",
+                PhysicalOperatorKind::Aggregate,
+                "dictionary_utf8",
+                "dictionary",
+                "nullable_distinct_single_null",
+                VortexKernelMaterializationLevel::ColumnarState,
+                VortexQueryPrimitiveKind::SimpleAggregate,
             ),
             row(
                 "high_cardinality_grouped_topk",
@@ -13857,6 +14168,12 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "ranked_metric",
                 "bounded_per_group_topk_heap",
                 "source_state_ranked_metric_per_group_topn",
+                PhysicalOperatorKind::TopK,
+                "numeric_utf8",
+                "direct_primitive+utf8_chunk_dictionary",
+                "nullable_group_key",
+                VortexKernelMaterializationLevel::ColumnarState,
+                VortexQueryPrimitiveKind::SimpleAggregate,
             ),
             row(
                 "transformed_url_domain_grouping",
@@ -13864,6 +14181,12 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "group_category_metric",
                 "generated_string_interner+packed_group_accumulator",
                 "source_state_generated_string_domain_grouping",
+                PhysicalOperatorKind::Aggregate,
+                "dictionary_utf8",
+                "utf8_chunk_dictionary",
+                "nullable_group_key",
+                VortexKernelMaterializationLevel::ColumnarState,
+                VortexQueryPrimitiveKind::SimpleAggregate,
             ),
             row(
                 "bounded_wide_row_topk",
@@ -13871,6 +14194,12 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "ranked_metric",
                 "global_topk_heap+filter_projection_limit_heap",
                 "source_state_bounded_topk_rows_before_json_boundary",
+                PhysicalOperatorKind::TopK,
+                "ordered_scalar",
+                "direct_primitive",
+                "nullable_sort_nulls_declared",
+                VortexKernelMaterializationLevel::RowRefsOnly,
+                VortexQueryPrimitiveKind::SortRows,
             ),
         ];
         let executed_count = rows
@@ -14066,11 +14395,8 @@ impl TraditionalAnalyticsVortexBatchReport {
         ]
     }
 
+    #[allow(clippy::too_many_lines)]
     fn columnar_result_data_plane_fields(&self) -> Vec<(String, String)> {
-        let compact_boundary_preserved = self
-            .reports
-            .iter()
-            .all(|report| !report.data_materialized && report.materialization_boundary_rows == 0);
         let result_sink_replay_status =
             if self.result_sink_requested && self.all_result_sink_replays_verified {
                 "native_vortex_result_sink_replay_verified"
@@ -14084,11 +14410,73 @@ impl TraditionalAnalyticsVortexBatchReport {
             .iter()
             .map(|report| report.rows_materialized)
             .sum::<u64>();
+        let existing_route_boundary_preserved = self
+            .reports
+            .iter()
+            .all(|report| !report.data_materialized && report.materialization_boundary_rows == 0);
+        let shared_dataplane_report = VortexColumnarResultBatch::opaque_encoded(
+            "traditional_analytics_batch_result",
+            result_rows,
+            vec![(
+                "result".to_string(),
+                "struct".to_string(),
+                "columnar_state".to_string(),
+                Some(result_rows.saturating_mul(8)),
+            )],
+            None,
+            VortexColumnarResultOrdering::StableTopK,
+            VortexColumnarResultSinkBoundary::NativeVortex,
+        )
+        .and_then(|batch| {
+            materialize_columnar_result_batch_for_sink(
+                batch,
+                VortexColumnarResultSinkBoundary::NativeVortex,
+            )
+        });
+        let (
+            shared_materialization_status,
+            shared_sink_boundary,
+            shared_storage_summary,
+            shared_rows_materialized,
+            shared_columns_decoded,
+            shared_payload_bytes_decoded,
+            shared_materialized_before_sink,
+            shared_checksum,
+        ) = match &shared_dataplane_report {
+            Ok(report) => (
+                report.certificate.status.as_str().to_string(),
+                report.certificate.sink_boundary.as_str().to_string(),
+                report.batch.storage_summary(),
+                report.certificate.rows_materialized.to_string(),
+                report.certificate.columns_decoded.to_string(),
+                report.certificate.payload_bytes_decoded.to_string(),
+                report
+                    .certificate
+                    .materialized_before_declared_sink
+                    .to_string(),
+                report.batch.checksum().to_string(),
+            ),
+            Err(error) => (
+                "blocked_columnar_result_contract_error".to_string(),
+                "unknown".to_string(),
+                "unknown".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "true".to_string(),
+                format!("error:{error}"),
+            ),
+        };
+        let compact_boundary_preserved = existing_route_boundary_preserved
+            && shared_materialization_status == "columnar_handoff_no_rows_materialized"
+            && shared_materialized_before_sink == "false";
         let digest = route_evidence_digest(&[
             COLUMNAR_RESULT_DATA_PLANE_SCHEMA_VERSION,
             &compact_boundary_preserved.to_string(),
             result_sink_replay_status,
             &result_rows.to_string(),
+            &shared_materialization_status,
+            &shared_checksum,
             &self.result_sink_requested.to_string(),
             &self.all_result_sink_replays_verified.to_string(),
         ]);
@@ -14119,6 +14507,42 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "columnar_result_data_plane_compact_batch_status".to_string(),
                 "scenario_results_stay_compact_until_result_json_or_vortex_sink_boundary"
                     .to_string(),
+            ),
+            (
+                "columnar_result_data_plane_shared_batch_id".to_string(),
+                "traditional_analytics_batch_result".to_string(),
+            ),
+            (
+                "columnar_result_data_plane_shared_materialization_status".to_string(),
+                shared_materialization_status,
+            ),
+            (
+                "columnar_result_data_plane_shared_sink_boundary".to_string(),
+                shared_sink_boundary,
+            ),
+            (
+                "columnar_result_data_plane_shared_storage_summary".to_string(),
+                shared_storage_summary,
+            ),
+            (
+                "columnar_result_data_plane_shared_rows_materialized".to_string(),
+                shared_rows_materialized,
+            ),
+            (
+                "columnar_result_data_plane_shared_columns_decoded".to_string(),
+                shared_columns_decoded,
+            ),
+            (
+                "columnar_result_data_plane_shared_payload_bytes_decoded".to_string(),
+                shared_payload_bytes_decoded,
+            ),
+            (
+                "columnar_result_data_plane_shared_materialized_before_declared_sink".to_string(),
+                shared_materialized_before_sink,
+            ),
+            (
+                "columnar_result_data_plane_shared_checksum".to_string(),
+                shared_checksum,
             ),
             (
                 "columnar_result_data_plane_json_assembly_boundary".to_string(),
@@ -40157,12 +40581,10 @@ fn scan_fact_vortex_projected_internal(
     };
     let mut scheduled_morsel_count = 0_usize;
     let mut completed_morsel_count = 0_usize;
-    let failed_morsel_count = 0_usize;
     let mut max_morsel_rows = 0_usize;
     let mut queue_limit_enforced = true;
-    let mut thread_local_state_count = 0_usize;
-    let mut deterministic_merge_count = 0_usize;
     let mut peak_memory_bytes = 0_u64;
+    let mut morsel_work_units = Vec::new();
     let scenario_scan_start = std::time::Instant::now();
     loop {
         let chunk_iter_start = std::time::Instant::now();
@@ -40221,21 +40643,21 @@ fn scan_fact_vortex_projected_internal(
                                 .to_string(),
                         )
                     })?;
-                    thread_local_state_count =
-                        thread_local_state_count.checked_add(1).ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "capillary morsel thread-local state count overflowed; fallback execution was not attempted"
-                                    .to_string(),
-                            )
-                        })?;
                     max_morsel_rows = max_morsel_rows.max(range.len());
                     let chunk_column_count_usize = fields.len().max(1);
                     let estimated_morsel_bytes = range
                         .len()
                         .saturating_mul(chunk_column_count_usize)
                         .saturating_mul(std::mem::size_of::<u64>());
-                    peak_memory_bytes =
-                        peak_memory_bytes.max(usize_to_u64(estimated_morsel_bytes.max(1))?);
+                    let estimated_morsel_bytes = usize_to_u64(estimated_morsel_bytes.max(1))?;
+                    peak_memory_bytes = peak_memory_bytes.max(estimated_morsel_bytes);
+                    morsel_work_units.push(VortexMorselWorkUnit::new(
+                        capillary_family,
+                        format!("{split_ref}:rows-{}-{}", range.start, range.end),
+                        usize_to_u64(range.start)?,
+                        usize_to_u64(range.len())?,
+                        estimated_morsel_bytes,
+                    )?);
                     let operator_kernel_start = std::time::Instant::now();
                     process(&fields, chunk_rows, *range, &encoded_kernel_inputs)?;
                     operator_kernel_micros = checked_u64_sum(
@@ -40246,13 +40668,6 @@ fn scan_fact_vortex_projected_internal(
                         completed_morsel_count.checked_add(1).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "capillary morsel completed count overflowed; fallback execution was not attempted"
-                                    .to_string(),
-                            )
-                        })?;
-                    deterministic_merge_count =
-                        deterministic_merge_count.checked_add(1).ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "capillary morsel merge count overflowed; fallback execution was not attempted"
                                     .to_string(),
                             )
                         })?;
@@ -40277,30 +40692,67 @@ fn scan_fact_vortex_projected_internal(
     }
     let vortex_scenario_scan_micros = duration_to_micros(scenario_scan_start.elapsed());
     let capillary_morsel_scheduling = if use_bounded_morsels {
+        let scheduler_run = execute_vortex_morsel_scheduler_with_state::<VortexMorselRowCountState>(
+            VortexMorselSchedulerPlan::new(
+                capillary_family,
+                morsel_work_units,
+                VortexMorselSchedulerPolicy::new(morsel_max_parallelism)?
+                    .with_queue_limit(morsel_queue_limit)
+                    .with_worker_memory_budget_bytes(peak_memory_bytes.max(1)),
+            )?,
+        )?;
+        let scheduler_report = scheduler_run.report;
+        if scheduler_report.runnable_morsels != scheduled_morsel_count
+            || scheduler_report.completed_morsels != completed_morsel_count
+        {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "capillary morsel scheduler accounting mismatch for {capillary_family}: scheduler_runnable={}, route_scheduled={}, scheduler_completed={}, route_completed={}; fallback execution was not attempted",
+                scheduler_report.runnable_morsels,
+                scheduled_morsel_count,
+                scheduler_report.completed_morsels,
+                completed_morsel_count
+            )));
+        }
+        let shared_scheduler_executed =
+            scheduler_report.status == VortexMorselSchedulerStatus::Executed;
         TraditionalCapillaryMorselSchedulingSummary {
+            shared_scheduler_schema_version: scheduler_report.schema_version.to_string(),
+            shared_scheduler_id: scheduler_report.scheduler_id.clone(),
+            shared_scheduler_status: scheduler_report.status.as_str().to_string(),
             family: capillary_family.to_string(),
-            scheduler_mode: "bounded_local_source_state_morsel_scheduler".to_string(),
+            scheduler_mode:
+                "shared_vortex_morsel_scheduler_threadlocal_merge_with_route_operator_consumption"
+                    .to_string(),
             target_morsel_rows: morsel_target_rows,
             reader_chunk_count: arrays_read_count,
-            scheduled_morsel_count,
-            completed_morsel_count,
-            failed_morsel_count,
+            scheduled_morsel_count: scheduler_report.runnable_morsels,
+            completed_morsel_count: scheduler_report.completed_morsels,
+            failed_morsel_count: scheduler_report.failed_morsels,
             max_morsel_rows,
             queue_limit: morsel_queue_limit,
             max_parallelism: morsel_max_parallelism,
-            queue_limit_enforced,
-            thread_local_state_count,
-            deterministic_merge_count,
-            memory_reservation_status: if failed_morsel_count == 0
-                && completed_morsel_count == scheduled_morsel_count
+            queue_limit_enforced: scheduler_report.queue_limit_enforced && queue_limit_enforced,
+            thread_local_state_count: scheduler_report.thread_local_state_count,
+            deterministic_merge_count: scheduler_report.deterministic_merge_count,
+            worker_summaries: scheduler_report.worker_summaries,
+            rows_processed: scheduler_report.rows_processed,
+            mean_stage_micros: scheduler_report.mean_stage_micros,
+            max_stage_micros: scheduler_report.max_stage_micros,
+            skew_ratio_x1000: scheduler_report.skew_ratio_x1000,
+            merge_micros: scheduler_report.merge_micros,
+            rows_per_second: scheduler_report.rows_per_second,
+            memory_envelope_admitted: scheduler_report.memory_envelope_admitted,
+            memory_reservation_status: if shared_scheduler_executed
+                && scheduler_report.memory_envelope_admitted
+                && scheduler_report.failed_morsels == 0
             {
-                "per_morsel_local_state_memory_envelope_admitted".to_string()
+                "shared_scheduler_per_morsel_memory_envelope_admitted".to_string()
             } else {
-                "per_morsel_local_state_memory_envelope_incomplete".to_string()
+                "shared_scheduler_per_morsel_memory_envelope_incomplete".to_string()
             },
             peak_memory_bytes,
-            fallback_attempted: false,
-            external_engine_invoked: false,
+            fallback_attempted: scheduler_report.fallback_attempted,
+            external_engine_invoked: scheduler_report.external_engine_invoked,
         }
     } else {
         TraditionalCapillaryMorselSchedulingSummary::not_applicable()
@@ -49885,6 +50337,16 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "capillary_morsel_shared_scheduler_schema_version",
+            crate::scheduler_bridge::VORTEX_MORSEL_SCHEDULER_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "capillary_morsel_shared_scheduler_status",
+            "executed",
+        );
+        assert_field_eq(
+            &fields,
             "capillary_morsel_scheduling_status",
             "bounded_source_state_morsel_scheduler_completed",
         );
@@ -49898,6 +50360,9 @@ mod tests {
         assert_field_eq(&fields, "capillary_morsel_failed_count", "0");
         assert_field_eq(&fields, "capillary_morsel_thread_local_state_count", "4");
         assert_field_eq(&fields, "capillary_morsel_deterministic_merge_count", "4");
+        assert_field_eq(&fields, "capillary_morsel_rows_processed", "11");
+        assert_field_eq(&fields, "capillary_morsel_memory_envelope_admitted", "true");
+        assert_field_contains(&fields, "capillary_morsel_worker_summaries", "worker=0");
         assert_field_eq(&fields, "capillary_morsel_reader_chunk_count", "4");
         assert_field_eq(&fields, "capillary_morsel_target_rows", "8192");
         assert_field_eq(&fields, "capillary_morsel_max_rows", "3");
@@ -49918,6 +50383,11 @@ mod tests {
             &fields,
             "scenario_sort-and-top-k_capillary_morsel_scheduling_status",
             "bounded_capillary_morsel_scheduling_completed",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_capillary_morsel_shared_scheduler_status",
+            "executed",
         );
         assert_field_eq(
             &fields,
@@ -49973,6 +50443,16 @@ mod tests {
             &fields,
             "hot_lane_native_kernel_dispatch_matrix",
             "bounded_wide_row_topk",
+        );
+        assert_field_contains(
+            &fields,
+            "hot_lane_native_kernel_dispatch_matrix",
+            "registry_kernel=exact_predicate_count",
+        );
+        assert_field_contains(
+            &fields,
+            "hot_lane_native_kernel_dispatch_matrix",
+            "registry_physical_status=registry_ready",
         );
         assert_field_eq(
             &fields,
@@ -50048,6 +50528,21 @@ mod tests {
             &fields,
             "columnar_result_data_plane_wide_row_json_hot_path_avoided",
             "true",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_shared_materialization_status",
+            "columnar_handoff_no_rows_materialized",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_shared_rows_materialized",
+            "0",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_shared_materialized_before_declared_sink",
+            "false",
         );
         assert_field_eq(
             &fields,
@@ -50397,6 +50892,19 @@ mod tests {
         ] {
             assert_field_contains(&fields, "hot_lane_native_kernel_dispatch_matrix", lane);
         }
+        for kernel_id in [
+            "exact_predicate_count",
+            "dense_exact_distinct",
+            "numeric_utf8_grouped_topk",
+            "transformed_dictionary_url_domain_grouping",
+            "row_ref_topk",
+        ] {
+            assert_field_contains(
+                &fields,
+                "hot_lane_native_kernel_dispatch_matrix",
+                &format!("registry_kernel={kernel_id}"),
+            );
+        }
         assert_field_eq(
             &fields,
             "capillary_morsel_scheduling_summary_family_count",
@@ -50415,6 +50923,11 @@ mod tests {
             &fields,
             "columnar_result_data_plane_status",
             "compact_columnar_result_boundary_preserved",
+        );
+        assert_field_eq(
+            &fields,
+            "columnar_result_data_plane_shared_materialization_status",
+            "columnar_handoff_no_rows_materialized",
         );
         assert_field_eq(
             &fields,
