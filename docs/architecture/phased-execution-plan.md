@@ -419,6 +419,16 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         The runtime change was dropped and the protected artifact was restored. Do not retry
         compression narrowing without a portfolio gate that accounts for whole-artifact byte growth
         before committing a full replacement write.
+      - Rejected 2026-09-03 implementation slice: raising the source-text fast-Zstd
+        values-per-frame setting from `8,192` to `32,768` kept the same selected fields, codec, and
+        one-artifact writer boundary, but replacement-ingest UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260903T231822Z`
+        had already reached the protected `271s` elapsed line with only `7.587GB` written in
+        `progress.jsonl`. The run was stopped, the runtime patch was dropped, and the retained
+        artifact was rebuilt from clean `HEAD` at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260903T232520Z`,
+        producing the expected `38,147,848,068` byte `.vortex` artifact. Do not retry simple
+        compression frame-size tuning outside the retained layout/codec portfolio gate.
     - [ ] Build a staged pipeline for source read, embedded-derived construction, Arrow-to-Vortex
       conversion, compression/layout preparation, ordered final writer feed, digest, and atomic
       commit, with bounded queues and explicit single-artifact cleanup.
@@ -850,6 +860,24 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `topk_retention_strategy=cached_worst_string_count_retained_window`,
         `string_count_topk_dictionary_histogram_recount=true`, and
         `fallback_attempted=false` / `external_engine_invoked=false`.
+      - Completed 2026-09-03 implementation slice: the count-only string heavy-hitter bounded exact
+        mirror is now capped at `4x` the heavy-hitter window instead of `32x`. For Q34/Q35 this
+        avoids retaining a large speculative string-id/count mirror that still failed to remove the
+        exact second-pass recount; exact SQL semantics are unchanged because disabled mirrors
+        continue through the existing proof-bound candidate recount. Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives grouped_aggregate_string_count_topk_uses_proofbound_heavy_hitter_recount -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives grouped_aggregate_string_count_topk_skips_recount_when_first_pass_is_exact -- --nocapture`,
+        and
+        `cargo test -p shardloom-vortex --features vortex-local-primitives grouped_aggregate_string_count_topk_skips_candidate_free_count_only_chunks -- --nocapture`.
+        Targeted local 100M Q34/Q35 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_exact_mirror_cap_20260903T_now/summary.json`
+        produced Q34 best `25.462161874980666s` versus retained `25.385012249986175s`
+        (`0.30%` slower) and Q35 best `24.893747250025626s` versus retained
+        `25.479101791977882s` (`2.30%` faster). The shared two-row best-of-3 sum improved from
+        `50.864114041963` to `50.355909125006` seconds (`1.00%` faster), with
+        `fallback_attempted=false` / `external_engine_invoked=false`. Retain this as a
+        Q34/Q35-family improvement, but require the next full-43 UAT to watch the slight Q34
+        regression.
     - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
       - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
         recount, and adaptive radix exact path for high-cardinality numeric+string grouping.

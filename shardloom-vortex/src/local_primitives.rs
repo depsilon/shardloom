@@ -45,6 +45,8 @@ use crate::{VortexStructuredProjectionExpr, VortexStructuredProjectionRequest};
 
 #[cfg(feature = "vortex-local-primitives")]
 const SHARDLOOM_SOURCE_ROW_ID_COLUMN: &str = "__shardloom_source_row_id";
+#[cfg(feature = "vortex-local-primitives")]
+const STRING_COUNT_TOPK_EXACT_MIRROR_CAPACITY_MULTIPLIER: usize = 4;
 
 /// Feature-gated local Vortex primitive execution status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28711,7 +28713,7 @@ impl<'a> GroupedAggregateStates<'a> {
             return 0;
         }
         self.string_count_topk_heavy_hitter_capacity()
-            .saturating_mul(32)
+            .saturating_mul(STRING_COUNT_TOPK_EXACT_MIRROR_CAPACITY_MULTIPLIER)
             .min(self.resource_envelope.group_state_soft_item_budget)
     }
 
@@ -55724,6 +55726,13 @@ mod tests {
         assert_eq!(
             payload["string_count_topk_dictionary_histogram_recount"],
             serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_topk_exact_mirror_capacity"],
+            serde_json::json!(
+                states.string_count_topk_heavy_hitter_capacity()
+                    * STRING_COUNT_TOPK_EXACT_MIRROR_CAPACITY_MULTIPLIER
+            )
         );
         assert_eq!(
             payload["string_count_topk_dictionary_code_reuse"],
