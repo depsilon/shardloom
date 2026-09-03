@@ -94,14 +94,15 @@ route and start from `VortexPreparedState`; they must not be read as direct CSV/
 timing.
 
 The current website artifact preserves `source_metadata_snapshot_*`,
-`source_state_*`, `session_*`, `execution_mode`, `claim_gate_status`,
-materialization/decode, Native I/O, `fallback_attempted=false`, and
-`external_engine_invoked=false` evidence. The expanded direct batch smoke rows
-also expose multi-family source-state reuse, including selective-filter reuse
-and the date/null metric reuse signal for partition-pruning plus null-heavy
-aggregate scenarios. The benchmark remains local pre-release evidence, not a
-leaderboard, performance claim, superiority claim, production claim, or Spark
-replacement claim.
+`source_state_*`, `segment_granule_metadata_*`, `session_*`, `execution_mode`,
+`claim_gate_status`, materialization/decode, Native I/O, `fallback_attempted=false`, and
+`external_engine_invoked=false` evidence. The expanded direct batch smoke rows also expose
+multi-family source-state reuse, including selective-filter reuse and the date/null metric reuse
+signal for partition-pruning plus null-heavy aggregate scenarios. The segment/granule metadata
+fields are focused prepared/native source-state evidence over the single fact `.vortex` artifact;
+they do not refresh the retained 100M timing artifacts by themselves. The benchmark remains local
+pre-release evidence, not a leaderboard, performance claim, superiority claim, production claim, or
+Spark replacement claim.
 
 ## Route-First Presentation Contract
 

@@ -63,19 +63,20 @@ claim gates.
 
 The current local Desktop 100M full-query UAT artifact is:
 
-`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_20260901T1342Z/summary.json`
+`/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_clean_ingest_current_impl_20260903T112902Z/summary.json`
 
 The checked-in burndown intake is:
 
 `docs/benchmarks/clickbench-100m-uat-burndown.json`
 
-This is implementation/UAT evidence only, not an official ClickBench submission. The run replaced
-the local 100M `.vortex` artifact from official Parquet input, used
-`execution_policy=native_vortex`, observed `max_parallelism=12`, and executed queries sequentially.
+This is implementation/UAT evidence only, not an official ClickBench submission. Before the
+current implementation UAT pass, the prepared `.vortex` artifact was replaced through the gated
+ingest harness while the official Parquet source was retained. The run used
+`execution_policy=native_vortex`, requested `max_parallelism=12`, and executed queries sequentially.
 It attempted all 43 rows with three runs per query: 129 CLI runs completed successfully, 0 failed,
 and every successful row reported no fallback or external-engine execution. Best-of-3 query wall
-time totaled 215.637 seconds with a 1.284543-second geomean. The replacement ingest completed in
-301 seconds and produced a 38,147,848,068-byte single `.vortex` artifact.
+time totaled 189.197 seconds with a 1.142898-second geomean. The clean replacement ingest completed
+in 271 seconds and produced a 38,147,848,068-byte single `.vortex` artifact.
 
 Remaining above-1s rows are optimization candidates, not fallback permission. Current work focuses
 on deeper consumption of embedded Vortex layout/statistics, string/domain metadata, encoded

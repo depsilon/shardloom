@@ -1775,7 +1775,7 @@ const CROSS_CG_FIELD_KEYS: [&str; 54] = [
     "cg23_remote_api_no_effects",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 191] = [
+const OPERATOR_FIELD_KEYS: [&str; 205] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -1813,6 +1813,20 @@ const OPERATOR_FIELD_KEYS: [&str; 191] = [
     "physical_operator_row_materialization_level_count",
     "physical_operator_arrow_conversion_level_count",
     "physical_operator_fallback_level_count",
+    "specialized_kernel_registry_schema_version",
+    "specialized_kernel_registry_id",
+    "specialized_kernel_registry_kernel_count",
+    "specialized_kernel_registry_kernel_ids",
+    "specialized_kernel_registry_operator_kinds",
+    "specialized_kernel_registry_kernel_kinds",
+    "specialized_kernel_registry_execution_levels",
+    "specialized_kernel_registry_materialization_levels",
+    "specialized_kernel_registry_runtime_lanes",
+    "specialized_kernel_registry_route_families",
+    "specialized_kernel_registry_fallback_execution_allowed",
+    "specialized_kernel_registry_external_engine_invoked",
+    "specialized_kernel_registry_production_claim_allowed",
+    "specialized_kernel_registry_claim_boundary",
     "metadata_physical_kernel_schema_version",
     "metadata_physical_kernel_supported_primitives",
     "metadata_physical_kernel_contextual_only",

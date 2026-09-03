@@ -28,6 +28,7 @@ use std::{
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use std::sync::{
+    Mutex,
     atomic::AtomicUsize,
     mpsc::{self, Receiver},
 };
@@ -43,7 +44,7 @@ use arrow_array::{
     UInt8Array, UInt16Array, UInt32Array, UInt64Array, cast::AsArray as _,
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use arrow_schema::DataType as ArrowDataType;
+use arrow_schema::{ArrowError, DataType as ArrowDataType};
 use sha2::Digest as _;
 use shardloom_core::{
     LogicalDType, Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport,
@@ -81,6 +82,14 @@ pub const VORTEX_SCOUT_INGRESS_SCHEMA_VERSION: &str = "shardloom.vortex_scout_in
 /// Evidence schema emitted by product local layout/write advisor checks.
 pub const VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION: &str =
     "shardloom.vortex_layout_write_advisor.v1";
+/// Evidence schema emitted by the writer physical-design planner that applies
+/// admitted layout/write decisions to Vortex writer and streaming-feed knobs.
+pub const VORTEX_WRITER_PHYSICAL_DESIGN_SCHEMA_VERSION: &str =
+    "shardloom.vortex_writer_physical_design.v1";
+/// Evidence schema emitted by the reusable segment-metadata primitive used by
+/// prepared Vortex query planning.
+pub const VORTEX_SEGMENT_METADATA_PRIMITIVE_SCHEMA_VERSION: &str =
+    "shardloom.vortex_segment_metadata_primitive.v1";
 /// Evidence schema emitted by product local copy-budget and buffer-lifecycle checks.
 pub const VORTEX_COPY_BUDGET_SCHEMA_VERSION: &str = "shardloom.vortex_copy_budget.v1";
 /// Evidence schema emitted by scoped local prepared-state reuse manifests.
@@ -178,6 +187,9 @@ const VORTEX_PREPARED_OLAP_REOPEN_DEFERRED_STATUS: &str =
     "writer_summary_row_count_verified_layout_inventory_deferred";
 const VORTEX_PREPARED_OLAP_DICTIONARY_METADATA_POLICY: &str =
     "preserve_vortex_dictionary_and_encoding_metadata_when_writer_emits_it";
+const VORTEX_SEGMENT_METADATA_NO_FALSE_NEGATIVE_POLICY: &str =
+    "unknown_or_inconclusive_segments_are_read_no_false_negative_pruning";
+const VORTEX_SEGMENT_METADATA_QUERY_USE_POLICY: &str = "metadata_first_pruning_uses_footer_statistics_only_when_admitted_else_read_or_open_query_footer";
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 const VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW: usize = 4;
 
@@ -318,6 +330,604 @@ impl VortexPreparedOlapLayoutInventory {
             .map_or_else(|| "unknown".to_string(), |value| value.to_string())
     }
 }
+
+/// Query-family consumers supported by the prepared Vortex segment-metadata
+/// primitive. These are admission categories, not external engine routes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexSegmentMetadataQueryFamily {
+    MetadataCount,
+    PredicatePruning,
+    GroupAggregation,
+    TopKRowPosition,
+    DictionaryDistinct,
+}
+
+impl VortexSegmentMetadataQueryFamily {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MetadataCount => "metadata_count",
+            Self::PredicatePruning => "predicate_pruning",
+            Self::GroupAggregation => "group_aggregation",
+            Self::TopKRowPosition => "topk_row_position",
+            Self::DictionaryDistinct => "dictionary_distinct",
+        }
+    }
+}
+
+/// Conservative segment-metadata contract derived from a prepared Vortex
+/// artifact footer or from a deferred large-artifact writer summary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexSegmentMetadataPrimitiveReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub primitive_id: String,
+    pub source: String,
+    pub inventory_status: String,
+    pub inventory_digest: String,
+    pub writer_physical_design_digest: String,
+    pub row_count: Option<u64>,
+    pub segment_count: Option<usize>,
+    pub row_count_proven: bool,
+    pub segment_count_proven: bool,
+    pub statistics_status: String,
+    pub row_range_coverage: String,
+    pub physical_byte_range_status: String,
+    pub null_count_status: String,
+    pub min_max_status: String,
+    pub byte_length_bounds_status: String,
+    pub dictionary_membership_status: String,
+    pub domain_absence_status: String,
+    pub cardinality_sketch_status: String,
+    pub row_position_locality_status: String,
+    pub encoded_layout_status: String,
+    pub per_column_metadata_contract: String,
+    pub metadata_read_plan: String,
+    pub query_use_policy: String,
+    pub predicate_pruning_admission: String,
+    pub group_by_admission: String,
+    pub topk_admission: String,
+    pub dictionary_distinct_admission: String,
+    pub metadata_count_admission: String,
+    pub no_false_negative_policy: String,
+    pub query_answer_sidecar_status: String,
+    pub segment_metadata_digest: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexSegmentMetadataPrimitiveReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn from_inventory(
+        inventory: &VortexPreparedOlapLayoutInventory,
+        source: impl Into<String>,
+        writer_physical_design_digest: impl Into<String>,
+    ) -> Self {
+        let source = source.into();
+        let writer_physical_design_digest = writer_physical_design_digest.into();
+        let row_count_proven = inventory.row_count.is_some();
+        let segment_count_proven = inventory.segment_count.is_some();
+        let statistics_admitted = inventory.statistics_status == "available";
+        let inventory_deferred = inventory.status
+            == VORTEX_PREPARED_OLAP_LAYOUT_INVENTORY_DEFERRED_STATUS
+            || inventory.statistics_status == "deferred_until_query_open";
+        let status = segment_metadata_primitive_status(inventory, statistics_admitted);
+        let row_range_coverage = segment_metadata_row_range_coverage(inventory);
+        let physical_byte_range_status =
+            segment_metadata_physical_byte_range_status(inventory, inventory_deferred);
+        let null_count_status =
+            segment_metadata_null_count_status(inventory, statistics_admitted, inventory_deferred);
+        let min_max_status =
+            segment_metadata_min_max_status(inventory, statistics_admitted, inventory_deferred);
+        let byte_length_bounds_status = segment_metadata_byte_length_bounds_status(
+            inventory,
+            statistics_admitted,
+            inventory_deferred,
+        );
+        let dictionary_membership_status =
+            segment_metadata_dictionary_membership_status(inventory, inventory_deferred);
+        let domain_absence_status = segment_metadata_domain_absence_status(
+            inventory,
+            statistics_admitted,
+            inventory_deferred,
+        );
+        let cardinality_sketch_status =
+            segment_metadata_cardinality_sketch_status(inventory, statistics_admitted);
+        let metadata_read_plan =
+            segment_metadata_read_plan(inventory, statistics_admitted, inventory_deferred);
+        let metadata_count_admission =
+            segment_metadata_count_admission(inventory, row_count_proven);
+        let predicate_pruning_admission =
+            segment_metadata_predicate_pruning_admission(inventory, statistics_admitted);
+        let group_by_admission =
+            segment_metadata_group_by_admission(inventory, statistics_admitted);
+        let topk_admission = segment_metadata_topk_admission(inventory);
+        let dictionary_distinct_admission =
+            segment_metadata_dictionary_distinct_admission(inventory);
+        let segment_metadata_digest = fnv64_digest_text(&format!(
+            "vortex_segment_metadata_primitive|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            status,
+            source,
+            inventory.status,
+            inventory.inventory_digest,
+            writer_physical_design_digest,
+            inventory.row_count_field(),
+            inventory.segment_count_field(),
+            inventory.statistics_status,
+            row_range_coverage,
+            physical_byte_range_status,
+            null_count_status,
+            min_max_status,
+            byte_length_bounds_status,
+            dictionary_membership_status,
+            domain_absence_status,
+            cardinality_sketch_status,
+            metadata_read_plan,
+            predicate_pruning_admission,
+            group_by_admission,
+            topk_admission,
+        ));
+
+        Self {
+            schema_version: VORTEX_SEGMENT_METADATA_PRIMITIVE_SCHEMA_VERSION,
+            status,
+            primitive_id: format!("segment-metadata-primitive-{segment_metadata_digest}"),
+            source,
+            inventory_status: inventory.status.clone(),
+            inventory_digest: inventory.inventory_digest.clone(),
+            writer_physical_design_digest,
+            row_count: inventory.row_count,
+            segment_count: inventory.segment_count,
+            row_count_proven,
+            segment_count_proven,
+            statistics_status: inventory.statistics_status.clone(),
+            row_range_coverage,
+            physical_byte_range_status,
+            null_count_status,
+            min_max_status,
+            byte_length_bounds_status,
+            dictionary_membership_status,
+            domain_absence_status,
+            cardinality_sketch_status,
+            row_position_locality_status: inventory.row_position_locality_status.clone(),
+            encoded_layout_status: inventory.encoding_layout_status.clone(),
+            per_column_metadata_contract: inventory.per_column_metadata_contract.clone(),
+            metadata_read_plan,
+            query_use_policy: VORTEX_SEGMENT_METADATA_QUERY_USE_POLICY.to_string(),
+            predicate_pruning_admission,
+            group_by_admission,
+            topk_admission,
+            dictionary_distinct_admission,
+            metadata_count_admission,
+            no_false_negative_policy: VORTEX_SEGMENT_METADATA_NO_FALSE_NEGATIVE_POLICY.to_string(),
+            query_answer_sidecar_status: VORTEX_PREPARED_OLAP_QUERY_ANSWER_SIDECAR_STATUS
+                .to_string(),
+            segment_metadata_digest,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_count_field(&self) -> String {
+        self.row_count
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string())
+    }
+
+    #[must_use]
+    pub fn segment_count_field(&self) -> String {
+        self.segment_count
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string())
+    }
+
+    #[must_use]
+    pub fn is_metadata_count_admitted(&self) -> bool {
+        self.metadata_count_admission
+            .starts_with("admitted_metadata_count")
+    }
+
+    #[must_use]
+    pub fn is_predicate_pruning_admitted(&self) -> bool {
+        self.predicate_pruning_admission
+            .starts_with("admitted_conservative")
+    }
+
+    #[must_use]
+    pub fn requires_query_open(&self) -> bool {
+        self.status.contains("deferred") || self.metadata_read_plan.contains("query_open")
+    }
+
+    #[must_use]
+    pub fn must_read_inconclusive_segments(&self) -> bool {
+        self.no_false_negative_policy == VORTEX_SEGMENT_METADATA_NO_FALSE_NEGATIVE_POLICY
+    }
+
+    #[must_use]
+    pub fn admission_for_query_family(&self, family: VortexSegmentMetadataQueryFamily) -> &str {
+        match family {
+            VortexSegmentMetadataQueryFamily::MetadataCount => &self.metadata_count_admission,
+            VortexSegmentMetadataQueryFamily::PredicatePruning => &self.predicate_pruning_admission,
+            VortexSegmentMetadataQueryFamily::GroupAggregation => &self.group_by_admission,
+            VortexSegmentMetadataQueryFamily::TopKRowPosition => &self.topk_admission,
+            VortexSegmentMetadataQueryFamily::DictionaryDistinct => {
+                &self.dictionary_distinct_admission
+            }
+        }
+    }
+
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "vortex_segment_metadata_schema_version".to_string(),
+                self.schema_version.to_string(),
+            ),
+            (
+                "vortex_segment_metadata_status".to_string(),
+                self.status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_primitive_id".to_string(),
+                self.primitive_id.clone(),
+            ),
+            (
+                "vortex_segment_metadata_source".to_string(),
+                self.source.clone(),
+            ),
+            (
+                "vortex_segment_metadata_inventory_status".to_string(),
+                self.inventory_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_inventory_digest".to_string(),
+                self.inventory_digest.clone(),
+            ),
+            (
+                "vortex_segment_metadata_writer_physical_design_digest".to_string(),
+                self.writer_physical_design_digest.clone(),
+            ),
+            (
+                "vortex_segment_metadata_row_count".to_string(),
+                self.row_count_field(),
+            ),
+            (
+                "vortex_segment_metadata_segment_count".to_string(),
+                self.segment_count_field(),
+            ),
+            (
+                "vortex_segment_metadata_row_count_proven".to_string(),
+                self.row_count_proven.to_string(),
+            ),
+            (
+                "vortex_segment_metadata_segment_count_proven".to_string(),
+                self.segment_count_proven.to_string(),
+            ),
+            (
+                "vortex_segment_metadata_statistics_status".to_string(),
+                self.statistics_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_row_range_coverage".to_string(),
+                self.row_range_coverage.clone(),
+            ),
+            (
+                "vortex_segment_metadata_physical_byte_range_status".to_string(),
+                self.physical_byte_range_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_null_count_status".to_string(),
+                self.null_count_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_min_max_status".to_string(),
+                self.min_max_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_byte_length_bounds_status".to_string(),
+                self.byte_length_bounds_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_dictionary_membership_status".to_string(),
+                self.dictionary_membership_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_domain_absence_status".to_string(),
+                self.domain_absence_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_cardinality_sketch_status".to_string(),
+                self.cardinality_sketch_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_row_position_locality_status".to_string(),
+                self.row_position_locality_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_encoded_layout_status".to_string(),
+                self.encoded_layout_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_per_column_contract".to_string(),
+                self.per_column_metadata_contract.clone(),
+            ),
+            (
+                "vortex_segment_metadata_read_plan".to_string(),
+                self.metadata_read_plan.clone(),
+            ),
+            (
+                "vortex_segment_metadata_query_use_policy".to_string(),
+                self.query_use_policy.clone(),
+            ),
+            (
+                "vortex_segment_metadata_metadata_count_admission".to_string(),
+                self.metadata_count_admission.clone(),
+            ),
+            (
+                "vortex_segment_metadata_predicate_pruning_admission".to_string(),
+                self.predicate_pruning_admission.clone(),
+            ),
+            (
+                "vortex_segment_metadata_group_by_admission".to_string(),
+                self.group_by_admission.clone(),
+            ),
+            (
+                "vortex_segment_metadata_topk_admission".to_string(),
+                self.topk_admission.clone(),
+            ),
+            (
+                "vortex_segment_metadata_dictionary_distinct_admission".to_string(),
+                self.dictionary_distinct_admission.clone(),
+            ),
+            (
+                "vortex_segment_metadata_no_false_negative_policy".to_string(),
+                self.no_false_negative_policy.clone(),
+            ),
+            (
+                "vortex_segment_metadata_query_answer_sidecar_status".to_string(),
+                self.query_answer_sidecar_status.clone(),
+            ),
+            (
+                "vortex_segment_metadata_digest".to_string(),
+                self.segment_metadata_digest.clone(),
+            ),
+            (
+                "vortex_segment_metadata_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "vortex_segment_metadata_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+}
+
+fn segment_metadata_primitive_status(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+) -> String {
+    if statistics_admitted && inventory.segment_count.is_some() && inventory.row_count.is_some() {
+        "admitted_footer_segment_metadata".to_string()
+    } else if inventory.status == VORTEX_PREPARED_OLAP_LAYOUT_INVENTORY_DEFERRED_STATUS {
+        "deferred_until_query_open_writer_summary_row_count_only".to_string()
+    } else if inventory.row_count.is_some() {
+        "admitted_row_count_only_segment_metadata".to_string()
+    } else {
+        "blocked_segment_metadata_unavailable".to_string()
+    }
+}
+
+fn segment_metadata_row_range_coverage(inventory: &VortexPreparedOlapLayoutInventory) -> String {
+    if inventory.row_count.is_some() && inventory.segment_count.is_some() {
+        "footer_segment_map_row_ranges_cover_all_rows".to_string()
+    } else if inventory.row_count.is_some() {
+        "writer_summary_row_count_known_segment_ranges_deferred".to_string()
+    } else {
+        "row_range_coverage_not_available".to_string()
+    }
+}
+
+fn segment_metadata_physical_byte_range_status(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    inventory_deferred: bool,
+) -> String {
+    if inventory_deferred {
+        "deferred_until_query_open".to_string()
+    } else if inventory.artifact_size_bytes.is_some() && inventory.segment_count.is_some() {
+        "artifact_size_known_segment_byte_ranges_governed_by_vortex_footer".to_string()
+    } else if inventory.artifact_size_bytes.is_some() {
+        "artifact_size_known_segment_byte_ranges_not_available".to_string()
+    } else {
+        "not_available".to_string()
+    }
+}
+
+fn segment_metadata_null_count_status(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+    inventory_deferred: bool,
+) -> String {
+    if inventory_deferred {
+        "deferred_until_query_open".to_string()
+    } else if statistics_admitted {
+        format!(
+            "available_through_vortex_statistics_contract:{}",
+            inventory.per_column_metadata_contract
+        )
+    } else {
+        "not_available".to_string()
+    }
+}
+
+fn segment_metadata_min_max_status(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+    inventory_deferred: bool,
+) -> String {
+    if inventory_deferred {
+        "deferred_until_query_open".to_string()
+    } else if statistics_admitted {
+        format!(
+            "available_for_orderable_columns_through_vortex_statistics_contract:{}",
+            inventory.per_column_metadata_contract
+        )
+    } else {
+        "not_available".to_string()
+    }
+}
+
+fn segment_metadata_byte_length_bounds_status(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+    inventory_deferred: bool,
+) -> String {
+    if inventory_deferred {
+        "deferred_until_query_open".to_string()
+    } else if statistics_admitted && segment_metadata_has_dictionary_layout(inventory) {
+        "available_for_encoded_text_columns_when_vortex_statistics_or_dictionary_layout_expose_lengths"
+            .to_string()
+    } else if statistics_admitted {
+        "available_only_for_columns_with_vortex_statistics_bounds".to_string()
+    } else {
+        "not_available".to_string()
+    }
+}
+
+fn segment_metadata_dictionary_membership_status(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    inventory_deferred: bool,
+) -> String {
+    if inventory_deferred {
+        "deferred_until_query_open".to_string()
+    } else {
+        inventory.domain_dictionary_status.clone()
+    }
+}
+
+fn segment_metadata_domain_absence_status(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+    inventory_deferred: bool,
+) -> String {
+    if inventory_deferred {
+        "deferred_until_query_open".to_string()
+    } else if statistics_admitted && segment_metadata_has_dictionary_layout(inventory) {
+        "admitted_when_segment_dictionary_or_minmax_excludes_literal_domain".to_string()
+    } else if statistics_admitted {
+        "admitted_for_numeric_temporal_minmax_absence_only".to_string()
+    } else {
+        "not_admitted_without_footer_statistics".to_string()
+    }
+}
+
+fn segment_metadata_cardinality_sketch_status(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+) -> String {
+    if segment_metadata_has_dictionary_layout(inventory) {
+        "dictionary_domain_cardinality_candidate_no_query_answer_sidecar".to_string()
+    } else if statistics_admitted {
+        "not_available_without_dictionary_or_explicit_cardinality_statistics".to_string()
+    } else if inventory.status == VORTEX_PREPARED_OLAP_LAYOUT_INVENTORY_DEFERRED_STATUS {
+        "deferred_until_query_open".to_string()
+    } else {
+        "not_available".to_string()
+    }
+}
+
+fn segment_metadata_read_plan(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+    inventory_deferred: bool,
+) -> String {
+    if inventory_deferred {
+        "query_open_footer_inventory_before_pruning;data_read=false;decode=false".to_string()
+    } else if statistics_admitted {
+        "prepared_footer_metadata_only;data_read=false;decode=false".to_string()
+    } else if inventory.row_count.is_some() {
+        "prepared_footer_row_count_only;segment_pruning_not_admitted".to_string()
+    } else {
+        "not_available".to_string()
+    }
+}
+
+fn segment_metadata_count_admission(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    row_count_proven: bool,
+) -> String {
+    if row_count_proven {
+        "admitted_metadata_count_from_prepared_footer_or_writer_summary".to_string()
+    } else if inventory.status == VORTEX_PREPARED_OLAP_LAYOUT_INVENTORY_DEFERRED_STATUS {
+        "deferred_until_query_open".to_string()
+    } else {
+        "blocked_no_row_count_metadata".to_string()
+    }
+}
+
+fn segment_metadata_predicate_pruning_admission(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+) -> String {
+    if statistics_admitted && inventory.segment_count.is_some() {
+        "admitted_conservative_metadata_pruning_for_predicate_ranges_and_domain_absence".to_string()
+    } else if inventory.status == VORTEX_PREPARED_OLAP_LAYOUT_INVENTORY_DEFERRED_STATUS {
+        "deferred_until_query_open".to_string()
+    } else {
+        "blocked_no_segment_statistics".to_string()
+    }
+}
+
+fn segment_metadata_group_by_admission(
+    inventory: &VortexPreparedOlapLayoutInventory,
+    statistics_admitted: bool,
+) -> String {
+    if segment_metadata_has_dictionary_layout(inventory) {
+        "candidate_dictionary_membership_for_group_partitioning_read_inconclusive_segments"
+            .to_string()
+    } else if statistics_admitted {
+        "metadata_count_only_group_aggregate_still_requires_native_value_scan".to_string()
+    } else if inventory.status == VORTEX_PREPARED_OLAP_LAYOUT_INVENTORY_DEFERRED_STATUS {
+        "deferred_until_query_open".to_string()
+    } else {
+        "blocked_no_group_relevant_segment_metadata".to_string()
+    }
+}
+
+fn segment_metadata_topk_admission(inventory: &VortexPreparedOlapLayoutInventory) -> String {
+    if inventory
+        .row_position_locality_status
+        .starts_with("source_ordinals_")
+        && inventory.segment_count.is_some()
+    {
+        "candidate_row_position_locality_for_bounded_topk_prefilter_residual_heap_required"
+            .to_string()
+    } else if inventory.status == VORTEX_PREPARED_OLAP_LAYOUT_INVENTORY_DEFERRED_STATUS {
+        "deferred_until_query_open".to_string()
+    } else {
+        "not_admitted_topk_requires_ordered_residual_state".to_string()
+    }
+}
+
+fn segment_metadata_dictionary_distinct_admission(
+    inventory: &VortexPreparedOlapLayoutInventory,
+) -> String {
+    if segment_metadata_has_dictionary_layout(inventory) {
+        "candidate_dictionary_union_distinct_no_exact_result_sidecar".to_string()
+    } else if inventory.status == VORTEX_PREPARED_OLAP_LAYOUT_INVENTORY_DEFERRED_STATUS {
+        "deferred_until_query_open".to_string()
+    } else {
+        "blocked_no_dictionary_segment_metadata".to_string()
+    }
+}
+
+fn segment_metadata_has_dictionary_layout(inventory: &VortexPreparedOlapLayoutInventory) -> bool {
+    inventory.domain_dictionary_status == "vortex_dictionary_layout_present"
+}
+
 /// Pinned upstream Vortex crate line used by the scoped local preparation spine.
 pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str =
     crate::UPSTREAM_VORTEX_PROVIDER_VERSION;
@@ -429,6 +1039,7 @@ pub struct VortexNativeArtifactPrepareReport {
     pub target_digest_source: String,
     pub row_count: u64,
     pub prepared_olap_layout_inventory: VortexPreparedOlapLayoutInventory,
+    pub segment_metadata_primitive: VortexSegmentMetadataPrimitiveReport,
     pub source_state_id: String,
     pub source_state_digest: String,
     pub prepared_state_id: String,
@@ -1193,6 +1804,7 @@ impl VortexNativeArtifactPrepareReport {
                 "local_workflow_runtime_supported".to_string(),
             ),
         ];
+        fields.extend(self.segment_metadata_primitive.evidence_fields());
         if let Some(write_report) = &self.workspace_write_report {
             fields.extend(write_report.evidence_fields("vortex_to_vortex_copy"));
         }
@@ -3116,6 +3728,11 @@ pub fn prepare_native_vortex_artifact(
         row_count,
         layout_digest
     ));
+    let segment_metadata_primitive = VortexSegmentMetadataPrimitiveReport::from_inventory(
+        &prepared_olap_layout_inventory,
+        "native_vortex_artifact_prepare",
+        "not_applicable_native_vortex_artifact",
+    );
     let prepare_once_micros = prepare_start.elapsed().as_micros();
     Ok(VortexNativeArtifactPrepareReport {
         schema_version: VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION,
@@ -3132,6 +3749,7 @@ pub fn prepare_native_vortex_artifact(
         target_digest_source,
         row_count,
         prepared_olap_layout_inventory,
+        segment_metadata_primitive,
         source_state_id: format!("source_state:native_vortex:{source_state_digest}"),
         source_state_digest,
         prepared_state_id: format!("prepared_state:native_vortex:{prepared_state_digest}"),
@@ -5454,6 +6072,653 @@ pub struct VortexLayoutWriteAdvisorReport {
     pub external_engine_invoked: bool,
 }
 
+#[cfg(feature = "vortex-write")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VortexWriterPhysicalDesignSourceInput {
+    source_kind: &'static str,
+    source_stage_plan: String,
+    derived_metadata_stage_plan: String,
+    array_build_input_layout: &'static str,
+    source_stream_batch_size: usize,
+    source_stream_unit_count_hint: Option<usize>,
+    source_stream_unit_hint_kind: String,
+    source_stream_policy: String,
+    source_ingest_executor_status: String,
+    source_ingest_executor_kind: String,
+    source_ingest_executor_requested_parallelism: usize,
+    source_ingest_executor_applied_parallelism: usize,
+    source_ingest_executor_unit_count_hint: Option<usize>,
+}
+
+#[cfg(feature = "vortex-write")]
+impl VortexWriterPhysicalDesignSourceInput {
+    fn scalar(row_count: u64) -> Self {
+        let source_unit_count_hint = Some(usize::from(row_count > 0));
+        Self {
+            source_kind: "materialized_scalar_rows",
+            source_stage_plan: "validated_flat_scalar_rows_already_materialized".to_string(),
+            derived_metadata_stage_plan: "not_requested_for_scalar_row_writer".to_string(),
+            array_build_input_layout: "flat_scalar_rows",
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: source_unit_count_hint,
+            source_stream_unit_hint_kind: "single_materialized_scalar_row_split".to_string(),
+            source_stream_policy: "materialized_scalar_rows_no_stream".to_string(),
+            source_ingest_executor_status: "not_applicable_materialized_scalar_rows".to_string(),
+            source_ingest_executor_kind: "single_materialized_scalar_row_reader".to_string(),
+            source_ingest_executor_requested_parallelism: 1,
+            source_ingest_executor_applied_parallelism: 1,
+            source_ingest_executor_unit_count_hint: source_unit_count_hint,
+        }
+    }
+
+    fn buffered_columnar(record_batch_count: usize) -> Self {
+        Self {
+            source_kind: "buffered_arrow_record_batch_source_state",
+            source_stage_plan: "validated_buffered_arrow_record_batches".to_string(),
+            derived_metadata_stage_plan: "completed_before_vortex_writer".to_string(),
+            array_build_input_layout: "arrow_record_batch_columnar_source_state",
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: Some(record_batch_count),
+            source_stream_unit_hint_kind: "buffered_record_batch_count".to_string(),
+            source_stream_policy: "buffered_arrow_record_batches_no_stream_prefetch".to_string(),
+            source_ingest_executor_status: "not_applicable_buffered_columnar_source".to_string(),
+            source_ingest_executor_kind: "single_buffered_record_batch_reader".to_string(),
+            source_ingest_executor_requested_parallelism: 1,
+            source_ingest_executor_applied_parallelism: 1,
+            source_ingest_executor_unit_count_hint: Some(record_batch_count),
+        }
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn streaming_columnar(source: &FlatLocalColumnarStreamSource) -> Self {
+        Self {
+            source_kind: "streaming_arrow_record_batch_source_state",
+            source_stage_plan: "bounded_streaming_source_reader_feeds_vortex_array_iterator"
+                .to_string(),
+            derived_metadata_stage_plan:
+                "embedded_derived_metadata_built_during_source_batch_production".to_string(),
+            array_build_input_layout: "streaming_arrow_record_batch_columnar_source_state",
+            source_stream_batch_size: source.source_stream_batch_size,
+            source_stream_unit_count_hint: source.source_stream_unit_count_hint,
+            source_stream_unit_hint_kind: source.source_stream_unit_hint_kind.clone(),
+            source_stream_policy: source.source_stream_policy.clone(),
+            source_ingest_executor_status: source.ingest_executor_status.clone(),
+            source_ingest_executor_kind: source.ingest_executor_kind.clone(),
+            source_ingest_executor_requested_parallelism: source
+                .ingest_executor_requested_parallelism,
+            source_ingest_executor_applied_parallelism: source.ingest_executor_applied_parallelism,
+            source_ingest_executor_unit_count_hint: source.ingest_executor_unit_count_hint,
+        }
+    }
+
+    #[cfg(test)]
+    fn writer_only() -> Self {
+        Self {
+            source_kind: "writer_only_runtime_decision",
+            source_stage_plan: "not_attached_to_source_state".to_string(),
+            derived_metadata_stage_plan: "not_attached_to_source_state".to_string(),
+            array_build_input_layout: "not_attached_to_source_state",
+            source_stream_batch_size: 0,
+            source_stream_unit_count_hint: None,
+            source_stream_unit_hint_kind: "unknown".to_string(),
+            source_stream_policy: "not_attached_to_source_state".to_string(),
+            source_ingest_executor_status: "unknown".to_string(),
+            source_ingest_executor_kind: "unknown".to_string(),
+            source_ingest_executor_requested_parallelism: 1,
+            source_ingest_executor_applied_parallelism: 1,
+            source_ingest_executor_unit_count_hint: None,
+        }
+    }
+}
+
+/// Writer physical-design plan applied to the native Vortex writer boundary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexWriterPhysicalDesignPlan {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub planner: String,
+    pub selected_strategy: String,
+    pub strategy_decision_digest: String,
+    pub provider_decision: String,
+    pub provider_kind: String,
+    pub provider_surface: String,
+    pub admission_policy: String,
+    pub certification_level: String,
+    pub source_stage_plan: String,
+    pub derived_metadata_stage_plan: String,
+    pub array_build_stage_plan: String,
+    pub compression_layout_stage_plan: String,
+    pub writer_feed_stage_plan: String,
+    pub commit_stage_plan: String,
+    pub source_format: String,
+    pub source_stream_batch_size: usize,
+    pub source_stream_unit_count_hint: Option<usize>,
+    pub source_stream_unit_hint_kind: String,
+    pub source_stream_policy: String,
+    pub source_ingest_executor_status: String,
+    pub source_ingest_executor_kind: String,
+    pub source_ingest_executor_requested_parallelism: usize,
+    pub source_ingest_executor_applied_parallelism: usize,
+    pub source_ingest_executor_unit_count_hint: Option<usize>,
+    pub array_build_prefetch_window: usize,
+    pub array_build_worker_count: usize,
+    pub array_build_input_layout: String,
+    pub writer_row_block_size: usize,
+    pub writer_block_target_bytes: u64,
+    pub writer_compression_policy: String,
+    pub writer_compression_field_names: Vec<String>,
+    pub writer_compression_field_decisions: Vec<String>,
+    pub writer_compression_concurrency: usize,
+    pub writer_stats_concurrency: usize,
+    pub writer_runtime_kind: String,
+    pub writer_runtime_requested_parallelism: usize,
+    pub writer_runtime_applied_parallelism: usize,
+    pub writer_runtime_background_workers: usize,
+    pub writer_queue_topology: String,
+    pub writer_backpressure_policy: String,
+    pub writer_profile_selection_reason: String,
+    pub writer_profile_regression_guard: String,
+    pub retained_ingest_baseline_seconds: u64,
+    pub rejected_experimental_patch_seconds: u64,
+    pub retention_status: String,
+    pub no_fallback_policy: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+#[cfg(feature = "vortex-write")]
+impl VortexWriterPhysicalDesignPlan {
+    fn source_feed_default(
+        blocker: &str,
+        expected_provider_kind: &str,
+        expected_provider_surface: &str,
+        certification_level: VortexIngestCertificationLevel,
+        source: VortexWriterPhysicalDesignSourceInput,
+    ) -> Self {
+        let array_build_prefetch_window = planned_array_build_prefetch_window(&source);
+        let array_build_worker_count = planned_array_build_worker_count(&source);
+        let array_build_stage_plan = planned_array_build_stage(
+            &source,
+            array_build_prefetch_window,
+            array_build_worker_count,
+        );
+        let provider_decision = if expected_provider_kind == "vortex_array_kernel" {
+            "use_vortex_native_provider"
+        } else {
+            "use_shardloom_native_kernel_then_vortex_writer"
+        };
+        let writer_queue_topology = planned_writer_queue_topology(
+            &source,
+            array_build_prefetch_window,
+            array_build_worker_count,
+            0,
+        );
+        let writer_backpressure_policy =
+            planned_writer_backpressure_policy(&source, array_build_prefetch_window);
+        let strategy_decision_digest = fnv64_digest_text(&format!(
+            "vortex_writer_physical_design|source_feed_default|{blocker}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            expected_provider_kind,
+            expected_provider_surface,
+            certification_level.as_str(),
+            source.source_kind,
+            source.source_stream_batch_size,
+            option_usize_evidence(source.source_stream_unit_count_hint),
+            source.source_ingest_executor_requested_parallelism,
+            array_build_prefetch_window,
+            array_build_worker_count,
+        ));
+        Self {
+            schema_version: VORTEX_WRITER_PHYSICAL_DESIGN_SCHEMA_VERSION,
+            status: "source_feed_plan_applied_layout_write_advisor_not_attached".to_string(),
+            planner: "shardloom_local_vortex_writer_physical_design".to_string(),
+            selected_strategy: "upstream_vortex_default_writer_strategy".to_string(),
+            strategy_decision_digest,
+            provider_decision: provider_decision.to_string(),
+            provider_kind: expected_provider_kind.to_string(),
+            provider_surface: expected_provider_surface.to_string(),
+            admission_policy: "layout_write_advisor_not_attached".to_string(),
+            certification_level: certification_level.as_str().to_string(),
+            source_stage_plan: source.source_stage_plan,
+            derived_metadata_stage_plan: source.derived_metadata_stage_plan,
+            array_build_stage_plan,
+            compression_layout_stage_plan: "upstream_vortex_default_compression_layout".to_string(),
+            writer_feed_stage_plan:
+                "single_ordered_array_stream_into_vortex_session_write_options".to_string(),
+            commit_stage_plan:
+                "workspace_safe_validated_producer_then_single_vortex_artifact_commit".to_string(),
+            source_format: "unknown_without_layout_write_advisor".to_string(),
+            source_stream_batch_size: source.source_stream_batch_size,
+            source_stream_unit_count_hint: source.source_stream_unit_count_hint,
+            source_stream_unit_hint_kind: source.source_stream_unit_hint_kind,
+            source_stream_policy: source.source_stream_policy,
+            source_ingest_executor_status: source.source_ingest_executor_status,
+            source_ingest_executor_kind: source.source_ingest_executor_kind,
+            source_ingest_executor_requested_parallelism:
+                source.source_ingest_executor_requested_parallelism,
+            source_ingest_executor_applied_parallelism: source.source_ingest_executor_applied_parallelism,
+            source_ingest_executor_unit_count_hint: source.source_ingest_executor_unit_count_hint,
+            array_build_prefetch_window,
+            array_build_worker_count,
+            array_build_input_layout: source.array_build_input_layout.to_string(),
+            writer_row_block_size: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE,
+            writer_block_target_bytes: 0,
+            writer_compression_policy: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY
+                .to_string(),
+            writer_compression_field_names: Vec::new(),
+            writer_compression_field_decisions: Vec::new(),
+            writer_compression_concurrency:
+                VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY,
+            writer_stats_concurrency: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY,
+            writer_runtime_kind: "vortex_current_thread_runtime".to_string(),
+            writer_runtime_requested_parallelism: 1,
+            writer_runtime_applied_parallelism: 1,
+            writer_runtime_background_workers: 0,
+            writer_queue_topology,
+            writer_backpressure_policy,
+            writer_profile_selection_reason: "upstream_vortex_default_writer_profile".to_string(),
+            writer_profile_regression_guard: "not_applicable".to_string(),
+            retained_ingest_baseline_seconds: 301,
+            rejected_experimental_patch_seconds: 360,
+            retention_status:
+                "source_feed_overlap_kept_without_layout_profile_tuning".to_string(),
+            no_fallback_policy:
+                "native_vortex_writer_provider_only_no_spark_datafusion_duckdb_polars_velox_fallback"
+                    .to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn from_admitted_advisor(
+        advisor: &VortexLayoutWriteAdvisorReport,
+        target_path: &Path,
+        expected_provider_kind: &str,
+        expected_provider_surface: &str,
+        certification_level: VortexIngestCertificationLevel,
+        source: VortexWriterPhysicalDesignSourceInput,
+    ) -> Self {
+        let writer_row_block_size = admitted_layout_writer_row_block_size(advisor);
+        let writer_block_target_bytes = admitted_layout_writer_block_target_bytes(advisor);
+        let writer_compression_policy = admitted_layout_writer_compression_policy(advisor);
+        let writer_compression_field_names =
+            admitted_layout_writer_compression_field_names(advisor, writer_compression_policy);
+        let writer_compression_field_decisions = admitted_layout_writer_compression_field_decisions(
+            advisor,
+            writer_compression_policy,
+            &writer_compression_field_names,
+        );
+        let writer_compression_concurrency =
+            admitted_layout_writer_compression_concurrency(advisor);
+        let writer_stats_concurrency = admitted_layout_writer_stats_concurrency(advisor);
+        let writer_runtime_requested_parallelism =
+            admitted_layout_writer_runtime_requested_parallelism(advisor);
+        let writer_runtime_applied_parallelism = writer_runtime_requested_parallelism.max(1);
+        let writer_runtime_background_workers =
+            writer_runtime_applied_parallelism.saturating_sub(1);
+        let writer_runtime_kind = if writer_runtime_background_workers > 0 {
+            "vortex_current_thread_worker_pool"
+        } else {
+            "vortex_current_thread_runtime"
+        };
+        let writer_profile_selection_reason =
+            admitted_layout_writer_profile_selection_reason(advisor);
+        let writer_profile_regression_guard =
+            admitted_layout_writer_profile_regression_guard(advisor);
+        let array_build_prefetch_window = planned_array_build_prefetch_window(&source);
+        let array_build_worker_count = planned_array_build_worker_count(&source);
+        let array_build_stage_plan = planned_array_build_stage(
+            &source,
+            array_build_prefetch_window,
+            array_build_worker_count,
+        );
+        let compression_layout_stage_plan = planned_compression_layout_stage(
+            writer_compression_policy,
+            &writer_compression_field_names,
+        );
+        let writer_queue_topology = planned_writer_queue_topology(
+            &source,
+            array_build_prefetch_window,
+            array_build_worker_count,
+            writer_runtime_background_workers,
+        );
+        let writer_backpressure_policy =
+            planned_writer_backpressure_policy(&source, array_build_prefetch_window);
+        let provider_decision = if expected_provider_kind == "vortex_array_kernel" {
+            "use_vortex_native_provider"
+        } else {
+            "use_shardloom_native_kernel_then_vortex_writer"
+        };
+        let selected_strategy = advisor.layout_strategy.clone();
+        let strategy_decision_digest = fnv64_digest_text(&format!(
+            "vortex_writer_physical_design|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            advisor.schema_version,
+            advisor.source_state_digest,
+            advisor.source_schema_digest,
+            selected_strategy,
+            expected_provider_kind,
+            expected_provider_surface,
+            advisor.writer_admission_policy,
+            certification_level.as_str(),
+            source.source_kind,
+            source.source_stream_batch_size,
+            option_usize_evidence(source.source_stream_unit_count_hint),
+            source.source_ingest_executor_requested_parallelism,
+            source.source_ingest_executor_applied_parallelism,
+            array_build_prefetch_window,
+            array_build_worker_count,
+            writer_row_block_size,
+            writer_block_target_bytes,
+            writer_compression_policy,
+            writer_compression_field_names.join(","),
+            writer_compression_field_decisions.join("|"),
+            writer_compression_concurrency,
+            writer_stats_concurrency,
+            writer_runtime_requested_parallelism,
+            writer_runtime_applied_parallelism,
+            writer_runtime_background_workers,
+            writer_profile_selection_reason,
+            target_path.display()
+        ));
+        Self {
+            schema_version: VORTEX_WRITER_PHYSICAL_DESIGN_SCHEMA_VERSION,
+            status: "applied".to_string(),
+            planner: "shardloom_local_vortex_writer_physical_design".to_string(),
+            selected_strategy,
+            strategy_decision_digest,
+            provider_decision: provider_decision.to_string(),
+            provider_kind: expected_provider_kind.to_string(),
+            provider_surface: expected_provider_surface.to_string(),
+            admission_policy: advisor.writer_admission_policy.clone(),
+            certification_level: certification_level.as_str().to_string(),
+            source_stage_plan: source.source_stage_plan,
+            derived_metadata_stage_plan: source.derived_metadata_stage_plan,
+            array_build_stage_plan,
+            compression_layout_stage_plan,
+            writer_feed_stage_plan:
+                "single_ordered_array_stream_into_vortex_session_write_options".to_string(),
+            commit_stage_plan:
+                "workspace_safe_validated_producer_then_single_vortex_artifact_commit".to_string(),
+            source_format: advisor.source_format.clone(),
+            source_stream_batch_size: source.source_stream_batch_size,
+            source_stream_unit_count_hint: source.source_stream_unit_count_hint,
+            source_stream_unit_hint_kind: source.source_stream_unit_hint_kind,
+            source_stream_policy: source.source_stream_policy,
+            source_ingest_executor_status: source.source_ingest_executor_status,
+            source_ingest_executor_kind: source.source_ingest_executor_kind,
+            source_ingest_executor_requested_parallelism:
+                source.source_ingest_executor_requested_parallelism,
+            source_ingest_executor_applied_parallelism: source.source_ingest_executor_applied_parallelism,
+            source_ingest_executor_unit_count_hint: source.source_ingest_executor_unit_count_hint,
+            array_build_prefetch_window,
+            array_build_worker_count,
+            array_build_input_layout: source.array_build_input_layout.to_string(),
+            writer_row_block_size,
+            writer_block_target_bytes,
+            writer_compression_policy: writer_compression_policy.to_string(),
+            writer_compression_field_names,
+            writer_compression_field_decisions,
+            writer_compression_concurrency,
+            writer_stats_concurrency,
+            writer_runtime_kind: writer_runtime_kind.to_string(),
+            writer_runtime_requested_parallelism,
+            writer_runtime_applied_parallelism,
+            writer_runtime_background_workers,
+            writer_queue_topology,
+            writer_backpressure_policy,
+            writer_profile_selection_reason: writer_profile_selection_reason.to_string(),
+            writer_profile_regression_guard: writer_profile_regression_guard.to_string(),
+            retained_ingest_baseline_seconds: 301,
+            rejected_experimental_patch_seconds: 360,
+            retention_status:
+                "restored_pre_experiment_defaults_pending_replacement_ingest_uat".to_string(),
+            no_fallback_policy:
+                "native_vortex_writer_provider_only_no_spark_datafusion_duckdb_polars_velox_fallback"
+                    .to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+}
+
+impl VortexWriterPhysicalDesignPlan {
+    #[must_use]
+    pub fn compression_field_names(&self) -> String {
+        if self.writer_compression_field_names.is_empty() {
+            "none".to_string()
+        } else {
+            self.writer_compression_field_names.join(",")
+        }
+    }
+
+    #[must_use]
+    pub fn compression_decisions(&self) -> String {
+        if self.writer_compression_field_decisions.is_empty() {
+            "none".to_string()
+        } else {
+            self.writer_compression_field_decisions.join("|")
+        }
+    }
+
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "vortex_writer_physical_design_schema_version".to_string(),
+                self.schema_version.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_status".to_string(),
+                self.status.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_planner".to_string(),
+                self.planner.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_selected_strategy".to_string(),
+                self.selected_strategy.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_decision_digest".to_string(),
+                self.strategy_decision_digest.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_provider_decision".to_string(),
+                self.provider_decision.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_provider_kind".to_string(),
+                self.provider_kind.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_provider_surface".to_string(),
+                self.provider_surface.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_admission_policy".to_string(),
+                self.admission_policy.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_certification_level".to_string(),
+                self.certification_level.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_source_stage_plan".to_string(),
+                self.source_stage_plan.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_derived_metadata_stage_plan".to_string(),
+                self.derived_metadata_stage_plan.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_array_build_stage_plan".to_string(),
+                self.array_build_stage_plan.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_compression_layout_stage_plan".to_string(),
+                self.compression_layout_stage_plan.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_feed_stage_plan".to_string(),
+                self.writer_feed_stage_plan.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_commit_stage_plan".to_string(),
+                self.commit_stage_plan.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_source_format".to_string(),
+                self.source_format.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_source_stream_batch_size".to_string(),
+                self.source_stream_batch_size.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_source_stream_unit_count_hint".to_string(),
+                option_usize_evidence(self.source_stream_unit_count_hint),
+            ),
+            (
+                "vortex_writer_physical_design_source_stream_unit_hint_kind".to_string(),
+                self.source_stream_unit_hint_kind.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_source_stream_policy".to_string(),
+                self.source_stream_policy.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_source_executor_status".to_string(),
+                self.source_ingest_executor_status.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_source_executor_kind".to_string(),
+                self.source_ingest_executor_kind.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_source_executor_requested_parallelism".to_string(),
+                self.source_ingest_executor_requested_parallelism
+                    .to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_source_executor_applied_parallelism".to_string(),
+                self.source_ingest_executor_applied_parallelism.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_source_executor_unit_count_hint".to_string(),
+                option_usize_evidence(self.source_ingest_executor_unit_count_hint),
+            ),
+            (
+                "vortex_writer_physical_design_array_build_prefetch_window".to_string(),
+                self.array_build_prefetch_window.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_array_build_worker_count".to_string(),
+                self.array_build_worker_count.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_array_build_input_layout".to_string(),
+                self.array_build_input_layout.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_row_block_size".to_string(),
+                self.writer_row_block_size.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_block_target_bytes".to_string(),
+                self.writer_block_target_bytes.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_compression_policy".to_string(),
+                self.writer_compression_policy.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_compression_field_count".to_string(),
+                self.writer_compression_field_names.len().to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_compression_field_names".to_string(),
+                self.compression_field_names(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_compression_decision_count".to_string(),
+                self.writer_compression_field_decisions.len().to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_compression_decisions".to_string(),
+                self.compression_decisions(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_compression_concurrency".to_string(),
+                self.writer_compression_concurrency.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_stats_concurrency".to_string(),
+                self.writer_stats_concurrency.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_runtime_kind".to_string(),
+                self.writer_runtime_kind.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_runtime_requested_parallelism".to_string(),
+                self.writer_runtime_requested_parallelism.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_runtime_applied_parallelism".to_string(),
+                self.writer_runtime_applied_parallelism.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_runtime_background_workers".to_string(),
+                self.writer_runtime_background_workers.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_queue_topology".to_string(),
+                self.writer_queue_topology.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_backpressure_policy".to_string(),
+                self.writer_backpressure_policy.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_profile_selection_reason".to_string(),
+                self.writer_profile_selection_reason.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_writer_profile_regression_guard".to_string(),
+                self.writer_profile_regression_guard.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_retained_ingest_baseline_seconds".to_string(),
+                self.retained_ingest_baseline_seconds.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_rejected_experimental_patch_seconds".to_string(),
+                self.rejected_experimental_patch_seconds.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_retention_status".to_string(),
+                self.retention_status.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_no_fallback_policy".to_string(),
+                self.no_fallback_policy.clone(),
+            ),
+            (
+                "vortex_writer_physical_design_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "vortex_writer_physical_design_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+}
+
 /// Runtime decision returned by the local Vortex writer after it validates an
 /// admitted layout/write advisor strategy and applies it to the writer path.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5474,19 +6739,30 @@ pub struct VortexLayoutWriteRuntimeDecision {
     pub writer_runtime_background_workers: usize,
     pub writer_profile_selection_reason: String,
     pub writer_profile_regression_guard: String,
+    pub writer_physical_design: VortexWriterPhysicalDesignPlan,
     pub blocker: String,
 }
 
 #[cfg(feature = "vortex-write")]
 impl VortexLayoutWriteRuntimeDecision {
-    fn not_requested() -> Self {
+    fn not_requested_for_source(
+        expected_provider_kind: &str,
+        expected_provider_surface: &str,
+        certification_level: VortexIngestCertificationLevel,
+        source: VortexWriterPhysicalDesignSourceInput,
+    ) -> Self {
         let blocker = "layout_write_advisor_not_attached_to_writer".to_string();
+        let writer_physical_design = VortexWriterPhysicalDesignPlan::source_feed_default(
+            &blocker,
+            expected_provider_kind,
+            expected_provider_surface,
+            certification_level,
+            source,
+        );
         Self {
             runtime_decision_applied: false,
             selected_strategy: "not_requested".to_string(),
-            strategy_decision_digest: fnv64_digest_text(&format!(
-                "layout_write_runtime_decision|not_requested|{blocker}"
-            )),
+            strategy_decision_digest: writer_physical_design.strategy_decision_digest.clone(),
             provider_admitted: false,
             writer_row_block_size: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_ROW_BLOCK_SIZE,
             writer_block_target_bytes: 0,
@@ -5502,10 +6778,12 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_runtime_background_workers: 0,
             writer_profile_selection_reason: "not_requested".to_string(),
             writer_profile_regression_guard: "not_applicable".to_string(),
+            writer_physical_design,
             blocker,
         }
     }
 
+    #[cfg(test)]
     fn applied(
         advisor: &VortexLayoutWriteAdvisorReport,
         target_path: &Path,
@@ -5513,72 +6791,171 @@ impl VortexLayoutWriteRuntimeDecision {
         expected_provider_surface: &str,
         certification_level: VortexIngestCertificationLevel,
     ) -> Self {
-        let selected_strategy = advisor.layout_strategy.clone();
-        let writer_row_block_size = admitted_layout_writer_row_block_size(advisor);
-        let writer_block_target_bytes = admitted_layout_writer_block_target_bytes(advisor);
-        let writer_compression_policy = admitted_layout_writer_compression_policy(advisor);
-        let writer_compression_field_names =
-            admitted_layout_writer_compression_field_names(advisor, writer_compression_policy);
-        let writer_compression_field_decisions = admitted_layout_writer_compression_field_decisions(
+        Self::applied_for_source(
             advisor,
-            writer_compression_policy,
-            &writer_compression_field_names,
-        );
-        let writer_compression_concurrency =
-            admitted_layout_writer_compression_concurrency(advisor);
-        let writer_stats_concurrency = admitted_layout_writer_stats_concurrency(advisor);
-        let writer_runtime_requested_parallelism =
-            admitted_layout_writer_runtime_requested_parallelism(advisor);
-        let writer_runtime_applied_parallelism = writer_runtime_requested_parallelism.max(1);
-        let writer_runtime_background_workers =
-            writer_runtime_applied_parallelism.saturating_sub(1);
-        let writer_profile_selection_reason =
-            admitted_layout_writer_profile_selection_reason(advisor);
-        let writer_profile_regression_guard =
-            admitted_layout_writer_profile_regression_guard(advisor);
-        let strategy_decision_digest = fnv64_digest_text(&format!(
-            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
-            advisor.schema_version,
-            advisor.source_state_digest,
-            advisor.source_schema_digest,
-            selected_strategy,
+            target_path,
             expected_provider_kind,
             expected_provider_surface,
-            advisor.writer_admission_policy,
-            certification_level.as_str(),
-            writer_row_block_size,
-            writer_block_target_bytes,
-            writer_compression_policy,
-            writer_compression_field_names.join(","),
-            writer_compression_field_decisions.join("|"),
-            writer_compression_concurrency,
-            writer_stats_concurrency,
-            writer_runtime_requested_parallelism,
-            writer_runtime_applied_parallelism,
-            writer_runtime_background_workers,
-            writer_profile_selection_reason,
-            writer_profile_regression_guard,
-            target_path.display()
-        ));
+            certification_level,
+            VortexWriterPhysicalDesignSourceInput::writer_only(),
+        )
+    }
+
+    fn applied_for_source(
+        advisor: &VortexLayoutWriteAdvisorReport,
+        target_path: &Path,
+        expected_provider_kind: &str,
+        expected_provider_surface: &str,
+        certification_level: VortexIngestCertificationLevel,
+        source: VortexWriterPhysicalDesignSourceInput,
+    ) -> Self {
+        let writer_physical_design = VortexWriterPhysicalDesignPlan::from_admitted_advisor(
+            advisor,
+            target_path,
+            expected_provider_kind,
+            expected_provider_surface,
+            certification_level,
+            source,
+        );
         Self {
             runtime_decision_applied: true,
-            selected_strategy,
-            strategy_decision_digest,
+            selected_strategy: writer_physical_design.selected_strategy.clone(),
+            strategy_decision_digest: writer_physical_design.strategy_decision_digest.clone(),
             provider_admitted: true,
-            writer_row_block_size,
-            writer_block_target_bytes,
-            writer_compression_policy: writer_compression_policy.to_string(),
-            writer_compression_field_names,
-            writer_compression_field_decisions,
-            writer_compression_concurrency,
-            writer_stats_concurrency,
-            writer_runtime_requested_parallelism,
-            writer_runtime_applied_parallelism,
-            writer_runtime_background_workers,
-            writer_profile_selection_reason: writer_profile_selection_reason.to_string(),
-            writer_profile_regression_guard: writer_profile_regression_guard.to_string(),
+            writer_row_block_size: writer_physical_design.writer_row_block_size,
+            writer_block_target_bytes: writer_physical_design.writer_block_target_bytes,
+            writer_compression_policy: writer_physical_design.writer_compression_policy.clone(),
+            writer_compression_field_names: writer_physical_design
+                .writer_compression_field_names
+                .clone(),
+            writer_compression_field_decisions: writer_physical_design
+                .writer_compression_field_decisions
+                .clone(),
+            writer_compression_concurrency: writer_physical_design.writer_compression_concurrency,
+            writer_stats_concurrency: writer_physical_design.writer_stats_concurrency,
+            writer_runtime_requested_parallelism: writer_physical_design
+                .writer_runtime_requested_parallelism,
+            writer_runtime_applied_parallelism: writer_physical_design
+                .writer_runtime_applied_parallelism,
+            writer_runtime_background_workers: writer_physical_design
+                .writer_runtime_background_workers,
+            writer_profile_selection_reason: writer_physical_design
+                .writer_profile_selection_reason
+                .clone(),
+            writer_profile_regression_guard: writer_physical_design
+                .writer_profile_regression_guard
+                .clone(),
+            writer_physical_design,
             blocker: "none".to_string(),
         }
+    }
+}
+
+fn option_usize_evidence(value: Option<usize>) -> String {
+    value.map_or_else(|| "unknown".to_string(), |value| value.to_string())
+}
+
+#[cfg(feature = "vortex-write")]
+fn planned_array_build_prefetch_window(source: &VortexWriterPhysicalDesignSourceInput) -> usize {
+    if source.source_kind != "streaming_arrow_record_batch_source_state" {
+        return 0;
+    }
+    #[cfg(feature = "universal-format-io")]
+    {
+        return vortex_array_prefetch_window(source.source_ingest_executor_requested_parallelism);
+    }
+    #[allow(unreachable_code)]
+    0
+}
+
+#[cfg(feature = "vortex-write")]
+fn planned_array_build_worker_count(source: &VortexWriterPhysicalDesignSourceInput) -> usize {
+    if source.source_kind != "streaming_arrow_record_batch_source_state" {
+        return 0;
+    }
+    source
+        .source_ingest_executor_applied_parallelism
+        .max(1)
+        .min(source.source_ingest_executor_requested_parallelism.max(1))
+}
+
+#[cfg(feature = "vortex-write")]
+fn planned_array_build_stage(
+    source: &VortexWriterPhysicalDesignSourceInput,
+    prefetch_window: usize,
+    worker_count: usize,
+) -> String {
+    match (source.source_kind, prefetch_window, worker_count) {
+        ("streaming_arrow_record_batch_source_state", 1.., 2..) => {
+            format!("ordered_morsel_array_build_prefetch_workers={worker_count}_before_writer_pull")
+        }
+        ("streaming_arrow_record_batch_source_state", 1.., _) => {
+            "prefetch_streaming_arrow_record_batches_as_vortex_arrays_before_writer_pull"
+                .to_string()
+        }
+        ("streaming_arrow_record_batch_source_state", _, _) => {
+            "serial_streaming_arrow_record_batch_to_vortex_array_conversion".to_string()
+        }
+        ("buffered_arrow_record_batch_source_state", _, _) => {
+            "single_buffered_arrow_record_batch_to_vortex_array_build".to_string()
+        }
+        ("materialized_scalar_rows", _, _) => {
+            "single_scalar_row_batch_to_vortex_struct_build".to_string()
+        }
+        _ => "writer_only_array_build_not_attached_to_source_state".to_string(),
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn planned_compression_layout_stage(
+    writer_compression_policy: &str,
+    writer_compression_field_names: &[String],
+) -> String {
+    if writer_compression_policy
+        == VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY
+        && !writer_compression_field_names.is_empty()
+    {
+        format!(
+            "field_level_fast_zstd_text_leaf_writers;field_count={};frame_values={}",
+            writer_compression_field_names.len(),
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_VALUES_PER_FRAME
+        )
+    } else if writer_compression_policy
+        == VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_POLICY
+    {
+        "fast_load_uncompressed_layout_statistics".to_string()
+    } else {
+        "upstream_vortex_default_compression_layout".to_string()
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn planned_writer_queue_topology(
+    source: &VortexWriterPhysicalDesignSourceInput,
+    prefetch_window: usize,
+    array_build_worker_count: usize,
+    writer_background_workers: usize,
+) -> String {
+    format!(
+        "source_executor_applied_parallelism={};array_prefetch_window={};array_build_workers={};writer_background_workers={};delivery=ordered_array_stream",
+        source.source_ingest_executor_applied_parallelism,
+        prefetch_window,
+        array_build_worker_count,
+        writer_background_workers
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn planned_writer_backpressure_policy(
+    source: &VortexWriterPhysicalDesignSourceInput,
+    prefetch_window: usize,
+) -> String {
+    if source.source_kind == "streaming_arrow_record_batch_source_state" && prefetch_window > 0 {
+        "bounded_sync_channel_backpressures_source_reader_and_preserves_order".to_string()
+    } else if source.source_kind == "streaming_arrow_record_batch_source_state" {
+        "writer_pull_backpressures_source_reader_serially".to_string()
+    } else {
+        "no_stream_backpressure_materialized_before_writer".to_string()
     }
 }
 
@@ -5701,7 +7078,7 @@ fn admitted_layout_writer_compression_field_decision(
             "payload_text_storage_benefit"
         };
         return format!(
-            "field={field};decision=compress;codec=zstd;level={VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL};reason={reason};expected_byte_benefit=medium_to_high;expected_cpu_cost=high;dictionary_posture=preserve_source_dictionary_when_provider_exposes_it;retain_drop_guard=drop_or_revise_if_uat_lacks_artifact_or_query_benefit"
+            "field={field};decision=compress;codec=zstd;level={VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL};reason={reason};expected_byte_benefit=medium_to_high;expected_cpu_cost=high;dictionary_posture=preserve_source_dictionary_when_provider_exposes_it;retain_drop_guard=drop_or_revise_if_uat_lacks_artifact_or_query_benefit;frame_values={VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_VALUES_PER_FRAME}"
         );
     }
     if field_is_query_hot_domain {
@@ -6278,15 +7655,21 @@ fn layout_write_advisor_status(input: &VortexLayoutWriteAdvisorInput) -> &'stati
 }
 
 #[cfg(feature = "vortex-write")]
-fn admit_layout_write_runtime_decision(
+fn admit_layout_write_runtime_decision_for_source(
     advisor: Option<&VortexLayoutWriteAdvisorReport>,
     expected_provider_kind: &str,
     expected_provider_surface: &str,
     target_path: &Path,
     certification_level: VortexIngestCertificationLevel,
+    source: VortexWriterPhysicalDesignSourceInput,
 ) -> Result<VortexLayoutWriteRuntimeDecision> {
     let Some(advisor) = advisor else {
-        return Ok(VortexLayoutWriteRuntimeDecision::not_requested());
+        return Ok(VortexLayoutWriteRuntimeDecision::not_requested_for_source(
+            expected_provider_kind,
+            expected_provider_surface,
+            certification_level,
+            source,
+        ));
     };
     let blocker =
         layout_write_runtime_blocker(advisor, expected_provider_kind, expected_provider_surface);
@@ -6296,12 +7679,13 @@ fn admit_layout_write_runtime_decision(
             advisor.layout_strategy, blocker
         )));
     }
-    Ok(VortexLayoutWriteRuntimeDecision::applied(
+    Ok(VortexLayoutWriteRuntimeDecision::applied_for_source(
         advisor,
         target_path,
         expected_provider_kind,
         expected_provider_surface,
         certification_level,
+        source,
     ))
 }
 
@@ -8192,9 +9576,11 @@ pub struct VortexPreparedStateWriteReport {
     pub array_build_record_batch_count: usize,
     pub manual_scalar_copy_avoided: bool,
     pub preparation_spine: VortexPreparationSpineReport,
+    pub writer_physical_design: VortexWriterPhysicalDesignPlan,
     pub layout_write_decision: VortexLayoutWriteRuntimeDecision,
     pub capillary_prewrite_control: VortexCapillaryPreWriteControlReport,
     pub prepared_olap_layout_inventory: VortexPreparedOlapLayoutInventory,
+    pub segment_metadata_primitive: VortexSegmentMetadataPrimitiveReport,
     pub workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
 
@@ -8222,9 +9608,10 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn encoding_summary(&self) -> String {
         format!(
-            "upstream_vortex_writer={};coalescing_policy={};row_block_size={};block_target_bytes={};compression_policy={};compression_field_count={};compression_fields={};compression_decision_count={};compression_decisions={};compression_concurrency={};stats_concurrency={};writer_runtime={};writer_runtime_parallelism={};writer_runtime_workers={};profile_reason={};regression_guard={};{}",
+            "upstream_vortex_writer={};coalescing_policy={};physical_design_digest={};row_block_size={};block_target_bytes={};compression_policy={};compression_field_count={};compression_fields={};compression_decision_count={};compression_decisions={};compression_concurrency={};stats_concurrency={};writer_runtime={};writer_runtime_parallelism={};writer_runtime_workers={};profile_reason={};regression_guard={};{}",
             self.writer_layout_strategy_applied,
             self.writer_coalescing_policy_status,
+            self.writer_physical_design.strategy_decision_digest,
             self.writer_layout_row_block_size,
             self.writer_layout_block_target_bytes,
             self.writer_compression_policy,
@@ -8430,12 +9817,13 @@ pub fn write_flat_scalar_vortex_prepared_state(
     } else {
         ("shardloom_kernel", "shardloom_scalar_rows_to_vortex_struct")
     };
-    let layout_write_decision = admit_layout_write_runtime_decision(
+    let layout_write_decision = admit_layout_write_runtime_decision_for_source(
         request.layout_write_advisor.as_ref(),
         expected_provider_kind,
         expected_provider_surface,
         &request.target_path,
         request.certification_level,
+        VortexWriterPhysicalDesignSourceInput::scalar(row_count),
     )?;
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let mut capillary_prewrite_control =
@@ -8513,12 +9901,13 @@ pub fn write_flat_columnar_vortex_prepared_state(
     } else {
         ("vortex_array_kernel", "ArrayRef::from_arrow(RecordBatch)")
     };
-    let layout_write_decision = admit_layout_write_runtime_decision(
+    let layout_write_decision = admit_layout_write_runtime_decision_for_source(
         request.layout_write_advisor.as_ref(),
         expected_provider_kind,
         expected_provider_surface,
         &request.target_path,
         request.certification_level,
+        VortexWriterPhysicalDesignSourceInput::buffered_columnar(request.source.batches.len()),
     )?;
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let mut capillary_prewrite_control =
@@ -8612,6 +10001,8 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     capillary_prewrite_control.apply_task_role_gate("columnarize_encode", "array_build")?;
 
     let embedded_derived_build_micros = Arc::clone(&request.source.embedded_derived_build_micros);
+    let writer_physical_design_source =
+        VortexWriterPhysicalDesignSourceInput::streaming_columnar(&request.source);
     let mut reader = request.source.reader;
     let array_build_start = Instant::now();
     let stream_timing = VortexStreamingIngestTiming::with_derived_metadata_build_micros(
@@ -8653,26 +10044,37 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     )?;
     let expected_provider_kind = "vortex_array_kernel";
     let underlying_provider_surface = "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator";
-    let array_build_prefetch_window =
-        vortex_array_prefetch_window(request.source.ingest_executor_requested_parallelism);
-    let array_build_provider_surface = if array_build_prefetch_window > 0 {
-        "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator"
-    } else {
-        underlying_provider_surface
-    };
-    let layout_write_decision = admit_layout_write_runtime_decision(
+    let layout_write_decision = admit_layout_write_runtime_decision_for_source(
         request.layout_write_advisor.as_ref(),
         expected_provider_kind,
         underlying_provider_surface,
         &request.target_path,
         request.certification_level,
+        writer_physical_design_source,
     )?;
+    let array_build_prefetch_window = layout_write_decision
+        .writer_physical_design
+        .array_build_prefetch_window;
+    let array_build_worker_count = layout_write_decision
+        .writer_physical_design
+        .array_build_worker_count;
+    let array_build_provider_surface = if array_build_prefetch_window > 0
+        && array_build_worker_count > 1
+    {
+        "ArrayRef::from_arrow(RecordBatch);ordered_morsel_vortex_array_prefetch;streaming ArrayIterator"
+    } else if array_build_prefetch_window > 0 {
+        "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator"
+    } else {
+        underlying_provider_surface
+    };
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let first_array = record_batch_to_vortex_from_arrow_provider(&first_batch, &source_shape)?;
     stream_timing.add_array_convert_elapsed(first_array_convert_start.elapsed());
     let dtype = first_array.dtype().clone();
     let batch_count = Arc::new(AtomicUsize::new(1));
-    let array_build_strategy = if array_build_prefetch_window > 0 {
+    let array_build_strategy = if array_build_prefetch_window > 0 && array_build_worker_count > 1 {
+        "ordered_morsel_vortex_array_prefetch_threadlocal_conversion_merge"
+    } else if array_build_prefetch_window > 0 {
         "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream"
     } else {
         "vortex_from_arrow_record_batch_stream"
@@ -8687,6 +10089,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         stream_timing.clone(),
         2,
         array_build_prefetch_window,
+        array_build_worker_count,
     );
     let array_build_micros = array_build_start.elapsed().as_micros();
     let projection_mask_status =
@@ -9100,8 +10503,9 @@ struct StreamingColumnarVortexArrayIterator {
     dtype: vortex::array::dtype::DType,
     first_array: Option<vortex::array::ArrayRef>,
     reader: Option<Box<dyn arrow_array::RecordBatchReader + Send>>,
-    prefetch_receiver: Option<Receiver<vortex::error::VortexResult<vortex::array::ArrayRef>>>,
-    prefetch_worker: Option<JoinHandle<()>>,
+    prefetch_receiver: Option<Receiver<VortexStreamArrayReadResult>>,
+    prefetch_workers: Vec<JoinHandle<()>>,
+    pending_prefetch: BTreeMap<usize, vortex::error::VortexResult<vortex::array::ArrayRef>>,
     reader_projection_columns: Vec<String>,
     source_shape: FlatColumnarSourceShape,
     batch_count: Arc<AtomicUsize>,
@@ -9122,32 +10526,45 @@ impl StreamingColumnarVortexArrayIterator {
         stream_timing: VortexStreamingIngestTiming,
         next_batch_index: usize,
         vortex_array_prefetch_window: usize,
+        vortex_array_worker_count: usize,
     ) -> Self {
         if vortex_array_prefetch_window > 0 {
             let (sender, receiver) = mpsc::sync_channel(vortex_array_prefetch_window);
-            let worker_dtype = dtype.clone();
-            let worker_projection_columns = reader_projection_columns.clone();
-            let worker_source_shape = source_shape.clone();
-            let worker_batch_count = Arc::clone(&batch_count);
-            let worker_stream_timing = stream_timing.clone();
-            let worker = thread::spawn(move || {
-                stream_arrow_batches_to_vortex_arrays(StreamingColumnarVortexArrayWorker {
-                    reader,
-                    reader_projection_columns: worker_projection_columns,
-                    source_shape: worker_source_shape,
-                    dtype: worker_dtype,
-                    batch_count: worker_batch_count,
-                    stream_timing: worker_stream_timing,
-                    next_batch_index,
-                    sender,
-                });
-            });
+            let shared_reader = Arc::new(Mutex::new(StreamingColumnarVortexArraySharedReader {
+                reader,
+                next_batch_index,
+                stopped: false,
+            }));
+            let worker_count = vortex_array_worker_count.max(1);
+            let mut prefetch_workers = Vec::with_capacity(worker_count);
+            for _ in 0..worker_count {
+                let worker_dtype = dtype.clone();
+                let worker_projection_columns = reader_projection_columns.clone();
+                let worker_source_shape = source_shape.clone();
+                let worker_batch_count = Arc::clone(&batch_count);
+                let worker_stream_timing = stream_timing.clone();
+                let worker_sender = sender.clone();
+                let worker_reader = Arc::clone(&shared_reader);
+                prefetch_workers.push(thread::spawn(move || {
+                    stream_arrow_batches_to_vortex_arrays(StreamingColumnarVortexArrayWorker {
+                        reader: worker_reader,
+                        reader_projection_columns: worker_projection_columns,
+                        source_shape: worker_source_shape,
+                        dtype: worker_dtype,
+                        batch_count: worker_batch_count,
+                        stream_timing: worker_stream_timing,
+                        sender: worker_sender,
+                    });
+                }));
+            }
+            drop(sender);
             return Self {
                 dtype,
                 first_array: Some(first_array),
                 reader: None,
                 prefetch_receiver: Some(receiver),
-                prefetch_worker: Some(worker),
+                prefetch_workers,
+                pending_prefetch: BTreeMap::new(),
                 reader_projection_columns,
                 source_shape,
                 batch_count,
@@ -9160,7 +10577,8 @@ impl StreamingColumnarVortexArrayIterator {
             first_array: Some(first_array),
             reader: Some(reader),
             prefetch_receiver: None,
-            prefetch_worker: None,
+            prefetch_workers: Vec::new(),
+            pending_prefetch: BTreeMap::new(),
             reader_projection_columns,
             source_shape,
             batch_count,
@@ -9171,8 +10589,43 @@ impl StreamingColumnarVortexArrayIterator {
 
     fn close_prefetch_worker(&mut self) {
         self.prefetch_receiver.take();
-        if let Some(worker) = self.prefetch_worker.take() {
+        for worker in self.prefetch_workers.drain(..) {
             let _ = worker.join();
+        }
+    }
+
+    fn next_prefetched_array(
+        &mut self,
+    ) -> Option<vortex::error::VortexResult<vortex::array::ArrayRef>> {
+        loop {
+            if let Some(result) = self.pending_prefetch.remove(&self.next_batch_index) {
+                self.next_batch_index = self.next_batch_index.saturating_add(1);
+                return Some(result);
+            }
+            let receive_result = self.prefetch_receiver.as_ref()?.recv();
+            match receive_result {
+                Ok(VortexStreamArrayReadResult::Batch {
+                    batch_index,
+                    result,
+                }) => {
+                    if batch_index == self.next_batch_index {
+                        self.next_batch_index = self.next_batch_index.saturating_add(1);
+                        return Some(result);
+                    }
+                    self.pending_prefetch.insert(batch_index, result);
+                }
+                Err(_) => {
+                    if self.pending_prefetch.is_empty() {
+                        self.close_prefetch_worker();
+                        return None;
+                    }
+                    let expected = self.next_batch_index;
+                    self.close_prefetch_worker();
+                    return Some(Err(vortex_stream_error(format!(
+                        "streaming local vortex_ingest ordered array prefetch closed before batch {expected}; no fallback execution was attempted"
+                    ))));
+                }
+            }
         }
     }
 }
@@ -9199,13 +10652,8 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
         if let Some(array) = self.first_array.take() {
             return Some(Ok(array));
         }
-        if let Some(receiver) = self.prefetch_receiver.as_ref() {
-            return if let Ok(result) = receiver.recv() {
-                Some(result)
-            } else {
-                self.close_prefetch_worker();
-                None
-            };
+        if self.prefetch_receiver.is_some() {
+            return self.next_prefetched_array();
         }
         let reader = self.reader.as_mut()?;
         let source_pull_start = Instant::now();
@@ -9257,31 +10705,37 @@ impl vortex::array::iter::ArrayIterator for StreamingColumnarVortexArrayIterator
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-struct StreamingColumnarVortexArrayWorker {
+enum VortexStreamArrayReadResult {
+    Batch {
+        batch_index: usize,
+        result: vortex::error::VortexResult<vortex::array::ArrayRef>,
+    },
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct StreamingColumnarVortexArraySharedReader {
     reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+    next_batch_index: usize,
+    stopped: bool,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct StreamingColumnarVortexArrayWorker {
+    reader: Arc<Mutex<StreamingColumnarVortexArraySharedReader>>,
     reader_projection_columns: Vec<String>,
     source_shape: FlatColumnarSourceShape,
     dtype: vortex::array::dtype::DType,
     batch_count: Arc<AtomicUsize>,
     stream_timing: VortexStreamingIngestTiming,
-    next_batch_index: usize,
-    sender: mpsc::SyncSender<vortex::error::VortexResult<vortex::array::ArrayRef>>,
+    sender: mpsc::SyncSender<VortexStreamArrayReadResult>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn stream_arrow_batches_to_vortex_arrays(mut worker: StreamingColumnarVortexArrayWorker) {
-    let mut offset = 0usize;
+fn stream_arrow_batches_to_vortex_arrays(worker: StreamingColumnarVortexArrayWorker) {
     loop {
-        let source_pull_start = Instant::now();
-        let batch = worker.reader.next();
-        worker
-            .stream_timing
-            .add_source_pull_elapsed(source_pull_start.elapsed());
-        let Some(batch) = batch else {
-            break;
+        let Some((batch_index, batch)) = next_worker_record_batch(&worker) else {
+            return;
         };
-        let batch_index = worker.next_batch_index.saturating_add(offset);
-        offset = offset.saturating_add(1);
         let result = match batch {
             Ok(batch) => {
                 let array_convert_start = Instant::now();
@@ -9315,10 +10769,49 @@ fn stream_arrow_batches_to_vortex_arrays(mut worker: StreamingColumnarVortexArra
             ))),
         };
         let should_stop = result.is_err();
-        if worker.sender.send(result).is_err() || should_stop {
+        if should_stop && let Ok(mut shared_reader) = worker.reader.lock() {
+            shared_reader.stopped = true;
+        }
+        if worker
+            .sender
+            .send(VortexStreamArrayReadResult::Batch {
+                batch_index,
+                result,
+            })
+            .is_err()
+            || should_stop
+        {
             break;
         }
     }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn next_worker_record_batch(
+    worker: &StreamingColumnarVortexArrayWorker,
+) -> Option<(usize, std::result::Result<RecordBatch, ArrowError>)> {
+    let mut shared_reader = worker
+        .reader
+        .lock()
+        .expect("streaming local vortex_ingest ordered array prefetch reader lock poisoned");
+    if shared_reader.stopped {
+        return None;
+    }
+    let source_pull_start = Instant::now();
+    let batch = shared_reader.reader.next();
+    worker
+        .stream_timing
+        .add_source_pull_elapsed(source_pull_start.elapsed());
+    let Some(batch) = batch else {
+        shared_reader.stopped = true;
+        return None;
+    };
+    let batch_index = shared_reader.next_batch_index;
+    shared_reader.next_batch_index = shared_reader.next_batch_index.saturating_add(1);
+    if batch.is_err() {
+        shared_reader.stopped = true;
+    }
+    Some((batch_index, batch))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -9493,6 +10986,15 @@ fn finalize_vortex_prepared_state_write(
         upstream_vortex_scan_called,
         &reopen_verification_status,
     );
+    let segment_metadata_primitive = VortexSegmentMetadataPrimitiveReport::from_inventory(
+        &prepared_olap_layout_inventory,
+        "vortex_ingest_writer_finalize",
+        input
+            .layout_write_decision
+            .writer_physical_design
+            .strategy_decision_digest
+            .clone(),
+    );
 
     Ok(VortexPreparedStateWriteReport {
         target_path: input.target_path,
@@ -9548,9 +11050,11 @@ fn finalize_vortex_prepared_state_write(
         array_build_record_batch_count: input.array_build_record_batch_count,
         manual_scalar_copy_avoided: input.manual_scalar_copy_avoided,
         preparation_spine,
+        writer_physical_design: input.layout_write_decision.writer_physical_design.clone(),
         layout_write_decision: input.layout_write_decision,
         capillary_prewrite_control,
         prepared_olap_layout_inventory,
+        segment_metadata_primitive,
         workspace_write_report: write_result.workspace_write_report,
     })
 }
@@ -9652,6 +11156,15 @@ where
         upstream_vortex_scan_called,
         &reopen_verification_status,
     );
+    let segment_metadata_primitive = VortexSegmentMetadataPrimitiveReport::from_inventory(
+        &prepared_olap_layout_inventory,
+        "vortex_ingest_stream_writer_finalize",
+        input
+            .layout_write_decision
+            .writer_physical_design
+            .strategy_decision_digest
+            .clone(),
+    );
 
     Ok(VortexPreparedStateWriteReport {
         target_path,
@@ -9709,9 +11222,11 @@ where
         array_build_record_batch_count: emitted_record_batch_count,
         manual_scalar_copy_avoided: input.manual_scalar_copy_avoided,
         preparation_spine,
+        writer_physical_design: input.layout_write_decision.writer_physical_design.clone(),
         layout_write_decision: input.layout_write_decision,
         capillary_prewrite_control,
         prepared_olap_layout_inventory,
+        segment_metadata_primitive,
         workspace_write_report: write_result.workspace_write_report,
     })
 }
@@ -12663,6 +14178,26 @@ mod tests {
             report.target_digest_source,
             "native_vortex_metadata_footer_fingerprint_no_byte_read"
         );
+        assert_eq!(
+            report.segment_metadata_primitive.status,
+            "admitted_footer_segment_metadata"
+        );
+        assert_eq!(
+            report
+                .segment_metadata_primitive
+                .admission_for_query_family(VortexSegmentMetadataQueryFamily::MetadataCount),
+            "admitted_metadata_count_from_prepared_footer_or_writer_summary"
+        );
+        assert!(
+            report
+                .segment_metadata_primitive
+                .is_predicate_pruning_admitted()
+        );
+        assert!(
+            report
+                .segment_metadata_primitive
+                .must_read_inconclusive_segments()
+        );
         let fields = report.evidence_fields();
         assert_eq!(
             fields
@@ -13632,6 +15167,32 @@ mod tests {
                 .starts_with("fnv64:")
         );
         assert!(report.layout_write_decision.provider_admitted);
+        assert_eq!(
+            report.layout_write_decision.strategy_decision_digest,
+            report.writer_physical_design.strategy_decision_digest
+        );
+        assert_eq!(report.writer_physical_design.status, "applied");
+        assert_eq!(
+            report.writer_physical_design.provider_decision,
+            "use_shardloom_native_kernel_then_vortex_writer"
+        );
+        assert_eq!(
+            report.writer_physical_design.source_stage_plan,
+            "validated_flat_scalar_rows_already_materialized"
+        );
+        assert_eq!(report.writer_physical_design.array_build_prefetch_window, 0);
+        assert_eq!(
+            report.writer_physical_design.writer_row_block_size,
+            VORTEX_PREPARED_OLAP_WRITER_FINE_ROW_BLOCK_SIZE
+        );
+        assert_eq!(
+            report.writer_physical_design.writer_block_target_bytes,
+            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_BLOCK_TARGET_BYTES
+        );
+        assert_eq!(
+            report.writer_physical_design.no_fallback_policy,
+            "native_vortex_writer_provider_only_no_spark_datafusion_duckdb_polars_velox_fallback"
+        );
         assert_eq!(report.layout_write_decision.blocker, "none");
         assert_eq!(
             report.writer_layout_strategy_applied,
@@ -13735,6 +15296,29 @@ mod tests {
             "deferred_for_large_artifact_public_prepare"
         );
         assert!(inventory.metadata_persisted_in_artifact);
+        let primitive = VortexSegmentMetadataPrimitiveReport::from_inventory(
+            &inventory,
+            "test_large_writer_summary_deferred",
+            decision
+                .writer_physical_design
+                .strategy_decision_digest
+                .clone(),
+        );
+        assert_eq!(
+            primitive.status,
+            "deferred_until_query_open_writer_summary_row_count_only"
+        );
+        assert!(primitive.requires_query_open());
+        assert!(primitive.is_metadata_count_admitted());
+        assert!(!primitive.is_predicate_pruning_admitted());
+        assert_eq!(
+            primitive
+                .admission_for_query_family(VortexSegmentMetadataQueryFamily::PredicatePruning),
+            "deferred_until_query_open"
+        );
+        assert_eq!(primitive.segment_count_field(), "unknown");
+        assert_eq!(primitive.fallback_attempted, false);
+        assert_eq!(primitive.external_engine_invoked, false);
         assert!(reopen_verification_is_certified(
             VORTEX_PREPARED_OLAP_REOPEN_DEFERRED_STATUS
         ));
@@ -14611,6 +16195,30 @@ mod tests {
             "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream"
         );
         assert_eq!(report.array_build_prefetch_window, 1);
+        assert_eq!(
+            report.writer_physical_design.provider_decision,
+            "use_vortex_native_provider"
+        );
+        assert_eq!(
+            report.writer_physical_design.source_stage_plan,
+            "bounded_streaming_source_reader_feeds_vortex_array_iterator"
+        );
+        assert_eq!(
+            report.writer_physical_design.array_build_stage_plan,
+            "prefetch_streaming_arrow_record_batches_as_vortex_arrays_before_writer_pull"
+        );
+        assert_eq!(
+            report.writer_physical_design.array_build_prefetch_window,
+            report.array_build_prefetch_window
+        );
+        assert_eq!(
+            report.writer_physical_design.writer_backpressure_policy,
+            "bounded_sync_channel_backpressures_source_reader_and_preserves_order"
+        );
+        assert!(report.writer_physical_design.evidence_fields().contains(&(
+            "vortex_writer_physical_design_external_engine_invoked".to_string(),
+            "false".to_string()
+        )));
         assert_eq!(
             report.array_build_input_layout,
             "streaming_arrow_record_batch_columnar_source_state"

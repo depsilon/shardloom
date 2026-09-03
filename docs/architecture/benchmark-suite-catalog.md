@@ -313,6 +313,17 @@ counts, `session_hidden_global_cache=false`, `session_daemon_or_service=false`,
 does not authorize a public Python session API, daemon, remote server, hidden fast mode, SQL/DataFrame
 runtime, object-store/lakehouse runtime, production claim, or performance claim.
 
+`CLICKBENCH-DOMAIN-TRANSFER-1` now adds the scoped segment/granule metadata evidence schema to the
+prepared/native batch lane:
+`segment_granule_metadata_schema_version=shardloom.traditional_analytics.segment_granule_metadata.v1`.
+The row derives exact min/max, required-field null absence, cardinality, string-absence, top-K
+candidate, metadata-only answer, and predicate-pruning decision evidence from in-process
+`shardloom-vortex` source-state over the single fact `.vortex` artifact. It reports
+`segment_granule_metadata_sidecar_used=false`,
+`segment_granule_metadata_fallback_attempted=false`, and
+`segment_granule_metadata_external_engine_invoked=false`. The 100M benchmark artifacts are not
+refreshed by this schema-only/focused-test slice.
+
 `GAR-PERF-2G` adds the scoped allocation/resource-profile evidence contract for the prepared/native
 batch lane. Current rows expose allocation profile status/scope, family classification, allocation
 count/byte status, buffer-pool enabled/scope, buffer-reuse count/family and blocker, peak RSS

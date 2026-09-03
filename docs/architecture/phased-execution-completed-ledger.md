@@ -16,6 +16,253 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `CLICKBENCH-PRODUCTION-IMPLEMENTATION-SLICE-2026-09-03` implemented the first production
+      runtime foundations for the reopened ClickBench domain-transfer work without closing the
+      top-level UAT-gated items.
+  - Date: 2026-09-03
+  - Scope:
+    - Added a source-aware Vortex writer physical-design plan to ingest/write evidence and routed
+      streaming columnar array conversion through ordered multi-worker pre-writer conversion before
+      the final Vortex sink boundary.
+    - Added `VortexSegmentMetadataPrimitiveReport` with row/segment counts, exactness/provenance,
+      metadata read-plan, per-family admission, no-false-negative policy, sidecar status, and
+      no-fallback evidence fields.
+    - Added a shared `VortexMorselScheduler` contract with stable work IDs, deterministic
+      thread-local merge, memory-envelope blocking, custom observer-based operator hooks, worker
+      utilization evidence, and no-fallback diagnostics; traditional analytics source-state morsel
+      evidence now consumes the shared scheduler report.
+    - Added a centralized specialized-kernel registry with operator/dtype/encoding/null/materialization
+      preconditions, blocked/admitted diagnostics, no-fallback policy, capability discovery fields,
+      and traditional hot-lane registry binding while keeping production claims blocked.
+    - Added a shared columnar result dataplane with `ColumnarResultBatch`, `RetainedRowSet`, sink
+      materialization certificates, Vortex/Arrow-compatible no-row-materialization handoff, explicit
+      JSONL/CSV/CLI/Python row materialization boundaries, and unsupported remote-delivery blocking.
+  - Files:
+    - `shardloom-vortex/src/vortex_ingest.rs`
+    - `shardloom-vortex/src/scheduler_bridge.rs`
+    - `shardloom-vortex/src/specialized_kernel_registry.rs`
+    - `shardloom-vortex/src/columnar_result_dataplane.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-vortex/src/output_payload.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - Focused tests passed for scheduler, specialized-kernel registry, columnar result dataplane,
+      native-artifact segment metadata, large-writer deferred inventory, streaming columnar ingest
+      prefetch, CLI prepare evidence, Parquet row-group capillary evidence, traditional analytics
+      source-state seeding, traditional hot-lane dispatch, and capability-discovery stable keys.
+  - Post-implementation UAT:
+    - Replacement ingest:
+      `scripts/run_clickbench_ingest_uat.sh --replace-existing --max-parallelism 12 --max-runtime-seconds 2400 --max-artifact-gb 42`
+      completed as
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260903T112348Z`
+      in `271s`, producing one `38,147,848,068` byte `.vortex` artifact with no temporary target
+      leftovers.
+    - Full 43-query UAT:
+      `python3 /Users/dylan/Desktop/shardloom-clickbench-100m-uat/run_clickbench_uploadable.py --binary target/release/shardloom --queries benchmarks/clickbench/queries.sql --input /Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex --output-dir /Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_clean_ingest_current_impl_20260903T112902Z --load-seconds 271 --data-size-bytes 38147848068 --memory-gb 24 --max-parallelism 12 --runs-per-query 3 --timeout-seconds 240`
+      completed `129/129` CLI runs and `43/43` query lanes with `0` failures, best-of-3 query
+      total `189.197s`, best-of-3 query geomean `1.142898s`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - Compared with the retained `301s` ingest reference, replacement ingest improved by `30s`
+      (`0.900332x`, about `10.0%` faster). Compared with the prior checked-in
+      `domain_transfer_uat_20260902T180658Z` query evidence, best-of-3 query total improved by
+      `11.003s` and geomean improved by `0.045725s`.
+    - Updated `docs/benchmarks/clickbench-100m-current-branch-uat.json`,
+      `docs/benchmarks/clickbench-100m-uat-burndown.json`, `benchmarks/clickbench/README.md`, and
+      `docs/architecture/phased-execution-plan.md` with the new local-only UAT evidence.
+  - Residual work deliberately left open in Planned:
+    - Replacement-ingest UAT and full 43-query UAT now retain the implementation slice, but the
+      top-level production items remain open until their route-wide scheduler, metadata,
+      specialized-kernel, writer-profile retain/drop, and result-dataplane checklist work is fully
+      implemented and reviewed.
+    - The shared scheduler now has a tested observer API and is consumed for source-state morsel
+      evidence, but concrete top-K/distinct/grouped-aggregate state families still need direct
+      route execution through scheduler observers before
+      `CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1` can close.
+    - Segment metadata primitive evidence is reusable and public, but per-query
+      `segments_pruned`/`rows_pruned`/`bytes_pruned` consumption counters remain open.
+    - Specialized-kernel registry contracts are centralized and wired into hot-lane evidence, but
+      per-kernel decoded-reference parity and UAT retain/drop gates remain open for top-level
+      closure.
+    - The result dataplane model and sink materialization certificates exist, but full route-wide
+      result-flow conversion and targeted UAT remain open.
+  - Claim boundary:
+    - Implementation and validation evidence only. This is not an official ClickBench result,
+      production-environment proof, Spark-displacement claim, object-store/lakehouse claim, or
+      package-release claim.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, `vortex-datafusion`, query-answer cache,
+      external engine execution path, or sidecar artifact was introduced. New success and blocked
+      paths preserve `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `fallback_execution_allowed=false`.
+
+- [x] `COMPLETION-CLAIM-AUDIT-2026-09-02` audited the recent completed ledger for evidence-only
+      or partial-slice entries that could be misread as production closure.
+  - Date: 2026-09-02
+  - Scope:
+    - Audited the latest 22 recent ledger entries from `CLICKBENCH-DOMAIN-TRANSFER-100M-UAT-1`
+      through `CLICKBENCH-100M-SLOW-LANE-OPTIMIZATION-4`.
+    - Included the immediately adjacent moved historical blocks for
+      `VORTEX-SQL-SHARED-PHYSICAL-LOWERING-1` and `COMPOUND-SHARDLOOM-RUNTIME-TECHNIQUES-1`
+      where they could influence current production-readiness interpretation.
+  - Audit method:
+    - Compared each completed entry's wording against its named completed scope, validation
+      evidence, current repo code shape, and fresh 2026-09-02 replacement-ingest evidence.
+    - Used completion strictness of implementation plus tests plus UAT/evidence plus no-fallback
+      proof for production runtime claims; evidence/report/policy rows were allowed to remain
+      complete only when read as evidence/report/policy rows.
+    - No runtime implementation was started during this audit.
+  - Reopened production work:
+    - `CLICKBENCH-DOMAIN-TRANSFER-1` over-closed the five domain-transfer techniques. It added
+      useful prepared/native runtime evidence and partial hot-lane behavior, but it did not complete
+      the production writer physical-design pipeline, reusable segment metadata primitive, shared
+      morsel scheduler, centralized native kernel registry, or shared columnar result data-plane.
+    - Writer-related historical rows including `GLOBAL-WRITER-ENCODE-COALESCING-1`,
+      `UNIVERSAL-INGEST-WRITER-RESOURCE-ARTIFACT-1`,
+      `CLICKBENCH-100M-INGEST-WRITER-COALESCING-10`, and
+      `CLICKBENCH-INGEST-WRITER-SEGMENT-ECONOMICS-15` remain valid as evidence, policy, and partial
+      optimization history. They must not be cited as production writer-overhaul closure.
+    - Metadata, scheduler, kernel, and result-plane historical rows remain useful shipped slices
+      only to the extent described by their evidence. Route-local helpers, policy labels, evidence
+      fields, or report-only/admission posture do not close shared production primitives.
+  - Promoted phase-plan entries:
+    - `CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1`
+    - `CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1`
+    - `CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1`
+    - `CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1`
+    - `CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1`
+  - Entries audited with no immediate reopening:
+    - `CLICKBENCH-DOMAIN-TRANSFER-100M-UAT-1`,
+      `CLICKBENCH-100M-REGRESSED-AGGREGATE-LANE-RECOVERY-1`,
+      `SOURCESTATE-DIRECTORY-FINGERPRINT-SCALING-1`,
+      `CONTROL-PLANE-LATENCY-ATTRIBUTION-1`,
+      `RUNTIME-EVIDENCE-SURFACE-UNIFICATION-1`,
+      `FRONT-DOOR-CONTROL-PLANE-GUARDRAILS-23`,
+      `CLICKBENCH-100M-TAIL-LANE-OPTIMIZATION-20`,
+      `PYTHON-PACKAGE-LAZY-FRONT-DOOR-22`,
+      `FRONT-DOOR-CONTROL-PLANE-OVERHEAD-21`,
+      `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1`,
+      `UNIVERSAL-INGEST-VORTEX-SOURCE-LANE-1`,
+      `DEPENDENCY-INTAKE-BATCH-1`,
+      `CLICKBENCH-AGGREGATE-PREDICATE-PUSHDOWN-19`,
+      `PR-CODEX-COMMENT-RESOLUTION-1361-1363`, and the phase-plan cleanup/superseded rows.
+    - These entries still must be interpreted inside their stated claim boundaries. They do not
+      imply production writer, metadata, scheduler, kernel registry, or result data-plane closure
+      unless they name and prove that shared runtime contract.
+  - Corrective rule:
+    - Completed entries may close evidence, report, policy, disposition, or route-specific runtime
+      work only when named as such.
+    - Production runtime completion requires implemented shared runtime behavior, correctness tests,
+      performance/UAT or explicit unsupported evidence where relevant, public evidence fields, and
+      `fallback_attempted=false` / `external_engine_invoked=false` proof.
+  - Claim boundary:
+    - Ledger audit and phase-plan correction only. This entry makes no new runtime, performance,
+      official ClickBench, production-environment, object-store, Foundry, package-release, or
+      Spark-displacement claim.
+  - Fallback boundary:
+    - Documentation-only audit. No Spark, DataFusion, DuckDB, Polars, pandas, Velox,
+      `vortex-datafusion`, sidecar, query-answer cache, or external engine execution path was
+      introduced or authorized.
+
+- [x] `CLICKBENCH-DOMAIN-TRANSFER-100M-UAT-1` recorded the post-domain-transfer local 100M
+      ClickBench UAT evidence pass.
+  - Date: 2026-09-02
+  - Run cleanup:
+    - Removed stale local full-43 run-output directories before UAT:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_20260901T0237Z` and
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_20260901T1342Z`.
+    - Retained the official Parquet source at
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/sources/hits.parquet` and the single
+      prepared Vortex artifact at
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex`.
+  - UAT command shape:
+    - `cargo build --release --features release-user-surfaces`
+    - `python3 /Users/dylan/Desktop/shardloom-clickbench-100m-uat/run_clickbench_uploadable.py --binary target/release/shardloom --queries benchmarks/clickbench/queries.sql --input /Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex --output-dir /Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/domain_transfer_uat_20260902T180658Z --load-seconds 301 --data-size-bytes 38147848068 --memory-gb 24 --max-parallelism 12 --runs-per-query 3 --timeout-seconds 240`
+  - Local UAT evidence:
+    - Summary:
+      `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/domain_transfer_uat_20260902T180658Z/summary.json`
+    - Full 43-query, three-run local Desktop pass: `129/129` CLI runs succeeded, `43/43` query
+      lanes completed, `0` failed runs, and no timeouts.
+    - Best-of-3 query total: `200.200s`; best-of-3 query geomean: `1.188623s`; all-run query total:
+      `606.153s`; hot-run geomean: `1.189233s`.
+    - Compared with the immediately retained pre-UAT current-branch artifact
+      `full43_20260901T1342Z`, best-of-3 query total improved by `15.438s` and geomean improved by
+      `0.095921s`.
+    - Slow local rows still above ten seconds are `Q34` `28.089s`, `Q35` `27.917s`, `Q17`
+      `16.714s`, `Q33` `11.117s`, `Q29` `10.904s`, `Q19` `10.541s`, and `Q23` `10.482s`.
+  - Artifact updates:
+    - Updated `docs/benchmarks/clickbench-100m-current-branch-uat.json` to
+      `shardloom.clickbench.current_branch_full_uat_reference.v3` with per-query best/median/max
+      timings, previous-current deltas, slow-row inventory, no-fallback fields, and retain decision.
+    - Updated `docs/benchmarks/clickbench-100m-uat-burndown.json` with
+      `latest_domain_transfer_100m_uat`, refreshed `latest_current_branch_full_uat`, updated
+      `observed`, and the current slow-success row list.
+    - Updated `benchmarks/clickbench/README.md` with the new local summary path and local-only
+      timing readout.
+  - Retain/drop decision:
+    - Retain the domain-transfer runtime batch based on improved local full-43 best-of-3 total and
+      geomean with unchanged correctness/no-fallback posture.
+    - Keep `Q34`/`Q35` as dominant URL/domain heavy-hitter tail rows and keep the modest `Q19`,
+      `Q33`, and `Q36` regressions visible in the next slow-lane review.
+  - Claim boundary:
+    - Local Desktop implementation/UAT evidence only. This is not an official ClickBench
+      submission, public superiority claim, production-environment proof, object-store proof,
+      Foundry proof, or Spark-displacement claim.
+  - Fallback boundary:
+    - `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `fallback_execution_allowed=false`; no Spark, DataFusion, DuckDB, Polars, pandas, Velox,
+      `vortex-datafusion`, query-answer cache, materialized-view shortcut, sidecar artifact, or
+      ClickBench-specific SQL rewrite was introduced.
+
+- [x] `CLICKBENCH-DOMAIN-TRANSFER-1` implemented the ClickBench domain-transfer runtime batch
+      slices for prepared/native Vortex analytics.
+  - Date: 2026-09-02
+  - PR/merge: local branch `codex/clickbench-domain-transfer-runtime-complete`, fast-forwarded
+    into local `main` as `5b15d0b7`.
+  - Completed scope:
+    - Added bounded capillary/morsel scheduling to the prepared Vortex source-state scan path for
+      `category_metric`, `group_category_metric`, `ranked_metric`, and `selective_filter`, with
+      per-morsel local state and deterministic family merge evidence.
+    - Added hot-lane native dispatch evidence for string predicate counts, exact distinct,
+      high-cardinality/grouped top-K, transformed URL/domain grouping, and bounded wide-row top-K.
+    - Promoted query-serving layout policy evidence to measured, gated writer choices when native
+      metadata and certified sink replay evidence are present, while keeping improvement claims
+      blocked until UAT evidence exists.
+    - Added compact columnar result/data-plane evidence that keeps row references and compact batch
+      posture visible until the declared JSON/result-sink boundary.
+    - Updated the source-state coverage matrix and phase plan to document the new evidence schemas:
+      `shardloom.traditional_analytics.capillary_morsel_scheduling.v1`,
+      `shardloom.traditional_analytics.hot_lane_native_kernel_dispatch.v1`,
+      `shardloom.traditional_analytics.query_serving_layout_policy.v1`, and
+      `shardloom.traditional_analytics.columnar_result_data_plane.v1`.
+  - Focused validation evidence:
+    - `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark source_state`
+    - `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark all_accepted_hot_lanes`
+    - `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark expanded_taxonomy_scenarios_run_against_local_vortex_outputs`
+    - `cargo test -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark computed_result_vortex_sink_writes_and_replays_result_artifact`
+  - Required validation evidence:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+  - Residual work:
+    - Full-scale local 100M ClickBench UAT and burndown retain/drop updates remain open in
+      `docs/architecture/phased-execution-plan.md` as claim/evidence work, not unimplemented runtime
+      code in this slice.
+  - Claim boundary:
+    - Local implementation and focused/workspace validation evidence only. This is not an official
+      ClickBench submission, public superiority claim, production proof, object-store proof, or
+      Spark-displacement claim.
+  - Fallback boundary:
+    - Runtime remains ShardLoom/Vortex-native with `fallback_attempted=false` and
+      `external_engine_invoked=false`; no Spark, DataFusion, DuckDB, Polars, pandas, Velox,
+      `vortex-datafusion`, query-answer cache, or copied competitor implementation was added.
+
 - [x] `CLICKBENCH-100M-REGRESSED-AGGREGATE-LANE-RECOVERY-1` closed the latest aggregate/string lane
       recovery batch as shared Vortex-normalized runtime work, not ClickBench-specific routing.
   - Date: 2026-09-01
@@ -47597,8 +47844,9 @@ available and the item can be implemented and validated without weakening no-fal
     - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust
       toolchain `1.91.1`.
     - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
-    - Feature `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets --
-      -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Feature
+      `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`
+      passed locally with Rust toolchain `1.91.1`.
   - Explicitly not included: decoded reference execution, external engine invocation, SQL
     parser/execution, DataFrame runtime, mature adapter runtime, row reads, Arrow conversion,
     object-store IO, writes, spill IO, production operator certification, superiority/best-default
@@ -47650,8 +47898,9 @@ available and the item can be implemented and validated without weakening no-fal
     - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust
       toolchain `1.91.1`.
     - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
-    - Feature `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets --
-      -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Feature
+      `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`
+      passed locally with Rust toolchain `1.91.1`.
     - Feature `cargo clippy -p shardloom-cli --features vortex-local-primitives --all-targets -- -D
       warnings` passed locally with Rust toolchain `1.91.1`.
     - Tiny benchmark smoke `python benchmarks\traditional_analytics\run.py --engines shardloom
