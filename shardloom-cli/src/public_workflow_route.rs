@@ -3083,6 +3083,38 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_string_count_topk_heavy_hitter_exact_proof",
         ),
         (
+            "string_count_topk_heavy_hitter_exact_counts_source",
+            "local_primitive_string_count_topk_heavy_hitter_exact_counts_source",
+        ),
+        (
+            "string_count_topk_first_pass_exact_histogram_enabled",
+            "local_primitive_string_count_topk_first_pass_exact_histogram_enabled",
+        ),
+        (
+            "string_count_topk_first_pass_exact_histogram_promoted",
+            "local_primitive_string_count_topk_first_pass_exact_histogram_promoted",
+        ),
+        (
+            "string_count_topk_first_pass_exact_histogram_disabled",
+            "local_primitive_string_count_topk_first_pass_exact_histogram_disabled",
+        ),
+        (
+            "string_count_topk_first_pass_exact_histogram_entries",
+            "local_primitive_string_count_topk_first_pass_exact_histogram_entries",
+        ),
+        (
+            "string_count_topk_first_pass_exact_histogram_entry_budget",
+            "local_primitive_string_count_topk_first_pass_exact_histogram_entry_budget",
+        ),
+        (
+            "string_count_topk_first_pass_exact_histogram_input_rows",
+            "local_primitive_string_count_topk_first_pass_exact_histogram_input_rows",
+        ),
+        (
+            "string_count_topk_first_pass_exact_histogram_input_values",
+            "local_primitive_string_count_topk_first_pass_exact_histogram_input_values",
+        ),
+        (
             "string_count_topk_candidate_signature_prefilter",
             "local_primitive_string_count_topk_candidate_signature_prefilter",
         ),
@@ -12446,6 +12478,38 @@ mod tests {
                 serde_json::Value::Bool(true),
             ),
             (
+                "string_count_topk_heavy_hitter_exact_counts_source",
+                serde_json::Value::String("first_pass_dictionary_exact_histogram".to_string()),
+            ),
+            (
+                "string_count_topk_first_pass_exact_histogram_enabled",
+                serde_json::Value::Bool(true),
+            ),
+            (
+                "string_count_topk_first_pass_exact_histogram_promoted",
+                serde_json::Value::Bool(true),
+            ),
+            (
+                "string_count_topk_first_pass_exact_histogram_disabled",
+                serde_json::Value::Bool(false),
+            ),
+            (
+                "string_count_topk_first_pass_exact_histogram_entries",
+                serde_json::Value::Number(serde_json::Number::from(18_342_019)),
+            ),
+            (
+                "string_count_topk_first_pass_exact_histogram_entry_budget",
+                serde_json::Value::Number(serde_json::Number::from(67_108_864)),
+            ),
+            (
+                "string_count_topk_first_pass_exact_histogram_input_rows",
+                serde_json::Value::Number(serde_json::Number::from(99_997_497)),
+            ),
+            (
+                "string_count_topk_first_pass_exact_histogram_input_values",
+                serde_json::Value::Number(serde_json::Number::from(99_997_497)),
+            ),
+            (
                 "string_count_topk_candidate_free_chunks_skipped",
                 serde_json::Value::Number(serde_json::Number::from(3)),
             ),
@@ -12633,6 +12697,38 @@ mod tests {
                     (
                         "local_primitive_string_count_topk_candidate_signature_prefilter",
                         "true",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source",
+                        "first_pass_dictionary_exact_histogram",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_first_pass_exact_histogram_enabled",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_first_pass_exact_histogram_promoted",
+                        "true",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_first_pass_exact_histogram_disabled",
+                        "false",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_first_pass_exact_histogram_entries",
+                        "18342019",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_first_pass_exact_histogram_entry_budget",
+                        "67108864",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_first_pass_exact_histogram_input_rows",
+                        "99997497",
+                    ),
+                    (
+                        "local_primitive_string_count_topk_first_pass_exact_histogram_input_values",
+                        "99997497",
                     ),
                     (
                         "local_primitive_string_count_topk_candidate_code_prefilter",
