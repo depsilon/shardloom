@@ -1094,6 +1094,22 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `string_count_topk_first_pass_late_measures=true`,
         `string_count_topk_first_pass_late_measure_rows=7128`, and `fallback_attempted=false` /
         `external_engine_invoked=false`.
+      - Rejected 2026-09-04 implementation attempt: a compact active-dictionary-code path for tiny
+        filtered chunks was prototyped to avoid full dictionary count vectors, all-value interning,
+        per-chunk active hash sets, and candidate flag vectors when Q23/Q22-style filtered chunks
+        carry only a small selected row set. Focused correctness/build checks passed before UAT:
+        `rustfmt --edition 2024 shardloom-vortex/src/local_primitives.rs --check`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted local 100M Q22/Q23 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q22_q23_compact_active_code_20260904T023018Z/summary.json`
+        failed the retain gate: Q22 run 1 hit the `240s` harness timeout before any completed run
+        (`completed_runs=0`, `query_rows` all null), versus the retained Q22 best
+        `1.2129830840276554s` and retained Q23 best `4.2945536660263315s`. Summary evidence still
+        reported `fallback_attempted=false` and `external_engine_invoked=false`. The runtime change
+        was reverted. Do not retry row-direct compact active-code late-measure updates without first
+        proving the per-row group-state update path cannot dominate the selective-string route.
     - [ ] Implement H/VH kernel packet `Q19 fixed-width tri-key grouped top-K`.
       - Ideas covered: Q19 three-key heavy-hitter, fixed-width tri-key, duplicate-promotion filter,
         morsel-local sketches, and radix exact fallback.
