@@ -1185,6 +1185,26 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `fallback_attempted=false` / `external_engine_invoked=false`. Remaining Q29 work still needs
         persisted exact transform summaries or writer-lifted domain dictionaries to reduce the
         source dictionary transform count itself.
+      - Rejected 2026-09-04 implementation attempt: the retained dense Q29 URL-domain accumulator
+        was micro-specialized for the common `COUNT(*)`, `AVG(length(Referer))`, and `MIN(Referer)`
+        measure shape by replacing the generic dense-plan update/merge branches with a named
+        length-additive/min-UTF8 inner update. Focused validation passed:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives transformed_dictionary -- --nocapture`,
+        `cargo test -p shardloom-cli local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`,
+        and `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        The first targeted local 100M Q29 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_length_additive_min_utf8_20260904T050232Z/summary.json`
+        showed a small best-of-3 win at `9.234600208001211s`, but the reviewed final-code rerun at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_length_additive_min_utf8_final_20260904T050552Z/summary.json`
+        regressed to best `9.335183416027576s`, and the confirmation rerun at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_length_additive_min_utf8_confirm_20260904T050635Z/summary.json`
+        produced best `9.29998174996581s` versus the retained Q29 chunk-partial baseline
+        `9.274564541992731s`. Evidence confirmed the candidate still selected the same retained
+        `transformed_dictionary_dense_general_chunk_partial_group_update` route with `74` selected
+        groups, `1,798,248` decoded/interned domain strings, and no fallback/external-engine
+        invocation. The runtime and CLI flattening changes were reverted. Do not retry Q29
+        branch-elision micro-specialization unless it is paired with lower transform count,
+        persisted transform summaries, or writer-lifted domain dictionaries.
     - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
       - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
         conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.
