@@ -918,6 +918,18 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         was dropped. Do not retry dictionary-value signature screening for Q17 unless it is moved
         out of the per-chunk second-pass setup or paired with a measured reduction in row-level
         exact recount work.
+      - Rejected 2026-09-04 implementation slice: replacing every Q17 candidate string-id
+        numeric-part hash set with an inline-small/promoted-hash partition kept exact second-pass
+        recount semantics but regressed targeted local 100M Q17 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q17_compact_candidate_partitions_20260904T013542Z/summary.json`.
+        Runs were `17.079304874991067s`, `15.693582999985665s`, and `15.686179957992863s`;
+        best `15.686179957992863s` was slower than the retained `14.60625249997247s` route.
+        Evidence from the best run showed `1871` string-id partitions, `1844` inline numeric
+        partitions, `27` promoted hash partitions, `59979` candidate numeric parts, and
+        `56378` parts in the largest single string-id partition, with no fallback/external-engine
+        invocation. The runtime change was dropped. Future Q17 work should attack the dominant
+        large-partition recount pressure, candidate generation, or row filtering instead of
+        optimizing tiny partition allocation in isolation.
     - [ ] Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.
       - Ideas covered: Q29 fused weighted-dictionary kernel, cross-chunk transform memo, persisted
         exact transform code, dense domain partial states, and exact segment dictionary summaries.
