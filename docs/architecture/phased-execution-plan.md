@@ -1034,6 +1034,20 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         fallback/external-engine invocation. The runtime change was dropped. Future Q29 transform
         memoization should be keyed by persisted dictionary/domain summaries or lower-cardinality
         domain identities, not source `Referer` URL identity.
+      - Rejected 2026-09-04 implementation attempt: the dense URL-domain accumulator was changed to
+        reserve group-state capacity from a bounded domain-oriented initial reserve instead of the
+        source dictionary value count. The focused transformed-dictionary regression suite passed
+        (`cargo test -p shardloom-vortex --features vortex-local-primitives transformed_dictionary -- --nocapture`),
+        and the release CLI built with
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`,
+        but targeted local 100M Q29 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_dense_domain_bounded_reserve_20260904T025014Z/summary.json`
+        timed out on run 1 at the `240s` harness limit before any completed run
+        (`completed_runs=0`, `query_rows` null), versus retained Q29 best
+        `9.870339999964926s`. Summary evidence still reported `fallback_attempted=false` and
+        `external_engine_invoked=false`. The runtime change was reverted. Future Q29 work should
+        avoid capacity-policy-only changes and instead attack the remaining source dictionary
+        transform count with persisted domain identities or segment summaries.
     - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
       - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
         conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.
