@@ -1066,6 +1066,27 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `external_engine_invoked=false`. The runtime change was reverted. Future Q29 work should
         avoid capacity-policy-only changes and instead attack the remaining source dictionary
         transform count with persisted domain identities or segment summaries.
+      - Rejected 2026-09-04 implementation attempt: a prepared-domain dictionary dense route was
+        prototyped for Q29 so rewritten aggregates could group on
+        `__shardloom_derived_url_domain_Referer` while still computing exact `AVG(length(Referer))`,
+        `COUNT(*)`, and `MIN(Referer)` from the source `Referer` dictionary by a verified
+        source-code-to-domain-code map. Focused validation passed:
+        `rustfmt --edition 2024 shardloom-vortex/src/local_primitives.rs --check`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives transformed_dictionary -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives simple_aggregate_uses_prepared_domain_dictionary_for_ordered_source_minmax -- --nocapture`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted local 100M Q29 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_prepared_domain_dictionary_20260904T032749Z/summary.json`
+        failed the retain gate: best-of-3 regressed to `10.943624250008725s` versus retained
+        `9.870339999964926s`. Payload evidence confirmed the new route selected
+        `aggregate_update_strategy=prepared_domain_dictionary_dense_general_measure_group_update`
+        and rewrote both `__shardloom_derived_url_domain_Referer` and
+        `__shardloom_derived_utf8_len_Referer`, but arrays read rose from `1170` to `1456` and
+        `decoded_string_count` remained `1798248`. The runtime change was reverted. This confirms
+        the hidden derived domain column is not yet dictionary-lifted enough to reduce Q29's
+        transformed group-key cardinality; move this idea to the ingest/writer dictionary-lift
+        work rather than retrying it in query execution.
     - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
       - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
         conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.
