@@ -1320,6 +1320,22 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         invocation. The runtime and CLI flattening changes were reverted. Do not retry Q29
         branch-elision micro-specialization unless it is paired with lower transform count,
         persisted transform summaries, or writer-lifted domain dictionaries.
+      - Rejected 2026-09-04 implementation attempt: a source-owned `shardloom_url_domain` parser
+        fast path recognized common `http://` and `https://` schemes before falling back to the
+        generic ASCII scheme-delimiter scan, with parity coverage for mixed-case schemes, userinfo,
+        IPv6 hosts, protocol-relative URLs, non-HTTP schemes, bare URLs, fragments, and empty
+        strings. Focused validation passed:
+        `rustfmt --edition 2024 --check shardloom-vortex/src/url_domain.rs`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives url_domain -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives transformed_dictionary -- --nocapture`,
+        and `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted local 100M Q29 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_common_http_domain_fast_path_20260904T072200Z/summary.json`
+        completed `3/3` runs but failed the retain gate: warm best was
+        `9.733083207975142s` versus retained `9.274564541992731s`, with no fallback/external
+        engine invocation. The parser change was reverted. Do not retry URL parser micro-branches
+        for Q29 unless profiling proves parser delimiter detection, not dictionary counting,
+        partial aggregation, or global merge, is the dominant local cost.
     - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
       - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
         conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.
