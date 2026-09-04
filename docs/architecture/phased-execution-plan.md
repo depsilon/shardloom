@@ -999,6 +999,20 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         invocation. The runtime change was dropped. Future Q17 work should attack the dominant
         large-partition recount pressure, candidate generation, or row filtering instead of
         optimizing tiny partition allocation in isolation.
+      - Rejected 2026-09-04 implementation slice: specializing the Q17 second-pass exact recount
+        hot loop for direct `Int64`/`UInt64` numeric slices preserved signedness, dictionary-code
+        candidate filtering, and proof-bound semantics in focused tests, but regressed targeted
+        local 100M Q17 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q17_direct_slice_recount_20260904T041043Z/summary.json`.
+        Runs were `16.378674332983792s`, `15.454450499964878s`, and
+        `15.297637875017244s`; best `15.297637875017244s` was slower than the retained
+        `14.60625249997247s` route. Focused validation before UAT passed
+        `rustfmt --edition 2024 shardloom-vortex/src/local_primitives.rs --check`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives numeric_utf8 -- --nocapture`,
+        and `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        The runtime change was dropped. Do not retry simple typed numeric extraction specialization
+        for Q17 unless it also removes a full hash-table recount pass, reduces dominant-partition
+        membership probes, or changes candidate generation materially.
     - [ ] Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.
       - Ideas covered: Q29 fused weighted-dictionary kernel, cross-chunk transform memo, persisted
         exact transform code, dense domain partial states, and exact segment dictionary summaries.
