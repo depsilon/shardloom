@@ -1044,6 +1044,27 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `48.23178674897645s`. The runtime change was reverted. Future histogram-replay work should
         reduce row-id scanning or persist exact segment/dictionary counts; simply compacting the
         candidate map is not enough.
+      - Rejected 2026-09-04 implementation attempt: a count-only memory-budgeted exact mirror was
+        prototyped to let Q34/Q35 keep first-pass exact URL counts up to
+        `memory_budget_bytes / 512` entries when `memory_gb >= 16`, move the exact-count map into
+        finalization without cloning, and emit
+        `string_count_topk_exact_mirror_admission=memory_budgeted_count_only_exact_mirror` through
+        CLI evidence. Focused validation passed before UAT:
+        `rustfmt --edition 2024 --check shardloom-vortex/src/local_primitives.rs
+        shardloom-cli/src/public_workflow_route.rs`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`,
+        `cargo test -p shardloom-cli local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`,
+        `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`,
+        `cargo clippy -p shardloom-cli --all-targets -- -D warnings`, and
+        `cargo build --release -p shardloom-cli --bin shardloom --features
+        release-user-surfaces`. Targeted local 100M Q34/Q35 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_memory_exact_mirror_20260904T091900Z`
+        failed before producing a timing because Q34 run 1 exhausted local disk while writing
+        `q01_run1.stdout.json`; the transient output directory and runtime/CLI changes were
+        removed. Do not retry large in-memory exact mirrors for Q34/Q35 without an exact
+        unique-cardinality preview, bounded summary emission, and a persisted histogram or
+        spill-safe state contract. The retained `32,768`-window second-pass route remains the
+        protected reference.
     - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
       - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
         recount, and adaptive radix exact path for high-cardinality numeric+string grouping.
