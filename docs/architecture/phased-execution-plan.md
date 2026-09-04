@@ -1110,6 +1110,21 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         The runtime change was dropped. Do not retry simple typed numeric extraction specialization
         for Q17 unless it also removes a full hash-table recount pass, reduces dominant-partition
         membership probes, or changes candidate generation materially.
+      - Rejected 2026-09-04 implementation slice: a dense numeric bitmap membership representation
+        was added for large Q17 candidate string-id partitions so the second-pass exact recount
+        could replace large `(UserID, SearchPhrase)` candidate hash-set probes with range-checked
+        bit tests when the numeric ids were same-signed and span-bounded. Focused validation passed
+        `rustfmt --edition 2024 --check shardloom-vortex/src/local_primitives.rs shardloom-cli/src/public_workflow_route.rs`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives numeric_utf8 -- --nocapture`,
+        `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`,
+        and `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`,
+        but targeted local 100M Q17 UAT was stopped during run 1 after roughly 90 seconds without
+        producing any completed run, versus the retained `14.60625249997247s` Q17 best. The
+        transient UAT directory reported `completed_runs=0`, `fallback_attempted=false`, and
+        `external_engine_invoked=false` before cleanup, and the runtime/CLI changes were reverted.
+        Do not retry bitmap membership for Q17 unless bitmap admission can be decided from
+        persisted numeric-range evidence before building per-partition bitsets, or unless it is
+        paired with a route that removes the second-pass hash-count table entirely.
     - [ ] Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.
       - Ideas covered: Q29 fused weighted-dictionary kernel, cross-chunk transform memo, persisted
         exact transform code, dense domain partial states, and exact segment dictionary summaries.
