@@ -23772,6 +23772,8 @@ struct GroupedAggregateStates<'a> {
     transformed_materialized_partial_updates: bool,
     numeric_minute_string_count_direct_updates: bool,
     numeric_minute_string_dictionary_code_reuse: bool,
+    numeric_minute_string_direct_slice_updates: bool,
+    numeric_minute_string_direct_slice_update_rows: u64,
     source_order_numeric_utf8_dictionary_direct_updates: bool,
     source_order_limited_group_admission: bool,
     general_direct_group_state_pre_reserved: bool,
@@ -26576,6 +26578,8 @@ impl<'a> GroupedAggregateStates<'a> {
             transformed_materialized_partial_updates: false,
             numeric_minute_string_count_direct_updates: false,
             numeric_minute_string_dictionary_code_reuse: false,
+            numeric_minute_string_direct_slice_updates: false,
+            numeric_minute_string_direct_slice_update_rows: 0,
             source_order_numeric_utf8_dictionary_direct_updates: false,
             source_order_limited_group_admission: false,
             general_direct_group_state_pre_reserved: false,
@@ -27578,6 +27582,19 @@ impl<'a> GroupedAggregateStates<'a> {
             &mut self.string_interner,
         )?;
         self.numeric_minute_string_dictionary_code_reuse |= dictionary_string_ids.is_some();
+        if row_indices.is_none() {
+            if let Some(dictionary_string_ids) = dictionary_string_ids.as_deref() {
+                if self.update_numeric_minute_string_count_direct_slice_from_accessors(
+                    numeric_accessor,
+                    minute_accessor,
+                    string_accessor,
+                    roles,
+                    dictionary_string_ids,
+                )? {
+                    return Ok(true);
+                }
+            }
+        }
         let groups = self
             .numeric_minute_string_count_groups
             .get_or_insert_with(rustc_hash::FxHashMap::default);
@@ -27643,6 +27660,215 @@ impl<'a> GroupedAggregateStates<'a> {
         self.count_star_direct_updates = true;
         self.numeric_minute_string_count_direct_updates = true;
         Ok(true)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn update_numeric_minute_string_count_direct_slice_from_accessors(
+        &mut self,
+        numeric_accessor: &AggregateDirectColumnAccessor,
+        minute_accessor: &AggregateDirectColumnAccessor,
+        string_accessor: &AggregateDirectColumnAccessor,
+        roles: NumericMinuteStringGroupRoles,
+        dictionary_string_ids: &[u64],
+    ) -> Result<bool> {
+        let AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids,
+            values,
+            value_nulls,
+            row_nulls,
+            ..
+        } = string_accessor
+        else {
+            return Ok(false);
+        };
+        if !aggregate_utf8_dictionary_value_nulls_are_absent(
+            value_nulls.as_deref(),
+            row_nulls.as_deref(),
+        ) {
+            return Ok(false);
+        }
+        if dictionary_string_ids.len() != values.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex numeric-minute-string direct-slice aggregate dictionary id count did not match dictionary value count; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        let rows = row_ids.len();
+        if numeric_accessor.len() != rows || minute_accessor.len() != rows {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex numeric-minute-string direct-slice aggregate key columns had inconsistent row counts; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        match (
+            numeric_accessor,
+            minute_accessor,
+            roles.minute_column_prepared,
+        ) {
+            (
+                AggregateDirectColumnAccessor::UInt64(numeric_values),
+                AggregateDirectColumnAccessor::UInt64(minute_values),
+                true,
+            ) => self.update_numeric_minute_string_count_direct_slices(
+                rows,
+                row_ids,
+                dictionary_string_ids,
+                |row_index| AggregateIntegerKeyPart {
+                    bits: numeric_values[row_index],
+                    signed: false,
+                },
+                |row_index| aggregate_prepared_minute_u64_value(minute_values[row_index]),
+            )?,
+            (
+                AggregateDirectColumnAccessor::UInt64(numeric_values),
+                AggregateDirectColumnAccessor::UInt64(minute_values),
+                false,
+            ) => self.update_numeric_minute_string_count_direct_slices(
+                rows,
+                row_ids,
+                dictionary_string_ids,
+                |row_index| AggregateIntegerKeyPart {
+                    bits: numeric_values[row_index],
+                    signed: false,
+                },
+                |row_index| aggregate_raw_minute_u64_value(minute_values[row_index]),
+            )?,
+            (
+                AggregateDirectColumnAccessor::UInt64(numeric_values),
+                AggregateDirectColumnAccessor::Int64(minute_values),
+                true,
+            ) => self.update_numeric_minute_string_count_direct_slices(
+                rows,
+                row_ids,
+                dictionary_string_ids,
+                |row_index| AggregateIntegerKeyPart {
+                    bits: numeric_values[row_index],
+                    signed: false,
+                },
+                |row_index| aggregate_prepared_minute_i64_value(minute_values[row_index]),
+            )?,
+            (
+                AggregateDirectColumnAccessor::UInt64(numeric_values),
+                AggregateDirectColumnAccessor::Int64(minute_values),
+                false,
+            ) => self.update_numeric_minute_string_count_direct_slices(
+                rows,
+                row_ids,
+                dictionary_string_ids,
+                |row_index| AggregateIntegerKeyPart {
+                    bits: numeric_values[row_index],
+                    signed: false,
+                },
+                |row_index| aggregate_raw_minute_i64_value(minute_values[row_index]),
+            )?,
+            (
+                AggregateDirectColumnAccessor::Int64(numeric_values),
+                AggregateDirectColumnAccessor::UInt64(minute_values),
+                true,
+            ) => self.update_numeric_minute_string_count_direct_slices(
+                rows,
+                row_ids,
+                dictionary_string_ids,
+                |row_index| AggregateIntegerKeyPart {
+                    bits: numeric_values[row_index].cast_unsigned(),
+                    signed: true,
+                },
+                |row_index| aggregate_prepared_minute_u64_value(minute_values[row_index]),
+            )?,
+            (
+                AggregateDirectColumnAccessor::Int64(numeric_values),
+                AggregateDirectColumnAccessor::UInt64(minute_values),
+                false,
+            ) => self.update_numeric_minute_string_count_direct_slices(
+                rows,
+                row_ids,
+                dictionary_string_ids,
+                |row_index| AggregateIntegerKeyPart {
+                    bits: numeric_values[row_index].cast_unsigned(),
+                    signed: true,
+                },
+                |row_index| aggregate_raw_minute_u64_value(minute_values[row_index]),
+            )?,
+            (
+                AggregateDirectColumnAccessor::Int64(numeric_values),
+                AggregateDirectColumnAccessor::Int64(minute_values),
+                true,
+            ) => self.update_numeric_minute_string_count_direct_slices(
+                rows,
+                row_ids,
+                dictionary_string_ids,
+                |row_index| AggregateIntegerKeyPart {
+                    bits: numeric_values[row_index].cast_unsigned(),
+                    signed: true,
+                },
+                |row_index| aggregate_prepared_minute_i64_value(minute_values[row_index]),
+            )?,
+            (
+                AggregateDirectColumnAccessor::Int64(numeric_values),
+                AggregateDirectColumnAccessor::Int64(minute_values),
+                false,
+            ) => self.update_numeric_minute_string_count_direct_slices(
+                rows,
+                row_ids,
+                dictionary_string_ids,
+                |row_index| AggregateIntegerKeyPart {
+                    bits: numeric_values[row_index].cast_unsigned(),
+                    signed: true,
+                },
+                |row_index| aggregate_raw_minute_i64_value(minute_values[row_index]),
+            )?,
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
+    fn update_numeric_minute_string_count_direct_slices<NumericFn, MinuteFn>(
+        &mut self,
+        rows: usize,
+        row_ids: &[u32],
+        dictionary_string_ids: &[u64],
+        mut numeric_for_row: NumericFn,
+        mut minute_for_row: MinuteFn,
+    ) -> Result<()>
+    where
+        NumericFn: FnMut(usize) -> AggregateIntegerKeyPart,
+        MinuteFn: FnMut(usize) -> Result<u8>,
+    {
+        let groups = self
+            .numeric_minute_string_count_groups
+            .get_or_insert_with(rustc_hash::FxHashMap::default);
+        reserve_hash_map_capacity(groups, rows, "numeric-minute-string direct-slice aggregate")?;
+        for (row_index, code) in row_ids.iter().copied().enumerate() {
+            let key = AggregateNumericMinuteStringKey::from_parts(
+                numeric_for_row(row_index),
+                minute_for_row(row_index)?,
+                aggregate_direct_utf8_dictionary_bound_id_for_code(
+                    dictionary_string_ids,
+                    code,
+                    "numeric-minute-string direct-slice string",
+                )?,
+            );
+            let count = groups.entry(key).or_insert(0);
+            *count = count.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-minute-string direct-slice aggregate compact count overflowed u64"
+                        .to_string(),
+                )
+            })?;
+        }
+        self.count_star_direct_updates = true;
+        self.numeric_minute_string_count_direct_updates = true;
+        self.numeric_minute_string_direct_slice_updates = true;
+        self.numeric_minute_string_direct_slice_update_rows = self
+            .numeric_minute_string_direct_slice_update_rows
+            .checked_add(usize_to_u64(rows)?)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-minute-string direct-slice aggregate update row count overflowed u64"
+                        .to_string(),
+                )
+            })?;
+        Ok(())
     }
 
     fn numeric_minute_string_group_roles_for_accessors(
@@ -33540,6 +33766,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "distinct_state_strategy": "none",
             "group_output_strategy": "capillary_streaming_numeric_minute_string_count_topk",
             "topk_retention_strategy": "cached_worst_numeric_minute_string_retained_window",
+            "numeric_minute_string_direct_slice_updates": self.numeric_minute_string_direct_slice_updates,
+            "numeric_minute_string_direct_slice_update_rows": self.numeric_minute_string_direct_slice_update_rows,
             "candidate_groups": groups.len(),
             "retained_candidate_groups": retained_cap.min(groups.len()),
             "evicted_or_spilled_group_count": 0,
@@ -35155,6 +35383,10 @@ impl<'a> GroupedAggregateStates<'a> {
             if self.numeric_minute_string_dictionary_code_reuse {
                 capillary_work_units.push("dictionary_code_bound_numeric_minute_string_key");
                 pulseweave_pressure_signals.push("dictionary_code_string_key_reuse");
+            }
+            if self.numeric_minute_string_direct_slice_updates {
+                capillary_work_units.push("numeric_minute_string_direct_slice_group_update");
+                pulseweave_pressure_signals.push("numeric_minute_string_direct_slice_update_rows");
             }
         }
         if self.compact_measure_direct_updates {
@@ -40344,6 +40576,79 @@ fn aggregate_direct_utf8_dictionary_bound_id(
                     .to_string(),
             )
         })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_utf8_dictionary_bound_id_for_code(
+    dictionary_string_ids: &[u64],
+    code: u32,
+    label: &str,
+) -> Result<u64> {
+    let code_index = usize::try_from(code).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex aggregate {label} dictionary code overflowed usize: {error}; no fallback execution was attempted"
+        ))
+    })?;
+    dictionary_string_ids
+        .get(code_index)
+        .copied()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "local Vortex aggregate {label} dictionary code referenced a missing dictionary value; no fallback execution was attempted"
+            ))
+        })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_prepared_minute_u64_value(value: u64) -> Result<u8> {
+    if value >= 60 {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex aggregate prepared minute key exceeded 59; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    u8::try_from(value).map_err(|_| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex aggregate prepared minute key exceeded u8; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_prepared_minute_i64_value(value: i64) -> Result<u8> {
+    if !(0..60).contains(&value) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex aggregate prepared signed minute key was negative or exceeded 59; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    u8::try_from(value).map_err(|_| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex aggregate prepared signed minute key exceeded u8; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_raw_minute_u64_value(value: u64) -> Result<u8> {
+    u8::try_from((value % 3_600) / 60).map_err(|_| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex aggregate direct minute key exceeded u8; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_raw_minute_i64_value(value: i64) -> Result<u8> {
+    u8::try_from(value.rem_euclid(3_600) / 60).map_err(|_| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex aggregate direct signed minute key exceeded u8; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -58364,6 +58669,8 @@ mod tests {
         );
         assert!(states.numeric_minute_string_count_groups.is_some());
         assert!(states.numeric_minute_string_count_direct_updates);
+        assert!(states.numeric_minute_string_direct_slice_updates);
+        assert_eq!(states.numeric_minute_string_direct_slice_update_rows, 5);
         assert!(
             states.string_interner.ids.capacity() >= 3,
             "dictionary-backed compact route should reserve by dictionary cardinality before hot updates"
@@ -58397,8 +58704,18 @@ mod tests {
         );
         assert!(
             budget
+                .capillary_work_units
+                .contains(&"numeric_minute_string_direct_slice_group_update".to_string())
+        );
+        assert!(
+            budget
                 .pulseweave_pressure_signals
                 .contains(&"dictionary_code_string_key_reuse".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"numeric_minute_string_direct_slice_update_rows".to_string())
         );
         let (row_count, summary) = states
             .result_row_count_and_summary(Some(2))
@@ -58413,6 +58730,14 @@ mod tests {
         assert_eq!(
             payload["topk_retention_strategy"],
             "cached_worst_numeric_minute_string_retained_window"
+        );
+        assert_eq!(
+            payload["numeric_minute_string_direct_slice_updates"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["numeric_minute_string_direct_slice_update_rows"],
+            serde_json::json!(5)
         );
         assert_eq!(
             payload["compact_group_state_strategy"],
@@ -58485,7 +58810,7 @@ mod tests {
             GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
                 .expect("states");
         let direct_accessors = vec![
-            AggregateDirectColumnAccessor::UInt64(vec![42, 42, 7, 7, 42]),
+            AggregateDirectColumnAccessor::Int64(vec![42, 42, 7, 7, 42]),
             AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids: vec![0, 0, 1, 1, 2],
                 values: vec![
@@ -58511,6 +58836,8 @@ mod tests {
                 .expect("roles")
                 .minute_column_prepared
         );
+        assert!(states.numeric_minute_string_direct_slice_updates);
+        assert_eq!(states.numeric_minute_string_direct_slice_update_rows, 5);
         let (row_count, summary) = states
             .result_row_count_and_summary(Some(2))
             .expect("result summary");
@@ -58524,6 +58851,14 @@ mod tests {
         assert_eq!(
             payload["aggregate_key_encoding_mode"],
             "typed_numeric_minute_dictionary_code_hash_key"
+        );
+        assert_eq!(
+            payload["numeric_minute_string_direct_slice_updates"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["numeric_minute_string_direct_slice_update_rows"],
+            serde_json::json!(5)
         );
         assert_eq!(payload["values"][0]["UserID"], serde_json::json!(7));
         assert_eq!(

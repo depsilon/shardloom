@@ -2878,6 +2878,14 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_aggregate_update_strategy",
         ),
         (
+            "numeric_minute_string_direct_slice_updates",
+            "local_primitive_numeric_minute_string_direct_slice_updates",
+        ),
+        (
+            "numeric_minute_string_direct_slice_update_rows",
+            "local_primitive_numeric_minute_string_direct_slice_update_rows",
+        ),
+        (
             "expression_fusion_strategy",
             "local_primitive_expression_fusion_strategy",
         ),

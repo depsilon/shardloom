@@ -1057,6 +1057,23 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         produced best-of-3 `9.213867459038738s` versus protected `9.730688542011194s`
         (`5.31%` faster), retained `topk_retention_strategy=cached_worst_numeric_minute_string_retained_window`,
         and kept `fallback_attempted=false` / `external_engine_invoked=false`.
+      - Completed 2026-09-04 implementation slice: the Q19 numeric-minute-string dictionary-code
+        route now admits a typed direct-slice update loop for non-null `Int64`/`UInt64` numeric
+        keys, raw or prepared `Int64`/`UInt64` minute columns, and non-null UTF-8 dictionary row ids.
+        The existing exact hash state, dictionary-bound string ids, cached-worst final top-K
+        retention, and deterministic tie semantics are unchanged; the slice removes per-row
+        accessor dispatch and records `numeric_minute_string_direct_slice_updates` plus updated row
+        counts in local primitive and CLI evidence. Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives grouped_aggregate_numeric_minute_string -- --nocapture`.
+        Targeted local 100M Q19 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q19_direct_slice_20260904T004113Z/summary.json`
+        produced runs `8.62326970801223s`, `7.022884582984261s`, and
+        `7.00159087497741s`; best improved from the protected retained
+        `9.213867459038738s` to `7.00159087497741s` (`24.00%` faster) while preserving
+        `candidate_groups=56384822`, `retained_candidate_groups=10`,
+        `local_primitive_numeric_minute_string_direct_slice_updates=true`,
+        `local_primitive_numeric_minute_string_direct_slice_update_rows=99997497`,
+        `fallback_attempted=false`, and `external_engine_invoked=false`.
     - [ ] Implement H/VH kernel packet `Q33 duplicate-promotion packed-pair aggregate`.
       - Ideas covered: Q33 duplicate-promotion Bloom/filter strategy, packed pair table, radix
         sort/RLE, parallel partitioned aggregation, and candidate segment directory.
