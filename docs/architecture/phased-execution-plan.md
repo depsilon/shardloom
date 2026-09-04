@@ -1142,6 +1142,24 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         reported `fallback_attempted=false` and `external_engine_invoked=false`. The runtime change
         was reverted. Do not retry row-direct compact active-code late-measure updates without first
         proving the per-row group-state update path cannot dominate the selective-string route.
+      - Rejected 2026-09-04 implementation attempt: a planner-level conjunct-ordering rule was
+        prototyped to sort pure `AND` predicate parts so embedded derived-length comparisons ran
+        before positive string `LIKE`/contains predicates, with negated string predicates last. The
+        intent was to transfer classic predicate-cost ordering into the Vortex pushdown expression
+        handed to Q23 while preserving exact SQL semantics. Focused validation passed:
+        `rustfmt --edition 2024 shardloom-vortex/src/local_primitives.rs --check`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_contains_pushdown -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted local 100M Q22/Q23 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q22_q23_pushdown_conjunct_order_20260904T031638Z/summary.json`
+        failed the retain gate: Q22 best regressed to `1.2619268329581246s` versus retained
+        `1.2129830840276554s`, and Q23 best regressed to `4.3739531670007855s` versus retained
+        `4.2945536660263315s`. Summary evidence reported `completed_runs=6`,
+        `fallback_attempted=false`, and `external_engine_invoked=false`. The runtime change was
+        reverted. Future Q23 work should target actual encoded predicate work avoided or scan
+        projection/measure decoding, not Vortex pushdown expression ordering.
     - [ ] Implement H/VH kernel packet `Q19 fixed-width tri-key grouped top-K`.
       - Ideas covered: Q19 three-key heavy-hitter, fixed-width tri-key, duplicate-promotion filter,
         morsel-local sketches, and radix exact fallback.
