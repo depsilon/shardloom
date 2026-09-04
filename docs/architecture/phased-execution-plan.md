@@ -1087,6 +1087,33 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         the hidden derived domain column is not yet dictionary-lifted enough to reduce Q29's
         transformed group-key cardinality; move this idea to the ingest/writer dictionary-lift
         work rather than retrying it in query execution.
+      - Completed 2026-09-04 implementation slice: the retained dense Q29 URL-domain accumulator
+        now admits a chunk-local exact partial-aggregate path when a sampled source dictionary has
+        enough repeated transformed domains to amortize global interner probes and per-domain merge
+        work. Each chunk builds exact URL-domain partial states from active dictionary values,
+        accumulates weighted `COUNT(*)`, `AVG(length(Referer))`, and exact UTF-8 min/max locally,
+        then interns each chunk domain once and merges the partial into the global dense
+        transformed-dictionary state. This preserves exact HAVING/order/LIMIT semantics and falls
+        back to the retained dense direct path for high-cardinality chunk dictionaries where the
+        sample does not show enough reuse. Focused validation passed:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives grouped_dense_general_measures_transformed_dictionary_uses_chunk_partials -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives transformed_dictionary -- --nocapture`,
+        and `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Full workspace validation passed with `cargo fmt --all -- --check`,
+        `cargo clippy --workspace --all-targets -- -D warnings`, and
+        `cargo test --workspace --all-targets`. Targeted local 100M Q29 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_chunk_domain_partials_20260904T034014Z/summary.json`
+        produced runs `10.42336300003808s`, `9.274564541992731s`, and
+        `9.27978608297417s`; best `9.274564541992731s` improves the retained dense-domain
+        baseline `9.870339999964926s` by `0.595775457972195s` (`6.04%`). Evidence reports
+        `aggregate_update_strategy=transformed_dictionary_dense_general_chunk_partial_group_update`,
+        `compact_group_state_strategy=dense_transformed_dictionary_chunk_partial_measure_group_state`,
+        `group_state_mode=dense_transformed_dictionary_chunk_partial_accumulators`,
+        `group_key_storage=dense_transformed_dictionary_interned_utf8_key`, `74` selected candidate
+        groups, `25` retained rows, `1,798,248` decoded/interned domain strings, and
+        `fallback_attempted=false` / `external_engine_invoked=false`. Remaining Q29 work still needs
+        persisted exact transform summaries or writer-lifted domain dictionaries to reduce the
+        source dictionary transform count itself.
     - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
       - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
         conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.

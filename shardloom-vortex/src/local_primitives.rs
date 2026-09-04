@@ -23785,6 +23785,9 @@ struct GroupedAggregateStates<'a> {
     transformed_dictionary_key_cache_saturated: bool,
     dictionary_group_compact_measure_direct_updates: bool,
     transformed_dictionary_dense_general_direct_updates: bool,
+    transformed_dictionary_dense_general_chunk_partials: bool,
+    transformed_dictionary_dense_general_chunk_partial_input_values: u64,
+    transformed_dictionary_dense_general_chunk_partial_groups: u64,
     transformed_dictionary_dense_general_transform_fusion: bool,
     transformed_dictionary_general_direct_updates: bool,
     transformed_dictionary_general_transform_fusion: bool,
@@ -23877,6 +23880,11 @@ struct TransformedDictionaryDenseGeneralState {
     min_utf8: Option<std::sync::Arc<str>>,
     max_utf8: Option<std::sync::Arc<str>>,
 }
+
+#[cfg(feature = "vortex-local-primitives")]
+const TRANSFORMED_DICTIONARY_DENSE_GENERAL_CHUNK_PARTIAL_SAMPLE_LIMIT: usize = 512;
+#[cfg(feature = "vortex-local-primitives")]
+const TRANSFORMED_DICTIONARY_DENSE_GENERAL_CHUNK_PARTIAL_MIN_SAMPLE: usize = 64;
 
 #[cfg(feature = "vortex-local-primitives")]
 struct TransformedDictionaryDenseGeneralOrderCandidate {
@@ -25864,6 +25872,64 @@ impl TransformedDictionaryDenseGeneralState {
         Ok(())
     }
 
+    fn merge_chunk_partial(
+        &mut self,
+        plan: TransformedDictionaryDenseGeneralPlan,
+        partial: &Self,
+    ) -> Result<()> {
+        if partial.row_count == 0 {
+            return Ok(());
+        }
+        self.row_count = self.row_count.checked_add(partial.row_count).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex dense transformed-dictionary aggregate count overflowed u64 during chunk-partial merge"
+                    .to_string(),
+            )
+        })?;
+        if plan.needs_length_additive {
+            self.length_sum += partial.length_sum;
+            if !self.length_sum.is_finite() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex dense transformed-dictionary aggregate length sum became non-finite during chunk-partial merge; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+        }
+        if plan.needs_length_min
+            && let Some(length) = partial.min_length
+        {
+            self.min_length = Some(
+                self.min_length
+                    .map_or(length, |current| current.min(length)),
+            );
+        }
+        if plan.needs_length_max
+            && let Some(length) = partial.max_length
+        {
+            self.max_length = Some(
+                self.max_length
+                    .map_or(length, |current| current.max(length)),
+            );
+        }
+        if plan.needs_utf8_min
+            && let Some(value) = partial.min_utf8.as_ref()
+        {
+            match self.min_utf8.as_ref() {
+                Some(current) if current.as_ref() <= value.as_ref() => {}
+                Some(_) | None => self.min_utf8 = Some(std::sync::Arc::clone(value)),
+            }
+        }
+        if plan.needs_utf8_max
+            && let Some(value) = partial.max_utf8.as_ref()
+        {
+            match self.max_utf8.as_ref() {
+                Some(current) if current.as_ref() >= value.as_ref() => {}
+                Some(_) | None => self.max_utf8 = Some(std::sync::Arc::clone(value)),
+            }
+        }
+        Ok(())
+    }
+
     fn result_value_pairs(
         &self,
         template: &SimpleAggregateStates,
@@ -26605,6 +26671,9 @@ impl<'a> GroupedAggregateStates<'a> {
             transformed_dictionary_key_cache_saturated: false,
             dictionary_group_compact_measure_direct_updates: false,
             transformed_dictionary_dense_general_direct_updates: false,
+            transformed_dictionary_dense_general_chunk_partials: false,
+            transformed_dictionary_dense_general_chunk_partial_input_values: 0,
+            transformed_dictionary_dense_general_chunk_partial_groups: 0,
             transformed_dictionary_dense_general_transform_fusion: false,
             transformed_dictionary_general_direct_updates: false,
             transformed_dictionary_general_transform_fusion: false,
@@ -30332,6 +30401,38 @@ impl<'a> GroupedAggregateStates<'a> {
             self.transformed_dictionary_dense_general_groups =
                 Some(rustc_hash::FxHashMap::default());
         }
+        if transformed_dictionary_dense_general_should_use_chunk_partials(group_values, &counts) {
+            self.update_dense_general_direct_from_transformed_dictionary_chunk_partials(
+                plan,
+                group_values,
+                &counts,
+            )?;
+        } else {
+            self.update_dense_general_direct_from_transformed_dictionary_values(
+                plan,
+                group_values,
+                &counts,
+            )?;
+        }
+        self.count_star_direct_updates = self.state_template.has_count_star_measure();
+        self.chunk_dictionary_direct_updates = true;
+        self.transformed_dictionary_direct_updates = true;
+        self.transformed_dictionary_dense_general_direct_updates = true;
+        if plan.fused_transform {
+            self.transformed_dictionary_dense_general_transform_fusion = true;
+        }
+        if plan.needs_utf8_minmax() {
+            self.transformed_dictionary_lazy_utf8_minmax_updates = true;
+        }
+        Ok(true)
+    }
+
+    fn update_dense_general_direct_from_transformed_dictionary_values(
+        &mut self,
+        plan: TransformedDictionaryDenseGeneralPlan,
+        group_values: &[std::sync::Arc<str>],
+        counts: &[u64],
+    ) -> Result<()> {
         if let Some(groups) = self.transformed_dictionary_dense_general_groups.as_mut() {
             reserve_hash_map_capacity(
                 groups,
@@ -30339,7 +30440,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 "dense transformed-dictionary general grouped aggregate",
             )?;
         }
-        for (value, count) in group_values.iter().zip(counts) {
+        for (value, &count) in group_values.iter().zip(counts) {
             if count == 0 {
                 continue;
             }
@@ -30360,17 +30461,63 @@ impl<'a> GroupedAggregateStates<'a> {
                 .or_default()
                 .update_weighted_utf8_dictionary_value(plan, value, count)?;
         }
-        self.count_star_direct_updates = self.state_template.has_count_star_measure();
-        self.chunk_dictionary_direct_updates = true;
-        self.transformed_dictionary_direct_updates = true;
-        self.transformed_dictionary_dense_general_direct_updates = true;
-        if plan.fused_transform {
-            self.transformed_dictionary_dense_general_transform_fusion = true;
+        Ok(())
+    }
+
+    fn update_dense_general_direct_from_transformed_dictionary_chunk_partials(
+        &mut self,
+        plan: TransformedDictionaryDenseGeneralPlan,
+        group_values: &[std::sync::Arc<str>],
+        counts: &[u64],
+    ) -> Result<()> {
+        let active_values = counts.iter().filter(|count| **count > 0).count();
+        let mut partials =
+            rustc_hash::FxHashMap::<&str, TransformedDictionaryDenseGeneralState>::default();
+        reserve_hash_map_capacity(
+            &mut partials,
+            active_values.min(group_values.len()),
+            "dense transformed-dictionary chunk-partial aggregate",
+        )?;
+        for (value, &count) in group_values.iter().zip(counts) {
+            if count == 0 {
+                continue;
+            }
+            partials
+                .entry(aggregate_url_domain_str(value))
+                .or_default()
+                .update_weighted_utf8_dictionary_value(plan, value, count)?;
         }
-        if plan.needs_utf8_minmax() {
-            self.transformed_dictionary_lazy_utf8_minmax_updates = true;
+        if let Some(groups) = self.transformed_dictionary_dense_general_groups.as_mut() {
+            reserve_hash_map_capacity(
+                groups,
+                partials.len(),
+                "dense transformed-dictionary general grouped aggregate",
+            )?;
         }
-        Ok(true)
+        self.transformed_dictionary_dense_general_chunk_partials = true;
+        self.transformed_dictionary_dense_general_chunk_partial_input_values = self
+            .transformed_dictionary_dense_general_chunk_partial_input_values
+            .saturating_add(u64::try_from(active_values).unwrap_or(u64::MAX));
+        self.transformed_dictionary_dense_general_chunk_partial_groups = self
+            .transformed_dictionary_dense_general_chunk_partial_groups
+            .saturating_add(u64::try_from(partials.len()).unwrap_or(u64::MAX));
+        for (domain, partial) in partials {
+            let key_id = self.string_interner.intern(domain)?;
+            let groups = self
+                .transformed_dictionary_dense_general_groups
+                .as_mut()
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex dense transformed-dictionary aggregate state was missing; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+            groups
+                .entry(key_id)
+                .or_default()
+                .merge_chunk_partial(plan, &partial)?;
+        }
+        Ok(())
     }
 
     #[allow(clippy::too_many_lines)]
@@ -32111,6 +32258,23 @@ impl<'a> GroupedAggregateStates<'a> {
             "transformed_dictionary_dense_general_updates",
             self.transformed_dictionary_dense_general_direct_updates,
         )?;
+        json_object_insert_bool(
+            &mut payload,
+            "transformed_dictionary_dense_general_chunk_partials",
+            self.transformed_dictionary_dense_general_chunk_partials,
+        )?;
+        if self.transformed_dictionary_dense_general_chunk_partials {
+            json_object_insert_u64(
+                &mut payload,
+                "transformed_dictionary_dense_general_chunk_partial_input_values",
+                self.transformed_dictionary_dense_general_chunk_partial_input_values,
+            )?;
+            json_object_insert_u64(
+                &mut payload,
+                "transformed_dictionary_dense_general_chunk_partial_groups",
+                self.transformed_dictionary_dense_general_chunk_partial_groups,
+            )?;
+        }
         json_object_insert_bool(
             &mut payload,
             "transformed_dictionary_lazy_utf8_minmax_updates",
@@ -34369,6 +34533,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "transformed_dictionary_compact_code_pair_partial_group_update"
         } else if self.dictionary_group_compact_measure_direct_updates {
             "dictionary_group_compact_count_sum_avg_group_update"
+        } else if self.transformed_dictionary_dense_general_chunk_partials {
+            "transformed_dictionary_dense_general_chunk_partial_group_update"
         } else if self.transformed_dictionary_compact_direct_updates {
             "transformed_dictionary_compact_count_sum_avg_group_update"
         } else if self.transformed_dictionary_dense_general_direct_updates {
@@ -34489,6 +34655,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "chunk_dictionary_compact_count_sum_avg_group_state"
         } else if self.transformed_dictionary_compact_direct_updates {
             "chunk_dictionary_transformed_compact_count_sum_avg_group_state"
+        } else if self.transformed_dictionary_dense_general_chunk_partials {
+            "dense_transformed_dictionary_chunk_partial_measure_group_state"
         } else if self.transformed_dictionary_dense_general_direct_updates {
             "dense_transformed_dictionary_general_measure_group_state"
         } else if self.transformed_dictionary_general_direct_updates {
@@ -34645,6 +34813,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "chunk_dictionary_compact_measure_code_map"
         } else if self.transformed_dictionary_compact_direct_updates {
             "transformed_chunk_dictionary_compact_measure_code_map"
+        } else if self.transformed_dictionary_dense_general_chunk_partials {
+            "dense_transformed_dictionary_chunk_partial_accumulators"
         } else if self.transformed_dictionary_dense_general_direct_updates {
             "dense_transformed_dictionary_general_accumulators"
         } else if self.transformed_dictionary_general_direct_updates {
@@ -35532,6 +35702,12 @@ impl<'a> GroupedAggregateStates<'a> {
             pulseweave_pressure_signals.push("dense_general_measure_state_memory");
             pulseweave_pressure_signals.push("dictionary_group_transform_reuse");
             pulseweave_pressure_signals.push("row_state_update_bypass");
+            if self.transformed_dictionary_dense_general_chunk_partials {
+                capillary_work_units.push("transformed_dictionary_dense_general_chunk_partial");
+                capillary_work_units.push("dictionary_domain_partial_measure_merge");
+                pulseweave_pressure_signals.push("chunk_domain_partial_groups");
+                pulseweave_pressure_signals.push("global_intern_probe_reduction");
+            }
         }
         if self.dictionary_group_compact_measure_direct_updates {
             capillary_work_units.push("dictionary_group_compact_measure_update");
@@ -41268,6 +41444,30 @@ fn dictionary_value_counts_for_rows(
         }
     }
     Ok(counts)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn transformed_dictionary_dense_general_should_use_chunk_partials(
+    group_values: &[std::sync::Arc<str>],
+    counts: &[u64],
+) -> bool {
+    if group_values.len() < TRANSFORMED_DICTIONARY_DENSE_GENERAL_CHUNK_PARTIAL_MIN_SAMPLE {
+        return false;
+    }
+    let mut sampled = 0_usize;
+    let mut unique_domains = rustc_hash::FxHashSet::<&str>::default();
+    for (value, count) in group_values.iter().zip(counts) {
+        if *count == 0 {
+            continue;
+        }
+        sampled = sampled.saturating_add(1);
+        unique_domains.insert(aggregate_url_domain_str(value));
+        if sampled >= TRANSFORMED_DICTIONARY_DENSE_GENERAL_CHUNK_PARTIAL_SAMPLE_LIMIT {
+            break;
+        }
+    }
+    sampled >= TRANSFORMED_DICTIONARY_DENSE_GENERAL_CHUNK_PARTIAL_MIN_SAMPLE
+        && unique_domains.len().saturating_mul(4) <= sampled.saturating_mul(3)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -62083,6 +62283,121 @@ mod tests {
         assert_eq!(rows[0]["c"], serde_json::json!(4));
         assert_eq!(rows[0]["l"], serde_json::json!(example_avg));
         assert_eq!(rows[0]["m"], serde_json::json!("http://example.test/a"));
+    }
+
+    #[test]
+    fn grouped_dense_general_measures_transformed_dictionary_uses_chunk_partials() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            Vec::new(),
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "c".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(ColumnRef::new("Referer").expect("column")),
+                    "l".to_string(),
+                )
+                .with_value_transform("length"),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "min",
+                    Some(ColumnRef::new("Referer").expect("column")),
+                    "m".to_string(),
+                ),
+            ],
+        )
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "k".to_string(),
+            ColumnRef::new("Referer").expect("column"),
+            "url_domain",
+        )])
+        .with_having(vec![crate::VortexAggregateHavingExpr::new(
+            "c",
+            ComparisonOp::GtEq,
+            "2",
+        )])
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
+        let declared_columns = vec!["Referer".to_string()];
+        let mut values = Vec::new();
+        let mut row_ids = Vec::new();
+        for index in 0..80_u32 {
+            values.push(std::sync::Arc::<str>::from(format!(
+                "http://example.test/{index:03}"
+            )));
+            row_ids.push(index);
+        }
+        for index in 0..20_u32 {
+            values.push(std::sync::Arc::<str>::from(format!(
+                "https://other.test/{index:03}"
+            )));
+            row_ids.push(80 + index);
+        }
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, false)
+                .expect("states");
+        let accessors = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids,
+            values,
+            value_nulls: None,
+            row_nulls: None,
+            source: AggregateUtf8DictionarySource::VortexDictArray,
+        }];
+
+        assert!(
+            states
+                .update_dense_general_direct_from_transformed_dictionary(&accessors, None)
+                .expect("dense transformed dictionary general chunk-partial update")
+        );
+
+        let budget = states
+            .state_budget_report(&request, 100, 1)
+            .expect("state budget");
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"transformed_dictionary_dense_general_chunk_partial".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"global_intern_probe_reduction".to_string())
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "transformed_dictionary_dense_general_chunk_partial_group_update"
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "dense_transformed_dictionary_chunk_partial_measure_group_state"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "dense_transformed_dictionary_chunk_partial_accumulators"
+        );
+        assert_eq!(
+            payload["transformed_dictionary_dense_general_chunk_partials"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["transformed_dictionary_dense_general_chunk_partial_input_values"],
+            serde_json::json!(100)
+        );
+        assert_eq!(
+            payload["transformed_dictionary_dense_general_chunk_partial_groups"],
+            serde_json::json!(2)
+        );
+        assert_eq!(payload["decoded_string_count"], serde_json::json!(2));
+        let rows = payload["values"].as_array().expect("values");
+        assert_eq!(rows[0]["k"], serde_json::json!("example.test"));
+        assert_eq!(rows[0]["c"], serde_json::json!(80));
+        assert_eq!(rows[0]["m"], serde_json::json!("http://example.test/000"));
+        assert_eq!(rows[1]["k"], serde_json::json!("other.test"));
+        assert_eq!(rows[1]["c"], serde_json::json!(20));
+        assert_eq!(rows[1]["m"], serde_json::json!("https://other.test/000"));
     }
 
     #[test]
