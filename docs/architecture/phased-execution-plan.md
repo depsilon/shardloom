@@ -449,6 +449,34 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         batches, memory budget, and pressure decisions.
       - Retain/drop gate: retain only if UAT shows improved ingest or stable ingest with clearer
         production-grade attribution needed to retain later writer/layout changes.
+      - Rejected 2026-09-04 implementation attempt: an evidence/admission-only
+        `VortexIngestResourceGovernorPlan` was threaded through `VortexWriterPhysicalDesignPlan`
+        and public CLI prepare evidence, with source/array prefetch capped by the source executor,
+        writer-slot reservation evidence, low-memory fail-closed admission before target creation,
+        and no external-engine/fallback invocation. Focused validation passed:
+        `cargo fmt --all -- --check`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io ingest_resource_governor -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io local_flat_columnar_stream_source_writes_without_buffered_batch_source -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io local_flat_columnar_stream_source_prefetches_vortex_arrays_when_parallelism_available -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io local_flat_columnar_stream_resource_governor_blocks_too_small_memory_budget -- --nocapture`,
+        `cargo test -p shardloom-cli --features release-user-surfaces vortex_ingest_max_parallelism_propagates_to_public_prepare_evidence -- --nocapture`,
+        `cargo clippy -p shardloom-vortex --features vortex-write,universal-format-io --all-targets -- -D warnings`,
+        `cargo clippy -p shardloom-cli --features release-user-surfaces --all-targets -- -D warnings`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Candidate replacement-ingest UAT used
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/bin/shardloom-resource-governor-candidate`
+        against the separate target
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m-resource-governor-candidate.vortex`
+        with logs at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260904T053525Z`.
+        The harness stopped at `181s` with `stop_reason=min_progress_gb_not_reached`,
+        `candidate_total_gb=0.000`, `target_exists=false`, and `stdout_json_ok=false`, while the
+        protected `271s` replacement-ingest reference had visible staged output before this point.
+        The runtime and CLI evidence changes were reverted. Do not retry a governor-only evidence
+        wrapper in the current writer path; the next viable ingest work should either change real
+        source/derive/writer scheduling or use the retained layout/codec portfolio gate to prove a
+        candidate before it reaches the public replacement path.
     - [ ] Implement H/VH ingest packet `retained layout/codec portfolio admission`.
       - Ideas covered: sampled layout/codec portfolio, derived-column admission, and load-time
         physical design without committing to unproven writer constants.
