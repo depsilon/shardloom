@@ -878,6 +878,20 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `fallback_attempted=false` / `external_engine_invoked=false`. Retain this as a
         Q34/Q35-family improvement, but require the next full-43 UAT to watch the slight Q34
         regression.
+      - Rejected 2026-09-04 implementation slice: replacing the string top-K retained-boundary
+        proof precheck's string-valued lower-bound candidate sort with a count-only nth-selection
+        proof avoided candidate string fetch/clone during proof admission, but targeted local 100M
+        Q34/Q35 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_count_only_lower_bound_20260904T014554Z/summary.json`
+        regressed Q34 to best `26.193807667004876s` and Q35 to best
+        `25.68156395899132s`; the shared best-of-3 sum was `51.8753716259962s` versus retained
+        `50.355909125006s`. The route still reported
+        `string_dictionary_code_count_topk_heavy_hitter_late_recount`,
+        `string_count_topk_candidate_signature_prefilter=true`,
+        `string_count_topk_candidate_code_prefilter=true`, zero candidate-free chunks, and
+        `fallback_attempted=false` / `external_engine_invoked=false`. The runtime change was
+        dropped. Future Q34/Q35 work should avoid proof-only micro-optimizations unless paired with
+        a measured reduction in second-pass dictionary binding or exact recount work.
     - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
       - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
         recount, and adaptive radix exact path for high-cardinality numeric+string grouping.
