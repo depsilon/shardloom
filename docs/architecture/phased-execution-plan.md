@@ -1343,6 +1343,24 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         reported `fallback_attempted=false` and `external_engine_invoked=false`. The runtime change
         was reverted. Do not retry row-direct compact active-code late-measure updates without first
         proving the per-row group-state update path cannot dominate the selective-string route.
+      - Rejected 2026-09-04 implementation attempt: a compact late-measure state for the Q23-shaped
+        string top-K route was prototyped to keep `COUNT(*)`, dictionary UTF-8 `MIN(...)`, and
+        direct integer `COUNT(DISTINCT ...)` in a specialized map keyed by interned string id, with
+        inline one-to-four-value distinct storage and direct result rendering. Focused validation
+        passed before UAT:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`,
+        `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        The targeted local 100M Q22/Q23 UAT candidate did not produce a valid summary: the first
+        harness run exceeded the retain gate, a bounded-capture rerun remained stuck beyond the
+        per-run timeout, and the empty candidate output directory plus candidate binary were
+        removed. The runtime and public evidence-mapping changes were reverted, leaving the retained
+        Q22/Q23 reference at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q22_q23_first_pass_late_measure_flattened_20260904T000520Z/summary.json`
+        unchanged (`Q22` best `1.2129830840276554s`, `Q23` best `4.2945536660263315s`). Do not
+        retry a final compact late-measure map for this route without first proving the current
+        general late-measure state is the dominant cost under bounded-output UAT.
       - Rejected 2026-09-04 implementation attempt: a planner-level conjunct-ordering rule was
         prototyped to sort pure `AND` predicate parts so embedded derived-length comparisons ran
         before positive string `LIKE`/contains predicates, with negated string predicates last. The
