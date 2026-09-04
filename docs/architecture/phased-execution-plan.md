@@ -412,6 +412,27 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         row-level replay caches inside the current embedded-derived reader; it must either lift from
         real source dictionaries without changing writer layout, or move hidden derivatives into a
         compact native metadata representation outside the row-batch writer payload.
+      - Rejected 2026-09-04 implementation attempt: a narrower typed plain-UTF8 derived-builder
+        specialization removed per-row dynamic UTF-8 array dispatch for plain `Utf8`, `LargeUtf8`,
+        and `Utf8View` batches while preserving the same hidden dictionary output schema and the
+        retained writer codec/profile. Focused validation passed:
+        `cargo fmt --all -- --check`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io embedded_plain_utf8_paths_preserve_compact_derived_metadata -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io embedded_derived -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io plain_utf8 -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io streaming_vortex_write_preserves -- --nocapture`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Candidate replacement-ingest UAT used the separate target
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m-typed-plain-derived-candidate.vortex`
+        with logs at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260904T042153Z`.
+        The run was stopped after `180s` because progress samples through `150s` still reported
+        `candidate_total_gb=0.000` and no final target artifact, while the retained `271s`
+        reference had already staged `18.016GB` at `151s`. The temp candidate artifact was cleaned
+        and the runtime change was reverted. Do not retry plain-array micro-specialization inside
+        the current embedded-derived reader unless it is paired with a measured native compact
+        derived metadata representation or a writer API change that proves earlier byte emission.
     - [ ] Implement H/VH ingest packet `single resource governor`.
       - Ideas covered: one governor for source workers, derived builders, Arrow-to-Vortex
         conversion, compression, writer feed, and final Vortex sink pressure.
