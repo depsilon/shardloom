@@ -2878,6 +2878,14 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_aggregate_update_strategy",
         ),
         (
+            "numeric_minute_string_direct_slice_updates",
+            "local_primitive_numeric_minute_string_direct_slice_updates",
+        ),
+        (
+            "numeric_minute_string_direct_slice_update_rows",
+            "local_primitive_numeric_minute_string_direct_slice_update_rows",
+        ),
+        (
             "expression_fusion_strategy",
             "local_primitive_expression_fusion_strategy",
         ),
@@ -3031,6 +3039,34 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_string_count_topk_heavy_hitter_second_pass",
         ),
         (
+            "string_count_topk_late_measure_second_pass",
+            "local_primitive_string_count_topk_late_measure_second_pass",
+        ),
+        (
+            "string_count_topk_first_pass_late_measures",
+            "local_primitive_string_count_topk_first_pass_late_measures",
+        ),
+        (
+            "string_count_topk_first_pass_late_measure_rows",
+            "local_primitive_string_count_topk_first_pass_late_measure_rows",
+        ),
+        (
+            "string_count_topk_first_pass_late_measure_row_cap",
+            "local_primitive_string_count_topk_first_pass_late_measure_row_cap",
+        ),
+        (
+            "string_count_topk_first_pass_late_measure_group_cap",
+            "local_primitive_string_count_topk_first_pass_late_measure_group_cap",
+        ),
+        (
+            "string_count_topk_first_pass_late_measure_disabled",
+            "local_primitive_string_count_topk_first_pass_late_measure_disabled",
+        ),
+        (
+            "string_count_topk_late_measure_candidate_groups",
+            "local_primitive_string_count_topk_late_measure_candidate_groups",
+        ),
+        (
             "string_count_topk_heavy_hitter_candidate_groups",
             "local_primitive_string_count_topk_heavy_hitter_candidate_groups",
         ),
@@ -3093,6 +3129,50 @@ fn append_local_primitive_result_summary_evidence_fields(
         (
             "numeric_utf8_topk_candidate_free_rows_skipped",
             "local_primitive_numeric_utf8_topk_candidate_free_rows_skipped",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_directory_updates",
+            "local_primitive_numeric_pair_late_measure_near_unique_directory_updates",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_rows",
+            "local_primitive_numeric_pair_late_measure_near_unique_rows",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_seen_keys",
+            "local_primitive_numeric_pair_late_measure_near_unique_seen_keys",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_duplicate_keys",
+            "local_primitive_numeric_pair_late_measure_near_unique_duplicate_keys",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_directory_released_before_second_pass",
+            "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_updates",
+            "local_primitive_grouped_count_distinct_pair_preunion_updates",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_input_rows",
+            "local_primitive_grouped_count_distinct_pair_preunion_input_rows",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_unique_pairs",
+            "local_primitive_grouped_count_distinct_pair_preunion_unique_pairs",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_chunk_group_partials",
+            "local_primitive_grouped_count_distinct_pair_preunion_chunk_group_partials",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_chunk_groups",
+            "local_primitive_grouped_count_distinct_pair_preunion_chunk_groups",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_duplicate_rows_elided",
+            "local_primitive_grouped_count_distinct_pair_preunion_duplicate_rows_elided",
         ),
         (
             "string_count_distinct_topk_heavy_hitter_second_pass",
