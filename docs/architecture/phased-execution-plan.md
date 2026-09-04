@@ -907,6 +907,24 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `fallback_attempted=false` / `external_engine_invoked=false`. The runtime change was
         dropped. Future Q34/Q35 work should avoid proof-only micro-optimizations unless paired with
         a measured reduction in second-pass dictionary binding or exact recount work.
+      - Completed 2026-09-04 implementation slice: count-only string heavy-hitter policy now uses
+        a `32,768` route-local candidate window while leaving string count-distinct and
+        numeric+UTF8 heavy-hitter windows at `65,536`. This reduces Q34/Q35 exact recount
+        candidate pressure without weakening the proof-bound route. Focused validation:
+        `rustfmt --edition 2024 shardloom-vortex/src/local_primitives.rs --check`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives physical_policy_classifies_string_and_numeric_utf8_heavy_hitters -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted local 100M Q34/Q35 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_count_only_window_20260904T030659Z/summary.json`
+        produced Q34 best `24.3785597080132s` and Q35 best `23.853227040963247s`; the
+        shared best-of-3 sum improved from retained `50.355909125006s` to
+        `48.23178674897645s` (`4.22%` faster). Evidence reported
+        `string_count_topk_heavy_hitter_capacity=32768`,
+        `string_count_topk_heavy_hitter_candidate_groups=20544` versus prior `48086`,
+        `string_count_topk_heavy_hitter_exact_proof=true`,
+        `fallback_attempted=false`, and `external_engine_invoked=false`.
     - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
       - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
         recount, and adaptive radix exact path for high-cardinality numeric+string grouping.

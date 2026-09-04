@@ -1318,6 +1318,7 @@ impl VortexLocalPrimitiveResourceEnvelope {
     pub const DEFAULT_MAX_PARALLELISM: usize = 2;
     pub const DEFAULT_CAPILLARY_UNIT_TARGET_ROWS: usize = 262_144;
     pub const DEFAULT_HEAVY_HITTER_CAPACITY: usize = 65_536;
+    pub const COUNT_ONLY_STRING_HEAVY_HITTER_CAPACITY: usize = 32_768;
     pub const DEFAULT_SORT_RETENTION_FLUSH_MULTIPLIER: usize = 64;
     pub const DEFAULT_SORT_RETENTION_FLUSH_SLACK_ROWS: usize = 4096;
     pub const DEFAULT_WRITER_ROW_BLOCK_TARGET_ROWS: usize = 262_144;
@@ -1587,9 +1588,9 @@ impl VortexLocalPrimitiveExecutionPolicy {
                 rejected_alternatives.push("full_payload_materialization_before_topk");
             }
             "string_heavy_hitter_topk" => {
-                envelope.string_topk_heavy_hitter_capacity = envelope
-                    .string_topk_heavy_hitter_capacity
-                    .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+                envelope.string_topk_heavy_hitter_capacity =
+                    VortexLocalPrimitiveResourceEnvelope::COUNT_ONLY_STRING_HEAVY_HITTER_CAPACITY;
+                rejected_alternatives.push("oversized_count_only_string_heavy_hitter_window");
                 rejected_alternatives.push("near_input_cardinality_numeric_pair_late_measure");
             }
             "string_count_distinct_heavy_hitter_topk" => {
@@ -44621,8 +44622,24 @@ mod tests {
                 .with_source_order_limit(10);
         let policy =
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("resource policy");
-        let (_effective, string_report) = policy.with_physical_policy_for_request(&string_request);
+        let (string_effective, string_report) =
+            policy.with_physical_policy_for_request(&string_request);
         assert_eq!(string_report.route_family, "string_heavy_hitter_topk");
+        assert_eq!(
+            string_effective
+                .resource_envelope
+                .string_topk_heavy_hitter_capacity,
+            VortexLocalPrimitiveResourceEnvelope::COUNT_ONLY_STRING_HEAVY_HITTER_CAPACITY
+        );
+        assert_eq!(
+            string_report.selected_string_topk_heavy_hitter_capacity,
+            VortexLocalPrimitiveResourceEnvelope::COUNT_ONLY_STRING_HEAVY_HITTER_CAPACITY
+        );
+        assert!(
+            string_report
+                .rejected_alternatives
+                .contains(&"oversized_count_only_string_heavy_hitter_window".to_string())
+        );
 
         let numeric_utf8_aggregate = VortexSimpleAggregateRequest::grouped(
             vec![
@@ -44645,6 +44662,10 @@ mod tests {
             numeric_utf8_report.route_family,
             "numeric_utf8_heavy_hitter_topk"
         );
+        assert_eq!(
+            numeric_utf8_report.selected_numeric_utf8_topk_heavy_hitter_capacity,
+            VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY
+        );
 
         let count_distinct_aggregate = VortexSimpleAggregateRequest::grouped(
             vec![ColumnRef::new("SearchPhrase").expect("column")],
@@ -44663,6 +44684,10 @@ mod tests {
         assert_eq!(
             count_distinct_report.route_family,
             "string_count_distinct_heavy_hitter_topk"
+        );
+        assert_eq!(
+            count_distinct_report.selected_string_topk_heavy_hitter_capacity,
+            VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY
         );
         assert!(
             count_distinct_report
