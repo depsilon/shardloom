@@ -907,6 +907,17 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         (`8.31%` faster), with `59979` candidate groups, `1871` candidate string-id partitions,
         `numeric_utf8_topk_candidate_utf8_id_partition_reuse=true`, and no fallback/external-engine
         invocation.
+      - Rejected 2026-09-04 implementation slice: extending the string candidate
+        length/prefix/suffix signature prefilter to the Q17 numeric+UTF8 exact recount did activate
+        `local_primitive_numeric_utf8_topk_candidate_signature_prefilter=true` before full interner
+        lookup, but targeted local 100M Q17 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q17_signature_prefilter_20260904T012355Z/summary.json`
+        produced runs `16.15695070900336s`, `14.758894916973077s`, and
+        `14.922318750002887s`; best `14.758894916973077s` was slower than the retained
+        `14.60625249997247s` Q17 route and the local `14.371960791002493s` hint. The runtime change
+        was dropped. Do not retry dictionary-value signature screening for Q17 unless it is moved
+        out of the per-chunk second-pass setup or paired with a measured reduction in row-level
+        exact recount work.
     - [ ] Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.
       - Ideas covered: Q29 fused weighted-dictionary kernel, cross-chunk transform memo, persisted
         exact transform code, dense domain partial states, and exact segment dictionary summaries.
