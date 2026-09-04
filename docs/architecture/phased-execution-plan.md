@@ -515,6 +515,24 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260903T232520Z`,
         producing the expected `38,147,848,068` byte `.vortex` artifact. Do not retry simple
         compression frame-size tuning outside the retained layout/codec portfolio gate.
+      - Rejected 2026-09-04 implementation slice: a report-only retained layout/codec portfolio
+        admission evidence object was added to the Vortex layout write advisor and projected through
+        the public prepare evidence, including selected retained profile, known rejected profiles,
+        query-answer-sidecar disabled status, and no-fallback/no-external-engine fields. Focused
+        layout advisor, CLI projection, numeric UTF8, transformed-dictionary, and count-distinct
+        tests passed, as did `cargo fmt --all -- --check`,
+        `cargo clippy --workspace --all-targets -- -D warnings`,
+        `cargo test --workspace --all-targets`,
+        `cargo clippy -p shardloom-vortex --features vortex-write,universal-format-io --all-targets -- -D warnings`,
+        and
+        `cargo clippy -p shardloom-cli --features release-user-surfaces --all-targets -- -D warnings`.
+        Replacement-ingest UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260904T060114Z`
+        completed successfully but took `301s` for the same `38,147,848,068` byte artifact versus
+        the protected `271s` reference. The runtime and CLI changes were reverted and the failed
+        candidate artifact was deleted. Do not retry an evidence-only retained-profile wrapper; the
+        next viable portfolio implementation must run isolated pre-public candidate writes or change
+        the real source/derive/writer pipeline enough to improve the replacement-ingest gate.
     - [ ] Build a staged pipeline for source read, embedded-derived construction, Arrow-to-Vortex
       conversion, compression/layout preparation, ordered final writer feed, digest, and atomic
       commit, with bounded queues and explicit single-artifact cleanup.
