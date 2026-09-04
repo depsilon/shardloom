@@ -23305,6 +23305,19 @@ impl SimpleAggregateStates {
         Ok(())
     }
 
+    fn merge_preaggregated_from(&mut self, other: &Self) -> Result<()> {
+        if self.states.len() != other.states.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate preaggregated merge reached mismatched measure widths; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        for (target, source) in self.states.iter_mut().zip(&other.states) {
+            target.merge_preaggregated_from(source)?;
+        }
+        Ok(())
+    }
+
     fn update_count_distinct_preunion_value_at(
         &mut self,
         state_index: usize,
@@ -23756,6 +23769,8 @@ struct GroupedAggregateStates<'a> {
     grouped_count_distinct_pair_preunion_updates: bool,
     grouped_count_distinct_pair_preunion_input_rows: u64,
     grouped_count_distinct_pair_preunion_unique_pairs: u64,
+    grouped_count_distinct_pair_preunion_chunk_group_partials: bool,
+    grouped_count_distinct_pair_preunion_chunk_groups: u64,
     string_count_topk_heavy_hitter_direct_updates: bool,
     string_count_distinct_topk_heavy_hitter_direct_updates: bool,
     chunk_dictionary_direct_updates: bool,
@@ -26575,6 +26590,8 @@ impl<'a> GroupedAggregateStates<'a> {
             grouped_count_distinct_pair_preunion_updates: false,
             grouped_count_distinct_pair_preunion_input_rows: 0,
             grouped_count_distinct_pair_preunion_unique_pairs: 0,
+            grouped_count_distinct_pair_preunion_chunk_group_partials: false,
+            grouped_count_distinct_pair_preunion_chunk_groups: 0,
             string_count_topk_heavy_hitter_direct_updates: false,
             string_count_distinct_topk_heavy_hitter_direct_updates: false,
             chunk_dictionary_direct_updates: false,
@@ -29844,19 +29861,6 @@ impl<'a> GroupedAggregateStates<'a> {
         else {
             return Ok(false);
         };
-        reserve_hash_map_capacity(
-            &mut self.groups,
-            chunk_rows,
-            "grouped count-distinct pair preunion aggregate",
-        )?;
-        if self.request.order_by.is_empty() {
-            self.group_order.try_reserve(chunk_rows).map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "local Vortex grouped count-distinct pair preunion source-order reservation failed: {error}; no fallback execution was attempted"
-                ))
-            })?;
-        }
-
         let mut chunk_pairs =
             rustc_hash::FxHashSet::<AggregateCountDistinctPairPreunionKey>::default();
         reserve_hash_set_capacity(
@@ -29864,7 +29868,23 @@ impl<'a> GroupedAggregateStates<'a> {
             chunk_rows,
             "grouped count-distinct pair preunion",
         )?;
-        let record_source_order = self.request.order_by.is_empty();
+        let mut chunk_groups = rustc_hash::FxHashMap::<
+            AggregateCountDistinctPreunionGroupKey,
+            SimpleAggregateStates,
+        >::default();
+        reserve_hash_map_capacity(
+            &mut chunk_groups,
+            chunk_rows.min(65_536),
+            "grouped count-distinct pair preunion chunk-group partials",
+        )?;
+        let mut chunk_group_order = Vec::new();
+        chunk_group_order
+            .try_reserve(chunk_rows.min(65_536))
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local Vortex grouped count-distinct pair preunion chunk-group order reservation failed: {error}; no fallback execution was attempted"
+                ))
+            })?;
         let mut unique_pairs = 0_u64;
         for row_index in 0..chunk_rows {
             let pair_key = AggregateCountDistinctPairPreunionKey::from_integer_key_slices(
@@ -29872,22 +29892,15 @@ impl<'a> GroupedAggregateStates<'a> {
                 distinct_keys,
                 row_index,
             )?;
-            let group_key = pair_key.aggregate_group_key();
-            let group_value = pair_key.group_stat_value();
             let pair_inserted = chunk_pairs.insert(pair_key);
-            let group = match self.groups.entry(group_key) {
+            let group_key = pair_key.preunion_group_key();
+            let group_states = match chunk_groups.entry(group_key) {
                 std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
                 std::collections::hash_map::Entry::Vacant(entry) => {
-                    if record_source_order {
-                        self.group_order.push(entry.key().clone());
-                    }
-                    entry.insert(GroupedAggregateState::new_general(
-                        vec![group_value],
-                        self.state_template.clone(),
-                    ))
+                    chunk_group_order.push(group_key);
+                    entry.insert(self.state_template.clone())
                 }
             };
-            let group_states = group.general_states_mut()?;
             group_states.update_direct_row_from_accessors_except_state(
                 accessors,
                 row_index,
@@ -29906,6 +29919,46 @@ impl<'a> GroupedAggregateStates<'a> {
                     )
                 })?;
             }
+        }
+        let chunk_group_count = chunk_groups.len();
+        reserve_hash_map_capacity(
+            &mut self.groups,
+            chunk_group_count,
+            "grouped count-distinct pair preunion aggregate",
+        )?;
+        if self.request.order_by.is_empty() {
+            self.group_order
+                .try_reserve(chunk_group_count)
+                .map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "local Vortex grouped count-distinct pair preunion source-order reservation failed: {error}; no fallback execution was attempted"
+                    ))
+                })?;
+        }
+        let record_source_order = self.request.order_by.is_empty();
+        for group_key in chunk_group_order {
+            let partial_states = chunk_groups.remove(&group_key).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex grouped count-distinct pair preunion chunk partial was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            let aggregate_group_key = group_key.aggregate_group_key();
+            let group = match self.groups.entry(aggregate_group_key) {
+                std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    if record_source_order {
+                        self.group_order.push(entry.key().clone());
+                    }
+                    entry.insert(GroupedAggregateState::new_general(
+                        vec![group_key.stat_value()],
+                        self.state_template.clone(),
+                    ))
+                }
+            };
+            group
+                .general_states_mut()?
+                .merge_preaggregated_from(&partial_states)?;
         }
         self.general_direct_updates = true;
         self.general_direct_count_distinct_updates = true;
@@ -29926,6 +29979,16 @@ impl<'a> GroupedAggregateStates<'a> {
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex grouped count-distinct preunion unique-pair counter overflowed u64"
+                        .to_string(),
+                )
+            })?;
+        self.grouped_count_distinct_pair_preunion_chunk_group_partials = true;
+        self.grouped_count_distinct_pair_preunion_chunk_groups = self
+            .grouped_count_distinct_pair_preunion_chunk_groups
+            .checked_add(usize_to_u64(chunk_group_count)?)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex grouped count-distinct preunion chunk-group counter overflowed u64"
                         .to_string(),
                 )
             })?;
@@ -34323,6 +34386,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "count_star_direct_group_update"
         } else if self.compact_measure_direct_updates {
             "direct_count_sum_avg_group_update"
+        } else if self.grouped_count_distinct_pair_preunion_chunk_group_partials {
+            "direct_accessor_count_distinct_pair_preunion_chunk_group_update"
         } else if self.grouped_count_distinct_pair_preunion_updates {
             "direct_accessor_count_distinct_pair_preunion_group_update"
         } else if self.general_direct_count_distinct_updates {
@@ -34444,6 +34509,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 .any(|group| group.compact_count_star().is_some())
         {
             "compact_count_star_group_state"
+        } else if self.grouped_count_distinct_pair_preunion_chunk_group_partials {
+            "generic_direct_accessor_group_state+packed_integer_pair_preunion+chunk_group_partials"
         } else if self.grouped_count_distinct_pair_preunion_updates {
             "generic_direct_accessor_group_state+packed_integer_pair_preunion"
         } else if self.general_direct_updates {
@@ -34499,6 +34566,8 @@ impl<'a> GroupedAggregateStates<'a> {
             }
         } else if self.transformed_dictionary_dense_general_groups.is_some() {
             "dense_transformed_dictionary_interned_utf8_key"
+        } else if self.grouped_count_distinct_pair_preunion_chunk_group_partials {
+            "typed_single_key+packed_integer_pair_preunion+chunk_group_partials"
         } else if self.grouped_count_distinct_pair_preunion_updates {
             "typed_single_key+packed_integer_pair_preunion"
         } else if self.string_interner.len() > 0 && self.group_key_indices.len() > 1 {
@@ -34587,6 +34656,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "transformed_chunk_materialized_partial_map"
         } else if self.chunk_materialized_partial_updates {
             "chunk_materialized_partial_map"
+        } else if self.grouped_count_distinct_pair_preunion_chunk_group_partials {
+            "direct_accessor_count_distinct_pair_preunion_chunk_group_partials"
         } else if self.grouped_count_distinct_pair_preunion_updates {
             "direct_accessor_count_distinct_pair_preunion_hot_hash_map"
         } else if self.general_direct_updates {
@@ -34802,6 +34873,16 @@ impl<'a> GroupedAggregateStates<'a> {
             payload,
             "grouped_count_distinct_pair_preunion_unique_pairs",
             self.grouped_count_distinct_pair_preunion_unique_pairs,
+        )?;
+        json_object_insert_bool(
+            payload,
+            "grouped_count_distinct_pair_preunion_chunk_group_partials",
+            self.grouped_count_distinct_pair_preunion_chunk_group_partials,
+        )?;
+        json_object_insert_u64(
+            payload,
+            "grouped_count_distinct_pair_preunion_chunk_groups",
+            self.grouped_count_distinct_pair_preunion_chunk_groups,
         )?;
         json_object_insert_u64(
             payload,
@@ -35384,6 +35465,9 @@ impl<'a> GroupedAggregateStates<'a> {
                 state_family.push_str("+direct_count_distinct");
                 if self.grouped_count_distinct_pair_preunion_updates {
                     state_family.push_str("+packed_integer_pair_preunion");
+                    if self.grouped_count_distinct_pair_preunion_chunk_group_partials {
+                        state_family.push_str("+chunk_group_partials");
+                    }
                 }
             }
         }
@@ -35551,6 +35635,14 @@ impl<'a> GroupedAggregateStates<'a> {
                     capillary_work_units.push("packed_integer_pair_preunion");
                     pulseweave_pressure_signals.push("grouped_count_distinct_pair_duplicate_rows");
                     pulseweave_pressure_signals.push("packed_integer_pair_preunion_unique_pairs");
+                    if self.grouped_count_distinct_pair_preunion_chunk_group_partials {
+                        capillary_work_units
+                            .push("direct_accessor_count_distinct_pair_chunk_group_partials");
+                        capillary_work_units.push("chunk_group_preaggregated_merge");
+                        pulseweave_pressure_signals
+                            .push("packed_integer_pair_preunion_chunk_groups");
+                        pulseweave_pressure_signals.push("global_group_hash_update_bypass");
+                    }
                 }
             }
         }
@@ -36143,6 +36235,13 @@ struct AggregateCountDistinctPairPreunionKey {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+struct AggregateCountDistinctPreunionGroupKey {
+    bits: u64,
+    signed: bool,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 impl AggregateCountDistinctPairPreunionKey {
     const GROUP_SIGNED: u8 = 0b0000_0001;
     const DISTINCT_SIGNED: u8 = 0b0000_0010;
@@ -36174,14 +36273,6 @@ impl AggregateCountDistinctPairPreunionKey {
         ))
     }
 
-    fn group_stat_value(self) -> StatValue {
-        integer_key_stat_value(self.group_bits, self.key_kinds & Self::GROUP_SIGNED != 0)
-    }
-
-    fn group_distinct_value(self) -> AggregateDistinctValue {
-        integer_key_distinct_value(self.group_bits, self.key_kinds & Self::GROUP_SIGNED != 0)
-    }
-
     fn distinct_value(self) -> AggregateDistinctValue {
         integer_key_distinct_value(
             self.distinct_bits,
@@ -36189,8 +36280,26 @@ impl AggregateCountDistinctPairPreunionKey {
         )
     }
 
+    fn preunion_group_key(self) -> AggregateCountDistinctPreunionGroupKey {
+        AggregateCountDistinctPreunionGroupKey {
+            bits: self.group_bits,
+            signed: self.key_kinds & Self::GROUP_SIGNED != 0,
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl AggregateCountDistinctPreunionGroupKey {
+    fn stat_value(self) -> StatValue {
+        integer_key_stat_value(self.bits, self.signed)
+    }
+
+    fn distinct_value(self) -> AggregateDistinctValue {
+        integer_key_distinct_value(self.bits, self.signed)
+    }
+
     fn aggregate_group_key(self) -> AggregateGroupKey {
-        AggregateGroupKey::single(self.group_distinct_value())
+        AggregateGroupKey::single(self.distinct_value())
     }
 }
 
@@ -42272,6 +42381,83 @@ impl SimpleAggregateState {
                 Ok(())
             }
         }
+    }
+
+    fn merge_preaggregated_from(&mut self, other: &Self) -> Result<()> {
+        if self.function != other.function
+            || self.column_index != other.column_index
+            || self.alias != other.alias
+            || self.argument_offset != other.argument_offset
+            || self.value_transform != other.value_transform
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate preaggregated merge reached incompatible measure state; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        match self.function {
+            SimpleAggregateFunction::Count => {
+                self.count = self.count.checked_add(other.count).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex grouped aggregate preaggregated count overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+            }
+            SimpleAggregateFunction::CountDistinct => {
+                for value in &other.distinct_values {
+                    if matches!(value, AggregateDistinctValue::Null) {
+                        continue;
+                    }
+                    if self.distinct_values.insert(value.clone()) {
+                        self.count = self.count.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex grouped aggregate preaggregated count-distinct overflowed u64"
+                                    .to_string(),
+                            )
+                        })?;
+                    }
+                }
+            }
+            SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
+                self.count = self.count.checked_add(other.count).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex grouped aggregate preaggregated numeric count overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+                self.sum += other.sum;
+                if !self.sum.is_finite() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex grouped aggregate preaggregated numeric sum became non-finite; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+            }
+            SimpleAggregateFunction::Min => {
+                self.count = self.count.checked_add(other.count).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex grouped aggregate preaggregated min count overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+                if let Some(value) = other.min.as_ref() {
+                    self.min = Some(simple_aggregate_min_value(self.min.take(), value)?);
+                }
+            }
+            SimpleAggregateFunction::Max => {
+                self.count = self.count.checked_add(other.count).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex grouped aggregate preaggregated max count overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+                if let Some(value) = other.max.as_ref() {
+                    self.max = Some(simple_aggregate_max_value(self.max.take(), value)?);
+                }
+            }
+        }
+        Ok(())
     }
 
     fn direct_update_admitted(
@@ -63504,21 +63690,31 @@ mod tests {
             budget.state_family
         );
         assert!(
+            budget.state_family.contains("chunk_group_partials"),
+            "{}",
+            budget.state_family
+        );
+        assert!(
             budget
                 .capillary_work_units
                 .contains(&"direct_accessor_count_distinct_pair_preunion".to_string())
         );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"direct_accessor_count_distinct_pair_chunk_group_partials".to_string())
+        );
         assert_eq!(
             payload["aggregate_update_strategy"],
-            "direct_accessor_count_distinct_pair_preunion_group_update"
+            "direct_accessor_count_distinct_pair_preunion_chunk_group_update"
         );
         assert_eq!(
             payload["compact_group_state_strategy"],
-            "generic_direct_accessor_group_state+packed_integer_pair_preunion"
+            "generic_direct_accessor_group_state+packed_integer_pair_preunion+chunk_group_partials"
         );
         assert_eq!(
             payload["group_state_mode"],
-            "direct_accessor_count_distinct_pair_preunion_hot_hash_map"
+            "direct_accessor_count_distinct_pair_preunion_chunk_group_partials"
         );
         assert_eq!(
             payload["distinct_state_strategy"],
@@ -63535,6 +63731,14 @@ mod tests {
         assert_eq!(
             payload["grouped_count_distinct_pair_preunion_unique_pairs"],
             5
+        );
+        assert_eq!(
+            payload["grouped_count_distinct_pair_preunion_chunk_group_partials"],
+            true
+        );
+        assert_eq!(
+            payload["grouped_count_distinct_pair_preunion_chunk_groups"],
+            2
         );
         assert_eq!(
             payload["grouped_count_distinct_pair_preunion_duplicate_rows_elided"],

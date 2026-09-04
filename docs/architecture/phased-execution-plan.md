@@ -1144,6 +1144,31 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         Targeted local 100M Q10 UAT improved best-of-3 from `8.909421833988745s` to
         `4.80588679201901s` at
         `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q10_preunion_20260903T194121Z/summary.json`.
+      - Completed implementation slice: the retained packed-pair Q10 route now also performs
+        chunk-local group partial aggregation before touching the global group map. The row loop
+        still applies non-distinct measures exactly for every input row inside the chunk, applies
+        the count-distinct measure only for unique packed `(group, distinct)` pairs, then merges
+        each chunk group into the global exact state once. This preserves the existing
+        `implement_shardloom_kernel` direct-accessor boundary over admitted local Vortex accessors,
+        avoids decoded Arrow or external-engine residuals, and keeps non-matching/null-admitting
+        shapes on the existing explicit exact path. Evidence emits
+        `direct_accessor_count_distinct_pair_preunion_chunk_group_update`,
+        `generic_direct_accessor_group_state+packed_integer_pair_preunion+chunk_group_partials`,
+        `typed_single_key+packed_integer_pair_preunion+chunk_group_partials`, and
+        `direct_accessor_count_distinct_pair_preunion_chunk_group_partials`. Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives count_distinct -- --nocapture`.
+        Full validation: `cargo fmt --all -- --check`,
+        `cargo clippy --workspace --all-targets -- -D warnings`, and
+        `cargo test --workspace --all-targets`. Targeted local 100M Q10 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q10_chunk_group_preunion_20260904T020000Z/summary.json`
+        produced runs `5.013928040978499s`, `3.693268208007794s`, and
+        `3.7760477080009878s`; best improved from the retained `4.80588679201901s` to
+        `3.6932682080077943s` (`23.15%` faster) while preserving
+        `local_primitive_grouped_count_distinct_pair_preunion_input_rows=99997497`,
+        `local_primitive_grouped_count_distinct_pair_preunion_unique_pairs=21900477`,
+        `local_primitive_grouped_count_distinct_pair_preunion_chunk_groups=859298`,
+        `local_primitive_grouped_count_distinct_pair_preunion_duplicate_rows_elided=78097020`,
+        `fallback_attempted=false`, and `external_engine_invoked=false`.
       - Implementation steps: split count-distinct execution into dense-group, sparse-group,
         high-cardinality, and packed-pair strategies; partition by `UserID` hash to deduplicate
         before group insertion; choose radix sort/dedup when exact container pressure is high; use

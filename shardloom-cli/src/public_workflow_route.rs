@@ -3151,6 +3151,30 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass",
         ),
         (
+            "grouped_count_distinct_pair_preunion_updates",
+            "local_primitive_grouped_count_distinct_pair_preunion_updates",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_input_rows",
+            "local_primitive_grouped_count_distinct_pair_preunion_input_rows",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_unique_pairs",
+            "local_primitive_grouped_count_distinct_pair_preunion_unique_pairs",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_chunk_group_partials",
+            "local_primitive_grouped_count_distinct_pair_preunion_chunk_group_partials",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_chunk_groups",
+            "local_primitive_grouped_count_distinct_pair_preunion_chunk_groups",
+        ),
+        (
+            "grouped_count_distinct_pair_preunion_duplicate_rows_elided",
+            "local_primitive_grouped_count_distinct_pair_preunion_duplicate_rows_elided",
+        ),
+        (
             "string_count_distinct_topk_heavy_hitter_second_pass",
             "local_primitive_string_count_distinct_topk_heavy_hitter_second_pass",
         ),
