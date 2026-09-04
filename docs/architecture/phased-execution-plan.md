@@ -375,6 +375,21 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         and derived build millis by transform.
       - Retain/drop gate: retain only if it materially reduces derived-build time or enables the
         staged pipeline without correctness, null, ordering, or artifact regressions.
+      - Rejected 2026-09-04 implementation slice: a large-OLAP Parquet schema-plan change requested
+        Arrow dictionary arrays only for lean runtime derived text inputs (`URL`, `Referer`, and
+        `SearchPhrase`) while leaving broader payload text, `Title`, and `OriginalURL` plain for the
+        retained source-text Zstd writer profile. Focused dictionary-derived tests passed and the
+        run used a candidate target so the protected `hits-parquet-100m.vortex` artifact remained
+        intact. Candidate ingest
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/ingest_cli_uat_gated_20260904T020627Z`
+        was manually stopped after progress showed only `34.466GB` staged at `331s`; at the
+        protected `271s` reference point it had staged only `19.633GB`, so it could not beat the
+        retained `271s` full replacement ingest. The runtime change was dropped and the partial
+        candidate artifact was cleaned. Do not retry large-source Arrow dictionary hints for source
+        text columns unless the writer portfolio gate first proves whole-artifact size and write
+        ramp behavior; the current better path is a native Vortex/ShardLoom compact derived
+        metadata representation that does not force source text dictionary layout through the final
+        writer.
     - [ ] Implement H/VH ingest packet `single resource governor`.
       - Ideas covered: one governor for source workers, derived builders, Arrow-to-Vortex
         conversion, compression, writer feed, and final Vortex sink pressure.
