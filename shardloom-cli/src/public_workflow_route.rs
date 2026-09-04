@@ -3031,6 +3031,34 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_string_count_topk_heavy_hitter_second_pass",
         ),
         (
+            "string_count_topk_late_measure_second_pass",
+            "local_primitive_string_count_topk_late_measure_second_pass",
+        ),
+        (
+            "string_count_topk_first_pass_late_measures",
+            "local_primitive_string_count_topk_first_pass_late_measures",
+        ),
+        (
+            "string_count_topk_first_pass_late_measure_rows",
+            "local_primitive_string_count_topk_first_pass_late_measure_rows",
+        ),
+        (
+            "string_count_topk_first_pass_late_measure_row_cap",
+            "local_primitive_string_count_topk_first_pass_late_measure_row_cap",
+        ),
+        (
+            "string_count_topk_first_pass_late_measure_group_cap",
+            "local_primitive_string_count_topk_first_pass_late_measure_group_cap",
+        ),
+        (
+            "string_count_topk_first_pass_late_measure_disabled",
+            "local_primitive_string_count_topk_first_pass_late_measure_disabled",
+        ),
+        (
+            "string_count_topk_late_measure_candidate_groups",
+            "local_primitive_string_count_topk_late_measure_candidate_groups",
+        ),
+        (
             "string_count_topk_heavy_hitter_candidate_groups",
             "local_primitive_string_count_topk_heavy_hitter_candidate_groups",
         ),

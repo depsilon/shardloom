@@ -1011,6 +1011,26 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         (`7.44%` / `7.00%` faster). Evidence reports `local_primitive_mode=vortex_scan_pushdown`,
         `local_primitive_filter_pushdown_applied=true`, selected rows `1038` for Q22 and `7128`
         for Q23, and `fallback_attempted=false` / `external_engine_invoked=false`.
+      - Completed 2026-09-03 retained slice: bounded selective string top-K late measures can now
+        be captured during the first filtered pass when exact counts remain provable and the
+        provisional measure state stays under a `32,768` row / `16,384` group admission cap. This
+        closes the Q23 second-scan gap without changing broad string top-K recount semantics: if the
+        cap is exceeded or exact first-pass counts are not provable, ShardLoom discards the
+        provisional measure groups before the existing candidate recount. Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`.
+        Targeted local 100M Q22/Q23 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q22_q23_first_pass_late_measure_flattened_20260904T000520Z/summary.json`
+        produced Q22 best `1.2129830840276554s` versus retained `2.691731749975588s` (`54.94%`
+        faster) and Q23 best `4.2945536660263315s` versus retained `9.49373608303722s` (`54.77%`
+        faster). Evidence reports
+        `group_output_strategy=proofbound_heavy_hitter_string_count_topk_first_pass_late_measure_exact`,
+        `aggregate_update_strategy=string_dictionary_code_count_topk_first_pass_late_measure_exact`,
+        `distinct_state_strategy=proofbound_first_pass_late_measure_exact`,
+        `string_count_topk_heavy_hitter_second_pass=false`,
+        `string_count_topk_late_measure_second_pass=false`,
+        `string_count_topk_first_pass_late_measures=true`,
+        `string_count_topk_first_pass_late_measure_rows=7128`, and `fallback_attempted=false` /
+        `external_engine_invoked=false`.
     - [ ] Implement H/VH kernel packet `Q19 fixed-width tri-key grouped top-K`.
       - Ideas covered: Q19 three-key heavy-hitter, fixed-width tri-key, duplicate-promotion filter,
         morsel-local sketches, and radix exact fallback.

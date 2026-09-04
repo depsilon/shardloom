@@ -47,6 +47,10 @@ use crate::{VortexStructuredProjectionExpr, VortexStructuredProjectionRequest};
 const SHARDLOOM_SOURCE_ROW_ID_COLUMN: &str = "__shardloom_source_row_id";
 #[cfg(feature = "vortex-local-primitives")]
 const STRING_COUNT_TOPK_EXACT_MIRROR_CAPACITY_MULTIPLIER: usize = 4;
+#[cfg(feature = "vortex-local-primitives")]
+const STRING_COUNT_TOPK_FIRST_PASS_LATE_MEASURE_ROW_CAP: u64 = 32_768;
+#[cfg(feature = "vortex-local-primitives")]
+const STRING_COUNT_TOPK_FIRST_PASS_LATE_MEASURE_GROUP_CAP: usize = 16_384;
 
 /// Feature-gated local Vortex primitive execution status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23683,6 +23687,9 @@ struct GroupedAggregateStates<'a> {
     string_count_topk_exact_counts_source: Option<&'static str>,
     string_count_topk_dictionary_code_reuse: bool,
     string_count_topk_late_measure_direct_updates: bool,
+    string_count_topk_first_pass_late_measures: bool,
+    string_count_topk_first_pass_late_measure_rows: u64,
+    string_count_topk_first_pass_late_measure_disabled: bool,
     string_count_topk_dictionary_histogram_recount: bool,
     string_count_topk_candidate_free_chunks_skipped: u64,
     string_count_topk_candidate_free_rows_skipped: u64,
@@ -26491,6 +26498,9 @@ impl<'a> GroupedAggregateStates<'a> {
             string_count_topk_exact_counts_source: None,
             string_count_topk_dictionary_code_reuse: false,
             string_count_topk_late_measure_direct_updates: false,
+            string_count_topk_first_pass_late_measures: false,
+            string_count_topk_first_pass_late_measure_rows: 0,
+            string_count_topk_first_pass_late_measure_disabled: false,
             string_count_topk_dictionary_histogram_recount: false,
             string_count_topk_candidate_free_chunks_skipped: 0,
             string_count_topk_candidate_free_rows_skipped: 0,
@@ -27807,7 +27817,7 @@ impl<'a> GroupedAggregateStates<'a> {
             };
             group.increment_count_star_by(null_count)?;
         }
-        for (value, count) in values.iter().zip(counts) {
+        for (value, count) in values.iter().zip(counts.iter().copied()) {
             if count == 0 {
                 continue;
             }
@@ -27988,7 +27998,7 @@ impl<'a> GroupedAggregateStates<'a> {
         }
         let counts = dictionary_value_counts_for_rows(row_ids, values.len(), row_indices)?;
         let record_source_order = self.request.order_by.is_empty();
-        for (value, count) in values.iter().zip(counts) {
+        for (value, count) in values.iter().zip(counts.iter().copied()) {
             if count == 0 {
                 continue;
             }
@@ -28141,7 +28151,7 @@ impl<'a> GroupedAggregateStates<'a> {
                     exact_mirror_capacity,
                 )
             });
-        for (value, count) in values.iter().zip(counts) {
+        for (value, count) in values.iter().zip(counts.iter().copied()) {
             if count == 0 {
                 continue;
             }
@@ -28161,6 +28171,12 @@ impl<'a> GroupedAggregateStates<'a> {
         self.chunk_dictionary_direct_updates = true;
         self.string_count_topk_heavy_hitter_direct_updates = true;
         self.string_count_topk_dictionary_code_reuse = true;
+        self.update_string_count_topk_first_pass_late_measures_from_accessors(
+            accessors,
+            group_accessor,
+            &counts,
+            row_indices,
+        )?;
         Ok(true)
     }
 
@@ -28180,7 +28196,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 [order] if order.descending && order.column == count_alias
             )
             || self.group_key_indices.len() != 1
-            || !self.groups.is_empty()
+            || (!self.groups.is_empty() && !self.string_count_topk_first_pass_late_measures)
             || !self.group_order.is_empty()
             || self.single_numeric_count_groups.is_some()
             || self.numeric_pair_compact_groups.is_some()
@@ -28225,10 +28241,14 @@ impl<'a> GroupedAggregateStates<'a> {
         let Some(sketch) = self.string_count_topk_heavy_hitter_sketch.as_ref() else {
             return Ok(false);
         };
-        if self.string_count_topk_has_late_measures() {
+        let has_late_measures = self.string_count_topk_has_late_measures();
+        if has_late_measures && !self.string_count_topk_first_pass_late_measures {
             return Ok(false);
         }
         if let Some(counts) = sketch.exact_counts_from_mirror()? {
+            if !self.string_count_topk_first_pass_late_measure_groups_cover(&counts) {
+                return Ok(false);
+            }
             if counts.is_empty() {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex string top-K heavy-hitter exact mirror produced no candidates; no fallback execution was attempted"
@@ -28242,6 +28262,9 @@ impl<'a> GroupedAggregateStates<'a> {
             return Ok(true);
         }
         if let Some(counts) = sketch.exact_counts_if_no_eviction()? {
+            if !self.string_count_topk_first_pass_late_measure_groups_cover(&counts) {
+                return Ok(false);
+            }
             if counts.is_empty() {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex string top-K heavy-hitter first pass produced no exact candidates; no fallback execution was attempted"
@@ -28253,6 +28276,9 @@ impl<'a> GroupedAggregateStates<'a> {
             self.string_count_topk_first_pass_exact_counts = true;
             self.string_count_topk_exact_counts_source = Some("first_pass_no_eviction");
             return Ok(true);
+        }
+        if has_late_measures {
+            return Ok(false);
         }
         let Some(limit) = limit else {
             return Ok(false);
@@ -28278,6 +28304,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn prepare_string_count_topk_heavy_hitter_second_pass(&mut self) -> Result<()> {
+        if self.string_count_topk_first_pass_late_measures {
+            self.discard_string_count_topk_first_pass_late_measures();
+        }
         let Some(sketch) = self.string_count_topk_heavy_hitter_sketch.as_ref() else {
             return Ok(());
         };
@@ -28304,6 +28333,124 @@ impl<'a> GroupedAggregateStates<'a> {
         self.string_count_topk_exact_counts = Some(exact_counts);
         self.string_count_topk_exact_counts_source = Some("candidate_recount_second_pass");
         Ok(())
+    }
+
+    fn update_string_count_topk_first_pass_late_measures_from_accessors(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        group_accessor: &AggregateDirectColumnAccessor,
+        counts: &[u64],
+        row_indices: Option<&[usize]>,
+    ) -> Result<()> {
+        if !self.string_count_topk_has_late_measures()
+            || self.string_count_topk_first_pass_late_measure_disabled
+        {
+            return Ok(());
+        }
+        let selected_rows = row_indices.map_or(group_accessor.len(), <[usize]>::len);
+        if selected_rows == 0 {
+            return Ok(());
+        }
+        let selected_rows = usize_to_u64(selected_rows)?;
+        let projected_rows = self
+            .string_count_topk_first_pass_late_measure_rows
+            .checked_add(selected_rows)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex string top-K first-pass late-measure row count overflowed u64"
+                        .to_string(),
+                )
+            })?;
+        if projected_rows > STRING_COUNT_TOPK_FIRST_PASS_LATE_MEASURE_ROW_CAP {
+            self.disable_string_count_topk_first_pass_late_measures();
+            return Ok(());
+        }
+        let dictionary_string_ids =
+            aggregate_direct_utf8_dictionary_interner_ids(group_accessor, &mut self.string_interner)?
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex string top-K first-pass late-measure capture requires dictionary-coded UTF-8 keys; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+        if dictionary_string_ids.len() != counts.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex string top-K first-pass late-measure dictionary id count did not match value counts; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        let active_count = counts.iter().filter(|count| **count > 0).count();
+        if active_count == 0 {
+            return Ok(());
+        }
+        let mut active_ids = rustc_hash::FxHashSet::default();
+        reserve_hash_set_capacity(
+            &mut active_ids,
+            active_count,
+            "string top-K first-pass late-measure active ids",
+        )?;
+        for (value_id, count) in dictionary_string_ids
+            .iter()
+            .copied()
+            .zip(counts.iter().copied())
+        {
+            if count > 0 {
+                active_ids.insert(value_id);
+            }
+        }
+        let new_group_count = active_ids
+            .iter()
+            .filter(|value_id| {
+                !self.groups.contains_key(&AggregateGroupKey::single(
+                    AggregateDistinctValue::Utf8Interned(**value_id),
+                ))
+            })
+            .count();
+        if self.groups.len().saturating_add(new_group_count)
+            > STRING_COUNT_TOPK_FIRST_PASS_LATE_MEASURE_GROUP_CAP
+        {
+            self.disable_string_count_topk_first_pass_late_measures();
+            return Ok(());
+        }
+        self.update_string_count_topk_late_measure_groups_from_accessors(
+            accessors,
+            group_accessor,
+            &dictionary_string_ids,
+            &active_ids,
+            row_indices,
+        )?;
+        self.string_count_topk_first_pass_late_measures = true;
+        self.string_count_topk_first_pass_late_measure_rows = projected_rows;
+        Ok(())
+    }
+
+    fn string_count_topk_first_pass_late_measure_groups_cover(
+        &self,
+        counts: &rustc_hash::FxHashMap<u64, u64>,
+    ) -> bool {
+        if !self.string_count_topk_has_late_measures() {
+            return true;
+        }
+        self.string_count_topk_first_pass_late_measures
+            && counts.keys().all(|value_id| {
+                self.groups.contains_key(&AggregateGroupKey::single(
+                    AggregateDistinctValue::Utf8Interned(*value_id),
+                ))
+            })
+    }
+
+    fn disable_string_count_topk_first_pass_late_measures(&mut self) {
+        self.discard_string_count_topk_first_pass_late_measures();
+        self.string_count_topk_first_pass_late_measure_disabled = true;
+    }
+
+    fn discard_string_count_topk_first_pass_late_measures(&mut self) {
+        if self.string_count_topk_first_pass_late_measures {
+            self.groups.clear();
+            self.group_order.clear();
+        }
+        self.string_count_topk_first_pass_late_measures = false;
+        self.string_count_topk_first_pass_late_measure_rows = 0;
     }
 
     fn update_string_count_topk_heavy_hitter_exact_from_chunk(
@@ -32209,7 +32356,14 @@ impl<'a> GroupedAggregateStates<'a> {
             .map(|sketch| self.string_count_topk_heavy_hitter_threshold(sketch))
             .transpose()?
             .unwrap_or(0);
-        let group_output_strategy = if has_late_measures {
+        let late_measure_second_pass =
+            has_late_measures && !self.string_count_topk_first_pass_late_measures;
+        let group_output_strategy = if has_late_measures
+            && self.string_count_topk_first_pass_exact_counts
+            && self.string_count_topk_first_pass_late_measures
+        {
+            "proofbound_heavy_hitter_string_count_topk_first_pass_late_measure_exact"
+        } else if has_late_measures {
             "proofbound_heavy_hitter_string_count_topk_late_measure_recount"
         } else if self.string_count_topk_first_pass_exact_counts {
             "proofbound_heavy_hitter_string_count_topk_first_pass_exact"
@@ -32294,7 +32448,11 @@ impl<'a> GroupedAggregateStates<'a> {
             json_object_insert_str(
                 &mut payload,
                 "distinct_state_strategy",
-                "proofbound_candidate_late_measure_exact",
+                if self.string_count_topk_first_pass_late_measures {
+                    "proofbound_first_pass_late_measure_exact"
+                } else {
+                    "proofbound_candidate_late_measure_exact"
+                },
             )?;
         }
         json_object_insert_usize(
@@ -32325,12 +32483,37 @@ impl<'a> GroupedAggregateStates<'a> {
         json_object_insert_bool(
             &mut payload,
             "string_count_topk_late_measure_second_pass",
-            has_late_measures,
+            late_measure_second_pass,
         )?;
         json_object_insert_usize(
             &mut payload,
             "string_count_topk_late_measure_candidate_groups",
             self.groups.len(),
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "string_count_topk_first_pass_late_measures",
+            self.string_count_topk_first_pass_late_measures,
+        )?;
+        json_object_insert_u64(
+            &mut payload,
+            "string_count_topk_first_pass_late_measure_rows",
+            self.string_count_topk_first_pass_late_measure_rows,
+        )?;
+        json_object_insert_u64(
+            &mut payload,
+            "string_count_topk_first_pass_late_measure_row_cap",
+            STRING_COUNT_TOPK_FIRST_PASS_LATE_MEASURE_ROW_CAP,
+        )?;
+        json_object_insert_usize(
+            &mut payload,
+            "string_count_topk_first_pass_late_measure_group_cap",
+            STRING_COUNT_TOPK_FIRST_PASS_LATE_MEASURE_GROUP_CAP,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "string_count_topk_first_pass_late_measure_disabled",
+            self.string_count_topk_first_pass_late_measure_disabled,
         )?;
         json_object_insert_bool(
             &mut payload,
@@ -33749,7 +33932,13 @@ impl<'a> GroupedAggregateStates<'a> {
                 "numeric_utf8_count_topk_heavy_hitter_late_recount"
             }
         } else if self.string_count_topk_first_pass_exact_counts {
-            if self.string_count_topk_dictionary_code_reuse {
+            if self.string_count_topk_first_pass_late_measures
+                && self.string_count_topk_dictionary_code_reuse
+            {
+                "string_dictionary_code_count_topk_first_pass_late_measure_exact"
+            } else if self.string_count_topk_first_pass_late_measures {
+                "string_count_topk_first_pass_late_measure_exact"
+            } else if self.string_count_topk_dictionary_code_reuse {
                 "string_dictionary_code_count_topk_heavy_hitter_first_pass_exact"
             } else {
                 "string_count_topk_heavy_hitter_first_pass_exact"
@@ -33857,7 +34046,13 @@ impl<'a> GroupedAggregateStates<'a> {
                 "numeric_utf8_heavy_hitter_candidate_count_star_group_state"
             }
         } else if self.string_count_topk_first_pass_exact_counts {
-            if self.string_count_topk_dictionary_code_reuse {
+            if self.string_count_topk_first_pass_late_measures
+                && self.string_count_topk_dictionary_code_reuse
+            {
+                "string_dictionary_code_heavy_hitter_exact_late_measure_group_state"
+            } else if self.string_count_topk_first_pass_late_measures {
+                "string_heavy_hitter_exact_late_measure_group_state"
+            } else if self.string_count_topk_dictionary_code_reuse {
                 "string_dictionary_code_heavy_hitter_exact_count_star_group_state"
             } else {
                 "string_heavy_hitter_exact_count_star_group_state"
@@ -34005,7 +34200,13 @@ impl<'a> GroupedAggregateStates<'a> {
                 "numeric_utf8_heavy_hitter_candidate_state_then_exact_recount"
             }
         } else if self.string_count_topk_first_pass_exact_counts {
-            if self.string_count_topk_dictionary_code_reuse {
+            if self.string_count_topk_first_pass_late_measures
+                && self.string_count_topk_dictionary_code_reuse
+            {
+                "string_dictionary_code_heavy_hitter_exact_first_pass_late_measure"
+            } else if self.string_count_topk_first_pass_late_measures {
+                "string_heavy_hitter_exact_first_pass_late_measure"
+            } else if self.string_count_topk_dictionary_code_reuse {
                 "string_dictionary_code_heavy_hitter_exact_first_pass"
             } else {
                 "string_heavy_hitter_exact_first_pass"
@@ -35033,6 +35234,15 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             if self.string_count_topk_first_pass_exact_counts {
                 capillary_work_units.push("string_heavy_hitter_first_pass_exact_counts");
+                if self.string_count_topk_first_pass_late_measures {
+                    capillary_work_units.push("string_topk_first_pass_late_measure_state");
+                    pulseweave_pressure_signals.push("string_topk_first_pass_late_measure_rows");
+                    pulseweave_pressure_signals.push("string_topk_late_measure_candidate_groups");
+                    if self.has_count_distinct() {
+                        capillary_work_units.push("string_topk_first_pass_count_distinct_state");
+                        pulseweave_pressure_signals.push("retained_candidate_distinct_values");
+                    }
+                }
                 if self.string_count_topk_exact_counts_source
                     == Some("first_pass_bounded_exact_mirror")
                 {
@@ -55837,6 +56047,163 @@ mod tests {
     }
 
     #[test]
+    fn grouped_aggregate_string_count_topk_late_measures_promote_selective_first_pass() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("phrase").expect("column")],
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "min",
+                    Some(ColumnRef::new("url").expect("column")),
+                    "first_url".to_string(),
+                ),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "count_distinct",
+                    Some(ColumnRef::new("user_id").expect("column")),
+                    "users".to_string(),
+                ),
+            ],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let declared_columns = vec![
+            "phrase".to_string(),
+            "url".to_string(),
+            "user_id".to_string(),
+        ];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, true)
+                .expect("states");
+        let accessors = vec![
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 0, 0, 1, 1, 2],
+                values: vec![
+                    std::sync::Arc::<str>::from("hot"),
+                    std::sync::Arc::<str>::from("warm"),
+                    std::sync::Arc::<str>::from("cold"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![1, 0, 3, 2, 1, 0],
+                values: vec![
+                    std::sync::Arc::<str>::from("a.example"),
+                    std::sync::Arc::<str>::from("b.example"),
+                    std::sync::Arc::<str>::from("c.example"),
+                    std::sync::Arc::<str>::from("d.example"),
+                ],
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+            },
+            AggregateDirectColumnAccessor::UInt64(vec![1, 1, 2, 3, 3, 4]),
+        ];
+        let selected_rows = vec![0, 1, 2, 3, 4];
+
+        assert!(
+            states
+                .update_string_count_topk_heavy_hitter_from_accessors(
+                    &accessors,
+                    Some(&selected_rows)
+                )
+                .expect("heavy-hitter count and late-measure pass")
+        );
+        assert!(states.needs_string_count_topk_heavy_hitter_second_pass());
+        assert!(
+            states
+                .promote_string_count_topk_exact_first_pass_if_possible(Some(2))
+                .expect("promote selective first pass")
+        );
+        assert!(!states.needs_string_count_topk_heavy_hitter_second_pass());
+        assert!(
+            states
+                .string_count_topk_exact_proved(Some(2))
+                .expect("exact proof")
+        );
+        let budget = states
+            .state_budget_report(&request, selected_rows.len(), 2)
+            .expect("state budget");
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_topk_first_pass_late_measure_state".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_topk_first_pass_count_distinct_state".to_string())
+        );
+        assert!(
+            !budget
+                .capillary_work_units
+                .contains(&"string_topk_candidate_late_measure_recount".to_string())
+        );
+        assert!(
+            !budget
+                .pulseweave_pressure_signals
+                .contains(&"late_measure_second_scan".to_string())
+        );
+
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["group_output_strategy"],
+            "proofbound_heavy_hitter_string_count_topk_first_pass_late_measure_exact"
+        );
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "string_dictionary_code_count_topk_first_pass_late_measure_exact"
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "string_dictionary_code_heavy_hitter_exact_late_measure_group_state"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "string_dictionary_code_heavy_hitter_exact_first_pass_late_measure"
+        );
+        assert_eq!(
+            payload["distinct_state_strategy"],
+            "proofbound_first_pass_late_measure_exact"
+        );
+        assert_eq!(
+            payload["string_count_topk_late_measure_second_pass"],
+            serde_json::json!(false)
+        );
+        assert_eq!(
+            payload["string_count_topk_first_pass_late_measures"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["string_count_topk_first_pass_late_measure_rows"],
+            serde_json::json!(selected_rows.len())
+        );
+        assert_eq!(
+            payload["string_count_topk_late_measure_candidate_groups"],
+            serde_json::json!(2)
+        );
+        assert_eq!(payload["values"][0]["phrase"], serde_json::json!("hot"));
+        assert_eq!(payload["values"][0]["rows"], serde_json::json!(3));
+        assert_eq!(
+            payload["values"][0]["first_url"],
+            serde_json::json!("a.example")
+        );
+        assert_eq!(payload["values"][0]["users"], serde_json::json!(2));
+        assert_eq!(payload["values"][1]["phrase"], serde_json::json!("warm"));
+        assert_eq!(payload["values"][1]["rows"], serde_json::json!(2));
+        assert_eq!(
+            payload["values"][1]["first_url"],
+            serde_json::json!("b.example")
+        );
+        assert_eq!(payload["values"][1]["users"], serde_json::json!(1));
+    }
+
+    #[test]
     fn grouped_aggregate_string_count_topk_late_measures_use_candidate_recount() {
         let request = VortexSimpleAggregateRequest::grouped(
             vec![ColumnRef::new("phrase").expect("column")],
@@ -55863,6 +56230,7 @@ mod tests {
         let mut states =
             GroupedAggregateStates::new(&request, Some(2), &declared_columns, false, true)
                 .expect("states");
+        states.string_count_topk_first_pass_late_measure_disabled = true;
         let accessors = vec![
             AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids: vec![0, 0, 0, 1, 1, 2],
