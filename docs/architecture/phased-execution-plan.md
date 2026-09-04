@@ -1008,6 +1008,17 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `fallback_attempted=false` / `external_engine_invoked=false`. Remaining Q29 work should
         focus on persisted exact transform summaries or segment-level domain/min metadata that can
         reduce the `1,798,248` transformed group keys themselves, not another second pass.
+      - Rejected 2026-09-04 implementation slice: routing the retained dense Q29 URL-domain key-id
+        lookup through the existing bounded transformed-dictionary cache preserved the single-pass
+        dense accumulator route but regressed targeted local 100M Q29 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q29_dense_transform_key_cache_20260904T015511Z/summary.json`.
+        Runs were `11.519518750021234s`, `10.3173550000065s`, and `10.33113541599596s`;
+        best `10.3173550000065s` was slower than retained `9.870339999964926s`. Raw summary
+        evidence showed the full-URL cache saturated at `1048576` entries with `24899191` misses
+        and only `430290` hits while still emitting `74` selected groups and no
+        fallback/external-engine invocation. The runtime change was dropped. Future Q29 transform
+        memoization should be keyed by persisted dictionary/domain summaries or lower-cardinality
+        domain identities, not source `Referer` URL identity.
     - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.
       - Ideas covered: Q23 ngram absence pruning, existing encoded predicate routing, adaptive
         conjunct pipeline, true late measure materialization, and selected-row aggregate kernel.
