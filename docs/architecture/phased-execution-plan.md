@@ -1457,6 +1457,21 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `local_primitive_numeric_minute_string_direct_slice_updates=true`,
         `local_primitive_numeric_minute_string_direct_slice_update_rows=99997497`,
         `fallback_attempted=false`, and `external_engine_invoked=false`.
+      - Rejected 2026-09-04 implementation slice: Q19 packed the numeric-minute-string key from
+        three stored fields into two `u64` words and added key-width evidence plus explicit
+        minute/string-id overflow checks. Focused Q19 tests passed
+        (`cargo test -p shardloom-vortex --features vortex-local-primitives grouped_aggregate_numeric_minute_string -- --nocapture`
+        and
+        `cargo test -p shardloom-vortex --features vortex-local-primitives aggregate_numeric_minute_string_key_is_packed_and_validated -- --nocapture`),
+        and the release build passed
+        (`cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`).
+        Targeted local 100M Q19 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q19_packed_key_20260904T081128Z/summary.json`
+        was stopped after roughly one minute with `completed_runs=0`, compared with the retained
+        direct-slice route's warm `7.00159087497741s` best; the transient log directory and runtime
+        changes were removed. Do not retry key repacking alone for Q19 unless it is paired with a
+        changed hash/update strategy, because the exact direct-slice route is currently highly
+        sensitive to layout/codegen changes.
     - [ ] Implement H/VH kernel packet `Q33 duplicate-promotion packed-pair aggregate`.
       - Ideas covered: Q33 duplicate-promotion Bloom/filter strategy, packed pair table, radix
         sort/RLE, parallel partitioned aggregation, and candidate segment directory.
