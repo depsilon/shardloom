@@ -1146,6 +1146,23 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         Do not retry bitmap membership for Q17 unless bitmap admission can be decided from
         persisted numeric-range evidence before building per-partition bitsets, or unless it is
         paired with a route that removes the second-pass hash-count table entirely.
+      - Rejected 2026-09-04 implementation slice: Q17 reserve-once exact recount attempted to
+        keep the initial candidate-count hash-map reservation at candidate freeze time and remove
+        the repeated per-chunk `try_reserve(candidate_count)` call from the second-pass exact
+        recount hot path, with public evidence for
+        `numeric_utf8_topk_exact_count_reserve_strategy=reserve_once_at_candidate_freeze`. Focused
+        validation passed:
+        `rustfmt --edition 2024 --check shardloom-vortex/src/local_primitives.rs shardloom-cli/src/public_workflow_route.rs`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives numeric_utf8 -- --nocapture`,
+        `cargo test -p shardloom-cli local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`,
+        and `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted local 100M Q17 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q17_reserve_once_20260904T071000Z/summary.json`
+        timed out the first run at the `180s` harness limit with `completed_runs=0`, versus the
+        retained `14.60625249997247s` Q17 best. The runtime/CLI changes were reverted and no
+        replacement artifact was touched. Do not retry reservation-only recount changes for Q17;
+        they do not remove row-level recount work, candidate dictionary binding, or the dominant
+        large string-id partition pressure.
     - [ ] Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.
       - Ideas covered: Q29 fused weighted-dictionary kernel, cross-chunk transform memo, persisted
         exact transform code, dense domain partial states, and exact segment dictionary summaries.
