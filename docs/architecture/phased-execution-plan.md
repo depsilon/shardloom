@@ -1028,6 +1028,22 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         versus the retained `32,768`-window Q34/Q35 best-of-3 sum `48.23178674897645s`. The runtime
         change was reverted. Do not reduce the Q34/Q35 count-only heavy-hitter window below
         `32,768` without a new exact-proof design that preserves the retained route's proof margin.
+      - Rejected 2026-09-04 implementation attempt: replacing the retained count-only
+        dictionary-histogram second pass with a compact candidate-slot recount removed the
+        dictionary-sized candidate id vector, but it still scanned the same row-id payload and added
+        a per-row candidate-slot branch on the Q34/Q35 hot path. Focused validation passed:
+        `rustfmt --edition 2024 shardloom-vortex/src/local_primitives.rs --check`,
+        `git diff --check`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`,
+        `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`,
+        and adjacent numeric/string/top-K/count-distinct focused tests, but targeted local 100M
+        Q34/Q35 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_compact_candidate_recount_20260904T063612Z/summary.json`
+        produced Q34 best `24.949315375008155s` and Q35 best `24.4874254160095s`; the shared
+        best-of-3 sum was `49.436740791017655s` versus the retained
+        `48.23178674897645s`. The runtime change was reverted. Future histogram-replay work should
+        reduce row-id scanning or persist exact segment/dictionary counts; simply compacting the
+        candidate map is not enough.
     - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
       - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
         recount, and adaptive radix exact path for high-cardinality numeric+string grouping.

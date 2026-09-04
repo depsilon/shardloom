@@ -23861,6 +23861,7 @@ struct TransformedDictionaryCompactMeasurePlan {
 
 #[cfg(feature = "vortex-local-primitives")]
 #[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
 struct TransformedDictionaryDenseGeneralPlan {
     needs_length_additive: bool,
     needs_length_min: bool,
@@ -26025,7 +26026,7 @@ impl TransformedDictionaryDenseGeneralState {
                     })),
                 AggregateValueTransform::Length => Ok(self
                     .min_length
-                    .map_or(serde_json::Value::Null, |value| value.into())),
+                    .map_or(serde_json::Value::Null, std::convert::Into::into)),
                 AggregateValueTransform::ConstantInt(_)
                 | AggregateValueTransform::AddOffset(_)
                 | AggregateValueTransform::ExtractMinute
@@ -26047,7 +26048,7 @@ impl TransformedDictionaryDenseGeneralState {
                     })),
                 AggregateValueTransform::Length => Ok(self
                     .max_length
-                    .map_or(serde_json::Value::Null, |value| value.into())),
+                    .map_or(serde_json::Value::Null, std::convert::Into::into)),
                 AggregateValueTransform::ConstantInt(_)
                 | AggregateValueTransform::AddOffset(_)
                 | AggregateValueTransform::ExtractMinute
@@ -27151,14 +27152,14 @@ impl<'a> GroupedAggregateStates<'a> {
                 &self.string_interner,
                 candidate_parts_by_utf8_id,
             );
-            if !candidate_numeric_by_code.iter().any(Option::is_some) {
-                None
-            } else {
+            if candidate_numeric_by_code.iter().any(Option::is_some) {
                 Some(numeric_utf8_topk_exact_chunk_counts(
                     numeric_accessor,
                     row_ids,
                     &candidate_numeric_by_code,
                 )?)
+            } else {
+                None
             }
         };
         self.numeric_utf8_topk_candidate_code_prefilter = true;
@@ -27686,18 +27687,17 @@ impl<'a> GroupedAggregateStates<'a> {
             &mut self.string_interner,
         )?;
         self.numeric_minute_string_dictionary_code_reuse |= dictionary_string_ids.is_some();
-        if row_indices.is_none() {
-            if let Some(dictionary_string_ids) = dictionary_string_ids.as_deref() {
-                if self.update_numeric_minute_string_count_direct_slice_from_accessors(
-                    numeric_accessor,
-                    minute_accessor,
-                    string_accessor,
-                    roles,
-                    dictionary_string_ids,
-                )? {
-                    return Ok(true);
-                }
-            }
+        if row_indices.is_none()
+            && let Some(dictionary_string_ids) = dictionary_string_ids.as_deref()
+            && self.update_numeric_minute_string_count_direct_slice_from_accessors(
+                numeric_accessor,
+                minute_accessor,
+                string_accessor,
+                roles,
+                dictionary_string_ids,
+            )?
+        {
+            return Ok(true);
         }
         let groups = self
             .numeric_minute_string_count_groups
@@ -29916,6 +29916,7 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn update_grouped_count_distinct_integer_pair_preunion_from_accessors(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
@@ -44393,21 +44394,18 @@ fn in_list_to_vortex_expr(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn predicate_requires_materialized_evaluation(
-    predicate: &PredicateExpr,
-    primitive_kind: VortexQueryPrimitiveKind,
-) -> bool {
+fn predicate_requires_materialized_evaluation(predicate: &PredicateExpr) -> bool {
     match predicate {
         PredicateExpr::AlwaysTrue
         | PredicateExpr::AlwaysFalse
         | PredicateExpr::IsNull { .. }
         | PredicateExpr::IsNotNull { .. }
         | PredicateExpr::Compare { .. }
-        | PredicateExpr::InList { .. } => false,
-        PredicateExpr::StringContains { .. } => false,
+        | PredicateExpr::InList { .. }
+        | PredicateExpr::StringContains { .. } => false,
         PredicateExpr::And(predicates) => predicates
             .iter()
-            .any(|predicate| predicate_requires_materialized_evaluation(predicate, primitive_kind)),
+            .any(predicate_requires_materialized_evaluation),
     }
 }
 
@@ -44428,6 +44426,7 @@ fn predicate_exact_row_filter_supported(predicate: &PredicateExpr) -> bool {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::only_used_in_recursion)]
 fn split_predicate_for_vortex_pushdown(
     predicate: &PredicateExpr,
     primitive_kind: VortexQueryPrimitiveKind,
@@ -44451,7 +44450,7 @@ fn split_predicate_for_vortex_pushdown(
                 combine_predicate_parts(residual),
             )
         }
-        predicate if predicate_requires_materialized_evaluation(predicate, primitive_kind) => {
+        predicate if predicate_requires_materialized_evaluation(predicate) => {
             (None, Some(predicate.clone()))
         }
         predicate => (Some(predicate.clone()), None),
@@ -56789,8 +56788,9 @@ mod tests {
             GroupedAggregateStates::new(&request, Some(3), &declared_columns, true, false)
                 .expect("states");
         let rows = 20_000_usize;
-        let mut watch_ids = (0..rows as i64).collect::<Vec<_>>();
-        let mut client_ips = (0..rows as i64).collect::<Vec<_>>();
+        let rows_i64 = i64::try_from(rows).expect("rows fit i64");
+        let mut watch_ids = (0..rows_i64).collect::<Vec<_>>();
+        let mut client_ips = (0..rows_i64).collect::<Vec<_>>();
         watch_ids[100] = 42;
         client_ips[100] = 42;
         let mut is_refresh = vec![0_i64; rows];
