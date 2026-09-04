@@ -1065,6 +1065,33 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         unique-cardinality preview, bounded summary emission, and a persisted histogram or
         spill-safe state contract. The retained `32,768`-window second-pass route remains the
         protected reference.
+      - Completed 2026-09-04 implementation slice: count-only URL string top-K now admits a
+        resource-gated first-pass exact dictionary histogram when the source is predicate-free,
+        large enough to benefit, memory is at least `16GB`, and the request is `COUNT(*)` only.
+        The route maps per-chunk dictionary values to stable string ids, merges weighted counts in
+        one bounded exact histogram, promotes those counts into the existing proof-bound top-K
+        finalizer, and skips the prior broad second-pass recount. The older heavy-hitter sketch is
+        still updated in the first pass so budget overflow can drop back to the retained exact
+        recount route without fallback execution. CLI evidence now lifts
+        `string_count_topk_heavy_hitter_exact_counts_source=first_pass_dictionary_exact_histogram`,
+        `string_count_topk_first_pass_exact_histogram_promoted=true`, histogram entry/budget
+        counters, and `string_count_topk_heavy_hitter_second_pass=false`.
+        Focused validation passed:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`,
+        `cargo test -p shardloom-cli local_primitive_result_summary_lifts_runtime_strategy_fields -- --nocapture`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted 100M Q34/Q35 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_first_pass_exact_histogram_fields_20260904T140000Z/summary.json`
+        completed `6/6` runs with Q34 best `18.534802375012077s` and Q35 best
+        `18.438466541003436s`, no fallback, and no external engine invocation. Full 43-query UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_first_pass_exact_histogram_20260904T141000Z/summary.json`
+        completed `129/129` runs with best-of-3 query total `145.12991075002356s`, geomean
+        `1.0210800800967954s`, Q34 best `16.828901875007432s`, Q35 best
+        `16.949815000058152s`, `fallback_attempted=false`, and
+        `external_engine_invoked=false`. This improves the protected full-UAT best-of-3 total
+        `169.2741271269624s` by `24.144216376938857s`, Q34 by
+        `8.726383332978003s`, and Q35 by `7.611621415941045s`.
     - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
       - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
         recount, and adaptive radix exact path for high-cardinality numeric+string grouping.
