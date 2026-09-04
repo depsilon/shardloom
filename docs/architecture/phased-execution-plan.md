@@ -390,6 +390,28 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         ramp behavior; the current better path is a native Vortex/ShardLoom compact derived
         metadata representation that does not force source text dictionary layout through the final
         writer.
+      - Rejected 2026-09-04 implementation attempt: a hidden-derived plain-UTF8 batch replay cache
+        specialized the existing `utf8_length`/`url_domain` builders for plain `Utf8`, `LargeUtf8`,
+        and `Utf8View` batches, activated a bounded per-batch full-value cache only when a sample
+        showed repeated source values, and preserved the same hidden derived dictionary output
+        schema. Focused validation passed:
+        `rustfmt --edition 2024 shardloom-vortex/src/universal_format_io.rs --check`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io plain_utf8 -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io embedded_derived -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-write,universal-format-io streaming_vortex_write_preserves -- --nocapture`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Side-by-side candidate replacement-ingest UAT used
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/bin/shardloom-plain-value-cache-candidate`
+        with `--max-parallelism 12` and candidate target
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m-plain-value-cache-candidate.vortex`.
+        The run was stopped at `301s` because the retained `271s` comparison point still showed
+        `candidate_total_gb=0.000`, with progress samples at `120s`, `150s`, `181s`, `211s`,
+        `241s`, `271s`, and `301s` all reporting `0.000GB` written. The temp candidate artifact was
+        cleaned and the runtime change was reverted. Future dictionary-lift work should not add
+        row-level replay caches inside the current embedded-derived reader; it must either lift from
+        real source dictionaries without changing writer layout, or move hidden derivatives into a
+        compact native metadata representation outside the row-batch writer payload.
     - [ ] Implement H/VH ingest packet `single resource governor`.
       - Ideas covered: one governor for source workers, derived builders, Arrow-to-Vortex
         conversion, compression, writer feed, and final Vortex sink pressure.
