@@ -1584,6 +1584,29 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `local_primitive_grouped_count_distinct_pair_preunion_chunk_groups=859298`,
         `local_primitive_grouped_count_distinct_pair_preunion_duplicate_rows_elided=78097020`,
         `fallback_attempted=false`, and `external_engine_invoked=false`.
+      - Rejected 2026-09-04 implementation slice: bounded per-chunk preunion pair hash-set
+        initial reservation capped the chunk-local `(group, distinct)` pair set at `16384` rows and
+        emitted `local_primitive_grouped_count_distinct_pair_preunion_chunk_pair_initial_reserve_rows`
+        so allocator pressure could be inspected without changing Q10 semantics. Focused
+        validation passed with `rustfmt --edition 2024 --check
+        shardloom-vortex/src/local_primitives.rs shardloom-cli/src/public_workflow_route.rs`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives count_distinct -- --nocapture`,
+        `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`,
+        and `cargo build --release -p shardloom-cli --bin shardloom --features
+        release-user-surfaces`. Targeted local 100M Q10 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q10_bounded_preunion_reserve_20260904T085149Z/summary.json`
+        produced runs `63.35532783402596s`, `5.713568791979924s`, and
+        `5.854314540978521s`; best `5.713568791979924s` regressed versus retained
+        `3.6932682080077943s` despite preserving `fallback_attempted=false`,
+        `external_engine_invoked=false`,
+        `local_primitive_grouped_count_distinct_pair_preunion_input_rows=99997497`,
+        `local_primitive_grouped_count_distinct_pair_preunion_unique_pairs=21900477`,
+        `local_primitive_grouped_count_distinct_pair_preunion_chunk_groups=859298`,
+        `local_primitive_grouped_count_distinct_pair_preunion_chunk_pair_initial_reserve_rows=18759680`,
+        and `local_primitive_grouped_count_distinct_pair_preunion_duplicate_rows_elided=78097020`.
+        Runtime and CLI changes were removed. Do not retry smaller preunion-pair reservation alone:
+        this workload appears to benefit from the existing larger preallocation enough to outweigh
+        any memory-footprint reduction.
       - Implementation steps: split count-distinct execution into dense-group, sparse-group,
         high-cardinality, and packed-pair strategies; partition by `UserID` hash to deduplicate
         before group insertion; choose radix sort/dedup when exact container pressure is high; use
