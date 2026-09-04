@@ -1279,6 +1279,26 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `fallback_attempted=false`, and `external_engine_invoked=false`. The runtime change was
         reverted. Future Q23 work should target actual encoded predicate work avoided or scan
         projection/measure decoding, not Vortex pushdown expression ordering.
+      - Rejected 2026-09-04 implementation attempt: a Q23-shaped mixed string predicate policy was
+        prototyped to keep positive-plus-negated string top-K late-measure predicates in ShardLoom's
+        exact residual row-filter path instead of pushing them into the upstream Vortex scan filter.
+        The intent was to avoid filtered-scan fragmentation and fuse exact dictionary/FSST/direct
+        row-index predicate kernels with the first-pass late-measure aggregate. Focused validation
+        passed before UAT:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives mixed_string_topk_late_measure_prefers_shardloom_exact_residual_filter -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_contains_pushdown_is_route_aware_for_aggregate_regression_guard -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives grouped_aggregate_mixed_predicate_preserves_pushdown_and_residual_boundary -- --nocapture`,
+        `cargo fmt --all -- --check`, and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted local 100M Q22/Q23 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q22_q23_shardloom_residual_filter_20260904T044822Z/summary.json`
+        failed the retain gate: Q22 best improved to `1.1738246669992805s` but Q23 regressed to
+        `24.825983082992025s` versus retained `4.2945536660263315s`. Q23 evidence reported
+        `local_primitive_filter_pushdown_applied=false`, `local_primitive_arrays_read_count=1456`,
+        `local_primitive_max_chunk_rows=99864`, and selected rows remained `7128`. The runtime
+        change was reverted. Do not replace Q23's retained Vortex filtered-scan path with a full
+        ShardLoom residual exact row-filter scan unless a future candidate first proves lower array
+        read count, lower row-id traversal, or a true fused scan/provider boundary.
     - [ ] Implement H/VH kernel packet `Q19 fixed-width tri-key grouped top-K`.
       - Ideas covered: Q19 three-key heavy-hitter, fixed-width tri-key, duplicate-promotion filter,
         morsel-local sketches, and radix exact fallback.
