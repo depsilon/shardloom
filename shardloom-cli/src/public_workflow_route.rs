@@ -3131,6 +3131,26 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_numeric_utf8_topk_candidate_free_rows_skipped",
         ),
         (
+            "numeric_pair_late_measure_near_unique_directory_updates",
+            "local_primitive_numeric_pair_late_measure_near_unique_directory_updates",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_rows",
+            "local_primitive_numeric_pair_late_measure_near_unique_rows",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_seen_keys",
+            "local_primitive_numeric_pair_late_measure_near_unique_seen_keys",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_duplicate_keys",
+            "local_primitive_numeric_pair_late_measure_near_unique_duplicate_keys",
+        ),
+        (
+            "numeric_pair_late_measure_near_unique_directory_released_before_second_pass",
+            "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass",
+        ),
+        (
             "string_count_distinct_topk_heavy_hitter_second_pass",
             "local_primitive_string_count_distinct_topk_heavy_hitter_second_pass",
         ),

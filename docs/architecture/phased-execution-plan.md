@@ -1103,6 +1103,30 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         produced best-of-3 `8.731495374988299s` versus protected `9.72064512502402s`
         (`10.18%` faster), retained `topk_retention_strategy=cached_worst_numeric_pair_retained_window`,
         and kept exact route evidence with `fallback_attempted=false` / `external_engine_invoked=false`.
+      - Completed 2026-09-04 implementation slice: Q33 numeric-pair late-measure top-K now admits
+        a direct-slice exact near-unique directory when the retained window is small and a uniform
+        sample shows at least `99%` unique packed `(WatchID, ClientIP)` keys. The first pass stores
+        every seen packed key once and promotes only duplicate keys into exact counts; retained
+        candidates are then selected from exact duplicate counts plus singleton tie-fill keys, after
+        which the directory is released before the retained-key measure second pass. This preserves
+        exact two-pass semantics, deterministic count/key tie ordering, late measure materialization,
+        and explicit failure if the direct-slice accessor contract is lost. Vortex-first provider
+        check: this is classified as `implement_shardloom_kernel` because the work is a
+        ShardLoom-owned grouped-top-K state strategy over admitted local Vortex direct accessors;
+        no upstream query-engine integration, decoded Arrow residual, or external fallback is used.
+        Focused validation:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives numeric_pair -- --nocapture`.
+        Targeted local 100M Q33 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_near_unique_directory_20260904T011000Z/summary.json`
+        produced runs `9.311350875010248s`, `7.123132416978478s`, and
+        `6.794421416998375s`; best improved from the retained
+        `8.731495374988299s` to `6.794421416998375s` (`22.18%` faster) while preserving
+        `candidate_groups=99997493`, `retained_candidate_groups=10`,
+        `local_primitive_numeric_pair_late_measure_near_unique_directory_updates=true`,
+        `local_primitive_numeric_pair_late_measure_near_unique_rows=99997497`,
+        `local_primitive_numeric_pair_late_measure_near_unique_seen_keys=99997493`,
+        `local_primitive_numeric_pair_late_measure_near_unique_duplicate_keys=4`,
+        `fallback_attempted=false`, and `external_engine_invoked=false`.
     - [ ] Implement H/VH kernel packet `Q10 exact distinct family split`.
       - Ideas covered: Q10 separate aggregate families, partition-by-UserID hash, radix pair
         sort/dedup, adaptive exact containers, and global ids/Roaring-style bitmap evaluation.

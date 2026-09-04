@@ -23671,9 +23671,14 @@ struct GroupedAggregateStates<'a> {
     numeric_pair_late_measure_enabled: bool,
     numeric_pair_late_measure_count_groups:
         Option<rustc_hash::FxHashMap<AggregateNumericPairKey, u64>>,
+    numeric_pair_late_measure_near_unique_directory: Option<NumericPairNearUniqueCountDirectory>,
     numeric_pair_late_measure_retained_keys: Option<rustc_hash::FxHashSet<AggregateNumericPairKey>>,
     numeric_pair_late_measure_retained_candidates: Option<Vec<NumericPairAggregateOrderCandidate>>,
     numeric_pair_late_measure_candidate_group_count: Option<usize>,
+    numeric_pair_late_measure_near_unique_directory_updates: bool,
+    numeric_pair_late_measure_near_unique_rows: u64,
+    numeric_pair_late_measure_near_unique_seen_keys: u64,
+    numeric_pair_late_measure_near_unique_duplicate_keys: u64,
     string_count_topk_heavy_hitter_enabled: bool,
     string_count_topk_heavy_hitter_sketch: Option<StringCountTopKHeavyHitterSketch>,
     string_count_topk_candidate_ids: Option<rustc_hash::FxHashSet<u64>>,
@@ -23928,6 +23933,13 @@ struct SingleNumericAggregateOrderCandidate {
 struct NumericPairAggregateOrderCandidate {
     key: AggregateNumericPairKey,
     count: u64,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct NumericPairNearUniqueCountDirectory {
+    seen_keys: rustc_hash::FxHashSet<AggregateNumericPairKey>,
+    duplicate_counts: rustc_hash::FxHashMap<AggregateNumericPairKey, u64>,
+    rows_seen: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -26484,9 +26496,14 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_pair_compact_groups: None,
             numeric_pair_late_measure_enabled,
             numeric_pair_late_measure_count_groups: None,
+            numeric_pair_late_measure_near_unique_directory: None,
             numeric_pair_late_measure_retained_keys: None,
             numeric_pair_late_measure_retained_candidates: None,
             numeric_pair_late_measure_candidate_group_count: None,
+            numeric_pair_late_measure_near_unique_directory_updates: false,
+            numeric_pair_late_measure_near_unique_rows: 0,
+            numeric_pair_late_measure_near_unique_seen_keys: 0,
+            numeric_pair_late_measure_near_unique_duplicate_keys: 0,
             string_count_topk_heavy_hitter_enabled,
             string_count_topk_heavy_hitter_sketch: None,
             string_count_topk_candidate_ids: None,
@@ -30732,10 +30749,36 @@ impl<'a> GroupedAggregateStates<'a> {
         if let Some((first_keys, second_keys)) =
             aggregate_numeric_pair_direct_key_slices(first_accessor, second_accessor)
         {
-            let groups = self
-                .numeric_pair_late_measure_count_groups
-                .get_or_insert_with(rustc_hash::FxHashMap::default);
-            if numeric_pair_chunk_compaction_admitted(first_keys, second_keys)? {
+            if self
+                .numeric_pair_late_measure_near_unique_directory
+                .is_some()
+                || (self.numeric_pair_late_measure_count_groups.is_none()
+                    && numeric_pair_near_unique_directory_admitted(
+                        first_keys,
+                        second_keys,
+                        self.result_limit,
+                        self.request.offset,
+                    )?)
+            {
+                let (rows_seen, seen_keys, duplicate_keys) = {
+                    let directory = self
+                        .numeric_pair_late_measure_near_unique_directory
+                        .get_or_insert_with(NumericPairNearUniqueCountDirectory::new);
+                    directory.update_slices(first_keys, second_keys)?;
+                    (
+                        directory.rows_seen,
+                        usize_to_u64(directory.candidate_group_count())?,
+                        usize_to_u64(directory.duplicate_key_count())?,
+                    )
+                };
+                self.numeric_pair_late_measure_near_unique_directory_updates = true;
+                self.numeric_pair_late_measure_near_unique_rows = rows_seen;
+                self.numeric_pair_late_measure_near_unique_seen_keys = seen_keys;
+                self.numeric_pair_late_measure_near_unique_duplicate_keys = duplicate_keys;
+            } else if numeric_pair_chunk_compaction_admitted(first_keys, second_keys)? {
+                let groups = self
+                    .numeric_pair_late_measure_count_groups
+                    .get_or_insert_with(rustc_hash::FxHashMap::default);
                 let chunk_counts = numeric_pair_chunk_counts(first_keys, second_keys)?;
                 reserve_hash_map_capacity(
                     groups,
@@ -30765,6 +30808,9 @@ impl<'a> GroupedAggregateStates<'a> {
                 }
                 self.numeric_pair_chunk_compacted_updates = true;
             } else {
+                let groups = self
+                    .numeric_pair_late_measure_count_groups
+                    .get_or_insert_with(rustc_hash::FxHashMap::default);
                 reserve_hash_map_capacity(
                     groups,
                     first_accessor.len(),
@@ -30781,6 +30827,15 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             self.numeric_pair_direct_key_slice_updates = true;
         } else {
+            if self
+                .numeric_pair_late_measure_near_unique_directory
+                .is_some()
+            {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-pair near-unique count directory lost its direct-slice accessor contract; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
             let groups = self
                 .numeric_pair_late_measure_count_groups
                 .get_or_insert_with(rustc_hash::FxHashMap::default);
@@ -30861,12 +30916,30 @@ impl<'a> GroupedAggregateStates<'a> {
             ));
         };
         let retained_cap = self.request.offset.saturating_add(limit);
-        let Some(counts) = self.numeric_pair_late_measure_count_groups.as_ref() else {
+        let (candidate_group_count, mut retained) = if let Some(counts) =
+            self.numeric_pair_late_measure_count_groups.as_ref()
+        {
+            (
+                counts.len(),
+                Self::numeric_pair_late_measure_retained_candidates_from_counts(
+                    counts,
+                    retained_cap,
+                )?,
+            )
+        } else if let Some(directory) = self.numeric_pair_late_measure_near_unique_directory.take()
+        {
+            let candidate_group_count = directory.candidate_group_count();
+            self.numeric_pair_late_measure_near_unique_seen_keys =
+                usize_to_u64(candidate_group_count)?;
+            self.numeric_pair_late_measure_near_unique_duplicate_keys =
+                usize_to_u64(directory.duplicate_key_count())?;
+            (
+                candidate_group_count,
+                directory.retained_candidates(retained_cap)?,
+            )
+        } else {
             return Ok(());
         };
-        let candidate_group_count = counts.len();
-        let mut retained =
-            Self::numeric_pair_late_measure_retained_candidates_from_counts(counts, retained_cap)?;
         retained.sort_by(compare_numeric_pair_candidates);
         let retained_keys = retained
             .iter()
@@ -33352,7 +33425,10 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn needs_numeric_pair_late_measure_second_pass(&self) -> bool {
-        self.numeric_pair_late_measure_count_groups.is_some()
+        (self.numeric_pair_late_measure_count_groups.is_some()
+            || self
+                .numeric_pair_late_measure_near_unique_directory
+                .is_some())
             && self.numeric_pair_late_measure_retained_keys.is_none()
     }
 
@@ -33474,6 +33550,34 @@ impl<'a> GroupedAggregateStates<'a> {
             &mut payload,
             "numeric_pair_chunk_compacted_unique_keys",
             self.numeric_pair_chunk_compacted_unique_keys,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "numeric_pair_late_measure_near_unique_directory_updates",
+            self.numeric_pair_late_measure_near_unique_directory_updates,
+        )?;
+        json_object_insert_u64(
+            &mut payload,
+            "numeric_pair_late_measure_near_unique_rows",
+            self.numeric_pair_late_measure_near_unique_rows,
+        )?;
+        json_object_insert_u64(
+            &mut payload,
+            "numeric_pair_late_measure_near_unique_seen_keys",
+            self.numeric_pair_late_measure_near_unique_seen_keys,
+        )?;
+        json_object_insert_u64(
+            &mut payload,
+            "numeric_pair_late_measure_near_unique_duplicate_keys",
+            self.numeric_pair_late_measure_near_unique_duplicate_keys,
+        )?;
+        json_object_insert_bool(
+            &mut payload,
+            "numeric_pair_late_measure_near_unique_directory_released_before_second_pass",
+            self.numeric_pair_late_measure_near_unique_directory_updates
+                && self
+                    .numeric_pair_late_measure_near_unique_directory
+                    .is_none(),
         )?;
         Ok((row_count, payload.to_string()))
     }
@@ -34141,6 +34245,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "numeric_minute_string_dictionary_code_direct_group_update"
         } else if self.numeric_minute_string_count_direct_updates {
             "numeric_minute_string_count_direct_group_update"
+        } else if self.numeric_pair_late_measure_near_unique_directory_updates {
+            "numeric_pair_near_unique_directory_count_topk_late_measure_second_pass"
         } else if self.numeric_pair_late_measure_direct_updates {
             "numeric_pair_count_topk_late_measure_second_pass"
         } else if self.numeric_pair_compact_direct_updates {
@@ -34257,6 +34363,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "numeric_minute_string_dictionary_code_compact_count_star_group_state"
         } else if self.numeric_minute_string_count_direct_updates {
             "numeric_minute_string_compact_count_star_group_state"
+        } else if self.numeric_pair_late_measure_near_unique_directory_updates {
+            "numeric_pair_near_unique_count_topk_late_measure_group_state"
         } else if self.numeric_pair_late_measure_direct_updates {
             "numeric_pair_count_topk_late_measure_group_state"
         } else if self.numeric_pair_compact_direct_updates {
@@ -34355,6 +34463,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 return "typed_numeric_minute_dictionary_code_key";
             }
             "typed_numeric_minute_interned_utf8_key"
+        } else if self.numeric_pair_late_measure_near_unique_directory_updates {
+            "typed_numeric_pair_near_unique_seen_key_directory"
         } else if self.numeric_pair_late_measure_count_groups.is_some()
             || self.numeric_pair_compact_groups.is_some()
         {
@@ -34411,6 +34521,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "numeric_minute_string_dictionary_code_hot_hash_map"
         } else if self.numeric_minute_string_count_direct_updates {
             "numeric_minute_string_hot_hash_map"
+        } else if self.numeric_pair_late_measure_near_unique_directory_updates {
+            "numeric_pair_near_unique_count_directory_then_retained_measure_state"
         } else if self.numeric_pair_late_measure_direct_updates {
             "numeric_pair_count_state_then_retained_measure_state"
         } else if self.numeric_pair_compact_direct_updates {
@@ -34502,6 +34614,12 @@ impl<'a> GroupedAggregateStates<'a> {
         if let Some(candidate_group_count) = self.numeric_pair_late_measure_candidate_group_count {
             return candidate_group_count;
         }
+        if let Some(directory) = self
+            .numeric_pair_late_measure_near_unique_directory
+            .as_ref()
+        {
+            return directory.candidate_group_count();
+        }
         if let Some(groups) = self.numeric_pair_late_measure_count_groups.as_ref() {
             return groups.len();
         }
@@ -34582,6 +34700,12 @@ impl<'a> GroupedAggregateStates<'a> {
             return 0;
         }
         if self.numeric_pair_late_measure_count_groups.is_some() {
+            return 0;
+        }
+        if self
+            .numeric_pair_late_measure_near_unique_directory
+            .is_some()
+        {
             return 0;
         }
         if self.numeric_pair_compact_groups.is_some() {
@@ -34698,6 +34822,19 @@ impl<'a> GroupedAggregateStates<'a> {
             return groups
                 .len()
                 .saturating_mul(std::mem::size_of::<AggregateNumericPairKey>());
+        }
+        if let Some(directory) = self
+            .numeric_pair_late_measure_near_unique_directory
+            .as_ref()
+        {
+            return directory
+                .candidate_group_count()
+                .saturating_mul(std::mem::size_of::<AggregateNumericPairKey>())
+                .saturating_add(
+                    directory
+                        .duplicate_key_count()
+                        .saturating_mul(std::mem::size_of::<AggregateNumericPairKey>()),
+                );
         }
         if let Some(groups) = self.numeric_pair_compact_groups.as_ref() {
             return groups
@@ -35219,6 +35356,9 @@ impl<'a> GroupedAggregateStates<'a> {
             state_family.push_str("+compact_numeric_measures");
             if self.numeric_pair_late_measure_direct_updates {
                 state_family.push_str("+numeric_pair_late_measure");
+                if self.numeric_pair_late_measure_near_unique_directory_updates {
+                    state_family.push_str("+near_unique_directory");
+                }
             } else if self.numeric_pair_compact_direct_updates {
                 state_family.push_str("+numeric_pair");
             }
@@ -35443,6 +35583,14 @@ impl<'a> GroupedAggregateStates<'a> {
                 capillary_work_units.push("numeric_pair_count_state_release_before_second_pass");
                 pulseweave_pressure_signals
                     .push("numeric_pair_count_state_memory_released_before_measure_scan");
+            }
+            if self.numeric_pair_late_measure_near_unique_directory_updates {
+                capillary_work_units.push("numeric_pair_near_unique_count_directory");
+                capillary_work_units.push("numeric_pair_exact_duplicate_promotion_directory");
+                pulseweave_pressure_signals.push("numeric_pair_near_unique_seen_keys");
+                pulseweave_pressure_signals.push("numeric_pair_near_unique_duplicate_keys");
+                pulseweave_pressure_signals
+                    .push("numeric_pair_near_unique_directory_released_before_measure_scan");
             }
         }
         if self.numeric_pair_direct_key_slice_updates {
@@ -36195,6 +36343,196 @@ fn numeric_pair_add_count(
         )
     })?;
     Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl NumericPairNearUniqueCountDirectory {
+    fn new() -> Self {
+        Self {
+            seen_keys: rustc_hash::FxHashSet::default(),
+            duplicate_counts: rustc_hash::FxHashMap::default(),
+            rows_seen: 0,
+        }
+    }
+
+    fn update_slices(
+        &mut self,
+        first: AggregateDirectIntegerKeySlice<'_>,
+        second: AggregateDirectIntegerKeySlice<'_>,
+    ) -> Result<()> {
+        if first.len() != second.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex numeric-pair near-unique directory saw mismatched key column lengths; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        reserve_hash_set_capacity(
+            &mut self.seen_keys,
+            first.len(),
+            "numeric-pair near-unique count directory",
+        )?;
+        reserve_hash_map_capacity(
+            &mut self.duplicate_counts,
+            first.len().min(4_096),
+            "numeric-pair near-unique duplicate count directory",
+        )?;
+        for row_index in 0..first.len() {
+            let key = AggregateNumericPairKey::from_integer_key_slices(first, second, row_index)?;
+            self.update_key(key)?;
+        }
+        self.rows_seen = self
+            .rows_seen
+            .checked_add(usize_to_u64(first.len())?)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-pair near-unique directory row count overflowed u64"
+                        .to_string(),
+                )
+            })?;
+        Ok(())
+    }
+
+    fn update_key(&mut self, key: AggregateNumericPairKey) -> Result<()> {
+        if self.seen_keys.insert(key) {
+            return Ok(());
+        }
+        match self.duplicate_counts.entry(key) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                *entry.get_mut() = entry.get().checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex numeric-pair near-unique duplicate count overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(2);
+            }
+        }
+        Ok(())
+    }
+
+    fn candidate_group_count(&self) -> usize {
+        self.seen_keys.len()
+    }
+
+    fn duplicate_key_count(&self) -> usize {
+        self.duplicate_counts.len()
+    }
+
+    fn retained_candidates(
+        &self,
+        retained_cap: usize,
+    ) -> Result<Vec<NumericPairAggregateOrderCandidate>> {
+        let mut retained = Vec::<NumericPairAggregateOrderCandidate>::with_capacity(
+            retained_cap.min(self.seen_keys.len()),
+        );
+        let mut worst_retained_index = None;
+        for (key, count) in &self.duplicate_counts {
+            Self::consider_retained_candidate(
+                &mut retained,
+                &mut worst_retained_index,
+                NumericPairAggregateOrderCandidate {
+                    key: *key,
+                    count: *count,
+                },
+                retained_cap,
+            )?;
+        }
+        for key in &self.seen_keys {
+            if self.duplicate_counts.contains_key(key) {
+                continue;
+            }
+            Self::consider_retained_candidate(
+                &mut retained,
+                &mut worst_retained_index,
+                NumericPairAggregateOrderCandidate {
+                    key: *key,
+                    count: 1,
+                },
+                retained_cap,
+            )?;
+        }
+        Ok(retained)
+    }
+
+    fn consider_retained_candidate(
+        retained: &mut Vec<NumericPairAggregateOrderCandidate>,
+        worst_retained_index: &mut Option<usize>,
+        candidate: NumericPairAggregateOrderCandidate,
+        retained_cap: usize,
+    ) -> Result<()> {
+        if retained.len() < retained_cap {
+            retained.push(candidate);
+            if retained.len() == retained_cap {
+                *worst_retained_index = numeric_pair_worst_retained_candidate_index(retained);
+            }
+            return Ok(());
+        }
+        if retained_cap == 0 {
+            return Ok(());
+        }
+        let worst_index = worst_retained_index
+            .or_else(|| numeric_pair_worst_retained_candidate_index(retained))
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-pair near-unique retained candidate set was empty; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        let worst_candidate = retained.get(worst_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-pair near-unique retained candidate index was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        if compare_numeric_pair_candidates(&candidate, worst_candidate) == std::cmp::Ordering::Less
+        {
+            retained[worst_index] = candidate;
+            *worst_retained_index = numeric_pair_worst_retained_candidate_index(retained);
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn numeric_pair_near_unique_directory_admitted(
+    first: AggregateDirectIntegerKeySlice<'_>,
+    second: AggregateDirectIntegerKeySlice<'_>,
+    result_limit: Option<usize>,
+    offset: usize,
+) -> Result<bool> {
+    const MIN_ROWS: usize = 16_384;
+    const MAX_RETAINED_CAP: usize = 128;
+    const SAMPLE_ROWS: usize = 4_096;
+    let Some(limit) = result_limit else {
+        return Ok(false);
+    };
+    if offset.saturating_add(limit) > MAX_RETAINED_CAP {
+        return Ok(false);
+    }
+    let rows = first.len();
+    if rows < MIN_ROWS || second.len() != rows {
+        return Ok(false);
+    }
+    let sample_rows = SAMPLE_ROWS.min(rows);
+    let mut sampled = rustc_hash::FxHashSet::<AggregateNumericPairKey>::default();
+    reserve_hash_set_capacity(
+        &mut sampled,
+        sample_rows,
+        "numeric-pair near-unique directory sample",
+    )?;
+    for sample_index in 0..sample_rows {
+        let row_index = sample_index.checked_mul(rows).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex numeric-pair near-unique sample row index overflowed".to_string(),
+            )
+        })? / sample_rows;
+        sampled.insert(AggregateNumericPairKey::from_integer_key_slices(
+            first, second, row_index,
+        )?);
+    }
+    Ok(sampled.len().saturating_mul(100) >= sample_rows.saturating_mul(99))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -56006,6 +56344,177 @@ mod tests {
         assert_eq!(payload["values"][0]["rows"], serde_json::json!(3));
         assert_eq!(payload["values"][0]["refreshes"], serde_json::json!(2.0));
         assert_eq!(payload["values"][0]["avg_width"], serde_json::json!(300.0));
+    }
+
+    #[test]
+    fn grouped_aggregate_numeric_pair_late_measure_uses_near_unique_directory() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("watch_id").expect("column"),
+                ColumnRef::new("client_ip").expect("column"),
+            ],
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "sum",
+                    Some(ColumnRef::new("is_refresh").expect("column")),
+                    "refreshes".to_string(),
+                ),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(ColumnRef::new("width").expect("column")),
+                    "avg_width".to_string(),
+                ),
+            ],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let declared_columns = vec![
+            "watch_id".to_string(),
+            "client_ip".to_string(),
+            "is_refresh".to_string(),
+            "width".to_string(),
+        ];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(3), &declared_columns, true, false)
+                .expect("states");
+        let rows = 20_000_usize;
+        let mut watch_ids = (0..rows as i64).collect::<Vec<_>>();
+        let mut client_ips = (0..rows as i64).collect::<Vec<_>>();
+        watch_ids[100] = 42;
+        client_ips[100] = 42;
+        let mut is_refresh = vec![0_i64; rows];
+        is_refresh[42] = 1;
+        is_refresh[100] = 1;
+        let mut widths = vec![100_i64; rows];
+        widths[100] = 300;
+        let direct_accessors = vec![
+            AggregateDirectColumnAccessor::Int64(watch_ids),
+            AggregateDirectColumnAccessor::Int64(client_ips),
+            AggregateDirectColumnAccessor::Int64(is_refresh),
+            AggregateDirectColumnAccessor::Int64(widths),
+        ];
+
+        assert!(
+            states
+                .update_numeric_pair_late_measure_count_direct_from_accessors(
+                    &direct_accessors,
+                    None
+                )
+                .expect("late measure near-unique count pass")
+        );
+        assert!(states.numeric_pair_late_measure_near_unique_directory_updates);
+        assert!(states.numeric_pair_late_measure_count_groups.is_none());
+        assert!(
+            states
+                .numeric_pair_late_measure_near_unique_directory
+                .is_some()
+        );
+        assert_eq!(
+            states.numeric_pair_late_measure_near_unique_rows,
+            rows as u64
+        );
+        assert_eq!(
+            states.numeric_pair_late_measure_near_unique_seen_keys,
+            rows as u64 - 1
+        );
+        assert_eq!(
+            states.numeric_pair_late_measure_near_unique_duplicate_keys,
+            1
+        );
+        assert!(states.needs_numeric_pair_late_measure_second_pass());
+        states
+            .prepare_numeric_pair_late_measure_second_pass(Some(3))
+            .expect("prepare retained keys");
+        assert!(
+            states
+                .numeric_pair_late_measure_near_unique_directory
+                .is_none()
+        );
+        assert_eq!(
+            states.numeric_pair_late_measure_candidate_group_count,
+            Some(rows - 1)
+        );
+        assert!(
+            states
+                .update_numeric_pair_late_measure_direct_from_accessors(&direct_accessors)
+                .expect("late measure second pass")
+        );
+        let budget = states
+            .state_budget_report(&request, rows, 3)
+            .expect("state budget");
+        assert_eq!(
+            budget.state_family,
+            "grouped_aggregate_state+topk+compact_numeric_measures+numeric_pair_late_measure+near_unique_directory+direct_key_slices"
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"numeric_pair_near_unique_count_directory".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"numeric_pair_exact_duplicate_promotion_directory".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"numeric_pair_near_unique_duplicate_keys".to_string())
+        );
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(3))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 3);
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "numeric_pair_near_unique_directory_count_topk_late_measure_second_pass"
+        );
+        assert_eq!(
+            payload["compact_group_state_strategy"],
+            "numeric_pair_near_unique_count_topk_late_measure_group_state"
+        );
+        assert_eq!(
+            payload["group_state_mode"],
+            "numeric_pair_near_unique_count_directory_then_retained_measure_state"
+        );
+        assert_eq!(
+            payload["group_key_storage"],
+            "typed_numeric_pair_near_unique_seen_key_directory"
+        );
+        assert_eq!(payload["candidate_groups"], serde_json::json!(rows - 1));
+        assert_eq!(
+            payload["numeric_pair_late_measure_near_unique_directory_updates"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            payload["numeric_pair_late_measure_near_unique_rows"],
+            serde_json::json!(rows)
+        );
+        assert_eq!(
+            payload["numeric_pair_late_measure_near_unique_seen_keys"],
+            serde_json::json!(rows - 1)
+        );
+        assert_eq!(
+            payload["numeric_pair_late_measure_near_unique_duplicate_keys"],
+            serde_json::json!(1)
+        );
+        assert_eq!(
+            payload["numeric_pair_late_measure_near_unique_directory_released_before_second_pass"],
+            serde_json::json!(true)
+        );
+        assert_eq!(payload["values"][0]["watch_id"], serde_json::json!(42));
+        assert_eq!(payload["values"][0]["client_ip"], serde_json::json!(42));
+        assert_eq!(payload["values"][0]["rows"], serde_json::json!(2));
+        assert_eq!(payload["values"][0]["refreshes"], serde_json::json!(2.0));
+        assert_eq!(payload["values"][0]["avg_width"], serde_json::json!(200.0));
+        assert_eq!(payload["values"][1]["watch_id"], serde_json::json!(0));
+        assert_eq!(payload["values"][1]["client_ip"], serde_json::json!(0));
+        assert_eq!(payload["values"][1]["rows"], serde_json::json!(1));
+        assert_eq!(payload["values"][2]["watch_id"], serde_json::json!(1));
+        assert_eq!(payload["values"][2]["client_ip"], serde_json::json!(1));
+        assert_eq!(payload["values"][2]["rows"], serde_json::json!(1));
     }
 
     #[test]
