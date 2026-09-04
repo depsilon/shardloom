@@ -1525,6 +1525,23 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `local_primitive_numeric_pair_late_measure_near_unique_seen_keys=99997493`,
         `local_primitive_numeric_pair_late_measure_near_unique_duplicate_keys=4`,
         `fallback_attempted=false`, and `external_engine_invoked=false`.
+      - Rejected 2026-09-04 implementation slice: Q33 near-unique directory singleton tie-fill
+        attempted to maintain a bounded exact singleton candidate window during the first duplicate
+        promotion pass, then bypass the full seen-key singleton scan when observed duplicate keys
+        fit the maintained slack. Focused validation passed before UAT:
+        `cargo test -p shardloom-vortex --features vortex-local-primitives numeric_pair -- --nocapture`
+        and
+        `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`;
+        the release build also passed
+        (`cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`).
+        Targeted local 100M Q33 UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q33_singleton_tie_fill_20260904T083228Z/summary.json`
+        was stopped after roughly one minute with `completed_runs=0`, compared with the retained
+        near-unique directory best `6.794421416998375s`; transient logs and runtime changes were
+        removed. The result shows per-row ordered singleton-window maintenance costs more than the
+        retained one-time seen-key scan on this workload. Do not retry this shape unless the
+        singleton tie-fill comes from persisted min-key metadata, chunk-level ordered summaries, or
+        a branchless fixed-capacity comparator that is benchmarked independently first.
     - [ ] Implement H/VH kernel packet `Q10 exact distinct family split`.
       - Ideas covered: Q10 separate aggregate families, partition-by-UserID hash, radix pair
         sort/dedup, adaptive exact containers, and global ids/Roaring-style bitmap evaluation.
