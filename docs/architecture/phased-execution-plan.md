@@ -968,6 +968,20 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
         `string_count_topk_heavy_hitter_candidate_groups=20544` versus prior `48086`,
         `string_count_topk_heavy_hitter_exact_proof=true`,
         `fallback_attempted=false`, and `external_engine_invoked=false`.
+      - Rejected 2026-09-04 implementation attempt: tightening the count-only string
+        heavy-hitter window again from `32,768` to `16,384` kept count-distinct and numeric+UTF8
+        windows unchanged and passed focused validation:
+        `rustfmt --edition 2024 shardloom-vortex/src/local_primitives.rs --check`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives physical_policy_classifies_string_and_numeric_utf8_heavy_hitters -- --nocapture`,
+        `cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture`,
+        and
+        `cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces`.
+        Targeted Q34/Q35 candidate UAT at
+        `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_window_16k_20260904T043439Z/summary.json`
+        timed out on the first Q34 run at the `180s` per-query limit with `0/6` completed runs,
+        versus the retained `32,768`-window Q34/Q35 best-of-3 sum `48.23178674897645s`. The runtime
+        change was reverted. Do not reduce the Q34/Q35 count-only heavy-hitter window below
+        `32,768` without a new exact-proof design that preserves the retained route's proof margin.
     - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.
       - Ideas covered: Q17 packed composite identity, parallel candidate generation, partitioned
         recount, and adaptive radix exact path for high-cardinality numeric+string grouping.
