@@ -123,7 +123,7 @@ stop_child() {
     kill "$pid" 2>/dev/null || true
     for _ in {1..50}; do
       if ! kill -0 "$pid" 2>/dev/null; then
-        return
+        return 0
       fi
       sleep 0.1
     done
@@ -131,7 +131,13 @@ stop_child() {
   fi
 }
 cleanup_run() {
-  stop_child
+  # Cleanup must finish even when entered from a nonzero signal exit. Ignore
+  # repeated signals while draining the owned supervisor and releasing its lock.
+  trap '' INT TERM
+  stop_child || true
+  if [[ -n "$pid" ]]; then
+    wait "$pid" 2>/dev/null || true
+  fi
   rmdir "$lock_dir" 2>/dev/null || true
 }
 trap cleanup_run EXIT

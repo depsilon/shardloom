@@ -207,7 +207,9 @@ class StorageGuardTests(unittest.TestCase):
             self.assertEqual(child.returncode, 143, stdout + stderr)
             with self.assertRaises(ProcessLookupError):
                 os.kill(writer_pid, 0)
-            self.assertFalse((self.root / ".ingest-uat.lock").exists())
+            self.assertFalse((self.root / ".ingest-uat.lock").exists(), stdout + stderr)
+            restart = self.run_harness(extra=("--replace-existing",))
+            self.assertEqual(restart.returncode, 0, restart.stdout + restart.stderr)
         finally:
             if child.poll() is None:
                 child.kill()

@@ -9925,6 +9925,9 @@ fn fast_utf8_contains_count_from_chunk(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+// One matcher is reused across a scan loop. Keep the target-sized memmem finder
+// on the stack instead of adding a heap allocation just for enum size uniformity.
+#[allow(clippy::large_enum_variant)]
 enum Utf8ContainsNeedle<'a> {
     Empty,
     Ascii(memchr::memmem::Finder<'a>),
