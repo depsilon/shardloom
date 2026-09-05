@@ -10,6 +10,9 @@ mod aggregate_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_timing.rs"]
 mod aggregate_timing;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/lazy_layout_metadata_tests.rs"]
+mod lazy_layout_metadata_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 mod native_flat_layout;
@@ -349,6 +352,10 @@ pub struct VortexLocalPrimitiveEmbeddedLayoutReport {
     pub footer_layout_summary: String,
     pub root_layout_encoding: String,
     pub layout_encoding_inventory: String,
+    /// Query metadata reads the root only; explicit inspection visits every layout.
+    pub layout_inventory_scope: String,
+    /// Nodes inspected for this report, excluding provider scan/pruning work.
+    pub layout_inventory_nodes_inspected: u64,
     pub per_column_metadata_contract: String,
     pub segment_membership_status: String,
     pub domain_dictionary_status: String,
@@ -370,31 +377,58 @@ pub struct VortexLocalPrimitiveEmbeddedLayoutReport {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+const DEFERRED_LAYOUT_INVENTORY: &str = "deferred_until_explicit_layout_inspection";
+
+#[cfg(feature = "vortex-local-primitives")]
 fn collect_vortex_local_layout_encodings(
     layout: &dyn vortex::layout::DynLayout,
     encodings: &mut std::collections::BTreeSet<String>,
-) {
+    max_layout_nodes: usize,
+) -> Result<u64> {
+    if max_layout_nodes == 0 {
+        return Err(ShardLoomError::InvalidOperation(
+            "layout inspection requires a positive node bound".into(),
+        ));
+    }
     encodings.insert(layout.encoding_id().to_string());
-    if let Ok(children) = layout.children() {
-        for child in children {
-            collect_vortex_local_layout_encodings(child.as_ref(), encodings);
+    let mut inspected = 1;
+    let mut pending = vec![(layout.to_layout(), 0)];
+    while let Some((parent, next_slot)) = pending.last_mut() {
+        if *next_slot == parent.nslots() {
+            pending.pop();
+            continue;
+        }
+        if inspected == max_layout_nodes && parent.slot_type(*next_slot).is_some() {
+            return Err(ShardLoomError::InvalidOperation(
+                "layout inspection exceeded its node bound".into(),
+            ));
+        }
+        let child = parent.slot(*next_slot).map_err(vortex_error)?;
+        *next_slot += 1;
+        if let Some(child) = child {
+            inspected += 1;
+            encodings.insert(child.encoding_id().to_string());
+            pending.push((child, 0));
         }
     }
+    u64::try_from(inspected).map_err(vortex_error)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
 fn vortex_local_layout_encoding_inventory(
     layout: &dyn vortex::layout::DynLayout,
-) -> (String, String) {
+    max_layout_nodes: usize,
+) -> Result<(String, String, u64)> {
     let root_layout_encoding = layout.encoding_id().to_string();
     let mut encodings = std::collections::BTreeSet::new();
-    collect_vortex_local_layout_encodings(layout, &mut encodings);
+    let inspected =
+        collect_vortex_local_layout_encodings(layout, &mut encodings, max_layout_nodes)?;
     let layout_encoding_inventory = if encodings.is_empty() {
         "none".to_string()
     } else {
         encodings.into_iter().collect::<Vec<_>>().join(",")
     };
-    (root_layout_encoding, layout_encoding_inventory)
+    Ok((root_layout_encoding, layout_encoding_inventory, inspected))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -402,6 +436,9 @@ fn vortex_local_domain_dictionary_status(
     dtype_summary: &str,
     layout_encoding_inventory: &str,
 ) -> String {
+    if layout_encoding_inventory.contains(DEFERRED_LAYOUT_INVENTORY) {
+        return "dictionary_layout_availability_not_inspected".into();
+    }
     let lower_encodings = layout_encoding_inventory.to_ascii_lowercase();
     let lower_dtype = dtype_summary.to_ascii_lowercase();
     if lower_encodings.contains("dict") || lower_encodings.contains("dictionary") {
@@ -500,6 +537,9 @@ fn vortex_local_column_encoding_status(
     dtype: &vortex::array::dtype::DType,
     layout_encoding_inventory: &str,
 ) -> &'static str {
+    if layout_encoding_inventory.contains(DEFERRED_LAYOUT_INVENTORY) {
+        return "layout_encoding_not_inspected";
+    }
     let lower_dtype = dtype.to_string().to_ascii_lowercase();
     let lower_layout = layout_encoding_inventory.to_ascii_lowercase();
     if lower_dtype.contains("dict")
@@ -584,6 +624,8 @@ fn vortex_local_operator_selection_metadata_status(per_column_contract: &str) ->
         "per_column_embedded_metadata_available_for_operator_selection".to_string()
     } else if per_column_contract.contains("encoding=dictionary_or_code_available") {
         "per_column_dictionary_metadata_available_for_operator_selection".to_string()
+    } else if per_column_contract.contains("encoding=layout_encoding_not_inspected") {
+        "per_column_logical_metadata_available_layout_inspection_deferred".to_string()
     } else if per_column_contract.is_empty() || per_column_contract == "not_available" {
         "per_column_metadata_not_available".to_string()
     } else {
@@ -664,6 +706,8 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             footer_layout_summary: "not_available".to_string(),
             root_layout_encoding: "not_available".to_string(),
             layout_encoding_inventory: "not_available".to_string(),
+            layout_inventory_scope: "not_available".to_string(),
+            layout_inventory_nodes_inspected: 0,
             per_column_metadata_contract: "not_available".to_string(),
             segment_membership_status: "not_available".to_string(),
             domain_dictionary_status: "not_available".to_string(),
@@ -699,8 +743,10 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             .approx_byte_size()
             .and_then(|value| u64::try_from(value).ok());
         let footer_dtype_summary = file.dtype().to_string();
-        let (root_layout_encoding, layout_encoding_inventory) =
-            vortex_local_layout_encoding_inventory(footer.layout().as_ref());
+        // DynLayout::slot/children materializes lazy provider layouts. Ordinary
+        // queries need only root metadata here; the scan realizes selected paths.
+        let root_layout_encoding = footer.layout().encoding_id().to_string();
+        let layout_encoding_inventory = DEFERRED_LAYOUT_INVENTORY.to_string();
         let per_column_metadata_contract = vortex_local_per_column_metadata_contract(
             file.dtype(),
             &layout_encoding_inventory,
@@ -737,6 +783,9 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             ),
             root_layout_encoding,
             layout_encoding_inventory,
+            layout_inventory_scope:
+                "root_only;full_tree_deferred;no_child_layouts_realized_for_inventory".into(),
+            layout_inventory_nodes_inspected: 1,
             per_column_metadata_contract,
             segment_membership_status,
             domain_dictionary_status,
@@ -763,6 +812,46 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
         }
     }
 
+    /// Inspect the complete layout tree of an already opened native file.
+    /// This explicit diagnostic materializes all lazy layout metadata, including
+    /// unprojected fields. It performs no segment reads or query execution.
+    ///
+    /// # Errors
+    /// Propagates malformed or unsupported child layout metadata and rejects a
+    /// zero/exceeded node bound. A partial walk is never reported as complete.
+    #[cfg(feature = "vortex-local-primitives")]
+    pub fn inspect_file_layouts(
+        file: &vortex::file::VortexFile,
+        max_layout_nodes: usize,
+    ) -> Result<Self> {
+        let mut report = Self::from_file(file, VortexQueryPrimitiveKind::CountAll, false, false);
+        let (root, inventory, inspected) = vortex_local_layout_encoding_inventory(
+            file.footer().layout().as_ref(),
+            max_layout_nodes,
+        )?;
+        report.root_layout_encoding = root;
+        report.layout_encoding_inventory = inventory;
+        report.layout_inventory_nodes_inspected = inspected;
+        report.layout_inventory_scope = "complete_tree;explicit_metadata_inspection".into();
+        report.footer_layout_summary = format!(
+            "vortex_footer_root_layout;root={};encodings={}",
+            report.root_layout_encoding, report.layout_encoding_inventory
+        );
+        report.per_column_metadata_contract = vortex_local_per_column_metadata_contract(
+            file.dtype(),
+            &report.layout_encoding_inventory,
+            report.footer_statistics_available,
+        );
+        report.operator_selection_metadata_status =
+            vortex_local_operator_selection_metadata_status(&report.per_column_metadata_contract);
+        report.domain_dictionary_status = vortex_local_domain_dictionary_status(
+            &report.footer_dtype_summary,
+            &report.layout_encoding_inventory,
+        );
+        report.planner_consumption_status = "explicit_layout_inspection_no_query_executed".into();
+        Ok(report)
+    }
+
     #[cfg(feature = "vortex-local-primitives")]
     fn partitioned() -> Self {
         Self {
@@ -777,6 +866,9 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             footer_layout_summary: "partitioned_vortex_footer_root_layouts".to_string(),
             root_layout_encoding: "partitioned_vortex_roots_pending_merge".to_string(),
             layout_encoding_inventory: "partitioned_vortex_encodings_pending_merge".to_string(),
+            layout_inventory_scope:
+                "root_only;full_tree_deferred;no_child_layouts_realized_for_inventory".into(),
+            layout_inventory_nodes_inspected: 0,
             per_column_metadata_contract: "partitioned_per_column_metadata_pending_merge"
                 .to_string(),
             segment_membership_status: "partitioned_segment_maps_pending_merge".to_string(),
@@ -896,6 +988,17 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             &self.layout_encoding_inventory,
             &child.layout_encoding_inventory,
         );
+        self.layout_inventory_nodes_inspected = self
+            .layout_inventory_nodes_inspected
+            .checked_add(child.layout_inventory_nodes_inspected)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partition layout inspection count overflow".into(),
+                )
+            })?;
+        if self.layout_inventory_scope != child.layout_inventory_scope {
+            self.layout_inventory_scope = "mixed_partition_inspection_scopes".into();
+        }
         self.per_column_metadata_contract = merge_partitioned_layout_status(
             "partitioned_per_column_metadata",
             &self.per_column_metadata_contract,
@@ -958,7 +1061,7 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
     #[must_use]
     pub fn compact_summary(&self) -> String {
         format!(
-            "schema={};status={};rows={};segments={};stats={};root_layout={};layout_encodings={};per_column_metadata={};operator_selection_metadata={};segment_membership={};domain_dictionary={};derived_stats={};row_position_locality={};layout_reader_cache={};pruning_available={};pruning_consulted={};pruned_entire_input={};selected_segments={};skipped_segments={};planner_status={};late_materialization={};no_query_answer_cache={}",
+            "schema={};status={};rows={};segments={};stats={};root_layout={};layout_encodings={};per_column_metadata={};operator_selection_metadata={};segment_membership={};domain_dictionary={};derived_stats={};row_position_locality={};layout_reader_cache={};pruning_available={};pruning_consulted={};pruned_entire_input={};selected_segments={};skipped_segments={};planner_status={};late_materialization={};no_query_answer_cache={};layout_inventory_scope={};layout_inventory_nodes_inspected={}",
             self.schema_version,
             self.status,
             self.footer_row_count,
@@ -980,7 +1083,9 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             self.skipped_segment_count,
             self.planner_consumption_status,
             self.late_materialization_status,
-            self.no_query_answer_cache
+            self.no_query_answer_cache,
+            self.layout_inventory_scope,
+            self.layout_inventory_nodes_inspected
         )
     }
 }
@@ -45324,7 +45429,12 @@ fn annotate_simple_aggregate_layout_correlation_summary(
     let string_domain_present = embedded_layout
         .domain_dictionary_status
         .contains("utf8_domain_columns_present");
-    let status = if layout_dictionary_present {
+    let status = if embedded_layout
+        .layout_encoding_inventory
+        .contains(DEFERRED_LAYOUT_INVENTORY)
+    {
+        "artifact_layout_inventory_deferred_accessor_materialized"
+    } else if layout_dictionary_present {
         "artifact_dictionary_layout_present_accessor_materialized"
     } else if string_encoding_layout_present {
         "artifact_string_encoding_layout_present_accessor_materialized"
@@ -50928,6 +51038,17 @@ mod tests {
         assert_ne!(
             report.embedded_layout.layout_encoding_inventory,
             "not_available"
+        );
+        assert_eq!(report.embedded_layout.layout_inventory_nodes_inspected, 1);
+        assert_eq!(
+            report.embedded_layout.layout_encoding_inventory,
+            DEFERRED_LAYOUT_INVENTORY
+        );
+        assert!(
+            report
+                .embedded_layout
+                .layout_inventory_scope
+                .contains("full_tree_deferred")
         );
         assert!(
             report

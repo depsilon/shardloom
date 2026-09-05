@@ -1704,6 +1704,16 @@ fn append_local_primitive_embedded_layout_fields(
     );
     push_field(
         fields,
+        "local_primitive_layout_inventory_scope",
+        &embedded_layout.layout_inventory_scope,
+    );
+    push_field(
+        fields,
+        "local_primitive_layout_inventory_nodes_inspected",
+        embedded_layout.layout_inventory_nodes_inspected.to_string(),
+    );
+    push_field(
+        fields,
         "local_primitive_per_column_metadata_contract",
         &embedded_layout.per_column_metadata_contract,
     );
@@ -13572,6 +13582,8 @@ mod tests {
         embedded_layout.footer_approx_bytes = Some(4096);
         embedded_layout.footer_dtype_summary = "struct(value=u32,metric=i64)".to_string();
         embedded_layout.footer_layout_summary = "vortex_footer_root_layout".to_string();
+        embedded_layout.layout_inventory_scope = "root_only;full_tree_deferred".to_string();
+        embedded_layout.layout_inventory_nodes_inspected = 1;
         embedded_layout.metadata_persisted_in_artifact = true;
         embedded_layout.metadata_first_pruning_available = true;
         embedded_layout.metadata_first_pruning_consulted = true;
@@ -13600,6 +13612,14 @@ mod tests {
             "metadata_pruned_entire_input"
         );
         assert_eq!(field(&fields, "local_primitive_footer_row_count"), "5");
+        assert_eq!(
+            field(&fields, "local_primitive_layout_inventory_scope"),
+            "root_only;full_tree_deferred"
+        );
+        assert_eq!(
+            field(&fields, "local_primitive_layout_inventory_nodes_inspected"),
+            "1"
+        );
         assert_eq!(
             field(&fields, "local_primitive_footer_statistics_available"),
             "true"
