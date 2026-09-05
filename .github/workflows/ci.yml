@@ -199,6 +199,10 @@ jobs:
           merge-multiple: true
       - name: Python compile check
         run: python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics
+      - name: Local UAT storage safety
+        run: python -B -m unittest discover -s scripts -p test_local_uat_storage.py -v
+      - name: ClickBench result and timing harness
+        run: python -B -m unittest discover -s scripts -p test_clickbench_query_uat.py -v
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7

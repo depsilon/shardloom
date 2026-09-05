@@ -6,11 +6,11 @@ set -euo pipefail
 # on an undrained JSON pipe. It is not an official benchmark runner.
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-uat_root="${SHARDLOOM_CLICKBENCH_UAT_ROOT:-$HOME/Desktop/shardloom-clickbench-100m-uat}"
-binary="${SHARDLOOM_BIN:-$repo_root/target/release/shardloom}"
-source_path="$uat_root/sources/hits.parquet"
+uat_root="${SHARDLOOM_CLICKBENCH_UAT_ROOT:-$HOME/LocalData/shardloom/clickbench-100m-uat}"
+binary="${SHARDLOOM_BIN:-}"
+source_path=""
 input_format="parquet"
-target_path="$uat_root/vortex/hits-parquet-100m.vortex"
+target_path=""
 memory_gb="${SHARDLOOM_MEMORY_GB:-24}"
 max_parallelism="${SHARDLOOM_MAX_PARALLELISM:-2}"
 replace_existing="false"
@@ -24,6 +24,9 @@ min_progress_seconds="${SHARDLOOM_CLICKBENCH_UAT_MIN_PROGRESS_SECONDS:-360}"
 min_progress_gb="${SHARDLOOM_CLICKBENCH_UAT_MIN_PROGRESS_GB:-1}"
 source_residency_check="${SHARDLOOM_CLICKBENCH_UAT_SOURCE_RESIDENCY_CHECK:-true}"
 source_residency_min_gb="${SHARDLOOM_CLICKBENCH_UAT_SOURCE_RESIDENCY_MIN_GB:-1}"
+min_free_gib="${SHARDLOOM_CLICKBENCH_UAT_MIN_FREE_GIB:-12}"
+max_workspace_gib="${SHARDLOOM_CLICKBENCH_UAT_MAX_WORKSPACE_GIB:-100}"
+max_log_mib="${SHARDLOOM_CLICKBENCH_UAT_MAX_LOG_MIB:-256}"
 
 usage() {
   cat <<'USAGE'
@@ -41,6 +44,9 @@ Options:
   --progress-interval-seconds N
   --max-runtime-seconds N
   --max-artifact-gb N
+  --min-free-gib N          Keep this much disk headroom (default 12)
+  --max-workspace-gib N     Bound retained UAT files across runs (default 100)
+  --max-log-mib N           Bound retained logs across runs (default 256)
   --stable-artifact-seconds N
   --stable-artifact-min-gb N
   --idle-cpu-percent N
@@ -63,6 +69,9 @@ while [[ $# -gt 0 ]]; do
     --progress-interval-seconds) progress_interval_seconds="$2"; shift 2 ;;
     --max-runtime-seconds) max_runtime_seconds="$2"; shift 2 ;;
     --max-artifact-gb) max_artifact_gb="$2"; shift 2 ;;
+    --min-free-gib) min_free_gib="$2"; shift 2 ;;
+    --max-workspace-gib) max_workspace_gib="$2"; shift 2 ;;
+    --max-log-mib) max_log_mib="$2"; shift 2 ;;
     --stable-artifact-seconds) stable_artifact_seconds="$2"; shift 2 ;;
     --stable-artifact-min-gb) stable_artifact_min_gb="$2"; shift 2 ;;
     --idle-cpu-percent) idle_cpu_percent="$2"; shift 2 ;;
@@ -74,6 +83,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+source_path="${source_path:-$uat_root/sources/hits.parquet}"
+target_path="${target_path:-$uat_root/vortex/hits-parquet-100m.vortex}"
+
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 log_dir="$uat_root/logs/ingest_cli_uat_gated_$timestamp"
 stdout_path="$log_dir/stdout.json"
@@ -81,36 +93,54 @@ stderr_path="$log_dir/stderr.txt"
 progress_path="$log_dir/progress.jsonl"
 summary_path="$log_dir/prepare_summary.json"
 cmd_path="$log_dir/prepare.cmd.txt"
+native_timing_path="$log_dir/native_timing.json"
+native_pid_path="$log_dir/native.pid"
+# Refuse unsafe destinations before creating directories or replacing anything.
+storage_guard=(python3 "$repo_root/scripts/local_uat_storage.py"
+  --root "$uat_root" --source "$source_path" --target "$target_path" --logs "$log_dir"
+  --min-free-gib "$min_free_gib" --max-workspace-gib "$max_workspace_gib"
+  --max-log-mib "$max_log_mib")
+"${storage_guard[@]}" --paths-only
+"${storage_guard[@]}" --reserve-gib "$max_artifact_gb"
+
+if [[ -z "$binary" ]]; then
+  cargo_target="$(cd "$repo_root" && cargo metadata --offline --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')"
+  binary="$cargo_target/release/shardloom"
+fi
+if [[ ! -x "$binary" ]]; then
+  echo "ShardLoom binary is not executable: $binary" >&2
+  exit 66
+fi
+mkdir -p "$uat_root"
+lock_dir="$uat_root/.ingest-uat.lock"
+if ! mkdir "$lock_dir" 2>/dev/null; then
+  echo "UAT workspace is locked: $lock_dir; another run may be active. Inspect a stale lock before removing it." >&2
+  exit 75
+fi
+pid=""
+stop_child() {
+  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    for _ in {1..50}; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        return
+      fi
+      sleep 0.1
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+  fi
+}
+cleanup_run() {
+  stop_child
+  rmdir "$lock_dir" 2>/dev/null || true
+}
+trap cleanup_run EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 mkdir -p "$log_dir" "$(dirname "$target_path")"
 
 target_dir="$(dirname "$target_path")"
 target_name="$(basename "$target_path")"
-target_stem="$target_name"
-target_ext=""
-if [[ "$target_name" == *.* ]]; then
-  target_stem="${target_name%.*}"
-  target_ext="${target_name##*.}"
-fi
-
-remove_existing_candidates() {
-  if [[ -d "$target_dir" ]]; then
-    if [[ -n "$target_ext" ]]; then
-      find "$target_dir" -maxdepth 1 -type f \( \
-        -name "$target_name" \
-        -o -name "$target_name.*" \
-        -o -name ".$target_name.shardloom-tmp-*" \
-        -o -name "$target_stem [0-9]*.$target_ext" \
-      \) -delete
-    else
-      find "$target_dir" -maxdepth 1 -type f \( \
-        -name "$target_name" \
-        -o -name "$target_name.*" \
-        -o -name ".$target_name.shardloom-tmp-*" \
-        -o -name "$target_name [0-9]*" \
-      \) -delete
-    fi
-  fi
-}
 
 cmd=(
   "$binary" prepare dataframe
@@ -227,7 +257,9 @@ JSON
 fi
 
 if [[ "$replace_existing" == "true" ]]; then
-  remove_existing_candidates
+  # Replacement authorizes only this exact output, not backups, source files,
+  # similarly named files, or staging files whose ownership is unknown.
+  rm -f -- "$target_path"
 fi
 
 candidate_bytes() {
@@ -235,37 +267,17 @@ candidate_bytes() {
   local max=0
   local count=0
   local path size
-  if [[ -d "$target_dir" ]]; then
-    if [[ -n "$target_ext" ]]; then
-      while IFS= read -r -d '' path; do
-        size="$(file_size_bytes "$path")"
-        total=$((total + size))
-        if (( size > max )); then
-          max="$size"
-        fi
-        count=$((count + 1))
-      done < <(find "$target_dir" -maxdepth 1 -type f \( \
-        -name "$target_name" \
-        -o -name "$target_name.*" \
-        -o -name ".$target_name.shardloom-tmp-*" \
-        -o -name "$target_stem [0-9]*.$target_ext" \
-      \) -print0)
-    else
-      while IFS= read -r -d '' path; do
-        size="$(file_size_bytes "$path")"
-        total=$((total + size))
-        if (( size > max )); then
-          max="$size"
-        fi
-        count=$((count + 1))
-      done < <(find "$target_dir" -maxdepth 1 -type f \( \
-        -name "$target_name" \
-        -o -name "$target_name.*" \
-        -o -name ".$target_name.shardloom-tmp-*" \
-        -o -name "$target_name [0-9]*" \
-      \) -print0)
+  for path in "$target_path" "$target_dir/.$target_name.shardloom-tmp-"*; do
+    if [[ ! -f "$path" || -L "$path" ]]; then
+      continue
     fi
-  fi
+    size="$(file_size_bytes "$path")"
+    total=$((total + size))
+    if (( size > max )); then
+      max="$size"
+    fi
+    count=$((count + 1))
+  done
   printf '%s %s %s\n' "$count" "$total" "$max"
 }
 
@@ -298,15 +310,24 @@ last_max_file_bytes="-1"
 stable_since_epoch=0
 start_epoch="$(date +%s)"
 
-"${cmd[@]}" >"$stdout_path" 2>"$stderr_path" &
+python3 "$repo_root/scripts/timed_native_command.py" --timing "$native_timing_path" \
+  --pid-file "$native_pid_path" -- "${cmd[@]}" >"$stdout_path" 2>"$stderr_path" &
 pid="$!"
 
 while kill -0 "$pid" 2>/dev/null; do
+  if ! "${storage_guard[@]}" > "$log_dir/storage.json" 2> "$log_dir/storage_error.txt"; then
+    stop_reason="storage_budget_guard_failed"
+    cat "$log_dir/storage_error.txt" >&2
+    stop_child
+    break
+  fi
   elapsed="$(elapsed_seconds)"
   read -r candidate_count candidate_total_bytes max_file_bytes < <(candidate_bytes)
   candidate_total_gb="$(gb_rounded "$candidate_total_bytes")"
   max_file_gb="$(gb_rounded "$max_file_bytes")"
-  cpu="$(cpu_percent "$pid")"
+  # The child may finish between kill -0 and this sample.
+  native_pid="$(cat "$native_pid_path" 2>/dev/null || printf '%s' "$pid")"
+  cpu="$(cpu_percent "$native_pid" || true)"
   cpu="${cpu:-0}"
   printf '{"elapsed_seconds":%s,"candidate_file_count":%s,"candidate_total_gb":%s,"max_file_gb":%s,"process_cpu_percent":%s}\n' \
     "$elapsed" "$candidate_count" "$candidate_total_gb" "$max_file_gb" "$cpu" | tee -a "$progress_path"
@@ -314,19 +335,19 @@ while kill -0 "$pid" 2>/dev/null; do
 
   if float_ge "$candidate_total_gb" "$max_artifact_gb"; then
     stop_reason="max_artifact_gb_exceeded"
-    kill "$pid" 2>/dev/null || true
+    stop_child
     break
   fi
   if (( elapsed >= max_runtime_seconds )); then
     stop_reason="max_runtime_seconds_exceeded"
-    kill "$pid" 2>/dev/null || true
+    stop_child
     break
   fi
   if (( min_progress_seconds > 0 )) \
     && (( elapsed >= min_progress_seconds )) \
     && float_le "$max_file_gb" "$min_progress_gb"; then
     stop_reason="min_progress_gb_not_reached"
-    kill "$pid" 2>/dev/null || true
+    stop_child
     break
   fi
 
@@ -337,7 +358,7 @@ while kill -0 "$pid" 2>/dev/null; do
       stable_since_epoch="$(date +%s)"
     elif (( $(date +%s) - stable_since_epoch >= stable_artifact_seconds )); then
       stop_reason="stable_artifact_idle_timeout"
-      kill "$pid" 2>/dev/null || true
+      stop_child
       break
     fi
   else
@@ -352,9 +373,24 @@ if wait "$pid"; then
 else
   returncode="$?"
 fi
+pid=""
+if [[ "$stop_reason" != "process_completed" && "$returncode" -eq 0 ]]; then
+  returncode=78
+fi
+# Catch a fast producer that completed between samples.
+if ! "${storage_guard[@]}" > "$log_dir/storage.json" 2> "$log_dir/storage_error.txt"; then
+  stop_reason="storage_budget_guard_failed"
+  returncode=78
+fi
 
 end_epoch="$(date +%s)"
 elapsed=$((end_epoch - start_epoch))
+native_seconds="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["seconds"])' "$native_timing_path" 2>/dev/null || printf 'null')"
+native_peak_rss_bytes="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])).get("peak_rss_bytes")))' "$native_timing_path" 2>/dev/null || printf 'null')"
+if [[ "$native_seconds" == "null" && "$returncode" -eq 0 ]]; then
+  returncode=78
+  stop_reason="native_timing_missing"
+fi
 source_bytes="$(file_size_bytes "$source_path")"
 source_allocated_bytes="$(file_allocated_bytes "$source_path")"
 target_exists="false"
@@ -363,8 +399,12 @@ if [[ -e "$target_path" ]]; then
 fi
 target_bytes="$(file_size_bytes "$target_path")"
 stdout_json_ok="false"
-if [[ -s "$stdout_path" ]] && [[ "$(head -c 1 "$stdout_path")" == "{" ]]; then
+if python3 -c 'import json,sys; value=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(value, dict) else 1)' "$stdout_path" 2>/dev/null; then
   stdout_json_ok="true"
+fi
+if [[ "$stdout_json_ok" != "true" && "$returncode" -eq 0 ]]; then
+  returncode=78
+  stop_reason="invalid_native_json_output"
 fi
 
 cat > "$summary_path" <<JSON
@@ -380,6 +420,9 @@ cat > "$summary_path" <<JSON
   "returncode": $returncode,
   "stop_reason": "$(json_escape "$stop_reason")",
   "elapsed_seconds": $elapsed,
+  "native_process_seconds": $native_seconds,
+  "native_peak_rss_bytes": $native_peak_rss_bytes,
+  "native_timing_path": "$(json_escape "$native_timing_path")",
   "source": "$(json_escape "$source_path")",
   "source_bytes": $source_bytes,
   "source_allocated_bytes": $source_allocated_bytes,

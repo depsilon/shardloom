@@ -715,6 +715,41 @@ struct ParquetExtentPlan {
 }
 
 impl ParquetExtentPlan {
+    fn memory_admitted_batch_rows(
+        &self,
+        field_count: usize,
+        usual_rows: usize,
+        batch_budget_bytes: u64,
+    ) -> usize {
+        let metadata_bytes_per_row = self
+            .row_groups
+            .iter()
+            .filter_map(|group| {
+                let rows = u64::try_from(group.row_count?).ok()?;
+                (rows > 0).then(|| group.uncompressed_bytes.div_ceil(rows))
+            })
+            .max()
+            .unwrap_or(0);
+        let width_floor = u64::try_from(field_count)
+            .unwrap_or(u64::MAX)
+            .saturating_mul(8);
+        // Parquet uncompressed sizes are encoded-page sizes, not decoded Arrow
+        // capacity. Leave expansion headroom; actual post-decode admission still
+        // guards skew and large values. This estimate is not an allocator limit.
+        let estimated_bytes_per_row = metadata_bytes_per_row
+            .max(width_floor)
+            .max(1)
+            .saturating_mul(4);
+        let admitted = usize::try_from(batch_budget_bytes / estimated_bytes_per_row)
+            .unwrap_or(usize::MAX)
+            .max(1);
+        if admitted >= usual_rows {
+            usual_rows
+        } else {
+            1_usize << (usize::BITS - admitted.leading_zeros() - 1)
+        }
+    }
+
     fn from_metadata(metadata: &parquet::file::metadata::ParquetMetaData) -> Self {
         let mut row_groups = Vec::with_capacity(metadata.num_row_groups());
         let mut column_chunk_count = 0usize;
@@ -2925,6 +2960,34 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
     max_rows: usize,
     requested_max_parallelism: usize,
 ) -> Result<FlatLocalColumnarStreamSource> {
+    stream_flat_parquet_columnar_source_with_batch_budget(
+        path,
+        max_rows,
+        requested_max_parallelism,
+        None,
+    )
+}
+
+/// Size decoded Parquet batches before allocation using a metadata-based byte
+/// estimate. `max_rows` remains a complete-source admission limit, not a batch
+/// limit. Actual decoded/derived batch admission must still check owned bytes;
+/// skew, dictionary expansion, and upstream allocations are not bounded by an estimate.
+///
+/// # Errors
+/// Rejects zero batch budgets, invalid sources, and sources exceeding `max_rows`.
+#[allow(clippy::too_many_lines)]
+pub fn stream_flat_parquet_columnar_source_with_batch_budget(
+    path: &Path,
+    max_rows: usize,
+    requested_max_parallelism: usize,
+    batch_budget_bytes: Option<u64>,
+) -> Result<FlatLocalColumnarStreamSource> {
+    if batch_budget_bytes == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "Parquet batch byte budget must be positive; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
     let file = open_local_source_file(path, "Parquet")?;
     let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new_with_options(
         file,
@@ -2960,6 +3023,17 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
         "parquet_row_group_count",
         schema_plan.dictionary_preservation_status,
     );
+    if let Some(bytes) = batch_budget_bytes {
+        let rows = extent_plan.memory_admitted_batch_rows(
+            schema.fields().len(),
+            stream_plan.stream_batch_size,
+            bytes,
+        );
+        if rows != stream_plan.stream_batch_size {
+            stream_plan.stream_batch_size = rows;
+            stream_plan.stream_policy = "product_columnar_metadata_budgeted_batches";
+        }
+    }
     stream_plan
         .source_unit_row_ranges
         .clone_from(&row_group_metadata.ranges);
@@ -6707,6 +6781,128 @@ mod tests {
         let batch = source.reader.next().expect("batch").expect("batch ok");
         assert_eq!(batch.num_rows(), 3);
         assert!(source.reader.next().is_none());
+    }
+
+    #[test]
+    fn parquet_memory_budget_sizes_batches_without_truncating_or_reordering_source() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-parquet-budget-{}-{}.parquet",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("renamed_id", DataType::Int64, true),
+            Field::new("renamed_text", DataType::Utf8, true),
+        ]));
+        let labels = (0..257)
+            .map(|row| (row % 5 != 0).then(|| format!("value_{row}_{}", "x".repeat(row % 17))))
+            .collect::<Vec<_>>();
+        let expected = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(Int64Array::from(
+                    (0..257)
+                        .map(|row| Some(i64::from(row) - 128))
+                        .collect::<Vec<_>>(),
+                )),
+                Arc::new(StringArray::from(labels)),
+            ],
+        )
+        .unwrap();
+        let properties = parquet::file::properties::WriterProperties::builder()
+            .set_max_row_group_row_count(Some(64))
+            .build();
+        let mut writer = parquet::arrow::ArrowWriter::try_new(
+            File::create(&path).unwrap(),
+            schema,
+            Some(properties),
+        )
+        .unwrap();
+        writer.write(&expected).unwrap();
+        writer.close().unwrap();
+        for workers in [1, 2, 4] {
+            let mut source = stream_flat_parquet_columnar_source_with_batch_budget(
+                &path,
+                usize::MAX,
+                workers,
+                Some(128),
+            )
+            .unwrap();
+            let batch_rows = source.source_stream_batch_size;
+            assert!((1..=2).contains(&batch_rows));
+            assert_eq!(source.row_count_hint, Some(257));
+            assert!(
+                source
+                    .source_stream_policy
+                    .contains("metadata_budgeted_batches")
+            );
+            let mut offset = 0;
+            for batch in &mut source.reader {
+                let batch = batch.unwrap();
+                assert!(batch.num_rows() <= batch_rows);
+                for row in 0..batch.num_rows() {
+                    for column in 0..2 {
+                        assert_eq!(
+                            arrow_scalar_to_shardloom(
+                                batch.column(column).as_ref(),
+                                row,
+                                "renamed",
+                                &path,
+                                "Parquet"
+                            )
+                            .unwrap(),
+                            arrow_scalar_to_shardloom(
+                                expected.column(column).as_ref(),
+                                offset + row,
+                                "renamed",
+                                &path,
+                                "Parquet"
+                            )
+                            .unwrap(),
+                        );
+                    }
+                }
+                offset += batch.num_rows();
+            }
+            assert_eq!(offset, 257);
+        }
+        assert!(
+            stream_flat_parquet_columnar_source_with_batch_budget(&path, 256, 1, Some(128))
+                .is_err()
+        );
+        let source = stream_flat_parquet_columnar_source_with_batch_budget(
+            &path,
+            usize::MAX,
+            1,
+            Some(u64::MAX),
+        )
+        .unwrap();
+        assert_eq!(
+            source.source_stream_batch_size,
+            PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS
+        );
+        drop(source);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn parquet_memory_budget_rejects_zero_before_opening_a_source() {
+        let error = stream_flat_parquet_columnar_source_with_batch_budget(
+            Path::new("missing-budgeted-source.parquet"),
+            usize::MAX,
+            1,
+            Some(0),
+        )
+        .err()
+        .expect("zero budget rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("batch byte budget must be positive")
+        );
     }
 
     #[test]

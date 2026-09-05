@@ -27,14 +27,13 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use std::sync::{
-    Mutex,
-    atomic::AtomicUsize,
-    mpsc::{self, Receiver},
-};
+use std::sync::{Mutex, atomic::AtomicUsize};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use std::thread::{self, JoinHandle};
+use shardloom_exec::{
+    compute_pool::{CancellationToken, ComputePool, ComputeTask, WorkerContext},
+    live_memory::{Budgeted, LiveMemoryPool, MemoryLease},
+};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
@@ -44,7 +43,7 @@ use arrow_array::{
     UInt8Array, UInt16Array, UInt32Array, UInt64Array, cast::AsArray as _,
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use arrow_schema::{ArrowError, DataType as ArrowDataType};
+use arrow_schema::DataType as ArrowDataType;
 use sha2::Digest as _;
 use shardloom_core::{
     LogicalDType, Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport,
@@ -2438,10 +2437,6 @@ pub fn vortex_prepared_state_reuse_manifest_path(
 pub fn write_vortex_prepared_olap_state_bundle(
     mut request: VortexPreparedOlapStateWriteRequest,
 ) -> Result<VortexPreparedOlapStateReport> {
-    let _artifact_fingerprint = LocalReuseFileFingerprint::from_path(
-        &request.prepared_artifact_path,
-        "prepared OLAP state artifact",
-    )?;
     if !prepared_olap_metadata_ref_declared(&request.prepared_layout_policy) {
         request.prepared_layout_policy =
             VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY.to_string();
@@ -3477,8 +3472,15 @@ struct LocalReuseFileFingerprint {
     content_digest: String,
 }
 
+#[cfg(test)]
+thread_local! {
+    static LOCAL_FILE_FINGERPRINT_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 impl LocalReuseFileFingerprint {
     fn from_path(path: &Path, label: &str) -> Result<Self> {
+        #[cfg(test)]
+        LOCAL_FILE_FINGERPRINT_CALLS.with(|calls| calls.set(calls.get() + 1));
         let path = absolute_local_path(path)?;
         let metadata = fs::metadata(&path).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -6330,7 +6332,7 @@ impl VortexWriterPhysicalDesignPlan {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     fn from_admitted_advisor(
         advisor: &VortexLayoutWriteAdvisorReport,
         target_path: &Path,
@@ -6951,7 +6953,7 @@ fn planned_writer_backpressure_policy(
     prefetch_window: usize,
 ) -> String {
     if source.source_kind == "streaming_arrow_record_batch_source_state" && prefetch_window > 0 {
-        "bounded_sync_channel_backpressures_source_reader_and_preserves_order".to_string()
+        "reserved_inflight_window_bounds_queued_active_and_ordered_results".to_string()
     } else if source.source_kind == "streaming_arrow_record_batch_source_state" {
         "writer_pull_backpressures_source_reader_serially".to_string()
     } else {
@@ -10090,7 +10092,13 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         2,
         array_build_prefetch_window,
         array_build_worker_count,
-    );
+        request
+            .capillary_prewrite_input
+            .as_ref()
+            .map_or(1024 * 1024 * 1024, |input| {
+                (input.memory_budget_bytes / 4).max(1)
+            }),
+    )?;
     let array_build_micros = array_build_start.elapsed().as_micros();
     let projection_mask_status =
         if request.source.materialized_columns.len() < request.source.header.len() {
@@ -10503,9 +10511,7 @@ struct StreamingColumnarVortexArrayIterator {
     dtype: vortex::array::dtype::DType,
     first_array: Option<vortex::array::ArrayRef>,
     reader: Option<Box<dyn arrow_array::RecordBatchReader + Send>>,
-    prefetch_receiver: Option<Receiver<VortexStreamArrayReadResult>>,
-    prefetch_workers: Vec<JoinHandle<()>>,
-    pending_prefetch: BTreeMap<usize, vortex::error::VortexResult<vortex::array::ArrayRef>>,
+    prefetch: Option<StreamingColumnarVortexPrefetch>,
     reader_projection_columns: Vec<String>,
     source_shape: FlatColumnarSourceShape,
     batch_count: Arc<AtomicUsize>,
@@ -10527,106 +10533,60 @@ impl StreamingColumnarVortexArrayIterator {
         next_batch_index: usize,
         vortex_array_prefetch_window: usize,
         vortex_array_worker_count: usize,
-    ) -> Self {
-        if vortex_array_prefetch_window > 0 {
-            let (sender, receiver) = mpsc::sync_channel(vortex_array_prefetch_window);
-            let shared_reader = Arc::new(Mutex::new(StreamingColumnarVortexArraySharedReader {
-                reader,
-                next_batch_index,
-                stopped: false,
-            }));
-            let worker_count = vortex_array_worker_count.max(1);
-            let mut prefetch_workers = Vec::with_capacity(worker_count);
-            for _ in 0..worker_count {
-                let worker_dtype = dtype.clone();
-                let worker_projection_columns = reader_projection_columns.clone();
-                let worker_source_shape = source_shape.clone();
-                let worker_batch_count = Arc::clone(&batch_count);
-                let worker_stream_timing = stream_timing.clone();
-                let worker_sender = sender.clone();
-                let worker_reader = Arc::clone(&shared_reader);
-                prefetch_workers.push(thread::spawn(move || {
-                    stream_arrow_batches_to_vortex_arrays(StreamingColumnarVortexArrayWorker {
-                        reader: worker_reader,
-                        reader_projection_columns: worker_projection_columns,
-                        source_shape: worker_source_shape,
-                        dtype: worker_dtype,
-                        batch_count: worker_batch_count,
-                        stream_timing: worker_stream_timing,
-                        sender: worker_sender,
-                    });
-                }));
+        prefetch_memory_bytes: u64,
+    ) -> Result<Self> {
+        let (reader, prefetch) = if vortex_array_prefetch_window > 0 {
+            let window = vortex_array_prefetch_window;
+            let task_bytes = prefetch_memory_bytes / u64::try_from(window).unwrap_or(u64::MAX);
+            if task_bytes == 0 {
+                return Err(ShardLoomError::InvalidOperation(
+                    "Vortex prefetch memory budget cannot reserve every in-flight slot; no fallback execution was attempted".to_string(),
+                ));
             }
-            drop(sender);
-            return Self {
-                dtype,
-                first_array: Some(first_array),
-                reader: None,
-                prefetch_receiver: Some(receiver),
-                prefetch_workers,
-                pending_prefetch: BTreeMap::new(),
-                reader_projection_columns,
-                source_shape,
-                batch_count,
-                stream_timing,
-                next_batch_index,
+            let memory = LiveMemoryPool::new(prefetch_memory_bytes)?;
+            let context = Arc::new(StreamingColumnarVortexArrayWorker {
+                reader: Mutex::new(StreamingColumnarVortexArraySharedReader {
+                    reader,
+                    next_batch_index,
+                    stopped: false,
+                }),
+                reader_projection_columns: reader_projection_columns.clone(),
+                source_shape: source_shape.clone(),
+                dtype: dtype.clone(),
+                batch_count: Arc::clone(&batch_count),
+                stream_timing: stream_timing.clone(),
+            });
+            let mut prefetch = StreamingColumnarVortexPrefetch {
+                pool: ComputePool::new(
+                    vortex_array_worker_count.max(1).min(window),
+                    window,
+                    prefetch_memory_bytes,
+                    memory,
+                )?,
+                context,
+                tasks: std::collections::VecDeque::new(),
+                pending: BTreeMap::new(),
+                cancellation: CancellationToken::default(),
+                window,
+                task_bytes,
+                exhausted: false,
             };
-        }
-        Self {
+            prefetch.fill_window()?;
+            (None, Some(prefetch))
+        } else {
+            (Some(reader), None)
+        };
+        Ok(Self {
             dtype,
             first_array: Some(first_array),
-            reader: Some(reader),
-            prefetch_receiver: None,
-            prefetch_workers: Vec::new(),
-            pending_prefetch: BTreeMap::new(),
+            reader,
+            prefetch,
             reader_projection_columns,
             source_shape,
             batch_count,
             stream_timing,
             next_batch_index,
-        }
-    }
-
-    fn close_prefetch_worker(&mut self) {
-        self.prefetch_receiver.take();
-        for worker in self.prefetch_workers.drain(..) {
-            let _ = worker.join();
-        }
-    }
-
-    fn next_prefetched_array(
-        &mut self,
-    ) -> Option<vortex::error::VortexResult<vortex::array::ArrayRef>> {
-        loop {
-            if let Some(result) = self.pending_prefetch.remove(&self.next_batch_index) {
-                self.next_batch_index = self.next_batch_index.saturating_add(1);
-                return Some(result);
-            }
-            let receive_result = self.prefetch_receiver.as_ref()?.recv();
-            match receive_result {
-                Ok(VortexStreamArrayReadResult::Batch {
-                    batch_index,
-                    result,
-                }) => {
-                    if batch_index == self.next_batch_index {
-                        self.next_batch_index = self.next_batch_index.saturating_add(1);
-                        return Some(result);
-                    }
-                    self.pending_prefetch.insert(batch_index, result);
-                }
-                Err(_) => {
-                    if self.pending_prefetch.is_empty() {
-                        self.close_prefetch_worker();
-                        return None;
-                    }
-                    let expected = self.next_batch_index;
-                    self.close_prefetch_worker();
-                    return Some(Err(vortex_stream_error(format!(
-                        "streaming local vortex_ingest ordered array prefetch closed before batch {expected}; no fallback execution was attempted"
-                    ))));
-                }
-            }
-        }
+        })
     }
 }
 
@@ -10638,13 +10598,6 @@ fn vortex_array_prefetch_window(requested_parallelism: usize) -> usize {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-impl Drop for StreamingColumnarVortexArrayIterator {
-    fn drop(&mut self) {
-        self.close_prefetch_worker();
-    }
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl Iterator for StreamingColumnarVortexArrayIterator {
     type Item = vortex::error::VortexResult<vortex::array::ArrayRef>;
 
@@ -10652,20 +10605,26 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
         if let Some(array) = self.first_array.take() {
             return Some(Ok(array));
         }
-        if self.prefetch_receiver.is_some() {
-            return self.next_prefetched_array();
+        if let Some(prefetch) = self.prefetch.as_mut() {
+            let result = prefetch.next_array(self.next_batch_index);
+            if result.is_some() {
+                self.next_batch_index += 1;
+            }
+            if result.as_ref().is_none_or(std::result::Result::is_err) {
+                self.prefetch.take();
+            }
+            return result.map(|result| result.map_err(vortex_stream_error));
         }
         let reader = self.reader.as_mut()?;
         let source_pull_start = Instant::now();
-        let batch = reader.next()?;
+        let batch = reader.next();
         self.stream_timing
             .add_source_pull_elapsed(source_pull_start.elapsed());
-        let batch = match batch {
+        let batch = match batch? {
             Ok(batch) => batch,
             Err(error) => {
-                return Some(Err(vortex_stream_error(format!(
-                    "streaming local vortex_ingest Arrow reader failed: {error}; no fallback execution was attempted"
-                ))));
+                self.reader.take();
+                return Some(Err(vortex_stream_error(error)));
             }
         };
         let batch_index = self.next_batch_index;
@@ -10677,23 +10636,23 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
             &self.source_shape,
             batch_index,
         )
-        .and_then(|()| record_batch_to_vortex_from_arrow_provider(&batch, &self.source_shape));
+        .and_then(|()| record_batch_to_vortex_from_arrow_provider(&batch, &self.source_shape))
+        .and_then(|array| {
+            if array.dtype() != &self.dtype {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "streaming local vortex_ingest batch {batch_index} produced dtype {}, expected {}; no fallback execution was attempted",
+                    array.dtype(), self.dtype
+                )));
+            }
+            self.batch_count.fetch_add(1, Ordering::Relaxed);
+            Ok(array)
+        });
         self.stream_timing
             .add_array_convert_elapsed(array_convert_start.elapsed());
-        match result {
-            Ok(array) => {
-                if array.dtype() != &self.dtype {
-                    return Some(Err(vortex_stream_error(format!(
-                        "streaming local vortex_ingest batch {batch_index} produced dtype {}, expected {}; no fallback execution was attempted",
-                        array.dtype(),
-                        self.dtype
-                    ))));
-                }
-                self.batch_count.fetch_add(1, Ordering::Relaxed);
-                Some(Ok(array))
-            }
-            Err(error) => Some(Err(vortex_stream_error(error))),
+        if result.is_err() {
+            self.reader.take();
         }
+        Some(result.map_err(vortex_stream_error))
     }
 }
 
@@ -10705,11 +10664,90 @@ impl vortex::array::iter::ArrayIterator for StreamingColumnarVortexArrayIterator
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-enum VortexStreamArrayReadResult {
-    Batch {
-        batch_index: usize,
-        result: vortex::error::VortexResult<vortex::array::ArrayRef>,
-    },
+type PrefetchedVortexArray = Option<(usize, vortex::array::ArrayRef)>;
+
+/// Bounds the entire pre-writer window, including completed out-of-order arrays.
+/// Credits end at the upstream writer handoff, not at task completion. Upstream
+/// codec allocations and the source reader's own buffers are a separate scope.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct StreamingColumnarVortexPrefetch {
+    pool: ComputePool,
+    context: Arc<StreamingColumnarVortexArrayWorker>,
+    tasks: std::collections::VecDeque<ComputeTask<PrefetchedVortexArray>>,
+    pending: BTreeMap<usize, Budgeted<vortex::array::ArrayRef>>,
+    cancellation: CancellationToken,
+    window: usize,
+    task_bytes: u64,
+    exhausted: bool,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl StreamingColumnarVortexPrefetch {
+    fn fill_window(&mut self) -> Result<()> {
+        while !self.exhausted && self.tasks.len() + self.pending.len() < self.window {
+            let context = Arc::clone(&self.context);
+            let lease = self.pool.memory().reserve(self.task_bytes)?;
+            let task = self.pool.submit(
+                Budgeted::new(
+                    move |worker: &WorkerContext, lease: &mut MemoryLease| {
+                        context.read_convert(worker, lease)
+                    },
+                    lease,
+                ),
+                self.cancellation.clone(),
+            )?;
+            self.tasks.push_back(task);
+        }
+        Ok(())
+    }
+
+    fn next_array(&mut self, expected: usize) -> Option<Result<vortex::array::ArrayRef>> {
+        if let Err(error) = self.fill_window() {
+            return Some(Err(error));
+        }
+        loop {
+            if let Some(array) = self.pending.remove(&expected) {
+                let (array, lease) = array.into_parts();
+                // The Vortex writer now owns the array and its referenced buffers.
+                drop(lease);
+                if let Err(error) = self.fill_window() {
+                    return Some(Err(error));
+                }
+                return Some(Ok(array));
+            }
+            let Some(task) = self.tasks.pop_front() else {
+                if self.pending.is_empty() {
+                    return None;
+                }
+                return Some(Err(ShardLoomError::InvalidOperation(format!(
+                    "ordered Vortex prefetch ended before batch {expected}; no fallback execution was attempted"
+                ))));
+            };
+            match task.join() {
+                Ok(result) => {
+                    let (result, lease) = result.into_parts();
+                    match result {
+                        Some((index, array)) => {
+                            self.pending.insert(index, Budgeted::new(array, lease));
+                        }
+                        None => self.exhausted = true,
+                    }
+                }
+                Err(error) => return Some(Err(error)),
+            }
+        }
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl Drop for StreamingColumnarVortexPrefetch {
+    fn drop(&mut self) {
+        self.cancellation.cancel();
+        for task in self.tasks.drain(..) {
+            let _ = task.join();
+        }
+        self.pending.clear();
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -10721,103 +10759,94 @@ struct StreamingColumnarVortexArraySharedReader {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 struct StreamingColumnarVortexArrayWorker {
-    reader: Arc<Mutex<StreamingColumnarVortexArraySharedReader>>,
+    reader: Mutex<StreamingColumnarVortexArraySharedReader>,
     reader_projection_columns: Vec<String>,
     source_shape: FlatColumnarSourceShape,
     dtype: vortex::array::dtype::DType,
     batch_count: Arc<AtomicUsize>,
     stream_timing: VortexStreamingIngestTiming,
-    sender: mpsc::SyncSender<VortexStreamArrayReadResult>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn stream_arrow_batches_to_vortex_arrays(worker: StreamingColumnarVortexArrayWorker) {
-    loop {
-        let Some((batch_index, batch)) = next_worker_record_batch(&worker) else {
-            return;
-        };
-        let result = match batch {
-            Ok(batch) => {
-                let array_convert_start = Instant::now();
-                let result = validate_stream_record_batch_shape(
-                    &batch,
-                    &worker.reader_projection_columns,
-                    &worker.source_shape,
-                    batch_index,
-                )
-                .and_then(|()| {
-                    record_batch_to_vortex_from_arrow_provider(&batch, &worker.source_shape)
-                });
-                worker
-                    .stream_timing
-                    .add_array_convert_elapsed(array_convert_start.elapsed());
-                result.map_err(vortex_stream_error).and_then(|array| {
-                    if array.dtype() == &worker.dtype {
-                        worker.batch_count.fetch_add(1, Ordering::Relaxed);
-                        Ok(array)
-                    } else {
-                        Err(vortex_stream_error(format!(
-                            "streaming local vortex_ingest batch {batch_index} produced dtype {}, expected {}; no fallback execution was attempted",
-                            array.dtype(),
-                            worker.dtype
-                        )))
-                    }
-                })
+impl StreamingColumnarVortexArrayWorker {
+    fn read_convert(
+        &self,
+        worker: &WorkerContext,
+        lease: &mut MemoryLease,
+    ) -> Result<PrefetchedVortexArray> {
+        let (index, batch) = {
+            let mut reader = self.reader.lock().map_err(|_| {
+                ShardLoomError::InvalidOperation("Vortex prefetch reader lock poisoned".to_string())
+            })?;
+            worker.check_cancelled()?;
+            if reader.stopped {
+                return Ok(None);
             }
-            Err(error) => Err(vortex_stream_error(format!(
-                "streaming local vortex_ingest Arrow reader failed: {error}; no fallback execution was attempted"
-            ))),
+            let started = Instant::now();
+            let batch = next_streaming_record_batch(reader.reader.as_mut(), "Vortex prefetch");
+            self.stream_timing
+                .add_source_pull_elapsed(started.elapsed());
+            let batch = match batch {
+                Ok(Some(batch)) => batch,
+                Ok(None) => {
+                    reader.stopped = true;
+                    return Ok(None);
+                }
+                Err(error) => {
+                    reader.stopped = true;
+                    return Err(error);
+                }
+            };
+            let index = reader.next_batch_index;
+            reader.next_batch_index += 1;
+            (index, batch)
         };
-        let should_stop = result.is_err();
-        if should_stop && let Ok(mut shared_reader) = worker.reader.lock() {
-            shared_reader.stopped = true;
+        worker.check_cancelled()?;
+        let input_bytes = u64::try_from(batch.get_array_memory_size()).unwrap_or(u64::MAX);
+        // Reserve conversion headroom before invoking the native provider. This
+        // bounds admitted batches, not allocations hidden inside a source reader.
+        if input_bytes > lease.bytes() / 2 {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "Vortex prefetch batch {index} needs conversion headroom for {input_bytes} input bytes, exceeding its {} byte reservation; reduce source batch size; no fallback execution was attempted",
+                lease.bytes()
+            )));
         }
-        if worker
-            .sender
-            .send(VortexStreamArrayReadResult::Batch {
-                batch_index,
-                result,
-            })
-            .is_err()
-            || should_stop
-        {
-            break;
+        let started = Instant::now();
+        let result = validate_stream_record_batch_shape(
+            &batch,
+            &self.reader_projection_columns,
+            &self.source_shape,
+            index,
+        )
+        .and_then(|()| record_batch_to_vortex_from_arrow_provider(&batch, &self.source_shape));
+        self.stream_timing
+            .add_array_convert_elapsed(started.elapsed());
+        let array = result?;
+        if array.dtype() != &self.dtype {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "Vortex prefetch batch {index} dtype mismatch; no fallback execution was attempted"
+            )));
         }
+        if array.nbytes() > lease.bytes() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "Vortex prefetch batch {index} exceeded its retained-array reservation; no fallback execution was attempted"
+            )));
+        }
+        // Keep the admitted capacity until handoff. Array nbytes counts logical
+        // buffers, not necessarily the capacity retained by shared Arrow owners.
+        self.batch_count.fetch_add(1, Ordering::Relaxed);
+        Ok(Some((index, array)))
     }
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn next_worker_record_batch(
-    worker: &StreamingColumnarVortexArrayWorker,
-) -> Option<(usize, std::result::Result<RecordBatch, ArrowError>)> {
-    let mut shared_reader = worker
-        .reader
-        .lock()
-        .expect("streaming local vortex_ingest ordered array prefetch reader lock poisoned");
-    if shared_reader.stopped {
-        return None;
-    }
-    let source_pull_start = Instant::now();
-    let batch = shared_reader.reader.next();
-    worker
-        .stream_timing
-        .add_source_pull_elapsed(source_pull_start.elapsed());
-    let Some(batch) = batch else {
-        shared_reader.stopped = true;
-        return None;
-    };
-    let batch_index = shared_reader.next_batch_index;
-    shared_reader.next_batch_index = shared_reader.next_batch_index.saturating_add(1);
-    if batch.is_err() {
-        shared_reader.stopped = true;
-    }
-    Some((batch_index, batch))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn vortex_stream_error(error: impl std::fmt::Display) -> vortex::error::VortexError {
     vortex::error::vortex_err!("{error}")
 }
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_prefetch_tests.rs"]
+mod prefetch_tests;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn next_streaming_record_batch(
@@ -13852,7 +13881,8 @@ fn read_prepared_vortex_artifact_layout_inventory(
     .to_string();
     let artifact_size_bytes = std::fs::metadata(path).ok().map(|metadata| metadata.len());
     let approx_footer_bytes = footer.approx_byte_size();
-    let dtype_summary = format!("{:?}", footer.dtype());
+    // Debug includes lazy dtype session registries, not just the logical schema.
+    let dtype_summary = footer.dtype().to_string();
     let (root_layout_encoding, layout_encoding_inventory) =
         vortex_layout_encoding_inventory(footer.layout().as_ref());
     let segment_membership_status =
@@ -14020,6 +14050,30 @@ fn usize_to_u64(value: usize) -> Result<u64> {
 #[allow(clippy::too_many_lines)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reopened_inventory_schema_is_compact_and_digest_is_deterministic() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-compact-inventory-{}.vortex",
+            std::process::id()
+        ));
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".into(), "payload".into()],
+            vec![vec![
+                ("id".into(), ScalarValue::Int64(1)),
+                ("payload".into(), ScalarValue::Utf8("alpha".into())),
+            ]],
+        );
+        write_flat_scalar_vortex_prepared_state(request).unwrap();
+        let first = read_prepared_vortex_artifact_layout_inventory(&path).unwrap();
+        let second = read_prepared_vortex_artifact_layout_inventory(&path).unwrap();
+        assert_eq!(first.dtype_summary, "{id=i64, payload=utf8}");
+        assert!(first.dtype_summary.len() < 256);
+        assert_eq!(first.inventory_digest, second.inventory_digest);
+        assert_eq!(first.row_count, Some(1));
+        std::fs::remove_file(path).unwrap();
+    }
 
     #[cfg(feature = "universal-format-io")]
     fn reopen_vortex_artifact_as_arrow_struct(
@@ -15317,8 +15371,8 @@ mod tests {
             "deferred_until_query_open"
         );
         assert_eq!(primitive.segment_count_field(), "unknown");
-        assert_eq!(primitive.fallback_attempted, false);
-        assert_eq!(primitive.external_engine_invoked, false);
+        assert!(!primitive.fallback_attempted);
+        assert!(!primitive.external_engine_invoked);
         assert!(reopen_verification_is_certified(
             VORTEX_PREPARED_OLAP_REOPEN_DEFERRED_STATUS
         ));
@@ -16213,7 +16267,7 @@ mod tests {
         );
         assert_eq!(
             report.writer_physical_design.writer_backpressure_policy,
-            "bounded_sync_channel_backpressures_source_reader_and_preserves_order"
+            "reserved_inflight_window_bounds_queued_active_and_ordered_results"
         );
         assert!(report.writer_physical_design.evidence_fields().contains(&(
             "vortex_writer_physical_design_external_engine_invoked".to_string(),
@@ -18847,8 +18901,18 @@ mod tests {
         .with_prepared_layout_policy(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY)
         .with_segment_map_status(VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_SEGMENT_MAP_STATUS);
 
+        let fingerprint_calls = LOCAL_FILE_FINGERPRINT_CALLS.with(std::cell::Cell::get);
         let report =
             write_vortex_prepared_olap_state_bundle(request.clone()).expect("write olap bundle");
+        assert_eq!(
+            LOCAL_FILE_FINGERPRINT_CALLS.with(std::cell::Cell::get) - fingerprint_calls,
+            1,
+            "publication must perform one complete artifact checksum, not two"
+        );
+        assert_eq!(
+            report.prepared_artifact_digest,
+            sha256_file_digest(&target, "published artifact").expect("artifact checksum")
+        );
 
         assert_eq!(report.status, "prepared_olap_state_ready");
         assert!(!report.manifest_written);
@@ -18894,6 +18958,13 @@ mod tests {
         assert!(!hit.fallback_attempted);
         assert!(!hit.external_engine_invoked);
 
+        std::fs::remove_file(&target).expect("remove published artifact");
+        assert!(
+            write_vortex_prepared_olap_state_bundle(request)
+                .expect_err("publication still requires a readable artifact")
+                .to_string()
+                .contains("failed to stat prepared OLAP state artifact")
+        );
         std::fs::remove_dir_all(root).expect("remove temp root");
     }
 

@@ -39,6 +39,8 @@ blanket performance claims:
   - `SourceState` records the admitted input boundary.
   - `VortexPreparedState` records the native prepared middle.
   - Route certificates connect execution evidence to output artifacts and claim gates.
+  - A successful result and an unsupported diagnostic are different explicit outcomes; neither
+    authorizes an external engine to finish the work. The route's evidence explains that boundary.
 - **PulseWeave**: ShardLoom's route-control vocabulary for bounded local work shaping.
   - `FlowInventory` tracks in-flight source, execution, and writer work.
   - `ScarcityLedger` records memory, decode, sink, and pressure signals.
@@ -97,11 +99,19 @@ blanket performance claims:
     primitive direct accessors, and materialized accessors so slow routes can be improved from the
     actual consumed layout instead of route labels alone.
   - Collect and compatibility writes report bounded decode/materialization evidence.
+- **Reusable preparation, distinct from result caching**: prepared native routes can reuse source
+  identity, layout metadata, and embedded helpers while computing the requested result.
+  - Reusing preparation is not the same as returning a cached query answer. Benchmark evidence
+    must declare which lifecycle and reuse policy it measures.
+  - The durable `.vortex` artifact keeps reusable structure with its data; a compatibility export
+    remains an explicit output boundary with its own fidelity report.
 - **Timing-surface discipline**: hot runtime, replay proof, and publication proof are separated so
   proof-heavy evidence work does not silently become a query-runtime claim.
   - `hot_runtime` covers the query/runtime lane.
   - `full_replay_proof` covers replayable machine proof.
   - `publication_proof` covers result-sink and human evidence rendering work.
+  - Runtime-only timing is not end-to-end completion. Replay and publication surfaces include
+    their declared proof/output work; no duration should be compared without its boundary.
 - **Patent-pending design notice**: PulseWeave, capillary work units, dynamic work shaping, and
   related route/evidence/certificate machinery include patent-pending design elements. ShardLoom
   remains distributed under Apache-2.0; this notice is informational, preserves attribution, and

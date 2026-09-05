@@ -150,6 +150,20 @@ Not allowed:
 
 ## Phase source of truth
 
+### Large Local Artifact Safety
+
+- Before generating large build, benchmark, UAT, log, or temporary artifacts on macOS,
+  read `docs/architecture/local-development-storage.md`.
+- Do not use Desktop, Documents, iCloud Drive, CloudDocs, or another synced folder for
+  bulk generated artifacts, even when the source checkout is there.
+- Resolve Cargo's output location with `cargo metadata --offline --no-deps --format-version 1`;
+  do not assume that binaries live in the checkout's `target` directory.
+- Run replacement ingest through `scripts/run_clickbench_ingest_uat.sh` so destination,
+  storage, source-residency, concurrency, and process-cleanup guards apply. Other large
+  runners must apply equivalent guards before writing.
+- Do not disable these guards merely to obtain benchmark numbers. Do not manually delete
+  CloudDocs internals, hydrate large placeholders, or relocate unrelated user files.
+
 ShardLoom's active implementation and cleanup queue is tracked in
 `docs/architecture/phased-execution-plan.md`.
 

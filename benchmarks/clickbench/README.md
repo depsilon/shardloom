@@ -59,9 +59,26 @@ safe effective floor of `2` for eligible scan/aggregate/prepare work. The covera
 timing result. Full-scale performance claims require a promoted benchmark artifact and the normal
 claim gates.
 
-## Local 100M UAT Evidence
+## Guarded Full-Scale Runs
 
-The current local Desktop 100M full-query UAT artifact is:
+Use `scripts/run_clickbench_ingest_uat.sh` and
+`scripts/run_clickbench_query_uat.py` for new large local experiments. Read
+`docs/architecture/local-development-storage.md` first. The query runner checks
+complete returned values, not only command success, and times through process
+exit. Retained-output comparison is regression evidence, not an independent
+correctness oracle. Its explicit baseline-only Q20 descriptor allowance must not
+be enabled for a candidate that claims complete returned values.
+
+The September 5 overhaul implementation and paired-run evidence are tracked in
+`docs/architecture/performance-overhaul-implementation-2026-09-05.md`.
+Its compact timing/provenance bundle is
+`docs/benchmarks/performance-overhaul-foundation-2026-09-05.json`.
+The September 4 historical full43 total is 145.130 seconds; newer same-commit
+controls must not be compared only with the older ingestion/query record below.
+
+## Historical Local 100M UAT Evidence
+
+The September 3 local Desktop 100M full-query UAT artifact is:
 
 `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_after_clean_ingest_current_impl_20260903T112902Z/summary.json`
 

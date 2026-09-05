@@ -2261,6 +2261,24 @@ fn execute_native_vortex_primitive_run_with_extra(
             &binding,
         );
     }
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if request.requested_output == "collect"
+        && matches!(
+            primitive,
+            PublicVortexPrimitive::Filter
+                | PublicVortexPrimitive::Project
+                | PublicVortexPrimitive::FilterProject
+        )
+    {
+        return execute_native_vortex_owned_collect(
+            request,
+            plan,
+            format,
+            extra_fields,
+            primitive,
+            &binding,
+        );
+    }
     let runtime_args = match native_vortex_primitive_runtime_args(request, primitive) {
         Ok(args) => args,
         Err(error) => {
@@ -2270,6 +2288,143 @@ fn execute_native_vortex_primitive_run_with_extra(
     let mut attachment_fields = execution_attachment_fields("run", request, plan);
     attachment_fields.append(&mut extra_fields);
     execute_native_vortex_single_primitive_run(primitive, runtime_args, format, attachment_fields)
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+fn execute_native_vortex_owned_collect(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    mut extra_fields: Vec<(String, String)>,
+    primitive: PublicVortexPrimitive,
+    binding: &NativeVortexInputBinding,
+) -> ExitCode {
+    let result = (|| {
+        if request.materialization_policy == "zero_decode" {
+            return Err(ShardLoomError::InvalidOperation(
+                "JSON collect requires scalar decoding at its sink; use --materialization-policy bounded or the native Rust array result API; no fallback execution was attempted".to_string(),
+            ));
+        }
+        let (primitive_request, _, _) =
+            native_vortex_bound_request_and_arg(request, primitive, binding)?;
+        let policy = native_vortex_materializing_policy(request)?;
+        shardloom_vortex::local_primitives::collect::collect_rows(&primitive_request, policy)
+    })();
+    let result = match result {
+        Ok(result) => result,
+        Err(error) => return native_vortex_materializing_error(format, primitive, &error),
+    };
+    let mut fields = execution_attachment_fields("run", request, plan);
+    fields.append(&mut extra_fields);
+    fields.extend(binding.evidence_fields());
+    append_owned_collect_fields(&mut fields, primitive, &result);
+    fields.extend([
+        ("result_known".to_string(), "true".to_string()),
+        ("output_row_count".to_string(), result.rows.to_string()),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+        ("data_read".to_string(), "true".to_string()),
+        ("data_decoded".to_string(), "true".to_string()),
+        ("data_materialized".to_string(), "true".to_string()),
+        ("row_read".to_string(), "true".to_string()),
+        (
+            "local_primitive_no_query_answer_cache".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "native_result_payload".to_string(),
+            "owned_vortex_arrays_to_bounded_json_sink".to_string(),
+        ),
+        (
+            "resident_source_opens".to_string(),
+            result.runtime.prepared_source_opens.to_string(),
+        ),
+        (
+            "resident_completed_executions".to_string(),
+            result.runtime.completed_executions.to_string(),
+        ),
+        (
+            "resident_peak_reserved_buffer_bytes".to_string(),
+            result.runtime.memory.peak_reserved_bytes.to_string(),
+        ),
+    ]);
+    emit(
+        "run",
+        format,
+        CommandStatus::Success,
+        "native Vortex bounded row collect".to_string(),
+        format!(
+            "result summary: native_collect values={{\"rows\":{},\"values\":{}}}\n",
+            result.rows,
+            result.values_json.value()
+        ),
+        Vec::new(),
+        fields,
+    );
+    ExitCode::SUCCESS
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+fn append_owned_collect_fields(
+    fields: &mut Vec<(String, String)>,
+    primitive: PublicVortexPrimitive,
+    result: &shardloom_vortex::local_primitives::collect::CollectedVortexRows,
+) {
+    let (prefix, kind) = match primitive {
+        PublicVortexPrimitive::Project => ("project", "project_columns"),
+        PublicVortexPrimitive::FilterProject => ("filter_project", "filter_and_project"),
+        _ => ("filter", "filter_predicate"),
+    };
+    fields.extend([
+        ("mode".into(), format!("vortex_{prefix}")),
+        ("primitive".into(), kind.into()),
+        (
+            "execution".into(),
+            "resident_vortex_scan_to_json_sink".into(),
+        ),
+        ("rows_projected".into(), result.rows.to_string()),
+        ("columns".into(), result.projected_columns.join(",")),
+        ("resident_provider_crate".into(), "vortex".into()),
+        (
+            "resident_provider_version".into(),
+            shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION.into(),
+        ),
+        (
+            "resident_decoded_byte_accounting".into(),
+            "not_instrumented".into(),
+        ),
+    ]);
+    for (key, value) in [
+        ("status", "executed".into()),
+        ("result_known", "true".into()),
+        ("rows_projected", result.rows.to_string()),
+        ("projected_columns", result.projected_columns.join(",")),
+        (
+            "source_order_limit_requested",
+            result
+                .source_order_limit
+                .map_or_else(|| "none".into(), |limit| limit.to_string()),
+        ),
+        (
+            "source_order_limit_applied",
+            result.source_order_limit.is_some().to_string(),
+        ),
+        ("data_read", "true".into()),
+        ("data_decoded", (result.rows > 0).to_string()),
+        ("data_materialized", (result.rows > 0).to_string()),
+        ("fallback_attempted", "false".into()),
+        ("external_engine_invoked", "false".into()),
+    ] {
+        fields.push((format!("{prefix}_local_execution_{key}"), value));
+    }
+    vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
+        fields,
+        Some(&result.native_io_certificate),
+    );
+    // No independent correctness oracle is run as part of ordinary execution.
+    vortex_primitive_execution::append_vortex_local_primitive_execution_certificate_fields(
+        fields, None,
+    );
 }
 
 fn execute_native_vortex_single_primitive_run(
@@ -3662,7 +3817,9 @@ fn prepared_profile_native_runtime_request(
     native_request.output_ref = None;
     native_request.fanout_outputs.clear();
     native_request.execution_policy = "native_vortex".to_string();
-    native_request.materialization_policy = "zero_decode".to_string();
+    native_request
+        .materialization_policy
+        .clone_from(&request.materialization_policy);
     native_request.max_parallelism = Some(max_parallelism.to_string());
     native_request.bounded = true;
     Ok(effective_public_workflow_request(&native_request))
@@ -3842,7 +3999,9 @@ fn prepared_local_workflow_native_request(
     }
 
     native_request.execution_policy = "native_vortex".to_string();
-    native_request.materialization_policy = "zero_decode".to_string();
+    native_request
+        .materialization_policy
+        .clone_from(&request.materialization_policy);
     native_request.bounded = true;
     Ok(PreparedLocalWorkflowRun {
         request: effective_public_workflow_request(&native_request),

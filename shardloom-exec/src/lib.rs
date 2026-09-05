@@ -18,6 +18,8 @@ use shardloom_core::{
 };
 use shardloom_plan::{Plan, PlanKind};
 
+pub mod compute_pool;
+pub mod live_memory;
 pub mod memory;
 pub mod pulseweave;
 pub mod recovery;

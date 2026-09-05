@@ -3516,6 +3516,10 @@ pub fn execute_vortex_local_primitive_with_policy(
     }
 }
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_collect.rs"]
+pub mod collect;
+
 /// Executes a local Vortex query primitive over an ordered set of local
 /// `.vortex` sources.
 ///
@@ -15259,27 +15263,43 @@ fn count_all_metadata_report(
     path: &std::path::Path,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
-    use vortex::VortexSessionDefault as _;
-    use vortex::file::OpenOptionsSessionExt as _;
-    use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
+    #[cfg(unix)]
+    let resident = crate::resident_session::ResidentVortexSession::new(
+        policy.resource_envelope.memory_budget_bytes,
+        policy.max_parallelism,
+    )?;
+    #[cfg(unix)]
+    let prepared = resident.prepare_file(path)?;
+    #[cfg(unix)]
+    let file = prepared.file().clone();
+    #[cfg(unix)]
+    let rows = prepared.prepare_count().execute()?;
 
-    let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
-    let file = runtime
-        .block_on(
-            session
-                .open_options()
-                .with_layout_reader_cache()
-                .open_path(path),
-        )
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to open local Vortex target for count_all metadata: {error}"
-            ))
-        })?;
-    let rows = file.row_count();
+    #[cfg(not(unix))]
+    let (file, rows) = {
+        use vortex::VortexSessionDefault as _;
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let runtime = local_vortex_runtime(policy);
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let file = runtime
+            .block_on(
+                session
+                    .open_options()
+                    .with_layout_reader_cache()
+                    .open_path(path),
+            )
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to open local Vortex target for count_all metadata: {error}"
+                ))
+            })?;
+        let rows = file.row_count();
+        (file, rows)
+    };
     let embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
         &file,
         VortexQueryPrimitiveKind::CountAll,

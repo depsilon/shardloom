@@ -3107,6 +3107,7 @@ impl TraditionalCapillaryMorselSchedulingSummary {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[allow(clippy::too_many_lines)]
     fn merge_for_family(family: impl Into<String>, left: &Self, right: &Self) -> Result<Self> {
         let family = family.into();
         let scheduled_morsel_count = left

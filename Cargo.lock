@@ -2647,6 +2647,7 @@ dependencies = [
  "arrow-avro",
  "arrow-ipc",
  "arrow-schema",
+ "bytes",
  "futures",
  "lending-iterator",
  "memchr",

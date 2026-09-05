@@ -1,6 +1,6 @@
 /*
  * SHARDLOOM / MAKE LESS WORK
- * Standalone interaction prototype. No dependencies, network assets, trackers,
+ * Static homepage interaction. No dependencies, network assets, trackers,
  * engine execution, invented benchmark numbers, or runtime telemetry.
  * Native scroll drives depth; Canvas 2D projects the procedural 3D geometry.
  */
@@ -16,6 +16,7 @@ const ease = x => { x = clamp(x); return x*x*(3-2*x); };
 const rgba = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a)})`;
 const ICE = [172,211,248], WHITE = [218,239,255], CYAN = [127,209,214], GOLD = [227,188,147], VIOLET = [168,160,217];
 const reduceQuery = matchMedia('(prefers-reduced-motion: reduce)');
+const pinnedQuery = matchMedia('(min-width: 681px) and (min-height: 521px)');
 const state = {
   motion: root.dataset.motion !== 'off', time: 0, last: 0,
   pointer: {x:0,y:0,tx:0,ty:0}, dirty: true,
@@ -33,7 +34,10 @@ const meshPoints = Array.from({length:38},()=>[random()*2-1,random()*2-1,random(
 const scenes = [];
 let loopHandle = 0;
 let resized = true;
-let lastPaint = 0;
+let layoutDirty = true;
+const fonts = getComputedStyle(root);
+const monoFont = fonts.getPropertyValue('--mono');
+const sansFont = fonts.getPropertyValue('--sans');
 
 /* All typography remains HTML. These routines are decorative geometry only. */
 function rot(p, ax=0, ay=0, az=0) {
@@ -82,7 +86,7 @@ function crystal(ctx,cx,cy,size,rotation,opts={}){
  return pp;
 }
 function renderOrbital(s,p,t){
- const {ctx:c,w,h}=s,mob=innerWidth<=680;
+ const {ctx:c,w,h}=s,mob=state.mobile;
  const cx=w*(mob?.52:.57)+state.pointer.x*13,cy=h*(mob?.48:.48)+state.pointer.y*11-(p-.3)*50;
  const unit=Math.min(w*.285,h*.365),spin=t*.028+p*.42;
  const ax=1.00+state.pointer.y*.09,ay=-.22+state.pointer.x*.12,az=-.48+(p-.4)*.19;
@@ -201,7 +205,7 @@ function renderPlates(s,p,t){
  const axes=[[-.83,-.49,-.66],[.83,-.49,.66]].map(v=>project(rot(v,...rotations),cx,cy,unit));
  c.setLineDash([3,5]);line(c,axes[0],{x:axes[0].x-unit*.2,y:axes[0].y+unit*.14},'rgba(40,72,94,.28)',.7);line(c,axes[1],{x:axes[1].x+unit*.2,y:axes[1].y+unit*.14},'rgba(40,72,94,.28)',.7);c.setLineDash([]);
  const top=project(rot([0,2*separation+.04,0],...rotations),cx,cy,unit);
- c.save();c.translate(top.x,top.y);c.rotate(-.38);c.fillStyle='rgba(221,240,252,.92)';c.font=`500 ${Math.max(15,unit*.10)}px ${getComputedStyle(root).getPropertyValue('--mono')}`;c.textAlign='center';c.fillText('.vortex',0,7);c.restore();
+ c.save();c.translate(top.x,top.y);c.rotate(-.38);c.fillStyle='rgba(221,240,252,.92)';c.font=`500 ${Math.max(15,unit*.10)}px ${monoFont}`;c.textAlign='center';c.fillText('.vortex',0,7);c.restore();
 }
 function wirePoint(u,n,z,w,h,p,t){
  const center=w*.60,spread=w*.26;
@@ -301,7 +305,7 @@ function renderArtifact(s,p,t){
  const top=project(rot([-.49,.76,.40],...rotation),cx,cy,unit);glint(c,top.x,top.y,4,WHITE,.65);
  const selected=project(rot([.5,(3-sel)*split,0],...rotation),cx,cy,unit);
  c.setLineDash([2,4]);line(c,selected,{x:w*.97,y:selected.y},rgba(ICE,.26),.6);c.setLineDash([]);point(c,selected.x,selected.y,1.8,WHITE,.8);
- c.save();c.translate(cx-unit*.15,cy+unit*.12);c.rotate(-.015);c.fillStyle='rgba(192,222,245,.8)';c.font=`${Math.max(17,unit*.13)}px ${getComputedStyle(root).getPropertyValue('--sans')}`;c.textAlign='center';c.fillText('.vortex',0,0);c.restore();
+ c.save();c.translate(cx-unit*.15,cy+unit*.12);c.rotate(-.015);c.fillStyle='rgba(192,222,245,.8)';c.font=`${Math.max(17,unit*.13)}px ${sansFont}`;c.textAlign='center';c.fillText('.vortex',0,0);c.restore();
 }
 function renderHorizon(s,p,t){
  const {ctx:c,w,h}=s,cx=w*.5+state.pointer.x*12,cy=h*.56,rad=Math.min(w*.39,h*.64);
@@ -343,25 +347,22 @@ $$('[data-scene]').forEach(el=>{
  const canvas=$('canvas',el);let ctx;
  try{ctx=canvas.getContext('2d',{alpha:true});}catch(_){return;}
  if(!ctx)return;
- scenes.push({el,canvas,ctx,kind:el.dataset.scene,w:0,h:0,dpr:1,visible:false,p:.5,drawn:false});
+ scenes.push({el,canvas,ctx,kind:el.dataset.scene,w:0,h:0,dpr:1,visible:false,inViewport:false,p:.5,shift:0,drawn:false});
 });
-function resizeScene(s){
- const r=s.el.getBoundingClientRect();
+function resizeScene(s,r){
  if(!r.width||!r.height)return;
- const dpr=Math.min(devicePixelRatio||1,innerWidth<=680?1.65:1.7);
+ const dpr=Math.min(devicePixelRatio||1,state.mobile?1.65:1.7);
  if(Math.abs(s.w-r.width)<.5&&Math.abs(s.h-r.height)<.5&&s.dpr===dpr)return;
  s.w=r.width;s.h=r.height;s.dpr=dpr;s.canvas.width=Math.round(r.width*dpr);s.canvas.height=Math.round(r.height*dpr);
  s.ctx.setTransform(dpr,0,0,dpr,0,0);s.drawn=false;state.dirty=true;
 }
 const visibility=new IntersectionObserver(entries=>{
- entries.forEach(entry=>{const s=scenes.find(x=>x.el===entry.target);if(s){s.visible=entry.isIntersecting;if(s.visible){resizeScene(s);state.dirty=true;}}});requestTick();
+ entries.forEach(entry=>{const s=scenes.find(x=>x.el===entry.target);if(s)s.visible=entry.isIntersecting;});
+ layoutDirty=true;dirty();
 },{rootMargin:'150px 0px'});
 scenes.forEach(s=>visibility.observe(s.el));
-const ro = typeof ResizeObserver==='function'?new ResizeObserver(()=>{resized=true;state.dirty=true;requestTick();}):null;
-if(ro)scenes.forEach(s=>ro.observe(s.el));
-function sceneProgress(s){
- const r=s.el.getBoundingClientRect();return clamp((innerHeight-r.top)/(innerHeight+r.height));
-}
+const ro = typeof ResizeObserver==='function'?new ResizeObserver(()=>{resized=true;layoutDirty=true;dirty();}):null;
+if(ro){scenes.forEach(s=>ro.observe(s.el));ro.observe(document.body);}
 const stages=[
  'Start with what the artifact already knows. Metadata and statistics can rule out work before row reads.',
  'Prune irrelevant segments where statistics permit. Work that cannot contribute never enters the active path.',
@@ -369,29 +370,57 @@ const stages=[
  'Decode only what an operation requires. An admitted encoded path and a decoded path are not the same claim.',
  'Produce the requested result at an explicit output boundary. The illustration shows a principle, not a measured reduction.'
 ];
-function updateIntro(){
- const track=$('#engine'),r=track.getBoundingClientRect();let p;
+const sections=$$('main > section');
+const hero=$('#top'), engine=$('#engine'), vortex=$('#vortex'), horizon=$('#horizon');
+const heroArt=$('.hero-art'),heroContent=$('.hero-content'),vortexArt=$('.vortex-art'),finaleContent=$('.finale-content');
+const progressLine=$('.page-progress');
+const stageButtons=$$('[data-stage]'),stageDescription=$('#stageDescription');
+const chapterLinks=$$('.chapter-rail a');
+const navLinks=$$('.nav-links a[href^="#"]');
+const chapterTargets=chapterLinks.map(a=>$(a.getAttribute('href')));
+let lastRail=-1,lastNav=null;
+
+function updateIntro(r,viewportHeight){
+ let p;
  if(state.introManual!==null)p=state.introManual;
- else if(state.motion&&innerWidth>680)p=clamp(-r.top/Math.max(1,r.height-innerHeight));
+ else if(state.motion&&pinnedQuery.matches)p=clamp(-r.top/Math.max(1,r.height-viewportHeight));
  else p=.48;
  state.introP=p;
  const ix=Math.min(4,Math.floor(p*4+.12));
- if(ix!==state.introIndex){state.introIndex=ix;$$('[data-stage]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.stage===ix)));$('#stageDescription').textContent=stages[ix];}
+ if(ix!==state.introIndex){state.introIndex=ix;stageButtons.forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.stage===ix)));stageDescription.textContent=stages[ix];}
 }
-const chapterLinks=$$('.chapter-rail a');
-let lastRail=-1;
-function updatePage(){
- const hero=$('#top'), heroShift=clamp(scrollY,0,hero.offsetHeight);
- $('.hero-art').style.transform=state.motion?`translate3d(0,${heroShift*.28}px,0)`:'none';
- $('.hero-content').style.transform=state.motion?`translate3d(0,${heroShift*.075}px,0)`:'none';
- const v=$('#vortex').getBoundingClientRect(),vp=clamp((innerHeight-v.top)/(innerHeight+v.height));
- $('.vortex-art').style.transform=state.motion?`translate3d(0,${(vp-.5)*-85}px,0)`:'none';
- const horizon=$('#horizon').getBoundingClientRect(),hp=clamp((innerHeight-horizon.top)/(innerHeight+horizon.height));
- $('.finale-content').style.transform=state.motion?`translate3d(0,${(hp-.5)*-65}px,0)`:'none';
- const max=Math.max(1,document.documentElement.scrollHeight-innerHeight);root.style.setProperty('--progress',String(clamp(scrollY/max)));
- let index=0;chapterLinks.forEach((a,i)=>{const el=$(a.getAttribute('href'));if(el&&el.getBoundingClientRect().top<innerHeight*.47)index=i;});
+
+// Read the whole frame before touching styles. Idle animation reuses geometry.
+function readPage(){
+ const viewportHeight=innerHeight,y=scrollY;
+ const rects=new Map(sections.map(el=>[el,el.getBoundingClientRect()]));
+ const sceneRects=scenes.map(s=>s.el.getBoundingClientRect());
+ return {viewportHeight,y,rects,sceneRects,max:Math.max(1,root.scrollHeight-viewportHeight)};
+}
+function updatePage({viewportHeight,y,rects,sceneRects,max}){
+ const heroShift=clamp(y,0,rects.get(hero).height);
+ const v=rects.get(vortex),vp=clamp((viewportHeight-v.top)/(viewportHeight+v.height));
+ const h=rects.get(horizon),hp=clamp((viewportHeight-h.top)/(viewportHeight+h.height));
+ const orbitalShift=state.motion?heroShift*.28:0,plateShift=state.motion?(vp-.5)*-85:0;
+ heroArt.style.transform=`translate3d(0,${orbitalShift}px,0)`;
+ heroContent.style.transform=`translate3d(0,${state.motion?heroShift*.075:0}px,0)`;
+ vortexArt.style.transform=`translate3d(0,${plateShift}px,0)`;
+ finaleContent.style.transform=`translate3d(0,${state.motion?(hp-.5)*-65:0}px,0)`;
+ progressLine.style.transform=`scaleX(${clamp(y/max)})`;
+ scenes.forEach((s,i)=>{
+  const r=sceneRects[i],shift=s.kind==='orbital'?orbitalShift:s.kind==='plates'?plateShift:0;
+  const top=r.top-s.shift+shift;
+  s.shift=shift;s.inViewport=top<viewportHeight&&top+r.height>0;
+  s.p=state.motion?clamp((viewportHeight-top)/(viewportHeight+r.height)):.5;
+  s.visible=top<viewportHeight+150&&top+r.height>-150;
+  if(s.visible)resizeScene(s,r);
+ });
+ let index=0;chapterTargets.forEach((el,i)=>{if(el&&rects.get(el).top<viewportHeight*.47)index=i;});
  if(index!==lastRail){lastRail=index;chapterLinks.forEach((a,i)=>{if(i===index)a.setAttribute('aria-current','true');else a.removeAttribute('aria-current');});}
- updateIntro();
+ const activeSection=sections.findLast(el=>rects.get(el).top<viewportHeight*.47)?.id;
+ if(activeSection!==lastNav){lastNav=activeSection;navLinks.forEach(a=>{if(a.hash===`#${activeSection}`)a.setAttribute('aria-current','location');else a.removeAttribute('aria-current');});}
+ updateIntro(rects.get(engine),viewportHeight);
+ resized=false;layoutDirty=false;
 }
 function requestTick(){if(!loopHandle&&!document.hidden)loopHandle=requestAnimationFrame(frame);}
 function frame(now){
@@ -405,40 +434,37 @@ function frame(now){
  const targetMode=state.mode==='steady'?0:state.mode==='memory'?1:2;
  state.modeValue=state.motion?lerp(state.modeValue,targetMode,1-Math.exp(-dt*4)):targetMode;
  state.layerValue=state.motion?lerp(state.layerValue,state.layer,1-Math.exp(-dt*8)):state.layer;
- const shouldDraw=state.dirty||now-lastPaint>=31;
- if(shouldDraw){
-  if(resized){scenes.forEach(resizeScene);resized=false;}
-  updatePage();
+ if(layoutDirty||resized)updatePage(readPage());
+ if(state.dirty||state.motion){
   for(const s of scenes){
-   if(!s.visible)continue;
-   const p=state.motion?sceneProgress(s):.50;s.p=p;
+   if(!s.visible||(!s.inViewport&&s.drawn))continue;
    const c=s.ctx;c.setTransform(s.dpr,0,0,s.dpr,0,0);c.clearRect(0,0,s.w,s.h);
-   try{renderers[s.kind](s,p,state.time);if(!s.drawn){s.el.classList.add('ready');s.drawn=true;}}
+   try{renderers[s.kind](s,s.p,state.time);if(!s.drawn){s.el.classList.add('ready');s.drawn=true;}}
    catch(e){console.error('Scene rendering failed:',s.kind,e);s.visible=false;}
   }
-  state.dirty=false;lastPaint=now;
+  state.dirty=false;
  }
- if(state.motion)requestTick();
+ if(state.motion&&scenes.some(s=>s.inViewport))requestTick();
 }
 function dirty(){state.dirty=true;requestTick();}
 window.addEventListener('pointermove',e=>{
  if(e.pointerType==='touch'||!state.motion)return;
  state.pointer.tx=(e.clientX/innerWidth-.5)*2;state.pointer.ty=(e.clientY/innerHeight-.5)*2;requestTick();
 },{passive:true});
-window.addEventListener('pointerout',e=>{if(!e.relatedTarget){state.pointer.tx=0;state.pointer.ty=0;}},{passive:true});
-window.addEventListener('scroll',()=>{dirty();},{passive:true});
-window.addEventListener('resize',()=>{state.mobile=innerWidth<=680;resized=true;dirty();},{passive:true});
-document.addEventListener('visibilitychange',()=>{state.last=0;if(document.hidden){cancelAnimationFrame(loopHandle);loopHandle=0;}else{dirty();}});
+window.addEventListener('pointerout',e=>{if(!e.relatedTarget){state.pointer.tx=0;state.pointer.ty=0;requestTick();}},{passive:true});
+window.addEventListener('scroll',()=>{layoutDirty=true;dirty();},{passive:true});
+window.addEventListener('resize',()=>{state.mobile=innerWidth<=680;resized=true;layoutDirty=true;dirty();},{passive:true});
+document.addEventListener('visibilitychange',()=>{state.last=0;if(document.hidden){cancelAnimationFrame(loopHandle);loopHandle=0;}else{layoutDirty=true;dirty();}});
 
 /* Motion is an explicit user choice; reduced motion defaults to off. */
 function applyMotion(enabled, preservePosition=false){
- const anchor=preservePosition?$$('main > section').find(el=>{const r=el.getBoundingClientRect();return r.top<=innerHeight*.25&&r.bottom>innerHeight*.25;}):null;
+ const anchor=preservePosition?sections.find(el=>{const r=el.getBoundingClientRect();return r.top<=innerHeight*.25&&r.bottom>innerHeight*.25;}):null;
  const beforeTop=anchor?anchor.getBoundingClientRect().top:0;
  const oldIntro=state.introP;
  state.motion=enabled;root.dataset.motion=enabled?'on':'off';
  if(!enabled){state.pointer.x=state.pointer.tx=0;state.pointer.y=state.pointer.ty=0;}
  const button=$('#motionToggle');button.setAttribute('aria-label',enabled?'Pause motion':'Enable motion');button.title=enabled?'Pause motion':'Enable motion';
- state.last=0;resized=true;state.introManual=null;
+ state.last=0;resized=true;layoutDirty=true;state.introManual=null;
  if(anchor){
   const oldBehavior=root.style.scrollBehavior;root.style.scrollBehavior='auto';
   if(anchor.id==='engine'){
@@ -456,11 +482,11 @@ applyMotion(state.motion);
 /* The stage buttons work with mouse, touch, and keyboard. No scroll hijacking. */
 $$('[data-stage]').forEach(button=>button.addEventListener('click',()=>{
  const value=+button.dataset.stage/4;
- if(state.motion&&innerWidth>680){
+ if(state.motion&&pinnedQuery.matches){
   state.introManual=null;const el=$('#engine'),top=el.getBoundingClientRect().top+scrollY;
   const travel=el.offsetHeight-innerHeight;
   window.scrollTo({top:top+travel*value+1,behavior:'smooth'});
- }else{state.introManual=value;dirty();}
+ }else{state.introManual=value;layoutDirty=true;dirty();}
 }));
 const modes={steady:['01 / Steady flow','Work units travel through a bounded route. The model keeps source, execution, and output work visible.'],memory:['02 / Memory pressure','This scenario illustrates smaller bounded work under memory pressure. It is an explanatory model, not a measured engine response.'],sink:['03 / Sink pressure','This scenario illustrates output pressure feeding back into upstream work. Adaptive behavior remains bounded by route evidence.']};
 $$('[data-mode]').forEach(button=>button.addEventListener('click',()=>{
@@ -483,7 +509,7 @@ $$('[data-layer]').forEach(button=>button.addEventListener('click',()=>{
 const samples={
  python:{title:'quickstart.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = (\n    ctx.read("orders.csv")\n       .filter(sl.col("status") == "paid")\n       .limit(10)\n       .collect()\n)\n\nprint(result.output_row_count)`,note:'Example from the public README. Bring a local orders.csv with a status column. Supported operations and enabled features still apply.'},
  sql:{title:'query.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = ctx.sql(\n    "SELECT COUNT(*) FROM hits "\n    "WHERE URL LIKE '%google%'",\n    input="hits.vortex",\n).collect()\n\nprint(result.output_row_count)`,note:'Uses the README SQL binding pattern. Bring an admitted local hits.vortex artifact with a URL column. This is not a browser-side ShardLoom runtime.'},
- install:{title:'terminal',code:`# Python package\npython -m pip install shardloom\n\n# Or Homebrew\nbrew install depsilon/tap/shardloom\n\n# Then follow the local getting-started guide.`,note:'Installation commands from the public README. ShardLoom remains a technical preview; check repository support and platform requirements before use.'}
+ install:{title:'terminal',code:`# Python package\npython -m pip install shardloom\n\n# Or Homebrew\nbrew install depsilon/tap/shardloom\n\n# Then follow the local getting-started guide.`,note:'Installation commands from the public README. Check repository support and platform requirements before use.'}
 };
 function escapeHTML(t){return t.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function highlight(text){
@@ -519,15 +545,43 @@ $('#copyCode').addEventListener('click',()=>copyText(samples[state.code].code,$(
 $('#copyInstall').addEventListener('click',()=>copyText('python -m pip install shardloom',$('#installStatus')));
 setCode('python');
 
+/* These studies visualize documented contracts, not live engine outcomes. */
+const outcomes={
+ admitted:['Native route','Explicit result','Admitted execution','One admitted route','Source, preparation, execution, and output remain connected by route evidence.'],
+ unsupported:['Admission gate','Diagnostic','No external execution','An explicit stop','Unsupported work stops at the admission boundary. A diagnostic replaces execution, not an unreported engine.']
+};
+$$('[data-outcome]').forEach(button=>button.addEventListener('click',()=>{
+ const outcome=button.dataset.outcome;
+ $('.contract-visual').dataset.routeOutcome=outcome;
+ $$('[data-outcome]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+ ['routeGate','routeOutcome','routeOutcomeDetail','outcomeLabel','outcomeDescription'].forEach((id,i)=>$('#'+id).textContent=outcomes[outcome][i]);
+}));
+const timingBoundaries={
+ runtime:['hot_runtime','Native query work. A runtime-only measurement is not a claim of complete result delivery.'],
+ replay:['full_replay_proof','Native query work plus machine replay and output proof. The declared boundary includes the work needed to verify the result.'],
+ publication:['publication_proof','Replay and output proof plus human evidence rendering. Publication work stays visible instead of disappearing from the comparison.']
+};
+const timingButtons=$$('[data-timing]');
+timingButtons.forEach((button,index)=>button.addEventListener('click',()=>{
+ const boundary=button.dataset.timing;
+ $('.timing-boundaries').dataset.timingBoundary=boundary;
+ timingButtons.forEach((b,i)=>{b.setAttribute('aria-pressed',String(b===button));b.dataset.included=String(i<=index);});
+ $('#timingSurface').textContent=timingBoundaries[boundary][0];
+ $('#timingDescription').textContent=timingBoundaries[boundary][1];
+}));
+
 /* Mobile menu uses real anchors, native focus, and escape-to-close. */
 const menu=$('#menuToggle'),nav=$('#navigation');
 function closeMenu(refocus=false){nav.classList.remove('open');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-label','Open navigation menu');menu.textContent='Menu';if(refocus)menu.focus();}
 menu.addEventListener('click',()=>{const open=menu.getAttribute('aria-expanded')!=='true';nav.classList.toggle('open',open);menu.setAttribute('aria-expanded',String(open));menu.setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu');menu.textContent=open?'Close':'Menu';if(open)$('a',nav).focus({preventScroll:true});});
-$$('a',nav).forEach(a=>a.addEventListener('click',()=>closeMenu()));
+$$('a',nav).forEach(a=>a.addEventListener('click',()=>{
+ closeMenu();
+ const target=sections.find(el=>a.hash===`#${el.id}`);
+ if(target){target.tabIndex=-1;target.focus({preventScroll:true});}
+}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav.classList.contains('open'))closeMenu(true);});
 document.addEventListener('pointerdown',e=>{if(nav.classList.contains('open')&&!nav.contains(e.target)&&!menu.contains(e.target))closeMenu();});
 
-// Initialize visible canvases immediately, without a loading screen.
-scenes.forEach(s=>{resizeScene(s);const r=s.el.getBoundingClientRect();s.visible=r.bottom>=-150&&r.top<=innerHeight+150;});
-updatePage();requestTick();
+// First frame reads once, then allocates only nearby canvases.
+requestTick();
 })();
