@@ -132,19 +132,28 @@ mod native {
         let mut ordinary_samples = Vec::with_capacity(iterations);
         let mut generation_samples = Vec::with_capacity(iterations);
         for sample in 0..=iterations {
-            let order = if sample % 2 == 0 { [true, false] } else { [false, true] };
+            let order = if sample % 2 == 0 {
+                [true, false]
+            } else {
+                [false, true]
+            };
             for ordinary in order {
                 let filter = || Some(gt_eq(get_item("cohort", root()), lit(i64::from(rows / 2))));
                 let started = Instant::now();
                 let result = black_box(if ordinary {
-                    source.prepare_projection(&COLUMNS, filter(), Some(7))?.execute()?
+                    source
+                        .prepare_projection(&COLUMNS, filter(), Some(7))?
+                        .execute()?
                 } else {
                     generation.collect(&COLUMNS, filter(), 7, 64 * 1024)?
                 });
                 let nanos = u64::try_from(started.elapsed().as_nanos())?;
                 if sample != 0 {
-                    if ordinary { ordinary_samples.push(nanos); }
-                    else { generation_samples.push(nanos); }
+                    if ordinary {
+                        ordinary_samples.push(nanos);
+                    } else {
+                        generation_samples.push(nanos);
+                    }
                 }
                 verify(&result, &fixture.expected_query)?;
             }

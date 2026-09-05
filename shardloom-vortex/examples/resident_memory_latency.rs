@@ -338,36 +338,43 @@ mod native {
         let barrier = Barrier::new(2);
         let epoch = Instant::now();
         let max_background_intervals = iterations.saturating_mul(8).max(1024);
-        let ((samples, foreground_intervals), background_intervals) = std::thread::scope(|scope| -> Result<_, Error> {
-            let worker = scope.spawn(|| -> Result<Vec<OperationInterval>, String> {
-                let mut intervals = Vec::with_capacity(max_background_intervals);
+        let ((samples, foreground_intervals), background_intervals) =
+            std::thread::scope(|scope| -> Result<_, Error> {
+                let worker = scope.spawn(|| -> Result<Vec<OperationInterval>, String> {
+                    let mut intervals = Vec::with_capacity(max_background_intervals);
+                    barrier.wait();
+                    while active.load(Ordering::Acquire) {
+                        if intervals.len() == max_background_intervals {
+                            return Err("mixed-load interval evidence bound exceeded".into());
+                        }
+                        let started = Instant::now();
+                        let result = background
+                            .execute_arrays()
+                            .map_err(|error| error.to_string())?;
+                        let ended = Instant::now();
+                        if result.row_count() != 8_192 {
+                            return Err("mixed-load background row count mismatch".into());
+                        }
+                        intervals.push(
+                            interval(epoch, started, ended).map_err(|error| error.to_string())?,
+                        );
+                        std::thread::yield_now();
+                    }
+                    Ok(intervals)
+                });
                 barrier.wait();
-                while active.load(Ordering::Acquire) {
-                    if intervals.len() == max_background_intervals {
-                        return Err("mixed-load interval evidence bound exceeded".into());
-                    }
-                    let started = Instant::now();
-                    let result = background
-                        .execute_arrays()
-                        .map_err(|error| error.to_string())?;
-                    let ended = Instant::now();
-                    if result.row_count() != 8_192 {
-                        return Err("mixed-load background row count mismatch".into());
-                    }
-                    intervals.push(interval(epoch, started, ended).map_err(|error| error.to_string())?);
-                    std::thread::yield_now();
-                }
-                Ok(intervals)
-            });
-            barrier.wait();
-            let samples = measure_mixed_foreground(fixture, session, iterations, epoch);
-            active.store(false, Ordering::Release);
-            let intervals = worker.join().map_err(|_| "mixed-load worker panicked")??;
-            Ok((samples?, intervals))
-        })?;
+                let samples = measure_mixed_foreground(fixture, session, iterations, epoch);
+                active.store(false, Ordering::Release);
+                let intervals = worker.join().map_err(|_| "mixed-load worker panicked")??;
+                Ok((samples?, intervals))
+            })?;
         let overlapping = require_mixed_overlap(&foreground_intervals, &background_intervals)?;
-        let raw_intervals = |intervals: &[OperationInterval]| intervals.iter()
-            .map(|work| [work.start, work.end]).collect::<Vec<_>>();
+        let raw_intervals = |intervals: &[OperationInterval]| {
+            intervals
+                .iter()
+                .map(|work| [work.start, work.end])
+                .collect::<Vec<_>>()
+        };
         Ok(
             serde_json::json!({ "foreground": latency(&samples), "background_completed_operations": background_intervals.len(),
             "foreground_intervals_nanos": raw_intervals(&foreground_intervals),
@@ -409,7 +416,9 @@ mod native {
         let mixed = mixed(fixture.as_ref(), &session, iterations)?;
         let snapshot = session.snapshot();
         if snapshot.memory.reserved_bytes != 0 || snapshot.memory.denied_reservations != 0 {
-            return Err("memory latency acceptance retained owned bytes or denied admission".into());
+            return Err(
+                "memory latency acceptance retained owned bytes or denied admission".into(),
+            );
         }
         let memory = serde_json::json!({
             "scope": "session allocator native value/offset/validity buffers and result JSON capacity; excludes caller/parser storage, array metadata, upstream scratch not using allocator, process RSS",
@@ -447,7 +456,10 @@ mod native {
 
     #[cfg(test)]
     mod tests {
-        use super::{FixtureProfile as _, Int64Fixture, NullableFixture, OperationInterval, require_mixed_overlap};
+        use super::{
+            FixtureProfile as _, Int64Fixture, NullableFixture, OperationInterval,
+            require_mixed_overlap,
+        };
         use shardloom_vortex::{
             resident_memory_source::{
                 MemoryColumn, MemoryColumnValues, MemorySourceBounds, ResidentMemorySource,
@@ -458,7 +470,10 @@ mod native {
 
         #[test]
         fn mixed_acceptance_requires_overlap_inside_timed_operations() {
-            let foreground = [OperationInterval { start: 10, end: 20 }, OperationInterval { start: 30, end: 40 }];
+            let foreground = [
+                OperationInterval { start: 10, end: 20 },
+                OperationInterval { start: 30, end: 40 },
+            ];
             for background in [
                 vec![],
                 vec![OperationInterval { start: 0, end: 10 }],
@@ -467,8 +482,16 @@ mod native {
             ] {
                 assert!(require_mixed_overlap(&foreground, &background).is_err());
             }
-            assert_eq!(require_mixed_overlap(&foreground, &[OperationInterval { start: 15, end: 35 }]).unwrap(), 2);
-            assert_eq!(require_mixed_overlap(&foreground, &[OperationInterval { start: 5, end: 15 }]).unwrap(), 1);
+            assert_eq!(
+                require_mixed_overlap(&foreground, &[OperationInterval { start: 15, end: 35 }])
+                    .unwrap(),
+                2
+            );
+            assert_eq!(
+                require_mixed_overlap(&foreground, &[OperationInterval { start: 5, end: 15 }])
+                    .unwrap(),
+                1
+            );
         }
 
         #[test]

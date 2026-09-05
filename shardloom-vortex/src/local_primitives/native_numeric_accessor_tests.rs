@@ -234,7 +234,7 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
     for group in 0_i64..11 {
         let key = (1_i64 << 60) + group % 4;
         let label = format!("renamed-東京-{group}");
-        for _ in 0..group + 1 {
+        for _ in 0..=group {
             keys.push(key);
             labels.push(label.clone());
             *expected.entry((key, label.clone())).or_default() += 1;
@@ -299,10 +299,15 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
     )
     .unwrap();
     assert!(!report.fallback_execution_allowed);
-    let actual: serde_json::Value =
-        serde_json::from_str(report.result_summary.as_deref().unwrap()).unwrap();
+    let (_, payload) = report
+        .result_summary
+        .as_deref()
+        .unwrap()
+        .split_once(" values=")
+        .unwrap();
+    let actual: serde_json::Value = serde_json::from_str(payload).unwrap();
     let mut expected = expected.into_iter().collect::<Vec<_>>();
-    expected.sort_by(|left, right| right.1.cmp(&left.1));
+    expected.sort_by_key(|row| std::cmp::Reverse(row.1));
     let expected = expected.into_iter().take(7).map(|((key, phrase), count)|
         serde_json::json!({"renamed_key":key, "renamed_phrase":phrase, "n":count})).collect::<Vec<_>>();
     assert_eq!(actual["values"], serde_json::json!(expected));
@@ -333,8 +338,13 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
         VortexLocalPrimitiveExecutionPolicy::single_threaded(),
     )
     .unwrap();
-    let actual: serde_json::Value =
-        serde_json::from_str(report.result_summary.as_deref().unwrap()).unwrap();
+    let (_, payload) = report
+        .result_summary
+        .as_deref()
+        .unwrap()
+        .split_once(" values=")
+        .unwrap();
+    let actual: serde_json::Value = serde_json::from_str(payload).unwrap();
     assert_eq!(actual["values"]["unique_keys"], 4);
     assert!(
         actual["aggregate_native_numeric_accessor"]["native_decode_calls"]

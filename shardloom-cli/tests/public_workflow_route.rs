@@ -2573,6 +2573,8 @@ fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_a
         "collect",
         "--sql",
         "SELECT SUM(renamed_measure) FROM hits",
+        "--bounded",
+        "true",
         "--materialization-policy",
         "zero_decode",
         "--format",
@@ -2599,6 +2601,8 @@ fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_a
         "count",
         "--materialization-policy",
         "zero_decode",
+        "--bounded",
+        "true",
         "--format",
         "json",
     ]);

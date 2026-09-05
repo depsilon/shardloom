@@ -20294,8 +20294,9 @@ fn read_prepared_vortex_simple_aggregate_scan(
     let finalization_started = Instant::now();
     let numeric_accessor_work = grouped_states
         .as_ref()
-        .map(|states| &states.native_numeric_accessor_work)
-        .unwrap_or(&scalar_numeric_accessor_work)
+        .map_or(&scalar_numeric_accessor_work, |states| {
+            &states.native_numeric_accessor_work
+        })
         .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
@@ -21047,8 +21048,9 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     let result_limit = request.source_order_limit;
     let numeric_accessor_work = grouped_states
         .as_ref()
-        .map(|states| &states.native_numeric_accessor_work)
-        .unwrap_or(&scalar_numeric_accessor_work)
+        .map_or(&scalar_numeric_accessor_work, |states| {
+            &states.native_numeric_accessor_work
+        })
         .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
