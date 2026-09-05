@@ -145,7 +145,15 @@ mod native {
                         .prepare_projection(&COLUMNS, filter(), Some(7))?
                         .execute()?
                 } else {
-                    generation.collect(&COLUMNS, filter(), 7, 64 * 1024)?
+                    // A seven-row result may retain the input array's backing
+                    // buffers. Apply the same explicit bound as the ordinary
+                    // memory source instead of sizing admission from JSON rows.
+                    generation.collect(
+                        &COLUMNS,
+                        filter(),
+                        7,
+                        MemorySourceBounds::default().max_output_bytes as u64,
+                    )?
                 });
                 let nanos = u64::try_from(started.elapsed().as_nanos())?;
                 if sample != 0 {
@@ -223,6 +231,7 @@ mod native {
             "rows": rows, "iterations": iterations, "output": target,
             "query_warmups_per_variant": 1,
             "query_ordering": "alternating sequential ordinary/generation pairs; warmups excluded",
+            "query_output_bound_bytes": MemorySourceBounds::default().max_output_bytes,
             "exact_query_and_reopened_values_verified": true, "fallback_attempted": false,
             "timing_boundary": "bind native filter/projection, execute and fully render bounded JSON; reference comparison and drop excluded",
             "typed_intake_nanos": intake_nanos, "one_native_file_generation_nanos": generation_nanos,
@@ -259,6 +268,29 @@ mod native {
         });
         println!("{}", serde_json::to_string_pretty(&report)?);
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn largest_advertised_fixture_preserves_exact_results_with_shared_output_bound() {
+            let rows = 16_384;
+            let fixture = Fixture::new(rows);
+            let session = ResidentVortexSession::new(128 * 1024 * 1024, 2).unwrap();
+            let source = fixture.source(&session).unwrap();
+            let generation = source
+                .file_generation(MemoryFileGenerationBounds::default())
+                .unwrap();
+            let (ordinary, native_file) =
+                query_samples(&source, &generation, &fixture, rows, 1).unwrap();
+            assert_eq!((ordinary.len(), native_file.len()), (1, 1));
+            drop(generation);
+            drop(source);
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+            assert_eq!(session.snapshot().memory.denied_reservations, 0);
+        }
     }
 }
 
