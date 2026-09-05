@@ -75,5 +75,9 @@ name = "resident_latency"
 required-features = ["vortex-local-primitives"]
 
 [[example]]
+name = "resident_memory_latency"
+required-features = ["vortex-local-primitives"]
+
+[[example]]
 name = "clickbench_q20_reference"
 required-features = ["universal-format-io"]

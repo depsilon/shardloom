@@ -9,7 +9,7 @@
 //! routing move into focused modules.
 
 use std::{
-    io::{self, BufRead, Write},
+    io::{self, Write},
     process::ExitCode,
 };
 
@@ -36,6 +36,7 @@ mod optimizer_planning;
 mod packaging_deployment;
 mod prepared_source_backed_execution;
 mod public_workflow_route;
+mod python_worker_protocol;
 mod rest_api_planning;
 mod runtime_defaults;
 mod semantic_conformance;
@@ -153,10 +154,17 @@ fn handle_version(format: OutputFormat) -> ExitCode {
 
 fn handle_python_worker() -> ExitCode {
     let stdin = io::stdin();
-    for line_result in stdin.lock().lines() {
-        let line = match line_result {
-            Ok(line) => line,
+    let mut input = stdin.lock();
+    let mut execution_session = public_workflow_route::PublicExecutionSession::default();
+    loop {
+        let line = match python_worker_protocol::read_bounded_frame(
+            &mut input,
+            python_worker_protocol::MAX_REQUEST_BYTES,
+        ) {
+            Ok(Some(line)) => line,
+            Ok(None) => break,
             Err(error) => {
+                execution_session.clear();
                 let _ = emit_error(
                     "python-worker",
                     OutputFormat::Json,
@@ -166,7 +174,7 @@ fn handle_python_worker() -> ExitCode {
                     )),
                 );
                 let _ = io::stdout().flush();
-                continue;
+                return ExitCode::from(1);
             }
         };
         if line.trim().is_empty() {
@@ -175,8 +183,9 @@ fn handle_python_worker() -> ExitCode {
         match parse_python_worker_request(&line) {
             Ok(request_args) => {
                 let emission_count_before = cli_output::output_emission_count();
-                let _ = run(request_args);
+                let _ = run_with_session(request_args, &mut execution_session);
                 if cli_output::output_emission_count() == emission_count_before {
+                    execution_session.clear();
                     let _ = emit_error(
                         "python-worker",
                         OutputFormat::Json,
@@ -189,6 +198,7 @@ fn handle_python_worker() -> ExitCode {
                 }
             }
             Err(error) => {
+                execution_session.clear();
                 let _ = emit_error(
                     "python-worker",
                     OutputFormat::Json,
@@ -203,39 +213,21 @@ fn handle_python_worker() -> ExitCode {
 }
 
 fn parse_python_worker_request(line: &str) -> Result<Vec<String>, ShardLoomError> {
-    let payload: serde_json::Value = serde_json::from_str(line).map_err(|error| {
+    let args = python_worker_protocol::parse_request_args(line).map_err(|error| {
         ShardLoomError::InvalidOperation(format!("invalid python worker request JSON: {error}"))
     })?;
-    let args = payload
-        .get("args")
-        .ok_or_else(|| {
-            ShardLoomError::InvalidOperation("python worker request missing args".to_string())
-        })?
-        .as_array()
-        .ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "python worker request args must be an array".to_string(),
-            )
-        })?;
     let mut normalized = Vec::with_capacity(args.len() + 2);
-    let mut index = 0;
-    while index < args.len() {
-        let Some(arg) = args[index].as_str() else {
-            return Err(ShardLoomError::InvalidOperation(
-                "python worker request args must contain only strings".to_string(),
-            ));
-        };
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
         if arg == "--format" {
-            if index + 1 >= args.len() {
+            if args.next().is_none() {
                 return Err(ShardLoomError::InvalidOperation(
                     "python worker request --format requires a value".to_string(),
                 ));
             }
-            index += 2;
             continue;
         }
-        normalized.push(arg.to_string());
-        index += 1;
+        normalized.push(arg);
     }
     if normalized.is_empty() {
         return Err(ShardLoomError::InvalidOperation(
@@ -1002,12 +994,23 @@ fn normalize_help_aliases(args: Vec<String>) -> Vec<String> {
     args
 }
 
-#[allow(clippy::too_many_lines)]
 fn run(args: Vec<String>) -> ExitCode {
+    run_with_session(
+        args,
+        &mut public_workflow_route::PublicExecutionSession::default(),
+    )
+}
+
+#[allow(clippy::too_many_lines)]
+fn run_with_session(
+    args: Vec<String>,
+    execution_session: &mut public_workflow_route::PublicExecutionSession,
+) -> ExitCode {
     let requested_format = detect_requested_output_format(&args);
     let (args, format) = match parse_output_format(args) {
         Ok(parsed) => parsed,
         Err(message) => {
+            execution_session.clear();
             return emit_error(
                 "cli",
                 requested_format,
@@ -1017,9 +1020,13 @@ fn run(args: Vec<String>) -> ExitCode {
         }
     };
     if matches!(args.as_slice(), [flag] if flag == "--version" || flag == "-V") {
+        execution_session.clear();
         return handle_version(format);
     }
     let args = normalize_help_aliases(args);
+    if args.first().is_none_or(|command| command != "run") {
+        execution_session.clear();
+    }
     let mut args = args.into_iter();
 
     match args.next().as_deref() {
@@ -1039,7 +1046,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("command-metadata") => command_registry::handle_command_metadata(args, format),
         Some("evidence-schema") => evidence_schema_registry::handle_evidence_schema(args, format),
         Some("route") => public_workflow_route::handle_public_workflow_route(args, format),
-        Some("run") => public_workflow_route::handle_public_workflow_run(args, format),
+        Some("run") => {
+            public_workflow_route::handle_public_workflow_run(args, format, execution_session)
+        }
         Some("prepare") => public_workflow_route::handle_public_workflow_prepare(args, format),
         Some("status") => status_capabilities::handle_status(format),
         Some("runs-today") => status_capabilities::handle_runs_today(format),

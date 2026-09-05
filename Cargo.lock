@@ -2598,6 +2598,7 @@ dependencies = [
  "parquet",
  "regex",
  "rusqlite",
+ "serde",
  "serde_json",
  "sha2",
  "shardloom-core",

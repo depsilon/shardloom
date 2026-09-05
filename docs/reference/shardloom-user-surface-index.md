@@ -80,6 +80,23 @@ still the command's normal typed envelope with `fallback_attempted=false` and
 `external_engine_invoked=false` evidence from the underlying ShardLoom/Vortex route. Set
 `SHARDLOOM_PERSISTENT_WORKER=0` to force one-shot subprocess transport for diagnostics.
 
+## Resident Native Results
+
+The Unix `vortex-local-primitives` build supports typed immutable memory intake
+through `ResidentMemorySource`, caller-owned prepared native arrays and bounded
+JSON, and public `run dataframe --generated-source-kind user_rows --request collect
+--bounded true` with explicit schema/rows. Direct single-file count/projection/filter
+collect calls can retain prepared operations in the existing public worker.
+See [Resident Native Results](resident-native-results.md) for exact types, bounds,
+ownership, source-change behavior, and examples. This is a bounded native Rust and
+CLI-backed transport surface; it does not add a native Python binding or establish
+performance claims.
+
+Single-file numeric sorting can use explicitly admitted temporary Vortex runs.
+See [Native Query Sort Spill](native-query-spill.md) for supported keys, bounded
+output, workspace quotas, cancellation, and recovery. The policy is opt-in and
+does not enable other spill families.
+
 ## Python Reads
 
 Use `ctx.read(path)` for ordinary local input. It infers:

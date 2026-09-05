@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
 import time
 import unittest
 
-from run_clickbench_query_uat import equivalent, extract_result, run_command, score, strict_json
+from run_clickbench_query_uat import equivalent, extract_result, run_command, run_profiled_command, score, strict_json
 
 
 def envelope(summary):
@@ -69,6 +70,50 @@ class ClickBenchUatTests(unittest.TestCase):
             self.assertNotEqual(result["returncode"], 0)
             self.assertIn("timeout", result["guard_failures"][0])
             self.assertLess(time.monotonic() - started, 5)
+
+    def test_targeted_results_cannot_be_scored_as_complete_full_suite(self):
+        records = [{"query": q, "run": r, "seconds": float(r), "passed": True}
+                   for q in [34, 35] for r in [3, 1, 2]]
+        self.assertFalse(score(records, 43)["complete"])
+        result = score(records, 43, [34, 35])
+        self.assertEqual(result["query_ids"], [34, 35])
+        self.assertEqual(result["hot_total_seconds"], 4.0)
+        for selected in ([], [0], [44], [34, 34]):
+            with self.assertRaises(ValueError):
+                score(records, 43, selected)
+
+    def test_native_profile_covers_one_child_and_complete_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            prefix = Path(directory) / "profile"
+            result = run_profiled_command([sys.executable, "-c", "print('complete output')"],
+                                          prefix, 10, lambda: None)
+            self.assertEqual(result["returncode"], 0)
+            self.assertFalse(result["guard_failures"])
+            self.assertGreater(result["native_peak_rss_bytes"], 0)
+            self.assertGreaterEqual(result["user_cpu_seconds"], 0)
+            self.assertGreaterEqual(result["system_cpu_seconds"], 0)
+            self.assertLess(result["seconds"], result["supervised_wall_seconds"])
+            self.assertEqual(prefix.with_suffix(".stdout.json").read_text(), "complete output\n")
+
+    @unittest.skipUnless(os.name == "posix", "process-group ownership requires POSIX")
+    def test_profile_timeout_kills_native_child_that_ignores_termination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            prefix = Path(directory) / "ignores-term"
+            result = run_profiled_command([
+                sys.executable, "-c",
+                "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)",
+            ], prefix, 0.3, lambda: None)
+            self.assertTrue(result["guard_failures"])
+            pid = int(prefix.with_suffix(".pid").read_text())
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.05)
+            else:
+                self.fail("timed-out native child survived its supervisor's process group")
 
 
 if __name__ == "__main__":

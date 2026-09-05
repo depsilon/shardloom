@@ -226,7 +226,7 @@ pub struct FlatLocalColumnarStreamSource {
 
 struct CapillaryPrefetchRecordBatchReader {
     schema: SchemaRef,
-    receiver: Receiver<std::result::Result<RecordBatch, ArrowError>>,
+    receiver: Option<Receiver<std::result::Result<RecordBatch, ArrowError>>>,
     worker: Option<JoinHandle<()>>,
 }
 
@@ -236,15 +236,25 @@ impl CapillaryPrefetchRecordBatchReader {
         let (sender, receiver) = mpsc::sync_channel(max_in_flight_batches.max(1));
         let worker = thread::spawn(move || {
             for batch in inner {
-                if sender.send(batch).is_err() {
+                let failed = batch.is_err();
+                if sender.send(batch).is_err() || failed {
                     break;
                 }
             }
         });
         Self {
             schema,
-            receiver,
+            receiver: Some(receiver),
             worker: Some(worker),
+        }
+    }
+
+    fn close_and_join(&mut self) {
+        // Unblock a full output channel before joining. An in-progress provider
+        // read still has to return; this does not interrupt blocking source I/O.
+        self.receiver.take();
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
         }
     }
 }
@@ -253,13 +263,16 @@ impl Iterator for CapillaryPrefetchRecordBatchReader {
     type Item = std::result::Result<RecordBatch, ArrowError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Ok(batch) = self.receiver.recv() {
-            Some(batch)
-        } else {
-            if let Some(worker) = self.worker.take() {
-                let _ = worker.join();
+        match self.receiver.as_ref()?.recv() {
+            Ok(Ok(batch)) => Some(Ok(batch)),
+            Ok(Err(error)) => {
+                self.close_and_join();
+                Some(Err(error))
             }
-            None
+            Err(_) => {
+                self.close_and_join();
+                None
+            }
         }
     }
 }
@@ -267,6 +280,12 @@ impl Iterator for CapillaryPrefetchRecordBatchReader {
 impl RecordBatchReader for CapillaryPrefetchRecordBatchReader {
     fn schema(&self) -> SchemaRef {
         Arc::clone(&self.schema)
+    }
+}
+
+impl Drop for CapillaryPrefetchRecordBatchReader {
+    fn drop(&mut self) {
+        self.close_and_join();
     }
 }
 
@@ -426,30 +445,23 @@ struct ParquetRowGroupReadTask {
 }
 
 enum ParquetRowGroupReadResult {
-    Batch {
-        task_index: usize,
-        batch_index: usize,
-        result: std::result::Result<RecordBatch, ArrowError>,
-    },
-    TaskComplete {
-        task_index: usize,
-    },
-    TaskError {
-        task_index: usize,
-        error: ArrowError,
-    },
+    Batch(std::result::Result<RecordBatch, ArrowError>),
+    TaskComplete,
+    TaskError(ArrowError),
+}
+
+struct ParquetRowGroupReadJob {
+    task: ParquetRowGroupReadTask,
+    sender: SyncSender<ParquetRowGroupReadResult>,
 }
 
 struct ParquetRowGroupParallelRecordBatchReader {
     schema: SchemaRef,
-    receiver: Option<Receiver<ParquetRowGroupReadResult>>,
+    task_sender: Option<SyncSender<ParquetRowGroupReadJob>>,
+    tasks: VecDeque<ParquetRowGroupReadTask>,
+    receivers: VecDeque<(usize, Receiver<ParquetRowGroupReadResult>)>,
     workers: Vec<JoinHandle<()>>,
-    next_task_index: usize,
-    next_batch_index: usize,
-    task_count: usize,
-    pending: BTreeMap<(usize, usize), std::result::Result<RecordBatch, ArrowError>>,
-    completed_tasks: BTreeSet<usize>,
-    task_errors: BTreeMap<usize, ArrowError>,
+    task_window: usize,
 }
 
 impl ParquetRowGroupParallelRecordBatchReader {
@@ -460,70 +472,113 @@ impl ParquetRowGroupParallelRecordBatchReader {
         batch_size: usize,
         applied_parallelism: usize,
         reader_metadata: &parquet::arrow::arrow_reader::ArrowReaderMetadata,
-    ) -> Self {
+    ) -> std::result::Result<Self, ArrowError> {
         let path = path.to_path_buf();
-        let task_count = tasks.len();
-        let shared_tasks = Arc::new(Mutex::new(VecDeque::from(tasks)));
-        let worker_count = applied_parallelism.max(1).min(task_count.max(1));
-        let result_queue_capacity =
-            worker_count.max(1) * PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER;
-        let (sender, receiver) = mpsc::sync_channel(result_queue_capacity.max(1));
+        let reader_metadata = reader_metadata.clone();
+        Self::with_task_runner(schema, tasks, applied_parallelism, move |task, sender| {
+            stream_parquet_row_group_batches(
+                &path,
+                task.row_groups,
+                batch_size,
+                &reader_metadata,
+                sender,
+            )
+        })
+    }
+
+    fn with_task_runner<F>(
+        schema: SchemaRef,
+        tasks: Vec<ParquetRowGroupReadTask>,
+        applied_parallelism: usize,
+        run: F,
+    ) -> std::result::Result<Self, ArrowError>
+    where
+        F: Fn(
+                ParquetRowGroupReadTask,
+                &SyncSender<ParquetRowGroupReadResult>,
+            ) -> std::result::Result<(), ArrowError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        let worker_count = applied_parallelism.max(1).min(tasks.len());
+        let (task_sender, task_receiver) =
+            mpsc::sync_channel::<ParquetRowGroupReadJob>(worker_count.max(1));
+        let task_receiver = Arc::new(Mutex::new(task_receiver));
+        let run = Arc::new(run);
         let mut workers = Vec::with_capacity(worker_count);
         for _ in 0..worker_count {
-            let worker_path = path.clone();
-            let worker_tasks = Arc::clone(&shared_tasks);
-            let worker_sender = sender.clone();
-            let worker_reader_metadata = reader_metadata.clone();
+            let worker_tasks = Arc::clone(&task_receiver);
+            let run = Arc::clone(&run);
             workers.push(thread::spawn(move || {
                 loop {
-                    let task = {
-                        let mut tasks = worker_tasks.lock().expect("Parquet task queue poisoned");
-                        tasks.pop_front()
+                    let job = {
+                        let Ok(receiver) = worker_tasks.lock() else {
+                            break;
+                        };
+                        receiver.recv()
                     };
-                    let Some(task) = task else {
+                    let Ok(job) = job else {
                         break;
                     };
-                    if let Err(error) = stream_parquet_row_group_batches(
-                        &worker_path,
-                        task.task_index,
-                        task.row_groups,
-                        batch_size,
-                        &worker_reader_metadata,
-                        &worker_sender,
-                    ) {
-                        let _ = worker_sender.send(ParquetRowGroupReadResult::TaskError {
-                            task_index: task.task_index,
-                            error,
-                        });
-                        break;
-                    }
-                    if worker_sender
-                        .send(ParquetRowGroupReadResult::TaskComplete {
-                            task_index: task.task_index,
-                        })
-                        .is_err()
-                    {
+                    let completion = match run(job.task, &job.sender) {
+                        Ok(()) => ParquetRowGroupReadResult::TaskComplete,
+                        Err(error) => ParquetRowGroupReadResult::TaskError(error),
+                    };
+                    if job.sender.send(completion).is_err() {
                         break;
                     }
                 }
             }));
         }
-        drop(sender);
-        Self {
+        let mut reader = Self {
             schema,
-            receiver: Some(receiver),
+            task_sender: Some(task_sender),
+            tasks: tasks.into(),
+            receivers: VecDeque::with_capacity(worker_count),
             workers,
-            next_task_index: 0,
-            next_batch_index: 0,
-            task_count,
-            pending: BTreeMap::new(),
-            completed_tasks: BTreeSet::new(),
-            task_errors: BTreeMap::new(),
+            task_window: worker_count,
+        };
+        reader.fill_task_window()?;
+        Ok(reader)
+    }
+
+    fn fill_task_window(&mut self) -> std::result::Result<(), ArrowError> {
+        // Keep both the task window and each task's output bounded. Draining a
+        // shared channel into a reorder map defeats channel backpressure: later
+        // tasks can otherwise buffer the entire source behind a slow first task.
+        // Here, at most task_window * (queue_capacity + 1) decoded batches are
+        // retained, including each worker's batch blocked in send. Parquet page
+        // buffers and variable-width batch bytes are not covered by this bound.
+        while self.receivers.len() < self.task_window {
+            let Some(task) = self.tasks.pop_front() else {
+                break;
+            };
+            let (sender, receiver) =
+                mpsc::sync_channel(PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER);
+            let task_index = task.task_index;
+            self.task_sender
+                .as_ref()
+                .ok_or_else(|| {
+                    ArrowError::ComputeError("Parquet task dispatcher is closed".to_string())
+                })?
+                .send(ParquetRowGroupReadJob { task, sender })
+                .map_err(|_| {
+                    ArrowError::ComputeError(
+                        "Parquet row-group workers stopped before task dispatch".to_string(),
+                    )
+                })?;
+            self.receivers.push_back((task_index, receiver));
         }
+        Ok(())
     }
 
     fn close_and_join(&mut self) {
-        self.receiver.take();
+        // Disconnect every result sender before joining: any worker may be
+        // blocked on a later task's full channel when an early task fails.
+        self.receivers.clear();
+        self.task_sender.take();
+        self.tasks.clear();
         for worker in self.workers.drain(..) {
             let _ = worker.join();
         }
@@ -535,55 +590,33 @@ impl Iterator for ParquetRowGroupParallelRecordBatchReader {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.next_task_index >= self.task_count {
+            let Some((task_index, receiver)) = self.receivers.front() else {
                 self.close_and_join();
                 return None;
-            }
-            if let Some(error) = self.task_errors.remove(&self.next_task_index) {
-                self.close_and_join();
-                return Some(Err(error));
-            }
-            if let Some(result) = self
-                .pending
-                .remove(&(self.next_task_index, self.next_batch_index))
-            {
-                self.next_batch_index += 1;
-                return Some(result);
-            }
-            if self.completed_tasks.remove(&self.next_task_index) {
-                self.next_task_index += 1;
-                self.next_batch_index = 0;
-                continue;
-            }
-            let Some(receiver) = self.receiver.as_ref() else {
-                self.close_and_join();
-                return Some(Err(ArrowError::ComputeError(
-                    "Parquet row-group parallel reader closed before all tasks completed"
-                        .to_string(),
-                )));
             };
-            if let Ok(result) = receiver.recv() {
-                match result {
-                    ParquetRowGroupReadResult::Batch {
-                        task_index,
-                        batch_index,
-                        result,
-                    } => {
-                        self.pending.insert((task_index, batch_index), result);
-                    }
-                    ParquetRowGroupReadResult::TaskComplete { task_index } => {
-                        self.completed_tasks.insert(task_index);
-                    }
-                    ParquetRowGroupReadResult::TaskError { task_index, error } => {
-                        self.task_errors.insert(task_index, error);
+            match receiver.recv() {
+                Ok(ParquetRowGroupReadResult::Batch(Ok(batch))) => return Some(Ok(batch)),
+                Ok(
+                    ParquetRowGroupReadResult::Batch(Err(error))
+                    | ParquetRowGroupReadResult::TaskError(error),
+                ) => {
+                    self.close_and_join();
+                    return Some(Err(error));
+                }
+                Ok(ParquetRowGroupReadResult::TaskComplete) => {
+                    self.receivers.pop_front();
+                    if let Err(error) = self.fill_task_window() {
+                        self.close_and_join();
+                        return Some(Err(error));
                     }
                 }
-            } else {
-                self.close_and_join();
-                return Some(Err(ArrowError::ComputeError(
-                    "Parquet row-group parallel reader stopped before all tasks completed"
-                        .to_string(),
-                )));
+                Err(_) => {
+                    let task_index = *task_index;
+                    self.close_and_join();
+                    return Some(Err(ArrowError::ComputeError(format!(
+                        "Parquet row-group parallel reader stopped before task {task_index} completed"
+                    ))));
+                }
             }
         }
     }
@@ -600,6 +633,10 @@ impl Drop for ParquetRowGroupParallelRecordBatchReader {
         self.close_and_join();
     }
 }
+
+#[cfg(test)]
+#[path = "universal_format_io_parquet_queue_tests.rs"]
+mod parquet_queue_tests;
 
 fn parquet_row_group_read_tasks(
     row_group_count: usize,
@@ -1054,7 +1091,6 @@ fn parquet_row_group_source_parallelism_budget(requested_max_parallelism: usize)
 
 fn stream_parquet_row_group_batches(
     path: &Path,
-    task_index: usize,
     row_groups: Vec<usize>,
     batch_size: usize,
     reader_metadata: &parquet::arrow::arrow_reader::ArrowReaderMetadata,
@@ -1070,14 +1106,12 @@ fn stream_parquet_row_group_batches(
         .with_row_groups(row_groups)
         .build()
         .map_err(|error| ArrowError::ParquetError(error.to_string()))?;
-    for (batch_index, batch) in reader.enumerate() {
+    for batch in reader {
+        let failed = batch.is_err();
         if sender
-            .send(ParquetRowGroupReadResult::Batch {
-                task_index,
-                batch_index,
-                result: batch,
-            })
+            .send(ParquetRowGroupReadResult::Batch(batch))
             .is_err()
+            || failed
         {
             break;
         }
@@ -3062,7 +3096,17 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
                 stream_batch_size,
                 applied_parallelism,
                 &reader_metadata,
-            )),
+            ).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to start bounded Parquet source workers: {error}; no fallback execution was attempted"
+                ))
+            })?),
+        );
+        source.source_stream_policy = format!(
+            "{};parquet_ordered_task_window={applied_parallelism};parquet_result_queue_batches_per_task={PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER};parquet_max_retained_decoded_batches={};parquet_source_byte_bound=not_enforced_includes_unaccounted_provider_buffers",
+            source.source_stream_policy,
+            applied_parallelism
+                .saturating_mul(PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER + 1),
         );
         source.ingest_executor_status =
             "bounded_capillary_row_group_parallel_writer_budgeted".to_string();

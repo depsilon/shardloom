@@ -1,5 +1,340 @@
 use std::process::Command;
 
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
+#[test]
+#[allow(clippy::too_many_lines)]
+fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values() {
+    use arrow_array::{Int64Array, RecordBatch, StringArray, UInt64Array};
+    use arrow_schema::{DataType, Field, Schema};
+    use std::sync::Arc;
+    const ROWS: usize = 40_000;
+    const LIMIT: usize = 10_003;
+    struct Cleanup(std::path::PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let root = unique_vortex_binding_dir("native-array-sink");
+    std::fs::create_dir(&root).unwrap();
+    let _cleanup = Cleanup(root.clone());
+    let ipc = root.join("source.arrow");
+    let source = root.join("shipments.vortex");
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("priority", DataType::Int64, false),
+        Field::new("shipment_sequence", DataType::UInt64, false),
+        Field::new("destination", DataType::Utf8, true),
+    ]));
+    let labels = (0..ROWS)
+        .map(|index| (!index.is_multiple_of(7)).then(|| format!("港-{index}")))
+        .collect::<Vec<_>>();
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from_iter_values(
+                (0..ROWS).map(|index| i64::try_from(index % 97).unwrap() - 48),
+            )),
+            Arc::new(UInt64Array::from_iter_values(
+                0..u64::try_from(ROWS).unwrap(),
+            )),
+            Arc::new(StringArray::from(labels)),
+        ],
+    )
+    .unwrap();
+    let mut writer =
+        arrow_ipc::writer::FileWriter::try_new(std::fs::File::create(&ipc).unwrap(), &schema)
+            .unwrap();
+    writer.write(&batch).unwrap();
+    writer.finish().unwrap();
+    drop(writer);
+    let columnar = shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, ROWS).unwrap();
+    shardloom_vortex::write_flat_columnar_vortex_prepared_state(
+        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(&source, columnar),
+    )
+    .unwrap();
+    let projection = r#"{"structured_columns":[{"name":"renamed_port","source":"destination"},{"name":"shipment_sequence","source":"shipment_sequence"}]}"#;
+    for primitive in ["expression_project", "project", "filter_project"] {
+        let output = root.join(format!("{primitive}.vortex"));
+        let mut args = vec![
+            "run",
+            "dataframe",
+            "--input",
+            source.to_str().unwrap(),
+            "--input-format",
+            "vortex",
+            "--request",
+            "write_vortex",
+            "--output",
+            output.to_str().unwrap(),
+            "--bounded",
+            "true",
+            "--execution-policy",
+            "native_vortex",
+            "--vortex-primitive",
+            primitive,
+            "--vortex-source-order-limit",
+            "10003",
+            "--max-parallelism",
+            "1",
+            "--format",
+            "json",
+        ];
+        if primitive == "expression_project" {
+            args.extend([
+                "--vortex-expression-projection",
+                projection,
+                "--vortex-columns",
+                "destination,shipment_sequence",
+            ]);
+        } else {
+            args.extend(["--vortex-columns", "destination,shipment_sequence"]);
+            if primitive == "filter_project" {
+                args.extend(["--vortex-predicate", "gte:priority:0"]);
+            }
+        }
+        let (ok, stdout) = run_facade(&args);
+        assert!(ok, "{primitive}: {stdout}");
+        let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(envelope["status"], "success", "{stdout}");
+        for (key, value) in [
+            (
+                "native_vortex_result_export_kind",
+                "owned_native_array_stream",
+            ),
+            ("native_vortex_array_sink_adapter_payload_bytes_copied", "0"),
+            ("native_vortex_array_sink_scalar_values_materialized", "0"),
+            (
+                "native_vortex_array_sink_source_generation_validated",
+                "true",
+            ),
+            (
+                "native_vortex_array_sink_dtype_and_row_count_validated",
+                "true",
+            ),
+            ("public_workflow_fallback_attempted", "false"),
+            ("public_workflow_external_engine_invoked", "false"),
+        ] {
+            assert!(stdout.contains(&field(key, value)), "{key}: {stdout}");
+        }
+        // Decode every persisted value through the existing explicit JSONL boundary,
+        // then compare to a Rust reference that never uses the native predicate.
+        let decoded = root.join(format!("{primitive}.jsonl"));
+        let request = shardloom_vortex::VortexQueryPrimitiveRequest::project(
+            shardloom_core::DatasetUri::new(output.display().to_string()).unwrap(),
+            shardloom_plan::ProjectionRequest::All,
+        );
+        let report = shardloom_vortex::execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &decoded,
+            shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+        assert_eq!(report.rows_written, u64::try_from(LIMIT).unwrap());
+        let actual = std::fs::read_to_string(decoded)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .collect::<Vec<_>>();
+        let name = if primitive == "expression_project" {
+            "renamed_port"
+        } else {
+            "destination"
+        };
+        let expected = (0..ROWS)
+            .filter(|index| primitive != "filter_project" || index % 97 >= 48)
+            .take(LIMIT)
+            .map(|index| serde_json::json!({name:(!index.is_multiple_of(7)).then(|| format!("港-{index}")),"shipment_sequence":index}))
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected, "{primitive}");
+    }
+}
+
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
+#[test]
+#[allow(clippy::too_many_lines)]
+fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanup() {
+    use arrow_array::{Int64Array, RecordBatch, StringArray, UInt64Array};
+    use arrow_schema::{DataType, Field, Schema};
+    use std::sync::Arc;
+    const ROWS: usize = 50_000;
+    const OFFSET: usize = 45_003;
+    struct Cleanup(std::path::PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let root = unique_vortex_binding_dir("native-sort-spill");
+    std::fs::create_dir(&root).unwrap();
+    let _cleanup = Cleanup(root.clone());
+    let workspace = root.join("workspace");
+    let ipc = root.join("source.arrow");
+    let source = root.join("shipments.vortex");
+    let keys = (0..ROWS)
+        .map(|index| i64::try_from((index * 37) % 997).unwrap() - 498)
+        .collect::<Vec<_>>();
+    let labels = (0..ROWS)
+        .map(|index| format!("港-{index}-shipment"))
+        .collect::<Vec<_>>();
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("priority", DataType::Int64, false),
+        Field::new("shipment_sequence", DataType::UInt64, false),
+        Field::new("destination", DataType::Utf8, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(keys.clone())),
+            Arc::new(UInt64Array::from_iter_values(
+                0..u64::try_from(ROWS).unwrap(),
+            )),
+            Arc::new(StringArray::from(labels.clone())),
+        ],
+    )
+    .unwrap();
+    let mut writer =
+        arrow_ipc::writer::FileWriter::try_new(std::fs::File::create(&ipc).unwrap(), &schema)
+            .unwrap();
+    writer.write(&batch).unwrap();
+    writer.finish().unwrap();
+    drop(writer);
+    let columnar = shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, ROWS).unwrap();
+    shardloom_vortex::write_flat_columnar_vortex_prepared_state(
+        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(&source, columnar),
+    )
+    .unwrap();
+    let payload = serde_json::json!({"order_by":[{"column":"priority","descending":true}],"offset":OFFSET,"spill":{"workspace":workspace,"memory_bytes":4_194_304,"quota_bytes":33_554_432}}).to_string();
+    let sql = format!(
+        "SELECT * FROM '{}' ORDER BY priority DESC LIMIT 7 OFFSET {OFFSET}",
+        source.display()
+    );
+    // Inspecting the route must not create even the caller's workspace.
+    let stdout = run_route(&[
+        "route",
+        "sql",
+        "--input",
+        source.to_str().unwrap(),
+        "--input-format",
+        "vortex",
+        "--sql",
+        &sql,
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-sort-rows",
+        &payload,
+        "--format",
+        "json",
+    ]);
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(!workspace.exists());
+    std::fs::create_dir(&workspace).unwrap();
+    let mut order = (0..ROWS).collect::<Vec<_>>();
+    order.sort_unstable_by(|left, right| {
+        keys[*right].cmp(&keys[*left]).then_with(|| left.cmp(right))
+    });
+    let expected = order[OFFSET..OFFSET + 7].iter().map(|index| serde_json::json!({"priority":keys[*index],"shipment_sequence":index,"destination":labels[*index]})).collect::<Vec<_>>();
+    for surface in ["sql", "dataframe"] {
+        let mut args = vec![
+            "run",
+            surface,
+            "--input",
+            source.to_str().unwrap(),
+            "--input-format",
+            "vortex",
+            "--request",
+            "collect",
+            "--bounded",
+            "true",
+            "--execution-policy",
+            "native_vortex",
+            "--vortex-sort-rows",
+            &payload,
+            "--max-parallelism",
+            "1",
+            "--format",
+            "json",
+        ];
+        if surface == "sql" {
+            args.extend(["--sql", &sql]);
+        } else {
+            args.extend([
+                "--vortex-primitive",
+                "sort_rows",
+                "--vortex-source-order-limit",
+                "7",
+            ]);
+        }
+        let (ok, stdout) = run_facade(&args);
+        assert!(ok, "{surface}: {stdout}");
+        let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(envelope["status"], "success");
+        let summary = envelope["human_text"]
+            .as_str()
+            .unwrap()
+            .lines()
+            .find(|line| line.starts_with("result summary: "))
+            .unwrap();
+        let values: serde_json::Value =
+            serde_json::from_str(summary.split_once(" values=").unwrap().1).unwrap();
+        assert_eq!(values["values"], serde_json::json!(expected));
+        assert!(
+            values["native_sort_spill"]["runs_written"]
+                .as_u64()
+                .unwrap()
+                > 8
+        );
+        assert!(
+            values["native_sort_spill"]["owned_cleanup_completed"]
+                .as_bool()
+                .unwrap()
+        );
+        assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
+        assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
+        assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
+    }
+    let invalid = serde_json::json!({"order_by":[{"column":"priority","descending":true}],"spill":{"workspace":workspace,"memory_bytes":4_194_304,"quota_bytes":32_769}}).to_string();
+    let (ok, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        source.to_str().unwrap(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-primitive",
+        "sort_rows",
+        "--vortex-sort-rows",
+        &invalid,
+        "--vortex-source-order-limit",
+        "7",
+        "--format",
+        "json",
+    ]);
+    assert!(!ok, "{stdout}");
+    assert!(stdout.contains("quota"), "{stdout}");
+    assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
+}
+
 #[cfg(feature = "vortex-local-primitives")]
 fn local_primitive_struct_fixture() -> String {
     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))

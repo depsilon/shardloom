@@ -5942,6 +5942,15 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
         "vortex_writer_runtime_background_workers",
         "vortex_segment_write_millis",
         "vortex_compression_millis",
+        "vortex_shared_native_memory_scope",
+        "vortex_shared_native_memory_exclusions",
+        "vortex_shared_native_memory_limit_bytes",
+        "vortex_shared_native_memory_peak_reserved_bytes",
+        "vortex_shared_native_memory_final_reserved_bytes",
+        "vortex_shared_native_memory_denied_reservations",
+        "vortex_shared_native_memory_max_source_batches",
+        "vortex_opaque_arrow_owner_policy",
+        "vortex_native_memory_physical_policy",
         "vortex_encode_write_millis",
         "vortex_workspace_stage_millis",
         "vortex_final_commit_millis",
@@ -6181,7 +6190,7 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
         .iter()
         .map(|(key, value)| (key.as_str(), value.as_str()))
         .collect::<BTreeMap<_, _>>();
-    SELECTED_FIELDS
+    let mut selected: Vec<_> = SELECTED_FIELDS
         .iter()
         .filter_map(|key| {
             raw_map
@@ -6190,7 +6199,20 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
                 .or_else(|| public_workflow_preparation_derived_field(&raw_map, key))
                 .map(|value| (format!("public_workflow_preparation_{key}"), value))
         })
-        .collect()
+        .collect();
+    // Derive the allowlist from the typed report, but forward only observed
+    // fields. A route without instrumentation must not manufacture zero work.
+    for (key, _) in
+        shardloom_vortex::vortex_ingest::VortexIngestStageReport::default().evidence_fields()
+    {
+        if let Some(value) = raw_map.get(key.as_str()) {
+            selected.push((
+                format!("public_workflow_preparation_{key}"),
+                (*value).to_string(),
+            ));
+        }
+    }
+    selected
 }
 
 const STREAM_POLICY_DERIVED_FIELDS: &[(&str, &str)] = &[
@@ -7631,6 +7653,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         &request.target_path,
         columnar_source,
     )
+    .shared_native_memory_budget_bytes(memory_gb_to_bytes(request.memory_gb))
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -7851,6 +7874,7 @@ fn try_run_inferred_text_vortex_prepare(
         &request.target_path,
         columnar_source,
     )
+    .shared_native_memory_budget_bytes(memory_gb_to_bytes(request.memory_gb))
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -8025,6 +8049,7 @@ fn run_text_streaming_vortex_prepare(
         &request.target_path,
         columnar_source,
     )
+    .shared_native_memory_budget_bytes(memory_gb_to_bytes(request.memory_gb))
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -8187,6 +8212,7 @@ fn run_columnar_vortex_prepare(
         &request.target_path,
         columnar_source,
     )
+    .shared_native_memory_budget_bytes(memory_gb_to_bytes(request.memory_gb))
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -10165,6 +10191,10 @@ impl VortexIngestReport {
         fields.extend(self.scout_ingress.evidence_fields());
         fields.extend(self.layout_write_advisor.evidence_fields());
         fields.extend(self.vortex_report.writer_physical_design.evidence_fields());
+        fields.extend(self.vortex_report.stage_work.evidence_fields());
+        if let Some(memory) = &self.vortex_report.shared_native_memory {
+            fields.extend(memory.evidence_fields());
+        }
         fields.extend(
             self.vortex_report
                 .segment_metadata_primitive
@@ -44620,6 +44650,61 @@ mod tests {
     }
 
     #[test]
+    fn public_workflow_preparation_preserves_observed_stage_scopes_without_invented_zeros() {
+        let raw_fields = vec![
+            (
+                "vortex_ingest_stream_validation_work_nanos".to_string(),
+                "452".to_string(),
+            ),
+            (
+                "vortex_ingest_stage_time_scope".to_string(),
+                "overlapping_elapsed_work".to_string(),
+            ),
+            (
+                "vortex_shared_native_memory_peak_reserved_bytes".to_string(),
+                "8192".to_string(),
+            ),
+            (
+                "vortex_shared_native_memory_exclusions".to_string(),
+                "provider_bypass;rss".to_string(),
+            ),
+            (
+                "vortex_ingest_unapproved_internal_field".to_string(),
+                "private".to_string(),
+            ),
+        ];
+        let fields = field_map(public_workflow_preparation_fields(&raw_fields));
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_ingest_stream_validation_work_nanos",
+            "452",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_ingest_stage_time_scope",
+            "overlapping_elapsed_work",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_shared_native_memory_peak_reserved_bytes",
+            "8192",
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_shared_native_memory_exclusions",
+            "provider_bypass;rss",
+        );
+        assert!(
+            !fields.contains_key("public_workflow_preparation_vortex_ingest_text_zstd_work_nanos")
+        );
+        assert!(
+            !fields.contains_key(
+                "public_workflow_preparation_vortex_ingest_unapproved_internal_field"
+            )
+        );
+    }
+
+    #[test]
     fn public_workflow_preparation_fields_keep_product_stream_source_evidence() {
         let raw_fields = vec![
             ("source_state_stream_batch_size".to_string(), "262144".to_string()),
@@ -46060,7 +46145,7 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "vortex_writer_coalescing_policy_status",
-                "vortex_repartition_writer_coalescing_enabled_with_row_block_and_byte_target",
+                "native_within_source_batch_only;cross_batch_coalescing_disabled",
             );
             assert_field_eq(
                 &fields,
