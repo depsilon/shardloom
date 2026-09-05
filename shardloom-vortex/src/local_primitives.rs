@@ -62246,8 +62246,7 @@ mod tests {
         )
         .unwrap();
         assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
-        let summary: serde_json::Value =
-            serde_json::from_str(report.result_summary.as_deref().unwrap()).unwrap();
+        let summary = simple_aggregate_values_json(report.result_summary.as_deref().unwrap());
         assert_eq!(
             summary["values"],
             serde_json::json!([{"renamed_key":"tea","n":4}, {"renamed_key":"東京","n":3}])
@@ -62340,7 +62339,11 @@ mod tests {
         let payload = simple_aggregate_values_json(&summary);
         assert_eq!(
             payload["group_output_strategy"],
-            "capillary_streaming_count_star_topk"
+            if cfg!(unix) {
+                "complete_key_partition_exact_topk"
+            } else {
+                "capillary_streaming_count_star_topk"
+            }
         );
         assert_eq!(
             payload["compact_group_state_strategy"],
@@ -62360,7 +62363,11 @@ mod tests {
         );
         assert_eq!(
             payload["group_key_storage"],
-            "typed_single_key+interned_utf8"
+            if cfg!(unix) {
+                "owned_utf8_complete_key_partitions"
+            } else {
+                "typed_single_key+interned_utf8"
+            }
         );
         assert_eq!(
             payload["source_order_key_retention"],

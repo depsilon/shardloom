@@ -416,7 +416,9 @@ impl MemoryFileGeneration {
         output.commit()?;
         let published_generation = verified_generation.after_commit(&output.file)?;
         after_publication().map_err(publication_unconfirmed)?;
-        parent_directory.sync_all().map_err(publication_unconfirmed)?;
+        parent_directory
+            .sync_all()
+            .map_err(publication_unconfirmed)?;
         validate_publication_parent(parent, &parent_directory, admitted_parent, true)?;
         published_generation.validate(target, &output.file)?;
         Ok(MemoryFilePublication {
@@ -499,7 +501,9 @@ impl PublishedOutputGeneration {
             || Self::from_metadata(&current) != self
             || held != self
         {
-            return Err(publication_unconfirmed("published output generation changed"));
+            return Err(publication_unconfirmed(
+                "published output generation changed",
+            ));
         }
         Ok(())
     }

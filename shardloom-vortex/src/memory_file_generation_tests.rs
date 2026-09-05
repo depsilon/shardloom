@@ -538,10 +538,7 @@ fn publication_target_replacement_unlink_and_in_place_changes_reject_durable_cla
                     }
                     "unlink" => fs::remove_file(&target).unwrap(),
                     "in_place" => {
-                        let mut file = fs::OpenOptions::new()
-                            .write(true)
-                            .open(&target)
-                            .unwrap();
+                        let mut file = fs::OpenOptions::new().write(true).open(&target).unwrap();
                         let metadata = file.metadata().unwrap();
                         file.write_all(b"foreign generation").unwrap();
                         // Preserve size and inode, with a deterministic mtime
@@ -566,7 +563,11 @@ fn publication_target_replacement_unlink_and_in_place_changes_reject_durable_cla
             assert_eq!(fs::read(&target).unwrap(), b"foreign generation");
             assert_eq!(fixture.entries(), 1);
         } else {
-            assert!(fs::read(&target).unwrap().starts_with(b"foreign generation"));
+            assert!(
+                fs::read(&target)
+                    .unwrap()
+                    .starts_with(b"foreign generation")
+            );
             assert_eq!(fixture.entries(), 1);
         }
         assert_eq!(collected(&generation), expected());

@@ -46,7 +46,7 @@ pub(super) struct StringCountPartial {
     preserves_existing_key_order: bool,
     // Retained through coordinator merge, even if task metadata is dropped.
     _counts_lease: MemoryLease,
-    _deferred_metadata_lease: Option<MemoryLease>,
+    deferred_metadata_lease: Option<MemoryLease>,
 }
 
 impl StringCountPartial {
@@ -55,7 +55,7 @@ impl StringCountPartial {
     }
 
     pub(super) fn retain_deferred_metadata(&mut self, lease: &mut MemoryLease) -> Result<()> {
-        self._deferred_metadata_lease = Some(lease.split(Self::deferred_metadata_bytes())?);
+        self.deferred_metadata_lease = Some(lease.split(Self::deferred_metadata_bytes())?);
         Ok(())
     }
     /// Linear, allocation-free grouping of all exact chunk keys by content hash.
@@ -619,7 +619,7 @@ pub(super) fn count_string_chunk(
             },
             preserves_existing_key_order: true,
             _counts_lease: counts_lease,
-            _deferred_metadata_lease: None,
+            deferred_metadata_lease: None,
         });
     }
     if let Some(dictionary) = array.as_opt::<Dict>() {
@@ -709,7 +709,7 @@ pub(super) fn count_string_chunk(
             work,
             preserves_existing_key_order: true,
             _counts_lease: counts_lease,
-            _deferred_metadata_lease: None,
+            deferred_metadata_lease: None,
         });
     }
     let values = array
@@ -785,7 +785,7 @@ pub(super) fn count_string_chunk(
         work,
         preserves_existing_key_order: false,
         _counts_lease: counts_lease,
-        _deferred_metadata_lease: None,
+        deferred_metadata_lease: None,
     })
 }
 

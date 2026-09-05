@@ -107,10 +107,10 @@ impl CountWorkers {
     ) -> Option<vortex::error::VortexResult<ArrayRef>> {
         use vortex::array::memory::HostAllocator as _;
         if chunks == 0
-            || !self
+            || self
                 .partitions
                 .as_ref()
-                .is_some_and(|partitions| partitions.group_count() > 0)
+                .is_none_or(|partitions| partitions.group_count() == 0)
         {
             return None;
         }
@@ -120,8 +120,7 @@ impl CountWorkers {
         let allocator = crate::owned_buffers::ReservedHostAllocator::new(memory.clone());
         let denied = allocator
             .allocate(len, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)
-            .err()
-            .expect("native allocator denial must include alignment capacity");
+            .expect_err("native allocator denial must include alignment capacity");
         Some(Err(match fault {
             SourceScanTestFault::OwnedDenial => denied,
             SourceScanTestFault::CorruptionWithConcurrentDenial => {

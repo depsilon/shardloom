@@ -134,7 +134,7 @@ fn native_dictionary_domains_duplicate_values_and_constants_keep_exact_content_i
         BTreeMap::from([
             ("tea".into(), 21),
             ("東京".into(), 3),
-            ("".into(), 2),
+            (String::new(), 2),
             ("λ\"\n".into(), 1),
         ])
     );
