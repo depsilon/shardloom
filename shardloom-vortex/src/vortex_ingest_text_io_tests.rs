@@ -329,8 +329,8 @@ fn write_artifact(
     let timing = VortexWriterStageTiming::default();
     let fields = [TEXT.to_string()];
     let selected_strategy = match writer {
-        Writer::Baseline => large_source_text_vortex_write_strategy,
-        Writer::Zoned => zoned_source_text_vortex_write_strategy,
+        Writer::Baseline => unzoned_source_text_vortex_write_strategy,
+        Writer::Zoned => large_source_text_vortex_write_strategy,
     }(
         geometry.zone_rows,
         8 * MIB,
@@ -871,7 +871,8 @@ fn text_layout_filesystem_reads_and_lifecycle_are_exact_and_bounded() {
             "query_records": records.len() * queries().len(),
             "writer_background_cpu_drivers": 1, "writer_cpu_drivers_including_caller": 2,
             "query_requested_cpu_parallelism": 2,
-            "native_version": "0.85.0", "feature": "release-user-surfaces",
+            "native_version": "0.85.0", "intended_validation_feature": "release-user-surfaces",
+            "release_user_surfaces_enabled": cfg!(feature = "release-user-surfaces"),
             "host_os": std::env::consts::OS, "host_arch": std::env::consts::ARCH,
             "available_parallelism": std::thread::available_parallelism().unwrap().get(),
             "limits": {"artifact_bytes": FILE_LIMIT, "input_logical_bytes": geometry.input_limit,

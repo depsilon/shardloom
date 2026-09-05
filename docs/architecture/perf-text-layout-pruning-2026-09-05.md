@@ -1,12 +1,14 @@
 # Native text layout pruning experiment
 
-Status: isolated candidate after PR #1433. Both ported tests, nine file-observer
-tests and the first diagnostic I/O matrix (56 complete exact query results) pass.
-Configured-geometry release and lifecycle comparison remain pending. The control
-is `c5bada49`, with C7's retained numeric
-compression, typed consumers, ownership and measured timing behavior. This note
+Status: isolated candidate after PR #1433, locally promoted to ordinary writer
+dispatch pending 100M-row acceptance and a final retain/drop decision. Both ported
+tests, nine file-observer tests and the first diagnostic I/O matrix pass. The
+subsequent paired release matrices at `14e54146` pass all 448 complete query
+results: 336 measured and 112 warmup records. Their control is `f607e4c8`, retaining
+the C7 implementation recorded at `c5bada49`: numeric compression, typed consumers,
+ownership and measured timing behavior. This note
 continues PERF-08/09/12 under RFC 0044 and the existing CG-5/CG-6 evidence gates;
-it does not complete those packets or change ordinary public ingest admission.
+it does not complete those packets or change the public ingest admission threshold.
 
 ## Decision and provider boundary
 
@@ -17,14 +19,19 @@ to retain native bounded-min/max and null-count pruning metadata. The candidate
 uses the same row-block size, compression level/frame policy, source, values and
 worker settings as its control. No text dictionary/helper redesign is included.
 
-`zoned_source_text_vortex_write_strategy` is test-only and has the same seven
-arguments as the unchanged production `large_source_text_vortex_write_strategy`,
-including the actual writer session. It constructs the current C7 table strategy
-for non-overridden fields, preserving numeric encoding admission and ownership.
+In this isolated branch, `large_source_text_vortex_write_strategy` now supplies
+the zoned composition under `vortex-write`, with the same seven arguments,
+including the actual writer session. `unzoned_source_text_vortex_write_strategy`
+is retained only as the paired test control. The ordinary dispatch and its
+existing admission policy select the new helper; no public knob is added. It
+constructs the current C7 table strategy for non-overridden fields, preserving
+numeric encoding admission and ownership.
 The selected text branch is `Repartition(canonicalize=false) -> Zoned -> existing
-Zstd text leaf`, with native Flat statistics storage. No public runtime option,
-large-source default, dependency, query-engine fallback or certificate claim is
-added before a retain/drop decision.
+Zstd text leaf`, with native Flat statistics storage. Existing applied-strategy
+and stage-plan fields identify text zoning, and the regression guard keeps
+lifecycle acceptance explicit. This local promotion is not yet a retained or
+published production improvement. No predicate guard, dependency or query-engine
+fallback is introduced.
 
 Vortex-first classification: `use_vortex_native_provider`. Provider surfaces are
 native layout writing, native file/scan, expressions and statistics. Tests remain
@@ -141,10 +148,64 @@ Raw evidence is local-only at
 `/Users/dylan/LocalData/shardloom/perf-text-io-tests.log`, under
 `TEXT_LAYOUT_IO_EVIDENCE` schema `shardloom.text_layout_io_experiment.v1`.
 This first debug run establishes exact results and scoped file-read savings and
-costs. Its wall times support no speed claim. Release-mode comparisons at the
-configured geometry must measure the complete write/validation/query lifecycle
-before retaining the zoned production layout; no directory-publication durability
-claim follows from fixture file synchronization and reopen checks.
+costs. Its wall times support no speed claim. The release comparison below adds
+configured-geometry evidence; no directory-publication durability claim follows
+from fixture file synchronization and reopen checks.
+
+## Matched release comparison before local promotion
+
+The clean paired source is `14e5414605d4fd10deef18d50fb78bfaccb00d8a`, with
+release test-binary SHA-256
+`f6471f45d55190acd04a05d691cc9d6ad5a887132b1c3c72f5c813e74d2b267d`.
+Both writer compositions run in that same binary; the unzoned control preserves
+the writer at `f607e4c84d74b1ccc4423c4691b29f9d1c53eb7d`. The local evidence bundle
+is `/Users/dylan/LocalData/shardloom/perf-text-layout-20260905/`, containing
+`source-manifest.json`, `summary.json`, `summary.md` and the retained raw logs.
+The build enables `release-user-surfaces`. The reusable report now distinguishes
+that intended validation feature from its actual compile-time enabled boolean.
+
+Each geometry has 224 exact query records, including 56 warmups excluded from
+medians. The two geometries total 448 exact records, with 336 measured and 112
+warmups. The `production_rows` fixture contains 1,048,576 rows delivered in four
+262,144-row batches. Both writers use C7's bounded per-batch root, the configured
+262,144-row zone geometry, identical values, two writer/query workers and matched
+raw or guarded predicates. The paired test forces these writer compositions
+below the ordinary 10M-row threshold; its name is not a public admission proof.
+
+Median configured-geometry writer lifecycle and artifact sizes are:
+
+| Text order | Baseline artifact bytes | Zoned artifact bytes | Baseline lifecycle ms | Zoned lifecycle ms | Change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Clustered | 25,488,884 | 25,491,252 | 47.583 | 49.089 | +3.2% |
+| Shuffled | 25,714,188 | 25,716,980 | 47.940 | 50.112 | +4.5% |
+
+Lifecycle includes native write/flush, file synchronization, full SHA-256
+readback and native footer reopen. Source preparation, writer setup and geometry
+inspection are retained separately and excluded. These numbers do not represent
+complete public ingest or directory publication.
+
+For raw predicates with text used only as a filter:
+
+| Text order | Selected logical zones | Baseline read bytes | Zoned read bytes | Baseline native-array return ms | Zoned native-array return ms |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Clustered | One | 25,550,427 | 8,562,499 | 6.309 | 3.546 |
+| Clustered | Half | 25,550,555 | 17,057,207 | 6.501 | 4.140 |
+| Shuffled | One | 25,775,519 | 25,777,095 | 6.181 | 6.100 |
+| Shuffled | Half | 25,775,519 | 25,777,095 | 6.119 | 6.192 |
+
+Clustered one/half selections avoid 66.5%/33.2% of completed read bytes; shuffled
+selections instead add 1,576 bytes. The selective clustered timings improve, while
+the shuffled timings are mixed. Native-array timing ends at array return;
+complete scalar canonicalization and verification are separately timed. These
+are not full scalar/JSON query latencies. Read accounting includes repeated and
+coalesced `read_exact_at` ranges through final drain, with no physical-device or
+cold-cache claim. The guard's read amplification persists in the release matrices,
+so the production null-guard decision remains dropped.
+
+This evidence supports evaluating the promoted helper through the ordinary
+100M-row route. It does not establish that route's correctness or lifecycle cost.
+The production threshold, typed numeric path and predicates remain unchanged;
+the 100M-row comparison and final retention decision are still open.
 
 ## Acceptance and retain/drop checklist
 
@@ -160,17 +221,22 @@ claim follows from fixture file synchronization and reopen checks.
 - [x] Measure diagnostic projected and filter-only text separately, including
   eager projection and read-coalescing limitations; do not generalize one to the
   other. Drop the production null guard on measured repeated-read evidence.
-- [ ] Compare release-mode ingest/write/validation/publication, artifact/statistics
-  bytes, first/repeated query costs and complete results on the same source at
-  the configured geometry, with matched raw predicates and unchanged safety guards.
-  Preserve current inclusive writer spans; overlapping work is not subtracted.
+- [x] Compare release-mode native writer lifecycle, artifact bytes, native-array
+  query timings and complete independently verified values at matched configured
+  geometry, preserving raw samples and excluding warmups from medians. Keep the
+  narrower timing boundaries explicit; overlapping work is not subtracted.
+- [ ] Validate the locally promoted ordinary writer on the 100M-row public
+  source, including complete query acceptance and ingest/query lifecycle costs,
+  with unchanged safety guards. Small advisor-forced tests verify ordinary
+  dispatch and stored text zoning only; they do not prove public admission.
 - [ ] Retain only supported scoped benefit after lifecycle evidence, or record
-  a reasoned drop. Larger public ingest remains unchanged until that decision.
+  a reasoned drop. The local promotion remains a pending candidate until that
+  decision; it has not been retained or published.
 
 The root agent owns serial formatting, builds and tests. Initial focused command:
 `CARGO_TARGET_DIR=/Users/dylan/.cache/shardloom/cargo-target cargo test -p shardloom-vortex --features release-user-surfaces text_zone_tests -- --nocapture`.
-The ported, observer and first paired I/O tests have passed. Native feature clippy,
-required broad repo gates and guarded lifecycle runs at a frozen source/binary
+The ported, observer and paired release I/O tests have passed. Promoted runtime
+gates and the guarded 100M-row lifecycle comparison at a frozen source/binary
 remain the root agent's validation responsibility. The
 [PR #1433 packet](../benchmarks/perf-drop-ship-2026-09-05.md) remains the historical
 control; its earlier text candidate is not retroactively marked accepted.
