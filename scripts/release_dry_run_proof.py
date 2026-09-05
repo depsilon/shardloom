@@ -135,12 +135,16 @@ def resolve_under_repo(repo_root: Path, path: Path) -> Path:
 def transcript_path_ref(repo_root: Path, path: Path | None) -> str | None:
     if path is None:
         return None
-    resolved_root = repo_root.resolve()
-    resolved_path = path.resolve()
+    # Retain a usable repo-relative reference when build output is symlinked to
+    # a local-only cache. Resolving it first would redact away the artifact name.
+    declared_path = Path(os.path.abspath(path))
     try:
-        return resolved_path.relative_to(resolved_root).as_posix()
+        return declared_path.relative_to(Path(os.path.abspath(repo_root))).as_posix()
     except ValueError:
-        return f"external-path:{resolved_path.name}"
+        try:
+            return path.resolve().relative_to(repo_root.resolve()).as_posix()
+        except ValueError:
+            return f"external-path:{path.resolve().name}"
 
 
 def redact_command_for_transcript(repo_root: Path, command: list[str]) -> list[str]:

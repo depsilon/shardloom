@@ -48056,7 +48056,7 @@ mod tests {
         assert!(
             overlay_fields
                 .get("prepare_batch_fact_delta_overlay_vortex_digest")
-                .is_some_and(|value| value.starts_with("fnv1a64:"))
+                .is_some_and(|value| value.starts_with("sha256:") && value.len() == 71)
         );
         assert!(
             overlay_fields
@@ -48484,12 +48484,12 @@ mod tests {
         assert_field_eq(
             &group_fields,
             "residual_operator_optimization_family",
-            "single_key_group_by",
+            "precomputed_group_category_metric_state",
         );
         assert_field_eq(
             &group_fields,
             "residual_operator_optimization_status",
-            "applied_residual_dense_u32_group_accumulator",
+            "applied_residual_dense_group_category_metric_state",
         );
         assert_field_eq(
             &group_fields,
@@ -55962,14 +55962,14 @@ mod tests {
             report.output_replay_native_io_certificate_status.as_deref(),
             Some("certified")
         );
-        assert!(report.fact_vortex_digest.starts_with("fnv1a64:"));
-        assert!(report.dim_vortex_digest.starts_with("fnv1a64:"));
+        assert!(report.fact_vortex_digest.starts_with("sha256:"));
+        assert!(report.dim_vortex_digest.starts_with("sha256:"));
         assert_eq!(
-            file_digest(&report.fact_vortex_path, "fact Vortex file").unwrap(),
+            file_sha256_digest(&report.fact_vortex_path, "fact Vortex file").unwrap(),
             report.fact_vortex_digest
         );
         assert_eq!(
-            file_digest(&report.dim_vortex_path, "dimension Vortex file").unwrap(),
+            file_sha256_digest(&report.dim_vortex_path, "dimension Vortex file").unwrap(),
             report.dim_vortex_digest
         );
         assert_eq!(

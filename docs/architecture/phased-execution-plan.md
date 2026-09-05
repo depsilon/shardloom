@@ -244,6 +244,27 @@ the ledger.
 
 ## Planned
 
+- [ ] `RELEASE-0-2-3` current-state UAT and selected-channel publication train.
+  - V1 scope classification: `required_for_v1`.
+  - Source: maintainer's 2026-09-05 full-UAT/PR/publication request;
+    `docs/release/v0.2.3-release-notes.md` and the existing publication handoff.
+  - Execution checklist:
+    - [x] Record fresh complete ingest and 43-query/129-run checked timing evidence:
+      `docs/benchmarks/clickbench-current-state-2026-09-05.md` (162.781s ingest,
+      148.349s query total, 129/129 complete-value regression checks).
+    - [ ] Repair stale native-feature assertions with actual output and safety tests;
+      pass workspace, native-feature, website, package, and CI gates.
+    - [ ] Merge the reviewed cohesive runtime/homepage/evidence PR.
+    - [ ] Publish checksum-bound GitHub pre-release assets and verify downloads.
+    - [ ] Publish TestPyPI, verify a clean registry install, then publish and verify PyPI.
+    - [ ] Update the Homebrew tap and verify build, install, smoke, and uninstall.
+    - [ ] Advance selected-channel proofs only after verification; record ledger closure.
+  - ShardLoom technique review: separate ingest, fresh-process query, and resident
+    timing; preserve evidence tiers and no-fallback certificates. No additional
+    runtime optimization or PERF completion is authorized by a publication step.
+  - Boundary: selected technical-preview package access only; no additional channels,
+    internal Rust crate publication, or unsupported production claims.
+
 Local large-artifact prerequisite: follow
 `docs/architecture/local-development-storage.md` before further PERF runs.
 Build outputs and the resident ClickBench source were relocated outside synced
@@ -260,8 +281,9 @@ PERF-13 is `v1_candidate_pending_feasibility`. Targets are objectives, not promi
 Completion requires executable production wiring and measured evidence. Storage
 admission now passes. A fresh 99,997,497-row baseline artifact was built from
 merged commit `c6cda693` on 2026-09-05; precise-clock paired measurements are
-recorded in the implementation evidence below. Final-code ingest is 161.489s
-versus the 177.620s same-commit control, with byte-identical output. The 145.130s
+recorded in the implementation evidence below. The latest fresh current-state
+UAT is `docs/benchmarks/clickbench-current-state-2026-09-05.md`: 162.781s ingest
+versus the 177.620s merged-state control, and 148.349s query total. The 145.130s
 query and 271s ingest records remain historical
 references, not this candidate's comparison control.
 

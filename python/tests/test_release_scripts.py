@@ -13532,6 +13532,27 @@ jobs:
             self.assertEqual(report["clean_conda_env_python_version_requested"], "3.12")
             self.assertNotIn(str(repo_root), json.dumps(report, sort_keys=True))
 
+    @unittest.skipIf(sys.platform == "win32", "symlink creation requires Windows privileges")
+    def test_release_dry_run_preserves_repo_build_symlink_reference(self) -> None:
+        module = self._load_script_module(
+            "release_dry_run_proof.py", "release_dry_run_symlink_reference_for_test"
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir).resolve()
+            repo = root / "repo"
+            cache = root / "local-cache"
+            (repo / "target").mkdir(parents=True)
+            cache.mkdir()
+            (cache / "shardloom").write_bytes(b"native-binary-fixture")
+            (repo / "target" / "debug").symlink_to(cache, target_is_directory=True)
+            ref = module.transcript_path_ref(repo, repo / "target/debug/shardloom")
+            self.assertEqual(ref, "target/debug/shardloom")
+            self.assertEqual((repo / ref).read_bytes(), b"native-binary-fixture")
+            self.assertEqual(
+                module.transcript_path_ref(repo, cache / "shardloom"),
+                "external-path:shardloom",
+            )
+
     def test_release_dry_run_transcript_redacts_command_paths(self) -> None:
         module = self._load_script_module(
             "release_dry_run_proof.py", "release_dry_run_proof_command_redaction_for_test"

@@ -58,8 +58,103 @@ fn field(key: &str, value: &str) -> String {
 }
 
 #[cfg(feature = "vortex-write")]
-fn escaped_field(key: &str, value: &str) -> String {
-    field(key, &value.replace('\\', "\\\\"))
+fn assert_ingest_array_build(stdout: &str, streaming: bool) {
+    let expected = if streaming {
+        [
+            ("vortex_array_build_provider_kind", "vortex_array_kernel"),
+            (
+                "vortex_array_build_provider_surface",
+                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator",
+            ),
+            (
+                "vortex_array_build_strategy",
+                "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
+            ),
+            (
+                "vortex_array_build_input_layout",
+                "streaming_arrow_record_batch_columnar_source_state",
+            ),
+            ("vortex_array_build_record_batch_count", "1"),
+            ("vortex_array_build_manual_scalar_copy_avoided", "true"),
+        ]
+    } else {
+        [
+            ("vortex_array_build_provider_kind", "shardloom_kernel"),
+            (
+                "vortex_array_build_provider_surface",
+                "shardloom_scalar_rows_to_vortex_struct",
+            ),
+            (
+                "vortex_array_build_strategy",
+                "scalar_rows_to_vortex_struct",
+            ),
+            ("vortex_array_build_input_layout", "materialized_rows"),
+            ("vortex_array_build_record_batch_count", "0"),
+            ("vortex_array_build_manual_scalar_copy_avoided", "false"),
+        ]
+    };
+    for (key, value) in expected {
+        assert!(
+            stdout.contains(&field(key, value)),
+            "{key} must equal {value}"
+        );
+    }
+}
+
+#[cfg(all(unix, feature = "vortex-write", feature = "vortex-local-primitives"))]
+fn assert_prepared_collect_values(path: &Path, sql: &str, expected: &serde_json::Value) {
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "run",
+            "sql",
+            "--input",
+            &path.display().to_string(),
+            "--input-format",
+            "vortex",
+            "--sql",
+            sql,
+            "--request",
+            "collect",
+            "--bounded",
+            "true",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("collect prepared values");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).expect("envelope");
+    assert_eq!(envelope["status"], "success");
+    let fields = envelope["fields"].as_array().expect("fields");
+    for key in [
+        "public_workflow_fallback_attempted",
+        "public_workflow_external_engine_invoked",
+    ] {
+        assert!(
+            fields
+                .iter()
+                .any(|entry| entry["key"] == key && entry["value"] == "false")
+        );
+    }
+    let summary = envelope["human_text"]
+        .as_str()
+        .expect("human text")
+        .lines()
+        .find(|line| line.starts_with("result summary: "))
+        .expect("result summary");
+    let (_, payload) = summary
+        .split_once(" values=")
+        .expect("complete result payload");
+    let payload: serde_json::Value = serde_json::from_str(payload).expect("result values");
+    assert_eq!(payload["values"], *expected);
+    assert_eq!(
+        payload["rows"],
+        expected.as_array().expect("expected rows").len()
+    );
 }
 
 fn run_local_source_runtime_json(statement: &str) -> String {
@@ -366,6 +461,7 @@ fn vortex_prepare_missing_args_emits_json_error_without_stderr() {
 #[test]
 #[allow(clippy::too_many_lines)]
 fn vortex_prepare_writes_reopens_vortex_prepared_state() {
+    let streaming = cfg!(feature = "universal-format-io");
     let source_path = unique_path("vortex-ingest-source", "csv");
     let target_path = unique_path("vortex-ingest-target", "vortex");
     fs::write(
@@ -432,27 +528,7 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field("preparation_included_in_timing", "true")));
     assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
     assert!(stdout.contains("\"key\":\"vortex_digest_millis\""));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_provider_kind",
-        "shardloom_kernel"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_provider_surface",
-        "shardloom_scalar_rows_to_vortex_struct"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_strategy",
-        "scalar_rows_to_vortex_struct"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_input_layout",
-        "materialized_rows"
-    )));
-    assert!(stdout.contains(&field("vortex_array_build_record_batch_count", "0")));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_manual_scalar_copy_avoided",
-        "false"
-    )));
+    assert_ingest_array_build(&stdout, streaming);
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_schema_version",
         "shardloom.vortex_preparation_spine.v1"
@@ -517,15 +593,27 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_vortex_first_decision",
-        "implement_shardloom_kernel"
+        if streaming {
+            "use_vortex_native_provider"
+        } else {
+            "implement_shardloom_kernel"
+        }
     )));
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_provider_kind",
-        "shardloom_kernel"
+        if streaming {
+            "vortex_array_kernel"
+        } else {
+            "shardloom_kernel"
+        }
     )));
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_source_surface",
-        "local_text_source_state_scalar_rows"
+        if streaming {
+            "streaming_local_columnar_source_state_arrow_record_batches"
+        } else {
+            "local_text_source_state_scalar_rows"
+        }
     )));
     assert!(stdout.contains(&field("vortex_preparation_spine_split_count", "1")));
     assert!(stdout.contains(&field("vortex_preparation_spine_source_split_count", "1")));
@@ -591,29 +679,14 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_copy_budget_buffer_reuse_status",
-        "admitted_read_once_source_buffer_carry_with_digest_and_row_count_proof"
+        if streaming {
+            "admitted_columnar_source_state_reuse_with_digest_and_row_count_proof"
+        } else {
+            "admitted_read_once_source_buffer_carry_with_digest_and_row_count_proof"
+        }
     )));
     assert!(stdout.contains(&field("vortex_copy_budget_buffer_reuse_count", "1")));
-    assert!(stdout.contains(&field(
-        "vortex_prepared_state_reuse_index_schema_version",
-        "shardloom.vortex_prepared_state_reuse_index.v1"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_prepared_state_reuse_index_lookup_status",
-        "artifact_adjacent_manifest_created_after_miss"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_prepared_state_reuse_index_cache_scope",
-        "artifact_adjacent_manifest_read_through_cache"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_prepared_state_reuse_index_repair_status",
-        "manifest_written_after_prepare"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_prepared_state_reuse_role_scoped_repair_status",
-        "not_required_local_single_artifact"
-    )));
+    assert!(!stdout.contains("artifact_adjacent_manifest_created_after_miss"));
     assert!(stdout.contains(&field(
         "vortex_write_timing_split_schema_version",
         "shardloom.vortex_write_timing_split.v1"
@@ -687,7 +760,7 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_prepare_blocks_nested_jsonl_with_scout_quarantine_plan() {
+fn vortex_prepare_normalizes_nested_jsonl_as_utf8_payload() {
     let source_path = unique_path("vortex-ingest-nested-source", "jsonl");
     let target_path = unique_path("vortex-ingest-nested-target", "vortex");
     fs::write(&source_path, "{\"id\":1,\"payload\":{\"nested\":true}}\n")
@@ -706,7 +779,7 @@ fn vortex_prepare_blocks_nested_jsonl_with_scout_quarantine_plan() {
         .expect("vortex-prepare command runs");
 
     assert!(
-        !output.status.success(),
+        output.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
@@ -719,52 +792,28 @@ fn vortex_prepare_blocks_nested_jsonl_with_scout_quarantine_plan() {
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"command\":\"vortex-prepare\""));
-    assert!(stdout.contains("\"status\":\"unsupported\""));
-    assert!(stdout.contains(&field("vortex_ingest_status", "blocked_scout_ingress")));
-    assert!(stdout.contains(&field(
-        "vortex_ingest_blocker_id",
-        "vortex_scout_ingress.unsupported_nested_shape"
-    )));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("vortex_ingest_status", "prepared_state_created")));
     assert!(stdout.contains(&field(
         "vortex_scout_ingress_status",
-        "blocked_unsupported_nested_shape"
+        "admitted_scout_ingress_clean"
     )));
-    assert!(stdout.contains(&field(
-        "vortex_scout_ingress_anomaly_families",
-        "unsupported_nested_shape"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_scout_ingress_unsupported_shape_status",
-        "blocked_unsupported_nested_shape"
-    )));
-    assert!(stdout.contains(&field("vortex_scout_ingress_quarantine_required", "true")));
-    assert!(stdout.contains(&field(
-        "vortex_scout_ingress_quarantine_output_plan_status",
-        "planned_not_emitted_no_quarantine_sink_requested"
-    )));
+    assert!(stdout.contains(&field("column_family_summary", "id:int64,payload:utf8")));
+    assert!(stdout.contains(&field("vortex_scout_ingress_quarantine_required", "false")));
     assert!(stdout.contains(&field("vortex_scout_ingress_fallback_attempted", "false")));
-    assert!(stdout.contains(&field(
-        "vortex_layout_write_advisor_status",
-        "blocked_layout_write_strategy"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_layout_write_advisor_strategy_admitted",
-        "false"
-    )));
-    assert!(stdout.contains(&field("vortex_copy_budget_status", "blocked_copy_budget")));
-    assert!(stdout.contains(&field(
-        "vortex_copy_budget_prepared_state_id",
-        "not_created_scout_ingress_blocked"
-    )));
-    assert!(stdout.contains(&field("vortex_ingest_performed", "false")));
-    assert!(stdout.contains(&field("prepared_state_created", "false")));
-    assert!(
-        !target_path.exists(),
-        "scout blocker must not write {}",
-        target_path.display()
+    assert!(stdout.contains(&field("writer_row_count", "1")));
+    assert!(stdout.contains(&field("reopen_row_count", "1")));
+    assert!(target_path.exists());
+
+    #[cfg(all(unix, feature = "vortex-local-primitives"))]
+    assert_prepared_collect_values(
+        &target_path,
+        "SELECT id, payload FROM hits LIMIT 10",
+        &serde_json::json!([{"id": 1, "payload": "{\"nested\":true}"}]),
     );
 
     fs::remove_file(source_path).expect("remove nested source jsonl");
+    fs::remove_file(target_path).expect("remove normalized Vortex artifact");
 }
 
 #[cfg(feature = "vortex-write")]
@@ -951,7 +1000,7 @@ fn vortex_prepare_preserves_declared_input_format_for_extensionless_delta() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_prepare_automatically_refines_append_only_source_drift() {
+fn vortex_prepare_source_drift_requires_explicit_overwrite_without_sidecars() {
     let root = unique_dir("vortex-ingest-auto-refinement");
     let source_path = root.join("input.csv");
     let target_path = root.join("prepared.vortex");
@@ -993,7 +1042,7 @@ fn vortex_prepare_automatically_refines_append_only_source_drift() {
         .expect("second vortex-prepare command runs");
 
     assert!(
-        second.status.success(),
+        !second.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&second.stdout),
         String::from_utf8_lossy(&second.stderr)
@@ -1004,57 +1053,48 @@ fn vortex_prepare_automatically_refines_append_only_source_drift() {
         String::from_utf8_lossy(&second.stderr)
     );
     assert_eq!(
-        fs::read(&target_path).expect("read base artifact after refinement"),
+        fs::read(&target_path).expect("read base artifact after refused overwrite"),
         base_artifact,
-        "automatic refinement must not rewrite the base prepared artifact"
+        "source drift must not implicitly rewrite the prepared artifact"
     );
 
     let stdout = String::from_utf8(second.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"command\":\"vortex-prepare\""));
-    assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field(
-        "vortex_ingest_status",
-        "prepared_state_refined_from_append_only_delta"
-    )));
-    assert!(stdout.contains(&field("vortex_ingest_base_reprepare_performed", "false")));
-    assert!(stdout.contains(&field("vortex_ingest_delta_prepare_performed", "true")));
-    assert!(stdout.contains(&field("prepared_state_refined", "true")));
-    assert!(stdout.contains(&field(
-        "vortex_differential_preparation_refinement_status",
-        "admitted_append_only_refinement"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_differential_preparation_automatic_detection_status",
-        "append_only_delta_detected"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_differential_preparation_status",
-        "admitted_append_only_delta_overlay"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_differential_preparation_base_row_count",
-        "2"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_differential_preparation_delta_row_count",
-        "1"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_differential_preparation_refinement_manifest_written",
-        "true"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_differential_preparation_overlay_consumer_family",
-        "count"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_differential_preparation_overlay_consumer_status",
-        "admitted_base_manifest_plus_delta_reopen_row_count"
-    )));
-    assert!(stdout.contains(&field("refined_row_count", "3")));
-    assert!(stdout.contains(&field("overlay_consumer_row_count", "3")));
+    assert!(stdout.contains("overwrite is disabled"), "{stdout}");
+
+    let replacement = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-prepare",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--allow-overwrite",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("explicit replacement prepare runs");
+    let stdout = String::from_utf8(replacement.stdout).expect("replacement stdout");
+    assert!(replacement.status.success(), "{stdout}");
+    assert!(stdout.contains(&field("writer_row_count", "3")));
+    assert!(stdout.contains(&field("reopen_row_count", "3")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    #[cfg(all(unix, feature = "vortex-local-primitives"))]
+    assert_prepared_collect_values(
+        &target_path,
+        "SELECT id, label, amount FROM hits LIMIT 10",
+        &serde_json::json!([
+            {"id": 1, "label": "alpha", "amount": 8},
+            {"id": 2, "label": "beta", "amount": 15},
+            {"id": 3, "label": "gamma", "amount": 21},
+        ]),
+    );
+    let mut files = fs::read_dir(&root)
+        .expect("artifact directory")
+        .map(|entry| entry.expect("entry").file_name())
+        .collect::<Vec<_>>();
+    files.sort();
+    assert_eq!(files, vec!["input.csv", "prepared.vortex"]);
 
     fs::remove_dir_all(root).expect("remove auto refinement root");
 }
@@ -1249,7 +1289,7 @@ fn vortex_prepare_rejects_shared_differential_target_before_writes() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
-fn vortex_prepare_reports_delta_source_for_differential_scout_blocker() {
+fn vortex_prepare_rejects_differential_overlay_with_mismatched_normalized_schema() {
     let source_path = unique_path("vortex-ingest-delta-scout-base", "csv");
     let delta_source_path = unique_path("vortex-ingest-delta-scout-change", "jsonl");
     let target_path = unique_path("vortex-ingest-delta-scout-base-target", "vortex");
@@ -1291,36 +1331,32 @@ fn vortex_prepare_reports_delta_source_for_differential_scout_blocker() {
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"command\":\"vortex-prepare\""));
     assert!(stdout.contains("\"status\":\"unsupported\""));
-    assert!(stdout.contains("differential delta source"));
-    assert!(stdout.contains(&escaped_field(
-        "source_path",
-        &delta_source_path.display().to_string()
-    )));
-    assert!(stdout.contains(&escaped_field(
-        "target_vortex_path",
-        &delta_target_path.display().to_string()
-    )));
-    assert!(stdout.contains(&field("vortex_ingest_status", "blocked_scout_ingress")));
     assert!(stdout.contains(&field(
-        "vortex_ingest_blocker_id",
-        "vortex_scout_ingress.unsupported_nested_shape"
+        "vortex_differential_preparation_status",
+        "blocked_schema_mismatch"
     )));
-    assert!(stdout.contains(&field("vortex_ingest_performed", "false")));
-    assert!(stdout.contains(&field("prepared_state_created", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_schema_compatibility_status",
+        "blocked_source_schema_or_column_family_mismatch"
+    )));
+    assert!(!stdout.contains("blocked_scout_ingress"));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(
         target_path.exists(),
-        "delta scout blocker happens after base preparation {}",
+        "base preparation remains available after overlay rejection {}",
         target_path.display()
     );
     assert!(
-        !delta_target_path.exists(),
-        "delta scout blocker must not write delta {}",
+        delta_target_path.exists(),
+        "normalized delta is prepared but its schema must not be admitted as an overlay {}",
         delta_target_path.display()
     );
 
     fs::remove_file(source_path).expect("remove base source csv");
     fs::remove_file(delta_source_path).expect("remove delta source jsonl");
     fs::remove_file(target_path).expect("remove base vortex");
+    fs::remove_file(delta_target_path).expect("remove normalized delta vortex");
 }
 
 #[cfg(feature = "vortex-write")]
@@ -1402,16 +1438,35 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
         );
         assert!(stdout.contains(&field("ingress_route", "vortex_ingest")));
         assert!(stdout.contains(&field("vortex_ingest_status", "prepared_state_created")));
+        let streaming = cfg!(feature = "universal-format-io");
         assert!(stdout.contains(&field(
             "source_state_materialization_layout",
-            "scalar_row_map"
+            if !streaming {
+                "scalar_row_map"
+            } else if source_format == "json" {
+                "typed_text_rows_to_streaming_arrow_record_batch_source_state"
+            } else {
+                "inferred_text_to_streaming_arrow_record_batch_source_state"
+            }
         )));
         assert!(stdout.contains(&field(
             "source_state_parse_normalization",
-            "local_text_to_scalar_rows"
+            if !streaming {
+                "local_text_to_scalar_rows"
+            } else if source_format == "json" {
+                "text_adapter_to_typed_record_batch_stream"
+            } else {
+                "inferred_text_to_record_batch_stream"
+            }
         )));
-        assert!(stdout.contains(&field("source_state_columnar_preserved", "false")));
-        assert!(stdout.contains(&field("source_state_record_batch_count", "0")));
+        assert!(stdout.contains(&field(
+            "source_state_columnar_preserved",
+            if streaming { "true" } else { "false" }
+        )));
+        assert!(stdout.contains(&field(
+            "source_state_record_batch_count",
+            if streaming { "1" } else { "0" }
+        )));
         assert!(stdout.contains(&field("source_columns", "id,label,amount,active")));
         assert!(stdout.contains(&field("input_row_count", "2")));
         assert!(stdout.contains(&field(
@@ -1423,6 +1478,16 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
         assert!(stdout.contains(&field("fallback_attempted", "false")));
         assert!(stdout.contains(&field("external_engine_invoked", "false")));
         assert!(target_path.exists());
+
+        #[cfg(all(unix, feature = "vortex-local-primitives"))]
+        assert_prepared_collect_values(
+            &target_path,
+            "SELECT id, label, amount, active FROM hits LIMIT 10",
+            &serde_json::json!([
+                {"id": 1, "label": "alpha", "amount": 8, "active": true},
+                {"id": 2, "label": "beta", "amount": 15, "active": false},
+            ]),
+        );
 
         fs::remove_file(source_path).expect("remove source");
         fs::remove_file(target_path).expect("remove target vortex");
@@ -1471,7 +1536,7 @@ fn vortex_prepare_minimal_certification_skips_reopen_scan() {
         "minimal_ingest_evidence_reported"
     )));
     assert!(stdout.contains(&field("writer_row_count", "2")));
-    assert!(stdout.contains(&field("reopen_row_count", "0")));
+    assert!(stdout.contains(&field("reopen_row_count", "2")));
     assert!(stdout.contains(&field(
         "reopen_verification_status",
         "not_performed_ingest_minimal"
@@ -1605,11 +1670,11 @@ fn vortex_prepare_preserves_columnar_source_state_for_parquet() {
     assert!(stdout.contains(&field("source_state_read_plan", "full_columns")));
     assert!(stdout.contains(&field(
         "source_state_materialization_layout",
-        "arrow_record_batch_columnar_source_state"
+        "streaming_arrow_record_batch_columnar_source_state"
     )));
     assert!(stdout.contains(&field(
         "source_state_parse_normalization",
-        "structured_reader_to_arrow_record_batches"
+        "structured_reader_to_streaming_arrow_record_batches"
     )));
     assert!(stdout.contains(&field("source_state_columnar_preserved", "true")));
     assert!(stdout.contains(&field("source_state_record_batch_count", "1")));
@@ -1624,27 +1689,7 @@ fn vortex_prepare_preserves_columnar_source_state_for_parquet() {
     assert!(stdout.contains(&field("compatibility_parse_millis", "0")));
     assert!(stdout.contains("\"key\":\"source_to_columnar_millis\""));
     assert!(stdout.contains("\"key\":\"vortex_array_build_millis\""));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_provider_kind",
-        "vortex_array_kernel"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_provider_surface",
-        "ArrayRef::from_arrow(RecordBatch)"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_strategy",
-        "vortex_from_arrow_record_batch"
-    )));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_input_layout",
-        "arrow_record_batch_columnar_source_state"
-    )));
-    assert!(stdout.contains(&field("vortex_array_build_record_batch_count", "1")));
-    assert!(stdout.contains(&field(
-        "vortex_array_build_manual_scalar_copy_avoided",
-        "true"
-    )));
+    assert_ingest_array_build(&stdout, true);
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_status",
         "admitted_local_preparation_spine"
@@ -1672,7 +1717,7 @@ fn vortex_prepare_preserves_columnar_source_state_for_parquet() {
     assert!(stdout.contains(&field("vortex_layout_write_advisor_blocker", "none")));
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_source_surface",
-        "local_columnar_source_state_arrow_record_batches"
+        "streaming_local_columnar_source_state_arrow_record_batches"
     )));
     assert!(stdout.contains(&field("vortex_preparation_spine_split_count", "1")));
     assert!(stdout.contains(&field("vortex_preparation_spine_source_split_count", "1")));
@@ -1690,7 +1735,7 @@ fn vortex_prepare_preserves_columnar_source_state_for_parquet() {
     assert!(stdout.contains(&field("reopen_row_count", "3")));
     assert!(stdout.contains(&field(
         "materialization_boundary",
-        "local_parquet_arrow_record_batch_columnar_source_state_to_vortex_prepared_state"
+        "local_parquet_streaming_arrow_record_batch_columnar_source_state_to_vortex_prepared_state"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -1799,11 +1844,11 @@ fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
         assert!(stdout.contains(&field("source_state_read_plan", "full_columns")));
         assert!(stdout.contains(&field(
             "source_state_materialization_layout",
-            "arrow_record_batch_columnar_source_state"
+            "streaming_arrow_record_batch_columnar_source_state"
         )));
         assert!(stdout.contains(&field(
             "source_state_parse_normalization",
-            "structured_reader_to_arrow_record_batches"
+            "structured_reader_to_streaming_arrow_record_batches"
         )));
         assert!(stdout.contains(&field("source_state_columnar_preserved", "true")));
         assert!(stdout.contains(&field("source_state_record_batch_count", "1")));
@@ -1816,27 +1861,7 @@ fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
             "id,label,amount,active"
         )));
         assert!(stdout.contains(&field("compatibility_parse_millis", "0")));
-        assert!(stdout.contains(&field(
-            "vortex_array_build_provider_kind",
-            "vortex_array_kernel"
-        )));
-        assert!(stdout.contains(&field(
-            "vortex_array_build_provider_surface",
-            "ArrayRef::from_arrow(RecordBatch)"
-        )));
-        assert!(stdout.contains(&field(
-            "vortex_array_build_strategy",
-            "vortex_from_arrow_record_batch"
-        )));
-        assert!(stdout.contains(&field(
-            "vortex_array_build_input_layout",
-            "arrow_record_batch_columnar_source_state"
-        )));
-        assert!(stdout.contains(&field("vortex_array_build_record_batch_count", "1")));
-        assert!(stdout.contains(&field(
-            "vortex_array_build_manual_scalar_copy_avoided",
-            "true"
-        )));
+        assert_ingest_array_build(&stdout, true);
         assert!(stdout.contains(&field(
             "vortex_preparation_spine_vortex_first_decision",
             "use_vortex_native_provider"
@@ -1847,7 +1872,7 @@ fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
         )));
         assert!(stdout.contains(&field(
             "vortex_preparation_spine_source_surface",
-            "local_columnar_source_state_arrow_record_batches"
+            "streaming_local_columnar_source_state_arrow_record_batches"
         )));
         assert!(stdout.contains(&field("vortex_preparation_spine_split_count", "1")));
         assert!(stdout.contains(&field("vortex_preparation_spine_source_split_count", "1")));
@@ -1863,7 +1888,7 @@ fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
         assert!(stdout.contains(&field("reopen_row_count", "4")));
         assert!(stdout.contains(&field(
             "materialization_boundary",
-            &format!("local_{source_format}_arrow_record_batch_columnar_source_state_to_vortex_prepared_state")
+            &format!("local_{source_format}_streaming_arrow_record_batch_columnar_source_state_to_vortex_prepared_state")
         )));
         assert!(stdout.contains(&field("fallback_attempted", "false")));
         assert!(stdout.contains(&field("external_engine_invoked", "false")));

@@ -1,7 +1,7 @@
 # ShardLoom: material performance overhaul
 
-**Decision document and implementation backlog — 4 September 2026**  
-**Repository:** `depsilon/shardloom`  
+**Decision document and implementation backlog — 4 September 2026**
+**Repository:** `depsilon/shardloom`
 **Audited snapshot:** `af9d96af9cb370e521e22b9b675f1a324da52cb1`
 
 ## 1. Executive decision
@@ -276,110 +276,110 @@ All target figures below are **acceptance objectives to calibrate after baseline
 
 ### PERF-01 — Reconcile and instrument the public baseline
 
-**Priority:** P0. **Dependencies:** none.  
-**Existing anchors:** `docs/benchmarks/clickbench-100m-current-branch-uat.json`, ClickBench scripts, public Python/CLI route.  
+**Priority:** P0. **Dependencies:** none.
+**Existing anchors:** `docs/benchmarks/clickbench-100m-current-branch-uat.json`, ClickBench scripts, public Python/CLI route.
 **Implementation:** regenerate one coherent same-commit clean-ingest plus query record; keep latest kernel-only evidence separately; instrument exclusive spans, bytes, actual worker work, memory and result delivery. Add a tiny-operation latency ladder: native kernel, resident native API, existing worker, public Python, fresh process.
 
 **Acceptance:** all 43 results checked; no cross-run synthetic metric labeled measured elapsed time; output and required checks included; a profile identifies the largest exclusive costs in each expensive family and in ingest. A baseline report, not another admission schema, is the deliverable.
 
 ### PERF-02 — Resident typed session and prepared execution
 
-**Priority:** P0. **Depends on:** PERF-01.  
-**Existing anchors:** `shardloom-cli/src/main.rs::handle_python_worker`, Python `client.py`, `session.py`, `context.py`, current runtime entry points.  
+**Priority:** P0. **Depends on:** PERF-01.
+**Existing anchors:** `shardloom-cli/src/main.rs::handle_python_worker`, Python `client.py`, `session.py`, `context.py`, current runtime entry points.
 **Implementation:** extract typed native entry points and snapshot-bound prepared handles; reuse source metadata and runtime resources; route CLI through the same API. Prototype Python binding under the existing safety policy.
 
 **Acceptance:** identical results and public errors; prepared native metadata result p99 target below 100 microseconds; local Python bounded result target below one millisecond; no request-time subprocess/thread creation or repeated CLI parsing on the new resident path; cold preparation cost reported separately.
 
 ### PERF-03 — Enforce bounded scheduling and shared CPU budget
 
-**Priority:** P0. **Depends on:** PERF-01; integrates with PERF-02.  
-**Existing anchor:** `scheduler_bridge.rs::execute_vortex_morsel_scheduler_with_observer` and its policy/report methods.  
+**Priority:** P0. **Depends on:** PERF-01; integrates with PERF-02.
+**Existing anchor:** `scheduler_bridge.rs::execute_vortex_morsel_scheduler_with_observer` and its policy/report methods.
 **Implementation:** persistent workers, inline tiny work, dynamic morsels, real byte credits, bounded ready/reorder queues, cancellation/draining, and I/O progress under the full engine quota.
 
 **Acceptance:** observed live queued bytes remain within the configured bound, adversarial allocations cannot exceed the admitted budget without a declared error/spill policy, no per-query OS-thread creation after initialization, no I/O starvation in a mixed CPU/I/O test. A queue-enforced flag must be backed by an enforcement test.
 
 ### PERF-04 — Wire real aggregate kernels and parallel merges
 
-**Priority:** P0. **Depends on:** PERF-03.  
-**Existing anchors:** production `local_primitives.rs` families and shared scheduler state interfaces.  
+**Priority:** P0. **Depends on:** PERF-03.
+**Existing anchors:** production `local_primitives.rs` families and shared scheduler state interfaces.
 **Implementation:** migrate the documented incomplete families, use logical partitions and parallel reductions, and retire redundant route-local scheduling.
 
 **Acceptance:** real operator work—not only descriptor visits—runs on the requested admitted pool; correctness at 1/2/4/8/12 workers; skew tests; deterministic semantic contract maintained; target at least 2× improvement for demonstrably CPU-bound multiworker families, with any bandwidth-bound exceptions explained by measurements.
 
 ### PERF-05 — Partitioned exact dictionary aggregation
 
-**Priority:** P0. **Depends on:** PERF-01, PERF-03; production generalization follows PERF-04.  
-**Existing anchors:** count-only string histogram, numeric/UTF-8 grouping, interner and top-K finalizer in `local_primitives.rs`.  
+**Priority:** P0. **Depends on:** PERF-01, PERF-03; production generalization follows PERF-04.
+**Existing anchors:** count-only string histogram, numeric/UTF-8 grouping, interner and top-K finalizer in `local_primitives.rs`.
 **Implementation:** domain-safe code binding, compact state, per-partition key ownership and late string materialization. First profile whether duplicate sketch maintenance is material. Implement a correct memory-pressure transition before removing it.
 
 **Acceptance:** a stretch target of another 2× reduction in the latest Q34/Q35 pair; improvement in at least one non-URL string/composite family; correctness on distinct-every-row and adversarial skew; full observed memory bounded; no query-text/column-name dependency. Failure to reach the target is diagnostic, not permission to weaken exactness.
 
 ### PERF-06 — Shared native spill and memory-pressure transition
 
-**Priority:** P1, but prerequisite to disabling contingency work when exact state can overflow.  
-**Depends on:** PERF-03 and an explicit temporary-workspace contract review.  
+**Priority:** P1, but prerequisite to disabling contingency work when exact state can overflow.
+**Depends on:** PERF-03 and an explicit temporary-workspace contract review.
 **Implementation:** memory-accounted partition runs and merge, relocatable key/buffer ownership, cleanup and crash/cancellation behavior. Reuse across aggregation, exact distinct, sort and joins.
 
 **Acceptance:** exact completion at the normal 4 GB envelope for supported large-state cases; no hidden external engine; bounded temporary storage; atomic published output unaffected by failed spill. If current one-file/workspace policy excludes these temporary runs, obtain an explicit RFC decision before implementation.
 
 ### PERF-07 — Separate report descriptors from array payloads
 
-**Priority:** P0/P1. **Depends on:** PERF-02.  
-**Existing anchors:** `columnar_result_dataplane.rs`, native result/sink boundaries, Python result delivery.  
+**Priority:** P0/P1. **Depends on:** PERF-02.
+**Existing anchors:** `columnar_result_dataplane.rs`, native result/sink boundaries, Python result delivery.
 **Implementation:** real typed array/buffer handles and ownership in the execution path; keep summaries separate; add columnar delivery where requested.
 
 **Acceptance:** no unnecessary scalar-vector or row-dictionary intermediate on admitted columnar paths; buffer lifetime and cancellation tests; measured reduction in copied/decoded bytes; complete requested output, not a lazy handle mislabeled completed output.
 
 ### PERF-08 — Ingest exclusive profiling and duplicate-work removal
 
-**Priority:** P0, parallel workstream. **Depends on:** PERF-01.  
-**Existing anchors:** public prepare/load route, ingest UAT script and optimization ledger.  
+**Priority:** P0, parallel workstream. **Depends on:** PERF-01.
+**Existing anchors:** public prepare/load route, ingest UAT script and optimization ledger.
 **Implementation:** attribute metadata, codec and writer spans exclusively; inventory derived representations; remove duplicate traversal/conversion and unnecessary reopen work; preserve validation and source preflight.
 
 **Acceptance:** coherent same-source durable-ingest result; first milestone target at most 135 seconds versus a revalidated approximately 271-second baseline on the same host; no artifact explosion, omitted validation or shifted first-query cost. This is a program objective, not a promised outcome of profiling alone.
 
 ### PERF-09 — Adaptive physical encoding and ordered writer pipeline
 
-**Priority:** P0/P1, parallel with execution work. **Depends on:** PERF-08; shared budgeting from PERF-03.  
+**Priority:** P0/P1, parallel with execution work. **Depends on:** PERF-08; shared budgeting from PERF-03.
 **Implementation:** per-column cost/size attribution; encoding sweeps; ownership-preserving arrays; bounded parallel compression and ordered output; single-file integrity and commit validation.
 
 **Acceptance:** lifecycle improvement over representative one-query and repeated-query use, with storage and peak memory disclosed; no regression to the rejected huge-artifact profile; second stretch ingest milestone around 70 seconds only if hardware floors and profiling support it. Do not retain a smaller artifact that worsens the agreed lifecycle objective.
 
 ### PERF-10 — Native fused operator IR
 
-**Priority:** P1. **Depends on:** PERF-04 and PERF-07.  
-**Existing anchors:** `shardloom-plan`, `shardloom-exec`, existing native kernel dispatch.  
+**Priority:** P1. **Depends on:** PERF-04 and PERF-07.
+**Existing anchors:** `shardloom-plan`, `shardloom-exec`, existing native kernel dispatch.
 **Implementation:** physical representation and ownership types, reusable kernels, costed pipeline fusion, selective canonicalization and adaptive aggregation/ordering choices.
 
 **Acceptance:** renamed-schema and non-ClickBench tests use the same optimized mechanisms; no extra provider labels without executable kernels; reductions in decoded/intermediate bytes and dispatch costs are measurable; semantic parity across encoded/canonical input forms.
 
 ### PERF-11 — Honest sub-ms ingest-to-result mode
 
-**Priority:** P1. **Depends on:** PERF-02, PERF-03, PERF-07 and a publication-semantics RFC.  
+**Priority:** P1. **Depends on:** PERF-02, PERF-03, PERF-07 and a publication-semantics RFC.
 **Implementation:** pre-registered typed schemas, resident bounded buffers, explicit memory visibility, no compulsory physical file for transient work, immediate small-batch execution with a maximum batching delay.
 
 **Acceptance:** stated 64 KiB/4,096-row starting envelope and bounded output tested at p50/p95/p99; all input validation and requested computation included; no fsync/durable claim in this mode; behavior under concurrent bulk work and cancellation measured.
 
 ### PERF-12 — Universality and competitor acceptance suite
 
-**Priority:** P0 baseline skeleton, P1 expansion. **Depends on:** PERF-01; runs on every other packet.  
+**Priority:** P0 baseline skeleton, P1 expansion. **Depends on:** PERF-01; runs on every other packet.
 **Implementation:** fixed eligible ClickBench cohort, product latency harness, non-ClickBench semantic/performance families, and normal versus benchmark resource configurations.
 
 **Acceptance:** 43/43 correct plus held-out family checks; no result-cache contamination; performance gains on at least two non-ClickBench families before calling the program a universal-engine improvement. Beating a competitor means reproducible lower scores under matched conditions, not a cross-host ratio.
 
 ### PERF-13 — Tiered compilation and hardware specialization
 
-**Priority:** P2. **Depends on:** PERF-10 and evidence of remaining instruction/dispatch bottlenecks.  
+**Priority:** P2. **Depends on:** PERF-10 and evidence of remaining instruction/dispatch bottlenecks.
 **Implementation:** useful PGO training and held-out validation first; optional cached native pipeline compilation and CPU dispatch after a measured break-even analysis. Accelerator paths, if justified, remain separately accounted.
 
 **Acceptance:** improvement including compilation and transfer costs at real reuse counts; portable package remains correct; no silent relaxation of the unsafe policy, arithmetic semantics or no-external-engine contract.
 
 ## 11. Delivery order and stop rules
 
-**Wave A:** PERF-01 and the held-out test skeleton. Establish current truth and call-path cost.  
-**Wave B:** PERF-02/03/07, while PERF-08 profiles ingestion. The first architectural milestone is a real resident runtime and actual bounded execution, not a claim registry.  
-**Wave C:** PERF-04/05/06 and PERF-09. This is the highest-likelihood region for large total-work improvements.  
-**Wave D:** PERF-10/11/12. Generalize the wins, establish actual sub-ms product envelopes, and validate ordinary memory limits.  
+**Wave A:** PERF-01 and the held-out test skeleton. Establish current truth and call-path cost.
+**Wave B:** PERF-02/03/07, while PERF-08 profiles ingestion. The first architectural milestone is a real resident runtime and actual bounded execution, not a claim registry.
+**Wave C:** PERF-04/05/06 and PERF-09. This is the highest-likelihood region for large total-work improvements.
+**Wave D:** PERF-10/11/12. Generalize the wins, establish actual sub-ms product envelopes, and validate ordinary memory limits.
 **Wave E:** PERF-13 only where profiles still justify it.
 
 Keep baseline and candidate behind a temporary measured feature switch while validating. Delete the losing implementation or retain it only as a named algorithmic choice with a demonstrated domain; do not accumulate indefinitely overlapping routes. Extract the exact old/new call chains before changing giant modules. Splitting source files helps review and testing, but is not itself a runtime speedup.
@@ -412,4 +412,3 @@ All repository references below are pinned to the audited ShardLoom commit unles
 Upstream's Scan API and runtime abstractions are useful integration directions, but documentation explicitly notes unfinished parts of the scan surface and I/O-progress pitfalls. Check compatibility against the repository's pinned Vortex 0.85 before relying on a particular provider interface. [S7], [S13], [S15]
 
 **Bottom line:** build a small resident hot path and a high-throughput native execution core that share actual arrays, bounded resources and exact semantics. Make the latest successful dictionary optimization a reusable mechanism; make ingestion pay only for useful representation work; and judge the result through matched competitive benchmarks plus honest product and lifecycle measurements.
-

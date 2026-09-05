@@ -774,6 +774,42 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(client.calls[0]["kwargs"]["memory_gb"], 6)  # type: ignore[index]
         self.assertEqual(client.calls[0]["kwargs"]["max_parallelism"], 8)  # type: ignore[index]
 
+    def test_auto_prepared_sql_refreshes_its_owned_internal_target(self) -> None:
+        from shardloom.query import _local_source_auto_vortex_sql_candidate
+
+        class CapturingClient:
+            def __init__(self) -> None:
+                self.calls: list[dict[str, object]] = []
+
+            def vortex_prepare(self, *args: object, **kwargs: object) -> object:
+                self.calls.append({"args": args, "kwargs": kwargs})
+
+                class Report:
+                    class Envelope:
+                        status = "success"
+
+                    envelope = Envelope()
+
+                return Report()
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            source = Path(tempdir) / "orders.csv"
+            source.write_text("id,amount\n1,15\n", encoding="utf-8")
+            client = CapturingClient()
+            statement = f"SELECT id FROM '{source}' WHERE amount >= 10 LIMIT 2"
+            workflow = sl.sql(statement, client=client)  # type: ignore[arg-type]
+            candidate = _local_source_auto_vortex_sql_candidate(statement, client=client)
+            self.assertIsNotNone(candidate)
+            for _ in range(2):
+                workflow._prepare_local_sql_vortex_sources(
+                    candidate, check=False, memory_gb=4, max_parallelism=2,
+                )
+            self.assertEqual(len(client.calls), 2)
+            for call in client.calls:
+                self.assertTrue(call["kwargs"]["allow_overwrite"])
+                self.assertIn(".shardloom/prepared", str(call["args"][1]))
+            self.assertEqual(source.read_text(), "id,amount\n1,15\n")
+
     def test_auto_prepared_vortex_jsonl_collect_uses_jsonl_format_and_schema(self) -> None:
         class CapturingClient:
             def __init__(self) -> None:
@@ -17352,7 +17388,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--execution-policy",
                     "native_vortex",
                     "--materialization-policy",
-                    "zero_decode",
+                    "bounded",
                     "--evidence-level",
                     "runtime_smoke",
                     "--bounded",
@@ -17501,7 +17537,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--execution-policy",
                     "native_vortex",
                     "--materialization-policy",
-                    "zero_decode",
+                    "bounded",
                     "--evidence-level",
                     "runtime_smoke",
                     "--bounded",
@@ -21293,7 +21329,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--execution-policy",
                     "native_vortex",
                     "--materialization-policy",
-                    "zero_decode",
+                    "bounded",
                     "--evidence-level",
                     "runtime_smoke",
                     "--bounded",
@@ -21530,7 +21566,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--plan") + 1] == "sql(statement)", args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == "bounded", args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
@@ -21621,7 +21657,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     assert "limit(5)" in plan, args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == "bounded", args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
@@ -21813,7 +21849,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert "--plan" in args, args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == ("bounded" if args[args.index("--vortex-primitive") + 1] in {"filter", "project", "filter_project"} else "zero_decode"), args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 primitive = args[args.index("--vortex-primitive") + 1]
@@ -21949,7 +21985,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--plan") + 1] == "sql(statement)", args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == ("bounded" if args[args.index("--vortex-primitive") + 1] in {"filter", "project", "filter_project"} else "zero_decode"), args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 primitive = args[args.index("--vortex-primitive") + 1]
@@ -22083,7 +22119,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert "--plan" in args, args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == ("bounded" if args[args.index("--vortex-primitive") + 1] in {"filter", "project", "filter_project"} else "zero_decode"), args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 primitive = args[args.index("--vortex-primitive") + 1]
@@ -22173,7 +22209,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--plan") + 1] == "sql(statement)", args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == "bounded", args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
@@ -22339,7 +22375,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert "--plan" in args, args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == "bounded", args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
@@ -22402,7 +22438,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--plan") + 1] == "sql(statement)", args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == "bounded", args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
@@ -22464,7 +22500,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert "--plan" in args, args
                 assert args[args.index("--request") + 1] == "collect", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
-                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--materialization-policy") + 1] == "bounded", args
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
                 assert args[args.index("--bounded") + 1] == "true", args
                 primitive = args[args.index("--vortex-primitive") + 1]

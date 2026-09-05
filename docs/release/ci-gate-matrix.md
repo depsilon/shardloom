@@ -27,6 +27,15 @@ skipped_gate=real_publication
 
 ## Required Lanes
 
+The native release feature matrix runs tests and lint in addition to compilation.
+This prevents default-feature tests from masking failures in shipped native paths:
+
+```text
+cargo test -p shardloom-vortex --lib --features release-user-surfaces
+cargo test -p shardloom-cli --bin shardloom --test sql_local_source_runtime_smoke --test public_workflow_route --features release-user-surfaces
+cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
+```
+
 The release evidence path is intentionally split. Producer jobs run independent checks in
 parallel; `release-readiness` downloads their artifacts and runs only the final aggregate gates.
 This keeps the hard gate strict without making every PR wait for a single serial evidence stack.

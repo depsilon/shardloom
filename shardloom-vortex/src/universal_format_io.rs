@@ -2769,7 +2769,7 @@ fn columnar_prefetch_source_parallelism_budget(requested_max_parallelism: usize)
 pub fn stream_flat_text_rows_columnar_source(
     header: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
-    column_arrow_dtypes: Vec<Option<DataType>>,
+    mut column_arrow_dtypes: Vec<Option<DataType>>,
     materialized_columns: Vec<String>,
     reader_projection_columns: Vec<String>,
     rows: Vec<Vec<(String, ScalarValue)>>,
@@ -2780,15 +2780,16 @@ pub fn stream_flat_text_rows_columnar_source(
     let stream_policy = typed_text_record_batch_stream_policy(batch_size);
     let row_count = rows.len();
     let context = format!("{source_format_label} Universal Ingest typed text RecordBatch");
+    let schema = infer_flat_text_rows_record_batch_schema(
+        &header,
+        &column_dtypes,
+        &column_arrow_dtypes,
+        &rows,
+        &context,
+    )?;
+    // Use the same inferred schema for empty streams, batches, and writer evidence.
+    column_arrow_dtypes.clone_from(&source_schema_column_arrow_dtypes(schema.as_ref()));
     if rows.is_empty() {
-        let empty_batch = flat_rows_to_record_batch_with_dtypes(
-            &header,
-            &column_dtypes,
-            &column_arrow_dtypes,
-            &[],
-            &context,
-        )?;
-        let schema = empty_batch.schema();
         return Ok(attach_embedded_derived_columns_to_stream_source(
             FlatLocalColumnarStreamSource {
                 header,
@@ -2818,13 +2819,6 @@ pub fn stream_flat_text_rows_columnar_source(
         ));
     }
     let record_batch_count = row_count.div_ceil(batch_size);
-    let schema = infer_flat_text_rows_record_batch_schema(
-        &header,
-        &column_dtypes,
-        &column_arrow_dtypes,
-        &rows,
-        &context,
-    )?;
     Ok(attach_embedded_derived_columns_to_stream_source(
         FlatLocalColumnarStreamSource {
             header: header.clone(),
@@ -5838,6 +5832,10 @@ mod tests {
         );
 
         let reader_schema = source.reader.schema();
+        assert_eq!(
+            &source.column_arrow_dtypes[..2],
+            &[Some(DataType::Int64), Some(DataType::Utf8)]
+        );
         assert_eq!(reader_schema.field(0).data_type(), &DataType::Int64);
         assert!(reader_schema.field(0).is_nullable());
         assert_eq!(reader_schema.field(1).data_type(), &DataType::Utf8);
@@ -5913,6 +5911,45 @@ mod tests {
             source.source_stream_unit_row_ranges.as_deref(),
             Some(&[(0, 3)][..])
         );
+    }
+
+    #[test]
+    fn text_rows_stream_metadata_tracks_empty_and_null_prefix_schema() {
+        for (hint, values, expected) in [
+            (Some(LogicalDType::Int64), vec![], DataType::Int64),
+            (None, vec![], DataType::Utf8),
+            (None, vec![ScalarValue::Null], DataType::Utf8),
+            (
+                None,
+                vec![ScalarValue::Null, ScalarValue::Boolean(true)],
+                DataType::Boolean,
+            ),
+        ] {
+            let header = vec!["value".to_string()];
+            let rows = values
+                .into_iter()
+                .map(|value| vec![("value".to_string(), value)])
+                .collect();
+            let mut source = stream_flat_text_rows_columnar_source(
+                header.clone(),
+                vec![hint],
+                vec![None],
+                header.clone(),
+                header,
+                rows,
+                1,
+                "JSON",
+            )
+            .expect("typed text stream");
+            assert_eq!(source.column_arrow_dtypes[0], Some(expected.clone()));
+            assert_eq!(source.reader.schema().field(0).data_type(), &expected);
+            for batch in &mut source.reader {
+                assert_eq!(
+                    batch.expect("batch").schema().field(0).data_type(),
+                    &expected
+                );
+            }
+        }
     }
 
     #[test]

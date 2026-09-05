@@ -229,9 +229,29 @@ in a clean detached worktree at `c6cda693`:
   without an admitted layout advisor. Reproduced on the baseline, then corrected
   to expect zero applied decisions while retaining output-value/reopen checks.
 
-These failures must remain visible. The full native-feature gate is not green
-and is not equivalent to the passing default workspace gate. Do not silently
-ignore tests or label this work release-ready from focused checks alone.
+These failures describe the initial foundation snapshot, not the final release
+candidate. The release-validation follow-up repairs the stale expectations while
+retaining full output, overwrite-permission, and no-fallback assertions. Native
+Vortex now passes 1,317 tests with one intentionally ignored fixture-regeneration
+helper; native CLI passes 881 unit, 47 public-workflow, and 172 ingest tests.
+CI and the local release aggregate now execute these native-feature suites and
+native feature clippy instead of relying on compilation alone.
+
+The expanded checks also found real integration defects: JSON text-stream
+evidence did not reflect inferred types, empty text streams lost declared scalar
+types, and Python collect still requested zero-decode while the JSON sink requires
+bounded materialization. The shared schema inference and SQL/DataFrame adapters
+now preserve these contracts. SQL automatic preparation refreshes its internally
+owned artifact, matching the existing DataFrame policy; explicit output targets
+still require overwrite permission. Release transcripts retain usable build-cache
+symlink references without relaxing cleanup or checksum verification.
+
+The latest clean original-layout ingest and 43-query/129-run evidence is
+`docs/benchmarks/clickbench-current-state-2026-09-05.md`: 162.781 s native ingest,
+148.349 s query total, 1.044 s geomean. This replaces neither the historical
+145.130 s baseline nor the separate smaller-layout experiment above. It does not
+establish an overall query-speed gain. Package publication remains gated by the
+release rehearsal, CI, and fresh selected-channel proofs.
 
 ## Retention and Local Cleanup
 
