@@ -24050,6 +24050,17 @@ struct StringCountTopKExactHistogramDelta {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+enum StringCountTopKExactHistogramUpdate {
+    Inactive,
+    Accepted {
+        active_rows: u64,
+    },
+    BudgetExceeded {
+        previous_counts: rustc_hash::FxHashMap<u64, u64>,
+    },
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct StringCandidateSignature {
     len: usize,
@@ -28530,11 +28541,11 @@ impl<'a> GroupedAggregateStates<'a> {
         &mut self,
         dictionary_string_ids: &[u64],
         counts: &[u64],
-    ) -> Result<()> {
+    ) -> Result<StringCountTopKExactHistogramUpdate> {
         if !self.string_count_topk_first_pass_exact_histogram_enabled
             || self.string_count_topk_first_pass_exact_histogram_disabled
         {
-            return Ok(());
+            return Ok(StringCountTopKExactHistogramUpdate::Inactive);
         }
         if dictionary_string_ids.len() != counts.len() {
             return Err(ShardLoomError::InvalidOperation(
@@ -28546,7 +28557,7 @@ impl<'a> GroupedAggregateStates<'a> {
             .string_count_topk_first_pass_exact_histogram_counts
             .as_ref()
         else {
-            return Ok(());
+            return Ok(StringCountTopKExactHistogramUpdate::Inactive);
         };
         let delta =
             string_count_topk_exact_histogram_delta(dictionary_string_ids, counts, histogram)?;
@@ -28571,8 +28582,12 @@ impl<'a> GroupedAggregateStates<'a> {
         if histogram.len().saturating_add(delta.new_entries)
             > self.string_count_topk_first_pass_exact_histogram_entry_budget
         {
-            self.disable_string_count_topk_first_pass_exact_histogram();
-            return Ok(());
+            let previous_counts = self
+                .string_count_topk_first_pass_exact_histogram_counts
+                .take()
+                .unwrap_or_default();
+            self.string_count_topk_first_pass_exact_histogram_disabled = true;
+            return Ok(StringCountTopKExactHistogramUpdate::BudgetExceeded { previous_counts });
         }
         let histogram = self
             .string_count_topk_first_pass_exact_histogram_counts
@@ -28604,12 +28619,9 @@ impl<'a> GroupedAggregateStates<'a> {
                 )
             })?;
         }
-        Ok(())
-    }
-
-    fn disable_string_count_topk_first_pass_exact_histogram(&mut self) {
-        self.string_count_topk_first_pass_exact_histogram_counts = None;
-        self.string_count_topk_first_pass_exact_histogram_disabled = true;
+        Ok(StringCountTopKExactHistogramUpdate::Accepted {
+            active_rows: delta.active_rows,
+        })
     }
 
     fn promote_string_count_topk_first_pass_exact_histogram_if_possible(&mut self) -> bool {
@@ -28670,6 +28682,74 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok((group_index, group_accessor))
     }
 
+    fn string_count_topk_first_pass_dictionary_ids(
+        &mut self,
+        group_accessor: &AggregateDirectColumnAccessor,
+    ) -> Result<Option<Vec<u64>>> {
+        let needs_exact_dictionary_ids = self
+            .string_count_topk_first_pass_exact_histogram_counts
+            .is_some();
+        if !needs_exact_dictionary_ids {
+            return Ok(None);
+        }
+        aggregate_direct_utf8_dictionary_interner_ids(group_accessor, &mut self.string_interner)?
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex string top-K first-pass exact histogram requires dictionary-coded UTF-8 keys; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })
+            .map(Some)
+    }
+
+    fn update_string_count_topk_exact_histogram_primary_from_counts(
+        &mut self,
+        dictionary_string_ids: &[u64],
+        counts: &[u64],
+    ) -> Result<Option<u64>> {
+        if self
+            .string_count_topk_first_pass_exact_histogram_counts
+            .is_none()
+        {
+            return Ok(None);
+        }
+        match self.update_string_count_topk_first_pass_exact_histogram_from_dictionary(
+            dictionary_string_ids,
+            counts,
+        )? {
+            StringCountTopKExactHistogramUpdate::Accepted { active_rows } => Ok(Some(active_rows)),
+            StringCountTopKExactHistogramUpdate::BudgetExceeded { previous_counts } => {
+                let mut sketch = StringCountTopKHeavyHitterSketch::new_with_exact_mirror(
+                    self.string_count_topk_heavy_hitter_capacity(),
+                    0,
+                );
+                replay_string_count_topk_sketch_from_exact_counts(&mut sketch, &previous_counts)?;
+                self.string_count_topk_heavy_hitter_sketch = Some(sketch);
+                Ok(None)
+            }
+            StringCountTopKExactHistogramUpdate::Inactive => Ok(None),
+        }
+    }
+
+    fn mark_string_count_topk_heavy_hitter_direct_update_flags(&mut self, group_index: usize) {
+        self.string_count_topk_string_group_index = Some(group_index);
+        self.count_star_direct_updates = true;
+        self.chunk_dictionary_direct_updates = true;
+        self.string_count_topk_heavy_hitter_direct_updates = true;
+        self.string_count_topk_dictionary_code_reuse = true;
+    }
+
+    fn accept_string_count_topk_primary_update(
+        &mut self,
+        group_index: usize,
+        active_rows: u64,
+    ) -> Result<bool> {
+        self.string_count_topk_total_weight =
+            string_count_topk_add_total_weight(self.string_count_topk_total_weight, active_rows)?;
+        self.mark_string_count_topk_heavy_hitter_direct_update_flags(group_index);
+        Ok(true)
+    }
+
     fn update_string_count_topk_heavy_hitter_from_accessors(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
@@ -28703,27 +28783,17 @@ impl<'a> GroupedAggregateStates<'a> {
             row_indices,
         ));
         let counts = dictionary_value_counts_for_rows(row_ids, values.len(), row_indices)?;
-        let dictionary_string_ids = if self
-            .string_count_topk_first_pass_exact_histogram_counts
-            .is_some()
+        let dictionary_string_ids =
+            self.string_count_topk_first_pass_dictionary_ids(group_accessor)?;
+        if let Some(dictionary_string_ids) = dictionary_string_ids.as_ref()
+            && let Some(active_rows) = self
+                .update_string_count_topk_exact_histogram_primary_from_counts(
+                    dictionary_string_ids,
+                    &counts,
+                )?
         {
-            let ids = aggregate_direct_utf8_dictionary_interner_ids(
-                group_accessor,
-                &mut self.string_interner,
-            )?
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex string top-K first-pass exact histogram requires dictionary-coded UTF-8 keys; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })?;
-            self.update_string_count_topk_first_pass_exact_histogram_from_dictionary(
-                &ids, &counts,
-            )?;
-            Some(ids)
-        } else {
-            None
-        };
+            return self.accept_string_count_topk_primary_update(group_index, active_rows);
+        }
         let capacity = self.string_count_topk_heavy_hitter_capacity();
         let exact_mirror_capacity = if dictionary_string_ids.is_some() {
             0
@@ -28755,11 +28825,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 self.string_count_topk_total_weight,
             )?;
         }
-        self.string_count_topk_string_group_index = Some(group_index);
-        self.count_star_direct_updates = true;
-        self.chunk_dictionary_direct_updates = true;
-        self.string_count_topk_heavy_hitter_direct_updates = true;
-        self.string_count_topk_dictionary_code_reuse = true;
+        self.mark_string_count_topk_heavy_hitter_direct_update_flags(group_index);
         self.update_string_count_topk_first_pass_late_measures_from_accessors(
             accessors,
             group_accessor,
@@ -28815,7 +28881,10 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn needs_string_count_topk_heavy_hitter_second_pass(&self) -> bool {
-        self.string_count_topk_heavy_hitter_sketch.is_some()
+        (self.string_count_topk_heavy_hitter_sketch.is_some()
+            || self
+                .string_count_topk_first_pass_exact_histogram_counts
+                .is_some())
             && self.string_count_topk_candidate_ids.is_none()
     }
 
@@ -29386,9 +29455,6 @@ impl<'a> GroupedAggregateStates<'a> {
         let Some(counts) = self.string_count_topk_exact_counts.as_ref() else {
             return Ok(false);
         };
-        let Some(sketch) = self.string_count_topk_heavy_hitter_sketch.as_ref() else {
-            return Ok(false);
-        };
         let retained_cap = self.request.offset.saturating_add(limit);
         if retained_cap == 0 || counts.len() < retained_cap {
             return Ok(false);
@@ -29396,6 +29462,9 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.string_count_topk_first_pass_exact_counts {
             return Ok(true);
         }
+        let Some(sketch) = self.string_count_topk_heavy_hitter_sketch.as_ref() else {
+            return Ok(false);
+        };
         let mut retained = self.string_count_topk_candidates(counts, retained_cap)?;
         self.sort_string_count_topk_candidates(&mut retained);
         let minimum_retained = retained
@@ -36204,10 +36273,15 @@ impl<'a> GroupedAggregateStates<'a> {
             pulseweave_pressure_signals.push("numeric_pair_weighted_count_updates");
         }
         if self.string_count_topk_heavy_hitter_direct_updates {
-            capillary_work_units.push("string_heavy_hitter_sketch_update");
-            capillary_work_units.push("proofbound_string_topk_retention");
-            pulseweave_pressure_signals.push("string_heavy_hitter_candidate_groups");
-            pulseweave_pressure_signals.push("string_heavy_hitter_threshold");
+            if self.string_count_topk_first_pass_exact_histogram_promoted() {
+                capillary_work_units.push("string_topk_exact_histogram_primary_update");
+                pulseweave_pressure_signals.push("string_topk_sketch_update_elided");
+            } else {
+                capillary_work_units.push("string_heavy_hitter_sketch_update");
+                capillary_work_units.push("proofbound_string_topk_retention");
+                pulseweave_pressure_signals.push("string_heavy_hitter_candidate_groups");
+                pulseweave_pressure_signals.push("string_heavy_hitter_threshold");
+            }
             if self.string_count_topk_dictionary_code_reuse {
                 capillary_work_units.push("dictionary_code_bound_string_topk_key");
                 pulseweave_pressure_signals.push("dictionary_code_string_key_reuse");
@@ -36489,6 +36563,20 @@ fn update_string_count_topk_sketch_from_dictionary_ids(
         total_weight = string_count_topk_add_total_weight(total_weight, count)?;
     }
     Ok(total_weight)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn replay_string_count_topk_sketch_from_exact_counts(
+    sketch: &mut StringCountTopKHeavyHitterSketch,
+    counts: &rustc_hash::FxHashMap<u64, u64>,
+) -> Result<()> {
+    for (value_id, count) in counts {
+        if *count == 0 {
+            continue;
+        }
+        sketch.update(*value_id, *count)?;
+    }
+    Ok(())
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -57751,12 +57839,15 @@ mod tests {
                 .update_string_count_topk_heavy_hitter_from_accessors(&second_chunk, None)
                 .expect("second exact histogram chunk")
         );
+        assert!(states.string_count_topk_heavy_hitter_sketch.is_none());
+        assert_eq!(states.string_count_topk_total_weight, 12);
         assert!(states.needs_string_count_topk_heavy_hitter_second_pass());
         assert!(
             states
                 .promote_string_count_topk_exact_first_pass_if_possible(Some(2))
                 .expect("promote exact histogram")
         );
+        assert!(states.string_count_topk_heavy_hitter_sketch.is_none());
         assert!(!states.needs_string_count_topk_heavy_hitter_second_pass());
         assert!(
             states
@@ -57775,6 +57866,16 @@ mod tests {
             budget
                 .capillary_work_units
                 .contains(&"string_topk_first_pass_dictionary_exact_histogram".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_topk_exact_histogram_primary_update".to_string())
+        );
+        assert!(
+            !budget
+                .capillary_work_units
+                .contains(&"string_heavy_hitter_sketch_update".to_string())
         );
         assert!(
             !budget
@@ -57903,7 +58004,107 @@ mod tests {
                 .string_count_topk_first_pass_exact_histogram_counts
                 .is_none()
         );
+        assert!(states.string_count_topk_heavy_hitter_sketch.is_some());
+        assert_eq!(states.string_count_topk_total_weight, 2);
         assert!(!states.promote_string_count_topk_first_pass_exact_histogram_if_possible());
+    }
+
+    #[test]
+    fn grouped_aggregate_string_count_topk_replays_exact_histogram_on_late_budget_overflow() {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("url").expect("column")],
+            vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )],
+        )
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+        let declared_columns = vec!["url".to_string()];
+        let mut envelope = VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope");
+        envelope.group_state_soft_item_budget = 2;
+        let mut states = GroupedAggregateStates::new_with_resource_envelope(
+            &request,
+            Some(2),
+            &declared_columns,
+            false,
+            true,
+            envelope,
+        )
+        .expect("states");
+        states
+            .enable_string_count_topk_first_pass_exact_histogram()
+            .expect("enable histogram");
+        let first_chunk = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids: vec![0, 0, 0, 1],
+            values: vec![
+                std::sync::Arc::<str>::from("hot"),
+                std::sync::Arc::<str>::from("warm"),
+            ],
+            value_nulls: None,
+            row_nulls: None,
+            source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+        }];
+        let second_chunk = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids: vec![0, 1, 2, 2, 2, 3],
+            values: vec![
+                std::sync::Arc::<str>::from("hot"),
+                std::sync::Arc::<str>::from("warm"),
+                std::sync::Arc::<str>::from("cold"),
+                std::sync::Arc::<str>::from("cool"),
+            ],
+            value_nulls: None,
+            row_nulls: None,
+            source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+        }];
+
+        assert!(
+            states
+                .update_string_count_topk_heavy_hitter_from_accessors(&first_chunk, None)
+                .expect("accepted exact histogram chunk")
+        );
+        assert!(states.string_count_topk_heavy_hitter_sketch.is_none());
+        assert_eq!(states.string_count_topk_total_weight, 4);
+        assert!(
+            states
+                .update_string_count_topk_heavy_hitter_from_accessors(&second_chunk, None)
+                .expect("overflowing exact histogram chunk")
+        );
+        assert!(states.string_count_topk_first_pass_exact_histogram_disabled);
+        assert!(
+            states
+                .string_count_topk_first_pass_exact_histogram_counts
+                .is_none()
+        );
+        assert!(states.string_count_topk_heavy_hitter_sketch.is_some());
+        assert_eq!(states.string_count_topk_total_weight, 10);
+        assert!(states.needs_string_count_topk_heavy_hitter_second_pass());
+        assert!(
+            states
+                .promote_string_count_topk_exact_first_pass_if_possible(Some(2))
+                .expect("promote replayed first pass")
+        );
+        assert!(!states.needs_string_count_topk_heavy_hitter_second_pass());
+        assert!(
+            states
+                .string_count_topk_exact_proved(Some(2))
+                .expect("exact proof")
+        );
+
+        let (row_count, summary) = states
+            .result_row_count_and_summary(Some(2))
+            .expect("result summary");
+        let payload: serde_json::Value =
+            serde_json::from_str(&summary).expect("grouped aggregate summary json");
+        assert_eq!(row_count, 2);
+        assert_eq!(
+            payload["string_count_topk_heavy_hitter_exact_counts_source"],
+            serde_json::json!("first_pass_no_eviction")
+        );
+        assert_eq!(payload["values"][0]["url"], serde_json::json!("hot"));
+        assert_eq!(payload["values"][0]["rows"], serde_json::json!(4));
+        assert_eq!(payload["values"][1]["url"], serde_json::json!("cold"));
+        assert_eq!(payload["values"][1]["rows"], serde_json::json!(3));
     }
 
     #[test]
@@ -58053,11 +58254,27 @@ mod tests {
                 )
                 .expect("heavy-hitter count and late-measure pass")
         );
+        assert!(
+            states.string_count_topk_heavy_hitter_sketch.is_some(),
+            "retained first-pass late-measure route still maintains the proof sketch"
+        );
+        assert_eq!(
+            states.string_count_topk_total_weight,
+            selected_rows.len() as u64
+        );
         assert!(states.needs_string_count_topk_heavy_hitter_second_pass());
         assert!(
             states
                 .promote_string_count_topk_exact_first_pass_if_possible(Some(2))
                 .expect("promote selective first pass")
+        );
+        assert!(
+            states.string_count_topk_heavy_hitter_sketch.is_some(),
+            "bounded exact mirror promotion keeps the sketch as proof evidence"
+        );
+        assert_eq!(
+            states.string_count_topk_exact_counts_source,
+            Some("first_pass_no_eviction")
         );
         assert!(!states.needs_string_count_topk_heavy_hitter_second_pass());
         assert!(
@@ -58068,6 +58285,21 @@ mod tests {
         let budget = states
             .state_budget_report(&request, selected_rows.len(), 2)
             .expect("state budget");
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_heavy_hitter_sketch_update".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"proofbound_string_topk_retention".to_string())
+        );
+        assert!(
+            budget
+                .capillary_work_units
+                .contains(&"string_heavy_hitter_first_pass_exact_counts".to_string())
+        );
         assert!(
             budget
                 .capillary_work_units
@@ -58082,6 +58314,21 @@ mod tests {
             !budget
                 .capillary_work_units
                 .contains(&"string_topk_candidate_late_measure_recount".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"string_heavy_hitter_no_eviction_exact_proof".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"string_topk_first_pass_late_measure_rows".to_string())
+        );
+        assert!(
+            budget
+                .pulseweave_pressure_signals
+                .contains(&"retained_candidate_distinct_values".to_string())
         );
         assert!(
             !budget
@@ -58114,6 +58361,18 @@ mod tests {
         assert_eq!(
             payload["distinct_state_strategy"],
             "proofbound_first_pass_late_measure_exact"
+        );
+        assert_eq!(
+            payload["uniqueness_proof_status"],
+            "proofbound_heavy_hitter_exact_first_pass_no_eviction"
+        );
+        assert_eq!(
+            payload["string_count_topk_heavy_hitter_exact_counts_source"],
+            serde_json::json!("first_pass_no_eviction")
+        );
+        assert_eq!(
+            payload["string_count_topk_exact_mirror_used"],
+            serde_json::json!(false)
         );
         assert_eq!(
             payload["string_count_topk_late_measure_second_pass"],

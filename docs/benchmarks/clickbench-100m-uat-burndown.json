@@ -2746,6 +2746,78 @@
     "targeted_uat_applicability": "No separate targeted runner is available for the feature-gated prepared/native benchmark path, so the full 43-query local UAT is the retained acceptance evidence for this post-domain-transfer pass.",
     "tail_follow_up": "Q34/Q35 remain the dominant local URL/domain heavy-hitter tail rows; Q19/Q33/Q36 regressed modestly versus the immediately retained artifact and should stay visible in the next slow-lane review. This is follow-up optimization evidence, not a fallback or correctness failure."
   },
+  "latest_q34_q35_exact_histogram_primary_targeted_uat": {
+    "run_id": "targeted_q34_q35_exact_histogram_primary_20260904T_shipdrop2Z",
+    "reference": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/targeted_q34_q35_exact_histogram_primary_20260904T_shipdrop2Z/summary.json",
+    "claim_boundary": "local Desktop targeted UAT only; not an official ClickBench submission or superiority claim",
+    "change": "count_only_string_topk_exact_histogram_primary_deferred_sketch",
+    "decision": "ship_targeted_q34_q35_exact_histogram_primary",
+    "prepared_artifact": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/vortex/hits-parquet-100m.vortex",
+    "prepared_artifact_policy": "single_vortex_artifact_no_query_answer_sidecars",
+    "prepared_artifact_rebuild_note": "The retained local artifact had been cleaned before this targeted run; it was rebuilt from the canonical 100M Parquet source with the current release binary. The rebuilt artifact size matched the latest full43 reference exactly.",
+    "prepared_artifact_size_bytes": 38147848068,
+    "memory_gb": 24,
+    "max_parallelism": 12,
+    "runs_per_query": 3,
+    "completed_runs": 2,
+    "completed_cli_runs": 6,
+    "failed_runs": 0,
+    "fallback_attempted": false,
+    "external_engine_invoked": false,
+    "fallback_execution_allowed": false,
+    "focused_validation": [
+      "cargo fmt --all -- --check",
+      "cargo test -p shardloom-vortex --features vortex-local-primitives string_count_topk -- --nocapture",
+      "cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces"
+    ],
+    "latest_full43_reference": {
+      "run_id": "full43_first_pass_exact_histogram_20260904T141000Z",
+      "summary": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_first_pass_exact_histogram_20260904T141000Z/summary.json",
+      "CB-Q34": 16.828901875007432,
+      "CB-Q35": 16.949815000058152,
+      "q34_q35_best_sum_seconds": 33.778716875065584
+    },
+    "targeted_seconds": {
+      "CB-Q34": {
+        "runs": [
+          14.995817292016,
+          13.704702000017278,
+          14.036645958025474
+        ],
+        "best": 13.704702000017278
+      },
+      "CB-Q35": {
+        "runs": [
+          13.67718691600021,
+          13.900998542027082,
+          13.890029957983643
+        ],
+        "best": 13.67718691600021
+      }
+    },
+    "targeted_total_successful_query_seconds": 84.20538066606969,
+    "targeted_hot_geomean_seconds": 13.797054806931744,
+    "targeted_best_sum_seconds": 27.381888916017488,
+    "delta_vs_latest_full43_best_seconds": {
+      "CB-Q34": -3.124199874990154,
+      "CB-Q35": -3.272628084057942,
+      "q34_q35_best_sum": -6.396827959048096
+    },
+    "ratio_vs_latest_full43_best": {
+      "CB-Q34": 0.8143568046039718,
+      "CB-Q35": 0.8069223527672232,
+      "q34_q35_best_sum": 0.8106269122471966
+    },
+    "evidence_fields": {
+      "local_primitive_physical_policy_id": "local_vortex_physical_policy.string_heavy_hitter_topk.v1",
+      "local_primitive_capillary_work_units_include": "string_topk_exact_histogram_primary_update,string_topk_first_pass_dictionary_exact_histogram,dictionary_weighted_string_count_merge",
+      "local_primitive_capillary_work_units_exclude": "string_heavy_hitter_sketch_update",
+      "local_primitive_pulseweave_pressure_signals_include": "string_topk_sketch_update_elided,string_topk_second_scan_elided",
+      "fallback_attempted": "false",
+      "external_engine_invoked": "false"
+    },
+    "readout": "The retained first-pass exact dictionary histogram route no longer maintains the heavy-hitter sketch while the exact histogram remains admitted. If the histogram exceeds its entry budget, prior exact counts are replayed into a freshly materialized sketch and execution continues through the existing proof-bound path. Targeted Q34/Q35 local UAT improved both rows materially while preserving exactness evidence, single-artifact input, no fallback, and no external engine invocation."
+  },
   "latest_clean_ingest_current_impl_100m_uat": {
     "run_id": "full43_after_clean_ingest_current_impl_20260903T112902Z",
     "reference": "docs/benchmarks/clickbench-100m-current-branch-uat.json",
