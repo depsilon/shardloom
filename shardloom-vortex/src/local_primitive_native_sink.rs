@@ -413,10 +413,21 @@ struct OwnedOutput {
 }
 impl OwnedOutput {
     fn new(target: &Path, allow_overwrite: bool) -> Result<Self> {
+        Self::new_with_after_preflight(target, allow_overwrite, || Ok(()))
+    }
+
+    fn new_with_after_preflight(
+        target: &Path,
+        allow_overwrite: bool,
+        after_preflight: impl FnOnce() -> Result<()>,
+    ) -> Result<Self> {
         use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
         let temporary = temporary_output_path(target)?;
         prepare_output_target(target, &temporary, allow_overwrite)?;
-        let prior_target = if fs::symlink_metadata(target).is_ok() {
+        after_preflight()?;
+        // A target created after preflight is never an overwrite admission.
+        // No-overwrite mode must reach atomic create-if-absent publication.
+        let prior_target = if allow_overwrite && fs::symlink_metadata(target).is_ok() {
             Some(destination_generation(target)?)
         } else {
             None

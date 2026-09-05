@@ -48,6 +48,7 @@ struct RuntimeOwner {
     admission: Mutex<()>,
     memory: LiveMemoryPool,
     parallelism: usize,
+    provider_background_workers: usize,
     opens: AtomicU64,
     executions: AtomicU64,
 }
@@ -114,6 +115,25 @@ impl ResidentVortexSession {
     /// Rejects empty memory or CPU budgets. File generation checks currently
     /// require Unix device/inode/change-time identity; other hosts fail explicitly.
     pub fn new(memory_bytes: u64, max_parallelism: usize) -> Result<Self> {
+        Self::with_cpu_driver_policy(memory_bytes, max_parallelism, false)
+    }
+
+    /// The caller and its dedicated compute pool own the CPU budget. Provider
+    /// progress runs only while the caller drives the runtime; positional I/O
+    /// concurrency remains separately bounded by `max_io_parallelism`.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn for_external_cpu_pool(
+        memory_bytes: u64,
+        max_io_parallelism: usize,
+    ) -> Result<Self> {
+        Self::with_cpu_driver_policy(memory_bytes, max_io_parallelism, true)
+    }
+
+    fn with_cpu_driver_policy(
+        memory_bytes: u64,
+        max_parallelism: usize,
+        external_cpu_pool: bool,
+    ) -> Result<Self> {
         if max_parallelism == 0 {
             return Err(resident_error("parallelism must be greater than zero"));
         }
@@ -121,7 +141,13 @@ impl ResidentVortexSession {
             .min(std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get));
         let memory = LiveMemoryPool::new(memory_bytes)?;
         let runtime = CurrentThreadRuntime::new();
-        let workers = ResidentWorkerGroup::new(&runtime, parallelism - 1).map_err(native_error)?;
+        let provider_background_workers = if external_cpu_pool {
+            0
+        } else {
+            parallelism - 1
+        };
+        let workers = ResidentWorkerGroup::new(&runtime, provider_background_workers)
+            .map_err(native_error)?;
         let session = VortexSession::default()
             .with_handle(runtime.handle())
             .with_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
@@ -132,6 +158,7 @@ impl ResidentVortexSession {
             admission: Mutex::new(()),
             memory,
             parallelism,
+            provider_background_workers,
             opens: AtomicU64::new(0),
             executions: AtomicU64::new(0),
         })))
@@ -142,7 +169,7 @@ impl ResidentVortexSession {
         ResidentSessionSnapshot {
             prepared_source_opens: self.0.opens.load(Ordering::Relaxed),
             completed_executions: self.0.executions.load(Ordering::Relaxed),
-            provider_background_workers: self.0.parallelism - 1,
+            provider_background_workers: self.0.provider_background_workers,
             memory: self.0.memory.snapshot(),
         }
     }
@@ -200,10 +227,13 @@ impl PreparedVortexSource {
         self.0.identity.validate()
     }
 
-    /// Drive a streaming native sink under the same source generation, allocator,
-    /// and admission gate. Callers stage output inside the closure and publish
+    /// Drive native work under one source generation, allocator, and admission
+    /// gate. Callers drain borrowed work inside the closure and expose output
     /// only after this method's final generation validation succeeds.
-    #[cfg(all(feature = "vortex-write", unix))]
+    #[cfg(all(
+        any(feature = "vortex-write", feature = "vortex-local-primitives"),
+        unix
+    ))]
     pub(crate) fn with_native_execution<T>(
         &self,
         execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,

@@ -18,6 +18,25 @@ use vortex::{
 };
 
 struct Fixture(PathBuf);
+#[test]
+fn target_created_after_preflight_never_becomes_an_overwrite_admission() {
+    use std::io::Write as _;
+    let fixture = Fixture::new();
+    let target = fixture.0.join("raced-target.vortex");
+    let mut output = OwnedOutput::new_with_after_preflight(&target, false, || {
+        fs::write(&target, b"independent creator bytes").map_err(vortex_error)
+    })
+    .unwrap();
+    let temporary = output.temporary.clone();
+    output.file.write_all(b"candidate bytes").unwrap();
+    assert!(output.prior_target.is_none());
+    assert!(output.commit().is_err());
+    assert_eq!(fs::read(&target).unwrap(), b"independent creator bytes");
+    drop(output);
+    assert!(!temporary.exists());
+    assert_eq!(fs::read(&target).unwrap(), b"independent creator bytes");
+}
+
 impl Fixture {
     fn new() -> Self {
         let path = std::env::temp_dir().join(format!(

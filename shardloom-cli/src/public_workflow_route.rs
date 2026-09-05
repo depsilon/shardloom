@@ -3226,20 +3226,37 @@ fn append_local_primitive_result_summary_evidence_fields(
         "aggregate_first_pass_accessor_rows",
         "aggregate_result_finalization_nanos",
         "aggregate_timing_scope",
-        "aggregate_fused_string_count_chunks",
-        "aggregate_fused_string_count_rows",
-        "aggregate_fused_string_count_new_global_strings",
-        "aggregate_fused_string_count_utf8_bytes_visited",
-        "aggregate_fused_string_count_peak_estimated_state_bytes",
-        "aggregate_fused_string_count_scope",
-        "aggregate_fused_string_count_pressure_prefix_rows",
-        "aggregate_fused_string_count_pressure_suffix_rows",
-        "aggregate_fused_string_count_pressure_histogram_entries_released",
-        "aggregate_fused_string_count_pressure_interner_values_retained",
-        "aggregate_fused_string_count_pressure_interner_utf8_bytes_retained",
-        "aggregate_fused_string_count_pressure_reason",
-        "aggregate_fused_string_count_pressure_release_scope",
-        "aggregate_histogram_input_value_scope",
+        "aggregate_workers_rows",
+        "aggregate_workers_partial_entries",
+        "aggregate_workers_submitted_chunks",
+        "aggregate_workers_completed_chunks",
+        "aggregate_workers_outstanding_chunks",
+        "aggregate_workers_peak_outstanding_chunks",
+        "aggregate_workers_cpu_ceiling",
+        "aggregate_workers_compute_threads",
+        "aggregate_workers_provider_background_workers",
+        "aggregate_workers_peak_active_workers",
+        "aggregate_workers_worker_busy_elapsed_nanos",
+        "aggregate_workers_inline_busy_elapsed_nanos",
+        "aggregate_workers_canonicalization_work_nanos",
+        "aggregate_workers_count_work_nanos",
+        "aggregate_workers_caller_merge_nanos",
+        "aggregate_workers_caller_join_wait_nanos",
+        "aggregate_workers_caller_submit_elapsed_nanos",
+        "aggregate_workers_utf8_bytes_hashed",
+        "aggregate_workers_equality_comparisons",
+        "aggregate_workers_native_dictionary_chunks",
+        "aggregate_workers_native_dictionary_values",
+        "aggregate_workers_new_global_strings",
+        "aggregate_workers_peak_estimated_global_string_bytes",
+        "aggregate_workers_native_constant_chunks",
+        "aggregate_workers_peak_partial_capacity_bytes",
+        "aggregate_workers_shared_live_peak_bytes",
+        "aggregate_workers_shared_live_limit_bytes",
+        "aggregate_workers_string_pressure_transitions",
+        "aggregate_workers_released_histogram_entries",
+        "aggregate_workers_retained_interner_values_on_pressure",
+        "aggregate_workers_scope",
     ] {
         if let Some(value) = object.get(key) {
             fields.push((
@@ -13030,6 +13047,27 @@ fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn aggregate_worker_observations_survive_public_summary_without_invented_counters() {
+        let summary = serde_json::json!({
+            "aggregate_workers_rows": 101,
+            "aggregate_workers_peak_active_workers": 3,
+            "aggregate_workers_count_work_nanos": 900,
+            "aggregate_workers_scope": "parallel work sums; caller merge separate"
+        }).to_string();
+        let mut fields = Vec::new();
+        super::append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+        for (key, value) in [
+            ("rows", "101"),
+            ("peak_active_workers", "3"),
+            ("count_work_nanos", "900"),
+            ("scope", "parallel work sums; caller merge separate"),
+        ] {
+            assert!(fields.contains(&(format!("local_primitive_aggregate_workers_{key}"), value.into())));
+        }
+        assert!(!fields.iter().any(|(key, _)| key == "local_primitive_aggregate_workers_compute_threads"));
+    }
+
     use super::*;
 
     fn field(fields: &[(String, String)], key: &str) -> String {
