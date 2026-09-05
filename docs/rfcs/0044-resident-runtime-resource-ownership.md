@@ -101,6 +101,17 @@ are bounded explicitly. No enqueue acknowledgment is reported as a completed que
 
 ## Verification
 
+PERF-04/09 numeric consumer follow-up admits a per-source-array native Primitive
+execution after existing direct and dictionary accessors miss. The resulting
+typed slice feeds the existing exact aggregate kernels instead of a row-wise
+`StatValue` vector. Dtype, row order and nullable validity remain unchanged;
+integer keys never pass through floating point. Actual native decode work and
+typed value copies are reported separately from encoded execution. This bounds
+the adapter's temporary representation by the source array, not process RSS or
+arbitrary provider allocations. Public zero-decode aggregate requests reject
+before opening the source. No alternate engine or failure-swallowing retry is
+introduced. Retention requires exact encoded fixtures and paired measurement.
+
 Test reservation overflow, contention, growth, drop, cancellation, pool reuse,
 bounded queues, deterministic reduction, source replacement and mutation, result
 lifetime, exact low-memory aggregation, spill cleanup, and writer atomicity.

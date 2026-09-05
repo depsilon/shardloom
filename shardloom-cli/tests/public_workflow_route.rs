@@ -2554,6 +2554,61 @@ fn json_collect_rejects_zero_decode_instead_of_returning_a_descriptor() {
     assert!(!stdout.contains("result summary:"));
 }
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[test]
+fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_admitted() {
+    let missing = std::env::temp_dir().join(format!(
+        "shardloom-zero-decode-missing-{}.vortex",
+        std::process::id()
+    ));
+    assert!(!missing.exists());
+    let (success, stdout) = run_facade(&[
+        "run",
+        "sql",
+        "--input",
+        missing.to_str().unwrap(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--sql",
+        "SELECT SUM(renamed_measure) FROM hits",
+        "--materialization-policy",
+        "zero_decode",
+        "--format",
+        "json",
+    ]);
+    assert!(!success);
+    assert!(
+        stdout.contains("aggregate compute requires admitted native array decoding"),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("failed to open"), "{stdout}");
+    assert!(!missing.exists());
+    let fixture = local_primitive_struct_fixture();
+    let (success, stdout) = run_facade(&[
+        "run",
+        "cli",
+        "--input",
+        &fixture,
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--vortex-primitive",
+        "count",
+        "--materialization-policy",
+        "zero_decode",
+        "--format",
+        "json",
+    ]);
+    assert!(success, "{stdout}");
+    assert!(
+        stdout.contains(&field("fallback_attempted", "false")),
+        "{stdout}"
+    );
+}
+
 #[cfg(feature = "vortex-local-primitives")]
 #[test]
 fn public_run_executes_native_vortex_tail_payload_with_attached_route_envelope() {

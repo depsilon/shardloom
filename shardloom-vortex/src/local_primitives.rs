@@ -13,12 +13,17 @@ mod aggregate_timing;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 mod native_flat_layout;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/native_numeric_accessor.rs"]
+mod native_numeric_accessor;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitive_native_sink.rs"]
 pub(crate) mod native_sink;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/numeric_count_partial.rs"]
 mod numeric_count_partial;
+#[cfg(feature = "vortex-local-primitives")]
+use native_numeric_accessor::{AggregateAccessorBatch, NativeNumericAccessorWork};
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_sort_spill.rs"]
 pub(crate) mod sort_spill;
@@ -19402,6 +19407,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
     } else {
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
+    let mut scalar_numeric_accessor_work = NativeNumericAccessorWork::default();
     let mut grouped_states = if aggregate_has_grouping {
         let mut states = GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
@@ -19575,6 +19581,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
                             &chunk,
                             &declared_columns,
                             row_index_filter,
+                            &mut scalar_numeric_accessor_work,
                         )?
                     } else {
                         false
@@ -19705,7 +19712,12 @@ fn read_prepared_vortex_simple_aggregate_scan(
                     false
                 };
                 let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
-                    states.update_direct_from_chunk(&chunk, &declared_columns, None)?
+                    states.update_direct_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        None,
+                        &mut scalar_numeric_accessor_work,
+                    )?
                 } else {
                     false
                 };
@@ -20175,6 +20187,11 @@ fn read_prepared_vortex_simple_aggregate_scan(
         grouped_states = Some(exact_states);
     }
     let finalization_started = Instant::now();
+    let numeric_accessor_work = grouped_states
+        .as_ref()
+        .map(|states| &states.native_numeric_accessor_work)
+        .unwrap_or(&scalar_numeric_accessor_work)
+        .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
         let (result_row_count, result_summary) =
@@ -20203,6 +20220,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         )
     };
     aggregate_timing.finalization_nanos = finalization_started.elapsed().as_nanos();
+    numeric_accessor_work.annotate(&mut result_summary)?;
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, &aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     aggregate_timing.annotate_summary(&mut result_summary)?;
@@ -20626,6 +20644,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     } else {
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
+    let mut scalar_numeric_accessor_work = NativeNumericAccessorWork::default();
     let mut grouped_states = if aggregate_has_grouping {
         Some(GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
@@ -20753,6 +20772,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                             &chunk,
                             &declared_columns,
                             row_index_filter,
+                            &mut scalar_numeric_accessor_work,
                         )?
                     } else {
                         false
@@ -20875,7 +20895,12 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                     })?;
             } else {
                 let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
-                    states.update_direct_from_chunk(&chunk, &declared_columns, None)?
+                    states.update_direct_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        None,
+                        &mut scalar_numeric_accessor_work,
+                    )?
                 } else {
                     false
                 };
@@ -20915,6 +20940,11 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         }
     }
     let result_limit = request.source_order_limit;
+    let numeric_accessor_work = grouped_states
+        .as_ref()
+        .map(|states| &states.native_numeric_accessor_work)
+        .unwrap_or(&scalar_numeric_accessor_work)
+        .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
         let (result_row_count, result_summary) =
@@ -20942,6 +20972,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
             states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
         )
     };
+    numeric_accessor_work.annotate(&mut result_summary)?;
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, &aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     let source = UniversalInputSource::from_dataset_uri(sources[0].uri.clone())?;
@@ -23568,8 +23599,10 @@ impl SimpleAggregateStates {
         chunk: &vortex::array::ArrayRef,
         declared_columns: &[String],
         row_indices: Option<&[usize]>,
+        numeric_work: &mut NativeNumericAccessorWork,
     ) -> Result<bool> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        numeric_work.add(&accessors.numeric_work)?;
         if !self.direct_update_admitted(&accessors, row_indices) {
             return Ok(false);
         }
@@ -24366,6 +24399,7 @@ struct GroupedAggregateStates<'a> {
     source_order_numeric_utf8_dictionary_direct_updates: bool,
     source_order_limited_group_admission: bool,
     general_direct_group_state_pre_reserved: bool,
+    native_numeric_accessor_work: NativeNumericAccessorWork,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
     aggregate_vortex_dictionary_accessor_columns: std::collections::BTreeSet<String>,
     aggregate_chunk_dictionary_accessor_columns: std::collections::BTreeSet<String>,
@@ -27279,6 +27313,7 @@ impl<'a> GroupedAggregateStates<'a> {
             source_order_limited_group_admission: false,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
+            native_numeric_accessor_work: NativeNumericAccessorWork::default(),
             aggregate_vortex_dictionary_accessor_columns: std::collections::BTreeSet::new(),
             aggregate_chunk_dictionary_accessor_columns: std::collections::BTreeSet::new(),
             aggregate_primitive_accessor_columns: std::collections::BTreeSet::new(),
@@ -27371,6 +27406,8 @@ impl<'a> GroupedAggregateStates<'a> {
             return Ok(false);
         }
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_count_star_direct_from_accessors(&accessors, row_indices, chunk.len())
     }
@@ -27701,6 +27738,8 @@ impl<'a> GroupedAggregateStates<'a> {
         declared_columns: &[String],
     ) -> Result<bool> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_numeric_utf8_topk_heavy_hitter_exact_from_accessors(&accessors)
     }
@@ -29672,6 +29711,8 @@ impl<'a> GroupedAggregateStates<'a> {
         row_indices: Option<&[usize]>,
     ) -> Result<bool> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_string_count_topk_heavy_hitter_exact_from_accessors(&accessors, row_indices)
     }
@@ -30401,6 +30442,8 @@ impl<'a> GroupedAggregateStates<'a> {
         declared_columns: &[String],
     ) -> Result<bool> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_string_count_distinct_topk_heavy_hitter_exact_from_accessors(&accessors)
     }
@@ -30669,6 +30712,8 @@ impl<'a> GroupedAggregateStates<'a> {
             return Ok(true);
         }
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.update_compact_direct_from_accessors(
             &accessors,
             declared_columns,
@@ -30688,6 +30733,8 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns);
         timing.accessor_nanos += started.elapsed().as_nanos();
         let accessors = accessors?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         timing.accessor_chunks += 1;
         timing.accessor_rows += u64::try_from(chunk.len()).unwrap_or(u64::MAX);
         let started = Instant::now();
@@ -32162,6 +32209,8 @@ impl<'a> GroupedAggregateStates<'a> {
             return Ok(false);
         }
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_numeric_pair_late_measure_direct_from_accessors(&accessors)
     }
@@ -39218,16 +39267,23 @@ impl AggregateDirectColumnAccessor {
 fn aggregate_direct_column_accessors_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
-) -> Result<Vec<AggregateDirectColumnAccessor>> {
-    let mut out = Vec::with_capacity(declared_columns.len());
+) -> Result<AggregateAccessorBatch> {
+    let mut out = AggregateAccessorBatch {
+        values: Vec::with_capacity(declared_columns.len()),
+        numeric_work: NativeNumericAccessorWork::default(),
+    };
     if chunk.dtype().is_struct() {
         for column in declared_columns {
             let array = logical_field_from_native_array(chunk, column)?;
-            out.push(aggregate_direct_column_accessor(column, &array)?);
+            let (accessor, work) = aggregate_column_accessor_with_work(column, &array)?;
+            out.numeric_work.add(&work)?;
+            out.values.push(accessor);
         }
     } else {
         let column = declared_columns.first().map_or("value", String::as_str);
-        out.push(aggregate_direct_column_accessor(column, chunk)?);
+        let (accessor, work) = aggregate_column_accessor_with_work(column, chunk)?;
+        out.numeric_work.add(&work)?;
+        out.values.push(accessor);
     }
     Ok(out)
 }
@@ -40643,24 +40699,38 @@ fn aggregate_direct_column_accessor(
     column: &str,
     array: &vortex::array::ArrayRef,
 ) -> Result<AggregateDirectColumnAccessor> {
+    aggregate_column_accessor_with_work(column, array).map(|(accessor, _)| accessor)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_column_accessor_with_work(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<(AggregateDirectColumnAccessor, NativeNumericAccessorWork)> {
     if let Some(accessor) = direct_primitive_aggregate_column_accessor(array) {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
     }
     if let Some(accessor) = direct_bool_aggregate_column_accessor(array) {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
     }
     if let Some(accessor) = aggregate_direct_numeric_dictionary_accessor(array)? {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
+    }
+    if let Some(decoded) = native_numeric_accessor::decode(column, array)? {
+        return Ok(decoded);
     }
     if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array)? {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
     }
     if let Some(accessor) = aggregate_direct_utf8_chunk_dictionary_accessor(column, array)? {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
     }
-    Ok(AggregateDirectColumnAccessor::materialized(
-        row_export_values_from_vortex_array(column, array)?,
-        aggregate_direct_materialization_blocker(array),
+    Ok((
+        AggregateDirectColumnAccessor::materialized(
+            row_export_values_from_vortex_array(column, array)?,
+            aggregate_direct_materialization_blocker(array),
+        ),
+        NativeNumericAccessorWork::default(),
     ))
 }
 
@@ -57263,7 +57333,12 @@ mod tests {
 
         assert!(
             states
-                .update_direct_from_chunk(&chunk, &declared_columns, None)
+                .update_direct_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                    None,
+                    &mut NativeNumericAccessorWork::default()
+                )
                 .expect("dictionary weighted update")
         );
 

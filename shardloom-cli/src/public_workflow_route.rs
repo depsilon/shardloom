@@ -2774,6 +2774,13 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
     mut extra_fields: Vec<(String, String)>,
     primitive: PublicVortexPrimitive,
 ) -> ExitCode {
+    if primitive == PublicVortexPrimitive::Aggregate
+        && request.materialization_policy == "zero_decode"
+    {
+        return native_vortex_materializing_error(format, primitive, &ShardLoomError::InvalidOperation(
+            "aggregate compute requires admitted native array decoding and typed materialization; use --materialization-policy bounded or the metadata-only count primitive; no fallback execution was attempted".to_string(),
+        ));
+    }
     let binding = match native_vortex_input_binding_for_request(request) {
         Ok(binding) => binding,
         Err(error) => return native_vortex_materializing_error(format, primitive, &error),
