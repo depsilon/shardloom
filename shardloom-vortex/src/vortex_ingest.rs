@@ -6993,7 +6993,7 @@ fn planned_compression_layout_stage(
         && !writer_compression_field_names.is_empty()
     {
         format!(
-            "field_level_fast_zstd_text_leaf_writers;field_count={};frame_values={};text_layout=row_aligned_zoned;zone_rows=writer_row_block_size;zone_statistics=provider_dtype_defaults;other_primitive_data=numeric_btrblocks",
+            "field_level_fast_zstd_text_leaf_writers;field_count={};frame_values={};other_primitive_data=numeric_btrblocks",
             writer_compression_field_names.len(),
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_VALUES_PER_FRAME
         )
@@ -7235,7 +7235,7 @@ fn admitted_layout_writer_profile_regression_guard(
     } else if !admitted_layout_writer_has_storage_compression_fields(advisor) {
         "query_hot_text_domain_compression_disabled_until_uat_proves_benefit"
     } else {
-        "text_zstd_policy_prior_uat_backed_text_zoning_and_numeric_btrblocks_require_lifecycle_acceptance"
+        "text_zstd_policy_prior_uat_backed_numeric_btrblocks_requires_lifecycle_acceptance"
     }
 }
 
@@ -13771,15 +13771,8 @@ fn large_source_fast_load_table_strategy(
     )
 }
 
-/// Unzoned control retained only for paired text-layout validation.
-#[cfg(all(
-    test,
-    feature = "vortex-write",
-    feature = "universal-format-io",
-    feature = "vortex-local-primitives",
-    unix
-))]
-fn unzoned_source_text_vortex_write_strategy(
+#[cfg(feature = "vortex-write")]
+fn large_source_text_vortex_write_strategy(
     row_block_size: usize,
     block_target_bytes: u64,
     compression_concurrency: usize,
@@ -13820,9 +13813,9 @@ fn vortex_writer_buffered_target_bytes(block_target_bytes: u64) -> u64 {
     }
 }
 
-/// Preserve native zone statistics around the selected text compression overrides.
-#[cfg(feature = "vortex-write")]
-fn large_source_text_vortex_write_strategy(
+/// Isolated text-zone candidate; ordinary source admission keeps its current writer.
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+fn zoned_source_text_vortex_write_strategy(
     row_block_size: usize,
     block_target_bytes: u64,
     compression_concurrency: usize,
@@ -13970,9 +13963,9 @@ fn vortex_writer_layout_strategy_applied(
             if decision.writer_block_target_bytes
                 == VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
             {
-                "vortex_write_strategy_row_block_262144_target_8mb_source_text_zoned_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
+                "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
             } else {
-                "vortex_write_strategy_row_block_262144_target_1mb_source_text_zoned_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
+                "vortex_write_strategy_row_block_262144_target_1mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
             }
         } else {
             match decision.writer_row_block_size {
@@ -16020,42 +16013,6 @@ mod tests {
         assert!(!advisor.provider_admitted);
     }
 
-    fn assert_advised_text_field_is_zoned(path: &Path, field_name: &str) {
-        use vortex::file::OpenOptionsSessionExt as _;
-        use vortex::layout::{DynLayout, LayoutChildType, LayoutRef};
-
-        fn find_field(layout: &dyn DynLayout, field_name: &str) -> Option<LayoutRef> {
-            for slot in 0..layout.nslots() {
-                let Some(child) = layout.slot(slot).expect("read layout slot") else {
-                    continue;
-                };
-                if matches!(layout.slot_type(slot), Some(LayoutChildType::Field(name)) if name.as_ref() == field_name)
-                {
-                    return Some(child);
-                }
-                if let Some(field) = find_field(child.as_ref(), field_name) {
-                    return Some(field);
-                }
-            }
-            None
-        }
-
-        let context = LocalVortexWriteContext::open();
-        let file = context
-            .session
-            .open_options()
-            .open_buffer(std::fs::read(path).expect("read small advised fixture"))
-            .expect("reopen advised fixture");
-        let field = find_field(file.footer().layout().as_ref(), field_name)
-            .expect("selected text field is present in stored layout");
-        assert!(
-            vortex_layout_encoding_inventory(field.as_ref())
-                .1
-                .contains("zoned"),
-            "ordinary writer dispatch must preserve statistics for selected text field {field_name}"
-        );
-    }
-
     #[test]
     fn local_flat_scalar_rows_use_source_text_large_source_layout_row_blocks_when_advised() {
         let path = std::env::temp_dir().join(format!(
@@ -16064,8 +16021,6 @@ mod tests {
             1
         ));
         let _ = std::fs::remove_file(&path);
-        // Inject the existing advisor decision into a one-row fixture to test
-        // ordinary writer dispatch. This is not a 10M-row public admission proof.
         let mut advisor_input = layout_advisor_input(true, "none");
         advisor_input.row_count = VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD;
         advisor_input.source_byte_count = 1_073_741_824;
@@ -16110,7 +16065,7 @@ mod tests {
         assert_eq!(report.layout_write_decision.writer_stats_concurrency, 2);
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_target_1mb_source_text_zoned_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_1mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
         );
         assert_eq!(
             report.writer_layout_row_block_size,
@@ -16157,14 +16112,9 @@ mod tests {
         );
         assert_eq!(
             report.writer_profile_regression_guard,
-            "text_zstd_policy_prior_uat_backed_text_zoning_and_numeric_btrblocks_require_lifecycle_acceptance"
-        );
-        assert!(
-            report.writer_physical_design.compression_layout_stage_plan
-                .contains("text_layout=row_aligned_zoned;zone_rows=writer_row_block_size;zone_statistics=provider_dtype_defaults")
+            "text_zstd_policy_prior_uat_backed_numeric_btrblocks_requires_lifecycle_acceptance"
         );
         assert_eq!(report.reopen_row_count, 1);
-        assert_advised_text_field_is_zoned(&path, "payload");
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -16177,8 +16127,6 @@ mod tests {
             1
         ));
         let _ = std::fs::remove_file(&path);
-        // As above, the supplied advisor selects the large-source policy; the
-        // actual one-row artifact verifies dispatch and stored layout only.
         let mut advisor_input = layout_advisor_input(true, "none");
         advisor_input.row_count = 100_000_000;
         advisor_input.source_byte_count =
@@ -16214,7 +16162,7 @@ mod tests {
         );
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_target_8mb_source_text_zoned_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
         );
         assert_eq!(report.writer_compression_concurrency, 2);
         assert_eq!(report.writer_compression_field_count(), 1);
@@ -16238,10 +16186,9 @@ mod tests {
         );
         assert_eq!(
             report.writer_profile_regression_guard,
-            "text_zstd_policy_prior_uat_backed_text_zoning_and_numeric_btrblocks_require_lifecycle_acceptance"
+            "text_zstd_policy_prior_uat_backed_numeric_btrblocks_requires_lifecycle_acceptance"
         );
         assert_eq!(report.reopen_row_count, 1);
-        assert_advised_text_field_is_zoned(&path, "URL");
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }

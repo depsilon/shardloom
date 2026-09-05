@@ -1,14 +1,20 @@
 # Native text layout pruning experiment
 
-Status: isolated candidate after PR #1433, locally promoted to ordinary writer
-dispatch pending 100M-row acceptance and a final retain/drop decision. Both ported
-tests, nine file-observer tests and the first diagnostic I/O matrix pass. The
+Status: **drop unconditional production text zoning; retain the test-only
+composition, bounded observer and evidence.** The ordinary writer is restored to
+the C7 control. Both ported tests, nine file-observer tests and the first
+diagnostic I/O matrix pass. The
 subsequent paired release matrices at `14e54146` pass all 448 complete query
 results: 336 measured and 112 warmup records. Their control is `f607e4c8`, retaining
 the C7 implementation recorded at `c5bada49`: numeric compression, typed consumers,
 ownership and measured timing behavior. This note
 continues PERF-08/09/12 under RFC 0044 and the existing CG-5/CG-6 evidence gates;
 it does not complete those packets or change the public ingest admission threshold.
+The full 100M-row query comparison passes all 129 complete results but regresses
+the measured workload, so the local production promotion is removed. The user's
+explicit retention of numeric compression remains unchanged. See the final
+[benchmark packet](../benchmarks/perf-text-layout-pruning-2026-09-05.md) and
+[structured evidence](../benchmarks/perf-text-layout-pruning-2026-09-05.json).
 
 ## Decision and provider boundary
 
@@ -19,19 +25,18 @@ to retain native bounded-min/max and null-count pruning metadata. The candidate
 uses the same row-block size, compression level/frame policy, source, values and
 worker settings as its control. No text dictionary/helper redesign is included.
 
-In this isolated branch, `large_source_text_vortex_write_strategy` now supplies
-the zoned composition under `vortex-write`, with the same seven arguments,
-including the actual writer session. `unzoned_source_text_vortex_write_strategy`
-is retained only as the paired test control. The ordinary dispatch and its
-existing admission policy select the new helper; no public knob is added. It
+`large_source_text_vortex_write_strategy` supplies the original unzoned selected
+text writer under `vortex-write`. The test-only
+`zoned_source_text_vortex_write_strategy` has the same seven arguments, including
+the actual writer session, and remains available for matched experiments. It
 constructs the current C7 table strategy for non-overridden fields, preserving
 numeric encoding admission and ownership.
 The selected text branch is `Repartition(canonicalize=false) -> Zoned -> existing
-Zstd text leaf`, with native Flat statistics storage. Existing applied-strategy
-and stage-plan fields identify text zoning, and the regression guard keeps
-lifecycle acceptance explicit. This local promotion is not yet a retained or
-published production improvement. No predicate guard, dependency or query-engine
-fallback is introduced.
+Zstd text leaf`, with native Flat statistics storage. The ordinary dispatch,
+applied-strategy labels and stage-plan fields are restored to the control; no
+public knob or alternate runtime admission path is added. Future costed admission
+would need its own measured selection boundary and acceptance. No predicate
+guard, dependency or query-engine fallback is introduced.
 
 Vortex-first classification: `use_vortex_native_provider`. Provider surfaces are
 native layout writing, native file/scan, expressions and statistics. Tests remain
@@ -116,8 +121,10 @@ cache or generic three-valued-logic rewrite is introduced to conceal it.
 
 ## First diagnostic I/O matrix
 
-The passing debug matrix uses 32,768 rows, four 8,192-row zones, two query workers
-and two writer workers, with one sample and no warmup per writer/order. Baseline
+The passing debug matrix uses 32,768 rows, four 8,192-row zones, requested query
+parallelism two and one writer background CPU driver plus the caller, with one
+sample and no warmup per writer/order. Requested query parallelism does not prove
+two active provider workers. Baseline
 and zoned writers receive the same independent values in clustered and bijective
 shuffled orders. All 56 query results match complete scalar expectations,
 including nullable UTF8 and integer identifiers above binary64 precision. This
@@ -168,8 +175,10 @@ Each geometry has 224 exact query records, including 56 warmups excluded from
 medians. The two geometries total 448 exact records, with 336 measured and 112
 warmups. The `production_rows` fixture contains 1,048,576 rows delivered in four
 262,144-row batches. Both writers use C7's bounded per-batch root, the configured
-262,144-row zone geometry, identical values, two writer/query workers and matched
-raw or guarded predicates. The paired test forces these writer compositions
+262,144-row zone geometry, identical values, one writer background CPU driver
+plus the caller, requested query parallelism two and matched raw or guarded
+predicates. Requested query parallelism does not prove two active provider workers.
+The paired test forces these writer compositions
 below the ordinary 10M-row threshold; its name is not a public admission proof.
 
 Median configured-geometry writer lifecycle and artifact sizes are:
@@ -202,10 +211,42 @@ coalesced `read_exact_at` ranges through final drain, with no physical-device or
 cold-cache claim. The guard's read amplification persists in the release matrices,
 so the production null-guard decision remains dropped.
 
-This evidence supports evaluating the promoted helper through the ordinary
-100M-row route. It does not establish that route's correctness or lifecycle cost.
-The production threshold, typed numeric path and predicates remain unchanged;
-the 100M-row comparison and final retention decision are still open.
+This fixture evidence justified evaluating the promoted helper through the
+ordinary 100M-row route. The following full-workload result decides against an
+unconditional production change despite the controlled selective benefit.
+
+## Full-workload decision
+
+The temporary production candidate was frozen at
+`849e3b354745bf9187d4a3fe55c171d1de624a77`, CLI SHA-256
+`430419b86b6ebda032979585b3f3b4ed5333381ffaa6b0c1b043cc5b1278e5d1`.
+Its guarded ingest completes in 99.512655583 s, producing 18,650,731,388 bytes
+with peak native-process RSS of 2,767,257,600 bytes. This is one local ingest
+observation, not a paired distribution. Its process wall includes independent
+full-file checksum readback and native footer validation; these do not constitute
+an all-value roundtrip.
+
+The full query matrix `full43_20260905T233742622294Z` passes 129/129 complete
+returned-result comparisons against retained ShardLoom reference outputs. Those
+checks are regression evidence, separate from the independent fixture oracle.
+Each query has three fresh-process samples, with OS cache state uncontrolled and
+no answer cache. Compared with frozen C7:
+
+| Full43 measure | C7 | Promoted text zoning | Change |
+| --- | ---: | ---: | ---: |
+| Sum of each query's best sample | 131.687 s | 135.374 s | +2.8% |
+| Geometric mean of each query's best sample | 1.090906 s | 1.127162 s | +3.3% |
+| Sum of all 129 samples | 399.894 s | 412.776 s | +3.2% |
+
+Forty of 43 queries have slower best samples. Three samples per query and one
+ingest observation do not establish a universal performance rule, but they do
+not support changing the default writer. Paired configured-geometry writer
+lifecycle also grows by 3.2%/4.5%. Under PERF-08's requirement that metadata earn
+its cost and PERF-09's lifecycle retain/drop gate, restore the unzoned default.
+Retain the reusable native zoning composition only in tests, along with the
+observer, exact fixtures and both favorable and unfavorable measurements. The
+production null guard remains dropped. Numeric compression and typed consumers
+are untouched; this decision is specific to unconditional text zoning.
 
 ## Acceptance and retain/drop checklist
 
@@ -225,18 +266,18 @@ the 100M-row comparison and final retention decision are still open.
   query timings and complete independently verified values at matched configured
   geometry, preserving raw samples and excluding warmups from medians. Keep the
   narrower timing boundaries explicit; overlapping work is not subtracted.
-- [ ] Validate the locally promoted ordinary writer on the 100M-row public
-  source, including complete query acceptance and ingest/query lifecycle costs,
-  with unchanged safety guards. Small advisor-forced tests verify ordinary
-  dispatch and stored text zoning only; they do not prove public admission.
-- [ ] Retain only supported scoped benefit after lifecycle evidence, or record
-  a reasoned drop. The local promotion remains a pending candidate until that
-  decision; it has not been retained or published.
+- [x] Validate the temporarily promoted ordinary writer on the 100M-row public
+  source with unchanged safety guards: ingest completes and all 129 query results
+  match, while the measured full-workload query costs regress.
+- [x] Record a reasoned drop of unconditional production text zoning and restore
+  the control writer. Retain the test-only composition and evidence for a future
+  separately measured costed-admission proposal; add no new runtime path now.
 
 The root agent owns serial formatting, builds and tests. Initial focused command:
 `CARGO_TARGET_DIR=/Users/dylan/.cache/shardloom/cargo-target cargo test -p shardloom-vortex --features release-user-surfaces text_zone_tests -- --nocapture`.
-The ported, observer and paired release I/O tests have passed. Promoted runtime
-gates and the guarded 100M-row lifecycle comparison at a frozen source/binary
-remain the root agent's validation responsibility. The
+The ported, observer and paired release I/O tests have passed. The promoted
+candidate passed 2,960 native tests, native all-target and minimal-writer clippy,
+and the guarded public ingest/full43 comparison. Those are historical candidate
+checks; post-restoration validation remains the root agent's responsibility. The
 [PR #1433 packet](../benchmarks/perf-drop-ship-2026-09-05.md) remains the historical
 control; its earlier text candidate is not retroactively marked accepted.

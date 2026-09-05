@@ -329,8 +329,8 @@ fn write_artifact(
     let timing = VortexWriterStageTiming::default();
     let fields = [TEXT.to_string()];
     let selected_strategy = match writer {
-        Writer::Baseline => unzoned_source_text_vortex_write_strategy,
-        Writer::Zoned => large_source_text_vortex_write_strategy,
+        Writer::Baseline => large_source_text_vortex_write_strategy,
+        Writer::Zoned => zoned_source_text_vortex_write_strategy,
     }(
         geometry.zone_rows,
         8 * MIB,

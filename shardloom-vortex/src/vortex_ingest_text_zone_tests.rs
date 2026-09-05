@@ -72,7 +72,7 @@ fn verify_fixture(root: &Path, workers: usize, all_null: bool) {
     let context = LocalVortexWriteContext::open();
     context.worker_pool.set_workers(workers - 1);
     let timing = VortexWriterStageTiming::default();
-    let strategy = large_source_text_vortex_write_strategy(
+    let strategy = zoned_source_text_vortex_write_strategy(
         8,
         1024,
         workers,
@@ -233,7 +233,7 @@ fn text_filter_pruning_skips_unprojected_disjoint_and_null_only_payloads_with_co
         let context = LocalVortexWriteContext::open();
         context.worker_pool.set_workers(workers - 1);
         let timing = VortexWriterStageTiming::default();
-        let strategy = large_source_text_vortex_write_strategy(
+        let strategy = zoned_source_text_vortex_write_strategy(
             8,
             1024,
             workers,
