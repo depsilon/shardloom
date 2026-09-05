@@ -13631,10 +13631,14 @@ jobs:
             dist_dir.mkdir()
             stale_wheel = dist_dir / "shardloom-0.0.0-py3-none-any.whl"
             stale_wheel.write_text("stale", encoding="utf-8")
+            (package_dir / "setup.cfg").write_text(
+                "[bdist_wheel]\nplat_name = macosx_15_0_arm64\n", encoding="utf-8"
+            )
             commands: list[list[str]] = []
 
             def fake_run_step(*, name, command, cwd, env=None):  # type: ignore[no-untyped-def]
                 commands.append(command)
+                self.assertEqual(env["SHARDLOOM_WHEEL_PLAT_NAME"], "macosx_15_0_arm64")
                 if command[:3] == [sys.executable, "-m", "build"]:
                     return {
                         "name": name,
@@ -13683,6 +13687,37 @@ jobs:
             self.assertIn("build_sdist", commands[2][2])
             self.assertEqual(step["python_artifact_blockers"], [])
             self.assertEqual(len(step["fallback_steps"]), 2)
+
+    def test_bundled_macos_wheel_pins_architecture_in_build_options(self) -> None:
+        import configparser
+        from unittest.mock import patch
+
+        module = self._load_script_module(
+            "release_dry_run_proof.py", "release_dry_run_macos_wheel_platform_for_test"
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            stage = Path(tempdir)
+            config_path = stage / "setup.cfg"
+            config_path.write_text("[metadata]\nname = retained\n[bdist_wheel]\nuniversal = 0\n")
+            for platform_tag, os_version, expected in [
+                ("macos-aarch64", "15.7.1", "macosx_15_0_arm64"),
+                ("macos-x86_64", "10.15.7", "macosx_10_15_x86_64"),
+            ]:
+                with patch.object(module.platform, "mac_ver", return_value=(os_version, (), "")):
+                    self.assertEqual(module.pin_bundled_macos_wheel_platform(stage, platform_tag), expected)
+                config = configparser.ConfigParser()
+                config.read(config_path)
+                self.assertEqual(config["bdist_wheel"]["plat_name"], expected)
+                self.assertEqual(config["bdist_wheel"]["universal"], "0")
+                self.assertEqual(config["metadata"]["name"], "retained")
+            before = config_path.read_bytes()
+            self.assertIsNone(module.pin_bundled_macos_wheel_platform(stage, "linux-x86_64"))
+            self.assertEqual(config_path.read_bytes(), before)
+            with patch.object(module.platform, "mac_ver", return_value=("", (), "")):
+                with self.assertRaises(OSError):
+                    module.pin_bundled_macos_wheel_platform(stage, "macos-aarch64")
+            with self.assertRaises(OSError):
+                module.pin_bundled_macos_wheel_platform(stage, "macos-unknown")
 
     def test_release_dry_run_stages_built_artifacts_for_provenance(self) -> None:
         module = self._load_script_module(

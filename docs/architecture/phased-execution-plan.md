@@ -252,10 +252,12 @@ the ledger.
     - [x] Record fresh complete ingest and 43-query/129-run checked timing evidence:
       `docs/benchmarks/clickbench-current-state-2026-09-05.md` (162.781s ingest,
       148.349s query total, 129/129 complete-value regression checks).
-    - [ ] Repair stale native-feature assertions with actual output and safety tests;
+    - [x] Repair stale native-feature assertions with actual output and safety tests;
       pass workspace, native-feature, website, package, and CI gates.
-    - [ ] Merge the reviewed cohesive runtime/homepage/evidence PR.
-    - [ ] Publish checksum-bound GitHub pre-release assets and verify downloads.
+    - [x] Merge the reviewed cohesive runtime/homepage/evidence PR: #1430,
+      `79f1ad6d96345d9ef9b36b89159e4d9ee673fb9c`, all 40 PR checks passed.
+    - [x] Publish checksum-bound GitHub pre-release assets and verify downloads:
+      `docs/release/channel-proofs/github-prerelease-v0.2.3-transcript.json`.
     - [ ] Publish TestPyPI, verify a clean registry install, then publish and verify PyPI.
     - [ ] Update the Homebrew tap and verify build, install, smoke, and uninstall.
     - [ ] Advance selected-channel proofs only after verification; record ledger closure.

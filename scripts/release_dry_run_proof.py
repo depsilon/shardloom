@@ -12,6 +12,7 @@ runtime engines.
 from __future__ import annotations
 
 import argparse
+import configparser
 import json
 import os
 import platform
@@ -473,10 +474,20 @@ def build_python_artifacts(
 ) -> dict[str, Any]:
     python = str(python_executable or Path(sys.executable))
     clean_python_dist(dist_dir)
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(package_dir / "setup.cfg", encoding="utf-8")
+    wheel_tag = config.get("bdist_wheel", "plat_name", fallback=None)
+    build_env = None
+    if wheel_tag and wheel_tag.startswith("macosx_"):
+        build_env = os.environ.copy()
+        # Keep the package's existing setup.py override aligned with the explicit
+        # wheel option, including macOS 11+ major-version normalization.
+        build_env["SHARDLOOM_WHEEL_PLAT_NAME"] = wheel_tag
     build_step = run_step(
         name="build_python_artifacts",
         command=[python, "-m", "build", str(package_dir)],
         cwd=repo_root,
+        env=build_env,
     )
     if build_step["returncode"] == 0:
         build_step["build_backend"] = "python_build_frontend"
@@ -499,11 +510,13 @@ def build_python_artifacts(
             str(package_dir),
         ],
         cwd=repo_root,
+        env=build_env,
     )
     fallback_sdist_step = run_step(
         name="build_python_artifacts_sdist",
         command=fallback_sdist_command(python, package_dir, dist_dir),
         cwd=repo_root,
+        env=build_env,
     )
     fallback_step = {
         "name": "build_python_artifacts",
@@ -595,6 +608,28 @@ def stage_python_artifacts_for_provenance(
         }
 
 
+def pin_bundled_macos_wheel_platform(stage_dir: Path, platform_tag: str) -> str | None:
+    if not platform_tag.startswith("macos-"):
+        return None
+    arch = {"macos-aarch64": "arm64", "macos-x86_64": "x86_64"}.get(platform_tag)
+    version = re.match(r"^(\d+)\.(\d+)", platform.mac_ver()[0])
+    if arch is None or version is None:
+        raise OSError(f"cannot establish a native macOS wheel platform: {platform_tag}")
+    major, minor = map(int, version.groups())
+    wheel_tag = f"macosx_{major}_{0 if major >= 11 else minor}_{arch}"
+    config = configparser.ConfigParser(interpolation=None)
+    config_path = stage_dir / "setup.cfg"
+    config.read(config_path, encoding="utf-8")
+    if not config.has_section("bdist_wheel"):
+        config.add_section("bdist_wheel")
+    # A supplied command option survives wheel's macOS platform recalculation;
+    # assigning plat_name after finalize_options alone can revert to universal2.
+    config.set("bdist_wheel", "plat_name", wheel_tag)
+    with config_path.open("w", encoding="utf-8") as stream:
+        config.write(stream)
+    return wheel_tag
+
+
 def stage_python_package_with_bundled_cli(
     repo_root: Path,
     stage_dir: Path,
@@ -619,6 +654,7 @@ def stage_python_package_with_bundled_cli(
             ),
         )
         platform_tag = bundled_cli_platform_tag()
+        wheel_platform_tag = pin_bundled_macos_wheel_platform(stage_dir, platform_tag)
         bundled_dir = stage_dir / "src" / "shardloom" / "bin" / platform_tag
         bundled_dir.mkdir(parents=True, exist_ok=True)
         bundled_binary = bundled_dir / bundled_cli_executable_name()
@@ -642,6 +678,7 @@ def stage_python_package_with_bundled_cli(
             "stderr": "",
             "timed_out": False,
             "bundled_cli_platform_tag": platform_tag,
+            "wheel_platform_tag": wheel_platform_tag,
             "bundled_cli_resource": resource_ref,
         }
     except (OSError, shutil.Error) as exc:
