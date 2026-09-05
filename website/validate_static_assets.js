@@ -30,6 +30,8 @@ const requiredFiles = [
   "_redirects",
   "assets/site.css",
   "assets/site.js",
+  "assets/parallax-home.css",
+  "assets/parallax-home.js",
   "assets/logo/shardloom-favicon.png",
   "assets/logo/shardloom-logo.png",
   "assets/logo/shardloom-logo-trim.png",
@@ -192,7 +194,12 @@ const htmlFiles = [
 for (const file of htmlFiles) {
   const content = read(file);
   assert(content.includes('/assets/logo/shardloom-favicon.png'), `${file} must use favicon asset`);
-  assert(content.includes('/assets/site.css'), `${file} must use shared CSS`);
+  if (file === "index.html") {
+    assert(content.includes('/assets/parallax-home.css'), `${file} must use parallax homepage CSS`);
+    assert(content.includes('/assets/parallax-home.js'), `${file} must use parallax homepage JS`);
+  } else {
+    assert(content.includes('/assets/site.css'), `${file} must use shared CSS`);
+  }
   assert(content.includes('<link rel="canonical"'), `${file} must include canonical URL`);
   assert(content.includes('property="og:title"'), `${file} must include OG metadata`);
 }
@@ -230,27 +237,36 @@ for (const required of [
 
 const index = read("index.html");
 assert(
-  index.includes("A standalone encoded-columnar engine for Vortex-native routes"),
-  "home page hero must use current Vortex-native route language",
+  index.includes('MAKE<span class="luminous">LESS WORK.</span>'),
+  "home page hero must preserve the parallax source-of-truth headline",
 );
 assert(
-  index.includes("Route totals name their surface."),
-  "home page must preserve explicit route timing surface language",
+  index.includes("The fastest work<br>is work you <span class=\"soft\">never do.</span>"),
+  "home page must preserve the work-avoidance scroll chapter",
 );
 for (const required of [
-  "UniversalIngress",
-  "vortex_ingest",
-  "VortexPreparedState",
+  "Vortex isn't another format on a list.",
+  "Capillary<br>work units",
+  "PulseWeave",
+  "Single artifact / internal structure",
+  "No secret<br><span class=\"soft\">plan B.</span>",
   "fallback_attempted",
   "external_engine_invoked",
-  "claim_gate_status",
-  "Start local proof",
-  "Read Field Guide",
-  "Open benchmark comparison",
+  "python -m pip install shardloom",
+  "Interactive architectural illustrations, not runtime telemetry or benchmark claims.",
+  'data-scene="orbital"',
+  'data-scene="avoid"',
+  'data-scene="plates"',
+  'data-scene="loom"',
+  'data-scene="pulse"',
+  'data-scene="artifact"',
+  'data-scene="horizon"',
+  'id="motionToggle"',
+  'id="copyInstall"',
 ]) {
-  assert(index.includes(required), `home page product console missing ${required}`);
+  assert(index.includes(required), `parallax home page missing ${required}`);
 }
-assert(index.includes("Open GitHub"), "home page must link to GitHub");
+assert(index.includes("View on GitHub"), "home page must link to GitHub");
 
 const benchmarks = read("benchmarks.html");
 for (const required of [
