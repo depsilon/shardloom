@@ -534,9 +534,15 @@ def check_parallax_homepage(website: Path, blockers: list[str]) -> None:
         'data-layer="6"',
         'id="copyCode"',
         'id="copyInstall"',
+        'class="page-progress"',
+        'data-outcome="unsupported"',
+        'data-timing="publication"',
     ]:
         if control not in html:
             blockers.append(f"parallax homepage missing interaction hook: {control}")
+    for obsolete in ("homepage concept", "local technical preview"):
+        if obsolete in html.lower():
+            blockers.append(f"parallax homepage retains unpublished-concept label: {obsolete}")
 
 
 def main() -> int:

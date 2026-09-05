@@ -90,12 +90,16 @@ pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
 pub mod output_payload;
+#[cfg(feature = "upstream-vortex")]
+pub mod owned_buffers;
 pub mod physical_operator_bridge;
 pub mod projection_readiness;
 pub mod query_primitive;
 pub mod query_primitives;
 pub mod query_trace;
 pub mod read_planning;
+#[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+pub mod resident_session;
 pub mod runtime_bridge;
 pub mod runtime_utilization;
 pub mod scheduler_bridge;

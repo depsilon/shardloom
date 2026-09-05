@@ -1,0 +1,497 @@
+{
+  "candidate_includes_uncommitted_release_repairs": true,
+  "candidate_version": "0.2.3",
+  "clean_conda_required": true,
+  "command_results": [
+    {
+      "command": "python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json",
+      "elapsed_millis": 1669.9403,
+      "group": "security_dependency_provenance",
+      "name": "dependency_audit_release_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_security_posture.py --json-output target/security-posture-report.json",
+      "elapsed_millis": 21.4866,
+      "group": "security_dependency_provenance",
+      "name": "security_posture",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check --workspace",
+      "elapsed_millis": 56.0318,
+      "group": "feature_build_matrix",
+      "name": "default_features",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check --workspace --all-features",
+      "elapsed_millis": 117.6662,
+      "group": "feature_build_matrix",
+      "name": "all_features",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check --workspace --no-default-features",
+      "elapsed_millis": 60.5435,
+      "group": "feature_build_matrix",
+      "name": "no_default_features",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check -p shardloom-vortex --features upstream-vortex",
+      "elapsed_millis": 115.3055,
+      "group": "feature_build_matrix",
+      "name": "upstream_vortex",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check -p shardloom-vortex --features vortex-file-io",
+      "elapsed_millis": 106.8696,
+      "group": "feature_build_matrix",
+      "name": "vortex_file_io",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check -p shardloom-vortex --features vortex-local-primitives",
+      "elapsed_millis": 106.3219,
+      "group": "feature_build_matrix",
+      "name": "vortex_local_primitives",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check -p shardloom-vortex --features vortex-encoded-read-spike",
+      "elapsed_millis": 101.3252,
+      "group": "feature_build_matrix",
+      "name": "vortex_encoded_read_spike",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check -p shardloom-vortex --features release-user-surfaces",
+      "elapsed_millis": 114.5381,
+      "group": "feature_build_matrix",
+      "name": "release_user_surfaces",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo test -p shardloom-contract-tests --test conda_packaging_recipes",
+      "elapsed_millis": 54.2773,
+      "group": "feature_build_matrix",
+      "name": "packaging_deployment",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo test -p shardloom-vortex --lib --features release-user-surfaces",
+      "elapsed_millis": 1365.4531,
+      "group": "feature_build_matrix",
+      "name": "native_vortex_tests",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo test -p shardloom-cli --bin shardloom --test sql_local_source_runtime_smoke --test public_workflow_route --features release-user-surfaces",
+      "elapsed_millis": 5380.3219,
+      "group": "feature_build_matrix",
+      "name": "native_public_surface_tests",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings",
+      "elapsed_millis": 210.1735,
+      "group": "feature_build_matrix",
+      "name": "native_release_clippy",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark",
+      "elapsed_millis": 143.4229,
+      "group": "feature_build_matrix",
+      "name": "benchmark_extras",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "elapsed_millis": 1959.2198,
+      "group": "required_validation",
+      "name": "cargo_fmt",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
+      "elapsed_millis": 205.2113,
+      "group": "required_validation",
+      "name": "cargo_clippy_workspace",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo test --workspace --all-targets",
+      "elapsed_millis": 2700.3251,
+      "group": "required_validation",
+      "name": "cargo_test_workspace",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python -m unittest discover python/tests",
+      "elapsed_millis": 17737.3318,
+      "group": "required_validation",
+      "name": "python_unittest",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python -m build python",
+      "elapsed_millis": 1684.3111,
+      "group": "required_validation",
+      "name": "python_build",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/release_dry_run_proof.py --rows 64 --iterations 1 --require-clean-conda --conda-executable /opt/homebrew/bin/micromamba",
+      "elapsed_millis": 54077.8874,
+      "group": "required_validation",
+      "name": "release_dry_run_proof",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+      "elapsed_millis": 772.2087,
+      "group": "required_validation",
+      "name": "global_architecture_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_contribution_governance.py",
+      "elapsed_millis": 55.4566,
+      "group": "required_validation",
+      "name": "contribution_governance",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_ci_gate_matrix.py",
+      "elapsed_millis": 36.4138,
+      "group": "required_validation",
+      "name": "ci_gate_matrix_contract",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_workspace_version_sources.py",
+      "elapsed_millis": 48.7182,
+      "group": "required_validation",
+      "name": "workspace_version_source_contract",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_release_security_gate.py",
+      "elapsed_millis": 22.9563,
+      "group": "required_validation",
+      "name": "release_security_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_release_architecture_tracker.py --allow-blocked",
+      "elapsed_millis": 65.9004,
+      "group": "required_validation",
+      "name": "release_architecture_tracker",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_package_channel_readiness.py --require-local-evidence",
+      "elapsed_millis": 26.5377,
+      "group": "required_validation",
+      "name": "package_channel_readiness",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_security_ci_hardening.py",
+      "elapsed_millis": 24.6683,
+      "group": "required_validation",
+      "name": "v1_security_ci_hardening_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_release_boundary.py",
+      "elapsed_millis": 199.0885,
+      "group": "required_validation",
+      "name": "v1_release_boundary_firewall",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_final_release_approval.py",
+      "elapsed_millis": 24.2061,
+      "group": "required_validation",
+      "name": "final_release_approval_post_release_verification",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_golden_workflows.py",
+      "elapsed_millis": 5368.7041,
+      "group": "required_validation",
+      "name": "golden_workflow_validator",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_admitted_semantics_matrix.py",
+      "elapsed_millis": 22469.9016,
+      "group": "required_validation",
+      "name": "admitted_semantics_matrix",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_runtime_execution_envelopes.py",
+      "elapsed_millis": 47.3359,
+      "group": "required_validation",
+      "name": "runtime_execution_envelopes",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_website_readiness.py",
+      "elapsed_millis": 320.0585,
+      "group": "required_validation",
+      "name": "website_readiness",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/final_release_rehearsal.py --allow-blocked",
+      "elapsed_millis": 25.0228,
+      "group": "required_validation",
+      "name": "final_release_rehearsal",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_production_usability_gate.py",
+      "elapsed_millis": 37.9775,
+      "group": "required_validation",
+      "name": "production_usability_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_python_user_surface_completion.py",
+      "elapsed_millis": 100.1622,
+      "group": "required_validation",
+      "name": "python_user_surface_completion_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_sql_python_dataframe_parity.py",
+      "elapsed_millis": 120.2336,
+      "group": "required_validation",
+      "name": "sql_python_dataframe_parity_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_front_door_runtime_scope.py",
+      "elapsed_millis": 88.7485,
+      "group": "required_validation",
+      "name": "v1_front_door_runtime_scope_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_vortex_runtime_scope.py",
+      "elapsed_millis": 87.9123,
+      "group": "required_validation",
+      "name": "v1_vortex_runtime_scope_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_source_prepared_state_scope.py",
+      "elapsed_millis": 89.574,
+      "group": "required_validation",
+      "name": "v1_source_prepared_state_scope_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_local_output_sink_scope.py",
+      "elapsed_millis": 88.9081,
+      "group": "required_validation",
+      "name": "v1_local_output_sink_scope_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_local_format_production_profiles.py",
+      "elapsed_millis": 23.2873,
+      "group": "required_validation",
+      "name": "local_format_production_profiles_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_local_format_pushdown_fidelity.py",
+      "elapsed_millis": 23.0815,
+      "group": "required_validation",
+      "name": "local_format_pushdown_fidelity_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_compatibility_output_translation_reports.py",
+      "elapsed_millis": 22.9239,
+      "group": "required_validation",
+      "name": "compatibility_output_translation_report_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_local_format_edge_case_fixtures.py",
+      "elapsed_millis": 23.2947,
+      "group": "required_validation",
+      "name": "local_format_edge_case_fixture_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_local_resource_safety.py",
+      "elapsed_millis": 4735.5995,
+      "group": "required_validation",
+      "name": "v1_local_resource_safety_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_observability_support.py",
+      "elapsed_millis": 4583.3723,
+      "group": "required_validation",
+      "name": "v1_observability_support_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_api_schema_stability.py",
+      "elapsed_millis": 25.4895,
+      "group": "required_validation",
+      "name": "v1_api_schema_stability_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_example_replay.py",
+      "elapsed_millis": 5149.6514,
+      "group": "required_validation",
+      "name": "v1_example_replay_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_v1_correctness_conformance.py",
+      "elapsed_millis": 42.2399,
+      "group": "required_validation",
+      "name": "v1_correctness_conformance_gate",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_user_surface_runtime_gap_inventory.py",
+      "elapsed_millis": 112.8514,
+      "group": "required_validation",
+      "name": "user_surface_runtime_gap_inventory",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_user_surface_graduation_matrix.py",
+      "elapsed_millis": 156.4611,
+      "group": "required_validation",
+      "name": "user_surface_graduation_matrix",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_runtime_gap_family_burn_down.py",
+      "elapsed_millis": 34.1824,
+      "group": "required_validation",
+      "name": "runtime_gap_family_burn_down",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_user_route_capability_report.py",
+      "elapsed_millis": 92.2035,
+      "group": "required_validation",
+      "name": "user_route_capability_report",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check_production_certification_gate.py",
+      "elapsed_millis": 26.7355,
+      "group": "required_validation",
+      "name": "production_certification_gate",
+      "returncode": 0,
+      "status": "passed"
+    }
+  ],
+  "evidence_kind": "compact_local_validation_summary",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "feature_build_matrix_status": "passed",
+  "foundation_commit": "fe730810425e2a2aa2ba657ee0b46ba6afd32d4a",
+  "package_publication_status": "not_attempted",
+  "package_rehearsal": {
+    "clean_conda_env_install_required": true,
+    "clean_conda_env_install_status": "passed",
+    "clean_venv_install_status": "passed",
+    "conda_client_resolved_bundled_cli": true,
+    "local_python_unsupported_path_evidence_printed": true,
+    "local_python_user_surface_quickstart_performed": true,
+    "proof_status": "passed",
+    "public_package_release_claim_allowed": false,
+    "publication_attempted": false,
+    "wheel_client_resolved_bundled_cli": true
+  },
+  "publication_attempted": false,
+  "python_test_summary": {
+    "errors": 0,
+    "failures": 0,
+    "run": 785,
+    "skipped": 144
+  },
+  "raw_report_local_path": "target/release-validation-evidence.json",
+  "raw_report_sha256": "dd91036edfdc6cb8fadda18666f6c37a0b6cd0cac28c260eb77da1a4acc88ee6",
+  "remote_ci_status": "pending",
+  "required_validation_status": "passed",
+  "schema_version": "shardloom.release_validation_evidence.v1",
+  "secrets_required": false,
+  "status": "passed",
+  "supporting_security_dependency_status": "passed",
+  "tag_created": false
+}

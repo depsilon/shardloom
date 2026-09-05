@@ -30,7 +30,7 @@ artifacts remain repository evidence and must not be mirrored into a shardloom.i
 
 | Route | Job | Source |
 | --- | --- | --- |
-| `/` | First-viewport product identity, route/evidence posture, next action | `website-src/src/pages/index.astro`, benchmark manifest |
+| `/` | Parallax product experience, route/evidence posture, next action | `website-src/src/pages/index.astro`, `website-public/assets/parallax-home.*`, README contracts |
 | `/about` | Short claim-safe overview of what ShardLoom is, is not, and where current evidence lives | `website-src/src/pages/about.astro`, README, compute-flow reference |
 | `/start` | Local proof path without package or production claims | repo getting-started docs and local scripts |
 | `/field-guide` | Starlight docs shell for start, Python surface, benchmark methodology, limitations, and vocabulary | generated docs content and exact source references |
@@ -41,6 +41,13 @@ Removed public routes are redirected intentionally: `/architecture` to `/compute
 `/docs` to `/field-guide`, `/status` to `/field-guide/limitations`, and `/use-cases` to
 `/field-guide/python-surface` or repository use-case records. The generated use-case and status
 matrices remain repository evidence, not public website IA.
+
+The supplied `ShardLoom_Parallax_Experience.html` governs homepage composition and its seven
+procedural canvas scenes. It is not a benchmark artifact. The homepage is published, so draft
+labels such as "homepage concept" and "local technical preview" do not belong on that page.
+Removing those presentation labels does not change the engine's support matrix or claim gates.
+The scroll, anchor, accessibility, and small-screen corrections are recorded in
+`docs/architecture/homepage-scroll-fidelity-2026-09-05.md`.
 
 ## Benchmark Page Contract
 

@@ -1,0 +1,2276 @@
+{
+  "schema_version": "shardloom.performance_overhaul_foundation_evidence.v1",
+  "created_on": "2026-09-05",
+  "baseline_commit": "c6cda69387e081c3baa2e5b339bac68fc1557158",
+  "evidence_document": "docs/architecture/performance-overhaul-implementation-2026-09-05.md",
+  "candidate_source_state": "uncommitted codex/resident-performance-overhaul; binaries identify measured variants",
+  "frozen_binaries_sha256": {
+    "baseline-c6cda693": "306b1071eb10f51e8fa1d3091d1616058be770d65551e7a684e82b032ec4189a",
+    "candidate-resident-foundation": "30f5ef314b65c15df108d0e7a2dd6ca9ecf2454f1384de706706d958649931a8",
+    "candidate-single-publication-fingerprint": "d05fa0bc6731d10fb59a7cb41283ae342752b9dad5b888c9f5716219b6dc4fe8",
+    "candidate-resource-sized-parquet": "b0dfa9379f868aea1ecfa91bde746b624a86adb7f7b2b1f7e35e3638b5be5fea"
+  },
+  "host": {
+    "logical_cpus": 10,
+    "physical_memory_bytes": 17179869184,
+    "os": "macOS 26.5.1",
+    "architecture": "arm64",
+    "isolation": "shared interactive Mac; no compiler overlapped UAT"
+  },
+  "claim_boundary": "local measured samples, not official rankings, confidence intervals, or completed PERF packets",
+  "ingests": [
+    {
+      "variant": "merged_baseline",
+      "run_id": "ingest_cli_uat_gated_20260905T133434Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.ingest_cli_uat_gated.v1",
+        "claim_boundary": "local CLI replacement-ingest UAT only; no official benchmark claim",
+        "created_at_utc": "2026-09-05T13:37:36Z",
+        "command_file": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T133434Z/prepare.cmd.txt",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T133434Z/stdout.json",
+        "stderr_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T133434Z/stderr.txt",
+        "progress_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T133434Z/progress.jsonl",
+        "log_dir": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T133434Z",
+        "returncode": 0,
+        "stop_reason": "process_completed",
+        "elapsed_seconds": 182,
+        "native_process_seconds": 177.61964087496744,
+        "native_timing_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T133434Z/native_timing.json",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "source_bytes": 14779976446,
+        "source_allocated_bytes": 14779977728,
+        "target": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/baseline-c6cda693.vortex",
+        "target_exists": true,
+        "target_bytes": 38147848068,
+        "memory_gb": 24,
+        "max_parallelism": 2,
+        "max_runtime_seconds": 360,
+        "max_artifact_gb": 45,
+        "stable_artifact_seconds": 120,
+        "stable_artifact_min_gb": 25,
+        "idle_cpu_percent": 1,
+        "min_progress_seconds": 360,
+        "min_progress_gb": 1,
+        "progress_sample_count": 12,
+        "stdout_json_ok": true
+      },
+      "input_rows": 99997497,
+      "prepare_millis": 141989,
+      "publication_millis": null,
+      "record_batches": 423,
+      "writer_digest": "sha256:6777eb4deea57cea7d83e772b3af4db2ebd77f003c38c1997ee0aadf02071c97",
+      "publication_digest": "sha256:6777eb4deea57cea7d83e772b3af4db2ebd77f003c38c1997ee0aadf02071c97"
+    },
+    {
+      "variant": "resident_foundation_before_checksum_removal",
+      "run_id": "ingest_cli_uat_gated_20260905T134828Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.ingest_cli_uat_gated.v1",
+        "claim_boundary": "local CLI replacement-ingest UAT only; no official benchmark claim",
+        "created_at_utc": "2026-09-05T13:51:30Z",
+        "command_file": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T134828Z/prepare.cmd.txt",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T134828Z/stdout.json",
+        "stderr_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T134828Z/stderr.txt",
+        "progress_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T134828Z/progress.jsonl",
+        "log_dir": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T134828Z",
+        "returncode": 0,
+        "stop_reason": "process_completed",
+        "elapsed_seconds": 182,
+        "native_process_seconds": 176.74032599997008,
+        "native_timing_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T134828Z/native_timing.json",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "source_bytes": 14779976446,
+        "source_allocated_bytes": 14779977728,
+        "target": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/candidate-resident-foundation.vortex",
+        "target_exists": true,
+        "target_bytes": 38147848068,
+        "memory_gb": 24,
+        "max_parallelism": 2,
+        "max_runtime_seconds": 220,
+        "max_artifact_gb": 45,
+        "stable_artifact_seconds": 120,
+        "stable_artifact_min_gb": 25,
+        "idle_cpu_percent": 1,
+        "min_progress_seconds": 360,
+        "min_progress_gb": 1,
+        "progress_sample_count": 12,
+        "stdout_json_ok": true
+      },
+      "input_rows": 99997497,
+      "prepare_millis": 142745,
+      "publication_millis": null,
+      "record_batches": 423,
+      "writer_digest": "sha256:6777eb4deea57cea7d83e772b3af4db2ebd77f003c38c1997ee0aadf02071c97",
+      "publication_digest": "sha256:6777eb4deea57cea7d83e772b3af4db2ebd77f003c38c1997ee0aadf02071c97"
+    },
+    {
+      "variant": "single_publication_fingerprint",
+      "run_id": "ingest_cli_uat_gated_20260905T141342Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.ingest_cli_uat_gated.v1",
+        "claim_boundary": "local CLI replacement-ingest UAT only; no official benchmark claim",
+        "created_at_utc": "2026-09-05T14:16:43Z",
+        "command_file": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141342Z/prepare.cmd.txt",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141342Z/stdout.json",
+        "stderr_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141342Z/stderr.txt",
+        "progress_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141342Z/progress.jsonl",
+        "log_dir": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141342Z",
+        "returncode": 0,
+        "stop_reason": "process_completed",
+        "elapsed_seconds": 181,
+        "native_process_seconds": 159.3319153750199,
+        "native_timing_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141342Z/native_timing.json",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "source_bytes": 14779976446,
+        "source_allocated_bytes": 14779977728,
+        "target": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/candidate-resident-foundation.vortex",
+        "target_exists": true,
+        "target_bytes": 38147848068,
+        "memory_gb": 24,
+        "max_parallelism": 2,
+        "max_runtime_seconds": 240,
+        "max_artifact_gb": 45,
+        "stable_artifact_seconds": 120,
+        "stable_artifact_min_gb": 25,
+        "idle_cpu_percent": 1,
+        "min_progress_seconds": 360,
+        "min_progress_gb": 1,
+        "progress_sample_count": 6,
+        "stdout_json_ok": true
+      },
+      "input_rows": 99997497,
+      "prepare_millis": 141285,
+      "publication_millis": 16966,
+      "record_batches": 423,
+      "writer_digest": "sha256:6777eb4deea57cea7d83e772b3af4db2ebd77f003c38c1997ee0aadf02071c97",
+      "publication_digest": "sha256:6777eb4deea57cea7d83e772b3af4db2ebd77f003c38c1997ee0aadf02071c97"
+    },
+    {
+      "variant": "failed_4gb_before_metadata_batch_sizing",
+      "run_id": "ingest_cli_uat_gated_20260905T141737Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.ingest_cli_uat_gated.v1",
+        "claim_boundary": "local CLI replacement-ingest UAT only; no official benchmark claim",
+        "created_at_utc": "2026-09-05T14:18:07Z",
+        "command_file": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141737Z/prepare.cmd.txt",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141737Z/stdout.json",
+        "stderr_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141737Z/stderr.txt",
+        "progress_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141737Z/progress.jsonl",
+        "log_dir": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141737Z",
+        "returncode": 2,
+        "stop_reason": "process_completed",
+        "elapsed_seconds": 30,
+        "native_process_seconds": 26.511289917048998,
+        "native_peak_rss_bytes": 7635533824,
+        "native_timing_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T141737Z/native_timing.json",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "source_bytes": 14779976446,
+        "source_allocated_bytes": 14779977728,
+        "target": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/candidate-resident-foundation.vortex",
+        "target_exists": false,
+        "target_bytes": 0,
+        "memory_gb": 4,
+        "max_parallelism": 2,
+        "max_runtime_seconds": 240,
+        "max_artifact_gb": 45,
+        "stable_artifact_seconds": 120,
+        "stable_artifact_min_gb": 25,
+        "idle_cpu_percent": 1,
+        "min_progress_seconds": 360,
+        "min_progress_gb": 1,
+        "progress_sample_count": 1,
+        "stdout_json_ok": true
+      },
+      "input_rows": null,
+      "prepare_millis": null,
+      "publication_millis": null,
+      "record_batches": null,
+      "writer_digest": null,
+      "publication_digest": null
+    },
+    {
+      "variant": "final_runtime_4gb_metadata_sized",
+      "run_id": "ingest_cli_uat_gated_20260905T142817Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.ingest_cli_uat_gated.v1",
+        "claim_boundary": "local CLI replacement-ingest UAT only; no official benchmark claim",
+        "created_at_utc": "2026-09-05T14:31:18Z",
+        "command_file": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T142817Z/prepare.cmd.txt",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T142817Z/stdout.json",
+        "stderr_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T142817Z/stderr.txt",
+        "progress_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T142817Z/progress.jsonl",
+        "log_dir": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T142817Z",
+        "returncode": 0,
+        "stop_reason": "process_completed",
+        "elapsed_seconds": 181,
+        "native_process_seconds": 163.2344708329765,
+        "native_peak_rss_bytes": 9869230080,
+        "native_timing_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T142817Z/native_timing.json",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "source_bytes": 14779976446,
+        "source_allocated_bytes": 14779977728,
+        "target": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/candidate-resident-foundation.vortex",
+        "target_exists": true,
+        "target_bytes": 37965397844,
+        "memory_gb": 4,
+        "max_parallelism": 2,
+        "max_runtime_seconds": 240,
+        "max_artifact_gb": 45,
+        "stable_artifact_seconds": 120,
+        "stable_artifact_min_gb": 25,
+        "idle_cpu_percent": 1,
+        "min_progress_seconds": 360,
+        "min_progress_gb": 1,
+        "progress_sample_count": 6,
+        "stdout_json_ok": true
+      },
+      "input_rows": 99997497,
+      "prepare_millis": 145586,
+      "publication_millis": 16575,
+      "record_batches": 3120,
+      "writer_digest": "sha256:3e5565a7c0b273a54b05cb13d324302598918eeae81409c344a6e1cea78bcfd5",
+      "publication_digest": "sha256:3e5565a7c0b273a54b05cb13d324302598918eeae81409c344a6e1cea78bcfd5"
+    },
+    {
+      "variant": "final_runtime_24gb",
+      "run_id": "ingest_cli_uat_gated_20260905T144256Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.ingest_cli_uat_gated.v1",
+        "claim_boundary": "local CLI replacement-ingest UAT only; no official benchmark claim",
+        "created_at_utc": "2026-09-05T14:45:57Z",
+        "command_file": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T144256Z/prepare.cmd.txt",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T144256Z/stdout.json",
+        "stderr_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T144256Z/stderr.txt",
+        "progress_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T144256Z/progress.jsonl",
+        "log_dir": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T144256Z",
+        "returncode": 0,
+        "stop_reason": "process_completed",
+        "elapsed_seconds": 181,
+        "native_process_seconds": 161.48937470902456,
+        "native_peak_rss_bytes": 9752756224,
+        "native_timing_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260905T144256Z/native_timing.json",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "source_bytes": 14779976446,
+        "source_allocated_bytes": 14779977728,
+        "target": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/candidate-resident-24gb.vortex",
+        "target_exists": true,
+        "target_bytes": 38147848068,
+        "memory_gb": 24,
+        "max_parallelism": 2,
+        "max_runtime_seconds": 240,
+        "max_artifact_gb": 45,
+        "stable_artifact_seconds": 120,
+        "stable_artifact_min_gb": 25,
+        "idle_cpu_percent": 1,
+        "min_progress_seconds": 360,
+        "min_progress_gb": 1,
+        "progress_sample_count": 6,
+        "stdout_json_ok": true
+      },
+      "input_rows": 99997497,
+      "prepare_millis": 144402,
+      "publication_millis": 16957,
+      "record_batches": 423,
+      "writer_digest": "sha256:6777eb4deea57cea7d83e772b3af4db2ebd77f003c38c1997ee0aadf02071c97",
+      "publication_digest": "sha256:6777eb4deea57cea7d83e772b3af4db2ebd77f003c38c1997ee0aadf02071c97"
+    }
+  ],
+  "query_runs": [
+    {
+      "variant": "merged_baseline_first",
+      "run_id": "full43_20260905T134021077065Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.public_result_regression.v1",
+        "build_commit": "c6cda69387e081c3baa2e5b339bac68fc1557158",
+        "binary_sha256": "306b1071eb10f51e8fa1d3091d1616058be770d65551e7a684e82b032ec4189a",
+        "queries_sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/baseline-c6cda693.vortex",
+        "source_bytes": 38147848068,
+        "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "cpu_count": 10,
+        "memory_gb": 24,
+        "max_parallelism": 12,
+        "timing_boundary": "process creation through completed public CLI output and process exit",
+        "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
+        "reference": "/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/full43_first_pass_exact_histogram_20260904T141000Z",
+        "reference_override": {
+          "input_rows": 99997497,
+          "provider": "parquet 58.3 + Arrow typed int64 scalar equality; independent of ShardLoom and Vortex query paths",
+          "query": 20,
+          "schema_version": "shardloom.clickbench.independent_result_reference.v1",
+          "values": [
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            }
+          ]
+        },
+        "correctness_boundary": "complete returned values compared with retained ShardLoom outputs; not an independent oracle",
+        "complete": true,
+        "runs_completed": 129,
+        "runs_passed": 129,
+        "full_result_validation": false,
+        "queries_passed": 43,
+        "query_total_seconds": 142.5627738738549,
+        "hot_total_seconds": 142.6513500827714,
+        "all_raw_run_seconds": 434.07841291400837,
+        "geomean_seconds": 1.0218492394305203,
+        "hot_geomean_seconds": 1.023169738749567,
+        "query_runs": [
+          [
+            0.018016916001215577,
+            0.017453167005442083,
+            0.01689516700571403
+          ],
+          [
+            0.05217512499075383,
+            0.02739304199349135,
+            0.027018916967790574
+          ],
+          [
+            0.5917344590416178,
+            0.5877812499529682,
+            0.589908291993197
+          ],
+          [
+            0.3079499999876134,
+            0.31891429203096777,
+            0.31267250003293157
+          ],
+          [
+            1.3735120000201277,
+            1.3456414159736596,
+            1.3526510410010815
+          ],
+          [
+            3.809765292040538,
+            3.758097624988295,
+            3.7803980000317097
+          ],
+          [
+            1.9282007910078391,
+            1.9406016250140965,
+            1.96276875003241
+          ],
+          [
+            0.11503049999009818,
+            0.11411958397366107,
+            0.11285583401331678
+          ],
+          [
+            8.24169920803979,
+            8.074452583969105,
+            8.01804416597588
+          ],
+          [
+            3.628846292034723,
+            3.612363959022332,
+            3.6247317920206115
+          ],
+          [
+            0.824000624998007,
+            0.8388980829622597,
+            0.8426326250191778
+          ],
+          [
+            1.5854244999936782,
+            1.614555832988117,
+            1.5819257500115782
+          ],
+          [
+            6.15037529100664,
+            6.114572458027396,
+            6.334380749962293
+          ],
+          [
+            8.179544792044908,
+            8.107433583005331,
+            8.08003325003665
+          ],
+          [
+            8.209528125007637,
+            8.064164375013206,
+            8.125331624993123
+          ],
+          [
+            3.2742408749763854,
+            3.1920122500159778,
+            3.0931916660047136
+          ],
+          [
+            15.135888874996454,
+            14.908576332964003,
+            15.557818666973617
+          ],
+          [
+            4.03015599999344,
+            3.597586042014882,
+            3.5369188339682296
+          ],
+          [
+            7.4815892079495825,
+            7.020120040979236,
+            7.000689124979544
+          ],
+          [
+            0.04204370896331966,
+            0.04042224999284372,
+            0.03919341700384393
+          ],
+          [
+            0.7878275829716586,
+            0.7137657499988563,
+            0.7317245000158437
+          ],
+          [
+            1.3332123750005849,
+            1.3156182499951683,
+            1.344848875014577
+          ],
+          [
+            4.55707712500589,
+            4.489332166034728,
+            4.539652000006754
+          ],
+          [
+            0.9454785829875618,
+            0.8218205419834703,
+            0.8823135410202667
+          ],
+          [
+            0.4316877920064144,
+            0.4130515829892829,
+            0.4063316669780761
+          ],
+          [
+            2.7288626250228845,
+            2.743620291003026,
+            2.689736375003122
+          ],
+          [
+            2.7372539580101147,
+            2.709148666996043,
+            2.7480988749885
+          ],
+          [
+            2.152272625011392,
+            2.1739672499825247,
+            2.198308624967467
+          ],
+          [
+            9.326140084012877,
+            9.235632791009266,
+            9.242443791008554
+          ],
+          [
+            0.2842322500073351,
+            0.28563079197192565,
+            0.28525537496898323
+          ],
+          [
+            1.8596256659948267,
+            1.842420333006885,
+            1.8366640000022016
+          ],
+          [
+            2.1074069580063224,
+            2.1044830410392024,
+            2.0954670409555547
+          ],
+          [
+            7.552165416011121,
+            6.824915917008184,
+            6.82418462500209
+          ],
+          [
+            14.312490208016243,
+            14.40198679198511,
+            14.346327874984127
+          ],
+          [
+            14.327697417000309,
+            13.38963612500811,
+            13.304602792020887
+          ],
+          [
+            5.4644496670225635,
+            5.443273583019618,
+            5.386206833005417
+          ],
+          [
+            0.1739644579938613,
+            0.1574426669976674,
+            0.15821500000311062
+          ],
+          [
+            0.09290733397938311,
+            0.08811037498526275,
+            0.08756283298134804
+          ],
+          [
+            0.06371604098239914,
+            0.061827249999623746,
+            0.06116500002099201
+          ],
+          [
+            0.6200892089982517,
+            0.6100316669908352,
+            0.6072665830142796
+          ],
+          [
+            0.05182362499181181,
+            0.04749175003962591,
+            0.046534416964277625
+          ],
+          [
+            0.03140970802633092,
+            0.029592291975859553,
+            0.03024245804408565
+          ],
+          [
+            0.040172250010073185,
+            0.03758854197803885,
+            0.03796591697027907
+          ]
+        ]
+      },
+      "validation_counts": [
+        {
+          "validation": "complete_values",
+          "runs": 126
+        },
+        {
+          "validation": "descriptor_count_only_not_returned_values",
+          "runs": 3
+        }
+      ],
+      "result_digests": [
+        {
+          "query": 1,
+          "sha256": "351a749cfaf1ce79f7e3ef576d4391f7874eee8436c66867bf1f18a7fca9e89d",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 2,
+          "sha256": "15bec0bae1f47a8fb92cba765fef9f2650865638a3dff6c0017109b567f4fdcd",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 3,
+          "sha256": "383b26388c6708ca0bc38d69e44899ca132de9da69f706d498b94e97d99536aa",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 4,
+          "sha256": "e1dfaa6330f26cada0e63049056f4ae7016d0161e69332d4f38160ef780700e1",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 5,
+          "sha256": "24d2db813dba5887df827b69b065647af4b9105f82b9d70c2eefeb791f639d5e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 6,
+          "sha256": "1bd261b96999db6bdf76e62a42adca78d9bdb8a9a5e3723e5074afc9ffbadc16",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 7,
+          "sha256": "65fe750674f358e2bc32088a9dd2f3f335d29afadfca28b7ceaf219c857cb025",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 8,
+          "sha256": "92197dc013de3b65509d77636b1fc387a9a8174f2fe98985b08602dd40c24477",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 9,
+          "sha256": "f9d287819e68b4bbfcef19fe6e0dbff694b9185713925549dcfa6d55853a29cb",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 10,
+          "sha256": "e3e8726edb33e37262051d4bab261b01e8e08f0aa596711c20af183957dc8191",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 11,
+          "sha256": "83302aeb625959e979601738343f2b964b405d740d4bf737852ae35926b19238",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 12,
+          "sha256": "7b7539ab99e276212c59b59c6b720254d09343b8fe91bcc4e52b3c395cf55d55",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 13,
+          "sha256": "37eb8ec8acebbf148aa7b038dca1cc4c48fd330b05a32ce22186710e0b33921e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 14,
+          "sha256": "2b9c858c93917d0eb01d84b5d3ac7b0c6e8073ff4cb75b98c92fcc2d00461d09",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 15,
+          "sha256": "c4426fd4a99852e5485d66c2adea08f14b381a28648a76939dd63ae43de63c84",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 16,
+          "sha256": "6db678c2701679bd8eaf25efd849239df893d17a4cf37fcaa9e8da4b83b3ab7b",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 17,
+          "sha256": "4977586d44b851e93c75d0eb023e5e190541fa885c3d836ab5b83816d0c80044",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 18,
+          "sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 19,
+          "sha256": "0031f3a12adffabb09a17dfbf53dc40cc3ab4c5aab2d3fb631d9b7484c213d19",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 20,
+          "sha256": "f91a104af7aa0f8fe334b6811dee66a69058aff58b5627781a297f33500c34c8",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 21,
+          "sha256": "3a59862b546e20deb6022ed90109ce3d24de79c2c94aa903f86d81d723bd8f84",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 22,
+          "sha256": "8d3348162918e6d1d901eddd03f15333a0d1b3aa10feb39c11db3df5d1e94221",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 23,
+          "sha256": "ac39db3ee9955345eb662eeafd4fd248f55c3a7cb094738be7e52edc783f90bd",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 24,
+          "sha256": "1c6942c5f6216f044ef65db820a4cc1fc5d36e5976927db186378bd1e3f3664e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 25,
+          "sha256": "d363ad19d845653c51d8825dc96b10ab0561292f4a5ef62e32c0a335dbbb5097",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 26,
+          "sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 27,
+          "sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 28,
+          "sha256": "4952641ed6f4b07477683c43cdc1bf27050a7cba5069e552c1bf2479444a964a",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 29,
+          "sha256": "fc6242e120770d4cd9ffc73c5fbb0d55b12dc1b98b055bcad96945290e151308",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 30,
+          "sha256": "3bc17651768c7d8a9ee6b669c362a9af7a77b15b354f23fee932b3c11bede622",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 31,
+          "sha256": "62276ee900cfdec0b66d0fb2f0e2158f5a9f26df4e79aa562f76f254b24bc854",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 32,
+          "sha256": "59c752fe54ed1235b30b6a3b2a5891cc931666d48a37f21e041334b4de11547e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 33,
+          "sha256": "82e0180c3bdb058e847f6d7087d955008b35ef582f294586e099edaa5fa09fe9",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 34,
+          "sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 35,
+          "sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 36,
+          "sha256": "df235318373682cb9013069c4f4caa1b20518e8e1f0a3084a0c812653551c4e4",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 37,
+          "sha256": "d762df7c38e11e3afbbd539c908801e7d35076bf321aab41602a4322bb8f3195",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 38,
+          "sha256": "e4c326d8f7f223bd3d50921d99775c88ef3d15c2cb03503b94f95be199e6512e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 39,
+          "sha256": "e1b2c3bc5766d69b105234197033eb773e33b2d44f6503f6fedaa8e5cb33818e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 40,
+          "sha256": "ef6b551999c1de74df42dec189c57c9d1703cecc72442baa83556afe2921e225",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 41,
+          "sha256": "8ab15f47ed9863c1c25f312a77928426f138314b44a7f2043003e36ef03b1d95",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 42,
+          "sha256": "edcf2e06194b07cd32c2eee2d07ed788759ee3a98ffd0067b95b3247bfda666e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 43,
+          "sha256": "f416a99a812b94cfa8d70d67978cd18d92d56cfad1b6add305062339c7d915f5",
+          "consistent_across_runs": true
+        }
+      ]
+    },
+    {
+      "variant": "resident_foundation_original_layout",
+      "run_id": "full43_20260905T135149334231Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.public_result_regression.v1",
+        "build_commit": "c6cda693-resident-foundation-working-tree",
+        "binary_sha256": "30f5ef314b65c15df108d0e7a2dd6ca9ecf2454f1384de706706d958649931a8",
+        "queries_sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/candidate-resident-foundation.vortex",
+        "source_bytes": 38147848068,
+        "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "cpu_count": 10,
+        "memory_gb": 24,
+        "max_parallelism": 12,
+        "timing_boundary": "process creation through completed public CLI output and process exit",
+        "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
+        "reference": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260905T134021077065Z",
+        "reference_override": {
+          "input_rows": 99997497,
+          "provider": "parquet 58.3 + Arrow typed int64 scalar equality; independent of ShardLoom and Vortex query paths",
+          "query": 20,
+          "schema_version": "shardloom.clickbench.independent_result_reference.v1",
+          "values": [
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            }
+          ]
+        },
+        "correctness_boundary": "complete returned values compared with retained ShardLoom outputs; not an independent oracle",
+        "complete": true,
+        "runs_completed": 129,
+        "runs_passed": 129,
+        "full_result_validation": true,
+        "queries_passed": 43,
+        "query_total_seconds": 144.935265666747,
+        "hot_total_seconds": 145.1664462928893,
+        "all_raw_run_seconds": 443.53838812361937,
+        "geomean_seconds": 1.0269661231042835,
+        "hot_geomean_seconds": 1.0282939169652434,
+        "query_runs": [
+          [
+            0.017649374960456043,
+            0.016203958948608488,
+            0.016275916015729308
+          ],
+          [
+            0.047514958947431296,
+            0.028341041994281113,
+            0.0285424169851467
+          ],
+          [
+            0.5924367500119843,
+            0.6086271249805577,
+            0.5865492910379544
+          ],
+          [
+            0.313145458989311,
+            0.3141340420115739,
+            0.31975112500367686
+          ],
+          [
+            1.3617407910060138,
+            1.3700279170298018,
+            1.438362082990352
+          ],
+          [
+            3.903059874952305,
+            3.917344334011432,
+            3.850672874948941
+          ],
+          [
+            1.9612224170123227,
+            1.9495470409747213,
+            1.9553743749856949
+          ],
+          [
+            0.11652112501906231,
+            0.1151342079974711,
+            0.11546345899114385
+          ],
+          [
+            8.616146542015485,
+            8.557693708979059,
+            8.93771516700508
+          ],
+          [
+            3.777290416008327,
+            3.7733332499628887,
+            3.6876310000079684
+          ],
+          [
+            0.8328997499775141,
+            0.8445338339661248,
+            0.8430416249902919
+          ],
+          [
+            1.6164262499660254,
+            1.635473957983777,
+            1.6264742080238648
+          ],
+          [
+            6.249608459009323,
+            6.176735958026256,
+            6.231314999982715
+          ],
+          [
+            8.147590750013478,
+            8.345223791024182,
+            8.29247258399846
+          ],
+          [
+            8.359221125021577,
+            8.26768066600198,
+            8.2376662499737
+          ],
+          [
+            3.209130582981743,
+            3.2180414999602363,
+            3.158412540971767
+          ],
+          [
+            15.530560832994524,
+            15.497483042010572,
+            15.552192332979757
+          ],
+          [
+            3.4984816249925643,
+            3.55665870802477,
+            3.482860374962911
+          ],
+          [
+            7.584783083002549,
+            7.08338912500767,
+            7.211094875005074
+          ],
+          [
+            0.03308041603304446,
+            0.03102741698967293,
+            0.030375792004633695
+          ],
+          [
+            0.7977488749893382,
+            0.720542041992303,
+            0.7396969590336084
+          ],
+          [
+            1.3456074999994598,
+            1.3329139999696054,
+            1.2914244589628652
+          ],
+          [
+            5.801110457978211,
+            4.53411845798837,
+            4.561299749999307
+          ],
+          [
+            0.91939158301102,
+            0.8132437909953296,
+            0.8479509999742731
+          ],
+          [
+            0.43895570904714987,
+            0.4090670000296086,
+            0.4107843339443207
+          ],
+          [
+            2.752858916996047,
+            2.7377166250371374,
+            2.673368334013503
+          ],
+          [
+            2.7875952079775743,
+            2.6945845419541,
+            2.713689125026576
+          ],
+          [
+            2.1648363749845885,
+            2.163427875027992,
+            2.1774990829871967
+          ],
+          [
+            10.0009306659922,
+            9.490508540999144,
+            9.335317375021987
+          ],
+          [
+            0.28969545802101493,
+            0.29253287496976554,
+            0.28570595796918496
+          ],
+          [
+            1.9308635420165956,
+            1.8874687500065193,
+            1.8947342080064118
+          ],
+          [
+            2.1539222500286996,
+            2.155641207995359,
+            2.129999459022656
+          ],
+          [
+            7.243503541976679,
+            6.557422542013228,
+            7.327137999993283
+          ],
+          [
+            14.941343084035907,
+            14.381123874976765,
+            14.522309000021778
+          ],
+          [
+            14.635986249952111,
+            13.851012375031132,
+            14.052330042002723
+          ],
+          [
+            5.428536457999144,
+            5.550139958038926,
+            5.485369708039798
+          ],
+          [
+            0.17887445801170543,
+            0.16145524999592453,
+            0.160554125031922
+          ],
+          [
+            0.09065858297981322,
+            0.08809687499888241,
+            0.08816145797027275
+          ],
+          [
+            0.06839179096277803,
+            0.06139541696757078,
+            0.06139612500555813
+          ],
+          [
+            0.6355959579814225,
+            0.6227063330006786,
+            0.6346759580192156
+          ],
+          [
+            0.05370341701200232,
+            0.04781362501671538,
+            0.04763824999099597
+          ],
+          [
+            0.03191537503153086,
+            0.0302885829587467,
+            0.03078470897162333
+          ],
+          [
+            0.03818508394761011,
+            0.0377235829946585,
+            0.03801754105370492
+          ]
+        ]
+      },
+      "validation_counts": [
+        {
+          "validation": "complete_values",
+          "runs": 129
+        }
+      ],
+      "result_digests": [
+        {
+          "query": 1,
+          "sha256": "351a749cfaf1ce79f7e3ef576d4391f7874eee8436c66867bf1f18a7fca9e89d",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 2,
+          "sha256": "15bec0bae1f47a8fb92cba765fef9f2650865638a3dff6c0017109b567f4fdcd",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 3,
+          "sha256": "383b26388c6708ca0bc38d69e44899ca132de9da69f706d498b94e97d99536aa",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 4,
+          "sha256": "e1dfaa6330f26cada0e63049056f4ae7016d0161e69332d4f38160ef780700e1",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 5,
+          "sha256": "24d2db813dba5887df827b69b065647af4b9105f82b9d70c2eefeb791f639d5e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 6,
+          "sha256": "1bd261b96999db6bdf76e62a42adca78d9bdb8a9a5e3723e5074afc9ffbadc16",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 7,
+          "sha256": "65fe750674f358e2bc32088a9dd2f3f335d29afadfca28b7ceaf219c857cb025",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 8,
+          "sha256": "92197dc013de3b65509d77636b1fc387a9a8174f2fe98985b08602dd40c24477",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 9,
+          "sha256": "f9d287819e68b4bbfcef19fe6e0dbff694b9185713925549dcfa6d55853a29cb",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 10,
+          "sha256": "e3e8726edb33e37262051d4bab261b01e8e08f0aa596711c20af183957dc8191",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 11,
+          "sha256": "83302aeb625959e979601738343f2b964b405d740d4bf737852ae35926b19238",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 12,
+          "sha256": "7b7539ab99e276212c59b59c6b720254d09343b8fe91bcc4e52b3c395cf55d55",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 13,
+          "sha256": "37eb8ec8acebbf148aa7b038dca1cc4c48fd330b05a32ce22186710e0b33921e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 14,
+          "sha256": "2b9c858c93917d0eb01d84b5d3ac7b0c6e8073ff4cb75b98c92fcc2d00461d09",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 15,
+          "sha256": "c4426fd4a99852e5485d66c2adea08f14b381a28648a76939dd63ae43de63c84",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 16,
+          "sha256": "6db678c2701679bd8eaf25efd849239df893d17a4cf37fcaa9e8da4b83b3ab7b",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 17,
+          "sha256": "4977586d44b851e93c75d0eb023e5e190541fa885c3d836ab5b83816d0c80044",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 18,
+          "sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 19,
+          "sha256": "0031f3a12adffabb09a17dfbf53dc40cc3ab4c5aab2d3fb631d9b7484c213d19",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 20,
+          "sha256": "f91a104af7aa0f8fe334b6811dee66a69058aff58b5627781a297f33500c34c8",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 21,
+          "sha256": "3a59862b546e20deb6022ed90109ce3d24de79c2c94aa903f86d81d723bd8f84",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 22,
+          "sha256": "8d3348162918e6d1d901eddd03f15333a0d1b3aa10feb39c11db3df5d1e94221",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 23,
+          "sha256": "ac39db3ee9955345eb662eeafd4fd248f55c3a7cb094738be7e52edc783f90bd",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 24,
+          "sha256": "1c6942c5f6216f044ef65db820a4cc1fc5d36e5976927db186378bd1e3f3664e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 25,
+          "sha256": "d363ad19d845653c51d8825dc96b10ab0561292f4a5ef62e32c0a335dbbb5097",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 26,
+          "sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 27,
+          "sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 28,
+          "sha256": "4952641ed6f4b07477683c43cdc1bf27050a7cba5069e552c1bf2479444a964a",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 29,
+          "sha256": "fc6242e120770d4cd9ffc73c5fbb0d55b12dc1b98b055bcad96945290e151308",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 30,
+          "sha256": "3bc17651768c7d8a9ee6b669c362a9af7a77b15b354f23fee932b3c11bede622",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 31,
+          "sha256": "62276ee900cfdec0b66d0fb2f0e2158f5a9f26df4e79aa562f76f254b24bc854",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 32,
+          "sha256": "59c752fe54ed1235b30b6a3b2a5891cc931666d48a37f21e041334b4de11547e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 33,
+          "sha256": "82e0180c3bdb058e847f6d7087d955008b35ef582f294586e099edaa5fa09fe9",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 34,
+          "sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 35,
+          "sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 36,
+          "sha256": "df235318373682cb9013069c4f4caa1b20518e8e1f0a3084a0c812653551c4e4",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 37,
+          "sha256": "d762df7c38e11e3afbbd539c908801e7d35076bf321aab41602a4322bb8f3195",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 38,
+          "sha256": "e4c326d8f7f223bd3d50921d99775c88ef3d15c2cb03503b94f95be199e6512e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 39,
+          "sha256": "e1b2c3bc5766d69b105234197033eb773e33b2d44f6503f6fedaa8e5cb33818e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 40,
+          "sha256": "ef6b551999c1de74df42dec189c57c9d1703cecc72442baa83556afe2921e225",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 41,
+          "sha256": "8ab15f47ed9863c1c25f312a77928426f138314b44a7f2043003e36ef03b1d95",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 42,
+          "sha256": "edcf2e06194b07cd32c2eee2d07ed788759ee3a98ffd0067b95b3247bfda666e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 43,
+          "sha256": "f416a99a812b94cfa8d70d67978cd18d92d56cfad1b6add305062339c7d915f5",
+          "consistent_across_runs": true
+        }
+      ]
+    },
+    {
+      "variant": "merged_baseline_repeat",
+      "run_id": "full43_20260905T135946103020Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.public_result_regression.v1",
+        "build_commit": "c6cda693-control-after-candidate",
+        "binary_sha256": "306b1071eb10f51e8fa1d3091d1616058be770d65551e7a684e82b032ec4189a",
+        "queries_sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/candidate-resident-foundation.vortex",
+        "source_bytes": 38147848068,
+        "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "cpu_count": 10,
+        "memory_gb": 24,
+        "max_parallelism": 12,
+        "timing_boundary": "process creation through completed public CLI output and process exit",
+        "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
+        "reference": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260905T135149334231Z",
+        "reference_override": null,
+        "correctness_boundary": "complete returned values compared with retained ShardLoom outputs; not an independent oracle",
+        "complete": true,
+        "runs_completed": 129,
+        "runs_passed": 129,
+        "full_result_validation": false,
+        "queries_passed": 43,
+        "query_total_seconds": 150.0330288329278,
+        "hot_total_seconds": 151.33755554095842,
+        "all_raw_run_seconds": 458.4081001600716,
+        "geomean_seconds": 1.0634238921490229,
+        "hot_geomean_seconds": 1.0689016548872974,
+        "query_runs": [
+          [
+            0.019701041979715228,
+            0.015723416989203542,
+            0.015451250015757978
+          ],
+          [
+            0.05725104204611853,
+            0.027978833008091897,
+            0.02875712502282113
+          ],
+          [
+            0.5945391659624875,
+            0.6036159169743769,
+            0.5851447499589995
+          ],
+          [
+            0.30818887503119186,
+            0.3132130000158213,
+            0.3128439169959165
+          ],
+          [
+            1.6335694160079584,
+            1.5107857919647358,
+            1.4793099160306156
+          ],
+          [
+            4.013905541040003,
+            3.990890707995277,
+            3.9861035420326516
+          ],
+          [
+            1.9596907499944791,
+            1.9483062499784864,
+            1.9541611659806222
+          ],
+          [
+            0.11526745901210234,
+            0.11626266600796953,
+            0.11619895795593038
+          ],
+          [
+            9.231624708976597,
+            8.928550124983303,
+            8.786604333028663
+          ],
+          [
+            3.853218415984884,
+            3.879798458016012,
+            3.894072709023021
+          ],
+          [
+            0.875988999963738,
+            0.8762856249813922,
+            0.8950550419976935
+          ],
+          [
+            1.7046792080509476,
+            1.67594583297614,
+            1.6985810420010239
+          ],
+          [
+            6.653682958043646,
+            6.612401749996934,
+            6.642570582975168
+          ],
+          [
+            8.745557166985236,
+            8.644084500032477,
+            8.513612999988254
+          ],
+          [
+            8.330242457974236,
+            8.33317724999506,
+            8.39651429199148
+          ],
+          [
+            3.396220624970738,
+            3.4506589159718715,
+            3.466175750014372
+          ],
+          [
+            15.940984082990326,
+            15.83256662497297,
+            15.471561375015881
+          ],
+          [
+            3.4706906669889577,
+            3.484638834022917,
+            3.48496770800557
+          ],
+          [
+            7.735649165988434,
+            7.497012874984648,
+            7.462007292022463
+          ],
+          [
+            0.04372700001113117,
+            0.04030574997887015,
+            0.04021174996159971
+          ],
+          [
+            0.8484423749614507,
+            0.7871383340097964,
+            0.8044743330101483
+          ],
+          [
+            1.4174189170007594,
+            1.371311417024117,
+            1.4448597080190666
+          ],
+          [
+            4.805470167018939,
+            4.744195709004998,
+            4.8870800830191
+          ],
+          [
+            1.1212250830139965,
+            1.217578916985076,
+            1.1843749590334482
+          ],
+          [
+            0.49129270802950487,
+            0.41117141698487103,
+            0.42858399997930974
+          ],
+          [
+            2.7970018329797313,
+            2.754671791975852,
+            2.8111988329910673
+          ],
+          [
+            2.825086165976245,
+            2.7600620000157505,
+            2.8277394580072723
+          ],
+          [
+            2.2326830410165712,
+            2.279760790988803,
+            2.1904874170431867
+          ],
+          [
+            9.8411872080178,
+            10.750020417035557,
+            10.701041500025894
+          ],
+          [
+            0.3586333750281483,
+            0.2925282079959288,
+            0.35939829103881493
+          ],
+          [
+            2.0357092919875868,
+            2.0393500829814,
+            1.9555771250161342
+          ],
+          [
+            2.304518375021871,
+            2.230992333032191,
+            2.194121290987823
+          ],
+          [
+            7.751892415981274,
+            7.140523915993981,
+            7.217079250025563
+          ],
+          [
+            15.003214708005544,
+            14.786327916954178,
+            14.488353208987974
+          ],
+          [
+            14.25473491701996,
+            14.411517666012514,
+            14.513286375033204
+          ],
+          [
+            5.72367412497988,
+            5.844629457977135,
+            5.846549791982397
+          ],
+          [
+            0.17814391700085253,
+            0.15892991598229855,
+            0.15882683300878853
+          ],
+          [
+            0.10042458400130272,
+            0.09383395803160965,
+            0.08745679201092571
+          ],
+          [
+            0.06559495796682313,
+            0.0620473749586381,
+            0.06931945803808048
+          ],
+          [
+            0.632402750023175,
+            0.6281374999671243,
+            0.6332228339742869
+          ],
+          [
+            0.050990958989132196,
+            0.046245832985732704,
+            0.050106250040698797
+          ],
+          [
+            0.036601959029212594,
+            0.02904391597257927,
+            0.029199958022218198
+          ],
+          [
+            0.039271832967642695,
+            0.037790458009112626,
+            0.03585004201158881
+          ]
+        ]
+      },
+      "validation_counts": [
+        {
+          "validation": "complete_values",
+          "runs": 126
+        },
+        {
+          "validation": "descriptor_count_only_not_returned_values",
+          "runs": 3
+        }
+      ],
+      "result_digests": [
+        {
+          "query": 1,
+          "sha256": "351a749cfaf1ce79f7e3ef576d4391f7874eee8436c66867bf1f18a7fca9e89d",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 2,
+          "sha256": "15bec0bae1f47a8fb92cba765fef9f2650865638a3dff6c0017109b567f4fdcd",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 3,
+          "sha256": "383b26388c6708ca0bc38d69e44899ca132de9da69f706d498b94e97d99536aa",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 4,
+          "sha256": "e1dfaa6330f26cada0e63049056f4ae7016d0161e69332d4f38160ef780700e1",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 5,
+          "sha256": "24d2db813dba5887df827b69b065647af4b9105f82b9d70c2eefeb791f639d5e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 6,
+          "sha256": "1bd261b96999db6bdf76e62a42adca78d9bdb8a9a5e3723e5074afc9ffbadc16",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 7,
+          "sha256": "65fe750674f358e2bc32088a9dd2f3f335d29afadfca28b7ceaf219c857cb025",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 8,
+          "sha256": "92197dc013de3b65509d77636b1fc387a9a8174f2fe98985b08602dd40c24477",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 9,
+          "sha256": "f9d287819e68b4bbfcef19fe6e0dbff694b9185713925549dcfa6d55853a29cb",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 10,
+          "sha256": "e3e8726edb33e37262051d4bab261b01e8e08f0aa596711c20af183957dc8191",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 11,
+          "sha256": "83302aeb625959e979601738343f2b964b405d740d4bf737852ae35926b19238",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 12,
+          "sha256": "7b7539ab99e276212c59b59c6b720254d09343b8fe91bcc4e52b3c395cf55d55",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 13,
+          "sha256": "37eb8ec8acebbf148aa7b038dca1cc4c48fd330b05a32ce22186710e0b33921e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 14,
+          "sha256": "2b9c858c93917d0eb01d84b5d3ac7b0c6e8073ff4cb75b98c92fcc2d00461d09",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 15,
+          "sha256": "c4426fd4a99852e5485d66c2adea08f14b381a28648a76939dd63ae43de63c84",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 16,
+          "sha256": "6db678c2701679bd8eaf25efd849239df893d17a4cf37fcaa9e8da4b83b3ab7b",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 17,
+          "sha256": "4977586d44b851e93c75d0eb023e5e190541fa885c3d836ab5b83816d0c80044",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 18,
+          "sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 19,
+          "sha256": "0031f3a12adffabb09a17dfbf53dc40cc3ab4c5aab2d3fb631d9b7484c213d19",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 20,
+          "sha256": "f91a104af7aa0f8fe334b6811dee66a69058aff58b5627781a297f33500c34c8",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 21,
+          "sha256": "3a59862b546e20deb6022ed90109ce3d24de79c2c94aa903f86d81d723bd8f84",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 22,
+          "sha256": "8d3348162918e6d1d901eddd03f15333a0d1b3aa10feb39c11db3df5d1e94221",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 23,
+          "sha256": "ac39db3ee9955345eb662eeafd4fd248f55c3a7cb094738be7e52edc783f90bd",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 24,
+          "sha256": "1c6942c5f6216f044ef65db820a4cc1fc5d36e5976927db186378bd1e3f3664e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 25,
+          "sha256": "d363ad19d845653c51d8825dc96b10ab0561292f4a5ef62e32c0a335dbbb5097",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 26,
+          "sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 27,
+          "sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 28,
+          "sha256": "4952641ed6f4b07477683c43cdc1bf27050a7cba5069e552c1bf2479444a964a",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 29,
+          "sha256": "fc6242e120770d4cd9ffc73c5fbb0d55b12dc1b98b055bcad96945290e151308",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 30,
+          "sha256": "3bc17651768c7d8a9ee6b669c362a9af7a77b15b354f23fee932b3c11bede622",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 31,
+          "sha256": "62276ee900cfdec0b66d0fb2f0e2158f5a9f26df4e79aa562f76f254b24bc854",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 32,
+          "sha256": "59c752fe54ed1235b30b6a3b2a5891cc931666d48a37f21e041334b4de11547e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 33,
+          "sha256": "82e0180c3bdb058e847f6d7087d955008b35ef582f294586e099edaa5fa09fe9",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 34,
+          "sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 35,
+          "sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 36,
+          "sha256": "df235318373682cb9013069c4f4caa1b20518e8e1f0a3084a0c812653551c4e4",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 37,
+          "sha256": "d762df7c38e11e3afbbd539c908801e7d35076bf321aab41602a4322bb8f3195",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 38,
+          "sha256": "e4c326d8f7f223bd3d50921d99775c88ef3d15c2cb03503b94f95be199e6512e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 39,
+          "sha256": "e1b2c3bc5766d69b105234197033eb773e33b2d44f6503f6fedaa8e5cb33818e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 40,
+          "sha256": "ef6b551999c1de74df42dec189c57c9d1703cecc72442baa83556afe2921e225",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 41,
+          "sha256": "8ab15f47ed9863c1c25f312a77928426f138314b44a7f2043003e36ef03b1d95",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 42,
+          "sha256": "edcf2e06194b07cd32c2eee2d07ed788759ee3a98ffd0067b95b3247bfda666e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 43,
+          "sha256": "f416a99a812b94cfa8d70d67978cd18d92d56cfad1b6add305062339c7d915f5",
+          "consistent_across_runs": true
+        }
+      ]
+    },
+    {
+      "variant": "final_runtime_4gb_ingested_layout",
+      "run_id": "full43_20260905T143259007439Z",
+      "summary": {
+        "schema_version": "shardloom.clickbench.public_result_regression.v1",
+        "build_commit": "c6cda693-resident-resource-sized-working-tree",
+        "binary_sha256": "b0dfa9379f868aea1ecfa91bde746b624a86adb7f7b2b1f7e35e3638b5be5fea",
+        "queries_sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+        "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/candidate-resident-foundation.vortex",
+        "source_bytes": 37965397844,
+        "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+        "source_generation": {
+          "device": 16777232,
+          "inode": 86402992,
+          "size_bytes": 37965397844,
+          "mtime_ns": 1788618644359127781,
+          "ctime_ns": 1788618644365152534
+        },
+        "machine": "arm64",
+        "cpu_count": 10,
+        "memory_gb": 24,
+        "max_parallelism": 12,
+        "timing_boundary": "process creation through completed public CLI output and process exit",
+        "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
+        "reference": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260905T135149334231Z",
+        "reference_override": {
+          "input_rows": 99997497,
+          "provider": "parquet 58.3 + Arrow typed int64 scalar equality; independent of ShardLoom and Vortex query paths",
+          "query": 20,
+          "schema_version": "shardloom.clickbench.independent_result_reference.v1",
+          "values": [
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            },
+            {
+              "UserID": 435090932899640449
+            }
+          ]
+        },
+        "correctness_boundary": "complete returned values compared with retained ShardLoom outputs; not an independent oracle",
+        "complete": true,
+        "runs_completed": 129,
+        "runs_passed": 129,
+        "full_result_validation": true,
+        "queries_passed": 43,
+        "query_total_seconds": 145.53321954415878,
+        "hot_total_seconds": 145.66336308710743,
+        "all_raw_run_seconds": 442.4084961270564,
+        "geomean_seconds": 1.1266731041741413,
+        "hot_geomean_seconds": 1.1278361621347504,
+        "query_runs": [
+          [
+            0.03807204100303352,
+            0.03598729200894013,
+            0.036574582976754755
+          ],
+          [
+            0.0665055419667624,
+            0.04766425001434982,
+            0.046904666000045836
+          ],
+          [
+            0.6619358750176616,
+            0.6079955410095863,
+            0.6072822090354748
+          ],
+          [
+            0.33275133301503956,
+            0.33527500001946464,
+            0.33591879199957475
+          ],
+          [
+            1.4132929590414278,
+            1.3981461670482531,
+            1.4265093749854714
+          ],
+          [
+            3.900566208991222,
+            3.856743792013731,
+            3.8660391669836827
+          ],
+          [
+            1.992598499986343,
+            1.9868222920340486,
+            1.9646777500165626
+          ],
+          [
+            0.13384158303961158,
+            0.1355812919791788,
+            0.13701579201733693
+          ],
+          [
+            8.550472791015636,
+            8.486146042007022,
+            8.532658125041053
+          ],
+          [
+            3.874649583012797,
+            3.8452216669684276,
+            3.8358308750321157
+          ],
+          [
+            0.8425026659970172,
+            0.8411212500068359,
+            0.8659506670082919
+          ],
+          [
+            1.6541107500088401,
+            1.6446666249539703,
+            1.637344959017355
+          ],
+          [
+            6.569674458005466,
+            6.521484458993655,
+            6.575365750002675
+          ],
+          [
+            8.692338166001718,
+            8.57351762498729,
+            8.536491917038802
+          ],
+          [
+            8.54764012497617,
+            8.518715834012255,
+            8.578832084021997
+          ],
+          [
+            3.4834364589769393,
+            3.386395375011489,
+            3.3482735410216264
+          ],
+          [
+            15.173319583991542,
+            15.288293457997497,
+            15.795691583014559
+          ],
+          [
+            3.519894166965969,
+            3.4968854999751784,
+            3.5334064579801634
+          ],
+          [
+            7.578210875042714,
+            7.285145167028531,
+            7.20242187497206
+          ],
+          [
+            0.03640270803589374,
+            0.03361420799046755,
+            0.03396391699789092
+          ],
+          [
+            0.8047125419834629,
+            0.7290114589850418,
+            0.7355206250213087
+          ],
+          [
+            1.190442290971987,
+            1.2162228339584544,
+            1.169993290968705
+          ],
+          [
+            3.5894912909716368,
+            3.5307692079804838,
+            3.5489737919997424
+          ],
+          [
+            0.896590374992229,
+            0.8297670839820057,
+            0.8456136250169948
+          ],
+          [
+            0.4659007500158623,
+            0.4408118330175057,
+            0.42920433304971084
+          ],
+          [
+            2.7851576670072973,
+            2.7083645410020836,
+            2.736765625013504
+          ],
+          [
+            2.7396637499914505,
+            2.731610582966823,
+            2.7469247080152854
+          ],
+          [
+            2.2454462500172667,
+            2.1903799999854527,
+            2.172616540978197
+          ],
+          [
+            9.421111625037156,
+            9.400458457996137,
+            9.42174504196737
+          ],
+          [
+            0.3161399999517016,
+            0.304992959019728,
+            0.307794208987616
+          ],
+          [
+            1.939356292015873,
+            1.9379659999976866,
+            1.9322450840263627
+          ],
+          [
+            2.2331369999446906,
+            2.1934990829904564,
+            2.1859686249517836
+          ],
+          [
+            7.725915333023295,
+            6.725594208983239,
+            6.531177167023998
+          ],
+          [
+            14.59864841599483,
+            14.790537208027672,
+            14.36781083297683
+          ],
+          [
+            13.60788629099261,
+            14.266851624997798,
+            13.573999583022669
+          ],
+          [
+            5.7360897500184365,
+            5.704958707967307,
+            5.706581332953647
+          ],
+          [
+            0.18992279097437859,
+            0.1831927500315942,
+            0.18117150000762194
+          ],
+          [
+            0.11306429200340062,
+            0.11294341599568725,
+            0.1117628330248408
+          ],
+          [
+            0.08456170896533877,
+            0.08376333396881819,
+            0.08514870901126415
+          ],
+          [
+            0.6617439159890637,
+            0.6726502089877613,
+            0.6740783330169506
+          ],
+          [
+            0.07486420898931101,
+            0.07182016596198082,
+            0.07144391699694097
+          ],
+          [
+            0.05289787502260879,
+            0.05193991702981293,
+            0.05157458403846249
+          ],
+          [
+            0.06285841600038111,
+            0.060826166998595,
+            0.06105395796475932
+          ]
+        ]
+      },
+      "validation_counts": [
+        {
+          "validation": "complete_values",
+          "runs": 129
+        }
+      ],
+      "result_digests": [
+        {
+          "query": 1,
+          "sha256": "351a749cfaf1ce79f7e3ef576d4391f7874eee8436c66867bf1f18a7fca9e89d",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 2,
+          "sha256": "15bec0bae1f47a8fb92cba765fef9f2650865638a3dff6c0017109b567f4fdcd",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 3,
+          "sha256": "383b26388c6708ca0bc38d69e44899ca132de9da69f706d498b94e97d99536aa",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 4,
+          "sha256": "e1dfaa6330f26cada0e63049056f4ae7016d0161e69332d4f38160ef780700e1",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 5,
+          "sha256": "24d2db813dba5887df827b69b065647af4b9105f82b9d70c2eefeb791f639d5e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 6,
+          "sha256": "1bd261b96999db6bdf76e62a42adca78d9bdb8a9a5e3723e5074afc9ffbadc16",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 7,
+          "sha256": "65fe750674f358e2bc32088a9dd2f3f335d29afadfca28b7ceaf219c857cb025",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 8,
+          "sha256": "92197dc013de3b65509d77636b1fc387a9a8174f2fe98985b08602dd40c24477",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 9,
+          "sha256": "f9d287819e68b4bbfcef19fe6e0dbff694b9185713925549dcfa6d55853a29cb",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 10,
+          "sha256": "e3e8726edb33e37262051d4bab261b01e8e08f0aa596711c20af183957dc8191",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 11,
+          "sha256": "83302aeb625959e979601738343f2b964b405d740d4bf737852ae35926b19238",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 12,
+          "sha256": "7b7539ab99e276212c59b59c6b720254d09343b8fe91bcc4e52b3c395cf55d55",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 13,
+          "sha256": "37eb8ec8acebbf148aa7b038dca1cc4c48fd330b05a32ce22186710e0b33921e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 14,
+          "sha256": "2b9c858c93917d0eb01d84b5d3ac7b0c6e8073ff4cb75b98c92fcc2d00461d09",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 15,
+          "sha256": "c4426fd4a99852e5485d66c2adea08f14b381a28648a76939dd63ae43de63c84",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 16,
+          "sha256": "6db678c2701679bd8eaf25efd849239df893d17a4cf37fcaa9e8da4b83b3ab7b",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 17,
+          "sha256": "4977586d44b851e93c75d0eb023e5e190541fa885c3d836ab5b83816d0c80044",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 18,
+          "sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 19,
+          "sha256": "0031f3a12adffabb09a17dfbf53dc40cc3ab4c5aab2d3fb631d9b7484c213d19",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 20,
+          "sha256": "f91a104af7aa0f8fe334b6811dee66a69058aff58b5627781a297f33500c34c8",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 21,
+          "sha256": "3a59862b546e20deb6022ed90109ce3d24de79c2c94aa903f86d81d723bd8f84",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 22,
+          "sha256": "8d3348162918e6d1d901eddd03f15333a0d1b3aa10feb39c11db3df5d1e94221",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 23,
+          "sha256": "ac39db3ee9955345eb662eeafd4fd248f55c3a7cb094738be7e52edc783f90bd",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 24,
+          "sha256": "1c6942c5f6216f044ef65db820a4cc1fc5d36e5976927db186378bd1e3f3664e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 25,
+          "sha256": "d363ad19d845653c51d8825dc96b10ab0561292f4a5ef62e32c0a335dbbb5097",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 26,
+          "sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 27,
+          "sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 28,
+          "sha256": "4952641ed6f4b07477683c43cdc1bf27050a7cba5069e552c1bf2479444a964a",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 29,
+          "sha256": "fc6242e120770d4cd9ffc73c5fbb0d55b12dc1b98b055bcad96945290e151308",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 30,
+          "sha256": "3bc17651768c7d8a9ee6b669c362a9af7a77b15b354f23fee932b3c11bede622",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 31,
+          "sha256": "62276ee900cfdec0b66d0fb2f0e2158f5a9f26df4e79aa562f76f254b24bc854",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 32,
+          "sha256": "59c752fe54ed1235b30b6a3b2a5891cc931666d48a37f21e041334b4de11547e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 33,
+          "sha256": "82e0180c3bdb058e847f6d7087d955008b35ef582f294586e099edaa5fa09fe9",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 34,
+          "sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 35,
+          "sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 36,
+          "sha256": "df235318373682cb9013069c4f4caa1b20518e8e1f0a3084a0c812653551c4e4",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 37,
+          "sha256": "d762df7c38e11e3afbbd539c908801e7d35076bf321aab41602a4322bb8f3195",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 38,
+          "sha256": "e4c326d8f7f223bd3d50921d99775c88ef3d15c2cb03503b94f95be199e6512e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 39,
+          "sha256": "e1b2c3bc5766d69b105234197033eb773e33b2d44f6503f6fedaa8e5cb33818e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 40,
+          "sha256": "ef6b551999c1de74df42dec189c57c9d1703cecc72442baa83556afe2921e225",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 41,
+          "sha256": "8ab15f47ed9863c1c25f312a77928426f138314b44a7f2043003e36ef03b1d95",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 42,
+          "sha256": "edcf2e06194b07cd32c2eee2d07ed788759ee3a98ffd0067b95b3247bfda666e",
+          "consistent_across_runs": true
+        },
+        {
+          "query": 43,
+          "sha256": "f416a99a812b94cfa8d70d67978cd18d92d56cfad1b6add305062339c7d915f5",
+          "consistent_across_runs": true
+        }
+      ]
+    }
+  ],
+  "prepared_rust_count": {
+    "completed_executions": 10001,
+    "external_engine_invoked": false,
+    "fallback_attempted": false,
+    "iterations": 10000,
+    "max_nanos": 52500,
+    "p50_nanos": 2875,
+    "p95_nanos": 3875,
+    "p99_nanos": 4500,
+    "peak_provider_reserved_bytes": 1538992,
+    "prepare_seconds": 0.00876975,
+    "prepared_source_opens": 1,
+    "rows": 99997497,
+    "schema_version": "shardloom.resident_count_latency.v1",
+    "scope": "metadata-only Rust operation; not Python, scan, mixed-load or durable ingest latency",
+    "timing_boundary": "prepared native count including admission and source generation validation"
+  },
+  "outcomes": {
+    "final_ingest_seconds_saved": 16.130266165942885,
+    "final_ingest_percent_less": 9.081352763964624,
+    "original_layout_artifact_identical": true,
+    "query_speed_improvement_established": false,
+    "process_wide_4gib_budget_passed": false,
+    "full_native_feature_suite_passed": false,
+    "preexisting_native_test_failures": 22,
+    "whole_perf_packets_completed": 0
+  },
+  "proof_gaps": [
+    "Only Q20 has a newly independent complete-value reference; other queries compare retained outputs.",
+    "Baseline Q20 was descriptor-only; candidate Q20 returns four checked values.",
+    "4GB configuration peak RSS was 9869230080 bytes and does not meet 4GiB process memory acceptance.",
+    "Smaller batches worsened geomean despite faster Q23; not promoted as a benchmark layout win.",
+    "Latest 24GB output is byte-identical to the fully tested original layout; latest runtime full43 was on the 4GB-produced layout.",
+    "Prepared count is Rust metadata-only; Python and general resident operators remain open.",
+    "No overall query-speed win or regression inferred from noisy shared-host baseline controls."
+  ]
+}

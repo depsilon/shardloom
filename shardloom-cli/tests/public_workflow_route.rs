@@ -1443,7 +1443,10 @@ fn public_run_routes_local_sql_vortex_middle_without_direct_runtime() {
             "true"
         )));
         assert!(stdout.contains(&field("project_local_execution_status", "executed")));
-        assert!(stdout.contains(&field("project_local_execution_data_decoded", "false")));
+        assert!(stdout.contains(&field(
+            "project_local_execution_data_decoded",
+            if cfg!(unix) { "true" } else { "false" }
+        )));
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
         assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
     } else {
@@ -1506,7 +1509,10 @@ fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_forma
             "true"
         )));
         assert!(stdout.contains(&field("project_local_execution_status", "executed")));
-        assert!(stdout.contains(&field("project_local_execution_data_decoded", "false")));
+        assert!(stdout.contains(&field(
+            "project_local_execution_data_decoded",
+            if cfg!(unix) { "true" } else { "false" }
+        )));
         assert!(stdout.contains(&field("public_workflow_local_source_format", "csv")));
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
         assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
@@ -1745,11 +1751,11 @@ fn public_run_executes_local_file_vortex_middle_through_prepared_vortex_primitiv
     assert!(stdout.contains(&field("filter_project_local_execution_status", "executed")));
     assert!(stdout.contains(&field(
         "filter_project_local_execution_data_decoded",
-        "false"
+        if cfg!(unix) { "true" } else { "false" }
     )));
     assert!(stdout.contains(&field(
         "filter_project_local_execution_data_materialized",
-        "false"
+        if cfg!(unix) { "true" } else { "false" }
     )));
     assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
     assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
@@ -2083,7 +2089,7 @@ fn public_run_executes_native_vortex_filter_project_payload_with_attached_route_
         "--execution-policy",
         "native_vortex",
         "--materialization-policy",
-        "zero_decode",
+        "bounded",
         "--evidence-level",
         "runtime_smoke",
         "--bounded",
@@ -2143,6 +2149,50 @@ fn public_run_executes_native_vortex_filter_project_payload_with_attached_route_
         "local_primitive_execution_certificate_fallback_attempted",
         "false"
     )));
+    #[cfg(unix)]
+    {
+        let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        let summary = envelope["human_text"].as_str().unwrap();
+        let values: serde_json::Value =
+            serde_json::from_str(summary.split_once(" values=").unwrap().1.trim()).unwrap();
+        assert_eq!(
+            values,
+            serde_json::json!({"rows": 2, "values": [{"metric": 30}, {"metric": 40}]})
+        );
+        assert!(stdout.contains(&field(
+            "local_primitive_native_io_certificate_status",
+            "certified"
+        )));
+    }
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[test]
+fn json_collect_rejects_zero_decode_instead_of_returning_a_descriptor() {
+    let fixture = local_primitive_struct_fixture();
+    let (success, stdout) = run_facade(&[
+        "run",
+        "cli",
+        "--input",
+        fixture.as_str(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--materialization-policy",
+        "zero_decode",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "project",
+        "--vortex-columns",
+        "metric",
+        "--format",
+        "json",
+    ]);
+    assert!(!success);
+    assert!(stdout.contains("JSON collect requires scalar decoding"));
+    assert!(!stdout.contains("result summary:"));
 }
 
 #[cfg(feature = "vortex-local-primitives")]

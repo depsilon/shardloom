@@ -1,0 +1,22 @@
+<div class="contract-visual" data-route-outcome="admitted">
+  <div class="outcome-switch" role="group" aria-label="Native route outcomes">
+    <button type="button" data-outcome="admitted" aria-label="Admitted work outcome" aria-pressed="true">Admitted work</button>
+    <button type="button" data-outcome="unsupported" aria-label="Unsupported work outcome" aria-pressed="false">Unsupported work</button>
+  </div>
+  <div class="native-route">
+    <div class="route-node"><strong>Your query</strong><span>Python / SQL / CLI</span></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="route-node core"><strong id="routeGate">Native route</strong><span>ShardLoom / Vortex</span></div>
+    <span class="arrow route-outcome-arrow" aria-hidden="true">→</span>
+    <div class="route-node route-outcome"><strong id="routeOutcome">Explicit result</strong><span id="routeOutcomeDetail">Admitted execution</span></div>
+  </div>
+  <div class="outcome-detail" aria-live="polite">
+    <span class="mono" id="outcomeLabel">One admitted route</span>
+    <p id="outcomeDescription">Source, preparation, execution, and output remain connected by route evidence.</p>
+  </div>
+  <div class="contract-fields">
+    <div><span>fallback_attempted</span><b>false</b></div>
+    <div><span>external_engine_invoked</span><b>false</b></div>
+  </div>
+  <p class="contract-note">Required execution contract. These fields are not a receipt from a live run.</p>
+</div>

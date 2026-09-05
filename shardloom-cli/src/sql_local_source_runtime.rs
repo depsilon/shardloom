@@ -5025,6 +5025,7 @@ struct VortexIngestReport {
     prepared_state_id: String,
     prepared_state_digest: String,
     prepare_once_total_millis: u128,
+    prepared_olap_publication_millis: u128,
     evidence_render_millis: u128,
     vortex_report: shardloom_vortex::VortexPreparedStateWriteReport,
     scout_ingress: shardloom_vortex::VortexScoutIngressReport,
@@ -5929,6 +5930,7 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
         "prepared_artifact_ref",
         "prepared_artifact_digest",
         "prepare_once_millis",
+        "prepared_olap_publication_millis",
         "vortex_write_millis",
         "vortex_artifact_digest_source",
         "vortex_write_timing_split_schema_version",
@@ -6450,7 +6452,9 @@ fn run_vortex_ingest_prepare_once_with_schema(
         LocalInputAdapterSelection::select(&request.source_path, request.source_format_override)?;
     let mut report =
         run_vortex_ingest_prepare_once_with_adapter(request, source_adapter, source_schema_hints)?;
+    let publication_start = Instant::now();
     report.prepared_olap_state = Some(write_prepared_olap_state_for_report(&report)?);
+    report.prepared_olap_publication_millis = publication_start.elapsed().as_millis();
     Ok(VortexIngestOutcome::Prepared(Box::new(report)))
 }
 
@@ -7475,6 +7479,7 @@ fn run_scalar_rows_vortex_prepare(
         prepared_state_id,
         prepared_state_digest,
         prepare_once_total_millis,
+        prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
         scout_ingress,
@@ -7699,6 +7704,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         prepared_state_id,
         prepared_state_digest,
         prepare_once_total_millis,
+        prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
         scout_ingress,
@@ -7918,6 +7924,7 @@ fn try_run_inferred_text_vortex_prepare(
         prepared_state_id,
         prepared_state_digest,
         prepare_once_total_millis,
+        prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
         scout_ingress,
@@ -8091,6 +8098,7 @@ fn run_text_streaming_vortex_prepare(
         prepared_state_id,
         prepared_state_digest,
         prepare_once_total_millis,
+        prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
         scout_ingress,
@@ -8147,6 +8155,9 @@ fn run_columnar_vortex_prepare(
         read_limits.source_bytes,
         request.max_parallelism,
         request.source_fingerprint_policy,
+        request.memory_gb.saturating_mul(1024 * 1024 * 1024)
+            / 8
+            / u64::try_from(request.max_parallelism.max(1)).unwrap_or(u64::MAX),
     )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     for column in &columnar_source.header {
@@ -8249,6 +8260,7 @@ fn run_columnar_vortex_prepare(
         prepared_state_id,
         prepared_state_digest,
         prepare_once_total_millis,
+        prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
         scout_ingress,
@@ -8269,6 +8281,7 @@ fn stream_columnar_vortex_ingest_source(
     source_byte_budget: Option<u64>,
     max_parallelism: usize,
     source_fingerprint_policy: SourceFingerprintPolicy,
+    batch_budget_bytes: u64,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
     if path.is_dir() {
         return stream_columnar_vortex_ingest_partition_source(
@@ -8278,10 +8291,16 @@ fn stream_columnar_vortex_ingest_source(
             source_byte_budget,
             max_parallelism,
             source_fingerprint_policy,
+            batch_budget_bytes,
         );
     }
-    let source =
-        stream_columnar_vortex_ingest_file_source(source_format, path, max_rows, max_parallelism)?;
+    let source = stream_columnar_vortex_ingest_file_source(
+        source_format,
+        path,
+        max_rows,
+        max_parallelism,
+        batch_budget_bytes,
+    )?;
     let source = with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
     Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
 }
@@ -8428,13 +8447,15 @@ fn stream_columnar_vortex_ingest_file_source(
     path: &Path,
     max_rows: usize,
     max_parallelism: usize,
+    batch_budget_bytes: u64,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
     match source_format {
         LocalSourceFormat::Parquet => {
-            shardloom_vortex::stream_flat_parquet_columnar_source_with_parallelism(
+            shardloom_vortex::universal_format_io::stream_flat_parquet_columnar_source_with_batch_budget(
                 path,
                 max_rows,
                 max_parallelism,
+                Some(batch_budget_bytes.max(1)),
             )
         }
         LocalSourceFormat::ArrowIpc => {
@@ -8520,6 +8541,7 @@ fn stream_columnar_vortex_ingest_partition_source(
     source_byte_budget: Option<u64>,
     max_parallelism: usize,
     source_fingerprint_policy: SourceFingerprintPolicy,
+    batch_budget_bytes: u64,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
     let partition_files = scout_local_source_partition_files_with_budget(
         path,
@@ -8535,8 +8557,13 @@ fn stream_columnar_vortex_ingest_partition_source(
         )));
     };
 
-    let first_source =
-        stream_columnar_vortex_ingest_file_source(source_format, first_file, max_rows, 1)?;
+    let first_source = stream_columnar_vortex_ingest_file_source(
+        source_format,
+        first_file,
+        max_rows,
+        1,
+        batch_budget_bytes,
+    )?;
     let shardloom_vortex::FlatLocalColumnarStreamSource {
         header,
         column_dtypes,
@@ -8566,8 +8593,13 @@ fn stream_columnar_vortex_ingest_partition_source(
     let mut combined_record_batch_count_hint = record_batch_count_hint;
     let mut combined_source_stream_unit_count_hint = source_stream_unit_count_hint;
     for file_path in partition_files.files.iter().skip(1) {
-        let source =
-            stream_columnar_vortex_ingest_file_source(source_format, file_path, max_rows, 1)?;
+        let source = stream_columnar_vortex_ingest_file_source(
+            source_format,
+            file_path,
+            max_rows,
+            1,
+            batch_budget_bytes,
+        )?;
         validate_columnar_stream_partition_schema(
             &header,
             &column_dtypes,
@@ -9663,6 +9695,10 @@ impl VortexIngestReport {
             (
                 "prepare_once_millis".to_string(),
                 self.prepare_once_total_millis.to_string(),
+            ),
+            (
+                "prepared_olap_publication_millis".to_string(),
+                self.prepared_olap_publication_millis.to_string(),
             ),
             (
                 "source_read_millis".to_string(),
@@ -46162,7 +46198,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "vortex_writer_physical_design_writer_backpressure_policy",
-            "bounded_sync_channel_backpressures_source_reader_and_preserves_order",
+            "reserved_inflight_window_bounds_queued_active_and_ordered_results",
         );
         assert_field_eq(
             &fields,
@@ -49998,14 +50034,10 @@ mod tests {
         );
         assert_field_eq(&fields, "vortex_writer_compression_field_counts", "0");
         assert_field_eq(&fields, "vortex_writer_compression_field_names", "none");
-        assert_field_eq(&fields, "vortex_writer_compression_decision_counts", "1");
-        assert!(
-            fields
-                .get("vortex_writer_compression_decisions")
-                .is_some_and(|decisions| decisions.contains("field=payload;decision=skip")),
-            "vortex_writer_compression_decisions={:?}",
-            fields.get("vortex_writer_compression_decisions")
-        );
+        // This nested smoke sink uses the default writer, without an admitted
+        // layout advisor. Only applied compression decisions belong in evidence.
+        assert_field_eq(&fields, "vortex_writer_compression_decision_counts", "0");
+        assert_field_eq(&fields, "vortex_writer_compression_decisions", "none");
         assert_field_eq(
             &fields,
             "output_layout_vortex_writer_provider_kind",

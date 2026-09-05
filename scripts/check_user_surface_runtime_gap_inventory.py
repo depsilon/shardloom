@@ -226,6 +226,13 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
 
 DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
     (
+        "a successful result and an unsupported diagnostic are different explicit outcomes",
+        "policy_rejected",
+        "not_applicable_policy_diagnostic",
+        "deterministic outcome and no external execution boundary",
+        "no_fallback_policy",
+    ),
+    (
         "v1 supported/unsupported surface",
         "runtime_available_needs_claim_evidence",
         "route_specific_v1_support_boundary",

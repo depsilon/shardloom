@@ -244,6 +244,229 @@ the ledger.
 
 ## Planned
 
+- [ ] `RELEASE-0-2-3` current-state UAT and selected-channel publication train.
+  - V1 scope classification: `required_for_v1`.
+  - Source: maintainer's 2026-09-05 full-UAT/PR/publication request;
+    `docs/release/v0.2.3-release-notes.md` and the existing publication handoff.
+  - Execution checklist:
+    - [x] Record fresh complete ingest and 43-query/129-run checked timing evidence:
+      `docs/benchmarks/clickbench-current-state-2026-09-05.md` (162.781s ingest,
+      148.349s query total, 129/129 complete-value regression checks).
+    - [ ] Repair stale native-feature assertions with actual output and safety tests;
+      pass workspace, native-feature, website, package, and CI gates.
+    - [ ] Merge the reviewed cohesive runtime/homepage/evidence PR.
+    - [ ] Publish checksum-bound GitHub pre-release assets and verify downloads.
+    - [ ] Publish TestPyPI, verify a clean registry install, then publish and verify PyPI.
+    - [ ] Update the Homebrew tap and verify build, install, smoke, and uninstall.
+    - [ ] Advance selected-channel proofs only after verification; record ledger closure.
+  - Maintainer update, 2026-09-05: drop the fixed 4 GiB target. It is not a
+    release blocker or a remaining acceptance requirement. Preserve historical
+    RSS evidence and existing memory-safety contracts; prioritize merge/publication.
+  - ShardLoom technique review: separate ingest, fresh-process query, and resident
+    timing; preserve evidence tiers and no-fallback certificates. No additional
+    runtime optimization or PERF completion is authorized by a publication step.
+  - Boundary: selected technical-preview package access only; no additional channels,
+    internal Rust crate publication, or unsupported production claims.
+
+Local large-artifact prerequisite: follow
+`docs/architecture/local-development-storage.md` before further PERF runs.
+Build outputs and the resident ClickBench source were relocated outside synced
+folders on 2026-09-05. The ingest runner now enforces destination and disk
+watchdogs. This does not clear CloudDocs or complete any PERF runtime item;
+full-size measurement still requires sufficient admitted free space.
+
+The maintainer's 2026-09-05 implementation request adopts
+`performance-overhaul-2026-09-04.md` and RFC 0044. The PERF sequence below takes
+precedence over the historical H/VH execution order. Existing detailed packets
+remain the implementation history and are incorporated by reference, not restarted.
+All PERF runtime items are `required_for_v1` within admitted local native execution;
+PERF-13 is `v1_candidate_pending_feasibility`. Targets are objectives, not promises.
+Completion requires executable production wiring and measured evidence. Storage
+admission now passes. A fresh 99,997,497-row baseline artifact was built from
+merged commit `c6cda693` on 2026-09-05; precise-clock paired measurements are
+recorded in the implementation evidence below. The latest fresh current-state
+UAT is `docs/benchmarks/clickbench-current-state-2026-09-05.md`: 162.781s ingest
+versus the 177.620s merged-state control, and 148.349s query total. The 145.130s
+query and 271s ingest records remain historical
+references, not this candidate's comparison control.
+
+Implementation status and proof gaps are recorded in
+`performance-overhaul-implementation-2026-09-05.md`. None of the thirteen whole
+PERF packets is complete merely because its shared runtime foundation exists.
+
+- [ ] `PERF-01` reconcile and instrument the public baseline.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied performance overhaul section 10, RFC 0044; accepted.
+  - Execution checklist:
+    - [ ] Record same-commit clean ingestion and all 43 queries with checked outputs.
+    - [ ] Separate exclusive wall spans, overlapping worker work, output, and validation.
+    - [ ] Measure native/resident/worker/Python/fresh-process latency separately.
+    - [ ] Identify dominant costs and preserve raw evidence without synthetic elapsed claims.
+  - ShardLoom technique review: preserve route timing separation, evidence tiers,
+    no-fallback fields, and source residency; measurements must cover actual work.
+
+- [ ] `PERF-02` implement typed resident sessions and prepared execution.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; accepted as continuation of in-process session runtime.
+  - Dependency: PERF-01 baseline instrumentation.
+  - Implemented scope: resident Rust file/count/projection handles, generation
+    invalidation, retained provider runtime/reader, owned array results, and the
+    public single-file bounded JSON collect adapter. Python native binding and
+    migration of the remaining operator families are still open.
+  - Execution checklist:
+    - [ ] Extract reusable typed native calls and snapshot-bound prepared handles.
+    - [ ] Reuse open-reader metadata, runtime resources, and bounded scratch ownership.
+    - [ ] Route CLI/Python adapters through native calls without answer-cache reuse.
+    - [ ] Verify replacement/mutation/truncation invalidation and cold/prepared latency.
+  - ShardLoom technique review: SourceState reuse and metadata-first execution apply;
+    no external engine or hidden result reuse is admitted.
+
+- [ ] `PERF-03` enforce bounded scheduling and one CPU/memory budget.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; merges shared scheduler and writer-governor obligations below.
+  - Implemented scope: live reservation ownership, persistent dynamic compute
+    workers, queue slot/byte limits, cancellation/drain tests, Vortex host-buffer
+    allocator ownership, and production pre-writer integration. This is not yet
+    one global budget for all operators, source readers, and upstream codecs.
+    Historical measurement: a 4 GB-configured full ingest completed but reached
+    9,869,230,080 bytes RSS. The maintainer dropped the fixed 4 GiB target on
+    2026-09-05. Source/codec/writer accounting remains future memory-safety work,
+    not a blocker to the current publication train.
+  - Execution checklist:
+    - [ ] Implement lifetime-owned shared reservations, growth checks, and peak counters.
+    - [ ] Implement persistent workers, inline bounded work, dynamic queues, and draining.
+    - [ ] Share admission with Vortex I/O/codec work and prove I/O progress.
+    - [ ] Verify queue bytes, state growth denial, cancellation, and worker reuse under load.
+  - ShardLoom technique review: capillary units and PulseWeave must control observed
+    work and scarcity; configuration comparisons cannot certify queue enforcement.
+
+- [ ] `PERF-04` wire aggregate kernels and parallel deterministic reduction.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; incorporates scheduler family conversion below; depends on PERF-03.
+  - Execution checklist:
+    - [ ] Migrate Q10/Q14/Q17/Q19/Q33/Q34/Q35-style production families to shared workers.
+    - [ ] Reduce independent logical partitions concurrently without local-top-K loss.
+    - [ ] Verify integer overflow, ties, skew, and floating semantics at 1/2/4/8/12 workers.
+    - [ ] Measure actual kernel work and remove superseded scheduling after ship/drop.
+  - ShardLoom technique review: capillary ownership and deterministic merge apply below
+    all public front doors; descriptor visits are not operator execution evidence.
+
+- [ ] `PERF-05` generalize exact dictionary aggregation under byte pressure.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; incorporates string/composite packets; first-pass histograms already exist.
+  - Execution checklist:
+    - [ ] Bind referenced dictionary entries with domain-safe exact key equality.
+    - [ ] Partition compact owned state and defer final string materialization.
+    - [ ] Measure dual histogram/sketch costs and establish exact overflow transition.
+    - [ ] Validate nulls, all-unique keys, skew, composite keys, and non-URL performance.
+  - ShardLoom technique review: dictionary execution and work avoidance apply; exactness
+    cannot depend on samples, hashes alone, or missing global top-K candidates.
+
+- [ ] `PERF-06` implement shared native query spill and cleanup.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan and RFC 0044 temporary-workspace decision; depends on PERF-03.
+  - Execution checklist:
+    - [ ] Create quota-accounted native partition runs with exact ownership and validation.
+    - [ ] Integrate exact merge and memory-pressure transitions with real operators.
+    - [ ] Test cancellation, crash recovery, quota exhaustion, corruption, and owned cleanup.
+    - [ ] Prove exact supported large-state completion under the admitted workload
+      budget without external execution; no fixed 4 GiB target is required.
+  - ShardLoom technique review: memory scarcity and capillary lifetime govern spill;
+    synthetic spill fixtures remain distinct from query-data spill support.
+
+- [ ] `PERF-07` separate report descriptors from owned array results.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; incorporates columnar result dataplane item below; depends on PERF-02.
+  - Implemented scope: executable Vortex arrays whose buffer credits survive
+    clones/slices and session drop. Single-file project/filter collect renders
+    complete bounded values instead of a descriptor; other materializing and
+    multi-source result families still require migration.
+  - Execution checklist:
+    - [ ] Carry Vortex arrays, selections, validity, and buffer owners in physical results.
+    - [ ] Route native/compatible columnar sinks without scalar-vector intermediates.
+    - [ ] Charge retained result lifetime and verify close/cancel/slice ownership.
+    - [ ] Measure copied/decoded bytes and validate complete requested output.
+  - ShardLoom technique review: late materialization and Vortex-native output apply;
+    descriptive opaque storage is not an executable array payload.
+
+- [ ] `PERF-08` profile ingestion exclusively and remove duplicate work.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; incorporates writer physical-design item; depends on PERF-01.
+  - Retained scope: compact logical-schema inventory, remove a discarded full-file
+    publication fingerprint, and expose OLAP publication time outside prepare time.
+    Durable checksum validation remains; source/derived/codec deduplication is open.
+    Final-code local measurement: 161.489s versus 177.620s, matching writer and
+    publication checksums. This is a measured sample, not a historical 271s comparison.
+  - Execution checklist:
+    - [ ] Attribute real normalization, metadata, codec, write, and finalization spans.
+    - [ ] Inventory duplicated derived representations and traversal/conversion costs.
+    - [ ] Remove measured duplication while preserving validation and source preflight.
+    - [ ] Test same-source durable ingest and first/repeated-query lifecycle costs.
+  - ShardLoom technique review: metadata must earn its cost; no persisted query-answer
+    tables, omitted validation, or deferred costs hidden from lifecycle evidence.
+
+- [ ] `PERF-09` implement costed encoding and a bounded ordered writer.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; incorporates writer H/VH packets; depends on PERF-08/PERF-03.
+  - Candidate scope: reserve the complete in-flight pre-writer window, including
+    finished out-of-order arrays. Costed codec admission and codec-buffer resource
+    unification are not implemented by this queue change.
+    Metadata-aware smaller Parquet batches repair source admission at lower
+    budgets. Their full43 passed all values but worsened geomean; do not promote
+    that layout as a general benchmark win or infer bounded RSS from completion.
+  - Execution checklist:
+    - [ ] Measure per-column bytes and encode/decode CPU for admitted Vortex profiles.
+    - [ ] Share array ownership and compression resources with the engine governor.
+    - [ ] Bound ordered completed blocks and expose backpressure/head-of-line waits.
+    - [ ] Validate single-file integrity/atomicity and ship/drop on lifecycle benefit.
+  - ShardLoom technique review: PulseWeave scarcity and encoded representation apply;
+    do not repeat rejected huge-artifact or thread-count-only writer candidates.
+
+- [ ] `PERF-10` implement reusable fused native physical operators.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; incorporates typed kernel registry below; depends on PERF-04/PERF-07.
+  - Execution checklist:
+    - [ ] Carry physical encoding, ordering, selection, ownership, and memory contracts.
+    - [ ] Fuse admitted filter/project/aggregate kernels at plan or batch boundaries.
+    - [ ] Cost native canonicalization, aggregation, distinct, join, sort, and windows.
+    - [ ] Verify renamed schemas, non-ClickBench compositions, and byte-work reductions.
+  - ShardLoom technique review: native provider selection and work avoidance apply;
+    volatile/effectful or floating-sensitive rewrites preserve existing semantics.
+
+- [ ] `PERF-11` implement bounded memory-visible ingest-to-result execution.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan and RFC 0044 publication decision; depends on PERF-02/03/07.
+  - Execution checklist:
+    - [ ] Validate typed batches and publish immutable in-memory Vortex snapshots.
+    - [ ] Execute requested bounded queries/results without obligatory file persistence.
+    - [ ] Enforce input/output/memory/queue bounds and explicit visibility state.
+    - [ ] Measure p50/p95/p99 including validation, queue delay, and mixed bulk load.
+  - ShardLoom technique review: Vortex normalization and late materialization apply;
+    memory-visible completion does not imply durable or optimized publication.
+
+- [ ] `PERF-12` implement held-out and comparative acceptance suites.
+  - V1 scope classification: `required_for_v1`.
+  - Source: supplied plan; accepted baseline skeleton with progressive coverage.
+  - Execution checklist:
+    - [ ] Pin eligible ClickBench scoring/cohort and separate cached product sessions.
+    - [ ] Add held-out ingest, aggregate, relational, ownership, and serving cases.
+    - [ ] Exercise supported ordinary and benchmark resource envelopes, recording
+      actual host resources and observed RSS rather than requiring a fixed 4 GiB target.
+    - [ ] Record paired uncertainty, complete outputs, and gains in non-ClickBench families.
+  - ShardLoom technique review: correctness, evidence tiers, and no-fallback boundaries
+    apply; cross-host ratios and success flags alone are insufficient proof.
+
+- [ ] `PERF-13` evaluate profile-guided compilation only after measured bottlenecks.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
+  - Source: supplied plan; conditional candidate, not unconditional JIT/dependency intake.
+  - Execution checklist:
+    - [ ] Determine remaining instruction/dispatch cost after PERF-10.
+    - [ ] Train PGO on representative and held-out workloads if justified.
+    - [ ] Measure compilation/transfer break-even and portable-package correctness.
+    - [ ] Retain a measured benefit or record a reasoned drop without extra runtime paths.
+  - ShardLoom technique review: avoid work before compilation; unsafe policy and
+    external-engine restrictions remain unchanged.
+
 Use this section for the next implementation sequence. Keep it ordered by dependency and user value.
 When a work item is implemented, move the detailed completed record to
 `docs/architecture/phased-execution-completed-ledger.md` and leave this section focused on open

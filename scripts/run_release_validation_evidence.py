@@ -48,6 +48,21 @@ FEATURE_MATRIX_COMMANDS = [
         False,
     ),
     (
+        "native_vortex_tests",
+        ["cargo", "test", "-p", "shardloom-vortex", "--lib", "--features", "release-user-surfaces"],
+        False,
+    ),
+    (
+        "native_public_surface_tests",
+        ["cargo", "test", "-p", "shardloom-cli", "--bin", "shardloom", "--test", "sql_local_source_runtime_smoke", "--test", "public_workflow_route", "--features", "release-user-surfaces"],
+        False,
+    ),
+    (
+        "native_release_clippy",
+        ["cargo", "clippy", "-p", "shardloom-cli", "-p", "shardloom-vortex", "--all-targets", "--features", "release-user-surfaces", "--", "-D", "warnings"],
+        False,
+    ),
+    (
         "benchmark_extras",
         ["cargo", "check", "-p", "shardloom-vortex", "--features", "vortex-traditional-analytics-benchmark"],
         False,

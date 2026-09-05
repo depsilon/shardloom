@@ -3516,6 +3516,10 @@ pub fn execute_vortex_local_primitive_with_policy(
     }
 }
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_collect.rs"]
+pub mod collect;
+
 /// Executes a local Vortex query primitive over an ordered set of local
 /// `.vortex` sources.
 ///
@@ -9921,6 +9925,9 @@ fn fast_utf8_contains_count_from_chunk(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+// One matcher is reused across a scan loop. Keep the target-sized memmem finder
+// on the stack instead of adding a heap allocation just for enum size uniformity.
+#[allow(clippy::large_enum_variant)]
 enum Utf8ContainsNeedle<'a> {
     Empty,
     Ascii(memchr::memmem::Finder<'a>),
@@ -15259,27 +15266,43 @@ fn count_all_metadata_report(
     path: &std::path::Path,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
-    use vortex::VortexSessionDefault as _;
-    use vortex::file::OpenOptionsSessionExt as _;
-    use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
+    #[cfg(unix)]
+    let resident = crate::resident_session::ResidentVortexSession::new(
+        policy.resource_envelope.memory_budget_bytes,
+        policy.max_parallelism,
+    )?;
+    #[cfg(unix)]
+    let prepared = resident.prepare_file(path)?;
+    #[cfg(unix)]
+    let file = prepared.file().clone();
+    #[cfg(unix)]
+    let rows = prepared.prepare_count().execute()?;
 
-    let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
-    let file = runtime
-        .block_on(
-            session
-                .open_options()
-                .with_layout_reader_cache()
-                .open_path(path),
-        )
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to open local Vortex target for count_all metadata: {error}"
-            ))
-        })?;
-    let rows = file.row_count();
+    #[cfg(not(unix))]
+    let (file, rows) = {
+        use vortex::VortexSessionDefault as _;
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let runtime = local_vortex_runtime(policy);
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let file = runtime
+            .block_on(
+                session
+                    .open_options()
+                    .with_layout_reader_cache()
+                    .open_path(path),
+            )
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to open local Vortex target for count_all metadata: {error}"
+                ))
+            })?;
+        let rows = file.row_count();
+        (file, rows)
+    };
     let embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
         &file,
         VortexQueryPrimitiveKind::CountAll,
@@ -50122,7 +50145,7 @@ mod tests {
         );
         assert_eq!(
             payload["aggregate_update_strategy"],
-            serde_json::json!("transformed_dictionary_general_measure_group_update")
+            serde_json::json!("transformed_dictionary_dense_general_measure_group_update")
         );
         assert_eq!(
             payload["expression_fusion_strategy"],
@@ -50130,7 +50153,7 @@ mod tests {
         );
         assert_eq!(
             payload["group_state_mode"],
-            serde_json::json!("transformed_chunk_dictionary_general_measure_code_map")
+            serde_json::json!("dense_transformed_dictionary_general_accumulators")
         );
         assert_eq!(
             payload["aggregate_accessor_summary"],
@@ -50640,7 +50663,7 @@ mod tests {
     }
 
     #[test]
-    fn filter_and_project_contains_uses_shardloom_residual_without_fallback() {
+    fn filter_and_project_contains_uses_native_pushdown_without_fallback() {
         let path = unique_vortex_path("filter-project-contains");
         write_string_struct_fixture(&path).expect("fixture");
         let uri = DatasetUri::new(path.display().to_string()).expect("uri");
@@ -50671,7 +50694,8 @@ mod tests {
         assert_eq!(report.rows_projected, Some(2));
         assert_eq!(report.projected_columns, vec!["label".to_string()]);
         assert!(report.upstream_scan_called);
-        assert!(!report.upstream_filter_expression_used);
+        assert!(report.upstream_filter_expression_used);
+        assert!(report.filter_pushdown_applied);
         assert!(report.projection_pushdown_applied);
         assert!(report.data_read);
         assert!(!report.data_decoded);
@@ -50682,7 +50706,7 @@ mod tests {
     }
 
     #[test]
-    fn distinct_rows_apply_residual_predicate_before_row_key_state_without_fallback() {
+    fn distinct_rows_apply_pushdown_predicate_before_row_key_state_without_fallback() {
         let path = unique_vortex_path("distinct-rows-residual");
         write_string_struct_fixture(&path).expect("fixture");
         let request = VortexQueryPrimitiveRequest::distinct_rows(
@@ -50712,7 +50736,7 @@ mod tests {
         assert_eq!(report.rows_projected, Some(2));
         assert_eq!(report.projected_columns, vec!["label".to_string()]);
         assert!(report.projection_pushdown_applied);
-        assert!(!report.upstream_filter_expression_used);
+        assert!(report.upstream_filter_expression_used);
         assert!(report.data_read);
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_execution_allowed);
@@ -50808,7 +50832,7 @@ mod tests {
     }
 
     #[test]
-    fn drop_duplicate_rows_apply_residual_predicate_before_row_key_state_without_fallback() {
+    fn drop_duplicate_rows_apply_pushdown_predicate_before_row_key_state_without_fallback() {
         let path = unique_vortex_path("drop-duplicates-residual");
         write_string_struct_fixture(&path).expect("fixture");
         let mut request = VortexQueryPrimitiveRequest::drop_duplicate_rows(
@@ -50839,7 +50863,7 @@ mod tests {
         assert_eq!(report.rows_projected, Some(2));
         assert_eq!(report.projected_columns, vec!["label".to_string()]);
         assert!(report.projection_pushdown_applied);
-        assert!(!report.upstream_filter_expression_used);
+        assert!(report.upstream_filter_expression_used);
         assert!(report.data_read);
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_execution_allowed);
@@ -51192,7 +51216,7 @@ mod tests {
     }
 
     #[test]
-    fn sample_rows_apply_residual_predicate_before_sampling_without_fallback() {
+    fn sample_rows_apply_pushdown_predicate_before_sampling_without_fallback() {
         let path = unique_vortex_path("sample-rows-residual");
         write_string_struct_fixture(&path).expect("fixture");
         let request = VortexQueryPrimitiveRequest::sample_rows(
@@ -51220,9 +51244,9 @@ mod tests {
         assert_eq!(report.rows_selected, Some(2));
         assert_eq!(report.rows_projected, Some(2));
         assert_eq!(report.source_order_limit_input_rows, Some(2));
-        assert!(!report.filter_pushdown_applied);
+        assert!(report.filter_pushdown_applied);
         assert!(report.projection_pushdown_applied);
-        assert!(!report.upstream_filter_expression_used);
+        assert!(report.upstream_filter_expression_used);
         assert!(report.upstream_projection_expression_used);
         assert!(report.data_read);
         assert!(report.data_decoded);
@@ -51707,8 +51731,8 @@ mod tests {
         assert_eq!(report.rows_selected, Some(2));
         assert_eq!(report.rows_projected, Some(2));
         assert_eq!(report.projected_columns, vec!["label".to_string()]);
-        assert!(!report.filter_pushdown_applied);
-        assert!(!report.upstream_filter_expression_used);
+        assert!(report.filter_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
         assert!(report.projection_pushdown_applied);
         assert!(report.data_read);
         assert!(report.data_decoded);
@@ -51816,7 +51840,7 @@ mod tests {
     }
 
     #[test]
-    fn pivot_rows_filters_residual_source_predicate_before_state_update() {
+    fn pivot_rows_filters_pushdown_source_predicate_before_state_update() {
         let path = unique_vortex_path("pivot-rows-source-filter");
         write_pivot_struct_fixture(&path).expect("fixture");
         let mut request = VortexQueryPrimitiveRequest::pivot_rows(
@@ -51850,7 +51874,7 @@ mod tests {
             report.projected_columns,
             vec!["id".to_string(), "pivot_paid".to_string()]
         );
-        assert!(!report.filter_pushdown_applied);
+        assert!(report.filter_pushdown_applied);
         assert!(report.projection_pushdown_applied);
         assert!(report.row_read);
         assert!(report.materialization_boundary_reported);
@@ -53248,7 +53272,7 @@ mod tests {
     }
 
     #[test]
-    fn sample_row_export_applies_residual_predicates_before_sampling() {
+    fn sample_row_export_applies_pushdown_predicates_before_sampling() {
         let path = unique_vortex_path("sample-row-export-residual");
         let output_path =
             unique_vortex_path("sample-row-export-residual-output").with_extension("jsonl");
@@ -53286,21 +53310,21 @@ mod tests {
         assert_eq!(report.rows_scanned, 3);
         assert_eq!(report.rows_written, 2);
         assert_eq!(report.pre_limit_result_row_count, 2);
-        assert!(!report.evidence.pushdown.filter_pushdown_applied);
+        assert!(report.evidence.pushdown.filter_pushdown_applied);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert_eq!(emitted_rows.len(), 2);
         assert!(
             emitted_rows.iter().all(|row| row["label"]
                 .as_str()
                 .is_some_and(|label| label.contains("bad"))),
-            "residual contains predicate must filter before sampling"
+            "contains predicate must filter before sampling"
         );
         assert!(!report.evidence.side_effects.fallback_attempted);
         assert!(!report.evidence.side_effects.external_effects_executed);
     }
 
     #[test]
-    fn filter_project_row_export_applies_residual_predicate_without_exposing_helper_columns() {
+    fn filter_project_row_export_applies_pushdown_predicate_without_exposing_helper_columns() {
         let path = unique_vortex_path("filter-project-row-export-residual");
         let output_path =
             unique_vortex_path("filter-project-row-export-residual-output").with_extension("jsonl");
@@ -53340,7 +53364,7 @@ mod tests {
         assert_eq!(report.rows_written, 2);
         assert_eq!(report.pre_limit_result_row_count, 2);
         assert_eq!(report.projected_columns, vec!["label".to_string()]);
-        assert!(!report.evidence.pushdown.filter_pushdown_applied);
+        assert!(report.evidence.pushdown.filter_pushdown_applied);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert_eq!(
             emitted_rows,
@@ -54411,7 +54435,7 @@ mod tests {
         assert_eq!(report.pre_limit_result_row_count, 2);
         assert_eq!(report.projected_columns, vec!["label".to_string()]);
         assert_eq!(rows, "{\"label\":\"ok\"}\n{\"label\":\"okly\"}\n");
-        assert!(!report.evidence.pushdown.filter_pushdown_applied);
+        assert!(report.evidence.pushdown.filter_pushdown_applied);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert!(report.evidence.upstream_scan_called);
         assert!(report.evidence.side_effects.data_read);
@@ -61102,7 +61126,7 @@ mod tests {
         .expect("embedded rewrite");
         assert!(aggregate_plan.rewritten_columns.is_empty());
         let mut projected_columns = aggregate_plan.aggregate.projected_columns();
-        let (_pushdown_predicate, residual_predicate) =
+        let (pushdown_predicate, residual_predicate) =
             aggregate_plan
                 .predicate
                 .as_ref()
@@ -61112,10 +61136,11 @@ mod tests {
                         VortexQueryPrimitiveKind::SimpleAggregate,
                     )
                 });
-        append_predicate_columns(
-            residual_predicate.as_ref().expect("residual predicate"),
-            &mut projected_columns,
-        );
+        assert!(pushdown_predicate.is_some());
+        assert!(residual_predicate.is_none());
+        // Contains is admitted upstream. Explicitly exercise the residual helper
+        // contract so a future residual does not lose its columns during recount.
+        append_predicate_columns(&predicate, &mut projected_columns);
         let first_projection = ProjectionRequest::columns(projected_columns);
         let first_plan = projection_scan_plan(
             file.dtype(),

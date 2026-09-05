@@ -1978,7 +1978,7 @@ class SqlWorkflow:
                 plan_summary=self.operation_summary,
                 requested_output="collect",
                 execution_policy="native_vortex",
-                materialization_policy="zero_decode",
+                materialization_policy="bounded",
                 evidence_level="runtime_smoke",
                 bounded=True,
                 memory_gb=memory_gb,
@@ -2931,7 +2931,7 @@ class SqlWorkflow:
                 source.source_uri,
                 source.target,
                 input_format=source.source_format,
-                allow_overwrite=False,
+                allow_overwrite=True,
                 certification_level="ingest_certified",
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
@@ -3055,7 +3055,9 @@ class SqlWorkflow:
             plan_summary=self.operation_summary,
             requested_output="collect",
             execution_policy="native_vortex",
-            materialization_policy="zero_decode",
+            materialization_policy=(
+                "bounded" if primitive in {"filter", "project", "filter_project"} else "zero_decode"
+            ),
             evidence_level="runtime_smoke",
             bounded=True,
             native_vortex_operation_family=_native_vortex_operation_family_for_primitive(
@@ -8741,7 +8743,9 @@ class LazyFrame:
             plan_summary=self.operation_summary,
             requested_output="collect",
             execution_policy="native_vortex",
-            materialization_policy="zero_decode",
+            materialization_policy=(
+                "bounded" if primitive in {"filter", "project", "filter_project"} else "zero_decode"
+            ),
             evidence_level="runtime_smoke",
             bounded=True,
             native_vortex_operation_family=_native_vortex_operation_family_for_primitive(
