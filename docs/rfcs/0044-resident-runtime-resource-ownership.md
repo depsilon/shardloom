@@ -99,3 +99,53 @@ Use renamed schemas, adversarial distributions, nulls, and non-ClickBench cases.
 Record latency percentiles, actual active worker time, live/peak bytes, and completed
 output. Run a clean same-commit full UAT once storage permits; retain historical
 evidence separately. Do not mark unfinished packets complete from policy reports.
+
+## Immutable memory-backed file generation prototype
+
+The maintainer's additional 2026-09-05 planning packet authorizes an executable
+prototype under PERF-07/PERF-11. This is a bounded immutable generation, not a new
+live-update protocol or a serialized layout template. Existing tiny native-array
+operations remain direct; callers explicitly choose the file-generation boundary.
+
+Vortex-first provider check: wrap the pinned Vortex 0.85 `VortexFile`, `Footer`,
+`SegmentSink`/`SegmentSource`, native Flat layout writer, cached reader tree, and
+`FooterSerializer`. Typed intake uses the existing `ResidentMemorySource` and
+reservation-owning allocator. The Flat serializer runs once; each resulting
+segment is assembled into an admitted aligned owned buffer. Actual segment byte
+copies are reported, rather than described as zero-copy. A real bound native
+filter/project/ordered-limit query reads the immutable segments through
+`VortexFile::scan`. No Arrow or external query engine evaluates the query.
+
+Durable publication writes those same represented segment bytes, their declared
+alignment padding, and the upstream footer serialization into one exclusively
+created staging file. It performs flush, independent checksum readback, native
+dtype/row-count reopen validation, then owned atomic publication. Publication does
+not execute a second array serializer or rebuild a dictionary. Existing readers
+retain the memory generation; publishing a durable backing does not mutate their
+segment source or invalidate a cached reader tree. The generation remains
+`visible_in_memory` until publication completes; file and directory synchronization
+define the reported durable boundary.
+This bounded publication requires an existing real parent directory and rejects
+missing directory ancestry before creating staging output. It does not claim
+durability for newly created ancestor directory entries.
+The held parent directory's device/inode identity must match the admitted path
+after opening, before commit, and after synchronization. Post-publication drift
+returns an explicit published-but-durability-unconfirmed error.
+
+Admission bounds segment count, serialized segment bytes, retained total bytes,
+and metadata capacity before publishing the generation. Native allocations retain
+their credits through the last buffer reference. Report actual intake copies,
+segment assembly copies, serializer calls, segment requests/bytes, durable bytes,
+readback bytes, file opens, and publication serializer calls separately. Codec
+internals, provider allocations bypassing the allocator, parser storage, OS page
+cache and total RSS remain excluded unless independently measured. File statistics
+and user metadata not produced by this prototype are explicitly absent.
+
+Acceptance requires exact independent values including empty input, nullable
+Unicode, integer extremes, booleans and finite floats before and after durable
+publication; lifetime survival after dropping the input/session; repeated queries
+without encoding or source reopening; byte-bound rejection; cleanup on failed
+write/validation; preservation of foreign destinations; and immutable generation
+isolation. Benchmarks compare actual build/query/publish/reopen work before any
+latency claim. Generic streaming ingestion, mutable generations, background
+compaction and broad production performance claims remain outside this prototype.

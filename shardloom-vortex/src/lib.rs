@@ -83,6 +83,8 @@ pub mod generalized_filter_execution;
 pub mod generalized_projection_execution;
 pub mod manifest_finalization;
 pub mod memory_bridge;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+pub mod memory_file_generation;
 pub mod metadata_async_boundary;
 pub mod metadata_executor;
 pub mod metadata_physical_kernel;

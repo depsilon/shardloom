@@ -15,7 +15,7 @@ mod aggregate_timing;
 mod native_flat_layout;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitive_native_sink.rs"]
-mod native_sink;
+pub(crate) mod native_sink;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/numeric_count_partial.rs"]
 mod numeric_count_partial;

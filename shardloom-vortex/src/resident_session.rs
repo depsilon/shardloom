@@ -71,6 +71,29 @@ impl ResidentVortexSession {
         &self.0.memory
     }
 
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn with_native_session<T>(
+        &self,
+        execute: impl FnOnce(&VortexSession, &CurrentThreadRuntime) -> Result<T>,
+    ) -> Result<T> {
+        let _gate = self
+            .0
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        execute(&self.0.session, &self.0.runtime)
+    }
+
+    /// Only engine-constructed immutable segment sources may enter here.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn prepare_immutable_file(&self, file: VortexFile) -> PreparedVortexSource {
+        PreparedVortexSource(Arc::new(PreparedSourceOwner {
+            file,
+            identity: None,
+            runtime: Arc::clone(&self.0),
+        }))
+    }
+
     #[cfg(unix)]
     pub(crate) fn native_allocator(&self) -> HostAllocatorRef {
         self.0.session.allocator()
@@ -207,7 +230,7 @@ impl ResidentVortexSession {
         self.0.opens.fetch_add(1, Ordering::Relaxed);
         Ok(PreparedVortexSource(Arc::new(PreparedSourceOwner {
             file,
-            identity,
+            identity: Some(identity),
             runtime: Arc::clone(&self.0),
         })))
     }
@@ -215,8 +238,17 @@ impl ResidentVortexSession {
 
 struct PreparedSourceOwner {
     file: VortexFile,
-    identity: Arc<SourceIdentity>,
+    // Engine-owned immutable memory needs no external pathname validation.
+    identity: Option<Arc<SourceIdentity>>,
     runtime: Arc<RuntimeOwner>,
+}
+
+impl PreparedSourceOwner {
+    fn validate(&self) -> Result<()> {
+        self.identity
+            .as_ref()
+            .map_or(Ok(()), |identity| identity.validate())
+    }
 }
 
 #[derive(Clone)]
@@ -224,7 +256,7 @@ pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 
 impl PreparedVortexSource {
     pub(crate) fn validate_generation(&self) -> Result<()> {
-        self.0.identity.validate()
+        self.0.validate()
     }
 
     /// Drive native work under one source generation, allocator, and admission
@@ -244,13 +276,13 @@ impl PreparedVortexSource {
             .admission
             .lock()
             .map_err(|_| resident_error("session admission poisoned"))?;
-        source.identity.validate()?;
+        source.validate()?;
         let result = execute(
             &source.file,
             &source.runtime.session,
             &source.runtime.runtime,
         )?;
-        source.identity.validate()?;
+        source.validate()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(result)
     }
@@ -278,7 +310,7 @@ impl PreparedVortexSource {
         max_rows: u64,
         max_output_bytes: u64,
     ) -> Result<PreparedVortexProjection> {
-        self.0.identity.validate()?;
+        self.0.validate()?;
         if columns.is_empty() || max_rows == 0 || max_output_bytes == 0 {
             return Err(resident_error(
                 "projection requires fields and positive row/byte bounds",
@@ -316,9 +348,9 @@ impl PreparedVortexCount {
             .admission
             .lock()
             .map_err(|_| resident_error("session admission poisoned"))?;
-        source.identity.validate()?;
+        source.validate()?;
         let rows = source.file.row_count();
-        source.identity.validate()?;
+        source.validate()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(rows)
     }
@@ -377,7 +409,7 @@ impl PreparedVortexProjection {
             .admission
             .lock()
             .map_err(|_| resident_error("session admission poisoned"))?;
-        source.identity.validate()?;
+        source.validate()?;
         let scan = source
             .file
             .scan()
@@ -433,7 +465,7 @@ impl PreparedVortexProjection {
                 break;
             }
         }
-        source.identity.validate()?;
+        source.validate()?;
         runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(OwnedVortexResultBatch {
             arrays: Budgeted::new(arrays, lease),

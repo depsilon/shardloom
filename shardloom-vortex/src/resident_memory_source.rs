@@ -27,11 +27,13 @@ use crate::local_primitives::collect::{
 };
 use crate::resident_session::{OwnedVortexResultBatch, ResidentVortexSession};
 
-/// Explicit nullable flat-scalar input. Slices are borrowed only for intake;
+/// Explicit flat-scalar input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
 #[derive(Clone, Copy)]
 pub enum MemoryColumnValues<'a> {
     Int64(&'a [Option<i64>]),
+    /// Nonnullable native Int64 values, with no validity bitmap or Option input.
+    Int64NonNullable(&'a [i64]),
     Float64(&'a [Option<f64>]),
     Bool(&'a [Option<bool>]),
     Utf8(&'a [Option<&'a str>]),
@@ -69,6 +71,7 @@ struct MemorySourceOwner {
     session: ResidentVortexSession,
     bounds: MemorySourceBounds,
     input_logical_bytes: usize,
+    intake_payload_bytes_copied: u64,
 }
 
 /// Validated immutable native memory, visible without durable publication.
@@ -89,9 +92,10 @@ impl ResidentMemorySource {
     ) -> Result<Self> {
         let (rows, input_logical_bytes) = validate_columns(columns, bounds)?;
         let allocator = session.native_allocator();
+        let mut intake_payload_bytes_copied = 0;
         let fields = columns
             .iter()
-            .map(|column| build_column(column.values, &allocator))
+            .map(|column| build_column(column.values, &allocator, &mut intake_payload_bytes_copied))
             .collect::<Result<Vec<_>>>()?;
         let names = FieldNames::from(columns.iter().map(|column| column.name).collect::<Vec<_>>());
         let array = StructArray::try_new(names, fields, rows, Validity::NonNullable)
@@ -102,6 +106,7 @@ impl ResidentMemorySource {
             session: session.clone(),
             bounds,
             input_logical_bytes,
+            intake_payload_bytes_copied,
         })))
     }
 
@@ -118,6 +123,34 @@ impl ResidentMemorySource {
     #[must_use]
     pub fn input_logical_bytes(&self) -> usize {
         self.0.input_logical_bytes
+    }
+
+    /// Numeric value and UTF8 payload bytes copied by typed intake. Bitmap,
+    /// offset and field-name construction are excluded from this counter.
+    #[must_use]
+    pub fn intake_payload_bytes_copied(&self) -> u64 {
+        self.0.intake_payload_bytes_copied
+    }
+
+    /// Build an immutable native file layout over owned memory segments. This
+    /// explicitly serializes the native arrays once; ordinary tiny queries need
+    /// not choose this boundary. Durable publication reuses these exact segments.
+    ///
+    /// # Errors
+    /// Rejects serialized byte/metadata or shared-memory bounds before exposing
+    /// a generation, and reports unsupported provider representations explicitly.
+    #[cfg(feature = "vortex-write")]
+    pub fn file_generation(
+        &self,
+        bounds: crate::memory_file_generation::MemoryFileGenerationBounds,
+    ) -> Result<crate::memory_file_generation::MemoryFileGeneration> {
+        crate::memory_file_generation::MemoryFileGeneration::build(
+            &self.0.session,
+            &self.0.array,
+            self.0.input_logical_bytes,
+            self.0.intake_payload_bytes_copied,
+            bounds,
+        )
     }
 
     /// Bind a native projection and optional exact Vortex expression. This is
@@ -280,6 +313,7 @@ impl MemoryColumnValues<'_> {
     fn len(self) -> usize {
         match self {
             Self::Int64(values) => values.len(),
+            Self::Int64NonNullable(values) => values.len(),
             Self::Float64(values) => values.len(),
             Self::Bool(values) => values.len(),
             Self::Utf8(values) => values.len(),
@@ -289,6 +323,7 @@ impl MemoryColumnValues<'_> {
     fn present(self, row: usize) -> bool {
         match self {
             Self::Int64(values) => values[row].is_some(),
+            Self::Int64NonNullable(_) => true,
             Self::Float64(values) => values[row].is_some(),
             Self::Bool(values) => values[row].is_some(),
             Self::Utf8(values) => values[row].is_some(),
@@ -333,7 +368,9 @@ fn validate_columns(
             return Err(memory_error("typed memory column lengths disagree"));
         }
         let value_bytes = match column.values {
-            MemoryColumnValues::Int64(_) => rows.checked_mul(8),
+            MemoryColumnValues::Int64(_) | MemoryColumnValues::Int64NonNullable(_) => {
+                rows.checked_mul(8)
+            }
             MemoryColumnValues::Float64(values) => {
                 if values.iter().flatten().any(|value| !value.is_finite()) {
                     return Err(memory_error(
@@ -349,9 +386,14 @@ fn validate_columns(
             ),
         }
         .ok_or_else(|| memory_error("typed memory byte count overflow"))?;
+        let validity_bytes = if matches!(column.values, MemoryColumnValues::Int64NonNullable(_)) {
+            0
+        } else {
+            rows.div_ceil(8)
+        };
         bytes = bytes
             .checked_add(value_bytes)
-            .and_then(|bytes| bytes.checked_add(rows.div_ceil(8)))
+            .and_then(|bytes| bytes.checked_add(validity_bytes))
             .and_then(|bytes| bytes.checked_add(column.name.len()))
             .ok_or_else(|| memory_error("typed memory byte count overflow"))?;
         if bytes > bounds.max_input_bytes {
@@ -395,22 +437,58 @@ fn fixed_bytes(
     Ok(bytes.freeze())
 }
 
-fn build_column(values: MemoryColumnValues<'_>, allocator: &HostAllocatorRef) -> Result<ArrayRef> {
+fn column_validity(
+    values: MemoryColumnValues<'_>,
+    allocator: &HostAllocatorRef,
+) -> Result<Validity> {
     let rows = values.len();
-    let validity = if (0..rows).all(|row| values.present(row)) {
-        Validity::AllValid
-    } else if (0..rows).all(|row| !values.present(row)) {
-        Validity::AllInvalid
-    } else {
-        Validity::Array(
-            BoolArray::new(
-                packed_bits(allocator, rows, |row| values.present(row))?,
-                Validity::NonNullable,
+    Ok(
+        if matches!(values, MemoryColumnValues::Int64NonNullable(_)) {
+            Validity::NonNullable
+        } else if (0..rows).all(|row| values.present(row)) {
+            Validity::AllValid
+        } else if (0..rows).all(|row| !values.present(row)) {
+            Validity::AllInvalid
+        } else {
+            Validity::Array(
+                BoolArray::new(
+                    packed_bits(allocator, rows, |row| values.present(row))?,
+                    Validity::NonNullable,
+                )
+                .into_array(),
             )
-            .into_array(),
-        )
+        },
+    )
+}
+
+fn build_column(
+    values: MemoryColumnValues<'_>,
+    allocator: &HostAllocatorRef,
+    payload_bytes_copied: &mut u64,
+) -> Result<ArrayRef> {
+    let rows = values.len();
+    // Count actual payload copy_from_slice bytes below. Bitmap and offset
+    // construction, names, and provider-internal work are distinct exclusions.
+    *payload_bytes_copied += match values {
+        MemoryColumnValues::Int64(_)
+        | MemoryColumnValues::Int64NonNullable(_)
+        | MemoryColumnValues::Float64(_) => (rows * 8) as u64,
+        MemoryColumnValues::Utf8(values) => values
+            .iter()
+            .flatten()
+            .map(|value| value.len() as u64)
+            .sum(),
+        MemoryColumnValues::Bool(_) => 0,
     };
+    let validity = column_validity(values, allocator)?;
     match values {
+        MemoryColumnValues::Int64NonNullable(values) => Ok(PrimitiveArray::new(
+            Buffer::<i64>::from_byte_buffer(fixed_bytes(allocator, rows, |row| {
+                values[row].to_ne_bytes()
+            })?),
+            validity,
+        )
+        .into_array()),
         MemoryColumnValues::Int64(values) => Ok(PrimitiveArray::new(
             Buffer::<i64>::from_byte_buffer(fixed_bytes(allocator, rows, |row| {
                 values[row].unwrap_or_default().to_ne_bytes()

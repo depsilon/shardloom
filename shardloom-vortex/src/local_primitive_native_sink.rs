@@ -403,16 +403,16 @@ impl NativeSinkPlan {
     }
 }
 
-struct OwnedOutput {
+pub(crate) struct OwnedOutput {
     target: PathBuf,
-    temporary: PathBuf,
-    file: fs::File,
+    pub(crate) temporary: PathBuf,
+    pub(crate) file: fs::File,
     identity: (u64, u64),
     prior_target: Option<DestinationGeneration>,
     committed: bool,
 }
 impl OwnedOutput {
-    fn new(target: &Path, allow_overwrite: bool) -> Result<Self> {
+    pub(crate) fn new(target: &Path, allow_overwrite: bool) -> Result<Self> {
         Self::new_with_after_preflight(target, allow_overwrite, || Ok(()))
     }
 
@@ -450,7 +450,7 @@ impl OwnedOutput {
             committed: false,
         })
     }
-    fn checksum(&mut self) -> Result<String> {
+    pub(crate) fn checksum(&mut self) -> Result<String> {
         self.file.rewind().map_err(vortex_error)?;
         let mut digest = Sha256::new();
         // Covered by the operation's existing 128 KiB metadata/scratch lease.
@@ -469,7 +469,7 @@ impl OwnedOutput {
         }
         Ok(encoded)
     }
-    fn commit(&mut self) -> Result<()> {
+    pub(crate) fn commit(&mut self) -> Result<()> {
         self.commit_with_unlink(|path| fs::remove_file(path))
     }
 

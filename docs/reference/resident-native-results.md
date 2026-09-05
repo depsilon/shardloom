@@ -206,7 +206,18 @@ Performance and memory claims require measurements of the selected policy.
 native intake, binding, filtering/projection, and complete JSON return. It reports
 isolated and concurrent shared-session load separately, verifies complete
 foreground values against a literal fixture, and retains raw samples. The
-`resident_latency` example separates prepared file arrays from JSON rendering;
+default remains `resident_memory_latency 1000` with the original 32-row nullable
+five-field fixture. `resident_memory_latency 1000 int64_64k` selects 4,096 rows
+of two nonnullable native Int64 columns and returns the final eight exact rows.
+That profile has exactly 65,536 raw value bytes; typed-input admission is 65,562
+bytes including its 26 bytes of field names. Neither figure is total retained
+process memory. Both profiles report p50/p95/p99 for isolated execution and the
+same 16,384-row background workload sharing their resident session. Every
+foreground result is checked completely; the background's complete independent
+values are checked before overlap and its row count on every operation. Results
+apply to the measured profile and do not establish a general latency guarantee.
+
+The `resident_latency` example separates prepared file arrays from JSON rendering;
 `scripts/run_resident_call_path_uat.py` compares the public process, persistent
 worker, and Python client boundaries. Follow
 [local development storage rules](../architecture/local-development-storage.md)

@@ -37,6 +37,66 @@ fn fixture(session: &ResidentVortexSession, bounds: MemorySourceBounds) -> Resid
 }
 
 #[test]
+fn explicit_nonnullable_int64_preserves_dtype_values_and_separate_admission_bytes() {
+    let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
+    let values = [i64::MIN, 9_007_199_254_740_993, i64::MAX];
+    let source = ResidentMemorySource::from_columns(
+        &session,
+        &[MemoryColumn {
+            name: "exact",
+            values: MemoryColumnValues::Int64NonNullable(&values),
+        }],
+        MemorySourceBounds::default(),
+    )
+    .unwrap();
+    assert_eq!(source.input_logical_bytes(), 3 * 8 + "exact".len());
+    assert_eq!(
+        source.dtype().as_struct_fields().field("exact"),
+        Some(DType::Primitive(
+            vortex::array::dtype::PType::I64,
+            Nullability::NonNullable
+        ))
+    );
+    let result = source
+        .prepare_projection(&["exact"], None, None)
+        .unwrap()
+        .execute()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(result.values_json.value()).unwrap(),
+        serde_json::json!([{"exact": i64::MIN}, {"exact": 9_007_199_254_740_993_i64}, {"exact": i64::MAX}])
+    );
+    let nullable = ResidentMemorySource::from_columns(
+        &session,
+        &[MemoryColumn {
+            name: "exact",
+            values: MemoryColumnValues::Int64(&[Some(i64::MAX)]),
+        }],
+        MemorySourceBounds::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        nullable.dtype().as_struct_fields().field("exact"),
+        Some(DType::Primitive(
+            vortex::array::dtype::PType::I64,
+            Nullability::Nullable
+        ))
+    );
+    assert_eq!(nullable.input_logical_bytes(), 8 + 1 + "exact".len());
+    let empty = ResidentMemorySource::from_columns(
+        &session,
+        &[MemoryColumn {
+            name: "exact",
+            values: MemoryColumnValues::Int64NonNullable(&[]),
+        }],
+        MemorySourceBounds::default(),
+    )
+    .unwrap();
+    assert_eq!(empty.row_count(), 0);
+    assert_eq!(empty.dtype(), source.dtype());
+}
+
+#[test]
 fn typed_snapshot_copies_borrowed_input_and_preserves_complete_scalar_values() {
     let session = ResidentVortexSession::new(2 * 1024 * 1024, 2).unwrap();
     let mut ids = vec![Some(i64::MAX), None, Some(i64::MIN)];
