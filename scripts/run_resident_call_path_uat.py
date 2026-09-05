@@ -178,6 +178,13 @@ def validate_preparation(envelope: dict) -> None:
                 raise ValueError("unsafe fixture preparation evidence")
 
 
+def validate_candidate_reuse(fields: dict, surface: str, sample: int) -> None:
+    expected_executions = 1 if surface == "fresh_cli_process" else sample + 1
+    if (str(fields.get("resident_source_opens")) != "1"
+            or str(fields.get("resident_completed_executions")) != str(expected_executions)):
+        raise ValueError("candidate prepared reader/operation reuse evidence disagrees with call path")
+
+
 def execute(args) -> Path:
     if os.name != "posix":
         raise ValueError("this local process-group/selector harness requires a POSIX host")
@@ -283,12 +290,8 @@ def execute(args) -> Path:
                             fields = {field["key"]: field["value"] for field in envelope.get("fields", [])}
                             record["resident_source_opens"] = fields.get("resident_source_opens")
                             record["resident_completed_executions"] = fields.get("resident_completed_executions")
-                            if name == "candidate" and (case["primitive"] != "count"
-                                                        or record["resident_source_opens"] is not None):
-                                expected_executions = 1 if surface == "fresh_cli_process" else sample + 1
-                                if (str(record["resident_source_opens"]) != "1"
-                                        or str(record["resident_completed_executions"]) != str(expected_executions)):
-                                    raise ValueError("candidate prepared reader/operation reuse evidence disagrees with call path")
+                            if name == "candidate":
+                                validate_candidate_reuse(fields, surface, sample)
                             record["passed"] = True
                             guard()
                 for name in binaries:

@@ -240,6 +240,64 @@ mod native {
             "percentile_method": "nearest_rank" })
     }
 
+    #[derive(Clone, Copy, Debug)]
+    struct OperationInterval {
+        start: u64,
+        end: u64,
+    }
+
+    fn interval(epoch: Instant, start: Instant, end: Instant) -> Result<OperationInterval, Error> {
+        Ok(OperationInterval {
+            start: u64::try_from(start.duration_since(epoch).as_nanos())?,
+            end: u64::try_from(end.duration_since(epoch).as_nanos())?,
+        })
+    }
+
+    fn require_mixed_overlap(
+        foreground: &[OperationInterval],
+        background: &[OperationInterval],
+    ) -> Result<usize, Error> {
+        let mut background_index = 0;
+        let mut overlapping = 0;
+        for sample in foreground {
+            while background_index < background.len()
+                && background[background_index].end <= sample.start
+            {
+                background_index += 1;
+            }
+            if sample.start < sample.end
+                && background.get(background_index).is_some_and(|work| {
+                    work.start < work.end && work.start < sample.end && sample.start < work.end
+                })
+            {
+                overlapping += 1;
+            }
+        }
+        if overlapping == 0 {
+            return Err("no timed foreground operation overlapped a background operation".into());
+        }
+        Ok(overlapping)
+    }
+
+    fn measure_mixed_foreground(
+        fixture: &dyn FixtureProfile,
+        session: &ResidentVortexSession,
+        iterations: usize,
+        epoch: Instant,
+    ) -> Result<(Vec<u64>, Vec<OperationInterval>), Error> {
+        let mut samples = Vec::with_capacity(iterations);
+        let mut intervals = Vec::with_capacity(iterations);
+        for _ in 0..iterations {
+            let started = Instant::now();
+            let result = black_box(fixture.execute(session)?);
+            let ended = Instant::now();
+            samples.push(u64::try_from(ended.duration_since(started).as_nanos())?);
+            intervals.push(interval(epoch, started, ended)?);
+            fixture.verify(&result)?;
+        }
+        Ok((samples, intervals))
+    }
+
     fn mixed(
         fixture: &dyn FixtureProfile,
         session: &ResidentVortexSession,
@@ -278,33 +336,45 @@ mod native {
         drop(expected);
         let active = AtomicBool::new(true);
         let barrier = Barrier::new(2);
-        let (samples, completed) = std::thread::scope(|scope| -> Result<_, Error> {
-            let worker = scope.spawn(|| -> Result<u64, String> {
+        let epoch = Instant::now();
+        let max_background_intervals = iterations.saturating_mul(8).max(1024);
+        let ((samples, foreground_intervals), background_intervals) = std::thread::scope(|scope| -> Result<_, Error> {
+            let worker = scope.spawn(|| -> Result<Vec<OperationInterval>, String> {
+                let mut intervals = Vec::with_capacity(max_background_intervals);
                 barrier.wait();
-                let mut completed = 0;
                 while active.load(Ordering::Acquire) {
+                    if intervals.len() == max_background_intervals {
+                        return Err("mixed-load interval evidence bound exceeded".into());
+                    }
+                    let started = Instant::now();
                     let result = background
                         .execute_arrays()
                         .map_err(|error| error.to_string())?;
+                    let ended = Instant::now();
                     if result.row_count() != 8_192 {
                         return Err("mixed-load background row count mismatch".into());
                     }
-                    completed += 1;
+                    intervals.push(interval(epoch, started, ended).map_err(|error| error.to_string())?);
                     std::thread::yield_now();
                 }
-                Ok(completed)
+                Ok(intervals)
             });
             barrier.wait();
-            let samples = measure(fixture, session, iterations);
+            let samples = measure_mixed_foreground(fixture, session, iterations, epoch);
             active.store(false, Ordering::Release);
-            let completed = worker.join().map_err(|_| "mixed-load worker panicked")??;
-            Ok((samples?, completed))
+            let intervals = worker.join().map_err(|_| "mixed-load worker panicked")??;
+            Ok((samples?, intervals))
         })?;
-        if completed == 0 {
-            return Err("mixed load completed no background operations".into());
-        }
+        let overlapping = require_mixed_overlap(&foreground_intervals, &background_intervals)?;
+        let raw_intervals = |intervals: &[OperationInterval]| intervals.iter()
+            .map(|work| [work.start, work.end]).collect::<Vec<_>>();
         Ok(
-            serde_json::json!({ "foreground": latency(&samples), "background_completed_operations": completed,
+            serde_json::json!({ "foreground": latency(&samples), "background_completed_operations": background_intervals.len(),
+            "foreground_intervals_nanos": raw_intervals(&foreground_intervals),
+            "background_intervals_nanos": raw_intervals(&background_intervals),
+            "interval_scope": "half-open monotonic operation intervals from one epoch; includes admission wait; excludes reference verification and result drop; overlap is concurrent in-flight calls, not simultaneous CPU execution",
+            "foreground_operations_with_background_overlap": overlapping,
+            "background_interval_capacity": max_background_intervals,
             "background": "16384-row native nullable-int filter/projection into 8192 owned array rows; same resident session, admission gate and buffer budget",
             "background_validation": "all 8192 values compared to an independent Rust sequence once before measured overlap; exact row count checked on each background operation; every foreground scalar checked on every sample" }),
         )
@@ -338,6 +408,9 @@ mod native {
         let isolated = measure(fixture.as_ref(), &session, iterations)?;
         let mixed = mixed(fixture.as_ref(), &session, iterations)?;
         let snapshot = session.snapshot();
+        if snapshot.memory.reserved_bytes != 0 || snapshot.memory.denied_reservations != 0 {
+            return Err("memory latency acceptance retained owned bytes or denied admission".into());
+        }
         let memory = serde_json::json!({
             "scope": "session allocator native value/offset/validity buffers and result JSON capacity; excludes caller/parser storage, array metadata, upstream scratch not using allocator, process RSS",
             "limit_bytes": snapshot.memory.limit_bytes,
@@ -374,7 +447,7 @@ mod native {
 
     #[cfg(test)]
     mod tests {
-        use super::{FixtureProfile as _, Int64Fixture, NullableFixture};
+        use super::{FixtureProfile as _, Int64Fixture, NullableFixture, OperationInterval, require_mixed_overlap};
         use shardloom_vortex::{
             resident_memory_source::{
                 MemoryColumn, MemoryColumnValues, MemorySourceBounds, ResidentMemorySource,
@@ -382,6 +455,21 @@ mod native {
             resident_session::ResidentVortexSession,
         };
         use vortex::array::dtype::{DType, Nullability, PType};
+
+        #[test]
+        fn mixed_acceptance_requires_overlap_inside_timed_operations() {
+            let foreground = [OperationInterval { start: 10, end: 20 }, OperationInterval { start: 30, end: 40 }];
+            for background in [
+                vec![],
+                vec![OperationInterval { start: 0, end: 10 }],
+                vec![OperationInterval { start: 20, end: 30 }],
+                vec![OperationInterval { start: 40, end: 50 }],
+            ] {
+                assert!(require_mixed_overlap(&foreground, &background).is_err());
+            }
+            assert_eq!(require_mixed_overlap(&foreground, &[OperationInterval { start: 15, end: 35 }]).unwrap(), 2);
+            assert_eq!(require_mixed_overlap(&foreground, &[OperationInterval { start: 5, end: 15 }]).unwrap(), 1);
+        }
 
         #[test]
         fn numeric_profile_is_exactly_64k_values_with_explicit_name_overhead_and_eight_results() {

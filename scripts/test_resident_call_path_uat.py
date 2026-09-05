@@ -8,7 +8,7 @@ import unittest
 
 from run_resident_call_path_uat import (
     Worker, cases, command_args, fixture_rows, paired_order, percentiles,
-    request_options, validate, validate_preparation,
+    request_options, validate, validate_candidate_reuse, validate_preparation,
 )
 
 
@@ -69,6 +69,18 @@ class ResidentCallPathTests(unittest.TestCase):
             validate_preparation(unsafe)
         with self.assertRaises(ValueError):
             validate_preparation({"status": "success", "fields": []})
+
+    def test_count_requires_prepared_reader_and_per_call_execution_evidence(self):
+        for surface in ("persistent_worker", "python_client"):
+            validate_candidate_reuse({"resident_source_opens": "1",
+                                      "resident_completed_executions": "4"}, surface, 3)
+            for fields in ({}, {"resident_source_opens": "1"},
+                           {"resident_source_opens": "2", "resident_completed_executions": "4"},
+                           {"resident_source_opens": "1", "resident_completed_executions": "1"}):
+                with self.assertRaises(ValueError):
+                    validate_candidate_reuse(fields, surface, 3)
+        validate_candidate_reuse({"resident_source_opens": "1",
+                                  "resident_completed_executions": "1"}, "fresh_cli_process", 3)
 
     @unittest.skipUnless(os.name == "posix", "native process group fixture")
     def test_worker_retains_exact_raw_response_and_times_out_without_leaking_child(self):
