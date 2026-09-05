@@ -140,6 +140,11 @@ durability for newly created ancestor directory entries.
 The held parent directory's device/inode identity must match the admitted path
 after opening, before commit, and after synchronization. Post-publication drift
 returns an explicit published-but-durability-unconfirmed error.
+The final durability boundary also checks that the published pathname and held
+file still match the verified size/mtime and post-commit inode/ctime generation.
+Replacement, unlink or in-place mutation returns a published-but-durability-unconfirmed
+error and preserves the current destination. This check does not prevent another
+writer from changing the pathname after publication returns.
 
 Admission bounds segment count, serialized segment bytes, retained total bytes,
 and metadata capacity before publishing the generation. Native allocations retain

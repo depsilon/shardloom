@@ -519,3 +519,56 @@ fn separately_built_generations_do_not_change_existing_prepared_answers() {
         ])
     );
 }
+
+#[test]
+fn publication_target_replacement_unlink_and_in_place_changes_reject_durable_claim() {
+    for mutation in ["replace", "unlink", "in_place"] {
+        let fixture = Fixture::new();
+        let session = ResidentVortexSession::new(4 * 1024 * 1024, 1).unwrap();
+        let generation = generation(&session);
+        let target = fixture.target();
+        let result = generation.publish_with_hooks(
+            &target,
+            |_| Ok(()),
+            || {
+                match mutation {
+                    "replace" => {
+                        fs::remove_file(&target).unwrap();
+                        fs::write(&target, b"foreign generation").unwrap();
+                    }
+                    "unlink" => fs::remove_file(&target).unwrap(),
+                    "in_place" => {
+                        let mut file = fs::OpenOptions::new()
+                            .write(true)
+                            .open(&target)
+                            .unwrap();
+                        let metadata = file.metadata().unwrap();
+                        file.write_all(b"foreign generation").unwrap();
+                        // Preserve size and inode, with a deterministic mtime
+                        // change even on filesystems with coarse timestamps.
+                        file.set_modified(
+                            metadata.modified().unwrap() + std::time::Duration::from_secs(1),
+                        )
+                        .unwrap();
+                        assert_eq!(file.metadata().unwrap().len(), metadata.len());
+                    }
+                    _ => unreachable!(),
+                }
+                Ok(())
+            },
+        );
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("output was published but durability is unconfirmed"));
+        if mutation == "unlink" {
+            assert!(!target.exists());
+            assert_eq!(fixture.entries(), 0);
+        } else if mutation == "replace" {
+            assert_eq!(fs::read(&target).unwrap(), b"foreign generation");
+            assert_eq!(fixture.entries(), 1);
+        } else {
+            assert!(fs::read(&target).unwrap().starts_with(b"foreign generation"));
+            assert_eq!(fixture.entries(), 1);
+        }
+        assert_eq!(collected(&generation), expected());
+    }
+}

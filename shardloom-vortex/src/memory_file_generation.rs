@@ -323,7 +323,9 @@ impl MemoryFileGeneration {
     /// # Errors
     /// Rejects unsafe/replaced destinations, bounds, corruption and I/O failures.
     /// If parent sync fails after publication, the error explicitly reports that
-    /// the output was published but durability remains unconfirmed.
+    /// the output was published but durability remains unconfirmed. The final
+    /// boundary validates the published file generation; it cannot prevent a
+    /// different writer from changing the pathname after this method returns.
     pub fn publish(&self, target: &Path) -> Result<MemoryFilePublication> {
         self.publish_with_validation(target, |_| Ok(()))
     }
@@ -401,6 +403,7 @@ impl MemoryFileGeneration {
         })?;
         before_validation(&mut output.file)?;
         validate_publication_parent(parent, &parent_directory, admitted_parent, false)?;
+        let verified_generation = PublishedOutputGeneration::read(&output.file)?;
         let actual = output.checksum()?;
         if actual != expected || output.file.metadata().map_err(generation_error)?.len() != written
         {
@@ -411,17 +414,11 @@ impl MemoryFileGeneration {
         self.validate_staged_output(&output.temporary)?;
         validate_publication_parent(parent, &parent_directory, admitted_parent, false)?;
         output.commit()?;
-        after_publication().map_err(|error| {
-            generation_error(format!(
-                "output was published but directory durability is unconfirmed: {error}"
-            ))
-        })?;
-        parent_directory.sync_all().map_err(|error| {
-            generation_error(format!(
-                "output was published but directory durability is unconfirmed: {error}"
-            ))
-        })?;
+        let published_generation = verified_generation.after_commit(&output.file)?;
+        after_publication().map_err(publication_unconfirmed)?;
+        parent_directory.sync_all().map_err(publication_unconfirmed)?;
         validate_publication_parent(parent, &parent_directory, admitted_parent, true)?;
+        published_generation.validate(target, &output.file)?;
         Ok(MemoryFilePublication {
             rows: self.row_count(),
             file_bytes_written: written,
@@ -449,6 +446,69 @@ impl MemoryFileGeneration {
             Ok(())
         })
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct PublishedOutputGeneration {
+    device: u64,
+    inode: u64,
+    bytes: u64,
+    modified: (i64, i64),
+    changed: (i64, i64),
+}
+
+impl PublishedOutputGeneration {
+    fn from_metadata(metadata: &fs::Metadata) -> Self {
+        use std::os::unix::fs::MetadataExt as _;
+        Self {
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            bytes: metadata.len(),
+            modified: (metadata.mtime(), metadata.mtime_nsec()),
+            changed: (metadata.ctime(), metadata.ctime_nsec()),
+        }
+    }
+
+    fn read(file: &fs::File) -> Result<Self> {
+        file.metadata()
+            .map(|metadata| Self::from_metadata(&metadata))
+            .map_err(generation_error)
+    }
+
+    fn after_commit(self, file: &fs::File) -> Result<Self> {
+        let published = Self::read(file).map_err(publication_unconfirmed)?;
+        // The owned link/unlink changes ctime. It cannot change the verified
+        // contents' size or mtime, or the held inode's identity.
+        let verified_after_link = Self {
+            changed: published.changed,
+            ..self
+        };
+        if verified_after_link != published {
+            return Err(publication_unconfirmed(
+                "verified output changed during publication",
+            ));
+        }
+        Ok(published)
+    }
+
+    fn validate(self, target: &Path, file: &fs::File) -> Result<()> {
+        let current = fs::symlink_metadata(target).map_err(publication_unconfirmed)?;
+        let held = Self::read(file).map_err(publication_unconfirmed)?;
+        if !current.is_file()
+            || current.file_type().is_symlink()
+            || Self::from_metadata(&current) != self
+            || held != self
+        {
+            return Err(publication_unconfirmed("published output generation changed"));
+        }
+        Ok(())
+    }
+}
+
+fn publication_unconfirmed(error: impl std::fmt::Display) -> ShardLoomError {
+    generation_error(format!(
+        "output was published but durability is unconfirmed: {error}"
+    ))
 }
 
 #[derive(Clone)]
