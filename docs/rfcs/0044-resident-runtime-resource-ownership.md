@@ -63,6 +63,15 @@ and remove owned runs. Crash recovery must identify owned runs without deleting
 unknown files. Spill must fail deterministically when no workspace is admitted.
 Existing synthetic-spill gates retain their meaning and do not prove query spill.
 
+The numeric sort run geometry may scale with its existing merge reservation:
+256..=1024 rows per native Flat leaf, with a bounded 2/4/8-way merge. Retain the
+full per-leaf metadata charge and account for simultaneous input/output footers.
+Poll one exact native run row-range task at a time so upstream machine-core
+prefetch does not multiply retained run payloads. Validate the 131,072-row,
+large-offset public query at 4 MiB; 1 MiB is an admission minimum, not a promise
+that arbitrarily many run footers fit. This remains a scoped operator reservation,
+not an RSS or whole-query bound.
+
 ## Memory-Visible Publication
 
 PERF-11 may publish validated, immutable in-memory Vortex arrays without creating a

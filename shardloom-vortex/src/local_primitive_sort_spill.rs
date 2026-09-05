@@ -22,7 +22,6 @@ use vortex::{
         ArrayRef, IntoArray as _,
         arrays::{PrimitiveArray, StructArray},
         dtype::{DType, Nullability, PType},
-        iter::ArrayIterator,
         validity::Validity,
     },
     file::{OpenOptionsSessionExt as _, WriteOptionsSessionExt as _},
@@ -35,7 +34,15 @@ const MERGE_FAN_IN: usize = 8;
 // A binary carry per level keeps each input row in at most 64 merge generations.
 // The u64 row-count contract cannot produce a 65th occupied level.
 const MAX_LIVE_RUNS: usize = 64;
-const BLOCK_ROWS: usize = 256;
+const MIN_BLOCK_ROWS: usize = 256;
+const MAX_BLOCK_ROWS: usize = 1024;
+// Each reader can retain the provider's 64 KiB initial footer read, including
+// any covered payload. Run metadata itself remains separately reserved.
+const MERGE_READER_BYTES: u64 = 64 * 1024;
+const MERGE_FIXED_BYTES: u64 = 16 * 1024;
+// Covers eight row queues, one scalar conversion, and overlapping input/output
+// arrays at the sequential Flat writer. Geometry tests check the type-size sum.
+const MERGE_BYTES_PER_BLOCK_ROW: u64 = 1024;
 const RUN_METADATA_BYTES_PER_BLOCK: u64 = 1024;
 const RUN_METADATA_BASE_BYTES: u64 = 4096;
 const OWNERSHIP_MARKER: &str = "owner.json";
@@ -148,6 +155,7 @@ struct Run {
     digest: [u8; 32],
     metadata_bytes: u64,
     level: u32,
+    block_rows: usize,
 }
 
 /// Reservation coverage is deliberately scoped to owned sort candidates,
@@ -170,6 +178,8 @@ pub(super) struct NumericSortSpill {
     _scratch: MemoryLease,
     metadata: MemoryLease,
     capacity_rows: usize,
+    block_rows: usize,
+    merge_fan_in: usize,
     descending: bool,
     tie_policy: VortexSortTiePolicy,
     signed: bool,
@@ -198,8 +208,9 @@ impl NumericSortSpill {
         let merge = memory.reserve(policy.memory_bytes / 2)?;
         let scratch = memory.reserve(policy.memory_bytes / 8)?;
         let metadata = memory.reserve(0)?;
+        let (block_rows, merge_fan_in) = merge_geometry(merge.bytes())?;
         let capacity_rows = usize::try_from(state.bytes() / 256).unwrap_or(usize::MAX);
-        if capacity_rows < BLOCK_ROWS || limit > capacity_rows {
+        if capacity_rows < block_rows || limit > capacity_rows {
             return Err(spill_error(
                 "requested sort output exceeds admitted retained-row capacity",
             ));
@@ -254,6 +265,8 @@ impl NumericSortSpill {
                 runs_written: 0,
                 runs_validated: 0,
                 merge_passes: 0,
+                run_block_rows: block_rows,
+                merge_fan_in,
                 max_open_runs: 0,
                 owned_cleanup_completed: false,
             },
@@ -263,6 +276,8 @@ impl NumericSortSpill {
             _scratch: scratch,
             metadata,
             capacity_rows,
+            block_rows,
+            merge_fan_in,
             descending,
             tie_policy,
             signed,
@@ -346,8 +361,8 @@ impl NumericSortSpill {
         })
     }
 
-    fn metadata_for_rows(rows: u64) -> Result<u64> {
-        rows.div_ceil(BLOCK_ROWS as u64)
+    fn metadata_for_rows(rows: u64, block_rows: usize) -> Result<u64> {
+        rows.div_ceil(block_rows as u64)
             .checked_mul(RUN_METADATA_BYTES_PER_BLOCK)
             .and_then(|bytes| bytes.checked_add(RUN_METADATA_BASE_BYTES))
             .ok_or_else(|| spill_error("sort run metadata reservation overflow"))
@@ -364,7 +379,7 @@ impl NumericSortSpill {
         if self.owned.len() > MAX_LIVE_RUNS {
             return Err(spill_error("native sort run metadata file bound exceeded"));
         }
-        let metadata_bytes = Self::metadata_for_rows(count)?;
+        let metadata_bytes = Self::metadata_for_rows(count, self.block_rows)?;
         self.metadata.resize(
             self.metadata
                 .bytes()
@@ -397,12 +412,13 @@ impl NumericSortSpill {
         };
         let mut rows = rows;
         let policy = self.policy.clone();
+        let block_rows = self.block_rows;
         let blocks = std::iter::from_fn(move || {
             if let Err(error) = check_cancelled(&policy) {
                 return Some(Err(vortex::error::vortex_err!("{error}")));
             }
-            let mut block = Vec::with_capacity(BLOCK_ROWS);
-            while block.len() < BLOCK_ROWS {
+            let mut block = Vec::with_capacity(block_rows);
+            while block.len() < block_rows {
                 match rows.next() {
                     Some(Ok(row)) => block.push(row),
                     Some(Err(error)) => return Some(Err(vortex::error::vortex_err!("{error}"))),
@@ -411,7 +427,7 @@ impl NumericSortSpill {
             }
             (!block.is_empty()).then(|| Ok(rows_array(&block)))
         });
-        let max_chunks = usize::try_from(count.div_ceil(BLOCK_ROWS as u64))
+        let max_chunks = usize::try_from(count.div_ceil(self.block_rows as u64))
             .map_err(|_| spill_error("native run chunk count overflow"))?;
         let strategy = native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks);
         let mut native_writer = session
@@ -451,24 +467,25 @@ impl NumericSortSpill {
             digest: writer.digest.finalize().into(),
             metadata_bytes,
             level: 0,
+            block_rows: self.block_rows,
         };
         validate_run_bytes(&run)?;
         self.report.runs_validated += 1;
         Ok(run)
     }
 
-    fn open_merge(
+    fn open_merge<'runtime>(
         &mut self,
-        runtime: &LocalVortexRuntime,
+        runtime: &'runtime LocalVortexRuntime,
         session: &VortexSession,
-    ) -> Result<RunMerge> {
+    ) -> Result<RunMerge<'runtime>> {
         self.report.max_open_runs = self.report.max_open_runs.max(self.runs.len());
         let readers = self
             .runs
             .iter()
             .map(|run| RunReader::open(run, runtime, session))
             .collect::<Result<Vec<_>>>()?;
-        RunMerge::new(readers, self.policy.clone())
+        RunMerge::new(readers, self.policy.clone(), runtime, self.merge_fan_in)
     }
 
     fn compact(
@@ -477,7 +494,7 @@ impl NumericSortSpill {
         runtime: &LocalVortexRuntime,
         session: &VortexSession,
     ) -> Result<()> {
-        if !(2..=MERGE_FAN_IN).contains(&fan_in) || fan_in > self.runs.len() {
+        if !(2..=self.merge_fan_in).contains(&fan_in) || fan_in > self.runs.len() {
             return Err(spill_error("invalid native sort merge fan-in"));
         }
         let old = self.runs.split_off(self.runs.len() - fan_in);
@@ -497,7 +514,7 @@ impl NumericSortSpill {
             .iter()
             .map(|run| RunReader::open(run, runtime, session))
             .collect::<Result<Vec<_>>>()?;
-        let merge = RunMerge::new(readers, self.policy.clone())?;
+        let merge = RunMerge::new(readers, self.policy.clone(), runtime, self.merge_fan_in)?;
         self.report.max_open_runs = self.report.max_open_runs.max(fan_in + 1);
         let mut output = self.write_run(merge, count, runtime, session)?;
         output.level = level;
@@ -529,8 +546,8 @@ impl NumericSortSpill {
         session: &VortexSession,
     ) -> Result<(Vec<SortRowCandidate>, VortexSortSpillReport)> {
         self.flush(candidates, runtime, session)?;
-        while self.runs.len() > MERGE_FAN_IN {
-            self.compact(MERGE_FAN_IN, runtime, session)?;
+        while self.runs.len() > self.merge_fan_in {
+            self.compact(self.merge_fan_in, runtime, session)?;
         }
         let mut merge = self.open_merge(runtime, session)?;
         let mut selected = Vec::with_capacity(limit);
@@ -709,63 +726,109 @@ fn validate_run_bytes(run: &Run) -> Result<()> {
     Ok(())
 }
 
+fn merge_geometry(reserved_bytes: u64) -> Result<(usize, usize)> {
+    for fan_in in [MERGE_FAN_IN, 4, 2] {
+        let fixed = MERGE_FIXED_BYTES + fan_in as u64 * MERGE_READER_BYTES;
+        let available_rows = reserved_bytes.saturating_sub(fixed) / MERGE_BYTES_PER_BLOCK_ROW;
+        for block_rows in [MAX_BLOCK_ROWS, 512, MIN_BLOCK_ROWS] {
+            if block_rows as u64 <= available_rows {
+                return Ok((block_rows, fan_in));
+            }
+        }
+    }
+    Err(spill_error(
+        "sort merge reservation cannot admit its minimum native block",
+    ))
+}
+
 struct RunReader {
-    arrays: Box<dyn ArrayIterator>,
+    file: vortex::file::VortexFile,
     rows: VecDeque<SpillRow>,
     remaining: u64,
     previous: Option<SpillRow>,
+    next_block_offset: u64,
+    block_rows: usize,
 }
 impl RunReader {
     fn open(run: &Run, runtime: &LocalVortexRuntime, session: &VortexSession) -> Result<Self> {
         validate_run_bytes(run)?;
         let file = runtime
-            .block_on(session.open_options().open_path(&run.path))
+            .block_on(
+                session
+                    .open_options()
+                    .with_layout_reader_cache()
+                    .open_path(&run.path),
+            )
             .map_err(vortex_error)?;
         if file.dtype() != &run_dtype() || file.row_count() != run.rows {
             return Err(spill_error("native sort run schema or row count changed"));
         }
-        let arrays = file
-            .scan()
-            .map_err(vortex_error)?
-            .with_ordered(true)
-            .with_split_by(SplitBy::RowCount(BLOCK_ROWS))
-            .with_concurrency(1)
-            .into_array_iter(runtime)
-            .map_err(vortex_error)?;
         Ok(Self {
-            arrays: Box::new(arrays),
-            rows: VecDeque::with_capacity(BLOCK_ROWS),
+            file,
+            rows: VecDeque::with_capacity(run.block_rows),
             remaining: run.rows,
             previous: None,
+            next_block_offset: 0,
+            block_rows: run.block_rows,
         })
     }
 
-    fn next_row(&mut self) -> Result<Option<SpillRow>> {
-        if self.rows.is_empty()
-            && let Some(array) = self.arrays.next()
-        {
-            let array = array.map_err(vortex_error)?;
-            if array.len() > BLOCK_ROWS {
-                return Err(spill_error("native sort run read exceeded its block bound"));
+    fn refill(&mut self, runtime: &LocalVortexRuntime) -> Result<()> {
+        let start = self.next_block_offset;
+        let end = start
+            .saturating_add(self.block_rows as u64)
+            .min(self.file.row_count());
+        // Both scan-stream concurrency and blocking iterator buffering scale by
+        // host cores in Vortex 0.85. Build one exact Flat-leaf task and drive it
+        // directly; no other run payload may be prefetched during this refill.
+        let mut tasks = self
+            .file
+            .scan()
+            .map_err(vortex_error)?
+            .with_row_range(start..end)
+            .with_split_by(SplitBy::RowCount(self.block_rows))
+            .build()
+            .map_err(vortex_error)?;
+        if tasks.len() != 1 {
+            return Err(spill_error(
+                "native sort run block must produce exactly one scan task",
+            ));
+        }
+        let task = tasks
+            .pop()
+            .ok_or_else(|| spill_error("native sort run block task is absent"))?;
+        let array = runtime
+            .block_on(task)
+            .map_err(vortex_error)?
+            .ok_or_else(|| spill_error("native sort run block returned no rows"))?;
+        if array.len() as u64 != end - start || array.len() > self.block_rows {
+            return Err(spill_error(
+                "native sort run read exceeded or truncated its block bound",
+            ));
+        }
+        let columns =
+            row_export_columns_from_chunk(&array, &["key".into(), "tie".into(), "source".into()])?;
+        for index in 0..array.len() {
+            let mut values = [0_u64; 3];
+            for (column, value) in columns.iter().zip(&mut values) {
+                let Some(StatValue::UInt64(number)) = column.get(index) else {
+                    return Err(spill_error("native sort run contains an invalid primitive"));
+                };
+                *value = *number;
             }
-            let columns = row_export_columns_from_chunk(
-                &array,
-                &["key".into(), "tie".into(), "source".into()],
-            )?;
-            for index in 0..array.len() {
-                let mut values = [0_u64; 3];
-                for (column, value) in columns.iter().zip(&mut values) {
-                    let Some(StatValue::UInt64(number)) = column.get(index) else {
-                        return Err(spill_error("native sort run contains an invalid primitive"));
-                    };
-                    *value = *number;
-                }
-                self.rows.push_back(SpillRow {
-                    key: values[0],
-                    tie: values[1],
-                    source: values[2],
-                });
-            }
+            self.rows.push_back(SpillRow {
+                key: values[0],
+                tie: values[1],
+                source: values[2],
+            });
+        }
+        self.next_block_offset = end;
+        Ok(())
+    }
+
+    fn next_row(&mut self, runtime: &LocalVortexRuntime) -> Result<Option<SpillRow>> {
+        if self.rows.is_empty() && self.remaining != 0 {
+            self.refill(runtime)?;
         }
         let Some(row) = self.rows.pop_front() else {
             if self.remaining != 0 {
@@ -784,22 +847,28 @@ impl RunReader {
     }
 }
 
-struct RunMerge {
+struct RunMerge<'runtime> {
     readers: Vec<RunReader>,
     heads: BinaryHeap<Reverse<(SpillRow, usize)>>,
     policy: VortexSortSpillPolicy,
     failed: bool,
+    runtime: &'runtime LocalVortexRuntime,
 }
-impl RunMerge {
-    fn new(mut readers: Vec<RunReader>, policy: VortexSortSpillPolicy) -> Result<Self> {
-        if readers.len() > MERGE_FAN_IN {
+impl<'runtime> RunMerge<'runtime> {
+    fn new(
+        mut readers: Vec<RunReader>,
+        policy: VortexSortSpillPolicy,
+        runtime: &'runtime LocalVortexRuntime,
+        fan_in: usize,
+    ) -> Result<Self> {
+        if readers.len() > fan_in || fan_in > MERGE_FAN_IN {
             return Err(spill_error(
                 "native sort merge exceeded its file-handle bound",
             ));
         }
         let mut heads = BinaryHeap::with_capacity(MERGE_FAN_IN);
         for (index, reader) in readers.iter_mut().enumerate() {
-            if let Some(row) = reader.next_row()? {
+            if let Some(row) = reader.next_row(runtime)? {
                 heads.push(Reverse((row, index)));
             }
         }
@@ -808,10 +877,11 @@ impl RunMerge {
             heads,
             policy,
             failed: false,
+            runtime,
         })
     }
 }
-impl Iterator for RunMerge {
+impl Iterator for RunMerge<'_> {
     type Item = Result<SpillRow>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.failed {
@@ -822,7 +892,7 @@ impl Iterator for RunMerge {
             return Some(Err(error));
         }
         let Reverse((row, index)) = self.heads.pop()?;
-        match self.readers[index].next_row() {
+        match self.readers[index].next_row(self.runtime) {
             Ok(Some(next)) => self.heads.push(Reverse((next, index))),
             Ok(None) => {}
             Err(error) => {

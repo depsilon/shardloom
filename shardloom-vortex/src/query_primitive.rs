@@ -864,6 +864,8 @@ pub struct VortexSortSpillReport {
     pub runs_written: u64,
     pub runs_validated: u64,
     pub merge_passes: u64,
+    pub run_block_rows: usize,
+    pub merge_fan_in: usize,
     pub max_open_runs: usize,
     pub owned_cleanup_completed: bool,
 }

@@ -167,8 +167,8 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
     use arrow_array::{Int64Array, RecordBatch, StringArray, UInt64Array};
     use arrow_schema::{DataType, Field, Schema};
     use std::sync::Arc;
-    const ROWS: usize = 50_000;
-    const OFFSET: usize = 45_003;
+    const ROWS: usize = 131_072;
+    const OFFSET: usize = 123_456;
     struct Cleanup(std::path::PathBuf);
     impl Drop for Cleanup {
         fn drop(&mut self) {
@@ -182,7 +182,7 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
     let ipc = root.join("source.arrow");
     let source = root.join("shipments.vortex");
     let keys = (0..ROWS)
-        .map(|index| i64::try_from((index * 37) % 997).unwrap() - 498)
+        .map(|index| (1_i64 << 60) + i64::try_from((index * 37) % 997).unwrap())
         .collect::<Vec<_>>();
     let labels = (0..ROWS)
         .map(|index| format!("港-{index}-shipment"))
@@ -302,6 +302,30 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
             values["native_sort_spill"]["owned_cleanup_completed"]
                 .as_bool()
                 .unwrap()
+        );
+        assert!(
+            values["native_sort_spill"]["merge_passes"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+        assert_eq!(values["native_sort_spill"]["run_block_rows"], 1024);
+        assert_eq!(values["native_sort_spill"]["merge_fan_in"], 8);
+        assert_eq!(
+            values["native_sort_spill"]["runs_written"],
+            values["native_sort_spill"]["runs_validated"]
+        );
+        assert!(
+            values["native_sort_spill"]["peak_reserved_bytes"]
+                .as_u64()
+                .unwrap()
+                <= 4_194_304
+        );
+        assert!(
+            values["native_sort_spill"]["peak_disk_bytes"]
+                .as_u64()
+                .unwrap()
+                <= 33_554_432
         );
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
         assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));

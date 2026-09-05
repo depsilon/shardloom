@@ -12,7 +12,7 @@ mkdir -p /tmp/shardloom-query-work
 shardloom run dataframe \
   --input shipments.vortex --input-format vortex \
   --vortex-primitive sort_rows --vortex-source-order-limit 7 \
-  --vortex-sort-rows '{"order_by":[{"column":"priority","descending":true}],"offset":45003,"spill":{"workspace":"/tmp/shardloom-query-work","memory_bytes":4194304,"quota_bytes":33554432}}' \
+  --vortex-sort-rows '{"order_by":[{"column":"priority","descending":true}],"offset":123456,"spill":{"workspace":"/tmp/shardloom-query-work","memory_bytes":4194304,"quota_bytes":33554432}}' \
   --request collect --bounded true --memory-gb 1 --max-parallelism 2 --format json
 ```
 
@@ -37,6 +37,18 @@ Returned evidence records runs, merge passes, peak reserved bytes, peak disk byt
 and successful owned cleanup. Values are exact, including unsigned keys above
 the signed integer range and signed integer extremes.
 
+Run leaves contain 256 to 1,024 rows, chosen within the existing merge reservation.
+At 4 MiB the operator uses 1,024-row leaves and up to eight input runs; at 1 MiB
+it uses 256-row leaves and two input runs. Each run reader builds and polls only
+one exact native row-range task per refill, so machine-core prefetch does not
+multiply live payload blocks. The merge reservation includes a 64 KiB initial
+footer-read allowance per reader, 16 KiB fixed state, and a conservative 1 KiB per
+block row for overlapping row queues, conversion and native writer arrays.
+The separate metadata charge remains 1 KiB per leaf plus 4 KiB per run, including
+simultaneously live input and output runs. The 1 MiB minimum does not guarantee
+that every larger input's run metadata fits; such failures remain explicit and
+clean owned files.
+
 Reservations cover owned sort candidates, bounded merge/conversion batches, run
 metadata and checksum scratch. Source scanning, provider allocations outside those
 owners, and final payload materialization remain separate scopes. The spill
@@ -56,6 +68,7 @@ finish. Do not recover a directory belonging to an active query.
 
 Correctness coverage lives in the native `local_primitives::sort_spill::tests`
 suite and the public `public_numeric_sort_spill` workflow test. These verify
-complete results, large offsets, ties, quota failure, cancellation, corrupt runs,
+complete 131,072-row public-query results at 4 MiB with offset 123,456, large
+integer keys, ties, quota failure, cancellation, corrupt runs,
 interrupted cleanup and preservation of unknown files. This scoped operator does
 not close the whole PERF-06 shared-spill packet or establish a throughput claim.

@@ -21541,6 +21541,8 @@ fn read_local_vortex_sort_rows_scan(
         "runs_written": spill.runs_written,
         "runs_validated": spill.runs_validated,
         "merge_passes": spill.merge_passes,
+        "run_block_rows": spill.run_block_rows,
+        "merge_fan_in": spill.merge_fan_in,
         "max_open_runs": spill.max_open_runs,
         "owned_cleanup_completed": spill.owned_cleanup_completed,
         "reservation_scope": "owned_sort_candidates_merge_batches_run_metadata_checksum_scratch_excludes_source_provider_and_output_payload"

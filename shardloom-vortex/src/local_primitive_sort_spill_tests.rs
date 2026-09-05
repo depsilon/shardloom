@@ -49,6 +49,151 @@ fn source_candidate(ordinal: usize, value: StatValue) -> SortRowCandidate {
 }
 
 #[test]
+fn merge_geometry_covers_owned_overlap_and_retains_full_large_run_metadata_charge() {
+    // Eight resident row queues; three scalar columns during one refill; five
+    // row-width buffers for input, conversion and queued/active writer overlap.
+    // Keep a further factor of two within the reserved per-row allowance.
+    let owned_per_row = MERGE_FAN_IN * size_of::<SpillRow>()
+        + 3 * size_of::<StatValue>()
+        + 5 * size_of::<SpillRow>();
+    assert!(2 * owned_per_row as u64 <= MERGE_BYTES_PER_BLOCK_ROW);
+    for (memory, expected) in [
+        (1_u64 << 20, (256, 2)),
+        (2 << 20, (256, 8)),
+        (4 << 20, (1024, 8)),
+    ] {
+        let (rows, fan_in) = merge_geometry(memory / 2).unwrap();
+        assert_eq!((rows, fan_in), expected);
+        assert!(
+            MERGE_FIXED_BYTES
+                + fan_in as u64 * MERGE_READER_BYTES
+                + rows as u64 * MERGE_BYTES_PER_BLOCK_ROW
+                <= memory / 2
+        );
+    }
+    let input = NumericSortSpill::metadata_for_rows(65_536, 1024).unwrap();
+    let output = NumericSortSpill::metadata_for_rows(131_072, 1024).unwrap();
+    assert_eq!(input, 69_632);
+    assert_eq!(output, 135_168);
+    assert_eq!(input * 2 + output, 274_432);
+    assert!(input * 2 + output <= (4 << 20) / 8);
+    // The old leaf geometry really exceeds the same unchanged metadata budget.
+    assert!(
+        NumericSortSpill::metadata_for_rows(65_536, 256).unwrap() * 2
+            + NumericSortSpill::metadata_for_rows(131_072, 256).unwrap()
+            > (4 << 20) / 8
+    );
+}
+
+#[test]
+fn run_reader_refills_one_native_leaf_without_host_core_prefetch() {
+    let workspace = Workspace::new();
+    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::new(4).unwrap());
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let mut spill = NumericSortSpill::new(
+        &workspace.policy(),
+        false,
+        VortexSortTiePolicy::First,
+        true,
+        1,
+    )
+    .unwrap();
+    let block_rows = spill.block_rows;
+    let mut candidates = (0..block_rows * 3 + 17)
+        .map(|row| source_candidate(row, StatValue::Int64(i64::try_from(row).unwrap())))
+        .collect();
+    spill.flush(&mut candidates, &runtime, &session).unwrap();
+    let mut reader = RunReader::open(&spill.runs[0], &runtime, &session).unwrap();
+    assert_eq!(reader.next_block_offset, 0);
+    for index in 0..block_rows {
+        assert_eq!(
+            reader.next_row(&runtime).unwrap().unwrap().source,
+            index as u64
+        );
+        assert_eq!(reader.next_block_offset, block_rows as u64);
+        assert!(reader.rows.len() < block_rows);
+    }
+    assert_eq!(
+        reader.next_row(&runtime).unwrap().unwrap().source,
+        block_rows as u64
+    );
+    assert_eq!(reader.next_block_offset, 2 * block_rows as u64);
+    drop(reader);
+    drop(spill);
+    workspace.assert_empty();
+}
+
+#[test]
+fn minimum_budget_merges_multiple_runs_with_exact_high_offset_and_cleanup() {
+    let workspace = Workspace::new();
+    let mut policy = workspace.policy();
+    policy.memory_bytes = 1 << 20;
+    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let mut spill =
+        NumericSortSpill::new(&policy, true, VortexSortTiePolicy::First, true, 7).unwrap();
+    assert_eq!(spill.merge_fan_in, 2);
+    let mut candidates = Vec::with_capacity(spill.capacity_rows());
+    for row in 0..7168 {
+        candidates.push(source_candidate(
+            row,
+            StatValue::Int64((1_i64 << 60) + i64::try_from(row).unwrap()),
+        ));
+        spill
+            .flush_if_full(&mut candidates, &runtime, &session)
+            .unwrap();
+    }
+    let (selected, report) = spill
+        .finish(&mut candidates, 6987, 7, &runtime, &session)
+        .unwrap();
+    assert_eq!(
+        selected
+            .iter()
+            .map(|row| row.source_ordinal)
+            .collect::<Vec<_>>(),
+        (6987..6994).map(|index| 7167 - index).collect::<Vec<_>>()
+    );
+    assert!(report.runs_written > 1 && report.merge_passes > 0);
+    assert!(report.max_open_runs <= 3);
+    assert!(report.peak_reserved_bytes <= policy.memory_bytes);
+    assert!(report.owned_cleanup_completed);
+    workspace.assert_empty();
+}
+
+#[test]
+fn insufficient_run_metadata_fails_explicitly_and_releases_owned_files() {
+    let workspace = Workspace::new();
+    let mut policy = workspace.policy();
+    policy.memory_bytes = 1 << 20;
+    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let mut spill =
+        NumericSortSpill::new(&policy, false, VortexSortTiePolicy::First, true, 7).unwrap();
+    let memory = spill.memory.clone();
+    let mut candidates = Vec::with_capacity(spill.capacity_rows());
+    let failure = (0..131_072)
+        .find_map(|row| {
+            candidates.push(source_candidate(
+                row,
+                StatValue::Int64(i64::try_from(row).unwrap()),
+            ));
+            spill
+                .flush_if_full(&mut candidates, &runtime, &session)
+                .err()
+        })
+        .expect("a large run's simultaneous metadata must exceed the 1 MiB scope");
+    assert!(failure.to_string().contains("memory"));
+    assert!(
+        failure
+            .to_string()
+            .contains("fallback execution was not attempted")
+    );
+    drop(spill);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    workspace.assert_empty();
+}
+
+#[test]
 #[allow(clippy::too_many_lines)] // One end-to-end fixture keeps the exact-value and certificate checks together.
 fn public_numeric_sort_spill_returns_complete_values_and_scoped_native_certificate() {
     use vortex::array::arrays::VarBinViewArray;
