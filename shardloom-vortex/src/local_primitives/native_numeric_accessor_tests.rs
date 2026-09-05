@@ -1,4 +1,4 @@
-use super::AggregateDirectColumnAccessor;
+use super::{AggregateDirectColumnAccessor, NativeNumericAccessorWork};
 use crate::local_primitives::{aggregate_column_accessor_with_work, aggregate_direct_stat_value};
 use shardloom_core::StatValue;
 use vortex::{
@@ -182,6 +182,78 @@ fn native_numeric_accessor_keeps_float_bits_nulls_empty_and_existing_fast_paths(
     assert_eq!(accessor.i64_values().unwrap(), &[i64::MAX, 7, i64::MAX]);
 }
 
+#[test]
+fn native_numeric_materialization_display_preserves_generic_columns_and_exact_sidecar() {
+    use crate::local_primitives::{
+        VortexLocalPrimitiveEmbeddedLayoutReport,
+        annotate_simple_aggregate_layout_correlation_summary,
+    };
+    let work = NativeNumericAccessorWork {
+        calls: 1,
+        columns: ["measure,東京".to_owned(), "shared".to_owned()].into(),
+        ..NativeNumericAccessorWork::default()
+    };
+    let original = serde_json::json!({
+        "aggregate_materialized_accessor_columns": "generic,shared",
+        "values": {"exact_integer": 9_007_199_254_740_993_u64},
+    });
+    let mut summary = original.to_string();
+    work.annotate(&mut summary).unwrap();
+    annotate_simple_aggregate_layout_correlation_summary(
+        &mut summary,
+        &VortexLocalPrimitiveEmbeddedLayoutReport::not_available(),
+    )
+    .unwrap();
+    let actual: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        actual["aggregate_materialized_accessor_columns"],
+        "generic,measure,東京,shared"
+    );
+    assert_eq!(
+        actual["aggregate_accessor_layout_correlation_columns"],
+        "generic,measure,東京,shared"
+    );
+    assert_eq!(
+        actual["aggregate_accessor_layout_correlation_status"],
+        "artifact_layout_unavailable_accessor_materialized"
+    );
+    assert_eq!(
+        actual["aggregate_native_numeric_accessor"]["columns"],
+        serde_json::json!(["measure,東京", "shared"])
+    );
+    assert_eq!(actual["values"], original["values"]);
+    let mut invalid_display = "{\"aggregate_materialized_accessor_columns\":7}".to_owned();
+    assert!(work.annotate(&mut invalid_display).is_err());
+    assert_eq!(
+        invalid_display,
+        "{\"aggregate_materialized_accessor_columns\":7}"
+    );
+}
+
+#[test]
+fn no_numeric_decode_preserves_existing_materialization_evidence() {
+    let original = serde_json::json!({
+        "aggregate_materialized_accessor_columns": "none",
+        "aggregate_accessor_materialization_status": "vortex_dictionary_or_primitive_only",
+        "aggregate_accessor_layout_correlation_status": "not_required_no_materialized_accessors",
+        "values": {"exact_integer": 9_007_199_254_740_993_u64},
+    });
+    let mut summary = original.to_string();
+    NativeNumericAccessorWork::default()
+        .annotate(&mut summary)
+        .unwrap();
+    let mut actual: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        actual["aggregate_native_numeric_accessor"]["native_decode_calls"],
+        0
+    );
+    actual
+        .as_object_mut()
+        .unwrap()
+        .remove("aggregate_native_numeric_accessor");
+    assert_eq!(actual, original);
+}
+
 #[cfg(feature = "vortex-write")]
 #[test]
 #[allow(clippy::too_many_lines)] // Persisted renamed two-key grouping and scalar consumption share one fixture.
@@ -325,6 +397,18 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
         actual["aggregate_accessor_materialization_status"],
         "native_numeric_array_decode_with_typed_accessors_and_optional_other_accessors"
     );
+    assert_eq!(
+        actual["aggregate_materialized_accessor_columns"],
+        "renamed_key"
+    );
+    assert_eq!(
+        actual["aggregate_accessor_layout_correlation_columns"],
+        "renamed_key"
+    );
+    assert_ne!(
+        actual["aggregate_accessor_layout_correlation_status"],
+        "not_required_no_materialized_accessors"
+    );
     let scalar = VortexQueryPrimitiveRequest::simple_aggregate(
         uri,
         VortexSimpleAggregateRequest::new(vec![VortexSimpleAggregateMeasure::new(
@@ -346,6 +430,14 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
         .unwrap();
     let actual: serde_json::Value = serde_json::from_str(payload).unwrap();
     assert_eq!(actual["values"]["unique_keys"], 4);
+    assert_eq!(
+        actual["aggregate_materialized_accessor_columns"],
+        "renamed_key"
+    );
+    assert_eq!(
+        actual["aggregate_accessor_layout_correlation_columns"],
+        "renamed_key"
+    );
     assert!(
         actual["aggregate_native_numeric_accessor"]["native_decode_calls"]
             .as_u64()

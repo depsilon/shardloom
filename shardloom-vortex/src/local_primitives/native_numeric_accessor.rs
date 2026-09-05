@@ -79,6 +79,28 @@ impl NativeNumericAccessorWork {
             "scope": "retained_aggregate_attempt;one_source_array_native_primitive_execution_then_typed_values_copy;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;null_mask_work_additional;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound",
         }));
         if self.observed() {
+            let mut materialized_columns = self.columns.clone();
+            match object.get("aggregate_materialized_accessor_columns") {
+                Some(serde_json::Value::String(columns)) if columns != "none" => {
+                    materialized_columns.extend(columns.split(',').map(str::to_owned));
+                }
+                None | Some(serde_json::Value::String(_)) => {}
+                Some(_) => {
+                    return Err(failed(
+                        "materialized accessor column display is not a string",
+                    ));
+                }
+            }
+            // This legacy comma-separated field is a display union. The nested
+            // native work object retains exact column names as a structured array.
+            object.insert(
+                "aggregate_materialized_accessor_columns".into(),
+                materialized_columns
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .join(",")
+                    .into(),
+            );
             object.insert(
                 "aggregate_accessor_materialization_status".into(),
                 "native_numeric_array_decode_with_typed_accessors_and_optional_other_accessors"
