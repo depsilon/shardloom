@@ -3234,6 +3234,7 @@ fn append_local_primitive_result_summary_evidence_fields(
     let Some(object) = payload.as_object() else {
         return;
     };
+    append_native_numeric_accessor_evidence_fields(fields, object);
     for key in [
         "aggregate_first_pass_scan_next_nanos",
         "aggregate_first_pass_reader_evidence_nanos",
@@ -3721,6 +3722,37 @@ fn append_local_primitive_result_summary_evidence_fields(
     ] {
         if let Some(value) = object.get(summary_key) {
             push_field(fields, field_key, json_value_to_field_string(value));
+        }
+    }
+}
+
+fn append_native_numeric_accessor_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: &serde_json::Map<String, serde_json::Value>,
+) {
+    let Some(work) = summary
+        .get("aggregate_native_numeric_accessor")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return;
+    };
+    for key in [
+        "native_decode_calls",
+        "rows",
+        "source_array_nbytes_estimate",
+        "canonical_array_nbytes_estimate",
+        "typed_value_bytes_copied",
+        "decode_and_typed_copy_nanos",
+        "max_source_array_rows",
+        "columns",
+        "scope",
+    ] {
+        if let Some(value) = work.get(key) {
+            push_field(
+                fields,
+                format!("local_primitive_aggregate_native_numeric_accessor_{key}"),
+                json_value_to_field_string(value),
+            );
         }
     }
 }
@@ -13166,6 +13198,54 @@ mod tests {
                 *expected_value,
                 "unexpected route field value for {key}"
             );
+        }
+    }
+
+    #[test]
+    fn local_primitive_result_summary_lifts_native_numeric_decode_work_exactly() {
+        let scope = "retained_aggregate_attempt;one_source_array_native_primitive_execution_then_typed_values_copy;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;null_mask_work_additional;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound";
+        let payload = serde_json::json!({
+            "aggregate_native_numeric_accessor": {
+                "native_decode_calls": 3,
+                "rows": 23,
+                "source_array_nbytes_estimate": 101,
+                "canonical_array_nbytes_estimate": 191,
+                "typed_value_bytes_copied": 184,
+                "decode_and_typed_copy_nanos": 9_007_199_254_740_993_u64,
+                "max_source_array_rows": 11,
+                "columns": ["renamed_measure", "東京"],
+                "scope": scope,
+                "future_unadmitted_counter": 99
+            }
+        });
+        for summary in [payload.to_string(), format!("aggregate values={payload}")] {
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+            for (key, expected) in [
+                ("native_decode_calls", "3"),
+                ("rows", "23"),
+                ("source_array_nbytes_estimate", "101"),
+                ("canonical_array_nbytes_estimate", "191"),
+                ("typed_value_bytes_copied", "184"),
+                ("decode_and_typed_copy_nanos", "9007199254740993"),
+                ("max_source_array_rows", "11"),
+                ("columns", "[\"renamed_measure\",\"東京\"]"),
+                ("scope", scope),
+            ] {
+                assert_eq!(
+                    field(
+                        &fields,
+                        &format!("local_primitive_aggregate_native_numeric_accessor_{key}")
+                    ),
+                    expected
+                );
+            }
+            assert_eq!(fields.len(), 9);
+        }
+        for summary in ["{}", "{\"aggregate_native_numeric_accessor\":null}"] {
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(&mut fields, Some(summary));
+            assert!(fields.is_empty());
         }
     }
 
