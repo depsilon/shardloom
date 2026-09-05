@@ -25,7 +25,7 @@ struct CountSlot {
     count: u64,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct StringCountPartialWork {
     pub rows: u64,
     pub partial_entries: u64,
@@ -46,9 +46,89 @@ pub(super) struct StringCountPartial {
     preserves_existing_key_order: bool,
     // Retained through coordinator merge, even if task metadata is dropped.
     _counts_lease: MemoryLease,
+    _deferred_metadata_lease: Option<MemoryLease>,
 }
 
 impl StringCountPartial {
+    pub(super) fn deferred_metadata_bytes() -> u64 {
+        (size_of::<Self>() + 2 * size_of::<usize>()) as u64
+    }
+
+    pub(super) fn retain_deferred_metadata(&mut self, lease: &mut MemoryLease) -> Result<()> {
+        self._deferred_metadata_lease = Some(lease.split(Self::deferred_metadata_bytes())?);
+        Ok(())
+    }
+    /// Linear, allocation-free grouping of all exact chunk keys by content hash.
+    /// Dictionary codes remain bound to `values`; only referenced values hash.
+    pub(super) fn arrange_partitions<const N: usize>(
+        &mut self,
+        worker: &ChunkWorkerContext,
+    ) -> Result<[usize; N]> {
+        if !N.is_power_of_two() {
+            return Err(failed("partition count must be a power of two"));
+        }
+        let mut sizes = [0_usize; N];
+        for (index, entry) in self.counts.iter_mut().enumerate() {
+            if index % 4096 == 0 {
+                worker.check_cancelled()?;
+            }
+            if self.work.native_dictionary || self.work.native_constant {
+                let bytes = self.values.bytes_at(entry.value_index);
+                let mut hasher = rustc_hash::FxHasher::default();
+                hasher.write(bytes.as_slice());
+                entry.hash = hasher.finish();
+                self.work.utf8_bytes_hashed = self
+                    .work
+                    .utf8_bytes_hashed
+                    .checked_add(u64_count(bytes.len())?)
+                    .ok_or_else(|| failed("partition hash byte count overflowed"))?;
+            }
+            sizes[partition_index::<N>(entry.hash)] += 1;
+        }
+        let mut starts = [0_usize; N];
+        let mut ends = [0_usize; N];
+        let mut end = 0;
+        for ((start, stop), size) in starts.iter_mut().zip(ends.iter_mut()).zip(sizes) {
+            *start = end;
+            end += size;
+            *stop = end;
+        }
+        let mut next = starts;
+        for (partition, end) in ends.iter().copied().enumerate() {
+            while next[partition] < end {
+                if next[partition] % 4096 == 0 {
+                    worker.check_cancelled()?;
+                }
+                let target = partition_index::<N>(self.counts[next[partition]].hash);
+                if target == partition {
+                    next[partition] += 1;
+                } else {
+                    self.counts.swap(next[partition], next[target]);
+                    next[target] += 1;
+                }
+            }
+        }
+        self.preserves_existing_key_order = false;
+        Ok(ends)
+    }
+
+    pub(super) fn entry(&self, index: usize) -> Result<(vortex::buffer::ByteBuffer, u64, u64)> {
+        let entry = self
+            .counts
+            .get(index)
+            .ok_or_else(|| failed("partial index is absent"))?;
+        Ok((
+            self.values.bytes_at(entry.value_index),
+            entry.hash,
+            entry.count,
+        ))
+    }
+
+    pub(super) fn retain_unconsumed(&mut self, start: usize, rows: u64) {
+        self.counts.drain(..start);
+        self.work.rows = rows;
+        self.work.partial_entries = self.counts.len() as u64;
+    }
     /// The ordinary count path records canonical keys in first-occurrence order.
     /// Native Dict already enumerates referenced values in its own domain order.
     pub(super) fn preserve_existing_key_order(&mut self) {
@@ -72,6 +152,11 @@ impl StringCountPartial {
         }
         Ok(())
     }
+}
+
+pub(super) fn partition_index<const N: usize>(hash: u64) -> usize {
+    usize::try_from(hash.rotate_right(32) & ((N - 1) as u64))
+        .expect("masked partition hash fits usize")
 }
 
 /// Shape admission is independent of names and the histogram row threshold.
@@ -534,6 +619,7 @@ pub(super) fn count_string_chunk(
             },
             preserves_existing_key_order: true,
             _counts_lease: counts_lease,
+            _deferred_metadata_lease: None,
         });
     }
     if let Some(dictionary) = array.as_opt::<Dict>() {
@@ -623,6 +709,7 @@ pub(super) fn count_string_chunk(
             work,
             preserves_existing_key_order: true,
             _counts_lease: counts_lease,
+            _deferred_metadata_lease: None,
         });
     }
     let values = array
@@ -698,6 +785,7 @@ pub(super) fn count_string_chunk(
         work,
         preserves_existing_key_order: false,
         _counts_lease: counts_lease,
+        _deferred_metadata_lease: None,
     })
 }
 

@@ -3256,6 +3256,21 @@ fn append_local_primitive_result_summary_evidence_fields(
         "aggregate_workers_string_pressure_transitions",
         "aggregate_workers_released_histogram_entries",
         "aggregate_workers_retained_interner_values_on_pressure",
+        "aggregate_workers_partition_count",
+        "aggregate_workers_partition_complete_groups",
+        "aggregate_workers_partition_committed_rows",
+        "aggregate_workers_partition_lock_wait_nanos",
+        "aggregate_workers_partition_reconcile_work_nanos",
+        "aggregate_workers_partition_arrange_work_nanos",
+        "aggregate_workers_partition_selection_work_nanos",
+        "aggregate_workers_partition_equality_comparisons",
+        "aggregate_workers_partition_native_handoffs",
+        "aggregate_workers_partition_selection_jobs",
+        "aggregate_workers_partition_retry_jobs",
+        "aggregate_workers_partition_source_replays",
+        "aggregate_workers_partition_discarded_input_rows",
+        "aggregate_workers_partition_discarded_attempt_nanos",
+        "aggregate_workers_partition_source_replay_nanos",
         "aggregate_workers_scope",
     ] {
         if let Some(value) = object.get(key) {
@@ -13054,7 +13069,8 @@ mod tests {
             "aggregate_workers_peak_active_workers": 3,
             "aggregate_workers_count_work_nanos": 900,
             "aggregate_workers_scope": "parallel work sums; caller merge separate"
-        }).to_string();
+        })
+        .to_string();
         let mut fields = Vec::new();
         super::append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
         for (key, value) in [
@@ -13063,9 +13079,58 @@ mod tests {
             ("count_work_nanos", "900"),
             ("scope", "parallel work sums; caller merge separate"),
         ] {
-            assert!(fields.contains(&(format!("local_primitive_aggregate_workers_{key}"), value.into())));
+            assert!(fields.contains(&(
+                format!("local_primitive_aggregate_workers_{key}"),
+                value.into()
+            )));
         }
-        assert!(!fields.iter().any(|(key, _)| key == "local_primitive_aggregate_workers_compute_threads"));
+        assert!(
+            !fields
+                .iter()
+                .any(|(key, _)| key == "local_primitive_aggregate_workers_compute_threads")
+        );
+    }
+
+    #[test]
+    fn complete_partition_observations_preserve_each_provided_counter() {
+        let mut payload = serde_json::Map::new();
+        let counters = [
+            "count",
+            "complete_groups",
+            "committed_rows",
+            "lock_wait_nanos",
+            "reconcile_work_nanos",
+            "arrange_work_nanos",
+            "selection_work_nanos",
+            "equality_comparisons",
+            "native_handoffs",
+            "selection_jobs",
+            "retry_jobs",
+            "source_replays",
+            "discarded_input_rows",
+            "discarded_attempt_nanos",
+            "source_replay_nanos",
+        ];
+        for (index, name) in counters.iter().enumerate() {
+            payload.insert(
+                format!("aggregate_workers_partition_{name}"),
+                (index + 1).into(),
+            );
+        }
+        let summary = serde_json::Value::Object(payload).to_string();
+        let mut fields = Vec::new();
+        super::append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+        for (index, name) in counters.iter().enumerate() {
+            assert!(fields.contains(&(
+                format!("local_primitive_aggregate_workers_partition_{name}"),
+                (index + 1).to_string()
+            )));
+        }
+        assert!(
+            !fields
+                .iter()
+                .any(|(key, _)| key == "local_primitive_aggregate_workers_rows")
+        );
     }
 
     use super::*;

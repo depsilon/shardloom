@@ -72,7 +72,7 @@ fn run(
             );
         }
     }
-    jobs.drain(&mut states).unwrap();
+    jobs.finish(&mut states).unwrap();
     assert_eq!(jobs.jobs.outstanding(), 0);
     let (_, mut summary) = states.result_row_count_and_summary(limit).unwrap();
     jobs.annotate_summary(&mut summary).unwrap();
@@ -285,5 +285,151 @@ fn logical_field_selection_preserves_native_dictionary_owner_and_serial_accessor
         serde_json::json!([
             {"renamed_key":"tea","n":2}, {"renamed_key":"coffee","n":1},
         ])
+    );
+}
+
+#[test]
+fn complete_partition_coordinator_preserves_renamed_topk_offset_and_ties() {
+    let chunks = vec![
+        chunk(strings(&[
+            "alpha", "alpha", "alpha", "winner", "winner", "東京",
+        ])),
+        chunk(strings(&["beta", "beta", "beta", "winner", "winner", "λ"])),
+        chunk(strings(&[
+            "gamma", "gamma", "gamma", "winner", "winner", "東京",
+        ])),
+    ];
+    for workers in [1, 2, 4, 8, 12] {
+        let request = request(true).with_offset(1);
+        let result = run(&chunks, &request, Some(2), workers);
+        assert_eq!(
+            result["values"],
+            serde_json::json!([
+                {"renamed_key":"alpha","n":3}, {"renamed_key":"beta","n":3},
+            ])
+        );
+        assert_eq!(result["aggregate_workers_partition_complete_groups"], 6);
+        assert_eq!(result["aggregate_workers_partition_committed_rows"], 18);
+        assert_eq!(result["aggregate_workers_partition_native_handoffs"], 0);
+        assert_eq!(result["aggregate_workers_submitted_chunks"], 3);
+        assert_eq!(result["candidate_groups"], 6);
+    }
+}
+
+#[test]
+fn partition_pressure_preserves_native_exact_refinement_and_total_weight() {
+    for workers in [1, 4, 12] {
+        let request = request(true);
+        let columns = vec!["renamed_key".to_owned()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(1), &columns, false, true).unwrap();
+        states
+            .enable_string_count_topk_first_pass_exact_histogram()
+            .unwrap();
+        states.string_count_topk_first_pass_exact_histogram_entry_budget = 1;
+        states.resource_envelope.string_topk_heavy_hitter_capacity = 1;
+        let chunks = ["alpha", "beta", "gamma"].map(|local| {
+            let mut rows = vec![local; 6];
+            rows.extend(["global winner"; 5]);
+            chunk(strings(&rows))
+        });
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let session = VortexSession::default().with_allocator(Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+        ));
+        let mut jobs = CountWorkers::admit(
+            &states,
+            chunks[0].dtype(),
+            &columns,
+            VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap(),
+            &session,
+            &memory,
+        )
+        .unwrap()
+        .unwrap();
+        for chunk in &chunks {
+            jobs.before_next(&mut states).unwrap();
+            assert!(jobs.submit(chunk, &mut states).unwrap());
+        }
+        jobs.finish(&mut states).unwrap();
+        assert_eq!(jobs.partition_handoffs, 1);
+        assert_eq!(states.string_count_topk_total_weight, 33);
+        assert!(states.needs_string_count_topk_heavy_hitter_second_pass());
+        assert!(
+            !states
+                .promote_string_count_topk_exact_first_pass_if_possible(Some(1))
+                .unwrap()
+        );
+        assert!(
+            !states
+                .string_count_topk_heavy_hitter_exact_proof_possible(Some(1))
+                .unwrap()
+        );
+        // This is the production exact-refinement branch used when the bounded
+        // sketch cannot prove the final boundary. The omitted local winner must
+        // still be found from every original native chunk.
+        let mut exact =
+            GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
+        for chunk in &chunks {
+            super::super::update_grouped_exact_states_from_chunk(&mut exact, chunk, &columns, None)
+                .unwrap();
+        }
+        let (_, summary) = exact.result_row_count_and_summary(Some(1)).unwrap();
+        let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+        assert_eq!(
+            summary["values"],
+            serde_json::json!([{"renamed_key":"global winner","n":15}])
+        );
+        drop((jobs, session));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn complete_partition_proof_does_not_claim_sketch_updates_or_no_eviction() {
+    let request = request(true);
+    let columns = vec!["renamed_key".to_owned()];
+    let mut states = GroupedAggregateStates::new(&request, Some(1), &columns, false, true).unwrap();
+    states
+        .enable_string_count_topk_first_pass_exact_histogram()
+        .unwrap();
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let session = VortexSession::default();
+    let input = chunk(strings(&["tea", "tea", "coffee"]));
+    let mut jobs = CountWorkers::admit(
+        &states,
+        input.dtype(),
+        &columns,
+        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        &session,
+        &memory,
+    )
+    .unwrap()
+    .unwrap();
+    jobs.submit(&input, &mut states).unwrap();
+    jobs.finish(&mut states).unwrap();
+    assert!(states.string_count_topk_heavy_hitter_sketch.is_none());
+    assert!(!states.needs_string_count_topk_heavy_hitter_second_pass());
+    let (rows, summary) = states.result_row_count_and_summary(Some(1)).unwrap();
+    let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        summary["uniqueness_proof_status"],
+        "complete_key_partition_count_desc_utf8_asc_exact_topk"
+    );
+    let budget = states.state_budget_report(&request, 3, rows).unwrap();
+    assert!(
+        budget
+            .capillary_work_units
+            .contains(&"complete_key_string_partition_reconciliation".to_owned())
+    );
+    assert!(
+        !budget
+            .capillary_work_units
+            .contains(&"string_heavy_hitter_sketch_update".to_owned())
+    );
+    assert!(
+        !budget
+            .pulseweave_pressure_signals
+            .contains(&"string_heavy_hitter_no_eviction_exact_proof".to_owned())
     );
 }

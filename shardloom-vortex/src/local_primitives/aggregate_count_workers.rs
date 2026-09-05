@@ -8,10 +8,14 @@ use super::{
     aggregate_chunk_jobs::{AggregateChunkJobs, ChunkWorkerContext},
     numeric_count_partial::{self, OwnedNumericCounts},
     string_count_partial::{self, StringCountMerge, StringCountPartial},
+    string_count_partitions::{self, PartitionReceipt, PartitionSelection, StringCountPartitions},
 };
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
-use std::time::Instant;
+use std::{
+    sync::{Arc, atomic::Ordering},
+    time::Instant,
+};
 use vortex::{
     array::{
         ArrayRef, VortexSessionExecute as _,
@@ -38,6 +42,9 @@ struct NumericWork {
 
 enum Partial {
     String(StringCountPartial),
+    Partitioned(PartitionReceipt),
+    RetryString(ArrayRef),
+    Selected(PartitionSelection),
     Signed(OwnedNumericCounts<i64>, NumericWork),
     Unsigned(OwnedNumericCounts<u64>, NumericWork),
 }
@@ -67,6 +74,15 @@ pub(super) struct CountWorkers {
     preserve_order: bool,
     session: VortexSession,
     string_merge: StringCountMerge,
+    partitions: Option<Arc<StringCountPartitions>>,
+    partition_evidence: Option<string_count_partitions::PartitionEvidence>,
+    deferred: Vec<Arc<StringCountPartial>>,
+    retry_arrays: Vec<ArrayRef>,
+    _handoff_lease: MemoryLease,
+    partition_handoffs: u64,
+    partition_groups: usize,
+    selection_jobs: u64,
+    retry_jobs: u64,
     rows: u64,
     entries: u64,
     canonicalization_nanos: u128,
@@ -83,6 +99,38 @@ pub(super) struct CountWorkers {
 }
 
 impl CountWorkers {
+    #[cfg(test)]
+    pub(super) fn inject_scan_fault_for_test(
+        &self,
+        memory: &LiveMemoryPool,
+        chunks: usize,
+    ) -> Option<vortex::error::VortexResult<ArrayRef>> {
+        use vortex::array::memory::HostAllocator as _;
+        if chunks == 0
+            || !self
+                .partitions
+                .as_ref()
+                .is_some_and(|partitions| partitions.group_count() > 0)
+        {
+            return None;
+        }
+        let fault = SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::take)?;
+        let snapshot = memory.snapshot();
+        let len = usize::try_from(snapshot.limit_bytes - snapshot.reserved_bytes).ok()?;
+        let allocator = crate::owned_buffers::ReservedHostAllocator::new(memory.clone());
+        let denied = allocator
+            .allocate(len, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)
+            .err()
+            .expect("native allocator denial must include alignment capacity");
+        Some(Err(match fault {
+            SourceScanTestFault::OwnedDenial => denied,
+            SourceScanTestFault::CorruptionWithConcurrentDenial => {
+                vortex::error::vortex_err!(InvalidArgument: "injected source corruption")
+            }
+        }))
+    }
+
+    #[allow(clippy::too_many_lines)]
     pub(super) fn admit(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
@@ -129,6 +177,61 @@ impl CountWorkers {
             .max_parallelism
             .min(std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get));
         let window = max_parallelism.saturating_mul(2).clamp(1, 24);
+        let handoff_bytes = window
+            .checked_mul(size_of::<Arc<StringCountPartial>>() + size_of::<ArrayRef>())
+            .and_then(|bytes| u64::try_from(bytes).ok())
+            .ok_or_else(|| failed("handoff capacity overflowed"))?;
+        let mut handoff_lease = memory
+            .reserve(handoff_bytes)
+            .or_else(|_| memory.reserve(0))?;
+        let mut deferred = Vec::new();
+        let mut retry_arrays = Vec::new();
+        let handoff_slots = if handoff_lease.bytes() == handoff_bytes {
+            window
+        } else {
+            0
+        };
+        deferred
+            .try_reserve_exact(handoff_slots)
+            .map_err(|error| failed(&error.to_string()))?;
+        retry_arrays
+            .try_reserve_exact(handoff_slots)
+            .map_err(|error| failed(&error.to_string()))?;
+        if deferred.capacity() > window || retry_arrays.capacity() > window {
+            return Err(failed("handoff capacity exceeds admitted window"));
+        }
+        let partitions = if handoff_slots != 0
+            && matches!(kind, KeyKind::Utf8)
+            && states.request.having.is_empty()
+            && states.result_limit.is_some()
+            && matches!(states.request.order_by.as_slice(), [order] if order.descending && states.state_template.count_star_alias().is_ok_and(|alias| order.column == alias))
+        {
+            if let Some(cap) = states
+                .request
+                .offset
+                .checked_add(states.result_limit.unwrap_or(0))
+                .filter(|cap| *cap != 0)
+            {
+                StringCountPartitions::try_new(
+                    memory,
+                    if states.string_count_topk_heavy_hitter_enabled {
+                        states.string_count_topk_first_pass_exact_histogram_entry_budget
+                    } else {
+                        usize::MAX
+                    },
+                    cap,
+                )?
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if partitions.is_none() {
+            deferred = Vec::new();
+            retry_arrays = Vec::new();
+            handoff_lease.resize(0)?;
+        }
         Ok(Some(Self {
             jobs: AggregateChunkJobs::new(
                 max_parallelism,
@@ -142,6 +245,15 @@ impl CountWorkers {
             preserve_order: states.request.order_by.is_empty(),
             session: session.clone(),
             string_merge: StringCountMerge::default(),
+            partitions,
+            partition_evidence: None,
+            deferred,
+            retry_arrays,
+            _handoff_lease: handoff_lease,
+            partition_handoffs: 0,
+            partition_groups: 0,
+            selection_jobs: 0,
+            retry_jobs: 0,
             rows: 0,
             entries: 0,
             canonicalization_nanos: 0,
@@ -161,10 +273,25 @@ impl CountWorkers {
     /// Called before advancing the source: completed results consume window
     /// slots until their ordered merge releases both payload and capacity.
     pub(super) fn before_next(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        if self
+            .partitions
+            .as_ref()
+            .is_some_and(|partitions| partitions.pressure_requested())
+        {
+            self.handoff_partitions(states)?;
+        }
         if self.jobs.is_full() {
             self.merge_next(states)?;
         }
         Ok(())
+    }
+
+    pub(super) fn has_active_partitions(&self) -> bool {
+        self.partitions.is_some()
+    }
+
+    pub(super) fn cancel_for_source_replay(&self) {
+        self.jobs.cancel();
     }
 
     /// Numeric Dict keeps its existing native accessor path. Drain all prior
@@ -190,9 +317,15 @@ impl CountWorkers {
                 },
             )?,
         };
-        let initial_bytes = partial_bytes
+        let deferred_metadata = if self.partitions.is_some() {
+            StringCountPartial::deferred_metadata_bytes()
+        } else {
+            0
+        };
+        let mut initial_bytes = partial_bytes
             .checked_add(std::mem::size_of::<Partial>() as u64)
             .and_then(|bytes| bytes.checked_add(std::mem::size_of::<ArrayRef>() as u64))
+            .and_then(|bytes| bytes.checked_add(deferred_metadata))
             .ok_or_else(|| failed("task capacity overflowed"))?;
         // Release earlier completed capacity before denying the next known
         // allocation. In-flight provider allocation can still deny explicitly.
@@ -202,21 +335,62 @@ impl CountWorkers {
         } {
             self.merge_next(states)?;
         }
+        if self
+            .partitions
+            .as_ref()
+            .is_some_and(|partitions| partitions.pressure_requested())
+            || self.partitions.is_some() && {
+                let snapshot = self.jobs.memory().snapshot();
+                snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) < initial_bytes
+            }
+        {
+            self.handoff_partitions(states)?;
+        }
+        if self.partitions.is_none() {
+            initial_bytes -= deferred_metadata;
+        }
         let session = self.session.clone();
         let kind = self.kind;
         let preserve_order = self.preserve_order;
+        let partitions = self.partitions.clone();
         self.jobs.submit(initial_bytes, move |worker, lease| {
             if matches!(kind, KeyKind::Utf8) {
-                let mut partial = string_count_partial::count_string_chunk(
+                let denied_before = partitions
+                    .as_ref()
+                    .map(|partitions| partitions.denied_reservations());
+                let counted = string_count_partial::count_string_chunk(
                     &array,
                     session.create_execution_ctx(),
                     worker,
                     lease,
-                )?;
+                );
+                let mut partial = match counted {
+                    Ok(partial) => partial,
+                    Err(error) => {
+                        // Retry this same immutable native leaf once after releasing
+                        // partition state. A repeated failure is the ordinary C4 error.
+                        if let Some(partitions) = partitions.as_ref()
+                            && denied_before
+                                .is_some_and(|before| partitions.denied_reservations() > before)
+                            && error.to_string().contains("memory reservation denied:")
+                        {
+                            worker.check_cancelled()?;
+                            partitions.request_pressure();
+                            return Ok(Partial::RetryString(array));
+                        }
+                        return Err(error);
+                    }
+                };
                 if preserve_order {
                     partial.preserve_existing_key_order();
                 }
-                Ok(Partial::String(partial))
+                if let Some(partitions) = partitions {
+                    partitions
+                        .reduce(partial, worker, lease)
+                        .map(Partial::Partitioned)
+                } else {
+                    Ok(Partial::String(partial))
+                }
             } else {
                 count_numeric_chunk(&array, &session, kind, worker, lease)
             }
@@ -225,6 +399,7 @@ impl CountWorkers {
         Ok(true)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn merge_next(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         let expected = self.jobs.joined();
         let Some(completed) = self.jobs.join_next()? else {
@@ -237,15 +412,40 @@ impl CountWorkers {
         let started = Instant::now();
         completed.consume(|partial| {
             let (rows, entries, bytes) = match partial {
+                Partial::Partitioned(receipt) => {
+                    if let Some(deferred) = receipt.deferred.as_ref() {
+                        if self.deferred.len() == self.deferred.capacity() {
+                            return Err(failed("deferred chunks exceeded source window"));
+                        }
+                        self.deferred.push(Arc::clone(deferred));
+                    }
+                    self.observe_string(&receipt.work);
+                    (
+                        receipt.work.rows,
+                        receipt.work.partial_entries,
+                        receipt.work.partial_capacity_bytes,
+                    )
+                }
+                Partial::RetryString(array) => {
+                    if self.retry_arrays.len() == self.retry_arrays.capacity() {
+                        return Err(failed("retry chunks exceeded source window"));
+                    }
+                    self.retry_arrays.push(array.clone());
+                    return Ok(());
+                }
+                Partial::Selected(selection) => {
+                    let partitions = self
+                        .partitions
+                        .as_ref()
+                        .ok_or_else(|| failed("selection lost its complete state"))?;
+                    partitions.visit_selection(selection, |value, count| {
+                        install_weighted_string(states, self.group_index, value, count, false)
+                    })?;
+                    return Ok(());
+                }
                 Partial::String(partial) => {
                     self.string_merge.merge(states, self.group_index, partial)?;
-                    self.canonicalization_nanos += partial.work.canonicalization_nanos;
-                    self.count_nanos += partial.work.count_nanos;
-                    self.hashed_bytes += partial.work.utf8_bytes_hashed;
-                    self.equality_comparisons += partial.work.equality_comparisons;
-                    self.dictionary_chunks += u64::from(partial.work.native_dictionary);
-                    self.dictionary_values += partial.work.dictionary_values;
-                    self.constant_chunks += u64::from(partial.work.native_constant);
+                    self.observe_string(&partial.work);
                     (
                         partial.work.rows,
                         partial.work.partial_entries,
@@ -314,6 +514,16 @@ impl CountWorkers {
         self.constant_chunks += u64::from(work.native_constant);
     }
 
+    fn observe_string(&mut self, work: &string_count_partial::StringCountPartialWork) {
+        self.canonicalization_nanos += work.canonicalization_nanos;
+        self.count_nanos += work.count_nanos;
+        self.hashed_bytes += work.utf8_bytes_hashed;
+        self.equality_comparisons += work.equality_comparisons;
+        self.dictionary_chunks += u64::from(work.native_dictionary);
+        self.dictionary_values += work.dictionary_values;
+        self.constant_chunks += u64::from(work.native_constant);
+    }
+
     pub(super) fn drain(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         while self.jobs.outstanding() > 0 {
             self.merge_next(states)?;
@@ -321,6 +531,125 @@ impl CountWorkers {
         Ok(())
     }
 
+    fn handoff_partitions(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        let Some(partitions) = self.partitions.clone() else {
+            return Ok(());
+        };
+        partitions.request_pressure();
+        self.drain(states)?;
+        self.partitions = None;
+        let started = Instant::now();
+        let heavy = states.string_count_topk_heavy_hitter_enabled;
+        if heavy {
+            states.string_count_topk_first_pass_exact_histogram_counts = None;
+            states.string_count_topk_first_pass_exact_histogram_disabled = true;
+            states.string_count_topk_heavy_hitter_sketch = Some(
+                super::StringCountTopKHeavyHitterSketch::new_with_exact_mirror(
+                    states.string_count_topk_heavy_hitter_capacity(),
+                    0,
+                ),
+            );
+        }
+        let mut replayed = 0_u64;
+        partitions.replay_and_release(|value, count| {
+            install_weighted_string(states, self.group_index, value, count, heavy)?;
+            replayed = replayed
+                .checked_add(count)
+                .ok_or_else(|| failed("partition replay weight overflowed"))?;
+            Ok(())
+        })?;
+        if replayed != partitions.committed_rows.load(Ordering::Acquire) {
+            return Err(failed("partition replay differs from committed weight"));
+        }
+        if heavy {
+            states.string_count_topk_total_weight = replayed;
+            states.string_count_topk_first_pass_exact_histogram_input_rows = replayed;
+        }
+        for partial in self.deferred.drain(..) {
+            self.string_merge
+                .merge(states, self.group_index, &partial)?;
+        }
+        self.merge_nanos += started.elapsed().as_nanos();
+        self.partition_handoffs += 1;
+        self.partition_evidence = Some(partitions.evidence());
+        drop(partitions);
+        // Existing successful receipts already contributed their complete input
+        // weights. Failed count attempts contribute only on this successful retry.
+        while let Some(array) = self.retry_arrays.pop() {
+            let bytes = string_count_partial::partial_bytes(&array)?
+                .checked_add(size_of::<Partial>() as u64)
+                .and_then(|bytes| bytes.checked_add(size_of::<ArrayRef>() as u64))
+                .ok_or_else(|| failed("retry task capacity overflowed"))?;
+            let session = self.session.clone();
+            self.jobs.submit(bytes, move |worker, lease| {
+                string_count_partial::count_string_chunk(
+                    &array,
+                    session.create_execution_ctx(),
+                    worker,
+                    lease,
+                )
+                .map(Partial::String)
+            })?;
+            self.retry_jobs += 1;
+            self.merge_next(states)?;
+        }
+        Ok(())
+    }
+
+    /// Final complete-key selection is deliberately separate from intermediate
+    /// drains: only EOF makes partition-local top-K safe.
+    pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        self.drain(states)?;
+        if self
+            .partitions
+            .as_ref()
+            .is_some_and(|partitions| partitions.pressure_requested())
+        {
+            return self.handoff_partitions(states);
+        }
+        let Some(partitions) = self.partitions.clone() else {
+            return Ok(());
+        };
+        if partitions.committed_rows.load(Ordering::Acquire) != self.rows {
+            return Err(failed("complete partition weight differs from source rows"));
+        }
+        self.partition_groups = partitions.group_count();
+        for index in 0..string_count_partitions::PARTITIONS {
+            if self.jobs.is_full() {
+                self.merge_next(states)?;
+            }
+            let partitions = Arc::clone(&partitions);
+            self.jobs.submit(0, move |worker, _lease| {
+                partitions.select(index, worker).map(Partial::Selected)
+            })?;
+            self.selection_jobs += 1;
+        }
+        self.drain(states)?;
+        states.complete_key_partition_group_count = Some(self.partition_groups);
+        if states.string_count_topk_heavy_hitter_enabled {
+            states.string_count_topk_total_weight = self.rows;
+            states.string_count_topk_first_pass_exact_histogram_input_rows = self.rows;
+            if !states.promote_string_count_topk_first_pass_exact_histogram_if_possible()
+                && self.rows != 0
+            {
+                return Err(failed("complete partition candidates were not promotable"));
+            }
+            states.string_count_topk_exact_counts_source = Some("complete_key_partition_topk");
+        }
+        states.count_star_direct_updates = true;
+        states.chunk_dictionary_direct_updates = self.dictionary_chunks != 0;
+        states
+            .aggregate_accessor_summary
+            .insert("native_complete_key_partition_counts".into());
+        // Selected keys now have independent output-state owners. Full partition
+        // storage can be released before formatting the bounded result.
+        partitions.release_storage()?;
+        self.partitions = None;
+        self.partition_evidence = Some(partitions.evidence());
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_lines)]
     pub(super) fn annotate_summary(&self, summary: &mut String) -> Result<()> {
         let mut payload: serde_json::Value =
             serde_json::from_str(summary).map_err(|error| failed(&error.to_string()))?;
@@ -332,8 +661,14 @@ impl CountWorkers {
         for (name, value) in [
             ("rows", u128::from(self.rows)),
             ("partial_entries", u128::from(self.entries)),
-            ("submitted_chunks", u128::from(self.jobs.submitted())),
-            ("completed_chunks", u128::from(self.jobs.joined())),
+            (
+                "submitted_chunks",
+                u128::from(self.jobs.submitted() - self.selection_jobs - self.retry_jobs),
+            ),
+            (
+                "completed_chunks",
+                u128::from(self.jobs.joined() - self.selection_jobs - self.retry_jobs),
+            ),
             ("outstanding_chunks", self.jobs.outstanding() as u128),
             (
                 "peak_outstanding_chunks",
@@ -408,10 +743,118 @@ impl CountWorkers {
                 u64::try_from(value).unwrap_or(u64::MAX).into(),
             );
         }
+        if let Some(evidence) = self.partition_evidence.as_ref() {
+            for (name, value) in [
+                (
+                    "partition_count",
+                    string_count_partitions::PARTITIONS as u64,
+                ),
+                ("partition_complete_groups", evidence.groups as u64),
+                ("partition_committed_rows", evidence.rows),
+                ("partition_lock_wait_nanos", evidence.lock_wait_nanos),
+                ("partition_reconcile_work_nanos", evidence.reconcile_nanos),
+                ("partition_arrange_work_nanos", evidence.arrange_nanos),
+                ("partition_selection_work_nanos", evidence.selection_nanos),
+                (
+                    "partition_equality_comparisons",
+                    evidence.equality_comparisons,
+                ),
+                ("partition_native_handoffs", self.partition_handoffs),
+                ("partition_selection_jobs", self.selection_jobs),
+                ("partition_retry_jobs", self.retry_jobs),
+            ] {
+                object.insert(format!("aggregate_workers_{name}"), value.into());
+            }
+            if self.partition_handoffs == 0 {
+                object.insert("candidate_groups".into(), self.partition_groups.into());
+                object.insert(
+                    "group_output_strategy".into(),
+                    "complete_key_partition_exact_topk".into(),
+                );
+                object.insert(
+                    "group_key_storage".into(),
+                    "owned_utf8_complete_key_partitions".into(),
+                );
+                object.insert(
+                    "aggregate_workers_new_global_strings".into(),
+                    self.partition_groups.into(),
+                );
+            }
+        }
         object.insert("aggregate_workers_scope".into(), "source_ordered_all_key_chunk_partials;parallel_canonicalization_and_exact_count;caller_global_merge;no_local_topk;sum_worker_elapsed_not_cpu_or_exclusive_wall;submit_includes_inline_work_and_memory_pressure_drains;shared_capacity_covers_native_allocator_and_owned_partials_not_legacy_global_maps_or_process_rss;source_generation_validated_after_drain_and_refinement".into());
+        if self.partition_evidence.is_some() {
+            object.insert("aggregate_workers_scope".into(), "all_key_chunk_counts_then_complete_key_partition_reconciliation_on_same_workers;partition_lock_wait_separate_from_work;final_partition_topk_only_after_source_drains;caller_bounded_candidate_union_or_explicit_native_pressure_handoff;sum_worker_elapsed_not_cpu_or_exclusive_wall;shared_capacity_covers_native_allocator_partials_partition_vectors_and_growth_overlap_not_legacy_handoff_or_output_maps_or_process_rss;source_generation_validated_after_drain_and_refinement".into());
+        }
         *summary = payload.to_string();
         Ok(())
     }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy)]
+pub(super) enum SourceScanTestFault {
+    OwnedDenial,
+    CorruptionWithConcurrentDenial,
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static SOURCE_SCAN_TEST_FAULT: std::cell::Cell<Option<SourceScanTestFault>> = const { std::cell::Cell::new(None) };
+}
+
+fn install_weighted_string(
+    states: &mut GroupedAggregateStates<'_>,
+    group_index: usize,
+    value: &str,
+    count: u64,
+    sketch: bool,
+) -> Result<()> {
+    if sketch {
+        let owned: Arc<str> = Arc::from(value);
+        states
+            .string_count_topk_heavy_hitter_sketch
+            .as_mut()
+            .ok_or_else(|| failed("native pressure sketch is absent"))?
+            .update_lazy_utf8_value(&owned, count, &mut states.string_interner)?;
+    } else {
+        states
+            .string_interner
+            .reserve(1, "complete partition output identity")?;
+        let id = states.string_interner.intern(value)?;
+        if states.string_count_topk_heavy_hitter_enabled {
+            let counts = states
+                .string_count_topk_first_pass_exact_histogram_counts
+                .as_mut()
+                .ok_or_else(|| failed("complete partition output histogram is absent"))?;
+            super::reserve_hash_map_capacity(counts, 1, "complete partition output counts")?;
+            let previous = counts.entry(id).or_insert(0);
+            *previous = previous
+                .checked_add(count)
+                .ok_or_else(|| failed("partition output count overflowed"))?;
+        } else {
+            let key =
+                super::AggregateGroupKey::single(super::AggregateDistinctValue::Utf8Interned(id));
+            super::reserve_hash_map_capacity(
+                &mut states.groups,
+                1,
+                "complete partition output groups",
+            )?;
+            states
+                .groups
+                .entry(key)
+                .or_insert_with(|| super::GroupedAggregateState::new_compact_count_star(None))
+                .increment_count_star_by(count)?;
+        }
+    }
+    states.count_star_direct_updates = true;
+    if states.string_count_topk_heavy_hitter_enabled {
+        states.string_count_topk_string_group_index = Some(group_index);
+        states.string_count_topk_heavy_hitter_direct_updates = true;
+    }
+    states
+        .aggregate_accessor_summary
+        .insert("native_complete_key_partition_counts".into());
+    Ok(())
 }
 
 fn numeric_state_admitted(states: &GroupedAggregateStates<'_>) -> bool {

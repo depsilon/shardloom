@@ -26,6 +26,9 @@ pub(crate) mod sort_spill;
 #[path = "local_primitives/string_count_partial.rs"]
 mod string_count_partial;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/string_count_partitions.rs"]
+mod string_count_partitions;
+#[cfg(feature = "vortex-local-primitives")]
 use std::time::Instant;
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -19302,6 +19305,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
     runtime: &impl vortex::io::runtime::BlockingRuntime,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
 ) -> Result<LocalVortexAggregateScan> {
+    let attempt_started = Instant::now();
     let aggregate = required_simple_aggregate(request)?;
     let source_row_count = file.row_count();
     let aggregate_plan = rewrite_simple_aggregate_for_embedded_derived_columns(
@@ -19448,6 +19452,8 @@ fn read_prepared_vortex_simple_aggregate_scan(
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     if !embedded_layout.metadata_pruned_entire_input {
+        let initial_scan_denials =
+            worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
             scan = scan.with_filter(bind_vortex_scan_expr(file, &filter)?);
@@ -19463,12 +19469,83 @@ fn read_prepared_vortex_simple_aggregate_scan(
                 workers.before_next(states)?;
             }
             let scan_started = Instant::now();
+            #[cfg(test)]
+            let injected = count_workers.as_ref().and_then(|workers| {
+                worker_memory.and_then(|memory| {
+                    workers.inject_scan_fault_for_test(memory, arrays_read_count)
+                })
+            });
+            #[cfg(test)]
+            let chunk = injected.or_else(|| scan.next());
+            #[cfg(not(test))]
             let chunk = scan.next();
             aggregate_timing.scan_next_nanos += scan_started.elapsed().as_nanos();
             let Some(chunk) = chunk else {
                 break;
             };
-            let chunk = chunk.map_err(vortex_error)?;
+            let chunk = match chunk {
+                Ok(chunk) => chunk,
+                Err(error)
+                    if count_workers.as_ref().is_some_and(
+                        aggregate_count_workers::CountWorkers::has_active_partitions,
+                    ) && worker_memory.is_some_and(|memory| {
+                        memory.snapshot().denied_reservations > initial_scan_denials
+                    }) && crate::owned_buffers::is_owned_reservation_denial(&error) =>
+                {
+                    // A new representation must not turn source allocation into
+                    // an unsupported query. Discard this complete attempt, drain
+                    // the owned workers, then replay on the SAME retained file.
+                    // None disables this branch on the single replay attempt.
+                    if let Some(workers) = count_workers.as_ref() {
+                        workers.cancel_for_source_replay();
+                    }
+                    drop(scan);
+                    drop(count_workers.take());
+                    drop(grouped_states.take());
+                    drop(scalar_states.take());
+                    drop(reader_splits);
+                    drop(encoded_kernel_inputs);
+                    let discarded_nanos = attempt_started.elapsed().as_nanos();
+                    let replay_started = Instant::now();
+                    let mut replayed = read_prepared_vortex_simple_aggregate_scan(
+                        source_uri, request, policy, file, session, runtime, None,
+                    )?;
+                    let mut summary: serde_json::Value =
+                        serde_json::from_str(&replayed.result_summary)
+                            .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
+                    let object = summary.as_object_mut().ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "aggregate replay summary is not an object".into(),
+                        )
+                    })?;
+                    object.insert(
+                        "aggregate_workers_partition_source_replays".into(),
+                        1.into(),
+                    );
+                    object.insert(
+                        "aggregate_workers_partition_discarded_input_rows".into(),
+                        pre_limit_result_row_count.into(),
+                    );
+                    object.insert(
+                        "aggregate_workers_partition_discarded_attempt_nanos".into(),
+                        u64::try_from(discarded_nanos).unwrap_or(u64::MAX).into(),
+                    );
+                    object.insert(
+                        "aggregate_workers_partition_source_replay_nanos".into(),
+                        u64::try_from(replay_started.elapsed().as_nanos())
+                            .unwrap_or(u64::MAX)
+                            .into(),
+                    );
+                    object.insert("aggregate_workers_scope".into(), "owned_source_reservation_denial;partition_jobs_cancelled_joined_and_released;one_full_native_replay_on_same_retained_vortex_file;source_generation_validated_after_replay;no_cached_answer_or_external_execution".into());
+                    replayed.result_summary = summary.to_string();
+                    replayed
+                        .state_budget
+                        .capillary_work_units
+                        .push("complete_key_partition_source_pressure_native_replay".into());
+                    return Ok(replayed);
+                }
+                Err(error) => return Err(vortex_error(error)),
+            };
             let rows = chunk.len();
             let evidence_started = Instant::now();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -19675,7 +19752,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         }
     }
     if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut()) {
-        workers.drain(states)?;
+        workers.finish(states)?;
     }
     let result_limit = request.source_order_limit;
     if let Some(states) = grouped_states.as_mut()
@@ -24240,6 +24317,7 @@ struct GroupedAggregateStates<'a> {
     numeric_utf8_topk_chunk_compacted_updates: bool,
     group_order: Vec<AggregateGroupKey>,
     string_interner: AggregateStringInterner,
+    complete_key_partition_group_count: Option<usize>,
     transformed_dictionary_dense_general_groups:
         Option<rustc_hash::FxHashMap<u64, TransformedDictionaryDenseGeneralState>>,
     transformed_dictionary_dense_general_plan: Option<TransformedDictionaryDenseGeneralPlan>,
@@ -27153,6 +27231,7 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_utf8_topk_chunk_compacted_updates: false,
             group_order: Vec::new(),
             string_interner: AggregateStringInterner::default(),
+            complete_key_partition_group_count: None,
             transformed_dictionary_dense_general_groups: None,
             transformed_dictionary_dense_general_plan: None,
             count_star_direct_updates: false,
@@ -33749,6 +33828,9 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         let uniqueness_proof_status = if self.string_count_topk_first_pass_exact_counts {
             match self.string_count_topk_exact_counts_source {
+                Some("complete_key_partition_topk") => {
+                    "complete_key_partition_count_desc_utf8_asc_exact_topk"
+                }
                 Some("first_pass_dictionary_exact_histogram") => {
                     "proofbound_heavy_hitter_exact_first_pass_dictionary_histogram"
                 }
@@ -35335,6 +35417,9 @@ impl<'a> GroupedAggregateStates<'a> {
             || self
                 .aggregate_accessor_summary
                 .contains("native_dictionary_owned_all_key_count_partial")
+            || self
+                .aggregate_accessor_summary
+                .contains("native_complete_key_partition_counts")
     }
 
     fn aggregate_accessor_materialization_status(&self) -> &'static str {
@@ -35776,6 +35861,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn group_count(&self) -> usize {
+        if let Some(groups) = self.complete_key_partition_group_count {
+            return groups;
+        }
         if let Some(groups) = self.single_numeric_count_groups.as_ref() {
             return groups.len();
         }
@@ -36805,7 +36893,12 @@ impl<'a> GroupedAggregateStates<'a> {
             pulseweave_pressure_signals.push("numeric_pair_weighted_count_updates");
         }
         if self.string_count_topk_heavy_hitter_direct_updates {
-            if self.string_count_topk_first_pass_exact_histogram_promoted() {
+            if self.string_count_topk_exact_counts_source == Some("complete_key_partition_topk") {
+                capillary_work_units.push("complete_key_string_partition_reconciliation");
+                capillary_work_units.push("complete_key_partition_final_topk");
+                pulseweave_pressure_signals.push("complete_key_partition_exact_topk_proof");
+                pulseweave_pressure_signals.push("string_topk_sketch_update_elided");
+            } else if self.string_count_topk_first_pass_exact_histogram_promoted() {
                 capillary_work_units.push("string_topk_exact_histogram_primary_update");
                 pulseweave_pressure_signals.push("string_topk_sketch_update_elided");
             } else {
@@ -36829,7 +36922,10 @@ impl<'a> GroupedAggregateStates<'a> {
                         pulseweave_pressure_signals.push("retained_candidate_distinct_values");
                     }
                 }
-                if self.string_count_topk_exact_counts_source
+                if self.string_count_topk_exact_counts_source == Some("complete_key_partition_topk")
+                {
+                    pulseweave_pressure_signals.push("string_topk_second_scan_elided");
+                } else if self.string_count_topk_exact_counts_source
                     == Some("first_pass_bounded_exact_mirror")
                 {
                     capillary_work_units.push("string_heavy_hitter_bounded_exact_mirror");
@@ -62062,6 +62158,124 @@ mod tests {
         assert_eq!(rows[1]["UserID"], serde_json::json!(2));
         assert_eq!(rows[1]["SearchPhrase"], serde_json::json!("beta"));
         assert_eq!(rows[1]["rows"], serde_json::json!(2));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    #[allow(clippy::too_many_lines)]
+    fn partition_source_owned_pressure_replays_filtered_native_file_once_and_preserves_corruption()
+    {
+        use aggregate_count_workers::{SOURCE_SCAN_TEST_FAULT, SourceScanTestFault};
+        use vortex::{
+            VortexSessionDefault as _,
+            array::{
+                IntoArray as _,
+                arrays::{StructArray, VarBinViewArray},
+                dtype::FieldNames,
+                validity::Validity,
+            },
+            file::WriteOptionsSessionExt as _,
+            io::{
+                runtime::{BlockingRuntime as _, single::SingleThreadRuntime},
+                session::RuntimeSessionExt as _,
+            },
+            session::VortexSession,
+        };
+        let path = unique_vortex_path("partition-source-pressure-replay");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let chunks = [
+            ["tea", "tea", "skip", "東京"],
+            ["coffee", "東京", "skip", "tea"],
+            ["東京", "tea", "coffee", "skip"],
+        ]
+        .map(|values| {
+            StructArray::try_new(
+                FieldNames::from(["renamed_key"]),
+                vec![VarBinViewArray::from_iter_str(values).into_array()],
+                4,
+                Validity::NonNullable,
+            )
+            .unwrap()
+            .into_array()
+        });
+        let mut bytes = Vec::new();
+        let mut writer = session
+            .write_options()
+            .with_strategy(native_flat_layout::SequentialNativeFlatLayout::strategy(
+                chunks.len(),
+            ))
+            .with_file_statistics(Vec::new())
+            .blocking(&runtime)
+            .writer(&mut bytes, chunks[0].dtype().clone());
+        for chunk in chunks {
+            writer.push(chunk).unwrap();
+        }
+        assert_eq!(writer.finish().unwrap().row_count(), 12);
+        let workspace = shardloom_core::infer_local_output_workspace_root(&path).unwrap();
+        shardloom_core::write_workspace_safe_bytes(
+            workspace,
+            &path,
+            false,
+            "partition source pressure fixture",
+            &bytes,
+        )
+        .unwrap();
+        let mut request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).unwrap(),
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("renamed_key").unwrap()],
+                vec![crate::VortexSimpleAggregateMeasure::new(
+                    "count",
+                    None,
+                    "n".into(),
+                )],
+            )
+            .with_order_by(vec![crate::VortexAggregateOrderExpr::new("n", true)]),
+        )
+        .with_source_order_limit(2);
+        request.predicate = Some(PredicateExpr::Compare {
+            column: ColumnRef::new("renamed_key").unwrap(),
+            op: ComparisonOp::NotEq,
+            value: StatValue::Utf8("skip".into()),
+        });
+        SOURCE_SCAN_TEST_FAULT.with(|fault| fault.set(Some(SourceScanTestFault::OwnedDenial)));
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        )
+        .unwrap();
+        assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
+        let summary: serde_json::Value =
+            serde_json::from_str(report.result_summary.as_deref().unwrap()).unwrap();
+        assert_eq!(
+            summary["values"],
+            serde_json::json!([{"renamed_key":"tea","n":4}, {"renamed_key":"東京","n":3}])
+        );
+        assert_eq!(summary["aggregate_workers_partition_source_replays"], 1);
+        assert!(
+            summary["aggregate_workers_partition_discarded_input_rows"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+        assert!(!report.fallback_execution_allowed);
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"complete_key_partition_source_pressure_native_replay".to_owned())
+        );
+        SOURCE_SCAN_TEST_FAULT
+            .with(|fault| fault.set(Some(SourceScanTestFault::CorruptionWithConcurrentDenial)));
+        let error = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("injected source corruption"));
+        assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
