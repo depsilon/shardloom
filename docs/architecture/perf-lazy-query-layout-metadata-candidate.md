@@ -1,5 +1,8 @@
 # Lazy query layout metadata candidate
 
+This note records the implemented C7 design. Current validation and measured
+acceptance are maintained in the [retain/drop packet](../benchmarks/perf-drop-ship-2026-09-05.md).
+
 Normal native queries now report footer row/segment counts, file-statistics
 availability, schema, and root layout without realizing unprojected layout
 children. The pinned Vortex 0.85 `DynLayout::slot`/`children` interface lazily
@@ -33,7 +36,8 @@ reports every layout encoding, and malformed/over-budget inspection fails. The
 existing metadata-pruned count test retains complete count/certificate checks
 and now requires root-only metadata. CLI tests cover the additive fields.
 
-Validation and measured ship/drop remain pending the root agent's serial gate.
-The targeted comparison is Q2 and short Q37–43 against the same numeric artifact,
-with exact results and raw timings. Existing 8.1→70.2 ms control-plane evidence
-motivates this candidate but does not isolate inventory time or prove its win.
+The original targeted comparison plan covered Q2 and short Q37–43 against the
+same numeric artifact, with exact results and raw timings. Historical
+8.1→70.2 ms control-plane evidence motivated this design but does not isolate
+inventory time or prove the correction's measured benefit. The linked packet
+owns that decision and its evidence.

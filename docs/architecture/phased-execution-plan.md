@@ -258,13 +258,26 @@ remain the implementation history and are incorporated by reference, not restart
 All PERF runtime items are `required_for_v1` within admitted local native execution;
 PERF-13 is `v1_candidate_pending_feasibility`. Targets are objectives, not promises.
 Completion requires executable production wiring and measured evidence. Storage
-admission now passes. A fresh 99,997,497-row baseline artifact was built from
-merged commit `c6cda693` on 2026-09-05; precise-clock paired measurements are
-recorded in the implementation evidence below. The latest fresh current-state
-UAT is `docs/benchmarks/clickbench-current-state-2026-09-05.md`: 162.781s ingest
-versus the 177.620s merged-state control, and 148.349s query total. The 145.130s
-query and 271s ingest records remain historical
-references, not this candidate's comparison control.
+admission now passes. The b3 implementation at `b3bb15ad` provides the completed
+scoped boundaries recorded in the
+[completed ledger](phased-execution-completed-ledger.md#recent-completed-session-ledger).
+The [drop/ship packet](../benchmarks/perf-drop-ship-2026-09-05.md)
+owns frozen comparisons and scoped acceptance. C4/C3-layout full43
+passes complete values and improves total time while worsening geometric mean.
+Numeric compression and corrected native consumers are retained. Frozen C7
+(`3c7ea538`) passes 129/129 full43 values on C5's numeric artifact: 131.686635s
+total, 9.55% lower than baseline, but 1.090906s geometric mean, 7.02% higher.
+Final scoped acceptance passes 744 public calls, 640 held-out records at 4,096
+rows, 16 native-output reopens, independent 131,072-row numeric spill, separate
+native/public latency profiles and bounded memory-file publication. The ledger
+owns details; larger held-out matrix guard aborts remain incomplete acceptance.
+C6's complete-key UTF8 partition reduction passes six original-artifact Q34/Q35
+calls with measured gains; the packet retains that bounded acceptance separately
+from initial C5's complete but slower full43 run and the combined C7 results.
+Earlier release-0.2.3 evidence in
+`docs/benchmarks/clickbench-current-state-2026-09-05.md` records 162.781s ingest
+and 148.349s query total. Those values and the earlier 145.130s query/271s ingest
+records are historical references, not controls for every later candidate.
 
 Implementation status and proof gaps are recorded in
 `performance-overhaul-implementation-2026-09-05.md`. None of the thirteen whole
@@ -273,10 +286,14 @@ PERF packets is complete merely because its shared runtime foundation exists.
 - [ ] `PERF-01` reconcile and instrument the public baseline.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied performance overhaul section 10, RFC 0044; accepted.
+  - Completed scope: frozen C7 full43 has complete-value regression evidence;
+    the packet preserves prior baselines and final-validation snapshot caveats.
+    Separate native/worker/Python/fresh-process latency is recorded for the
+    admitted count/collect routes. This does not substitute for same-commit ingest.
   - Execution checklist:
     - [ ] Record same-commit clean ingestion and all 43 queries with checked outputs.
     - [ ] Separate exclusive wall spans, overlapping worker work, output, and validation.
-    - [ ] Measure native/resident/worker/Python/fresh-process latency separately.
+    - [ ] Extend separately timed latency acceptance to newly admitted families.
     - [ ] Identify dominant costs and preserve raw evidence without synthetic elapsed claims.
   - ShardLoom technique review: preserve route timing separation, evidence tiers,
     no-fallback fields, and source residency; measurements must cover actual work.
@@ -285,15 +302,17 @@ PERF packets is complete merely because its shared runtime foundation exists.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied plan; accepted as continuation of in-process session runtime.
   - Dependency: PERF-01 baseline instrumentation.
-  - Implemented scope: resident Rust file/count/projection handles, generation
-    invalidation, retained provider runtime/reader, owned array results, and the
-    public single-file bounded JSON collect adapter. Python native binding and
-    migration of the remaining operator families are still open.
+  - Implemented scope: resident Rust file/count/projection/filter handles,
+    generation invalidation, retained provider runtime/reader, owned array
+    results, bounded JSON collect and matching-handle reuse in the public worker.
+    Python native binding and migration of the remaining operator families are
+    still open.
   - Execution checklist:
-    - [ ] Extract reusable typed native calls and snapshot-bound prepared handles.
-    - [ ] Reuse open-reader metadata, runtime resources, and bounded scratch ownership.
-    - [ ] Route CLI/Python adapters through native calls without answer-cache reuse.
-    - [ ] Verify replacement/mutation/truncation invalidation and cold/prepared latency.
+    - [ ] Extend prepared native execution to the remaining operator families.
+    - [ ] Complete the native Python prototype/binding decision and migration;
+      persistent subprocess-worker reuse does not close this requirement.
+    - [ ] Extend separate native, worker, Python and fresh-process latency
+      acceptance to remaining families, preserving invalidation and actual execution.
   - ShardLoom technique review: SourceState reuse and metadata-first execution apply;
     no external engine or hidden result reuse is admitted.
 
@@ -302,26 +321,35 @@ PERF packets is complete merely because its shared runtime foundation exists.
   - Source: supplied plan; merges shared scheduler and writer-governor obligations below.
   - Implemented scope: live reservation ownership, persistent dynamic compute
     workers, queue slot/byte limits, cancellation/drain tests, Vortex host-buffer
-    allocator ownership, and production pre-writer integration. This is not yet
-    one global budget for all operators, source readers, and upstream codecs.
+    allocator ownership, and bounded public ingest using one artifact-local pool
+    across copied input/native buffers and writer retention. This is not yet one
+    global budget for all operators, source owners, provider scratch and codecs.
     Historical measurement: a 4 GB-configured full ingest completed but reached
     9,869,230,080 bytes RSS. The maintainer dropped the fixed 4 GiB target on
-    2026-09-05. Source/codec/writer accounting remains future memory-safety work,
-    not a blocker to the current publication train.
+    2026-09-05. Remaining global resource accounting is PERF work; the removed
+    fixed target must not be reinstated as an acceptance condition.
   - Execution checklist:
-    - [ ] Implement lifetime-owned shared reservations, growth checks, and peak counters.
-    - [ ] Implement persistent workers, inline bounded work, dynamic queues, and draining.
-    - [ ] Share admission with Vortex I/O/codec work and prove I/O progress.
-    - [ ] Verify queue bytes, state growth denial, cancellation, and worker reuse under load.
+    - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work
+      and prove I/O progress within the CPU ceiling.
+    - [ ] Verify queue bytes, state growth denial, cancellation and worker reuse
+      under mixed load, with explicit exclusions for unobserved provider owners.
   - ShardLoom technique review: capillary units and PulseWeave must control observed
     work and scarcity; configuration comparisons cannot certify queue enforcement.
 
 - [ ] `PERF-04` wire aggregate kernels and parallel deterministic reduction.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied plan; incorporates scheduler family conversion below; depends on PERF-03.
+  - Implemented scope: C4 executes bounded exact single-key non-null
+    Int64/UInt64/UTF8 COUNT(*) work on shared workers, preserving all keys and
+    native constant/Dict fast paths. C6 moves complete UTF8 key reconciliation
+    into independent partitions on the shared workers before final selection;
+    all six original-artifact Q34/Q35 calls pass and improve in measured time.
+    C7's combined full43 also passes complete values. Broader families and
+    pressure behavior remain open; the completed packet owns detailed measurements.
   - Execution checklist:
     - [ ] Migrate Q10/Q14/Q17/Q19/Q33/Q34/Q35-style production families to shared workers.
-    - [ ] Reduce independent logical partitions concurrently without local-top-K loss.
+    - [ ] Extend independently reduced logical partitions beyond the completed
+      non-null UTF8 COUNT(*) scope without local-top-K loss.
     - [ ] Verify integer overflow, ties, skew, and floating semantics at 1/2/4/8/12 workers.
     - [ ] Measure actual kernel work and remove superseded scheduling after ship/drop.
   - ShardLoom technique review: capillary ownership and deterministic merge apply below
@@ -333,7 +361,8 @@ PERF packets is complete merely because its shared runtime foundation exists.
   - Execution checklist:
     - [ ] Bind referenced dictionary entries with domain-safe exact key equality.
     - [ ] Partition compact owned state and defer final string materialization.
-    - [ ] Measure dual histogram/sketch costs and establish exact overflow transition.
+    - [ ] Establish and measure exact overflow transitions; retain PR #1428's
+      removal of dual histogram/sketch maintenance without counting it as new work.
     - [ ] Validate nulls, all-unique keys, skew, composite keys, and non-URL performance.
   - ShardLoom technique review: dictionary execution and work avoidance apply; exactness
     cannot depend on samples, hashes alone, or missing global top-K candidates.
@@ -341,10 +370,15 @@ PERF packets is complete merely because its shared runtime foundation exists.
 - [ ] `PERF-06` implement shared native query spill and cleanup.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied plan and RFC 0044 temporary-workspace decision; depends on PERF-03.
+  - Implemented scope: bounded numeric-sort runs and merge use real native
+    Vortex query data, with source-generation checks and owned disk cleanup.
+    This is distinct from historical synthetic spill fixtures. Shared spill for
+    aggregate, distinct and join families remains open.
   - Execution checklist:
-    - [ ] Create quota-accounted native partition runs with exact ownership and validation.
-    - [ ] Integrate exact merge and memory-pressure transitions with real operators.
-    - [ ] Test cancellation, crash recovery, quota exhaustion, corruption, and owned cleanup.
+    - [ ] Extend quota-accounted native runs and exact pressure transitions to
+      the remaining aggregate/distinct/join families.
+    - [ ] Complete cancellation, crash recovery, quota exhaustion, corruption and
+      owned-cleanup acceptance across each admitted spill family.
     - [ ] Prove exact supported large-state completion under the admitted workload
       budget without external execution; no fixed 4 GiB target is required.
   - ShardLoom technique review: memory scarcity and capillary lifetime govern spill;
@@ -355,13 +389,14 @@ PERF packets is complete merely because its shared runtime foundation exists.
   - Source: supplied plan; incorporates columnar result dataplane item below; depends on PERF-02.
   - Implemented scope: executable Vortex arrays whose buffer credits survive
     clones/slices and session drop. Single-file project/filter collect renders
-    complete bounded values instead of a descriptor; other materializing and
-    multi-source result families still require migration.
+    complete bounded values, and the native array sink persists them directly.
+    Other materializing, multi-source and compatibility sink families still
+    require migration; see the completed ledger for the bounded reopen evidence.
   - Execution checklist:
-    - [ ] Carry Vortex arrays, selections, validity, and buffer owners in physical results.
-    - [ ] Route native/compatible columnar sinks without scalar-vector intermediates.
-    - [ ] Charge retained result lifetime and verify close/cancel/slice ownership.
-    - [ ] Measure copied/decoded bytes and validate complete requested output.
+    - [ ] Carry executable arrays, selections, validity and retained ownership
+      through the remaining physical result and compatibility sink families.
+    - [ ] Complete close/cancel/slice and copied/decoded-byte acceptance for
+      those routes, validating complete requested output.
   - ShardLoom technique review: late materialization and Vortex-native output apply;
     descriptive opaque storage is not an executable array payload.
 
@@ -371,8 +406,9 @@ PERF packets is complete merely because its shared runtime foundation exists.
   - Retained scope: compact logical-schema inventory, remove a discarded full-file
     publication fingerprint, and expose OLAP publication time outside prepare time.
     Durable checksum validation remains; source/derived/codec deduplication is open.
-    Final-code local measurement: 161.489s versus 177.620s, matching writer and
-    publication checksums. This is a measured sample, not a historical 271s comparison.
+    Historical foundation measurement: 161.489s versus 177.620s, matching writer
+    and publication checksums. Later physical-policy candidates require their
+    own final-code ingest and first/repeated-query acceptance.
   - Execution checklist:
     - [ ] Attribute real normalization, metadata, codec, write, and finalization spans.
     - [ ] Inventory duplicated derived representations and traversal/conversion costs.
@@ -384,9 +420,15 @@ PERF packets is complete merely because its shared runtime foundation exists.
 - [ ] `PERF-09` implement costed encoding and a bounded ordered writer.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied plan; incorporates writer H/VH packets; depends on PERF-08/PERF-03.
-  - Candidate scope: reserve the complete in-flight pre-writer window, including
-    finished out-of-order arrays. Costed codec admission and codec-buffer resource
-    unification are not implemented by this queue change.
+  - Implemented scope: reserve the complete in-flight pre-writer window,
+    including finished out-of-order arrays, and retain copied native-buffer
+    credits through bounded within-source-batch writer subtrees. Costed codec
+    admission and allocations bypassing the native allocator remain open.
+    C5 adds retained numeric compression after final coalescing, actual per-column
+    physical inventory and truthful writer-wall timing. The maintainer explicitly
+    retains it; corrected native consumers pass C7 full43 with a lower total and
+    higher geometric mean than baseline. Broader cost/resource/lifecycle
+    acceptance remains open; the accepted numeric storage change remains retained.
     Metadata-aware smaller Parquet batches repair source admission at lower
     budgets. Their full43 passed all values but worsened geomean; do not promote
     that layout as a general benchmark win or infer bounded RSS from completion.
@@ -412,17 +454,30 @@ PERF packets is complete merely because its shared runtime foundation exists.
 - [ ] `PERF-11` implement bounded memory-visible ingest-to-result execution.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied plan and RFC 0044 publication decision; depends on PERF-02/03/07.
+  - Implemented scope: typed nullable scalar intake, immutable allocator-owned
+    Vortex arrays, native filter/project/limit and complete arrays/JSON through
+    the Rust API and bounded generated-row public collect route. No persistence
+    is required. This is a bounded flat-scalar family, not a general live engine
+    or a native Python binding. Two 1,000-sample isolated/mixed native profiles
+    and bounded immutable memory-file publication pass; the ledger records
+    exact timing, overlap, release and accounting scope.
   - Execution checklist:
-    - [ ] Validate typed batches and publish immutable in-memory Vortex snapshots.
-    - [ ] Execute requested bounded queries/results without obligatory file persistence.
-    - [ ] Enforce input/output/memory/queue bounds and explicit visibility state.
-    - [ ] Measure p50/p95/p99 including validation, queue delay, and mixed bulk load.
+    - [ ] Validate the declared input/output/memory/queue envelope under pressure
+      and cancellation; keep original caller owners and provider gaps explicit.
+    - [ ] Extend measured p50/p95/p99 to the remaining declared bulk-load envelope,
+      including validation, intake, queue delay and result delivery.
   - ShardLoom technique review: Vortex normalization and late materialization apply;
     memory-visible completion does not imply durable or optimized publication.
 
 - [ ] `PERF-12` implement held-out and comparative acceptance suites.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied plan; accepted baseline skeleton with progressive coverage.
+  - Implemented scope: deterministic renamed-schema public-call fixtures compare
+    complete values and separately retain fresh-process, worker and Python
+    samples. The final 4,096-row operator matrix passes all 640 records; two
+    131,072-row matrix attempts hit unchanged guards and remain incomplete.
+    Bounded operator/sink checks do not certify every relational family
+    or establish non-ClickBench performance gains by themselves.
   - Execution checklist:
     - [ ] Pin eligible ClickBench scoring/cohort and separate cached product sessions.
     - [ ] Add held-out ingest, aggregate, relational, ownership, and serving cases.

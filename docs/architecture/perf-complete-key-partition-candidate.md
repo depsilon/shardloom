@@ -1,10 +1,13 @@
 # Complete-key string count candidate
 
-This isolated RFC 0044 PERF-04/05 candidate follows C4's measured string count
+Historical C6 design: scoped Q34/Q35 acceptance and remaining family obligations
+are recorded in the [retain/drop packet](../benchmarks/perf-drop-ship-2026-09-05.md).
+
+This RFC 0044 PERF-04/05 experiment followed C4's measured string count
 improvement. Q34's first C4 sample spent 10.635 seconds in caller reconciliation
-for 28,311,069 chunk keys, versus 9.277 seconds of summed worker work. This is
-evidence for moving complete-key identity and reconciliation into the existing
-workers, not a performance claim for this candidate.
+for 28,311,069 chunk keys, versus 9.277 seconds of summed worker work. Those C4
+measurements motivated moving complete-key identity and reconciliation into the
+existing workers; C6's outcomes are recorded separately in the linked packet.
 
 Admission remains one nonnullable identity string key, COUNT(*), reconstructable
 constant group columns, descending count order, no HAVING, and bounded OFFSET +
@@ -50,5 +53,7 @@ Validation must include exact public outputs at workers 1/2/4/8/12; candidates
 outside every chunk's local top-K; collisions, dictionary domain changes and
 duplicate dictionary values, constants, non-URL/Unicode strings, null rejection,
 OFFSET/ties, checked overflow, pressure after partial progress, cancellation,
-lease lifetime and release. Root owns all builds, tests, formatting, and paired
-performance measurements. Retain/drop is pending those results.
+lease lifetime and release. These are the design's acceptance obligations.
+Completed scoped validation, retention and later combined-source measurements
+are maintained in the retain/drop packet linked above, rather than a separate
+pending status in this historical note.

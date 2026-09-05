@@ -16,6 +16,141 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+
+- [x] `PERF-C7-SCOPED-ACCEPTANCE` resident calls, native results and bounded publication.
+  - Date: 2026-09-05. C7 CLI/library remain frozen at `3c7ea538`.
+    Final public resident records pass 744/744; all 248 candidate worker/Python
+    calls report one source open and actual completed executions 1 through 31.
+    Native Rust, worker, Python and fresh-process p50/p95/p99 remain separate.
+  - Independent 4,096-row held-out matrix: 640/640 across 16 cases and worker
+    ceilings 1/2/4/8/12. Native-output full reopen: 16/16. Both totals include
+    baseline controls/warmups. The independent 131,072-row numeric-sort spill
+    returns all exact requested large integers and completes owned cleanup.
+    Two larger held-out matrix attempts stop at unchanged resource guards,
+    the second after 259 accepted records; no full large-matrix pass is claimed.
+  - Two native typed-intake/JSON profiles retain 1,000 isolated and 1,000 mixed
+    samples each, including admission wait. Background/foreground intervals
+    overlap in 999/1,000 nullable and 1,000/1,000 i64 calls, with zero owned live
+    bytes and denials after drop. This is concurrent in-flight acceptance of
+    those profiles, not a blanket sub-ms or simultaneous-CPU guarantee.
+  - Example-only source `9350cec1` passes 100 alternating memory-file/ordinary
+    query pairs and verifies all 16,384 reopened values. Generation takes
+    0.723042ms; publication with independent SHA readback and native validation
+    takes 12.614ms for 731,240 bytes, without array re-encoding. Zero owned live
+    bytes/denials follow drop. Its earlier 64KiB output-bound failure published
+    nothing; a 32MiB bound matching the comparison path passes a focused test
+    and clippy without changing C7's CLI/library.
+  - Final workspace formatting and contribution governance pass. Exact raw
+    samples, percentiles, manifests, exclusions and failed attempts are in the
+    [drop/ship packet](../benchmarks/perf-drop-ship-2026-09-05.md). These close
+    scoped acceptance slices; the thirteen whole PERF packets remain open.
+
+- [x] `PERF-C7-FULL43-REGRESSION-ACCEPTANCE` integrated consumers and query setup.
+  - Date: 2026-09-05. Frozen source `3c7ea538d9c7d240d03be982390b65b9f0c6dc88`;
+    run `full43_20260905T223708789324Z` uses the retained C5 numeric artifact.
+    All 129 complete outputs match the frozen ShardLoom regression reference.
+  - Best-of-three total 131.686635s and hot total 132.309902s; all samples total
+    399.893906s. Compared with baseline, total improves 9.55% while geometric
+    mean regresses 7.02% to 1.090906s. This does not establish overall superiority.
+    Q17 best 16.155425s recovers the initial C5 40–46s regression but remains
+    above the baseline's 15.877899s. Q34/Q35 best 4.820260s / 4.543462s.
+  - Verified logs: 3,403 default-workspace tests; 2,947 native CLI/Vortex tests
+    at `4d95116d` with one ignore; eight worker tests and both clippy checks after
+    the final reset refactor at C7; 24 Python tests and reference validator pass.
+    Default/Python/validator logs do not identify an exact revision. No broad
+    native-suite rerun at C7 is claimed.
+  - C5 ingest/encoding evidence, initial regression and C6 same-original-artifact
+    partition comparison remain separate. Final formatting/governance and
+    scoped native/public acceptance pass as recorded above. Exact samples,
+    hashes and commands belong to the [drop/ship packet](../benchmarks/perf-drop-ship-2026-09-05.md).
+    This completes the full43 regression slice, not the thirteen whole packets.
+
+- [x] `PERF-UTF8-COUNT-PARTITIONS` complete-key reconciliation on shared workers.
+  - Date: 2026-09-05. Frozen C6 source:
+    `16098c7eb15726f6d5cb4b8e1d5ffe3ec8e2f20c`. Exact non-null UTF8 COUNT(*)
+    reconciles all keys in logical partitions before final partition selection;
+    bounded caller reconciliation replaces caller all-key merging in this scope.
+  - Same-original-artifact Q34/Q35 acceptance passes all six complete outputs.
+    Minima are 4.662216s and 4.653582s versus C4's 10.346895s and 10.761406s.
+    Q34 run 1 commits 99,997,497 rows and reconciles 18,342,019 groups across
+    64 partitions with nine peak active workers. It reports 1.333276ms final
+    caller reconciliation and zero handoffs/retries. The measured worker and
+    wait totals overlap; they are not exclusive wall phases or CPU time.
+  - Validation: native-feature clippy, 1,440 native library tests with one
+    intentional ignore, and 131,072-row public SQL/DataFrame numeric-sort spill.
+    All samples, RSS/CPU, shared-reservation scope, hashes and raw paths are in
+    the [drop/ship packet](../benchmarks/perf-drop-ship-2026-09-05.md).
+  - This completes a measured PERF-04 implementation slice, not broader
+    aggregate families, pressure acceptance, full43 acceptance on numeric
+    storage or the thirteen whole PERF packets. Combined C7 full43 is recorded
+    separately above, along with the final scoped native/public acceptance.
+
+- [x] `PERF-BOUNDED-NATIVE-IMPLEMENTATION` resident results, owned ingest and numeric query spill.
+  - Date: 2026-09-05. Retained implementation boundary:
+    `b3bb15adf4c0e74dac498000d78b931a9ca80674`. This completed block covers
+    executable slices of PERF-02/03/06/07/11, not the thirteen whole packets.
+  - Prepared file count and project/filter calls execute through retained native
+    sessions and public-worker handles, with source-generation checks, bounded
+    request framing and lifecycle cleanup. Complete owned arrays and bounded
+    JSON results replace descriptor-only collection. Fresh process, Rust,
+    worker and Python timing remain distinct; no native Python binding is claimed.
+  - Typed nullable Int64/Float64/Boolean/UTF8 memory intake creates immutable
+    allocator-owned Vortex arrays, supports actual native bounded collection and
+    exposes the generated-row public route without mandatory persistence.
+  - Public bounded ingest copies incoming buffers into the artifact-local
+    admitted pool and retains credits through writer use. Native allocator
+    buffers share that pool. Original source owners, provider scratch and
+    allocator-bypassing allocations are excluded; neither zero-copy intake nor
+    process-wide RSS admission is claimed. Within-source-batch coalescing is an
+    explicit physical-policy change.
+  - The native array sink persists admitted projection/filter output directly
+    with ownership-safe publication and reopening. Numeric-sort spill stores
+    actual query keys/row identities in native Flat Vortex runs, with bounded
+    exact merging, disk ownership and cleanup. Both source passes use the
+    retained file handle and generation checks. Aggregate/distinct/join spill
+    remains open; historical synthetic payload fixtures are separate evidence.
+  - Scoped acceptance: native array sink 16/16 reopen checks and held-out public
+    calls 640/640. These are C3 checks; final C7 latency/acceptance is recorded
+    separately above. The C3 ingest sample
+    is 99.175s / 3.428GB peak RSS versus the 155.098s / 10.955GB RSS control;
+    artifact bytes are 37,846,260,172 versus 38,147,848,068. C4 on that layout
+    passes 129/129 complete-value checks with total 136.469s versus 145.598s,
+    but geometric mean regresses from 1.019390s to 1.236274s. Different layouts
+    are not byte-identical artifact evidence, and the tradeoff is not an overall
+    query-speed claim.
+  - Final hashes, raw runs, candidate decisions and acceptance belong to the
+    [drop/ship packet](../benchmarks/perf-drop-ship-2026-09-05.md).
+    The [implementation evidence](performance-overhaul-implementation-2026-09-05.md)
+    distinguishes current scope from historical foundation measurements. The
+    phase plan retains the open global-budget, operator-family and latency work.
+  - Maintainer override: the fixed 4 GiB process-memory target is removed.
+    Resource accounting remains explicit without reinstating that target.
+    Vortex-native input/output, no external fallback and no answer cache remain
+    invariant. No publication or release is implied by this implementation block.
+
+- [x] `PERF-NUMERIC-STORAGE-ENCODING` actual post-coalescing numeric compression.
+  - Date: 2026-09-05. C5 source `f1929a85cd0514f253da15738f67af3225b59bf9`
+    adds native numeric compression after final coalescing, with actual writer
+    edition admission and preserved baseline text/probe policies. The maintainer
+    explicitly retains numeric compression and directs optimization of query
+    consumers rather than dropping the stored representation.
+  - Full-source ingest: 98.344770s, 3,188,228,096 bytes peak RSS,
+    18,643,482,956 artifact bytes. Actual physical inspection covers 82,908 Flat
+    segments and distinguishes data/auxiliary column paths. Text control segment
+    bytes are unchanged; numeric fields contain actual bitpacked, frame-of-reference,
+    constant, run-end and other admitted native nodes.
+  - The historical encode/write field now reports directly measured inclusive
+    writer wall, with overlapping numeric probe/compress/preserve work separate.
+    Correctness: 1,394 native tests and two inventory-example tests pass for C5.
+    Initial full43 acceptance passes 129/129 complete values but regresses to
+    196.321995s total and 1.576350s geometric mean; this pre-consumer-fix result
+    remains in the evidence rather than being replaced by later measurements.
+  - This closes the explicit storage-compression implementation slice, not
+    PERF-09. The initial encoded consumer regression and completed C7 rerun remain
+    visible alongside broader resource/costed-policy obligations in the phase plan
+    and drop/ship packet. The isolated text-zoning
+    prototype is not included in this retained change.
+
 - [x] `RELEASE-0-2-3` current-state UAT and selected-channel publication train.
   - Date: 2026-09-05. Runtime/homepage/evidence PR #1430 merged as
     `79f1ad6d96345d9ef9b36b89159e4d9ee673fb9c`; publication bookkeeping is PR #1432.

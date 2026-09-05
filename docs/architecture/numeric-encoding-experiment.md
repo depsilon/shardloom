@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Isolated Numeric Encoding Experiment
+# Numeric Encoding Experiment: Historical Design
 
 The historical `vortex_encode_write_micros` field retains its name but now
 reports measured inclusive provider writer wall time, including compression.
@@ -8,16 +8,18 @@ Earlier values subtracted summed concurrent compression work and are not
 comparable to this corrected duration. Codec probe/storage work spans are
 reported separately and are never subtracted from elapsed wall time.
 
-Status: implementation experiment against `b3bb15adf4c0e74dac498000d78b931a9ca80674`.
-This extends RFC 0044's native provider and measured-resource obligations. It does
-not complete PERF-03, approve a release, or establish a performance improvement.
+Historical C5 design, developed against `b3bb15adf4c0e74dac498000d78b931a9ca80674`.
+Numeric compression is retained; later consumer corrections and current measured
+acceptance are recorded in the [retain/drop packet](../benchmarks/perf-drop-ship-2026-09-05.md).
+The design below explains the original experiment under RFC 0044. It does not
+complete PERF-03 or independently establish a performance claim or release approval.
 
 ## Pinned Provider Finding
 
 In Vortex 0.85.0, `vortex-layout/src/layouts/dict/writer.rs` compresses the first
 chunk only to test whether its root is `Dict`. A non-dictionary result is dropped;
-the original stream is sent to the alternative layout. ShardLoom's fast-load
-alternative currently coalesces, buffers and writes Flat arrays without an
+the original stream is sent to the alternative layout. ShardLoom's baseline
+fast-load alternative coalesced, buffered and wrote Flat arrays without an
 explicit data compressor. The Flat writer serializes its input array unchanged.
 
 The baseline probe has a narrower scope than a fully enabled adaptive dictionary
@@ -116,9 +118,11 @@ trees, then run native projection/filter/count and relevant numeric aggregate or
 sort consumers against literal exact expectations. Include renamed fields and a
 text control column whose path is unchanged.
 
-The main task owns all builds and measurements. Compare this candidate separately
-against the frozen source on identical input: artifact bytes, complete correctness,
-raw cold/hot query runs, full ingest time and full query time, with source/binary
-hashes retained. Keep or drop only after measuring the storage/lifecycle tradeoff.
+The original acceptance plan compared the isolated candidate against its frozen
+control on identical input: artifact bytes, complete correctness, raw query runs,
+full ingest/query time and source/binary hashes. The resulting numeric retention
+decision, initial query regression and subsequent consumer work are maintained in
+the retain/drop packet linked above; this historical plan is not a separate
+pending retention decision.
 No new dependencies, unsafe code, query-engine fallback, changed checksum guarantee,
 or temporary generated artifacts in synced source directories are permitted.
