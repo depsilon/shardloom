@@ -437,7 +437,7 @@ function applyMotion(enabled, preservePosition=false){
  const oldIntro=state.introP;
  state.motion=enabled;root.dataset.motion=enabled?'on':'off';
  if(!enabled){state.pointer.x=state.pointer.tx=0;state.pointer.y=state.pointer.ty=0;}
- const button=$('#motionToggle');button.setAttribute('aria-pressed',String(!enabled));button.setAttribute('aria-label',enabled?'Pause motion':'Enable motion');button.title=enabled?'Pause motion':'Enable motion';
+ const button=$('#motionToggle');button.setAttribute('aria-label',enabled?'Pause motion':'Enable motion');button.title=enabled?'Pause motion':'Enable motion';
  state.last=0;resized=true;state.introManual=null;
  if(anchor){
   const oldBehavior=root.style.scrollBehavior;root.style.scrollBehavior='auto';
@@ -522,7 +522,7 @@ setCode('python');
 /* Mobile menu uses real anchors, native focus, and escape-to-close. */
 const menu=$('#menuToggle'),nav=$('#navigation');
 function closeMenu(refocus=false){nav.classList.remove('open');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-label','Open navigation menu');menu.textContent='Menu';if(refocus)menu.focus();}
-menu.addEventListener('click',()=>{const open=menu.getAttribute('aria-expanded')!=='true';nav.classList.toggle('open',open);menu.setAttribute('aria-expanded',String(open));menu.setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu');menu.textContent=open?'Close':'Menu';});
+menu.addEventListener('click',()=>{const open=menu.getAttribute('aria-expanded')!=='true';nav.classList.toggle('open',open);menu.setAttribute('aria-expanded',String(open));menu.setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu');menu.textContent=open?'Close':'Menu';if(open)$('a',nav).focus({preventScroll:true});});
 $$('a',nav).forEach(a=>a.addEventListener('click',()=>closeMenu()));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav.classList.contains('open'))closeMenu(true);});
 document.addEventListener('pointerdown',e=>{if(nav.classList.contains('open')&&!nav.contains(e.target)&&!menu.contains(e.target))closeMenu();});
