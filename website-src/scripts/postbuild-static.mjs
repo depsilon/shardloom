@@ -62,6 +62,8 @@ for (const relativePath of [
   "_redirects",
   "robots.txt",
   "validate_static_assets.js",
+  "assets/parallax-home.css",
+  "assets/parallax-home.js",
   "assets/site.css",
   "assets/site.js",
   "assets/logo",

@@ -1177,8 +1177,8 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
 
     let website_readme = read_repo_file("website-src/README.md");
     for required in [
-        "light-mode and evidence-console oriented",
-        "`/`: route/evidence console overview",
+        "parallax ShardLoom homepage for `/` and claim-safe Starlight documentation",
+        "`/`: parallax ShardLoom homepage experience from the productionized source-of-truth HTML",
         "`/about`: concise claim-safe project overview and evidence pointers",
         "`/start`: first local proof entry point",
         "`/field-guide`: Starlight docs shell for local proof, Python route shape, benchmark methodology, limitations, and vocabulary",
@@ -4219,16 +4219,25 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let flow = read_repo_file("website/compute-engine-flow.html");
     for required in [
         "ShardLoom",
-        "Public comparisons belong on ClickBench.",
-        "Start local proof",
-        "Read Field Guide",
-        "Open benchmark comparison",
-        "UniversalIngress",
-        "vortex_ingest",
+        "MAKE<span class=\"luminous\">LESS WORK.</span>",
+        "The fastest work<br>is work you <span class=\"soft\">never do.</span>",
+        "Vortex isn't another format on a list.",
+        "Capillary<br>work units",
+        "PulseWeave",
+        "Single artifact / internal structure",
+        "No secret<br><span class=\"soft\">plan B.</span>",
         "fallback_attempted",
         "external_engine_invoked",
-        "claim_gate_status",
-        "Open GitHub",
+        "python -m pip install shardloom",
+        "Interactive architectural illustrations, not runtime telemetry or benchmark claims.",
+        "View on GitHub",
+        "data-scene=\"orbital\"",
+        "data-scene=\"avoid\"",
+        "data-scene=\"plates\"",
+        "data-scene=\"loom\"",
+        "data-scene=\"pulse\"",
+        "data-scene=\"artifact\"",
+        "data-scene=\"horizon\"",
     ] {
         assert!(
             index.contains(required),

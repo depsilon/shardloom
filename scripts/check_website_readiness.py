@@ -37,6 +37,8 @@ EXPECTED_ASSETS = [
     "assets/logo/shardloom-favicon.png",
     "assets/logo/shardloom-logo.png",
     "assets/logo/shardloom-logo-trim.png",
+    "assets/parallax-home.css",
+    "assets/parallax-home.js",
     "assets/site.css",
     "assets/data/compute-engine-flow-reference.md",
     "pagefind/pagefind-entry.json",
@@ -102,7 +104,6 @@ CLAIM_PHRASES = [
     r"\bDataFusion cannot\b",
 ]
 PACKAGE_CLAIM_PHRASES = [
-    r"\bpip install shardloom\b",
     r"\bcargo install shardloom\b",
     r"\bpublished to PyPI\b",
     r"\bpublished crate\b",
@@ -413,6 +414,7 @@ def validate_html_page(
     if (
         relative in EXPECTED_PAGES
         and relative != "404.html"
+        and relative != "index.html"
         and not is_starlight
         and not EXPECTED_NAV_PATHS.issubset(parser.nav_links)
     ):
@@ -490,6 +492,53 @@ def check_field_guide_route_pair(website: Path, blockers: list[str]) -> None:
         blockers.append("field-guide/index.html must serve the Starlight Field Guide")
 
 
+def check_parallax_homepage(website: Path, blockers: list[str]) -> None:
+    path = website / "index.html"
+    if not path.exists():
+        blockers.append("missing parallax homepage")
+        return
+    html = path.read_text(encoding="utf-8")
+    for required in [
+        "/assets/parallax-home.css",
+        "/assets/parallax-home.js",
+        "MAKE<span class=\"luminous\">LESS WORK.</span>",
+        "The fastest work<br>is work you <span class=\"soft\">never do.</span>",
+        "Vortex isn't another format on a list.",
+        "Capillary<br>work units",
+        "PulseWeave",
+        "Single artifact / internal structure",
+        "No secret<br><span class=\"soft\">plan B.</span>",
+        "fallback_attempted",
+        "external_engine_invoked",
+        "python -m pip install shardloom",
+        "Interactive architectural illustrations, not runtime telemetry or benchmark claims.",
+    ]:
+        if required not in html:
+            blockers.append(f"parallax homepage missing required source-of-truth marker: {required}")
+    for scene in [
+        'data-scene="orbital"',
+        'data-scene="avoid"',
+        'data-scene="plates"',
+        'data-scene="loom"',
+        'data-scene="pulse"',
+        'data-scene="artifact"',
+        'data-scene="horizon"',
+    ]:
+        if scene not in html:
+            blockers.append(f"parallax homepage missing scene hook: {scene}")
+    for control in [
+        'id="motionToggle"',
+        'id="menuToggle"',
+        'data-stage="0"',
+        'data-mode="memory"',
+        'data-layer="6"',
+        'id="copyCode"',
+        'id="copyInstall"',
+    ]:
+        if control not in html:
+            blockers.append(f"parallax homepage missing interaction hook: {control}")
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -532,6 +581,7 @@ def main() -> int:
         repo_root,
         blockers,
     )
+    check_parallax_homepage(website, blockers)
     check_benchmark_clickbench_handoff(website, blockers)
     check_field_guide_route_pair(website, blockers)
 

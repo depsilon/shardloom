@@ -2,7 +2,7 @@
 
 This directory contains the Astro/Starlight source for `shardloom.io`.
 
-The public website is light-mode and evidence-console oriented. It is an interpretation layer for the current repository evidence, not a replacement for the canonical architecture, release, benchmark, and phase-plan documents.
+The public website uses a parallax ShardLoom homepage for `/` and claim-safe Starlight documentation for the rest of the public surface. It is an interpretation layer for the current repository evidence, not a replacement for the canonical architecture, release, benchmark, and phase-plan documents.
 
 Build shape:
 
@@ -12,7 +12,7 @@ Build shape:
 
 Public surface:
 
-- `/`: route/evidence console overview.
+- `/`: parallax ShardLoom homepage experience from the productionized source-of-truth HTML.
 - `/about`: concise claim-safe project overview and evidence pointers.
 - `/start`: first local proof entry point.
 - `/field-guide`: Starlight docs shell for local proof, Python route shape, benchmark methodology, limitations, and vocabulary.
