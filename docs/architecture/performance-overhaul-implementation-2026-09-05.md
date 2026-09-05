@@ -395,6 +395,18 @@ batch or substitute for its separate validation.
 
 ## Retention and Local Cleanup
 
+The post-PR [text-layout continuation](../benchmarks/perf-text-layout-pruning-2026-09-05.md)
+retains a bounded completed-file-read observer and paired native writer/query
+fixtures. Both profiles pass 448 exact cases, and promoted public zoning passes
+129/129 full43 values. Unconditional default zoning is nevertheless dropped:
+40/43 bests are slower than C7, best total rises 2.80%, geometric mean rises 3.32%,
+and one-ingest-plus-best arithmetic rises 2.11%. Production returns to the
+unzoned C7 policy while numeric compression and earlier query/ownership work
+remain retained. The rejected artifact was removed only after exact generation
+verification; raw logs, hashes, binaries and the test-only candidate remain.
+This continuation preserves all historical C7 numbers and leaves the wider
+PERF-09/PERF-12 and competitive gates open.
+
 Retain the demonstrated duplicate-checksum removal, compact schema evidence,
 native result correctness repair, and tested runtime ownership foundation. The
 later b3 implementation adds the scoped boundaries listed above; global admission,

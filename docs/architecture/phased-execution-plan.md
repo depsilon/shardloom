@@ -429,6 +429,13 @@ PERF packets is complete merely because its shared runtime foundation exists.
     retains it; corrected native consumers pass C7 full43 with a lower total and
     higher geometric mean than baseline. Broader cost/resource/lifecycle
     acceptance remains open; the accepted numeric storage change remains retained.
+    The post-PR text-zoning experiment retains bounded completed-read observation
+    and paired lifecycle tests. Unconditional default zoning was measured and
+    dropped: 129/129 public values passed, but 40/43 bests were slower than C7,
+    with best total +2.80%, geomean +3.32%, and one-ingest-plus-best +2.11%.
+    Clustered selective read savings do not justify that default writer cost;
+    [the evidence packet](../benchmarks/perf-text-layout-pruning-2026-09-05.md)
+    preserves the test-only candidate and leaves costed admission open.
     Metadata-aware smaller Parquet batches repair source admission at lower
     budgets. Their full43 passed all values but worsened geomean; do not promote
     that layout as a general benchmark win or infer bounded RSS from completion.
@@ -478,6 +485,12 @@ PERF packets is complete merely because its shared runtime foundation exists.
     131,072-row matrix attempts hit unchanged guards and remain incomplete.
     Bounded operator/sink checks do not certify every relational family
     or establish non-ClickBench performance gains by themselves.
+    A later text-layout suite retains 448 exact native query cases across two
+    geometries, both text orders and writers, including 112 warmups, actual
+    completed file-read ranges and complete writer lifecycle samples. Its public
+    full43 passes all 129 values but regresses C7 timings, so default zoning is
+    dropped. These bounded comparisons add evidence without closing the broader
+    relational/resource matrix or changing historical C7 results.
   - Execution checklist:
     - [ ] Pin eligible ClickBench scoring/cohort and separate cached product sessions.
     - [ ] Add held-out ingest, aggregate, relational, ownership, and serving cases.
