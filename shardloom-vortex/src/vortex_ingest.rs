@@ -11246,6 +11246,20 @@ fn record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
 #[path = "vortex_ingest_stage_tests.rs"]
 mod stage_tests;
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "vortex_ingest_text_zone_tests.rs"]
+mod text_zone_tests;
+
+#[cfg(all(
+    test,
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    feature = "vortex-local-primitives",
+    unix
+))]
+#[path = "vortex_ingest_text_io_tests.rs"]
+mod text_io_tests;
+
 #[cfg(feature = "vortex-write")]
 #[allow(clippy::too_many_lines)]
 fn finalize_vortex_prepared_state_write(
@@ -13797,6 +13811,67 @@ fn vortex_writer_buffered_target_bytes(block_target_bytes: u64) -> u64 {
     } else {
         block_target_bytes
     }
+}
+
+/// Isolated text-zone candidate; ordinary source admission keeps its current writer.
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+fn zoned_source_text_vortex_write_strategy(
+    row_block_size: usize,
+    block_target_bytes: u64,
+    compression_concurrency: usize,
+    stats_concurrency: usize,
+    compression_field_names: &[String],
+    writer_stage_timing: &VortexWriterStageTiming,
+    writer_session: &vortex::session::VortexSession,
+) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
+    use vortex::array::dtype::FieldPath;
+    use vortex::layout::layouts::flat::writer::FlatLayoutStrategy;
+    use vortex::layout::layouts::repartition::{RepartitionStrategy, RepartitionWriterOptions};
+    use vortex::layout::layouts::zoned::writer::{ZonedLayoutOptions, ZonedStrategy};
+
+    let text_values = large_source_fast_zstd_text_leaf_strategy(
+        row_block_size,
+        compression_concurrency,
+        writer_stage_timing,
+    );
+    let zone_rows = row_block_size.max(1);
+    let zoned = ZonedStrategy::new(
+        text_values,
+        FlatLayoutStrategy::default(),
+        ZonedLayoutOptions {
+            block_size: std::num::NonZeroUsize::new(zone_rows)
+                .expect("text zone rows are clamped to at least one"),
+            concurrency: std::num::NonZeroUsize::new(stats_concurrency.max(1))
+                .expect("text statistics concurrency is clamped to at least one"),
+            ..Default::default()
+        },
+    );
+    // Field overrides bypass the default leaf. Give only the selected text
+    // fields explicit zone boundaries/statistics, retaining their existing codec.
+    let text_strategy: std::sync::Arc<dyn vortex::layout::LayoutStrategy> =
+        std::sync::Arc::new(RepartitionStrategy::new(
+            zoned,
+            RepartitionWriterOptions {
+                block_size_minimum: 0,
+                block_len_multiple: zone_rows,
+                block_size_target: None,
+                canonicalize: false,
+            },
+        ));
+    let mut strategy = large_source_fast_load_table_strategy(
+        row_block_size,
+        block_target_bytes,
+        stats_concurrency,
+        writer_stage_timing,
+        writer_session,
+    );
+    for field in compression_field_names {
+        strategy = strategy.with_field_writer(
+            FieldPath::from_name(field.as_str()),
+            std::sync::Arc::clone(&text_strategy),
+        );
+    }
+    std::sync::Arc::new(strategy)
 }
 
 #[cfg(feature = "vortex-write")]

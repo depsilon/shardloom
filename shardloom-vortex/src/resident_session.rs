@@ -647,5 +647,9 @@ fn native_error(error: impl std::fmt::Display) -> ShardLoomError {
 }
 
 #[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "resident_session_read_observer.rs"]
+pub(crate) mod read_observer;
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_session_tests.rs"]
 mod tests;
