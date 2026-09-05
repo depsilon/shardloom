@@ -142,12 +142,7 @@ struct PreparedPublicCount {
 
 impl PublicExecutionSession {
     pub(crate) fn clear(&mut self) {
-        #[cfg(all(feature = "vortex-local-primitives", unix))]
-        {
-            self.collect = None;
-            self.count = None;
-            self.memory = None;
-        }
+        *self = Self::default();
     }
 }
 
