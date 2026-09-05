@@ -259,6 +259,9 @@ the ledger.
     - [ ] Publish TestPyPI, verify a clean registry install, then publish and verify PyPI.
     - [ ] Update the Homebrew tap and verify build, install, smoke, and uninstall.
     - [ ] Advance selected-channel proofs only after verification; record ledger closure.
+  - Maintainer update, 2026-09-05: drop the fixed 4 GiB target. It is not a
+    release blocker or a remaining acceptance requirement. Preserve historical
+    RSS evidence and existing memory-safety contracts; prioritize merge/publication.
   - ShardLoom technique review: separate ingest, fresh-process query, and resident
     timing; preserve evidence tiers and no-fallback certificates. No additional
     runtime optimization or PERF completion is authorized by a publication step.
@@ -325,9 +328,10 @@ PERF packets is complete merely because its shared runtime foundation exists.
     workers, queue slot/byte limits, cancellation/drain tests, Vortex host-buffer
     allocator ownership, and production pre-writer integration. This is not yet
     one global budget for all operators, source readers, and upstream codecs.
-    Acceptance failure: a 4 GB-configured full ingest completed but reached
-    9,869,230,080 bytes RSS. Close source/codec/writer accounting before claiming
-    the ordinary 4 GiB envelope is enforced.
+    Historical measurement: a 4 GB-configured full ingest completed but reached
+    9,869,230,080 bytes RSS. The maintainer dropped the fixed 4 GiB target on
+    2026-09-05. Source/codec/writer accounting remains future memory-safety work,
+    not a blocker to the current publication train.
   - Execution checklist:
     - [ ] Implement lifetime-owned shared reservations, growth checks, and peak counters.
     - [ ] Implement persistent workers, inline bounded work, dynamic queues, and draining.
@@ -365,7 +369,8 @@ PERF packets is complete merely because its shared runtime foundation exists.
     - [ ] Create quota-accounted native partition runs with exact ownership and validation.
     - [ ] Integrate exact merge and memory-pressure transitions with real operators.
     - [ ] Test cancellation, crash recovery, quota exhaustion, corruption, and owned cleanup.
-    - [ ] Prove exact supported large-state completion at 4 GB without external execution.
+    - [ ] Prove exact supported large-state completion under the admitted workload
+      budget without external execution; no fixed 4 GiB target is required.
   - ShardLoom technique review: memory scarcity and capillary lifetime govern spill;
     synthetic spill fixtures remain distinct from query-data spill support.
 
@@ -445,7 +450,8 @@ PERF packets is complete merely because its shared runtime foundation exists.
   - Execution checklist:
     - [ ] Pin eligible ClickBench scoring/cohort and separate cached product sessions.
     - [ ] Add held-out ingest, aggregate, relational, ownership, and serving cases.
-    - [ ] Exercise normal 2-worker/4-GB and benchmark 12-worker/24-GB envelopes.
+    - [ ] Exercise supported ordinary and benchmark resource envelopes, recording
+      actual host resources and observed RSS rather than requiring a fixed 4 GiB target.
     - [ ] Record paired uncertainty, complete outputs, and gains in non-ClickBench families.
   - ShardLoom technique review: correctness, evidence tiers, and no-fallback boundaries
     apply; cross-host ratios and success flags alone are insufficient proof.
