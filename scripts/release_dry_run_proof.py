@@ -612,10 +612,11 @@ def pin_bundled_macos_wheel_platform(stage_dir: Path, platform_tag: str) -> str 
     if not platform_tag.startswith("macos-"):
         return None
     arch = {"macos-aarch64": "arm64", "macos-x86_64": "x86_64"}.get(platform_tag)
-    version = re.match(r"^(\d+)\.(\d+)", platform.mac_ver()[0])
+    deployment_target = os.environ.get("MACOSX_DEPLOYMENT_TARGET") or platform.mac_ver()[0]
+    version = re.fullmatch(r"(\d+)(?:\.(\d+))?(?:\.\d+)?", deployment_target)
     if arch is None or version is None:
         raise OSError(f"cannot establish a native macOS wheel platform: {platform_tag}")
-    major, minor = map(int, version.groups())
+    major, minor = int(version.group(1)), int(version.group(2) or "0")
     wheel_tag = f"macosx_{major}_{0 if major >= 11 else minor}_{arch}"
     config = configparser.ConfigParser(interpolation=None)
     config_path = stage_dir / "setup.cfg"

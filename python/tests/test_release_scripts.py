@@ -13695,7 +13695,9 @@ jobs:
         module = self._load_script_module(
             "release_dry_run_proof.py", "release_dry_run_macos_wheel_platform_for_test"
         )
-        with tempfile.TemporaryDirectory() as tempdir:
+        with tempfile.TemporaryDirectory() as tempdir, patch.dict(
+            module.os.environ, {"MACOSX_DEPLOYMENT_TARGET": ""}
+        ):
             stage = Path(tempdir)
             config_path = stage / "setup.cfg"
             config_path.write_text("[metadata]\nname = retained\n[bdist_wheel]\nuniversal = 0\n")
@@ -13710,6 +13712,20 @@ jobs:
                 self.assertEqual(config["bdist_wheel"]["plat_name"], expected)
                 self.assertEqual(config["bdist_wheel"]["universal"], "0")
                 self.assertEqual(config["metadata"]["name"], "retained")
+            with patch.object(module.platform, "mac_ver", return_value=("26.5.1", (), "")):
+                for target, expected in [
+                    ("11", "macosx_11_0_arm64"),
+                    ("11.0", "macosx_11_0_arm64"),
+                    ("15.4", "macosx_15_0_arm64"),
+                ]:
+                    with patch.dict(module.os.environ, {"MACOSX_DEPLOYMENT_TARGET": target}):
+                        self.assertEqual(
+                            module.pin_bundled_macos_wheel_platform(stage, "macos-aarch64"),
+                            expected,
+                        )
+                with patch.dict(module.os.environ, {"MACOSX_DEPLOYMENT_TARGET": "invalid"}):
+                    with self.assertRaises(OSError):
+                        module.pin_bundled_macos_wheel_platform(stage, "macos-aarch64")
             before = config_path.read_bytes()
             self.assertIsNone(module.pin_bundled_macos_wheel_platform(stage, "linux-x86_64"))
             self.assertEqual(config_path.read_bytes(), before)
