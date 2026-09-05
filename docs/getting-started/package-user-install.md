@@ -2,7 +2,7 @@
 
 # Package User Install Status
 
-ShardLoom v0.2.2 is published as a technical preview through the selected package channels:
+ShardLoom v0.2.3 is published as a technical preview through the selected package channels:
 GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula. These package
 commands are install access only; they do not imply production readiness, performance superiority,
 Spark replacement, broad SQL/DataFrame support, object-store/lakehouse production support, Foundry
@@ -13,7 +13,7 @@ patch-release preparation window. Keep the install commands pinned to the latest
 published version until matching channel proofs are checked in.
 
 ```text
-package_channel_status=published_v0.2.2_selected_channels
+package_channel_status=published_v0.2.3_selected_channels
 selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap
 package_install_commands_visible=true
 public_package_release_claim_allowed=true
@@ -27,7 +27,7 @@ external_engine_invoked=false
 Python package:
 
 ```sh
-python -m pip install shardloom==0.2.2
+python -m pip install shardloom==0.2.3
 ```
 
 Homebrew CLI formula:
@@ -39,21 +39,25 @@ brew install depsilon/tap/shardloom
 GitHub release assets:
 
 ```sh
-gh release download v0.2.2 --repo depsilon/shardloom --pattern '*' --dir shardloom-v0.2.2
+gh release download v0.2.3 --repo depsilon/shardloom --pattern '*' --dir shardloom-v0.2.3
 ```
 
 TestPyPI rehearsal package:
 
 ```sh
-python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.2.2
+python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.2.3
 ```
 
-The PyPI package is a Python client surface over the ShardLoom CLI. Published v0.2.2 resolves that
-CLI from `shardloom` on `PATH`, `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, or a source checkout with a
-built CLI. The bundled-wheel patch-release path resolves a supported platform wheel's packaged
-`shardloom/bin/<system-arch>/shardloom` resource before falling back to `PATH`, so Python-only
-managed environments do not need user code to pass binary paths when they install a supported
-bundled wheel. Explicit binary/env/source configuration still takes precedence.
+The PyPI package is a Python client surface over the ShardLoom CLI. Explicit
+binary/env/source configuration takes precedence. Otherwise, a supported wheel
+resolves its packaged `shardloom/bin/<system-arch>/shardloom` resource before
+checking `PATH`, so supported bundled-wheel installs do not need a separate CLI
+or binary-path configuration.
+
+The v0.2.3 registry wheels target CPython 3.13 on macOS 26 arm64, Linux glibc 2.39
+x86_64, and Windows x86_64. Other supported Python/OS combinations may install the
+source package but need a compatible CLI from Homebrew, a release asset, or a
+source build. The macOS wheel is single-architecture, not universal2.
 
 ## Smoke Check
 
@@ -100,13 +104,13 @@ PY
 ## Proof Refs
 
 - GitHub release proof:
-  [`docs/release/channel-proofs/github-prerelease-v0.2.2-transcript.json`](../release/channel-proofs/github-prerelease-v0.2.2-transcript.json)
+  [`docs/release/channel-proofs/github-prerelease-v0.2.3-transcript.json`](../release/channel-proofs/github-prerelease-v0.2.3-transcript.json)
 - TestPyPI proof:
-  [`docs/release/channel-proofs/testpypi-v0.2.2-transcript.json`](../release/channel-proofs/testpypi-v0.2.2-transcript.json)
+  [`docs/release/channel-proofs/testpypi-v0.2.3-transcript.json`](../release/channel-proofs/testpypi-v0.2.3-transcript.json)
 - PyPI proof:
-  [`docs/release/channel-proofs/pypi-v0.2.2-transcript.json`](../release/channel-proofs/pypi-v0.2.2-transcript.json)
+  [`docs/release/channel-proofs/pypi-v0.2.3-transcript.json`](../release/channel-proofs/pypi-v0.2.3-transcript.json)
 - Homebrew proof:
-  [`docs/release/channel-proofs/homebrew-v0.2.2-transcript.json`](../release/channel-proofs/homebrew-v0.2.2-transcript.json)
+  [`docs/release/channel-proofs/homebrew-v0.2.3-transcript.json`](../release/channel-proofs/homebrew-v0.2.3-transcript.json)
 - Package-channel matrix:
   [`docs/release/package-channel-readiness-matrix.md`](../release/package-channel-readiness-matrix.md)
 
@@ -116,7 +120,7 @@ Python package:
 
 ```sh
 python -m pip uninstall -y shardloom
-python -m pip install --upgrade shardloom==0.2.2
+python -m pip install --upgrade shardloom==0.2.3
 ```
 
 Homebrew formula:
