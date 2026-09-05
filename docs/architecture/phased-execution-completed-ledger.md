@@ -16,6 +16,39 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] `RELEASE-0-2-3` current-state UAT and selected-channel publication train.
+  - Date: 2026-09-05. Runtime/homepage/evidence PR #1430 merged as
+    `79f1ad6d96345d9ef9b36b89159e4d9ee673fb9c`; publication bookkeeping is PR #1432.
+  - Fresh UAT: 162.781s ingest, 148.349s best-of-three query total, 43/43 queries,
+    129/129 runs, complete-value regression checks, no fallback/external engine.
+    Historical 145.130s is query time, not ingest; this run is 2.22% slower on
+    query total. See `docs/benchmarks/clickbench-current-state-2026-09-05.md`.
+  - Validation: all 57 local release-validation commands passed, including the
+    required Rust workspace gates, native-feature lanes, Python/Conda package
+    proof, website check/build/readiness, and security/dependency gates. All 40
+    PR #1430 checks passed. Production homepage proof covers nine viewports,
+    eighteen anchors, controls, reduced motion, and matching JavaScript bytes.
+  - Published GitHub v0.2.3 at the verified merge revision, then TestPyPI and PyPI
+    through Trusted Publisher workflows `33979226942` and `33980151508`.
+    Registry proofs bind actual downloaded hashes and verify clean install,
+    bundled-CLI exact DataFrame/repeated SQL values, and uninstall.
+  - Corrected native macOS wheel labeling in the staging recipe, including
+    explicit deployment targets; 243 release-script tests passed with two
+    existing skips. Runtime/package source and published GitHub assets remained
+    unchanged by the recipe correction.
+  - Homebrew tap PR #3 merged as `fad6c9980ab21c092ecffb340ee26ca4ddd365c4`.
+    Strict audit, style, clean source install, exact native SQL values, formula
+    test, linkage, verified v0.2.3 uninstall, and restored installation passed.
+    Resolved Homebrew/OpenSSL environment and stale-fixture attempts are retained
+    in the transcript. Automatic cleanup/autoremove were disabled.
+  - Evidence: `docs/release/v0.2.3-publication-verification.md` and all four
+    `docs/release/channel-proofs/*-v0.2.3-transcript.json` files. Selected-channel
+    contract and current docs advance only after these proofs pass.
+  - Maintainer dropped the fixed 4 GiB target; historical RSS and memory safety
+    remain meaningful. The thirteen deeper PERF packets remain open. This closes
+    the selected publication train only, not production readiness, new channels,
+    internal Rust crate publication, or additional performance claims.
+
 - [x] `CLICKBENCH-PRODUCTION-IMPLEMENTATION-SLICE-2026-09-03` implemented the first production
       runtime foundations for the reopened ClickBench domain-transfer work without closing the
       top-level UAT-gated items.
