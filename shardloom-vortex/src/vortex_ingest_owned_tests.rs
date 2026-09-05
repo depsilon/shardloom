@@ -110,6 +110,10 @@ fn bounded_table_subtrees_round_trip_values_and_release_shared_memory() {
         )
         .unwrap();
         assert_eq!(report.row_count, 18);
+        assert_eq!(
+            report.vortex_encode_write_micros,
+            report.vortex_segment_write_micros
+        );
         assert!(
             report
                 .writer_layout_strategy_applied

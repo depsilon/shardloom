@@ -58,6 +58,10 @@ pub use stage_timing::VortexIngestStageReport;
 #[cfg(feature = "vortex-write")]
 use stage_timing::{IngestStageTimings, Stage};
 
+#[cfg(feature = "vortex-write")]
+#[path = "vortex_ingest_numeric_encoding.rs"]
+mod numeric_encoding;
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use crate::universal_format_io::{FlatLocalColumnarSource, FlatLocalColumnarStreamSource};
 
@@ -212,7 +216,7 @@ const VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES: u64 =
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY: usize = 0;
 #[cfg(feature = "vortex-write")]
-const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY: usize = 0;
+const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY: usize = 1;
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY: usize = 1;
 #[cfg(feature = "vortex-write")]
@@ -220,13 +224,13 @@ const VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_POLICY: &str =
     "vortex_default_btrblocks_available_parallelism";
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_POLICY: &str =
-    "vortex_large_source_fast_load_uncompressed_layout_statistics";
+    "vortex_large_source_fast_load_numeric_btrblocks_uncompressed_statistics";
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_BALANCED_LARGE_SOURCE_COMPRESSION_POLICY: &str =
     "vortex_large_source_balanced_zstd_layout_statistics";
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_LARGE_SOURCE_COMPRESSION_POLICY: &str =
-    "vortex_large_source_text_fast_zstd_no_dict_layout_statistics";
+    "vortex_large_source_text_fast_zstd_no_dict_numeric_btrblocks_layout_statistics";
 #[cfg(feature = "vortex-write")]
 const VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL: i32 = -3;
 #[cfg(feature = "vortex-write")]
@@ -6989,14 +6993,14 @@ fn planned_compression_layout_stage(
         && !writer_compression_field_names.is_empty()
     {
         format!(
-            "field_level_fast_zstd_text_leaf_writers;field_count={};frame_values={}",
+            "field_level_fast_zstd_text_leaf_writers;field_count={};frame_values={};other_primitive_data=numeric_btrblocks",
             writer_compression_field_names.len(),
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_VALUES_PER_FRAME
         )
     } else if writer_compression_policy
         == VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_POLICY
     {
-        "fast_load_uncompressed_layout_statistics".to_string()
+        "fast_load_numeric_btrblocks_layout_statistics".to_string()
     } else {
         "upstream_vortex_default_compression_layout".to_string()
     }
@@ -7173,6 +7177,8 @@ fn admitted_layout_writer_compression_concurrency(
         && admitted_layout_writer_has_storage_compression_fields(advisor)
     {
         advisor.writer_parallelism_budget.max(1)
+    } else if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
+        VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY
     } else {
         VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY
     }
@@ -7205,7 +7211,7 @@ fn admitted_layout_writer_profile_selection_reason(
     if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
         "small_source_fine_row_blocks_default_writer_profile"
     } else if !layout_advisor_has_text_writer_profile(advisor) {
-        "large_non_text_source_fast_load_uncompressed_layout_statistics"
+        "large_non_text_source_fast_load_numeric_btrblocks_layout_statistics"
     } else if !admitted_layout_writer_has_storage_compression_fields(advisor) {
         "large_text_source_fast_load_encoded_domain_preserved"
     } else if advisor.source_byte_count
@@ -7225,11 +7231,11 @@ fn admitted_layout_writer_profile_regression_guard(
     if advisor.row_count < VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
         "small_source_default_profile_preserves_fixture_latency"
     } else if !layout_advisor_has_text_writer_profile(advisor) {
-        "non_text_large_source_allows_uncompressed_fast_load"
+        "non_text_large_source_numeric_btrblocks_requires_lifecycle_acceptance"
     } else if !admitted_layout_writer_has_storage_compression_fields(advisor) {
         "query_hot_text_domain_compression_disabled_until_uat_proves_benefit"
     } else {
-        "text_large_source_fast_zstd_profile_is_full_replacement_uat_backed"
+        "text_zstd_policy_prior_uat_backed_numeric_btrblocks_requires_lifecycle_acceptance"
     }
 }
 
@@ -13265,8 +13271,9 @@ impl LocalVortexWriteContext {
         let write_micros = write_start.elapsed().as_micros();
         let workspace_stage_micros = write_micros.saturating_sub(vortex_segment_write_micros);
         let vortex_compression_micros = writer_stage_timing.compression_micros();
-        let vortex_encode_write_micros =
-            vortex_segment_write_micros.saturating_sub(vortex_compression_micros);
+        // Inclusive measured provider writer wall. Compression work spans can
+        // overlap, so subtracting their sum cannot produce an elapsed duration.
+        let vortex_encode_write_micros = vortex_segment_write_micros;
         Ok(LocalVortexWriteResult {
             writer_row_count: summary.row_count(),
             bytes_written,
@@ -13375,8 +13382,8 @@ impl LocalVortexWriteContext {
         let write_micros = write_start.elapsed().as_micros();
         let workspace_stage_micros = write_micros.saturating_sub(vortex_segment_write_micros);
         let vortex_compression_micros = writer_stage_timing.compression_micros();
-        let vortex_encode_write_micros =
-            vortex_segment_write_micros.saturating_sub(vortex_compression_micros);
+        // Keep the historical field name with an explicit corrected scope.
+        let vortex_encode_write_micros = vortex_segment_write_micros;
         Ok(LocalVortexWriteResult {
             writer_row_count: summary.row_count(),
             bytes_written,
@@ -13432,7 +13439,11 @@ impl LocalVortexWriteContext {
         let references = memory.pool.reserve(reference_bytes)?;
         Ok(memory.session.write_options().with_strategy(Arc::new(
             bounded_ingest_layout::BoundedIngestLayout::new(
-                self.strategy_for_decision(layout_write_decision, writer_stage_timing),
+                self.strategy_for_decision(
+                    layout_write_decision,
+                    writer_stage_timing,
+                    &memory.session,
+                ),
                 memory.max_chunks,
                 references,
             ),
@@ -13447,9 +13458,11 @@ impl LocalVortexWriteContext {
         use vortex::file::WriteOptionsSessionExt as _;
         let options = self.session.write_options();
         if vortex_layout_write_strategy_applies(layout_write_decision) {
-            options.with_strategy(
-                self.strategy_for_decision(layout_write_decision, writer_stage_timing),
-            )
+            options.with_strategy(self.strategy_for_decision(
+                layout_write_decision,
+                writer_stage_timing,
+                &self.session,
+            ))
         } else {
             options
         }
@@ -13459,6 +13472,7 @@ impl LocalVortexWriteContext {
         &self,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_stage_timing: &VortexWriterStageTiming,
+        writer_session: &vortex::session::VortexSession,
     ) -> Arc<dyn vortex::layout::LayoutStrategy> {
         use vortex::compressor::BtrBlocksCompressorBuilder;
         use vortex::file::WriteStrategyBuilder;
@@ -13472,6 +13486,8 @@ impl LocalVortexWriteContext {
                     row_block_size,
                     block_target_bytes,
                     stats_concurrency,
+                    writer_stage_timing,
+                    writer_session,
                 )
             } else if vortex_writer_uses_large_source_balanced(layout_write_decision) {
                 WriteStrategyBuilder::default()
@@ -13488,6 +13504,7 @@ impl LocalVortexWriteContext {
                     stats_concurrency,
                     &layout_write_decision.writer_compression_field_names,
                     writer_stage_timing,
+                    writer_session,
                 )
             } else {
                 WriteStrategyBuilder::default()
@@ -13625,19 +13642,26 @@ fn large_source_fast_load_vortex_write_strategy(
     row_block_size: usize,
     block_target_bytes: u64,
     stats_concurrency: usize,
+    writer_stage_timing: &VortexWriterStageTiming,
+    writer_session: &vortex::session::VortexSession,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
     std::sync::Arc::new(large_source_fast_load_table_strategy(
         row_block_size,
         block_target_bytes,
         stats_concurrency,
+        writer_stage_timing,
+        writer_session,
     ))
 }
 
 #[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_lines)] // Keep the native strategy tree in one reviewable assembly.
 fn large_source_fast_load_table_strategy(
     row_block_size: usize,
     block_target_bytes: u64,
     stats_concurrency: usize,
+    writer_stage_timing: &VortexWriterStageTiming,
+    writer_session: &vortex::session::VortexSession,
 ) -> vortex::layout::layouts::table::TableStrategy {
     use std::num::NonZeroUsize;
 
@@ -13656,38 +13680,55 @@ fn large_source_fast_load_table_strategy(
         NonZeroUsize::new(row_block_len).expect("row_block_len is clamped to at least one");
     let stats_concurrency = NonZeroUsize::new(stats_concurrency.max(1))
         .expect("stats_concurrency is clamped to at least one");
-    let allowed_encodings = vortex::array::legacy_session()
+    // Preserve the original probe decision policy. The legacy array-only session
+    // has no editions in 0.85, so this set is empty and the probe only supplies
+    // built-in canonical/constant decisions. Enabling full text probing here
+    // would be a separate physical-design experiment.
+    let probe_encodings = vortex::array::legacy_session()
         .enabled_component_ids(vortex::editions::ComponentKind::Array)
         .into_iter()
         .collect();
-    let probe_compressor = std::sync::Arc::new(
+    let probe_compressor = numeric_encoding::measured_probe(
         BtrBlocksCompressorBuilder::default()
-            .retain_allowed_encodings(&allowed_encodings)
+            .retain_allowed_encodings(&probe_encodings)
             .build(),
+        writer_stage_timing.stages.clone(),
     );
+    let allowed_encodings =
+        writer_session.enabled_component_ids(vortex::editions::ComponentKind::Array);
     let flat_base: std::sync::Arc<dyn vortex::layout::LayoutStrategy> =
         std::sync::Arc::new(FlatLayoutStrategy::default());
-    let flat: std::sync::Arc<dyn vortex::layout::LayoutStrategy> = std::sync::Arc::new(
-        vortex::layout::LayoutStrategyEncodingValidator::new(flat_base, allowed_encodings.clone()),
-    );
+    let flat: std::sync::Arc<dyn vortex::layout::LayoutStrategy> =
+        std::sync::Arc::new(vortex::layout::LayoutStrategyEncodingValidator::new(
+            flat_base,
+            allowed_encodings.into_iter().collect(),
+        ));
     let chunked = ChunkedLayoutStrategy::new(std::sync::Arc::clone(&flat));
     let buffered = BufferedStrategy::new(
         chunked,
         vortex_writer_buffered_target_bytes(block_target_bytes),
     );
-    let coalescing = RepartitionStrategy::new(
-        buffered,
-        RepartitionWriterOptions {
-            block_size_minimum: VORTEX_PREPARED_OLAP_WRITER_ONE_MIB,
-            block_len_multiple: row_block_len,
-            block_size_target: Some(block_target_bytes),
-            canonicalize: true,
-        },
+    let repartition_options = RepartitionWriterOptions {
+        block_size_minimum: VORTEX_PREPARED_OLAP_WRITER_ONE_MIB,
+        block_len_multiple: row_block_len,
+        block_size_target: Some(block_target_bytes),
+        canonicalize: true,
+    };
+    let coalescing = RepartitionStrategy::new(buffered.clone(), repartition_options.clone());
+    // Dictionary codes, values and text retain their existing routes. Only
+    // non-Dict numeric data is compressed, after the final canonicalizing step.
+    let numeric_fallback = RepartitionStrategy::new(
+        numeric_encoding::NumericDataStrategy::new(
+            buffered,
+            writer_stage_timing.stages.clone(),
+            writer_session,
+        ),
+        repartition_options,
     );
     let dict = DictStrategy::new(
-        coalescing.clone(),
-        std::sync::Arc::clone(&flat),
         coalescing,
+        std::sync::Arc::clone(&flat),
+        numeric_fallback,
         DictLayoutOptions::default(),
         probe_compressor,
     );
@@ -13724,6 +13765,7 @@ fn large_source_text_vortex_write_strategy(
     stats_concurrency: usize,
     compression_field_names: &[String],
     writer_stage_timing: &VortexWriterStageTiming,
+    writer_session: &vortex::session::VortexSession,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
     use vortex::array::dtype::FieldPath;
 
@@ -13736,6 +13778,8 @@ fn large_source_text_vortex_write_strategy(
         row_block_size,
         block_target_bytes,
         stats_concurrency,
+        writer_stage_timing,
+        writer_session,
     );
     for field in compression_field_names {
         strategy = strategy.with_field_writer(
@@ -13837,16 +13881,16 @@ fn vortex_writer_layout_strategy_applied(
 ) -> &'static str {
     if vortex_layout_write_strategy_applies(decision) {
         if vortex_writer_uses_large_source_fast_load(decision) {
-            "vortex_write_strategy_row_block_262144_target_8mb_fast_load_uncompressed_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_8mb_fast_load_numeric_btrblocks_embedded_olap_layout_statistics"
         } else if vortex_writer_uses_large_source_balanced(decision) {
             "vortex_write_strategy_row_block_262144_target_1mb_balanced_zstd_embedded_olap_layout_statistics"
         } else if vortex_writer_uses_large_source_text(decision) {
             if decision.writer_block_target_bytes
                 == VORTEX_PREPARED_OLAP_WRITER_LARGE_TEXT_COALESCED_BLOCK_TARGET_BYTES
             {
-                "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_embedded_olap_layout_statistics"
+                "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
             } else {
-                "vortex_write_strategy_row_block_262144_target_1mb_source_text_fast_zstd_no_dict_embedded_olap_layout_statistics"
+                "vortex_write_strategy_row_block_262144_target_1mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
             }
         } else {
             match decision.writer_row_block_size {
@@ -15946,7 +15990,7 @@ mod tests {
         assert_eq!(report.layout_write_decision.writer_stats_concurrency, 2);
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_target_1mb_source_text_fast_zstd_no_dict_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_1mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
         );
         assert_eq!(
             report.writer_layout_row_block_size,
@@ -15993,7 +16037,7 @@ mod tests {
         );
         assert_eq!(
             report.writer_profile_regression_guard,
-            "text_large_source_fast_zstd_profile_is_full_replacement_uat_backed"
+            "text_zstd_policy_prior_uat_backed_numeric_btrblocks_requires_lifecycle_acceptance"
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());
@@ -16043,7 +16087,7 @@ mod tests {
         );
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
         );
         assert_eq!(report.writer_compression_concurrency, 2);
         assert_eq!(report.writer_compression_field_count(), 1);
@@ -16067,7 +16111,7 @@ mod tests {
         );
         assert_eq!(
             report.writer_profile_regression_guard,
-            "text_large_source_fast_zstd_profile_is_full_replacement_uat_backed"
+            "text_zstd_policy_prior_uat_backed_numeric_btrblocks_requires_lifecycle_acceptance"
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());
@@ -16120,7 +16164,7 @@ mod tests {
         );
         assert_eq!(
             report.writer_layout_strategy_applied,
-            "vortex_write_strategy_row_block_262144_target_8mb_fast_load_uncompressed_embedded_olap_layout_statistics"
+            "vortex_write_strategy_row_block_262144_target_8mb_fast_load_numeric_btrblocks_embedded_olap_layout_statistics"
         );
         assert_eq!(
             report.writer_layout_block_target_bytes,
@@ -16128,11 +16172,11 @@ mod tests {
         );
         assert_eq!(
             report.writer_profile_selection_reason,
-            "large_non_text_source_fast_load_uncompressed_layout_statistics"
+            "large_non_text_source_fast_load_numeric_btrblocks_layout_statistics"
         );
         assert_eq!(
             report.writer_profile_regression_guard,
-            "non_text_large_source_allows_uncompressed_fast_load"
+            "non_text_large_source_numeric_btrblocks_requires_lifecycle_acceptance"
         );
         assert_eq!(report.reopen_row_count, 1);
         assert!(path.exists());

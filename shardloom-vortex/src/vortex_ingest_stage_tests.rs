@@ -93,6 +93,14 @@ fn projected_native_artifact_bytes_match_the_original_projection_path() {
             write_vortex_array(&expected_path, &original, false, &decision).unwrap();
         let actual_report = write_vortex_array(&actual_path, &actual, false, &decision).unwrap();
         assert_eq!(
+            actual_report.vortex_encode_write_micros,
+            actual_report.vortex_segment_write_micros
+        );
+        assert_eq!(
+            original_report.vortex_encode_write_micros,
+            original_report.vortex_segment_write_micros
+        );
+        assert_eq!(
             actual_report.artifact_digest,
             original_report.artifact_digest
         );

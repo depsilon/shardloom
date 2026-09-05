@@ -1,6 +1,6 @@
 //! Observed ingest scopes. Work spans overlap; they are not CPU or exclusive wall time.
 
-const STAGE_NAMES: [&str; 8] = [
+const STAGE_NAMES: [&str; 11] = [
     "stream_validation",
     "stream_projection",
     "stream_arrow_conversion",
@@ -9,6 +9,9 @@ const STAGE_NAMES: [&str; 8] = [
     "text_canonicalize",
     "text_compact",
     "text_zstd",
+    "numeric_probe",
+    "numeric_compress",
+    "numeric_preserve",
 ];
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -24,7 +27,7 @@ struct WorkSpan {
 /// Bytes describe logical input/output buffers, not allocation or physical I/O traffic.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct VortexIngestStageReport {
-    spans: [WorkSpan; 8],
+    spans: [WorkSpan; 11],
     text_active_nanos: u64,
     identity_projection_batches: u64,
 }
@@ -36,8 +39,11 @@ impl VortexIngestStageReport {
         let mut fields = vec![
             ("vortex_ingest_stage_time_scope".into(), "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall".into()),
             ("vortex_ingest_stage_byte_scope".into(), "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured".into()),
-            ("vortex_ingest_stage_coverage".into(), "stream_validation_projection_conversion_reader_lock_ordered_wait_and_selected_text_codec_only".into()),
-            ("vortex_ingest_legacy_encode_write_scope".into(), "wall_minus_summed_concurrent_compression_work_not_exclusive_time".into()),
+            ("vortex_ingest_stage_coverage".into(), "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec".into()),
+            ("vortex_ingest_numeric_codec_scope".into(), "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused".into()),
+            ("vortex_ingest_dictionary_probe_scope".into(), "baseline_legacy_array_session_empty_edition_whitelist_preserved;built_in_canonical_or_constant_decisions_only;not_full_dictionary_or_text_scheme_selection".into()),
+            ("vortex_ingest_legacy_encode_write_scope".into(), "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io".into()),
+            ("vortex_ingest_legacy_encode_write_semantics".into(), "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable".into()),
             ("vortex_ingest_legacy_stream_conversion_scope".into(), "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation".into()),
             ("vortex_ingest_legacy_stream_decode_scope".into(), "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu".into()),
             ("vortex_ingest_text_active_scope".into(), "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work".into()),
@@ -66,6 +72,22 @@ impl VortexIngestStageReport {
     }
 }
 
+#[test]
+fn legacy_writer_field_declares_corrected_inclusive_wall_semantics() {
+    let fields = VortexIngestStageReport::default()
+        .evidence_fields()
+        .into_iter()
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(
+        fields["vortex_ingest_legacy_encode_write_scope"],
+        "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io"
+    );
+    assert!(
+        fields["vortex_ingest_legacy_encode_write_semantics"]
+            .contains("historical_wall_minus_summed_compression_values_not_comparable")
+    );
+}
+
 #[cfg(feature = "vortex-write")]
 mod measured {
     use super::{VortexIngestStageReport, WorkSpan};
@@ -88,6 +110,9 @@ mod measured {
         TextCanonicalize,
         TextCompact,
         TextZstd,
+        NumericProbe,
+        NumericCompress,
+        NumericPreserve,
     }
 
     #[derive(Debug, Default)]
@@ -135,7 +160,7 @@ mod measured {
 
     #[derive(Debug, Default, Clone)]
     pub(crate) struct IngestStageTimings {
-        counters: Arc<[Counter; 8]>,
+        counters: Arc<[Counter; 11]>,
         active: Arc<Mutex<ActiveState>>,
         identities: Arc<AtomicU64>,
     }

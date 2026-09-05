@@ -92,6 +92,8 @@ pub mod metadata_summary;
 pub mod output_payload;
 #[cfg(feature = "upstream-vortex")]
 pub mod owned_buffers;
+#[cfg(feature = "vortex-file-io")]
+pub mod physical_encoding_inventory;
 pub mod physical_operator_bridge;
 pub mod projection_readiness;
 pub mod query_primitive;
