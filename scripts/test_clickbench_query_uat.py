@@ -101,19 +101,22 @@ class ClickBenchUatTests(unittest.TestCase):
             prefix = Path(directory) / "ignores-term"
             result = run_profiled_command([
                 sys.executable, "-c",
-                "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)",
-            ], prefix, 0.3, lambda: None)
-            self.assertTrue(result["guard_failures"])
+                "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+                "print('native-ready', flush=True); time.sleep(30)",
+            ], prefix, 1, lambda: None)
+            self.assertIn("native command timeout", result["guard_failures"])
+            self.assertEqual(prefix.with_suffix(".stdout.json").read_text(), "native-ready\n")
+            # The supervisor must finish its own cleanup instead of dying in
+            # the outer SIGKILL. Timing is published only after the child wait.
+            self.assertEqual(result["returncode"], 130)
+            timing = json.loads(prefix.with_suffix(".timing.json").read_text())
+            self.assertEqual(timing["returncode"], 130)
+            self.assertNotIn("native timing evidence is missing", result["guard_failures"])
             pid = int(prefix.with_suffix(".pid").read_text())
-            deadline = time.monotonic() + 3
-            while time.monotonic() < deadline:
-                try:
-                    os.kill(pid, 0)
-                except ProcessLookupError:
-                    break
-                time.sleep(0.05)
-            else:
-                self.fail("timed-out native child survived its supervisor's process group")
+            # Signal zero sees zombies too. Require immediate disappearance on
+            # supervisor return, not eventual reaping by a different parent.
+            with self.assertRaises(ProcessLookupError):
+                os.kill(pid, 0)
 
 
 if __name__ == "__main__":

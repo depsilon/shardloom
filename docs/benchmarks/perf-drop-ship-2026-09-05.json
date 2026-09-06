@@ -19,6 +19,7 @@
     "wall_time": "native process creation through complete output, required publication/verification and exit",
     "cpu": "native child CPU service work; overlaps wall time",
     "ingest_memory": "copied admitted buffers and native allocator lifetimes; excludes original source owners, bypass allocations and process RSS",
+    "historical_root_layout_reference_lifetime": "Frozen measurements do not prove root LayoutRef credit retention through provider footer completion: the strategy-owned lease could drop before Vortex 0.85 finished the footer. The later correctness fix moves ownership onto the returned root LayoutChildren to cover that lifetime; its validation is separate. Native input-buffer ownership evidence is separate. All frozen measurements, source IDs and statuses remain unchanged; no new performance result is claimed.",
     "page_cache": "uncontrolled",
     "small_queries": "Historical C4/C5 expanded-layout inventory forced a complete metadata tree walk before small scans. C7 observes root-only/deferred full inventory and substantially lower setup time, while Q2 and Q37-Q43 remain slower than baseline. Control-plane measurements include other open/session/binding work; no exact isolated inventory saving is claimed. The C7 total improves while its geometric mean remains worse.",
     "initial_c5": "complete initial numeric matrix remains preserved including regressions; final C7 consumer-fix matrix is appended separately with its frozen binary and same-artifact identity"

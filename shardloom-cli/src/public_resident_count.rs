@@ -10,6 +10,13 @@ use super::{
 };
 use shardloom_vortex::resident_session::ResidentSessionSnapshot;
 
+struct ExecutedCount {
+    count: u64,
+    snapshot: ResidentSessionSnapshot,
+    prepared_now: bool,
+    native_io_certificate: shardloom_core::NativeIoCertificate,
+}
+
 pub(super) fn execute_native_vortex_resident_count(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -19,7 +26,12 @@ pub(super) fn execute_native_vortex_resident_count(
     execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
     let result = execute(request, binding, execution_session);
-    let (count, snapshot, prepared_now) = match result {
+    let ExecutedCount {
+        count,
+        snapshot,
+        prepared_now,
+        native_io_certificate,
+    } = match result {
         Ok(result) => result,
         Err(error) => {
             execution_session.clear();
@@ -30,6 +42,13 @@ pub(super) fn execute_native_vortex_resident_count(
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
     fields.extend(count_fields(count, snapshot, prepared_now));
+    fields.push((
+        "resident_native_io_proof_basis".into(),
+        native_io_certificate
+            .source_pushdown_report
+            .proof_basis
+            .clone(),
+    ));
     append_effect_fields(&mut fields);
     // A footer metadata result does not run the row primitive/report pipeline or
     // an independent correctness oracle. Preserve their explicit absence.
@@ -39,7 +58,7 @@ pub(super) fn execute_native_vortex_resident_count(
     );
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
         &mut fields,
-        None,
+        Some(&native_io_certificate),
     );
     vortex_primitive_execution::append_vortex_local_primitive_execution_certificate_fields(
         &mut fields,
@@ -147,7 +166,7 @@ fn execute(
     request: &PublicWorkflowRouteRequest,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
-) -> Result<(u64, ResidentSessionSnapshot, bool), ShardLoomError> {
+) -> Result<ExecutedCount, ShardLoomError> {
     if request.vortex_predicate.is_some()
         || request.vortex_columns.is_some()
         || request.vortex_source_order_limit.is_some()
@@ -184,5 +203,111 @@ fn execute(
         )
     })?;
     let count = prepared.operation.execute()?;
-    Ok((count, prepared.session.snapshot(), prepared_now))
+    let snapshot = prepared.session.snapshot();
+    // Issue evidence only after the retained operation completed both generation
+    // checks. Repeated calls still execute against the retained native footer.
+    let native_io_certificate = count_certificate(binding, count, snapshot, prepared_now)?;
+    Ok(ExecutedCount {
+        count,
+        snapshot,
+        prepared_now,
+        native_io_certificate,
+    })
+}
+
+fn count_certificate(
+    binding: &NativeVortexInputBinding,
+    count: u64,
+    snapshot: ResidentSessionSnapshot,
+    prepared_now: bool,
+) -> Result<shardloom_core::NativeIoCertificate, ShardLoomError> {
+    use shardloom_core::{
+        NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoRepresentationTransition,
+        NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
+        NativeIoSourcePushdownReport, RepresentationState,
+    };
+    let [source] = binding.sources.as_slice() else {
+        return Err(ShardLoomError::InvalidOperation(
+            "resident footer count certificate requires one admitted local source; no fallback execution was attempted".into(),
+        ));
+    };
+    NativeIoCertificate::new(
+        "resident.count_all.native_io",
+        "native_vortex_source_to_scalar_count_result",
+        NativeIoSourceCapabilityReport {
+            source_kind: "vortex".into(),
+            adapter_id: "shardloom.resident_vortex.v1".into(),
+            schema_discovery_status: "retained_footer_generation_validated".into(),
+            statistics_availability: "exact_footer_row_count".into(),
+            pushdown_capabilities: "count_all".into(),
+            encoded_representation_preserved: true,
+            range_read_capability: false,
+            streaming_capability: false,
+            object_store_capability: false,
+            fallback_attempted: false,
+        },
+        NativeIoSourcePushdownReport {
+            accepted_operations: vec!["count_all".into()],
+            rejected_operations: Vec::new(),
+            guarantee: "exact_retained_footer_row_count".into(),
+            proof_basis: format!(
+                "vortex {};feature=vortex-local-primitives,unix;source={source};provider=VortexFile::row_count;source_generation_validation=before_and_after_native_footer_count;footer_open_performed_this_call={prepared_now};completed_executions={};row_count={count};no_query_answer_cache=true;no_scan_decode_or_row_materialization",
+                shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
+                snapshot.completed_executions,
+            ),
+            residual_expression: None,
+            conservative_false_positive_policy: false,
+            unsafe_rejected_reason: None,
+            fallback_attempted: false,
+        },
+        vec![NativeIoRepresentationTransition::new(
+            RepresentationState::MetadataOnly,
+            RepresentationState::MetadataOnly,
+            false,
+        )],
+        NativeIoSinkRequirementReport {
+            target_format: "scalar_count_result".into(),
+            accepts_encoded: true,
+            requires_decoded_columnar: false,
+            requires_rows: false,
+            preserves_metadata: false,
+            requires_ordering: false,
+            requires_partitioning: false,
+            requires_commit: false,
+            supports_streaming: false,
+            max_chunk_size: None,
+            backpressure_policy: "single_exact_u64_footer_count_no_row_stream".into(),
+        },
+        NativeIoAdapterFidelityReport {
+            adapter_id: "shardloom.resident_vortex.v1".into(),
+            source_kind: "vortex".into(),
+            sink_kind: "scalar_count_result".into(),
+            metadata_preserved: false,
+            statistics_preserved: false,
+            encoded_representation_preserved: true,
+            materialization_required: false,
+            fidelity_loss: "none_for_exact_footer_count".into(),
+            metadata_loss: "scalar_count_result_has_no_column_metadata".into(),
+            fallback_attempted: false,
+        },
+        Vec::new(),
+        count_side_effects(),
+        Vec::new(),
+    )
+}
+
+fn count_side_effects() -> shardloom_core::NativeIoSideEffectReport {
+    shardloom_core::NativeIoSideEffectReport {
+        data_read: false,
+        data_decoded: false,
+        data_materialized: false,
+        row_read: false,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+    }
 }

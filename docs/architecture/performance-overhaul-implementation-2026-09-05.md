@@ -407,6 +407,39 @@ verification; raw logs, hashes, binaries and the test-only candidate remain.
 This continuation preserves all historical C7 numbers and leaves the wider
 PERF-09/PERF-12 and competitive gates open.
 
+The later PR merge-readiness pass addresses two correctness findings. A timed
+native supervisor now uses a one-second child termination grace within the
+outer watchdog's unchanged three-second grace, leaving time to kill and reap a
+resistant child and publish timing evidence before exiting. The regression
+requires completed supervisor cleanup and immediate child disappearance,
+including no unreaped zombie.
+
+Native ingest root references now grow from observed nonempty batches under
+the shared memory budget. Source row and batch hints no longer impose a batch
+limit or reserve unused reference capacity. Growth admits both the old and new
+reference arrays before allocation. The returned native layout retains the
+reservation through footer completion and layout clones, correcting the previous
+strategy-only owner that the provider could drop before footer serialization.
+The existing `max_source_batches` evidence
+field remains available as a theoretical budget-derived nonempty-batch upper
+bound; payloads and transient growth compete for the same budget. These fixes
+do not constitute new performance measurements: all timing claims above remain
+attributed to their recorded frozen source revisions.
+
+Broader ingest validation also exposed a race where sibling-task cancellation
+could hide the original source-validation error. Prefetch now records the first
+reader or conversion failure before cancellation and preserves that cause through
+window filling and ordered handoff. Coordinated worker tests cover the failure
+ordering and cleanup without relying on sleeps or repeated lucky runs.
+
+Resident count-all now attaches a metadata-only native I/O certificate after
+successful before/after source-generation validation. Each execution records
+the retained footer provider, exact result, execution count and whether that
+call opened the footer. Repeated calls and source replacement are covered by
+worker regressions. The separate row-execution and independent correctness-oracle
+certificates remain absent. Earlier frozen resident latency samples predate this
+additional certificate construction and rendering.
+
 Retain the demonstrated duplicate-checksum removal, compact schema evidence,
 native result correctness repair, and tested runtime ownership foundation. The
 later b3 implementation adds the scoped boundaries listed above; global admission,

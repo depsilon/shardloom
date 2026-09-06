@@ -27,7 +27,7 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use std::sync::{Mutex, atomic::AtomicUsize};
+use std::sync::{Mutex, OnceLock, atomic::AtomicUsize};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use shardloom_exec::{
@@ -82,7 +82,7 @@ struct NativeIngestMemory {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl NativeIngestMemory {
-    fn new(limit_bytes: u64, row_count_hint: Option<usize>) -> Result<Self> {
+    fn new(limit_bytes: u64) -> Result<Self> {
         use vortex::{
             VortexSessionDefault as _, array::memory::MemorySessionExt as _,
             io::runtime::BlockingRuntime as _, io::session::RuntimeSessionExt as _,
@@ -100,7 +100,12 @@ impl NativeIngestMemory {
         Ok(Self {
             pool,
             session,
-            max_chunks: row_count_hint.unwrap_or(65_536).clamp(1, 65_536),
+            max_chunks: usize::try_from(
+                limit_bytes
+                    / u64::try_from(std::mem::size_of::<vortex::layout::LayoutRef>())
+                        .unwrap_or(u64::MAX),
+            )
+            .unwrap_or(usize::MAX),
         })
     }
 
@@ -9672,6 +9677,9 @@ pub struct VortexIngestMemoryOwnershipReport {
     pub peak_reserved_bytes: u64,
     pub final_reserved_bytes: u64,
     pub denied_reservations: u64,
+    /// Theoretical nonempty-batch upper bound if only root references occupied
+    /// the shared budget. Native payloads and transient Vec growth also compete
+    /// for that budget; empty batches do not consume a root reference.
     pub max_source_batches: usize,
 }
 
@@ -10103,7 +10111,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let column_families = columnar_column_families_from_schema(&source_shape)?;
     let native_memory = request
         .shared_native_memory_budget_bytes
-        .map(|bytes| NativeIngestMemory::new(bytes, request.source.row_count_hint))
+        .map(NativeIngestMemory::new)
         .transpose()?;
     let mut first_input_lease = native_memory
         .as_ref()
@@ -10699,6 +10707,7 @@ impl StreamingColumnarVortexArrayIterator {
                 batch_count: Arc::clone(&batch_count),
                 stream_timing: stream_timing.clone(),
                 native_memory: native_memory.clone(),
+                failure: OnceLock::new(),
             });
             let mut prefetch = StreamingColumnarVortexPrefetch {
                 pool: ComputePool::new(
@@ -10847,9 +10856,16 @@ struct StreamingColumnarVortexPrefetch {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl StreamingColumnarVortexPrefetch {
     fn fill_window(&mut self) -> Result<()> {
-        while !self.exhausted && self.tasks.len() + self.pending.len() < self.window {
+        while !self.exhausted
+            && self.tasks.len() + self.pending.len() < self.window
+            && self.context.failure.get().is_none()
+        {
             let context = Arc::clone(&self.context);
-            let lease = self.pool.memory().reserve(self.task_bytes)?;
+            let lease = match self.pool.memory().reserve(self.task_bytes) {
+                Ok(lease) => lease,
+                Err(_) if self.context.failure.get().is_some() => break,
+                Err(error) => return Err(error),
+            };
             let task = self.pool.submit(
                 Budgeted::new(
                     move |worker: &WorkerContext, lease: &mut MemoryLease| {
@@ -10858,15 +10874,31 @@ impl StreamingColumnarVortexPrefetch {
                     lease,
                 ),
                 self.cancellation.clone(),
-            )?;
-            self.tasks.push_back(task);
+            );
+            match task {
+                Ok(task) => self.tasks.push_back(task),
+                // A source failure can cancel submission while the initial
+                // window is still filling. Deliver it from next_array, not
+                // nondeterministically from iterator construction.
+                Err(_) if self.context.failure.get().is_some() => break,
+                Err(error) => return Err(error),
+            }
         }
         Ok(())
     }
 
     fn next_array(&mut self, expected: usize) -> Option<Result<vortex::array::ArrayRef>> {
+        if let Some(error) = self.context.failure.get() {
+            return Some(Err(error.clone()));
+        }
+        if let Err(error) = self.cancellation.check() {
+            return Some(Err(self.context.primary_failure_or(error)));
+        }
         if let Err(error) = self.fill_window() {
-            return Some(Err(error));
+            return Some(Err(self.context.primary_failure_or(error)));
+        }
+        if let Some(error) = self.context.failure.get() {
+            return Some(Err(error.clone()));
         }
         loop {
             if let Some(array) = self.pending.remove(&expected) {
@@ -10874,7 +10906,10 @@ impl StreamingColumnarVortexPrefetch {
                 // The Vortex writer now owns the array and its referenced buffers.
                 drop(lease);
                 if let Err(error) = self.fill_window() {
-                    return Some(Err(error));
+                    return Some(Err(self.context.primary_failure_or(error)));
+                }
+                if let Some(error) = self.context.failure.get() {
+                    return Some(Err(error.clone()));
                 }
                 return Some(Ok(array));
             }
@@ -10905,7 +10940,7 @@ impl StreamingColumnarVortexPrefetch {
                         None => self.exhausted = true,
                     }
                 }
-                Err(error) => return Some(Err(error)),
+                Err(error) => return Some(Err(self.context.primary_failure_or(error))),
             }
         }
     }
@@ -10938,10 +10973,21 @@ struct StreamingColumnarVortexArrayWorker {
     batch_count: Arc<AtomicUsize>,
     stream_timing: VortexStreamingIngestTiming,
     native_memory: Option<NativeIngestMemory>,
+    failure: OnceLock<ShardLoomError>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl StreamingColumnarVortexArrayWorker {
+    fn remember_failure(&self, error: &ShardLoomError) {
+        // Record the cause before ComputePool turns it into shared cancellation.
+        // Cancellation checks must not replace this with a secondary error.
+        let _ = self.failure.set(error.clone());
+    }
+
+    fn primary_failure_or(&self, secondary: ShardLoomError) -> ShardLoomError {
+        self.failure.get().cloned().unwrap_or(secondary)
+    }
+
     fn read_convert(
         &self,
         worker: &WorkerContext,
@@ -10949,9 +10995,15 @@ impl StreamingColumnarVortexArrayWorker {
     ) -> Result<PrefetchedVortexArray> {
         let (index, batch) = {
             let lock_started = Instant::now();
-            let mut reader = self.reader.lock().map_err(|_| {
-                ShardLoomError::InvalidOperation("Vortex prefetch reader lock poisoned".to_string())
-            })?;
+            let mut reader = self
+                .reader
+                .lock()
+                .map_err(|_| {
+                    ShardLoomError::InvalidOperation(
+                        "Vortex prefetch reader lock poisoned".to_string(),
+                    )
+                })
+                .inspect_err(|error| self.remember_failure(error))?;
             self.stream_timing.stages.record(
                 Stage::ReaderLockWait,
                 lock_started.elapsed(),
@@ -10975,6 +11027,7 @@ impl StreamingColumnarVortexArrayWorker {
                 }
                 Err(error) => {
                     reader.stopped = true;
+                    self.remember_failure(&error);
                     return Err(error);
                 }
             };
@@ -10983,6 +11036,16 @@ impl StreamingColumnarVortexArrayWorker {
             (index, batch)
         };
         worker.check_cancelled()?;
+        self.convert_batch(index, &batch, lease)
+            .inspect_err(|error| self.remember_failure(error))
+    }
+
+    fn convert_batch(
+        &self,
+        index: usize,
+        batch: &RecordBatch,
+        lease: &mut MemoryLease,
+    ) -> Result<PrefetchedVortexArray> {
         let input_bytes = u64::try_from(batch.get_array_memory_size()).unwrap_or(u64::MAX);
         // Reserve conversion headroom before invoking the native provider. This
         // bounds admitted batches, not allocations hidden inside a source reader.
@@ -10994,7 +11057,7 @@ impl StreamingColumnarVortexArrayWorker {
         }
         let started = Instant::now();
         let result = validate_stream_record_batch_shape_profiled(
-            &batch,
+            batch,
             &self.reader_projection_columns,
             &self.source_shape,
             index,
@@ -11002,7 +11065,7 @@ impl StreamingColumnarVortexArrayWorker {
         )
         .and_then(|()| {
             record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
-                &batch,
+                batch,
                 &self.source_shape,
                 &self.stream_timing.stages,
                 self.native_memory
@@ -13441,16 +13504,9 @@ impl LocalVortexWriteContext {
         let Some(memory) = native_memory else {
             return Ok(self.write_options_for_decision(layout_write_decision, writer_stage_timing));
         };
-        let reference_bytes = memory
-            .max_chunks
-            .checked_mul(std::mem::size_of::<vortex::layout::LayoutRef>())
-            .and_then(|bytes| u64::try_from(bytes).ok())
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "native ingest layout-reference size overflow".to_string(),
-                )
-            })?;
-        let references = memory.pool.reserve(reference_bytes)?;
+        // Source row/batch counts are hints, not allocation or admission bounds.
+        // Charge root references only as actual nonempty source batches arrive.
+        let references = memory.pool.reserve(0)?;
         Ok(memory.session.write_options().with_strategy(Arc::new(
             bounded_ingest_layout::BoundedIngestLayout::new(
                 self.strategy_for_decision(
@@ -13458,7 +13514,7 @@ impl LocalVortexWriteContext {
                     writer_stage_timing,
                     &memory.session,
                 ),
-                memory.max_chunks,
+                0,
                 references,
             ),
         )))

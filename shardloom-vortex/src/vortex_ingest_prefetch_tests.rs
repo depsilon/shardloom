@@ -1,5 +1,5 @@
 use super::*;
-use arrow_array::{Int64Array, RecordBatchIterator, StringArray};
+use arrow_array::{Float64Array, Int64Array, RecordBatchIterator, StringArray};
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use std::{collections::VecDeque, sync::mpsc, thread, time::Duration};
 use vortex::{VortexSessionDefault as _, array::VortexSessionExecute as _};
@@ -229,4 +229,152 @@ fn completed_out_of_order_arrays_remain_charged_until_ordered_handoff() {
     assert_ne!(scalar(&first, 0), scalar(&second, 0));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     assert!(prefetch.next_array(3).is_none());
+}
+
+fn float_stream_with_paused_prefetch() -> StreamingColumnarVortexArrayIterator {
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "renamed_metric",
+        DataType::Float64,
+        true,
+    )]));
+    let good = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![Arc::new(Float64Array::from(vec![1.0]))],
+    )
+    .unwrap();
+    let source_shape = FlatColumnarSourceShape {
+        projected_columns: vec![ColumnarProjectedColumn {
+            column: "renamed_metric".into(),
+            reader_index: 0,
+            dtype_hint: None,
+            arrow_dtype_hint: Some(DataType::Float64),
+        }],
+    };
+    let first = record_batch_to_vortex_from_arrow_provider(&good, &source_shape).unwrap();
+    let mut stream = StreamingColumnarVortexArrayIterator::new(
+        first.dtype().clone(),
+        first,
+        Box::new(RecordBatchIterator::new(
+            Vec::<std::result::Result<RecordBatch, arrow_schema::ArrowError>>::new(),
+            Arc::clone(&schema),
+        )),
+        vec!["renamed_metric".into()],
+        source_shape,
+        Arc::new(AtomicUsize::new(1)),
+        VortexStreamingIngestTiming::default(),
+        1,
+        2,
+        2,
+        131_072,
+        None,
+    )
+    .unwrap();
+    let prefetch = stream.prefetch.as_mut().unwrap();
+    for task in prefetch.tasks.drain(..) {
+        drop(task.join().unwrap());
+    }
+    let bad = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![Arc::new(Float64Array::from(vec![f64::NAN]))],
+    )
+    .unwrap();
+    *prefetch.context.reader.lock().unwrap() = StreamingColumnarVortexArraySharedReader {
+        reader: Box::new(RecordBatchIterator::new(vec![Ok(bad)], schema)),
+        next_batch_index: 1,
+        stopped: false,
+    };
+    stream
+}
+
+#[test]
+fn primary_validation_error_survives_fifo_cancellation_and_initial_refill() {
+    for refill in [false, true] {
+        let mut stream = float_stream_with_paused_prefetch();
+        let prefetch = stream.prefetch.as_mut().unwrap();
+        let memory = prefetch.pool.memory().clone();
+        let (started, entered) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let earlier = prefetch
+            .pool
+            .submit(
+                Budgeted::new(
+                    move |worker: &WorkerContext,
+                          _: &mut MemoryLease|
+                          -> Result<PrefetchedVortexArray> {
+                        started.send(()).unwrap();
+                        released.recv_timeout(Duration::from_secs(5)).unwrap();
+                        worker.check_cancelled()?;
+                        Ok(None)
+                    },
+                    memory.reserve(65_536).unwrap(),
+                ),
+                prefetch.cancellation.clone(),
+            )
+            .unwrap();
+        prefetch.tasks.push_back(earlier);
+        entered.recv_timeout(Duration::from_secs(5)).unwrap();
+        let context = Arc::clone(&prefetch.context);
+        let later = prefetch
+            .pool
+            .submit(
+                Budgeted::new(
+                    move |worker: &WorkerContext, lease: &mut MemoryLease| {
+                        context.read_convert(worker, lease)
+                    },
+                    memory.reserve(65_536).unwrap(),
+                ),
+                prefetch.cancellation.clone(),
+            )
+            .unwrap();
+        let origin = later.join().unwrap_err();
+        assert!(origin.to_string().contains("non-finite"));
+        assert!(prefetch.cancellation.is_cancelled());
+        // The FIFO head now fails cancellation although the real cause was
+        // produced by a later job. No OS scheduling or sleep controls this race.
+        release.send(()).unwrap();
+        prefetch.exhausted = !refill;
+        if refill {
+            // Same fill method used during construction: an already-originated
+            // source failure must defer to next_array rather than escape here.
+            prefetch.fill_window().unwrap();
+            assert_eq!(prefetch.tasks.len(), 1);
+        }
+        assert!(stream.next().unwrap().is_ok());
+        let error = stream.next().unwrap().unwrap_err().to_string();
+        assert!(error.contains("non-finite"), "refill={refill}: {error}");
+        assert!(stream.next().is_none());
+        drop(stream);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn external_prefetch_cancellation_without_source_failure_stays_cancellation() {
+    for (exhausted, pending) in [(false, false), (true, false), (true, true)] {
+        let reader = RecordBatchIterator::new(
+            Vec::<std::result::Result<RecordBatch, arrow_schema::ArrowError>>::new(),
+            batch(0).schema(),
+        );
+        let mut stream = iterator(Box::new(reader), 2, 131_072).unwrap();
+        let prefetch = stream.prefetch.as_mut().unwrap();
+        let memory = prefetch.pool.memory().clone();
+        for task in prefetch.tasks.drain(..) {
+            drop(task.join().unwrap());
+        }
+        prefetch.exhausted = exhausted;
+        if pending {
+            let array = record_batch_to_vortex_from_arrow_provider(&batch(1), &shape()).unwrap();
+            prefetch
+                .pending
+                .insert(1, Budgeted::new(array, memory.reserve(65_536).unwrap()));
+        }
+        prefetch.cancellation.cancel();
+        assert!(prefetch.context.failure.get().is_none());
+        assert!(stream.next().unwrap().is_ok());
+        let error = stream.next().unwrap().unwrap_err().to_string();
+        assert!(error.contains("execution cancelled"), "{error}");
+        assert!(stream.next().is_none());
+        drop(stream);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }

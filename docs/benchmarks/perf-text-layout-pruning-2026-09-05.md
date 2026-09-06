@@ -168,6 +168,14 @@ excluded. RSS is an OS high-water observation, not the reservation limit; summed
 CPU overlaps wall time and must not be added to it. Existing local storage,
 source-residency, concurrency and cleanup guards remain enabled.
 
+Historical ownership caveat: the frozen profiles do not prove root `LayoutRef`
+credit retention through provider footer completion. Their strategy-owned lease
+could drop before Vortex 0.85 finished the footer. The later correctness fix moves
+that ownership onto the returned root's `LayoutChildren` to cover the longer
+lifetime; its validation is recorded separately. Native input-buffer ownership
+evidence remains a separate proof. All raw measurements, source identities and
+recorded statuses stay unchanged; no new performance result is claimed.
+
 ## Complete public query comparison and decision
 
 The candidate run `full43_20260905T233742622294Z` passes **129/129**

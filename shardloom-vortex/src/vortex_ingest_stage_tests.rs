@@ -158,14 +158,8 @@ fn identity_projection_does_not_skip_stream_validation_before_conversion() {
         )
         .unwrap();
         assert!(stream.next().unwrap().is_ok());
-        assert!(
-            stream
-                .next()
-                .unwrap()
-                .unwrap_err()
-                .to_string()
-                .contains("non-finite")
-        );
+        let error = stream.next().unwrap().unwrap_err().to_string();
+        assert!(error.contains("non-finite"), "window {window}: {error}");
         assert!(stream.next().is_none());
         let fields: BTreeMap<_, _> = timing
             .stages

@@ -1,6 +1,7 @@
 {
   "schema_version": "shardloom.text_layout_pruning_retain_drop.v1",
   "status": "validated_scoped_drop_test_only_candidate_retained",
+  "historical_root_layout_reference_lifetime": "Frozen profiles do not prove root LayoutRef credit retention through provider footer completion: the strategy-owned lease could drop before Vortex 0.85 finished the footer. The later correctness fix moves ownership onto the returned root LayoutChildren to cover that lifetime; its validation is separate. Native input-buffer ownership evidence is separate. All raw measurements, source IDs and statuses remain unchanged; no new performance result is claimed.",
   "decision": {
     "unconditional_default_text_zoning": "dropped",
     "production_null_guard": "not_promoted_repeated_read_amplification",

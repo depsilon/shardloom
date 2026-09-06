@@ -280,6 +280,7 @@ fn worker_executes_resident_footer_count_each_call_and_releases_changed_handles(
     let mut worker = Worker::new();
     for (executions, opened) in [("1", "true"), ("2", "false"), ("3", "false")] {
         let result = worker.count(&path, "2");
+        assert_metadata_count_certificate(&result, "5", executions, opened);
         assert_eq!(result["status"], "success", "{result}");
         assert_eq!(field(&result, "count"), "5");
         assert_eq!(field(&result, "resident_source_opens"), "1");
@@ -299,12 +300,95 @@ fn worker_executes_resident_footer_count_each_call_and_releases_changed_handles(
         assert_eq!(result["human_text"], "result summary: 5\n");
     }
     let changed = worker.count(&path, "3");
+    assert_metadata_count_certificate(&changed, "5", "1", "true");
     assert_eq!(field(&changed, "resident_completed_executions"), "1");
     assert_completed(&worker.collect(&path, "metric", "3"), "1");
     assert_eq!(
         field(&worker.count(&path, "3"), "resident_completed_executions"),
         "1"
     );
+}
+
+fn assert_metadata_count_certificate(result: &Value, count: &str, executions: &str, opened: &str) {
+    assert_eq!(result["status"], "success", "{result}");
+    assert_eq!(field(result, "count"), count);
+    for (key, expected) in [
+        ("local_primitive_native_io_certificate_emitted", "true"),
+        ("local_primitive_native_io_certificate_status", "certified"),
+        ("local_primitive_native_io_certified", "true"),
+        (
+            "local_primitive_native_io_certificate_path_id",
+            "native_vortex_source_to_scalar_count_result",
+        ),
+        ("local_primitive_native_io_source_kind", "vortex"),
+        (
+            "local_primitive_native_io_pushdown_accepted_operations",
+            "count_all",
+        ),
+        (
+            "local_primitive_native_io_pushdown_guarantee",
+            "exact_retained_footer_row_count",
+        ),
+        (
+            "local_primitive_native_io_representation_transitions",
+            "metadata_only->metadata_only",
+        ),
+        ("local_primitive_native_io_materialization_boundaries", ""),
+        (
+            "local_primitive_native_io_sink_target_format",
+            "scalar_count_result",
+        ),
+        ("local_primitive_native_io_sink_requires_rows", "false"),
+        (
+            "local_primitive_native_io_sink_requires_decoded_columnar",
+            "false",
+        ),
+        (
+            "local_primitive_native_io_adapter_materialization_required",
+            "false",
+        ),
+        ("local_primitive_no_query_answer_cache", "true"),
+        ("local_primitive_execution_certificate_emitted", "false"),
+    ] {
+        assert_eq!(field(result, key), expected, "{key}");
+    }
+    for effect in [
+        "data_read",
+        "data_decoded",
+        "data_materialized",
+        "row_read",
+        "arrow_converted",
+        "object_store_io",
+        "write_io",
+        "spill_io_performed",
+        "fallback_attempted",
+        "fallback_execution_allowed",
+    ] {
+        assert_eq!(
+            field(result, &format!("local_primitive_native_io_{effect}")),
+            "false"
+        );
+    }
+    assert_metadata_count_proof(result, count, executions, opened);
+}
+
+fn assert_metadata_count_proof(result: &Value, count: &str, executions: &str, opened: &str) {
+    let proof = field(result, "resident_native_io_proof_basis");
+    for expected in [
+        format!(
+            "source={};",
+            field(result, "native_vortex_input_binding_sources")
+        ),
+        format!("vortex {};", field(result, "resident_provider_version")),
+        format!("row_count={count};"),
+        format!("completed_executions={executions};"),
+        format!("footer_open_performed_this_call={opened};"),
+        "feature=vortex-local-primitives,unix;".into(),
+        "source_generation_validation=before_and_after_native_footer_count;".into(),
+        "no_query_answer_cache=true;".into(),
+    ] {
+        assert!(proof.contains(&expected), "{proof}: missing {expected}");
+    }
 }
 
 #[test]
@@ -321,7 +405,7 @@ fn worker_footer_count_rejects_source_replacement_then_reads_new_actual_count() 
     let source = root.join("source.vortex");
     std::fs::copy(fixture(), &source).unwrap();
     let mut worker = Worker::new();
-    assert_eq!(field(&worker.count(&source, "2"), "count"), "5");
+    assert_metadata_count_certificate(&worker.count(&source, "2"), "5", "1", "true");
     let replacement = root.join("replacement.vortex");
     std::fs::copy(
         fixture().with_file_name("metadata_footer_u64_20000.vortex"),
@@ -332,10 +416,27 @@ fn worker_footer_count_rejects_source_replacement_then_reads_new_actual_count() 
     let invalidated = worker.count(&source, "2");
     assert_eq!(invalidated["status"], "error", "{invalidated}");
     assert!(invalidated.to_string().contains("prepared source changed"));
+    assert!(
+        invalidated["fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|entry| {
+                !matches!(
+                    entry["key"].as_str(),
+                    Some(
+                        "local_primitive_native_io_certificate_emitted"
+                            | "local_primitive_native_io_certified"
+                    )
+                ) || entry["value"] != "true"
+            })
+    );
     let rebound = worker.count(&source, "2");
     assert_eq!(rebound["status"], "success", "{rebound}");
     assert_eq!(field(&rebound, "count"), "20000");
     assert_eq!(field(&rebound, "resident_completed_executions"), "1");
+    assert_metadata_count_certificate(&rebound, "20000", "1", "true");
+    assert_metadata_count_certificate(&worker.count(&source, "2"), "20000", "2", "false");
     drop(worker);
     std::fs::remove_dir_all(root).unwrap();
 }

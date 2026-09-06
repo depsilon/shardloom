@@ -211,7 +211,7 @@ fn owned_empty_stream_and_failures_preserve_output_atomicity() {
 #[test]
 fn source_handoff_and_slice_lifetime_share_the_prefetch_pool() {
     for window in [0, 2] {
-        let memory = NativeIngestMemory::new(16 << 20, Some(9)).unwrap();
+        let memory = NativeIngestMemory::new(16 << 20).unwrap();
         let first_batch = batch(0);
         let source_shape = FlatColumnarSourceShape {
             projected_columns: first_batch
@@ -270,4 +270,102 @@ fn source_handoff_and_slice_lifetime_share_the_prefetch_pool() {
         drop(retained);
         assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
     }
+}
+
+fn check_owned_batch_hints(
+    label: &str,
+    batches: Vec<RecordBatch>,
+    row_hint: Option<usize>,
+    batch_hint: Option<usize>,
+) {
+    let output = path(label);
+    let expected = batches
+        .iter()
+        .filter(|batch| batch.num_rows() != 0)
+        .map(|batch| arrow_record_batch_to_vortex_array(batch.clone()).unwrap())
+        .collect::<Vec<_>>();
+    let expected_rows = expected
+        .iter()
+        .map(vortex::array::ArrayRef::len)
+        .sum::<usize>();
+    let mut input = source(batches, false);
+    input.row_count_hint = row_hint;
+    input.record_batch_count_hint = batch_hint;
+    let report = write_flat_columnar_vortex_prepared_state_streaming(
+        VortexPreparedStateColumnarStreamWriteRequest::new(&output, input)
+            .shared_native_memory_budget_bytes(32 << 20),
+    )
+    .unwrap();
+    assert_eq!(report.row_count, u64::try_from(expected_rows).unwrap());
+    assert_eq!(report.reopen_row_count, report.row_count);
+    let ownership = report.shared_native_memory.unwrap();
+    assert_eq!(ownership.final_reserved_bytes, 0);
+    assert_eq!(ownership.denied_reservations, 0);
+    assert!(ownership.peak_reserved_bytes <= ownership.limit_bytes);
+    assert_eq!(
+        ownership.max_source_batches,
+        (32 << 20) / std::mem::size_of::<vortex::layout::LayoutRef>()
+    );
+    let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
+    let session = vortex::session::VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(&output))
+        .unwrap();
+    let mut reference = expected
+        .iter()
+        .flat_map(|array| (0..array.len()).map(move |row| (array, row)));
+    let mut seen = 0;
+    for array in file
+        .scan()
+        .unwrap()
+        .with_ordered(true)
+        .into_array_iter(&runtime)
+        .unwrap()
+    {
+        let array = array.unwrap();
+        for row in 0..array.len() {
+            let (expected, expected_row) = reference.next().expect("no extra output row");
+            assert_eq!(
+                array
+                    .execute_scalar(row, &mut session.create_execution_ctx())
+                    .unwrap(),
+                expected
+                    .execute_scalar(expected_row, &mut session.create_execution_ctx())
+                    .unwrap(),
+            );
+            seen += 1;
+        }
+    }
+    assert!(reference.next().is_none());
+    assert_eq!(seen, expected_rows);
+    drop(file);
+    fs::remove_file(output).unwrap();
+}
+
+#[test]
+fn owned_batch_admission_ignores_row_and_batch_count_hints() {
+    let one = batch(19).slice(0, 1);
+    let empty = RecordBatch::new_empty(one.schema());
+    check_owned_batch_hints(
+        "one-then-empty",
+        vec![one.clone(), empty.clone()],
+        Some(1),
+        Some(2),
+    );
+    check_owned_batch_hints("empty-then-one", vec![empty, one], Some(1), Some(2));
+    for (label, hint) in [
+        ("no-row-hint", Some(3)),
+        ("no-count-hints", None),
+        ("underreported-batches", Some(0)),
+        ("oversized-batch-hint", Some(usize::MAX)),
+    ] {
+        check_owned_batch_hints(label, vec![batch(1), batch(2), batch(3)], None, hint);
+    }
+}
+
+#[test]
+fn owned_all_empty_and_unhinted_empty_streams_reopen_without_rows() {
+    let empty = RecordBatch::new_empty(batch(0).schema());
+    check_owned_batch_hints("all-empty", vec![empty.clone(), empty], Some(0), Some(2));
+    check_owned_batch_hints("unhinted-no-input", Vec::new(), None, None);
 }

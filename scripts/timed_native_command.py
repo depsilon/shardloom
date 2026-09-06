@@ -48,7 +48,10 @@ def main():
             if process.poll() is None:
                 process.terminate()
                 try:
-                    process.wait(timeout=3)
+                    # stop_process gives this supervisor three seconds before
+                    # killing the shared group. Leave two seconds to SIGKILL
+                    # and reap the child, then publish timing and exit.
+                    process.wait(timeout=1)
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()

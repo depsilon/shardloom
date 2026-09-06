@@ -72,6 +72,14 @@ coalescing within each source batch. C5 adds numeric compression after the last
 canonicalizing repartition. Its smaller artifact and RSS are measured local
 outcomes, not proof of a complete global allocator or universal query-speed gain.
 
+Historical ownership caveat: these frozen measurements do not prove retention
+of root `LayoutRef` credits through provider footer completion. The strategy-owned
+lease could drop before Vortex 0.85 finished the footer. The later correctness
+fix moves that ownership onto the returned root's `LayoutChildren` to cover the
+longer lifetime; its validation is recorded separately. Native input-buffer
+ownership evidence remains a separate proof. No frozen result, source identity
+or acceptance status is changed, and no new performance result is claimed.
+
 The remaining independent publication readback/checksum is preserved. No required
 validation or first-query preparation is moved outside the ingest clock. Original
 reader/input owners, provider scratch and allocations bypassing the native host
