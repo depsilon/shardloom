@@ -25,13 +25,13 @@ publication or a new release.
 
 | Existing queue | Remaining work | Current status and required evidence |
 |---|---|---|
-| PERF-04/05 | Compound numeric/text COUNT | Implemented with exact complete-key workers and typed pressure handoff; correctness tests pass, paired public and held-out timing acceptance pending |
+| PERF-04/05 | Compound numeric/text COUNT | Retained: exact complete-key workers and typed pressure handoff; Q15/Q17 and complete public/held-out acceptance recorded in the frozen checkpoint report |
 | PERF-04/05/06 | Exact grouped distinct and broader aggregate parallelism | Queued; complete group/value pairs, deterministic reductions, skew and full global selection |
 | PERF-03/04/05 | Compact aggregate state, string slabs and partition ownership scheduling | Queued; charged retained capacity, probes/lock waits, exact refunds, throughput and peak state |
-| PERF-03/07/10 | Scan-local compressed segment reuse and consumer fusion | Generation-scoped owned reuse passes focused ownership and actual duplicate-read tests; release lifecycle measurement and broader prepared-reader integration remain |
-| PERF-10 | Constant/run/FoR/bit-packed numeric computation | Constant/run scalar consumers pass complete-value and no-expansion tests; release measurements and bounded FoR/bit-packed experiments remain |
+| PERF-03/07/10 | Scan-local compressed segment reuse and consumer fusion | Narrow separate-field reuse retained for measured completed-read savings, with small observed local latency cost; broader prepared-reader integration and consumer fusion remain |
+| PERF-10 | Constant/run/FoR/bit-packed numeric computation | Weighted constant/run consumers retained with measured extrema gains; dense fused additive-only RunEnd keeps the faster native typed route after a measured regression; bounded FoR/bit-packed experiments remain |
 | PERF-08/09 | Column-addressable logical file layout over bounded physical writes | Test-only prototype preserves encoded payloads, footer statistics and selective reads; ordinary writer promotion and lifecycle measurements remain |
-| PERF-07/11 | Multi-segment memory generations and owned-buffer intake | Native column/row-group generations and owned intake pass ownership, value and durable-reopen tests; addressable operation timing and broader lifecycle acceptance remain |
+| PERF-07/11 | Multi-segment memory generations and owned-buffer intake | Native column/row-group generations and owned intake pass ownership, value and durable-reopen tests; release experiment records zero owned-intake payload copies, selective leaf requests and direct/generation clocks; broader lifecycle acceptance remains |
 | PERF-03/08/09 | Ingest worker scaling and bounded cohort overlap | Queued; matched 1/2/4/8-worker controls before overlap, full publication, observed RSS and retained-output bounds |
 | PERF-03/09/10 | Joint codec/consumer selection and task-level controllers | Queued; actual representation/scheduling decisions and complete ingest/first/repeated-query costs |
 | PERF-02 | Remaining prepared execution and native Python binding decision | Queued; existing runtime reuse, invalidation, supported family coverage, native/adapter/process timing and packaging constraints |
@@ -47,3 +47,12 @@ acceptance remains. A rejected optimization must retain its evidence and explain
 which scope was tested; rejection does not imply that the entire operator family
 or phase is complete. No universal sub-millisecond, sub-100-second suite, RSS-bound,
 or engine-superiority claim follows from this plan.
+
+The [first retained checkpoint](../benchmarks/perf-native-continuation-2026-09-06.md)
+records runtime `75fc09a0`, the unchanged native artifact, 98.831499-second full43
+best sum versus 119.887782 seconds, all 129 complete reference results and all
+1,360 independent held-out checks. Eighteen query bests still regress; small
+held-out timings are effectively unchanged or slightly higher. Intermediate
+arithmetic regressions, raw samples, cache tradeoffs and provider allocation
+exclusions remain visible. Later implementation continues against this frozen
+control; the score does not close the remaining ledger.
