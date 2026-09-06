@@ -408,7 +408,6 @@ pub(crate) struct OwnedOutput {
     pub(crate) temporary: PathBuf,
     pub(crate) file: fs::File,
     identity: (u64, u64),
-    prior_target: Option<DestinationGeneration>,
     committed: bool,
 }
 impl OwnedOutput {
@@ -423,15 +422,23 @@ impl OwnedOutput {
     ) -> Result<Self> {
         use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
         let temporary = temporary_output_path(target)?;
+        // POSIX rename cannot compare an expected destination generation as
+        // part of replacement. A preceding stat or an advisory lock would not
+        // protect another writer's output. Admit only atomic create-if-absent,
+        // even when the caller permits overwrite; never redirect to a weaker
+        // publication path. Check here so the shared preflight does not suggest
+        // enabling allow_overwrite for a capability this sink cannot provide.
+        match fs::symlink_metadata(target) {
+            Ok(_) => {
+                return Err(sink_error(
+                    "atomic generation-conditional replacement is unavailable for an existing destination; choose a new output path",
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(vortex_error(error)),
+        }
         prepare_output_target(target, &temporary, allow_overwrite)?;
         after_preflight()?;
-        // A target created after preflight is never an overwrite admission.
-        // No-overwrite mode must reach atomic create-if-absent publication.
-        let prior_target = if allow_overwrite && fs::symlink_metadata(target).is_ok() {
-            Some(destination_generation(target)?)
-        } else {
-            None
-        };
         let file = fs::OpenOptions::new()
             .create_new(true)
             .read(true)
@@ -446,7 +453,6 @@ impl OwnedOutput {
             temporary,
             file,
             identity: owned_identity,
-            prior_target,
             committed: false,
         })
     }
@@ -480,30 +486,16 @@ impl OwnedOutput {
         if identity(&self.temporary)? != self.identity {
             return Err(sink_error("native output temporary identity changed"));
         }
-        if let Some(prior) = self.prior_target {
-            if destination_generation(&self.target)? != prior {
-                return Err(sink_error("native output destination changed"));
-            }
-            fs::rename(&self.temporary, &self.target).map_err(vortex_error)?;
-        } else {
-            fs::hard_link(&self.temporary, &self.target).map_err(vortex_error)?;
-            if let Err(error) = unlink_temporary(&self.temporary) {
-                // Publication happened, but staging cleanup failed. Roll back
-                // only our own new hard link; a replaced destination belongs
-                // to its new owner and must remain untouched.
-                if identity(&self.target).is_ok_and(|target| target == self.identity) {
-                    fs::remove_file(&self.target).map_err(|rollback| sink_error(&format!(
-                        "temporary unlink failed ({error}); new output rollback also failed ({rollback}); output may remain at {}",
-                        self.target.display()
-                    )))?;
-                    return Err(sink_error(&format!(
-                        "temporary unlink failed ({error}); new output publication rolled back"
-                    )));
-                }
-                return Err(sink_error(&format!(
-                    "temporary unlink failed ({error}); output identity changed and was preserved"
-                )));
-            }
+        fs::hard_link(&self.temporary, &self.target).map_err(vortex_error)?;
+        if let Err(error) = unlink_temporary(&self.temporary) {
+            // The complete file was published. Do not attempt a stat-then-unlink
+            // rollback: that would have the same destination race as overwrite.
+            // Drop still attempts cleanup of our staging file, but never removes
+            // the destination. Report the partial commit for explicit recovery.
+            return Err(sink_error(&format!(
+                "output was published at {} but temporary unlink failed ({error}); destination preserved; inspect the output before retrying with a new path",
+                self.target.display()
+            )));
         }
         self.committed = true;
         Ok(())
@@ -527,21 +519,6 @@ fn identity(path: &Path) -> Result<(u64, u64)> {
     Ok((metadata.dev(), metadata.ino()))
 }
 
-type DestinationGeneration = (u64, u64, u64, (i64, i64), (i64, i64));
-fn destination_generation(path: &Path) -> Result<DestinationGeneration> {
-    use std::os::unix::fs::MetadataExt as _;
-    let metadata = fs::symlink_metadata(path).map_err(vortex_error)?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() {
-        return Err(sink_error("native output requires regular files"));
-    }
-    Ok((
-        metadata.dev(),
-        metadata.ino(),
-        metadata.len(),
-        (metadata.mtime(), metadata.mtime_nsec()),
-        (metadata.ctime(), metadata.ctime_nsec()),
-    ))
-}
 fn sink_error(message: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native array sink: {message}; no fallback execution was attempted"

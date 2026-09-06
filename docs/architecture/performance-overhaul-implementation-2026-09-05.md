@@ -165,7 +165,10 @@ the independent Q20 reference, and prepared-count latency.
   from native-buffer accounting. This is not a native Python binding.
 - The single-file native array sink writes admitted projection/filter output
   directly to a native Vortex artifact, with complete reopen checks and owned
-  staging/publication cleanup. It does not render JSON or build scalar rows as
+  staging/publication cleanup. It publishes only at an absent destination;
+  existing targets are rejected even with overwrite permission because the
+  local provider cannot atomically replace an expected file generation.
+  It does not render JSON or build scalar rows as
   an intermediate. A pushed limit reports its pre-limit count as a lower bound
   unless the scan is exhausted; no extra full scan is hidden in that evidence.
 - Numeric-sort spill now stores real query keys and row identities in native
@@ -440,6 +443,28 @@ worker regressions. The separate row-execution and independent correctness-oracl
 certificates remain absent. Earlier frozen resident latency samples predate this
 additional certificate construction and rendering.
 
+Review finding `3942522993` identified a destination-generation check followed
+by unconditional rename in the new native array sink. The safe local filesystem
+API has no atomic generation-conditional replacement primitive; advisory locks
+cannot exclude noncooperating writers. This sink now rejects existing targets
+before creating staging, even with `allow_overwrite=true`, and directs callers
+to a new output path. Both flag values publish absent targets with atomic
+create-if-absent hard links, so a raced creator is preserved. There is no retry
+through a weaker output path and no change to ingestion's separate publication
+implementation. The shared immutable memory-file publisher retains its existing
+new-target-only contract.
+
+The same review pass removes the analogous stat-then-unlink destination rollback
+on a staging-cleanup error. Once publication succeeds, cleanup failure returns
+an explicit partial-commit diagnostic and leaves the destination untouched;
+callers must inspect it before retrying. Owned staging cleanup is still attempted
+on drop. This does not claim protection from arbitrary mutation of a private
+staging namespace. Tests cover early rejection without staging, both flag values
+with a raced creator, successful new-target creation, preservation after cleanup
+failure and foreign replacement, source invalidation, and memory denial after
+staging admission. These publication corrections do not reattribute historical
+performance measurements to the current source.
+
 Merge-readiness verification covers source commit
 `50f997b54e5250dd6cd57b58e57d5c9fd94886a3`: default workspace all-target tests
 pass 3,403 tests across 102 suites; combined `shardloom-vortex`/`shardloom-cli`
@@ -449,6 +474,14 @@ formatting, 24 Python UAT tests, user-surface reference, contribution governance
 and CI-gate matrix checks pass. Earlier failed validation and the corrected
 prefetch race remain recorded in local `review-fix-*` logs under
 `/Users/dylan/LocalData/shardloom/perf-text-layout-20260905/`.
+
+The subsequent publication correction passes all 13 focused sink tests,
+3,403 default workspace tests, and 2,969 combined native-feature tests (one
+intentional fixture-generation ignore), both clippy gates, formatting, and the
+same three documentation/governance contracts. The initial focused run exposed
+a timestamp collision between concurrent test-directory creations; fixture names
+now include a process-local atomic sequence. That failure and the passing final
+runs remain in `overwrite-fix-*` logs alongside the earlier evidence.
 
 Retain the demonstrated duplicate-checksum removal, compact schema evidence,
 native result correctness repair, and tested runtime ownership foundation. The

@@ -21,31 +21,71 @@ struct Fixture(PathBuf);
 #[test]
 fn target_created_after_preflight_never_becomes_an_overwrite_admission() {
     use std::io::Write as _;
+    for allow_overwrite in [false, true] {
+        let fixture = Fixture::new();
+        let target = fixture.0.join("raced-target.vortex");
+        let mut output = OwnedOutput::new_with_after_preflight(&target, allow_overwrite, || {
+            fs::write(&target, b"independent creator bytes").map_err(vortex_error)
+        })
+        .unwrap();
+        let temporary = output.temporary.clone();
+        output.file.write_all(b"candidate bytes").unwrap();
+        assert!(output.commit().is_err());
+        assert_eq!(fs::read(&target).unwrap(), b"independent creator bytes");
+        drop(output);
+        assert!(!temporary.exists());
+        assert_eq!(fs::read(&target).unwrap(), b"independent creator bytes");
+    }
+}
+
+#[test]
+fn existing_targets_are_rejected_without_staging_even_with_overwrite_permission() {
+    for allow_overwrite in [false, true] {
+        let fixture = Fixture::new();
+        let target = fixture.0.join("existing.vortex");
+        fs::write(&target, b"independent writer bytes").unwrap();
+        let before = fs::metadata(&target).unwrap();
+        let error = OwnedOutput::new(&target, allow_overwrite).err().unwrap();
+        assert!(
+            error
+                .to_string()
+                .contains("atomic generation-conditional replacement is unavailable")
+        );
+        assert!(error.to_string().contains("choose a new output path"));
+        assert_eq!(fs::read(&target).unwrap(), b"independent writer bytes");
+        assert_eq!(
+            fs::metadata(&target).unwrap().modified().unwrap(),
+            before.modified().unwrap()
+        );
+        assert!(!temporary_output_path(&target).unwrap().exists());
+    }
+}
+
+#[test]
+fn overwrite_permission_still_allows_atomic_creation_of_an_absent_target() {
+    use std::io::Write as _;
     let fixture = Fixture::new();
-    let target = fixture.0.join("raced-target.vortex");
-    let mut output = OwnedOutput::new_with_after_preflight(&target, false, || {
-        fs::write(&target, b"independent creator bytes").map_err(vortex_error)
-    })
-    .unwrap();
+    let target = fixture.0.join("new.vortex");
+    let mut output = OwnedOutput::new(&target, true).unwrap();
+    output.file.write_all(b"complete output").unwrap();
     let temporary = output.temporary.clone();
-    output.file.write_all(b"candidate bytes").unwrap();
-    assert!(output.prior_target.is_none());
-    assert!(output.commit().is_err());
-    assert_eq!(fs::read(&target).unwrap(), b"independent creator bytes");
+    output.commit().unwrap();
     drop(output);
+    assert_eq!(fs::read(target).unwrap(), b"complete output");
     assert!(!temporary.exists());
-    assert_eq!(fs::read(&target).unwrap(), b"independent creator bytes");
 }
 
 impl Fixture {
     fn new() -> Self {
+        static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "shardloom-native-sink-{}-{}",
+            "shardloom-native-sink-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         ));
         fs::create_dir(&path).unwrap();
         Self(path)
@@ -299,19 +339,23 @@ fn source_generation_failure_and_output_failures_preserve_destination() {
 }
 
 #[test]
-fn failed_temporary_unlink_rolls_back_only_the_new_owned_output() {
+fn failed_temporary_unlink_never_removes_the_published_destination() {
+    use std::io::Write as _;
     let fixture = Fixture::new();
     let target = fixture.0.join("unlink-failure.vortex");
     let mut output = OwnedOutput::new(&target, false).unwrap();
+    output.file.write_all(b"complete output").unwrap();
     let temporary = output.temporary.clone();
     let error = output
         .commit_with_unlink(|_| Err(std::io::Error::other("injected unlink failure")))
         .unwrap_err();
-    assert!(error.to_string().contains("publication rolled back"));
-    assert!(!target.exists());
+    assert!(error.to_string().contains("output was published"));
+    assert!(error.to_string().contains("destination preserved"));
+    assert_eq!(fs::read(&target).unwrap(), b"complete output");
     drop(output);
     assert!(!temporary.exists());
 
+    let target = fixture.0.join("replaced-after-publication.vortex");
     let mut output = OwnedOutput::new(&target, false).unwrap();
     let temporary = output.temporary.clone();
     let replacement = fixture.0.join("replacement.vortex");
@@ -324,11 +368,7 @@ fn failed_temporary_unlink_rolls_back_only_the_new_owned_output() {
             ))
         })
         .unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("identity changed and was preserved")
-    );
+    assert!(error.to_string().contains("destination preserved"));
     assert_eq!(fs::read(&target).unwrap(), b"another writer's output");
     drop(output);
     assert!(!temporary.exists());
@@ -341,8 +381,7 @@ fn final_source_generation_failure_discards_staged_output_before_commit() {
     let source = fixture.source(17);
     let session = ResidentVortexSession::new(8 * 1024 * 1024, 1).unwrap();
     let prepared = session.prepare_file(&source).unwrap();
-    let output = fixture.0.join("existing.vortex");
-    fs::write(&output, b"existing destination").unwrap();
+    let output = fixture.0.join("new.vortex");
     let staged = prepared.with_native_execution(|_, _, _| {
         let output = OwnedOutput::new(&output, true)?;
         fs::rename(&source, fixture.0.join("old-source.vortex")).unwrap();
@@ -350,7 +389,7 @@ fn final_source_generation_failure_discards_staged_output_before_commit() {
         Ok(output)
     });
     assert!(staged.is_err());
-    assert_eq!(fs::read(&output).unwrap(), b"existing destination");
+    assert!(!output.exists());
     assert!(!temporary_output_path(&output).unwrap().exists());
 }
 
@@ -371,10 +410,10 @@ fn source_read_reservation_failure_cleans_staging_after_writer_admission() {
         .memory()
         .reserve(available - metadata - 1)
         .unwrap();
-    let output = fixture.0.join("existing.vortex");
-    fs::write(&output, b"existing destination").unwrap();
-    assert!(prepared.write(&request, &output, true, policy).is_err());
-    assert_eq!(fs::read(&output).unwrap(), b"existing destination");
+    let output = fixture.0.join("new.vortex");
+    let error = prepared.write(&request, &output, true, policy).unwrap_err();
+    assert!(error.to_string().contains("memory"), "{error}");
+    assert!(!output.exists());
     assert!(!temporary_output_path(&output).unwrap().exists());
 }
 
@@ -427,16 +466,6 @@ fn owned_staging_rejects_new_destination_and_preserves_replaced_temporary() {
     drop(output);
     assert_eq!(fs::read(target).unwrap(), b"concurrent destination");
     assert_eq!(fs::read(temporary).unwrap(), b"unrelated temporary");
-    let target = fixture.0.join("changed-destination.vortex");
-    fs::write(&target, b"old contents").unwrap();
-    let mut output = OwnedOutput::new(&target, true).unwrap();
-    fs::write(&target, b"new contents written to the same inode").unwrap();
-    assert!(output.commit().is_err());
-    drop(output);
-    assert_eq!(
-        fs::read(&target).unwrap(),
-        b"new contents written to the same inode"
-    );
 }
 
 #[test]
