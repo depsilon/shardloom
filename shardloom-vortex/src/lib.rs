@@ -51,6 +51,8 @@ pub use adapter::{
 };
 
 pub mod bounded_execution;
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+mod column_addressable_layout;
 pub mod columnar_result_dataplane;
 pub mod commit_execution_gate;
 pub mod commit_intent;

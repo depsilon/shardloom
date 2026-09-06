@@ -2,7 +2,7 @@
 //! Only block claims and returns synchronize. A block's per-entry consumption
 //! is local; its used count becomes visible when the block returns.
 
-use super::failed;
+use super::string_count_partitions::failed;
 use shardloom_core::Result;
 use std::sync::{
     Condvar, Mutex,

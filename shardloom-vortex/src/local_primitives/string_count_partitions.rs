@@ -16,8 +16,7 @@ use std::{
     time::Instant,
 };
 
-#[path = "string_count_entry_credits.rs"]
-mod entry_credits;
+use super::string_count_entry_credits as entry_credits;
 use entry_credits::{Claim, EntryBlock, EntryCredits};
 
 pub(super) const PARTITIONS: usize = 64;
@@ -667,7 +666,7 @@ fn add(counter: &AtomicU64, value: u64, message: &str) -> Result<()> {
         .map_err(|_| failed(message))
 }
 
-fn failed(reason: &str) -> ShardLoomError {
+pub(super) fn failed(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "local Vortex complete-key string count {reason}; no fallback execution was attempted"
     ))

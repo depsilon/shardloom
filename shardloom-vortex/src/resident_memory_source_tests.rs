@@ -5,6 +5,189 @@ use vortex::{
     session::VortexSession,
 };
 
+#[test]
+fn owned_numeric_slices_keep_full_capacity_credit_and_native_pointer() {
+    use vortex::array::arrays::Primitive;
+    let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
+    let memory = session.memory().clone();
+    let mut values = Vec::with_capacity(1024);
+    values.extend([i64::MIN, 9_007_199_254_740_993_i64, i64::MAX]);
+    let pointer = values.as_ptr();
+    let capacity = values.capacity() * 8;
+    let column = OwnedMemoryColumn::int64(&session, "exact", values, None).unwrap();
+    assert_eq!(
+        column
+            .array()
+            .as_opt::<Primitive>()
+            .unwrap()
+            .as_slice::<i64>()
+            .as_ptr(),
+        pointer
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, capacity as u64);
+    let slice = column.slice(1..2).unwrap();
+    let hidden_backing_clone = slice.array().clone();
+    drop(column);
+    assert_eq!(memory.snapshot().reserved_bytes, capacity as u64);
+    let source = ResidentMemorySource::from_owned_columns(
+        &session,
+        vec![slice],
+        MemorySourceBounds::default(),
+    )
+    .unwrap();
+    assert_eq!(source.intake_payload_bytes_copied(), 0);
+    let operation = source.prepare_projection(&["exact"], None, None).unwrap();
+    let result = operation.execute().unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(result.values_json.value()).unwrap(),
+        serde_json::json!([{"exact": 9_007_199_254_740_993_i64}])
+    );
+    drop(result);
+    drop(operation);
+    drop(source);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, capacity as u64);
+    drop(hidden_backing_clone);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn owned_utf8_slice_and_hidden_clone_retain_both_full_backing_capacities() {
+    use vortex::array::arrays::VarBin;
+    let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
+    let memory = session.memory().clone();
+    let mut bytes = Vec::with_capacity(4096);
+    bytes.extend_from_slice("é猫".as_bytes());
+    let pointer = bytes.as_ptr();
+    let mut offsets = Vec::with_capacity(128);
+    offsets.extend([0_u64, 2, 5]);
+    let capacity = bytes.capacity() + offsets.capacity() * 8;
+    let column = OwnedMemoryColumn::utf8(&session, "label", offsets, bytes, None).unwrap();
+    assert_eq!(
+        column.array().as_opt::<VarBin>().unwrap().bytes().as_ptr(),
+        pointer
+    );
+    let slice = column.slice(1..2).unwrap();
+    let hidden = slice.array().clone();
+    drop(column);
+    let source = ResidentMemorySource::from_owned_columns(
+        &session,
+        vec![slice],
+        MemorySourceBounds::default(),
+    )
+    .unwrap();
+    let result = source
+        .prepare_projection(&["label"], None, None)
+        .unwrap()
+        .execute()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(result.values_json.value()).unwrap(),
+        serde_json::json!([{"label":"猫"}])
+    );
+    drop(result);
+    drop(source);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, capacity as u64);
+    drop(hidden);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn owned_flat_columns_preserve_nullable_schema_and_full_values() {
+    let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
+    let valid = Some(vec![true, false, true]);
+    let columns = vec![
+        OwnedMemoryColumn::int64(
+            &session,
+            "id_alias",
+            vec![i64::MIN, 0, i64::MAX],
+            valid.clone(),
+        )
+        .unwrap(),
+        OwnedMemoryColumn::float64(
+            &session,
+            "number_alias",
+            vec![-0.0, f64::NAN, 1.25],
+            valid.clone(),
+        )
+        .unwrap(),
+        OwnedMemoryColumn::boolean(
+            &session,
+            "bool_alias",
+            vec![true, true, false],
+            valid.clone(),
+        )
+        .unwrap(),
+        OwnedMemoryColumn::utf8(
+            &session,
+            "text_alias",
+            vec![0, 2, 2, 5],
+            "é猫".as_bytes().to_vec(),
+            valid,
+        )
+        .unwrap(),
+    ];
+    let source =
+        ResidentMemorySource::from_owned_columns(&session, columns, MemorySourceBounds::default())
+            .unwrap();
+    assert_eq!(
+        source.dtype().as_struct_fields().field("text_alias"),
+        Some(DType::Utf8(Nullability::Nullable))
+    );
+    let result = source
+        .prepare_projection(
+            &["text_alias", "id_alias", "bool_alias", "number_alias"],
+            None,
+            None,
+        )
+        .unwrap()
+        .execute()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(result.values_json.value()).unwrap(),
+        serde_json::json!([
+            {"id_alias": i64::MIN, "number_alias": -0.0, "bool_alias": true, "text_alias": "é"},
+            {"id_alias": null, "number_alias": null, "bool_alias": null, "text_alias": null},
+            {"id_alias": i64::MAX, "number_alias": 1.25, "bool_alias": false, "text_alias": "猫"}
+        ])
+    );
+    assert_eq!(source.intake_payload_bytes_copied(), 0);
+}
+
+#[test]
+fn owned_intake_rejects_foreign_budgets_invalid_offsets_and_denial_without_leaks() {
+    let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
+    let other = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
+    let column = OwnedMemoryColumn::int64(&session, "x", vec![7], None).unwrap();
+    let live = session.snapshot().memory.reserved_bytes;
+    assert!(
+        ResidentMemorySource::from_owned_columns(
+            &other,
+            vec![column.clone()],
+            MemorySourceBounds::default()
+        )
+        .is_err()
+    );
+    assert_eq!(session.snapshot().memory.reserved_bytes, live);
+    assert_eq!(other.snapshot().memory.reserved_bytes, 0);
+    assert!(column.slice(0..2).is_err());
+    assert!(
+        OwnedMemoryColumn::utf8(&session, "x", vec![0, 1, 2], "é".as_bytes().to_vec(), None)
+            .is_err()
+    );
+    assert!(OwnedMemoryColumn::utf8(&session, "x", vec![0, 3, 2], b"ab".to_vec(), None).is_err());
+    assert!(OwnedMemoryColumn::float64(&session, "x", vec![f64::NAN], None).is_err());
+    assert!(OwnedMemoryColumn::int64(&session, "x", vec![1], Some(vec![])).is_err());
+    let tiny = ResidentVortexSession::new(8, 1).unwrap();
+    let mut oversized = Vec::with_capacity(100);
+    oversized.push(7_i64);
+    assert!(OwnedMemoryColumn::int64(&tiny, "x", oversized, None).is_err());
+    assert_eq!(tiny.snapshot().memory.reserved_bytes, 0);
+    drop(column);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
 fn fixture(session: &ResidentVortexSession, bounds: MemorySourceBounds) -> ResidentMemorySource {
     ResidentMemorySource::from_columns(
         session,

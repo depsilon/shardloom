@@ -54,6 +54,14 @@ enum Pending<T> {
     Inline(Budgeted<T>),
 }
 
+/// An initial capacity denial never runs the job or advances its ordinal. All
+/// failures after admission remain errors, including a provider error observed
+/// alongside an unrelated reservation denial.
+pub(super) enum SubmitOutcome {
+    Submitted(u64),
+    InitialCapacityDenied(ShardLoomError),
+}
+
 pub(super) struct CompletedChunk<T> {
     ordinal: u64,
     result: Budgeted<T>,
@@ -195,6 +203,16 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
     where
         F: FnOnce(&ChunkWorkerContext, &mut MemoryLease) -> Result<T> + Send + 'static,
     {
+        match self.try_submit(initial_bytes, job)? {
+            SubmitOutcome::Submitted(ordinal) => Ok(ordinal),
+            SubmitOutcome::InitialCapacityDenied(error) => Err(error),
+        }
+    }
+
+    pub(super) fn try_submit<F>(&mut self, initial_bytes: u64, job: F) -> Result<SubmitOutcome>
+    where
+        F: FnOnce(&ChunkWorkerContext, &mut MemoryLease) -> Result<T> + Send + 'static,
+    {
         self.cancellation
             .check()
             .map_err(|error| self.failure_or(error))?;
@@ -210,7 +228,10 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
             .next_ordinal
             .checked_add(1)
             .ok_or_else(|| failed("chunk ordinal overflowed"))?;
-        let mut lease = self.memory.reserve(initial_bytes)?;
+        let mut lease = match self.memory.reserve(initial_bytes) {
+            Ok(lease) => lease,
+            Err(error) => return Ok(SubmitOutcome::InitialCapacityDenied(error)),
+        };
         let count = self.window.outstanding.fetch_add(1, Ordering::AcqRel) + 1;
         self.window.peak.fetch_max(count, Ordering::AcqRel);
         let permit = WindowPermit(Arc::clone(&self.window));
@@ -264,7 +285,7 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         let ordinal = self.next_ordinal;
         self.next_ordinal = next;
         self.pending.push_back((ordinal, pending, permit));
-        Ok(ordinal)
+        Ok(SubmitOutcome::Submitted(ordinal))
     }
 
     pub(super) fn join_next(&mut self) -> Result<Option<CompletedChunk<T>>> {

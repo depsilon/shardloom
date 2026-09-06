@@ -73,7 +73,10 @@ fn run(
         }
     }
     jobs.finish(&mut states).unwrap();
-    assert_eq!(jobs.jobs.outstanding(), 0);
+    let CountWorkers::Single(single) = &jobs else {
+        panic!("single-key fixture must use single-key workers");
+    };
+    assert_eq!(single.jobs.outstanding(), 0);
     let (_, mut summary) = states.result_row_count_and_summary(limit).unwrap();
     jobs.annotate_summary(&mut summary).unwrap();
     let value: serde_json::Value = serde_json::from_str(&summary).unwrap();
@@ -352,7 +355,10 @@ fn partition_pressure_preserves_native_exact_refinement_and_total_weight() {
             assert!(jobs.submit(chunk, &mut states).unwrap());
         }
         jobs.finish(&mut states).unwrap();
-        assert_eq!(jobs.partition_handoffs, 1);
+        let CountWorkers::Single(single) = &jobs else {
+            panic!("single-key pressure fixture must use single-key workers");
+        };
+        assert_eq!(single.partition_handoffs, 1);
         assert_eq!(states.string_count_topk_total_weight, 33);
         assert!(states.needs_string_count_topk_heavy_hitter_second_pass());
         assert!(

@@ -21,12 +21,12 @@ use vortex::{
 
 /// The caller reserves the admitted layout metadata before constructing a
 /// writer. `max_chunks` also bounds the retained layout-reference vector.
-pub(super) struct SequentialNativeFlatLayout {
+pub(crate) struct SequentialNativeFlatLayout {
     max_chunks: usize,
 }
 
 impl SequentialNativeFlatLayout {
-    pub(super) fn strategy(max_chunks: usize) -> Arc<dyn LayoutStrategy> {
+    pub(crate) fn strategy(max_chunks: usize) -> Arc<dyn LayoutStrategy> {
         Arc::new(Self { max_chunks })
     }
 }

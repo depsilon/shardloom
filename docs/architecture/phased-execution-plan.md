@@ -294,6 +294,11 @@ allocator gaps. Broader compound parallelism, segment residency, query-oriented
 layouts and ingest overlap remain separate open work; this continuation does not
 mark whole PERF packets or competitive gates complete.
 
+The maintainer subsequently requested execution of all remaining suggestions.
+The [remaining performance work ledger](performance-continuation-2026-09-06.md)
+tracks that continuation under the existing PERF items, including implementation,
+feasibility experiments and measured retain/drop evidence.
+
 - [ ] `PERF-01` reconcile and instrument the public baseline.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied performance overhaul section 10, RFC 0044; accepted.

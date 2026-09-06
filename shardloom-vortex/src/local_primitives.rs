@@ -10,18 +10,36 @@ mod aggregate_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_timing.rs"]
 mod aggregate_timing;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/compound_count_partial.rs"]
+mod compound_count_partial;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/compound_count_partitions.rs"]
+mod compound_count_partitions;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/compound_count_tests.rs"]
+mod compound_count_tests;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/compound_count_workers.rs"]
+mod compound_count_workers;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/encoded_numeric_reduction.rs"]
+mod encoded_numeric_reduction;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/lazy_layout_metadata_tests.rs"]
 mod lazy_layout_metadata_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
-mod native_flat_layout;
+pub(crate) mod native_flat_layout;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_accessor.rs"]
 mod native_numeric_accessor;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_owner.rs"]
 mod native_numeric_owner;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/string_count_entry_credits.rs"]
+mod string_count_entry_credits;
 #[cfg(feature = "vortex-local-primitives")]
 use native_numeric_owner::NativeNumericOwner;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
@@ -19385,6 +19403,74 @@ fn read_local_vortex_simple_aggregate_scan(
             )?
         };
         let prepared = resident.prepare_file(path)?;
+        let restore_provider_drivers = external_cpu_pool
+            && required_simple_aggregate(request)?.group_by.len() == 2
+            && !compound_count_workers::request_schema_may_be_admitted(request, prepared.dtype());
+        let worker_memory =
+            (external_cpu_pool && !restore_provider_drivers).then(|| resident.memory());
+        let reuse = if prepared.has_segment_reuse_field_root()
+            && matches!(request.predicate, Some(PredicateExpr::And(_)))
+        {
+            let lowered = rewrite_simple_aggregate_for_embedded_derived_columns(
+                prepared.dtype(),
+                required_simple_aggregate(request)?,
+                request.predicate.as_ref(),
+            )?;
+            let (pushdown, residual) = lowered
+                .predicate
+                .as_ref()
+                .map_or((None, None), |predicate| {
+                    split_predicate_for_vortex_pushdown(predicate, request.kind)
+                });
+            let mut projected = lowered.aggregate.projected_columns();
+            if let Some(predicate) = &residual {
+                append_predicate_columns(predicate, &mut projected);
+            }
+            pushdown
+                .as_ref()
+                .map(|predicate| prepared.segment_reuse_policy(predicate, &projected))
+                .transpose()?
+                .flatten()
+        } else {
+            None
+        };
+        if let Some(reuse) = reuse {
+            let (mut result, evidence) = prepared.with_native_execution_cached_retry_with_drivers(
+                reuse,
+                restore_provider_drivers,
+                |file, session, runtime, attempt| {
+                    let mut retry =
+                        |error: &vortex::error::VortexError| attempt.request_uncached_retry(error);
+                    read_prepared_vortex_simple_aggregate_scan(
+                        source_uri,
+                        request,
+                        policy,
+                        file,
+                        session,
+                        runtime,
+                        worker_memory,
+                        Some(&mut retry),
+                    )
+                },
+            )?;
+            evidence.annotate(&mut result.result_summary)?;
+            return Ok(result);
+        }
+        if restore_provider_drivers {
+            let (mut result, drivers) =
+                prepared.with_native_execution_temporary_drivers(|file, session, runtime| {
+                    read_prepared_vortex_simple_aggregate_scan(
+                        source_uri, request, policy, file, session, runtime, None, None,
+                    )
+                })?;
+            let mut summary: serde_json::Value = serde_json::from_str(&result.result_summary)
+                .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
+            summary["aggregate_provider_background_workers"] = drivers.into();
+            summary["aggregate_provider_cpu_scope"] =
+                "same_prepared_source;two_key_worker_schema_not_admitted;temporary_provider_drivers;no_concurrent_aggregate_worker_pool".into();
+            result.result_summary = summary.to_string();
+            return Ok(result);
+        }
         prepared.with_native_execution(|file, session, runtime| {
             read_prepared_vortex_simple_aggregate_scan(
                 source_uri,
@@ -19393,7 +19479,8 @@ fn read_local_vortex_simple_aggregate_scan(
                 file,
                 session,
                 runtime,
-                external_cpu_pool.then(|| resident.memory()),
+                worker_memory,
+                None,
             )
         })
     }
@@ -19421,13 +19508,13 @@ fn read_local_vortex_simple_aggregate_scan(
                 ))
             })?;
         read_prepared_vortex_simple_aggregate_scan(
-            source_uri, request, policy, &file, &session, &runtime, None,
+            source_uri, request, policy, &file, &session, &runtime, None, None,
         )
     }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 fn read_prepared_vortex_simple_aggregate_scan(
     source_uri: &DatasetUri,
     request: &VortexQueryPrimitiveRequest,
@@ -19436,6 +19523,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
     session: &vortex::session::VortexSession,
     runtime: &impl vortex::io::runtime::BlockingRuntime,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
 ) -> Result<LocalVortexAggregateScan> {
     let attempt_started = Instant::now();
     let aggregate = required_simple_aggregate(request)?;
@@ -19622,6 +19710,13 @@ fn read_prepared_vortex_simple_aggregate_scan(
             };
             let chunk = match chunk {
                 Ok(chunk) => chunk,
+                Err(error) if uncached_retry.as_mut().is_some_and(|retry| retry(&error)) => {
+                    // The enclosing prepared-source boundary drops this whole
+                    // attempt and the optional cache before one uncached retry.
+                    // Classification occurs while the provider error is typed;
+                    // concurrent denials never reclassify corruption as pressure.
+                    return Err(vortex_error(error));
+                }
                 Err(error)
                     if count_workers.as_ref().is_some_and(
                         aggregate_count_workers::CountWorkers::has_active_partitions,
@@ -19645,7 +19740,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
                     let discarded_nanos = attempt_started.elapsed().as_nanos();
                     let replay_started = Instant::now();
                     let mut replayed = read_prepared_vortex_simple_aggregate_scan(
-                        source_uri, request, policy, file, session, runtime, None,
+                        source_uri, request, policy, file, session, runtime, None, None,
                     )?;
                     let mut summary: serde_json::Value =
                         serde_json::from_str(&replayed.result_summary)
@@ -23746,6 +23841,16 @@ impl SimpleAggregateStates {
         numeric_work: &mut NativeNumericAccessorWork,
         ctx: &mut vortex::array::ExecutionCtx,
     ) -> Result<bool> {
+        if encoded_numeric_reduction::update(
+            self,
+            chunk,
+            declared_columns,
+            row_indices,
+            numeric_work,
+            ctx,
+        )? {
+            return Ok(true);
+        }
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns, ctx)?;
         numeric_work.add(&accessors.numeric_work)?;
         if !self.direct_update_admitted(&accessors, row_indices) {
@@ -33590,6 +33695,9 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         let uniqueness_proof_status = if self.numeric_utf8_topk_first_pass_exact_counts {
             match self.numeric_utf8_topk_exact_counts_source {
+                Some("complete_key_partition_topk") => {
+                    "complete_numeric_utf8_key_partition_all_contributions_before_selection"
+                }
                 Some("first_pass_bounded_exact_mirror") => {
                     "proofbound_numeric_utf8_heavy_hitter_exact_first_pass_bounded_mirror"
                 }
@@ -35539,6 +35647,12 @@ impl<'a> GroupedAggregateStates<'a> {
             .contains("native_canonical_utf8_owned_all_key_count_partial")
             || self
                 .aggregate_accessor_summary
+                .contains("native_compound_owned_all_key_count_partial")
+            || self
+                .aggregate_accessor_summary
+                .contains("native_compound_complete_key_partition_counts")
+            || self
+                .aggregate_accessor_summary
                 .contains("native_dictionary_owned_all_key_count_partial")
             || self
                 .aggregate_accessor_summary
@@ -37164,7 +37278,12 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.numeric_utf8_topk_heavy_hitter_sketch.is_some()
             || self.numeric_utf8_topk_exact_counts.is_some()
         {
-            capillary_work_units.push("numeric_utf8_heavy_hitter_sketch_update");
+            if self.numeric_utf8_topk_exact_counts_source == Some("complete_key_partition_topk") {
+                capillary_work_units.push("native_compound_complete_key_partition_counts");
+                capillary_work_units.push("complete_numeric_utf8_partition_final_topk");
+            } else {
+                capillary_work_units.push("numeric_utf8_heavy_hitter_sketch_update");
+            }
             capillary_work_units.push("proofbound_numeric_utf8_topk_retention");
             pulseweave_pressure_signals.push("numeric_utf8_heavy_hitter_candidate_groups");
             pulseweave_pressure_signals.push("numeric_utf8_heavy_hitter_threshold");
@@ -37183,6 +37302,10 @@ impl<'a> GroupedAggregateStates<'a> {
                         .push("numeric_utf8_heavy_hitter_retained_boundary_exact_proof");
                     pulseweave_pressure_signals
                         .push("numeric_utf8_heavy_hitter_retained_boundary_upper_bound");
+                } else if self.numeric_utf8_topk_exact_counts_source
+                    == Some("complete_key_partition_topk")
+                {
+                    pulseweave_pressure_signals.push("complete_numeric_utf8_partition_exact_proof");
                 } else {
                     pulseweave_pressure_signals
                         .push("numeric_utf8_heavy_hitter_no_eviction_exact_proof");

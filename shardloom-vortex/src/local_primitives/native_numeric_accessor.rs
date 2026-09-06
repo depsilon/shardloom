@@ -26,6 +26,7 @@ use super::{AggregateDirectColumnAccessor, NativeNumericOwner, vortex_error};
 
 #[derive(Clone, Default)]
 pub(super) struct NativeNumericAccessorWork {
+    pub(super) encoded_reduction: super::encoded_numeric_reduction::EncodedNumericReductionWork,
     calls: u64,
     rows: u64,
     source_logical_bytes: u64,
@@ -37,7 +38,30 @@ pub(super) struct NativeNumericAccessorWork {
 }
 
 impl NativeNumericAccessorWork {
+    /// Record a completed provider execution and retained primitive owner.
+    /// Callers keep the original typed provider error until execution succeeds.
+    pub(super) fn record_native_owner(
+        &mut self,
+        column: &str,
+        rows: u64,
+        source_logical_bytes: u64,
+        canonical_logical_bytes: u64,
+        elapsed_nanos: u128,
+    ) -> Result<()> {
+        self.add(&Self {
+            calls: 1,
+            rows,
+            source_logical_bytes,
+            canonical_logical_bytes,
+            elapsed_nanos,
+            max_array_rows: rows,
+            columns: BTreeSet::from([column.to_owned()]),
+            ..Self::default()
+        })
+    }
+
     pub(super) fn add(&mut self, other: &Self) -> Result<()> {
+        self.encoded_reduction.add(&other.encoded_reduction)?;
         for (total, increment) in [
             (&mut self.calls, other.calls),
             (&mut self.rows, other.rows),
@@ -74,6 +98,7 @@ impl NativeNumericAccessorWork {
         let object = value
             .as_object_mut()
             .ok_or_else(|| failed("summary is not an object"))?;
+        self.encoded_reduction.annotate(object);
         object.insert("aggregate_native_numeric_accessor".into(), serde_json::json!({
             "native_decode_calls": self.calls,
             "rows": self.rows,
@@ -160,6 +185,7 @@ pub(super) fn decode(
     }
     let rows = u64::try_from(array.len()).map_err(|_| failed("row count overflow"))?;
     let work = NativeNumericAccessorWork {
+        encoded_reduction: super::encoded_numeric_reduction::EncodedNumericReductionWork::default(),
         calls: 1,
         rows,
         source_logical_bytes: array.nbytes(),
