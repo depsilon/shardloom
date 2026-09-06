@@ -381,6 +381,20 @@ pub(super) fn update(
             >= 2;
         let mut base_sum = 0.0;
         let mut count = 0;
+        // Select once per source column. Wide fused projections can contain
+        // dozens of SUM/AVG states, none of which needs per-run dispatch.
+        let mut weighted_states = states
+            .states
+            .iter_mut()
+            .filter(|state| {
+                state.column_index == Some(column)
+                    && !(fused
+                        && matches!(
+                            state.function,
+                            SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg
+                        ))
+            })
+            .collect::<Vec<_>>();
         encoded.visit(selection, |value, weight| {
             add(&mut work.weighted_value_visits, 1)?;
             add(&mut work.logical_rows, weight)?;
@@ -392,19 +406,12 @@ pub(super) fn update(
                 add(&mut count, weight)?;
                 ordered_add(&mut base_sum, numeric, weight)?;
             }
-            for state in &mut states.states {
-                if state.column_index == Some(column)
-                    && !(fused
-                        && matches!(
-                            state.function,
-                            SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg
-                        ))
-                {
-                    update_weighted(state, value, weight)?;
-                }
+            for state in &mut weighted_states {
+                update_weighted(state, value, weight)?;
             }
             Ok(())
         })?;
+        drop(weighted_states);
         if fused {
             finish_fused_column(states, column, base_sum, count)?;
         }

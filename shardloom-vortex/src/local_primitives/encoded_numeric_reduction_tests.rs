@@ -155,6 +155,70 @@ fn encoded_numeric_reduction_all_widths_match_native_values_and_selected_duplica
 }
 
 #[test]
+fn encoded_numeric_reduction_wide_fusion_preserves_offsets_and_mixed_measures() {
+    let columns = vec!["measure".to_owned()];
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let array = RunEnd::try_new(
+        PrimitiveArray::new(vec![3_u32, 7, 9, 15], Validity::NonNullable).into_array(),
+        PrimitiveArray::from_option_iter([Some(1e16_f64), Some(1.0), None, Some(-1e16)])
+            .into_array(),
+        &mut ctx,
+    )
+    .unwrap()
+    .into_array();
+    let canonical = array
+        .clone()
+        .execute::<PrimitiveArray>(&mut ctx)
+        .unwrap()
+        .into_array();
+    for mixed in [false, true] {
+        let mut functions = vec!["sum"; 90];
+        if mixed {
+            functions.extend(["avg", "min", "max", "count", "count_distinct"]);
+        }
+        let mut actual = states(&functions, &columns);
+        for (index, state) in actual.states.iter_mut().enumerate() {
+            if matches!(
+                state.function,
+                SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg
+            ) {
+                state.argument_offset = Some(i64::try_from(index).unwrap() - 45);
+                state.sum = 7.0;
+                state.count = 2;
+            }
+        }
+        let mut reference = actual.clone();
+        // Successive calls also check that fusion remains per source array,
+        // including unordered selections and duplicate rows around null runs.
+        for selection in [None, Some([14, 3, 8, 0, 3, 14].as_slice())] {
+            assert!(
+                actual
+                    .update_direct_from_chunk(
+                        &array,
+                        &columns,
+                        selection,
+                        &mut NativeNumericAccessorWork::default(),
+                        &mut ctx,
+                    )
+                    .unwrap()
+            );
+            assert!(
+                reference
+                    .update_direct_from_chunk(
+                        &canonical,
+                        &columns,
+                        selection,
+                        &mut NativeNumericAccessorWork::default(),
+                        &mut ctx,
+                    )
+                    .unwrap()
+            );
+            assert_equal(&actual, &reference);
+        }
+    }
+}
+
+#[test]
 fn encoded_numeric_reduction_constants_preserve_null_empty_and_floating_order() {
     for array in [
         ConstantArray::new(0.1_f64, 100_001).into_array(),
