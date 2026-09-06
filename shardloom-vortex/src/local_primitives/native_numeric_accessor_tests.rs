@@ -1,10 +1,14 @@
 use super::{AggregateDirectColumnAccessor, NativeNumericAccessorWork};
-use crate::local_primitives::{aggregate_column_accessor_with_work, aggregate_direct_stat_value};
+use crate::local_primitives::{
+    aggregate_column_accessor_with_work, aggregate_direct_count_distinct_update,
+    aggregate_direct_numeric_sum_count, aggregate_direct_stat_value,
+};
 use shardloom_core::StatValue;
 use vortex::{
     array::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{ChunkedArray, DictArray, FilterArray, PrimitiveArray},
+        dtype::PType,
         scalar::Scalar,
         validity::Validity,
     },
@@ -25,7 +29,7 @@ fn exact(array: &ArrayRef, expected: &[StatValue]) {
     ));
     assert_eq!(work.calls, 1);
     assert_eq!(work.rows, expected.len() as u64);
-    assert_eq!(work.typed_value_bytes_copied, expected.len() as u64 * 8);
+    assert_eq!(work.typed_value_bytes_copied, 0);
     for (row, expected) in expected.iter().enumerate() {
         assert_eq!(
             &aggregate_direct_stat_value(&accessor, row).unwrap(),
@@ -131,12 +135,18 @@ fn native_numeric_accessor_keeps_float_bits_nulls_empty_and_existing_fast_paths(
         .into_array();
     let (accessor, work) = aggregate_column_accessor_with_work("floating", &chunked).unwrap();
     assert_eq!(work.calls, 1);
-    let AggregateDirectColumnAccessor::NullableFloat64 { values, row_nulls } = accessor else {
+    let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor else {
         panic!("nullable f64 remains typed");
     };
-    assert_eq!(values[0].to_bits(), (-0.0_f64).to_bits());
-    assert_eq!(row_nulls, vec![false, true, false, false, false]);
-    assert_eq!(&values[2..], &[f64::MIN, f64::MAX, 0.25]);
+    assert_eq!(
+        owner.numeric_value(0).unwrap().unwrap().to_bits(),
+        (-0.0_f64).to_bits()
+    );
+    assert_eq!(owner.null_rows(true), vec![1]);
+    assert_eq!(
+        &owner.primitive().as_slice::<f64>()[2..],
+        &[f64::MIN, f64::MAX, 0.25]
+    );
     let values =
         PrimitiveArray::from_option_iter([Some(f32::MIN), None, Some(f32::MAX)]).into_array();
     let chunked = ChunkedArray::try_new([values.clone()], values.dtype().clone())
@@ -254,6 +264,313 @@ fn no_numeric_decode_preserves_existing_materialization_evidence() {
     assert_eq!(actual, original);
 }
 
+#[test]
+fn native_numeric_owner_all_widths_keep_payload_identity_and_sliced_validity() {
+    macro_rules! check {
+        ($ty:ty, $ptype:ident, $variant:ident, $seed:ty) => {{
+            let seeds: [$seed; 4] = [3, 7, 99, 88];
+            let [three, seven, ninety_nine, eighty_eight] = seeds.map(<$ty>::from);
+            let input = PrimitiveArray::from_option_iter([
+                Some(ninety_nine),
+                Some(three),
+                None,
+                Some(seven),
+                Some(three),
+                Some(eighty_eight),
+            ])
+            .into_array()
+            .slice(1..5)
+            .unwrap();
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+            let before = input.clone().execute::<PrimitiveArray>(&mut ctx).unwrap();
+            let pointer = before.as_slice::<$ty>().as_ptr();
+            let (accessor, work) =
+                aggregate_column_accessor_with_work("narrow_alias", &input).unwrap();
+            let AggregateDirectColumnAccessor::NativeNumeric(owner) = &accessor else {
+                panic!("native owner required");
+            };
+            assert_eq!(owner.ptype(), PType::$ptype);
+            assert_eq!(owner.primitive().as_slice::<$ty>().as_ptr(), pointer);
+            assert_eq!(work.typed_value_bytes_copied, 0);
+            drop(before);
+            drop(input);
+            drop(ctx);
+            let expected = [
+                StatValue::$variant(three.into()),
+                StatValue::Null,
+                StatValue::$variant(seven.into()),
+                StatValue::$variant(three.into()),
+            ];
+            for (row, value) in expected.iter().enumerate() {
+                assert_eq!(&aggregate_direct_stat_value(&accessor, row).unwrap(), value);
+            }
+            assert_eq!(owner.null_rows(true), vec![1]);
+            assert_eq!(owner.non_null_count(Some(&[3, 1, 0, 3])).unwrap(), 3);
+            assert_eq!(
+                aggregate_direct_numeric_sum_count(&accessor, None).unwrap(),
+                (3, 13.0)
+            );
+            assert_eq!(
+                owner
+                    .compare_rows(
+                        "narrow_alias",
+                        shardloom_core::ComparisonOp::Gt,
+                        &StatValue::$variant(three.into())
+                    )
+                    .unwrap(),
+                vec![2]
+            );
+            assert_eq!(
+                owner
+                    .in_rows(
+                        "narrow_alias",
+                        &[StatValue::$variant(three.into()), StatValue::Null],
+                        false
+                    )
+                    .unwrap(),
+                vec![0, 1, 3]
+            );
+            assert_eq!(
+                owner
+                    .in_count(
+                        "narrow_alias",
+                        &[StatValue::$variant(three.into()), StatValue::Null],
+                        true
+                    )
+                    .unwrap(),
+                1
+            );
+            let mut distinct = Default::default();
+            let report = aggregate_direct_count_distinct_update(
+                &accessor,
+                Some(&[3, 0, 1, 2]),
+                &mut distinct,
+            )
+            .unwrap();
+            assert_eq!(report.non_null_rows, 3);
+            assert_eq!(distinct.len(), 2);
+            assert_eq!(report.dense_integer_preunion_used, owner.is_integer());
+            assert!(owner.numeric_value(4).is_err());
+            assert!(owner.non_null_count(Some(&[4])).is_err());
+        }};
+    }
+    check!(u8, U8, UInt64, u8);
+    check!(u16, U16, UInt64, u8);
+    check!(u32, U32, UInt64, u8);
+    check!(u64, U64, UInt64, u8);
+    check!(i8, I8, Int64, i8);
+    check!(i16, I16, Int64, i8);
+    check!(i32, I32, Int64, i8);
+    check!(i64, I64, Int64, i8);
+    check!(f32, F32, Float64, i8);
+    check!(f64, F64, Float64, i8);
+}
+
+#[test]
+fn native_numeric_owner_float_sum_preserves_widening_order_and_selection_duplicates() {
+    // f32 accumulation would lose the 1.0; native values must widen before each
+    // addition. The f64 profile separately detects reassociated accumulation.
+    for input in [
+        PrimitiveArray::from_option_iter([
+            Some(16_777_216_f32),
+            Some(1.0),
+            None,
+            Some(-16_777_216.0),
+        ])
+        .into_array(),
+        PrimitiveArray::from_option_iter([Some(1e16_f64), Some(1.0), None, Some(-1e16)])
+            .into_array(),
+    ] {
+        let expected = if matches!(
+            input.dtype(),
+            vortex::array::dtype::DType::Primitive(vortex::array::dtype::PType::F32, _)
+        ) {
+            1.0
+        } else {
+            0.0
+        };
+        let (accessor, _) = aggregate_column_accessor_with_work("ordered_measure", &input).unwrap();
+        assert_eq!(
+            aggregate_direct_numeric_sum_count(&accessor, None).unwrap(),
+            (3, expected)
+        );
+        assert_eq!(
+            aggregate_direct_numeric_sum_count(&accessor, Some(&[0, 3, 1, 1])).unwrap(),
+            (4, 2.0)
+        );
+    }
+    let input = PrimitiveArray::from_option_iter([Some(f64::INFINITY), None]).into_array();
+    let (accessor, _) = aggregate_column_accessor_with_work("nonfinite", &input).unwrap();
+    assert!(aggregate_direct_numeric_sum_count(&accessor, None).is_err());
+    assert_eq!(
+        aggregate_direct_numeric_sum_count(&accessor, Some(&[1])).unwrap(),
+        (0, 0.0)
+    );
+}
+
+#[test]
+fn native_numeric_owner_nullable_transforms_preserve_existing_errors_and_values() {
+    use crate::local_primitives::{
+        aggregate_direct_add_offset_key, aggregate_direct_date_trunc_minute_key,
+        aggregate_direct_extract_minute_key,
+    };
+    let legacy = AggregateDirectColumnAccessor::NullableInt64 {
+        values: vec![-61, 0, 121],
+        row_nulls: vec![false, true, false],
+    };
+    let input = PrimitiveArray::from_option_iter([Some(-61_i16), None, Some(121)]).into_array();
+    let (native, _) = aggregate_column_accessor_with_work("parity", &input).unwrap();
+    for row in 0..3 {
+        for (old, new) in [
+            (
+                aggregate_direct_add_offset_key(&legacy, row, 2),
+                aggregate_direct_add_offset_key(&native, row, 2),
+            ),
+            (
+                aggregate_direct_extract_minute_key(&legacy, row),
+                aggregate_direct_extract_minute_key(&native, row),
+            ),
+            (
+                aggregate_direct_date_trunc_minute_key(&legacy, row),
+                aggregate_direct_date_trunc_minute_key(&native, row),
+            ),
+        ] {
+            match (old, new) {
+                (Ok(old), Ok(new)) => assert_eq!(old, new),
+                (Err(old), Err(new)) => assert_eq!(old.to_string(), new.to_string()),
+                _ => panic!("native owner changed nullable transform admission"),
+            }
+        }
+    }
+    let legacy_float = AggregateDirectColumnAccessor::NullableFloat64 {
+        values: vec![0.0],
+        row_nulls: vec![true],
+    };
+    for input in [
+        PrimitiveArray::from_option_iter([None::<f32>]).into_array(),
+        PrimitiveArray::from_option_iter([None::<f64>]).into_array(),
+    ] {
+        let (native, _) = aggregate_column_accessor_with_work("nullable_float", &input).unwrap();
+        assert_eq!(
+            aggregate_direct_date_trunc_minute_key(&legacy_float, 0)
+                .unwrap_err()
+                .to_string(),
+            aggregate_direct_date_trunc_minute_key(&native, 0)
+                .unwrap_err()
+                .to_string(),
+        );
+    }
+    let input = PrimitiveArray::new(vec![i64::MAX], Validity::NonNullable).into_array();
+    let (native, _) = aggregate_column_accessor_with_work("overflow", &input).unwrap();
+    assert!(
+        aggregate_direct_add_offset_key(&native, 0, 1)
+            .unwrap_err()
+            .to_string()
+            .contains("direct int64 offset key overflowed")
+    );
+}
+
+#[test]
+fn native_numeric_owner_credits_follow_payload_and_pinned_builder_gap_is_explicit() {
+    use crate::{
+        local_primitives::aggregate_column_accessor_in_context,
+        owned_buffers::ReservedHostAllocator,
+    };
+    use shardloom_exec::live_memory::LiveMemoryPool;
+    use std::sync::Arc;
+    use vortex::{
+        VortexSessionDefault as _,
+        array::memory::{HostAllocator as _, MemorySessionExt as _},
+        buffer::{Alignment, Buffer},
+        session::VortexSession,
+    };
+    let memory = LiveMemoryPool::new(4096).unwrap();
+    let allocator = ReservedHostAllocator::new(memory.clone());
+    let mut bytes = allocator.allocate(16, Alignment::new(8)).unwrap();
+    bytes.as_mut_slice()[..8].copy_from_slice(&i64::MIN.to_ne_bytes());
+    bytes.as_mut_slice()[8..].copy_from_slice(&i64::MAX.to_ne_bytes());
+    let input = PrimitiveArray::new(
+        Buffer::<i64>::from_byte_buffer(bytes.freeze()),
+        Validity::NonNullable,
+    )
+    .into_array();
+    let retained = memory.snapshot().reserved_bytes;
+    let session = VortexSession::default().with_allocator(Arc::new(allocator));
+    let mut ctx = session.create_execution_ctx();
+    let (accessor, work) = aggregate_column_accessor_in_context("owned", &input, &mut ctx).unwrap();
+    assert_eq!(work.calls, 0);
+    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    drop(input);
+    drop(ctx);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    assert_eq!(
+        aggregate_direct_stat_value(&accessor, 1).unwrap(),
+        StatValue::Int64(i64::MAX)
+    );
+    drop(accessor);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let denied_memory = LiveMemoryPool::new(1).unwrap();
+    let denied_session = VortexSession::default()
+        .with_allocator(Arc::new(ReservedHostAllocator::new(denied_memory.clone())));
+    let mut denied_ctx = denied_session.create_execution_ctx();
+    // Pinned Chunked calls builder_with_capacity_in, whose implementation
+    // discards the allocator and uses the default builder. This upgrade-sensitive
+    // assertion records the coverage gap; it is not an admitted memory bound.
+    let child =
+        PrimitiveArray::new((0..512_i64).collect::<Vec<_>>(), Validity::NonNullable).into_array();
+    let input = ChunkedArray::try_new([child.clone(), child.clone()], child.dtype().clone())
+        .unwrap()
+        .into_array();
+    let (accessor, work) =
+        aggregate_column_accessor_in_context("untracked_provider_builder", &input, &mut denied_ctx)
+            .unwrap();
+    assert_eq!(work.calls, 1);
+    assert_eq!(work.typed_value_bytes_copied, 0);
+    assert_eq!(
+        accessor.i64_values().unwrap(),
+        (0..512_i64).chain(0..512).collect::<Vec<_>>()
+    );
+    assert_eq!(denied_memory.snapshot().denied_reservations, 0);
+    assert_eq!(denied_memory.snapshot().peak_reserved_bytes, 0);
+    drop(accessor);
+    assert_eq!(denied_memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_numeric_owner_propagates_real_corrupt_zstd_payload_error() {
+    use crate::local_primitives::aggregate_column_accessor_in_context;
+    use vortex::encodings::zstd::{Zstd, ZstdData};
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let primitive = PrimitiveArray::new((0..512_i64).collect::<Vec<_>>(), Validity::NonNullable);
+    let data = ZstdData::from_primitive_without_dict(&primitive, 0, 1024, &mut ctx).unwrap();
+    let mut parts = data.into_parts(Validity::NonNullable);
+    assert_eq!(parts.frames.len(), 1);
+    let frame = parts.frames.pop().unwrap();
+    assert!(frame.len() > 16);
+    // Keep a valid frame header/content-size declaration while truncating the
+    // compressed payload. Native construction succeeds; native decoding fails.
+    let data = ZstdData::new(
+        parts.dictionary,
+        vec![frame.slice(..frame.len() - 1)],
+        parts.metadata,
+        parts.n_rows,
+    );
+    let corrupt = Zstd::try_new(primitive.dtype().clone(), data, parts.validity)
+        .unwrap()
+        .into_array();
+    let provider_error = corrupt
+        .clone()
+        .execute::<PrimitiveArray>(&mut ctx)
+        .unwrap_err()
+        .to_string();
+    let error = aggregate_column_accessor_in_context("corrupt_numeric", &corrupt, &mut ctx)
+        .err()
+        .expect("native provider error must propagate");
+    assert!(error.to_string().contains(&provider_error), "{error}");
+}
+
 #[cfg(feature = "vortex-write")]
 #[test]
 #[allow(clippy::too_many_lines)] // Persisted renamed two-key grouping and scalar consumption share one fixture.
@@ -339,6 +656,7 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
     let batch = aggregate_direct_column_accessors_from_chunk(
         &array,
         &["renamed_key".into(), "renamed_phrase".into()],
+        &mut ctx,
     )
     .unwrap();
     assert_eq!(batch[0].i64_values().unwrap(), keys);
@@ -365,6 +683,48 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
         .with_order_by(vec![VortexAggregateOrderExpr::new("n", true)]),
     )
     .with_source_order_limit(7);
+    // Prove the same publicly admitted query uses its exact configured context
+    // at numeric execution, and propagates failure without retry. This explicit
+    // session-local test effect makes no claim that FoR honors HostAllocator;
+    // the real malformed-codec test above covers native error propagation.
+    let denied_memory = shardloom_exec::live_memory::LiveMemoryPool::new(1).unwrap();
+    let assert_query_denied = |request: &VortexQueryPrimitiveRequest| {
+        use vortex::{array::memory::MemorySessionExt as _, file::OpenOptionsSessionExt as _};
+        let file = runtime
+            .block_on(session.open_options().open_path(&path.0))
+            .unwrap();
+        let allocator: vortex::array::memory::HostAllocatorRef = std::sync::Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(denied_memory.clone()),
+        );
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let denied_session = VortexSession::default()
+            .with_handle(runtime.handle())
+            .with_allocator(std::sync::Arc::clone(&allocator))
+            .with_some(super::QueryContextProbe {
+                allocator,
+                calls: std::sync::Arc::clone(&calls),
+            });
+        let error = crate::local_primitives::read_prepared_vortex_simple_aggregate_scan(
+            request.source_uri.as_ref().unwrap(),
+            request,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            &file,
+            &denied_session,
+            &runtime,
+            None,
+        )
+        .err()
+        .expect("real query decode must propagate its configured context failure");
+        assert!(
+            error
+                .to_string()
+                .contains("test injected query-context failure"),
+            "{error}"
+        );
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(denied_memory.snapshot().reserved_bytes, 0);
+    };
+    assert_query_denied(&request);
     let report = execute_vortex_local_primitive_with_policy(
         &request,
         VortexLocalPrimitiveExecutionPolicy::single_threaded(),
@@ -391,7 +751,7 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
     );
     assert_eq!(
         actual["aggregate_native_numeric_accessor"]["typed_value_bytes_copied"],
-        keys.len() as u64 * 8
+        0
     );
     assert_eq!(
         actual["aggregate_accessor_materialization_status"],
@@ -417,6 +777,7 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
             "unique_keys".into(),
         )]),
     );
+    assert_query_denied(&scalar);
     let report = execute_vortex_local_primitive_with_policy(
         &scalar,
         VortexLocalPrimitiveExecutionPolicy::single_threaded(),

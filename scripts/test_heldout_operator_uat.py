@@ -35,6 +35,33 @@ class HeldoutOperatorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             concise_execution_fields({"fields": [{"key": f"resident_future_{index}", "value": "1"} for index in range(129)]})
 
+    def test_summary_preserves_numeric_decode_and_copy_work_including_zero(self):
+        prefix = "local_primitive_aggregate_native_numeric_accessor_"
+        for calls, rows, copied, elapsed in [
+            ("3", "23", "184", "9007199254740993"),
+            ("3", "23", "0", "9007199254740993"),
+            (0, 0, 0, 0),
+        ]:
+            with self.subTest(calls=calls, copied=copied):
+                expected = {prefix + key: value for key, value in {
+                    "native_decode_calls": calls,
+                    "rows": rows,
+                    "typed_value_bytes_copied": copied,
+                    "decode_and_typed_copy_nanos": elapsed,
+                }.items()}
+                source = {"status": "success", "human_text": "result " + "x" * 150000,
+                          "fields": [{"key": key, "value": value} for key, value in expected.items()] + [
+                              {"key": prefix + "oversized_detail", "value": "x" * 150000},
+                              {"key": prefix + "structured_detail", "value": {"values": [1, 2, 3]}},
+                              {"key": "unrelated_result_values", "value": "[1,2,3]"},
+                          ]}
+                original = copy.deepcopy(source)
+                actual = concise_execution_fields(source)
+                self.assertEqual(actual, expected)
+                for key, value in expected.items():
+                    self.assertIs(type(actual[key]), type(value))
+                self.assertEqual(source, original)
+
     def test_stdout_archive_is_lossless_hashed_and_never_overwrites_existing_evidence(self):
         raw = ('{"utf8":"東京🙂","exact":9223372036854775807,"escaped":"\\n"}\n' * 200).encode()
         with tempfile.TemporaryDirectory() as directory:

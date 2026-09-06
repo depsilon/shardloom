@@ -11,10 +11,14 @@ use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use std::{
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Instant,
 };
+
+#[path = "string_count_entry_credits.rs"]
+mod entry_credits;
+use entry_credits::{Claim, EntryBlock, EntryCredits};
 
 pub(super) const PARTITIONS: usize = 64;
 
@@ -54,14 +58,21 @@ pub(super) struct PartitionEvidence {
     pub arrange_nanos: u64,
     pub selection_nanos: u64,
     pub equality_comparisons: u64,
+    pub comparison_publish_calls: u64,
+    pub entry_credit_claim_calls: u64,
+    pub entry_credit_granted_entries: u64,
+    pub entry_credit_return_calls: u64,
+    pub entry_credit_refunded_entries: u64,
+    pub entry_credit_wait_calls: u64,
+    pub entry_credit_reserved_entries: usize,
+    pub entry_credit_block_entries: usize,
 }
 
 pub(super) struct StringCountPartitions {
     partitions: Vec<Mutex<Partition>>,
     memory: LiveMemoryPool,
-    entry_limit: usize,
     retained_cap: usize,
-    entries: AtomicUsize,
+    entry_credits: EntryCredits,
     pressure: AtomicBool,
     pub committed_rows: AtomicU64,
     pub lock_wait_nanos: AtomicU64,
@@ -69,7 +80,28 @@ pub(super) struct StringCountPartitions {
     pub arrange_nanos: AtomicU64,
     pub selection_nanos: AtomicU64,
     pub equality_comparisons: AtomicU64,
+    comparison_publish_calls: AtomicU64,
     _metadata: MemoryLease,
+}
+
+#[derive(Default)]
+struct ReconcileProgress {
+    cursor: usize,
+    consumed: u64,
+    comparisons: u64,
+}
+
+#[derive(Default)]
+struct EntryAdmission<'a> {
+    block: Option<EntryBlock<'a>>,
+    exhausted: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Update {
+    Applied,
+    NeedCredits,
+    Pressure,
 }
 
 impl StringCountPartitions {
@@ -113,9 +145,8 @@ impl StringCountPartitions {
         Ok(Some(Arc::new(Self {
             partitions,
             memory: memory.clone(),
-            entry_limit,
             retained_cap,
-            entries: AtomicUsize::new(0),
+            entry_credits: EntryCredits::new(entry_limit),
             pressure: AtomicBool::new(false),
             committed_rows: AtomicU64::new(0),
             lock_wait_nanos: AtomicU64::new(0),
@@ -123,6 +154,7 @@ impl StringCountPartitions {
             arrange_nanos: AtomicU64::new(0),
             selection_nanos: AtomicU64::new(0),
             equality_comparisons: AtomicU64::new(0),
+            comparison_publish_calls: AtomicU64::new(0),
             _metadata: lease,
         })))
     }
@@ -132,25 +164,40 @@ impl StringCountPartitions {
     }
     pub(super) fn request_pressure(&self) {
         self.pressure.store(true, Ordering::Release);
+        self.entry_credits.wake();
     }
+    /// Exact after reducers drain; a published lower bound while a block is active.
+    /// This cumulative count survives replay and storage release.
     pub(super) fn group_count(&self) -> usize {
-        self.entries.load(Ordering::Acquire)
+        self.entry_credits.committed()
     }
 
     pub(super) fn denied_reservations(&self) -> u64 {
         self.memory.snapshot().denied_reservations
     }
 
-    pub(super) fn evidence(&self) -> PartitionEvidence {
-        PartitionEvidence {
-            groups: self.group_count(),
+    pub(super) fn evidence(&self) -> Result<PartitionEvidence> {
+        let credits = self.entry_credits.evidence()?;
+        if credits.reserved != 0 {
+            return Err(failed("entry credits remain outstanding at final evidence"));
+        }
+        Ok(PartitionEvidence {
+            groups: credits.committed,
             rows: self.committed_rows.load(Ordering::Acquire),
             lock_wait_nanos: self.lock_wait_nanos.load(Ordering::Acquire),
             reconcile_nanos: self.reconcile_nanos.load(Ordering::Acquire),
             arrange_nanos: self.arrange_nanos.load(Ordering::Acquire),
             selection_nanos: self.selection_nanos.load(Ordering::Acquire),
             equality_comparisons: self.equality_comparisons.load(Ordering::Acquire),
-        }
+            comparison_publish_calls: self.comparison_publish_calls.load(Ordering::Acquire),
+            entry_credit_claim_calls: credits.claim_calls,
+            entry_credit_granted_entries: credits.granted_entries,
+            entry_credit_return_calls: credits.return_calls,
+            entry_credit_refunded_entries: credits.refunded_entries,
+            entry_credit_wait_calls: credits.wait_calls,
+            entry_credit_reserved_entries: credits.reserved,
+            entry_credit_block_entries: entry_credits::BLOCK_ENTRIES,
+        })
     }
 
     pub(super) fn reduce(
@@ -163,15 +210,50 @@ impl StringCountPartitions {
         let ends = partial.arrange_partitions::<PARTITIONS>(worker)?;
         elapsed(&self.arrange_nanos, started)?;
         let work = partial.work.clone();
-        let mut cursor = 0;
-        let mut consumed = 0_u64;
-        'partitions: for (index, end) in ends.into_iter().enumerate() {
-            if cursor == end {
+        let mut progress = ReconcileProgress::default();
+        for (index, end) in ends.into_iter().enumerate() {
+            if progress.cursor == end {
                 continue;
             }
+            if !self.reduce_partition(index, end, &partial, worker, &mut progress)? {
+                break;
+            }
+        }
+        add(
+            &self.committed_rows,
+            progress.consumed,
+            "committed weight overflowed",
+        )?;
+        let remaining = work
+            .rows
+            .checked_sub(progress.consumed)
+            .ok_or_else(|| failed("partial consumed excess weight"))?;
+        let deferred = if remaining == 0 {
+            if u64::try_from(progress.cursor).ok() != Some(work.partial_entries) {
+                return Err(failed("partial cursor differs from exact weight"));
+            }
+            None
+        } else {
+            partial.retain_unconsumed(progress.cursor, remaining);
+            partial.retain_deferred_metadata(task_lease)?;
+            Some(Arc::new(partial))
+        };
+        Ok(PartitionReceipt { work, deferred })
+    }
+
+    fn reduce_partition(
+        &self,
+        index: usize,
+        end: usize,
+        partial: &StringCountPartial,
+        worker: &ChunkWorkerContext,
+        progress: &mut ReconcileProgress,
+    ) -> Result<bool> {
+        let mut admission = EntryAdmission::default();
+        loop {
             worker.check_cancelled()?;
             if self.pressure_requested() {
-                break;
+                return Ok(false);
             }
             let started = Instant::now();
             let mut partition = self.partitions[index]
@@ -179,51 +261,55 @@ impl StringCountPartitions {
                 .map_err(|_| failed("partition lock poisoned"))?;
             elapsed(&self.lock_wait_nanos, started)?;
             let started = Instant::now();
-            while cursor < end {
-                if cursor % 4096 == 0 {
-                    worker.check_cancelled()?;
-                }
-                if self.pressure_requested() {
-                    elapsed(&self.reconcile_nanos, started)?;
-                    break 'partitions;
-                }
-                let (bytes, hash, count) = partial.entry(cursor)?;
-                if count == 0 {
-                    return Err(failed("zero-weight partial entry"));
-                }
-                let next_consumed = consumed
-                    .checked_add(count)
-                    .ok_or_else(|| failed("chunk weight overflowed"))?;
-                if !partition.update(bytes.as_slice(), hash, count, self, worker)? {
+            let outcome = partition.reconcile(partial, end, progress, self, worker, &mut admission);
+            drop(partition);
+            // Publish even on a failed count/insertion. Preserve the primary
+            // operation error if evidence accounting also fails.
+            let accounting = self
+                .publish_comparisons(progress)
+                .and_then(|()| elapsed(&self.reconcile_nanos, started));
+            let outcome = outcome?;
+            accounting?;
+            match outcome {
+                Update::Applied => return Ok(true),
+                Update::Pressure => {
                     self.request_pressure();
-                    elapsed(&self.reconcile_nanos, started)?;
-                    break 'partitions;
+                    return Ok(false);
                 }
-                consumed = next_consumed;
-                cursor += 1;
+                Update::NeedCredits => {
+                    // Return an exhausted block before waiting, and never hold
+                    // the partition mutex while another worker owns credits.
+                    drop(admission.block.take());
+                    match self.entry_credits.claim(end - progress.cursor, || {
+                        worker.check_cancelled()?;
+                        Ok(!self.pressure_requested())
+                    })? {
+                        Claim::Block(block) => admission.block = Some(block),
+                        Claim::Stopped => return Ok(false),
+                        // Relock and recheck the key: another worker may have
+                        // inserted it while this worker waited for admission.
+                        Claim::Exhausted => admission.exhausted = true,
+                    }
+                }
             }
-            elapsed(&self.reconcile_nanos, started)?;
         }
-        add(
-            &self.committed_rows,
-            consumed,
-            "committed weight overflowed",
-        )?;
-        let remaining = work
-            .rows
-            .checked_sub(consumed)
-            .ok_or_else(|| failed("partial consumed excess weight"))?;
-        let deferred = if remaining == 0 {
-            if u64::try_from(cursor).ok() != Some(work.partial_entries) {
-                return Err(failed("partial cursor differs from exact weight"));
-            }
-            None
-        } else {
-            partial.retain_unconsumed(cursor, remaining);
-            partial.retain_deferred_metadata(task_lease)?;
-            Some(Arc::new(partial))
-        };
-        Ok(PartitionReceipt { work, deferred })
+    }
+
+    fn publish_comparisons(&self, progress: &mut ReconcileProgress) -> Result<()> {
+        let count = std::mem::take(&mut progress.comparisons);
+        if count != 0 {
+            add(
+                &self.equality_comparisons,
+                count,
+                "comparison count overflowed",
+            )?;
+            add(
+                &self.comparison_publish_calls,
+                1,
+                "comparison publication count overflowed",
+            )?;
+        }
+        Ok(())
     }
 
     /// Caller invokes only after every count job joined. Consume owned storage
@@ -366,6 +452,46 @@ impl StringCountPartitions {
 }
 
 impl Partition {
+    fn reconcile(
+        &mut self,
+        partial: &StringCountPartial,
+        end: usize,
+        progress: &mut ReconcileProgress,
+        shared: &StringCountPartitions,
+        worker: &ChunkWorkerContext,
+        admission: &mut EntryAdmission<'_>,
+    ) -> Result<Update> {
+        while progress.cursor < end {
+            if progress.cursor.is_multiple_of(4096) {
+                worker.check_cancelled()?;
+                if shared.pressure_requested() {
+                    return Ok(Update::Pressure);
+                }
+            }
+            let (bytes, hash, count) = partial.entry(progress.cursor)?;
+            if count == 0 {
+                return Err(failed("zero-weight partial entry"));
+            }
+            let next = progress
+                .consumed
+                .checked_add(count)
+                .ok_or_else(|| failed("chunk weight overflowed"))?;
+            let outcome = self.update(
+                (bytes.as_slice(), hash, count),
+                &shared.memory,
+                worker,
+                admission,
+                &mut progress.comparisons,
+            )?;
+            if outcome != Update::Applied {
+                return Ok(outcome);
+            }
+            progress.consumed = next;
+            progress.cursor += 1;
+        }
+        Ok(Update::Applied)
+    }
+
     fn worse(&self, left: usize, right: usize) -> bool {
         let left = self.slots[left];
         let right = self.slots[right];
@@ -377,38 +503,39 @@ impl Partition {
 
     fn update(
         &mut self,
-        value: &[u8],
-        hash: u64,
-        count: u64,
-        shared: &StringCountPartitions,
+        (value, hash, count): (&[u8], u64, u64),
+        memory: &LiveMemoryPool,
         worker: &ChunkWorkerContext,
-    ) -> Result<bool> {
+        admission: &mut EntryAdmission<'_>,
+        comparisons: &mut u64,
+    ) -> Result<Update> {
         if !self.slots.is_empty() {
-            let index = self.find(value, hash, &shared.equality_comparisons)?;
+            let index = self.find(value, hash, comparisons)?;
             if self.slots[index].count != 0 {
                 self.slots[index].count = self.slots[index]
                     .count
                     .checked_add(count)
                     .ok_or_else(|| failed("complete-key count overflowed u64"))?;
-                return Ok(true);
+                return Ok(Update::Applied);
             }
         }
-        let claimed = shared
-            .entries
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |entries| {
-                entries
-                    .checked_add(1)
-                    .filter(|next| *next <= shared.entry_limit)
-            })
-            .is_ok();
-        if !claimed {
-            return Ok(false);
+        let Some(block) = admission
+            .block
+            .as_mut()
+            .filter(|block| block.remaining() != 0)
+        else {
+            return Ok(if admission.exhausted {
+                Update::Pressure
+            } else {
+                Update::NeedCredits
+            });
+        };
+        if self.insert(value, hash, count, memory, worker)? {
+            block.consume_one()?;
+            Ok(Update::Applied)
+        } else {
+            Ok(Update::Pressure)
         }
-        let result = self.insert(value, hash, count, &shared.memory, worker);
-        if !matches!(result, Ok(true)) {
-            shared.entries.fetch_sub(1, Ordering::AcqRel);
-        }
-        result
     }
 
     fn insert(
@@ -485,7 +612,7 @@ impl Partition {
         Ok(true)
     }
 
-    fn find(&self, value: &[u8], hash: u64, comparisons: &AtomicU64) -> Result<usize> {
+    fn find(&self, value: &[u8], hash: u64, comparisons: &mut u64) -> Result<usize> {
         let mut bucket = hash_bucket(hash, self.slots.len())?;
         loop {
             let slot = self.slots[bucket];
@@ -493,7 +620,9 @@ impl Partition {
                 return Ok(bucket);
             }
             if slot.hash == hash {
-                add(comparisons, 1, "comparison count overflowed")?;
+                *comparisons = comparisons
+                    .checked_add(1)
+                    .ok_or_else(|| failed("comparison count overflowed"))?;
                 if self.bytes[slot.offset..slot.offset + slot.len] == *value {
                     return Ok(bucket);
                 }

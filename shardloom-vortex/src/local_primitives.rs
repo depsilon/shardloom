@@ -19,6 +19,11 @@ mod native_flat_layout;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_accessor.rs"]
 mod native_numeric_accessor;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/native_numeric_owner.rs"]
+mod native_numeric_owner;
+#[cfg(feature = "vortex-local-primitives")]
+use native_numeric_owner::NativeNumericOwner;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitive_native_sink.rs"]
 pub(crate) mod native_sink;
@@ -9200,6 +9205,9 @@ fn fast_null_count_from_accessor(
     want_null: bool,
 ) -> Result<usize> {
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(owner) => {
+            return Ok(owner.null_count(want_null));
+        }
         AggregateDirectColumnAccessor::Boolean(values) => {
             return Ok(if want_null { 0 } else { values.len() });
         }
@@ -9333,6 +9341,9 @@ fn fast_null_row_indices_from_accessor(
     want_null: bool,
 ) -> Result<Vec<usize>> {
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(owner) => {
+            return Ok(owner.null_rows(want_null));
+        }
         AggregateDirectColumnAccessor::Boolean(values) => {
             return if want_null {
                 Ok(Vec::new())
@@ -9507,6 +9518,9 @@ fn fast_compare_count_from_accessor(
     value: &StatValue,
 ) -> Result<usize> {
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(owner) => {
+            return owner.compare_count(column, op, value);
+        }
         AggregateDirectColumnAccessor::Boolean(values) => {
             return fast_compare_count_from_bool_values(values, None, column, op, value);
         }
@@ -9818,6 +9832,9 @@ fn fast_compare_row_indices_from_accessor(
     value: &StatValue,
 ) -> Result<Vec<usize>> {
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(owner) => {
+            return owner.compare_rows(column, op, value);
+        }
         AggregateDirectColumnAccessor::Boolean(values) => {
             return fast_compare_row_indices_from_bool_values(values, None, column, op, value);
         }
@@ -10287,6 +10304,9 @@ fn fast_in_list_count_from_accessor(
     negated: bool,
 ) -> Result<usize> {
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(owner) => {
+            return owner.in_count(column, values, negated);
+        }
         AggregateDirectColumnAccessor::Boolean(values_slice) => {
             return fast_in_list_count_from_bool_values(
                 values_slice,
@@ -10353,26 +10373,24 @@ fn fast_in_list_count_from_accessor(
                 negated,
             );
         }
-        AggregateDirectColumnAccessor::Utf8Dictionary { .. }
-        | AggregateDirectColumnAccessor::Materialized { .. } => {}
-    }
-    if let AggregateDirectColumnAccessor::Utf8Dictionary {
-        row_ids,
-        values: dictionary_values,
-        value_nulls,
-        row_nulls,
-        ..
-    } = accessor
-    {
-        return fast_utf8_dictionary_in_list_count_from_accessor(
+        AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids,
-            dictionary_values,
-            value_nulls.as_deref(),
-            row_nulls.as_deref(),
-            column,
-            values,
-            negated,
-        );
+            values: dictionary_values,
+            value_nulls,
+            row_nulls,
+            ..
+        } => {
+            return fast_utf8_dictionary_in_list_count_from_accessor(
+                row_ids,
+                dictionary_values,
+                value_nulls.as_deref(),
+                row_nulls.as_deref(),
+                column,
+                values,
+                negated,
+            );
+        }
+        AggregateDirectColumnAccessor::Materialized { .. } => {}
     }
     let mut selected = 0usize;
     for row_index in 0..accessor.len() {
@@ -10748,6 +10766,7 @@ fn fast_in_list_row_indices_from_accessor(
     match accessor {
         AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
+        | AggregateDirectColumnAccessor::NativeNumeric(_)
         | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
         | AggregateDirectColumnAccessor::Int64(_)
@@ -10794,6 +10813,9 @@ fn fast_in_list_direct_row_indices_from_accessor(
     negated: bool,
 ) -> Option<Result<Vec<usize>>> {
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(owner) => {
+            Some(owner.in_rows(column, values, negated))
+        }
         AggregateDirectColumnAccessor::Boolean(values_slice) => Some(
             fast_in_list_row_indices_from_bool_values(values_slice, None, column, values, negated),
         ),
@@ -19513,6 +19535,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
     let mut scalar_numeric_accessor_work = NativeNumericAccessorWork::default();
+    let mut scalar_execution_ctx = native_numeric_execution_ctx(session);
     let mut grouped_states = if aggregate_has_grouping {
         let mut states = GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
@@ -19535,6 +19558,9 @@ fn read_prepared_vortex_simple_aggregate_scan(
     } else {
         None
     };
+    if let Some(states) = grouped_states.as_mut() {
+        states.native_execution_ctx = native_numeric_execution_ctx(session);
+    }
     let residual_evaluator = residual_predicate
         .as_ref()
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
@@ -19687,6 +19713,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
                             &declared_columns,
                             row_index_filter,
                             &mut scalar_numeric_accessor_work,
+                            &mut scalar_execution_ctx,
                         )?
                     } else {
                         false
@@ -19822,6 +19849,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
                         &declared_columns,
                         None,
                         &mut scalar_numeric_accessor_work,
+                        &mut scalar_execution_ctx,
                     )?
                 } else {
                     false
@@ -19987,6 +20015,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
             false,
             policy.resource_envelope(),
         )?;
+        exact_states.native_execution_ctx = native_numeric_execution_ctx(session);
         let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
@@ -20123,6 +20152,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
             false,
             policy.resource_envelope(),
         )?;
+        exact_states.native_execution_ctx = native_numeric_execution_ctx(session);
         let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
@@ -20245,6 +20275,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
             false,
             policy.resource_envelope(),
         )?;
+        exact_states.native_execution_ctx = native_numeric_execution_ctx(session);
         let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
@@ -20751,6 +20782,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
     let mut scalar_numeric_accessor_work = NativeNumericAccessorWork::default();
+    let mut scalar_execution_ctx = native_numeric_execution_ctx(&session);
     let mut grouped_states = if aggregate_has_grouping {
         Some(GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
@@ -20763,6 +20795,9 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     } else {
         None
     };
+    if let Some(states) = grouped_states.as_mut() {
+        states.native_execution_ctx = native_numeric_execution_ctx(&session);
+    }
     let mut source_row_count = 0_u64;
     let mut pre_limit_result_row_count = 0_usize;
     let mut arrays_read_count = 0_usize;
@@ -20879,6 +20914,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                             &declared_columns,
                             row_index_filter,
                             &mut scalar_numeric_accessor_work,
+                            &mut scalar_execution_ctx,
                         )?
                     } else {
                         false
@@ -21006,6 +21042,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                         &declared_columns,
                         None,
                         &mut scalar_numeric_accessor_work,
+                        &mut scalar_execution_ctx,
                     )?
                 } else {
                     false
@@ -23707,8 +23744,9 @@ impl SimpleAggregateStates {
         declared_columns: &[String],
         row_indices: Option<&[usize]>,
         numeric_work: &mut NativeNumericAccessorWork,
+        ctx: &mut vortex::array::ExecutionCtx,
     ) -> Result<bool> {
-        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns, ctx)?;
         numeric_work.add(&accessors.numeric_work)?;
         if !self.direct_update_admitted(&accessors, row_indices) {
             return Ok(false);
@@ -24369,6 +24407,7 @@ impl SimpleAggregateStates {
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::struct_excessive_bools)]
 struct GroupedAggregateStates<'a> {
+    native_execution_ctx: vortex::array::ExecutionCtx,
     request: &'a VortexSimpleAggregateRequest,
     result_limit: Option<usize>,
     resource_envelope: VortexLocalPrimitiveResourceEnvelope,
@@ -26360,7 +26399,8 @@ impl TransformedDictionaryCompactMeasurePlan {
                     })?;
                     match spec.value_transform {
                         AggregateValueTransform::Identity => match accessor {
-                            AggregateDirectColumnAccessor::UInt64(_)
+                            AggregateDirectColumnAccessor::NativeNumeric(_)
+                            | AggregateDirectColumnAccessor::UInt64(_)
                             | AggregateDirectColumnAccessor::NullableUInt64 { .. }
                             | AggregateDirectColumnAccessor::Int64(_)
                             | AggregateDirectColumnAccessor::NullableInt64 { .. }
@@ -27009,7 +27049,8 @@ fn dictionary_group_compact_measure_spec_admitted(
                 && accessors.get(column_index).is_some_and(|accessor| {
                     matches!(
                         accessor,
-                        AggregateDirectColumnAccessor::UInt64(_)
+                        AggregateDirectColumnAccessor::NativeNumeric(_)
+                            | AggregateDirectColumnAccessor::UInt64(_)
                             | AggregateDirectColumnAccessor::NullableUInt64 { .. }
                             | AggregateDirectColumnAccessor::Int64(_)
                             | AggregateDirectColumnAccessor::NullableInt64 { .. }
@@ -27291,6 +27332,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let state_template = SimpleAggregateStates::new(request, declared_columns)?;
         let compact_measure_specs = state_template.compact_group_measure_specs();
         Ok(Self {
+            native_execution_ctx: native_numeric_execution_ctx(vortex::array::legacy_session()),
             request,
             result_limit,
             resource_envelope,
@@ -27512,7 +27554,11 @@ impl<'a> GroupedAggregateStates<'a> {
         if !self.admits_count_star_direct_updates() {
             return Ok(false);
         }
-        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        let accessors = aggregate_direct_column_accessors_from_chunk(
+            chunk,
+            declared_columns,
+            &mut self.native_execution_ctx,
+        )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
@@ -27844,7 +27890,11 @@ impl<'a> GroupedAggregateStates<'a> {
         chunk: &vortex::array::ArrayRef,
         declared_columns: &[String],
     ) -> Result<bool> {
-        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        let accessors = aggregate_direct_column_accessors_from_chunk(
+            chunk,
+            declared_columns,
+            &mut self.native_execution_ctx,
+        )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
@@ -28550,13 +28600,13 @@ impl<'a> GroupedAggregateStates<'a> {
             ));
         }
         match (
-            numeric_accessor,
-            minute_accessor,
+            aggregate_direct_integer_key_slice(numeric_accessor),
+            aggregate_direct_integer_key_slice(minute_accessor),
             roles.minute_column_prepared,
         ) {
             (
-                AggregateDirectColumnAccessor::UInt64(numeric_values),
-                AggregateDirectColumnAccessor::UInt64(minute_values),
+                Some(AggregateDirectIntegerKeySlice::UInt64(numeric_values)),
+                Some(AggregateDirectIntegerKeySlice::UInt64(minute_values)),
                 true,
             ) => self.update_numeric_minute_string_count_direct_slices(
                 rows,
@@ -28569,8 +28619,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 |row_index| aggregate_prepared_minute_u64_value(minute_values[row_index]),
             )?,
             (
-                AggregateDirectColumnAccessor::UInt64(numeric_values),
-                AggregateDirectColumnAccessor::UInt64(minute_values),
+                Some(AggregateDirectIntegerKeySlice::UInt64(numeric_values)),
+                Some(AggregateDirectIntegerKeySlice::UInt64(minute_values)),
                 false,
             ) => self.update_numeric_minute_string_count_direct_slices(
                 rows,
@@ -28583,8 +28633,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 |row_index| aggregate_raw_minute_u64_value(minute_values[row_index]),
             )?,
             (
-                AggregateDirectColumnAccessor::UInt64(numeric_values),
-                AggregateDirectColumnAccessor::Int64(minute_values),
+                Some(AggregateDirectIntegerKeySlice::UInt64(numeric_values)),
+                Some(AggregateDirectIntegerKeySlice::Int64(minute_values)),
                 true,
             ) => self.update_numeric_minute_string_count_direct_slices(
                 rows,
@@ -28597,8 +28647,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 |row_index| aggregate_prepared_minute_i64_value(minute_values[row_index]),
             )?,
             (
-                AggregateDirectColumnAccessor::UInt64(numeric_values),
-                AggregateDirectColumnAccessor::Int64(minute_values),
+                Some(AggregateDirectIntegerKeySlice::UInt64(numeric_values)),
+                Some(AggregateDirectIntegerKeySlice::Int64(minute_values)),
                 false,
             ) => self.update_numeric_minute_string_count_direct_slices(
                 rows,
@@ -28611,8 +28661,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 |row_index| aggregate_raw_minute_i64_value(minute_values[row_index]),
             )?,
             (
-                AggregateDirectColumnAccessor::Int64(numeric_values),
-                AggregateDirectColumnAccessor::UInt64(minute_values),
+                Some(AggregateDirectIntegerKeySlice::Int64(numeric_values)),
+                Some(AggregateDirectIntegerKeySlice::UInt64(minute_values)),
                 true,
             ) => self.update_numeric_minute_string_count_direct_slices(
                 rows,
@@ -28625,8 +28675,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 |row_index| aggregate_prepared_minute_u64_value(minute_values[row_index]),
             )?,
             (
-                AggregateDirectColumnAccessor::Int64(numeric_values),
-                AggregateDirectColumnAccessor::UInt64(minute_values),
+                Some(AggregateDirectIntegerKeySlice::Int64(numeric_values)),
+                Some(AggregateDirectIntegerKeySlice::UInt64(minute_values)),
                 false,
             ) => self.update_numeric_minute_string_count_direct_slices(
                 rows,
@@ -28639,8 +28689,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 |row_index| aggregate_raw_minute_u64_value(minute_values[row_index]),
             )?,
             (
-                AggregateDirectColumnAccessor::Int64(numeric_values),
-                AggregateDirectColumnAccessor::Int64(minute_values),
+                Some(AggregateDirectIntegerKeySlice::Int64(numeric_values)),
+                Some(AggregateDirectIntegerKeySlice::Int64(minute_values)),
                 true,
             ) => self.update_numeric_minute_string_count_direct_slices(
                 rows,
@@ -28653,8 +28703,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 |row_index| aggregate_prepared_minute_i64_value(minute_values[row_index]),
             )?,
             (
-                AggregateDirectColumnAccessor::Int64(numeric_values),
-                AggregateDirectColumnAccessor::Int64(minute_values),
+                Some(AggregateDirectIntegerKeySlice::Int64(numeric_values)),
+                Some(AggregateDirectIntegerKeySlice::Int64(minute_values)),
                 false,
             ) => self.update_numeric_minute_string_count_direct_slices(
                 rows,
@@ -29817,7 +29867,11 @@ impl<'a> GroupedAggregateStates<'a> {
         declared_columns: &[String],
         row_indices: Option<&[usize]>,
     ) -> Result<bool> {
-        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        let accessors = aggregate_direct_column_accessors_from_chunk(
+            chunk,
+            declared_columns,
+            &mut self.native_execution_ctx,
+        )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
@@ -30548,7 +30602,11 @@ impl<'a> GroupedAggregateStates<'a> {
         chunk: &vortex::array::ArrayRef,
         declared_columns: &[String],
     ) -> Result<bool> {
-        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        let accessors = aggregate_direct_column_accessors_from_chunk(
+            chunk,
+            declared_columns,
+            &mut self.native_execution_ctx,
+        )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
@@ -30818,7 +30876,11 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.update_count_star_direct_from_chunk(chunk, declared_columns, row_indices)? {
             return Ok(true);
         }
-        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        let accessors = aggregate_direct_column_accessors_from_chunk(
+            chunk,
+            declared_columns,
+            &mut self.native_execution_ctx,
+        )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
         self.update_compact_direct_from_accessors(
@@ -30837,7 +30899,11 @@ impl<'a> GroupedAggregateStates<'a> {
         timing: &mut aggregate_timing::AggregateFirstPassTiming,
     ) -> Result<bool> {
         let started = Instant::now();
-        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns);
+        let accessors = aggregate_direct_column_accessors_from_chunk(
+            chunk,
+            declared_columns,
+            &mut self.native_execution_ctx,
+        );
         timing.accessor_nanos += started.elapsed().as_nanos();
         let accessors = accessors?;
         self.native_numeric_accessor_work
@@ -32315,7 +32381,11 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.numeric_pair_late_measure_retained_keys.is_none() {
             return Ok(false);
         }
-        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        let accessors = aggregate_direct_column_accessors_from_chunk(
+            chunk,
+            declared_columns,
+            &mut self.native_execution_ctx,
+        )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
@@ -37791,6 +37861,7 @@ impl AggregateCountDistinctPreunionGroupKey {
 #[cfg(feature = "vortex-local-primitives")]
 #[derive(Clone, Copy)]
 enum AggregateDirectIntegerKeySlice<'a> {
+    Native(&'a NativeNumericOwner),
     UInt64(&'a [u64]),
     Int64(&'a [i64]),
 }
@@ -37799,13 +37870,15 @@ enum AggregateDirectIntegerKeySlice<'a> {
 impl AggregateDirectIntegerKeySlice<'_> {
     fn len(self) -> usize {
         match self {
+            Self::Native(owner) => owner.len(),
             Self::UInt64(values) => values.len(),
             Self::Int64(values) => values.len(),
         }
     }
 
-    const fn signed(self) -> bool {
+    fn signed(self) -> bool {
         match self {
+            Self::Native(owner) => owner.signed(),
             Self::UInt64(_) => false,
             Self::Int64(_) => true,
         }
@@ -37813,6 +37886,7 @@ impl AggregateDirectIntegerKeySlice<'_> {
 
     fn bits(self, row_index: usize, label: &str) -> Result<u64> {
         match self {
+            Self::Native(owner) => owner.integer_key(row_index).map(|key| key.bits),
             Self::UInt64(values) => values.get(row_index).copied().ok_or_else(|| {
                 ShardLoomError::InvalidOperation(format!(
                     "local Vortex numeric-pair direct-slice {label} key row index was out of bounds; no fallback execution was attempted"
@@ -37835,7 +37909,16 @@ impl AggregateDirectIntegerKeySlice<'_> {
 fn aggregate_direct_integer_key_slice(
     accessor: &AggregateDirectColumnAccessor,
 ) -> Option<AggregateDirectIntegerKeySlice<'_>> {
+    if let Some(values) = accessor.u64_values() {
+        return Some(AggregateDirectIntegerKeySlice::UInt64(values));
+    }
+    if let Some(values) = accessor.i64_values() {
+        return Some(AggregateDirectIntegerKeySlice::Int64(values));
+    }
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(owner) => (owner.is_integer()
+            && owner.all_valid())
+        .then_some(AggregateDirectIntegerKeySlice::Native(owner)),
         AggregateDirectColumnAccessor::UInt64(values) => {
             Some(AggregateDirectIntegerKeySlice::UInt64(values))
         }
@@ -39068,6 +39151,7 @@ fn single_group_fast_value(
 
 #[cfg(feature = "vortex-local-primitives")]
 enum AggregateDirectColumnAccessor {
+    NativeNumeric(NativeNumericOwner),
     Boolean(Vec<bool>),
     NullableBoolean {
         values: Vec<bool>,
@@ -39288,6 +39372,7 @@ impl AggregateDirectColumnAccessor {
 
     fn len(&self) -> usize {
         match self {
+            Self::NativeNumeric(owner) => owner.len(),
             Self::Boolean(values) | Self::NullableBoolean { values, .. } => values.len(),
             Self::UInt64(values) | Self::NullableUInt64 { values, .. } => values.len(),
             Self::Int64(values) | Self::NullableInt64 { values, .. } => values.len(),
@@ -39299,6 +39384,7 @@ impl AggregateDirectColumnAccessor {
 
     fn u64_values(&self) -> Option<&[u64]> {
         match self {
+            Self::NativeNumeric(owner) => owner.u64_values(),
             Self::UInt64(values) => Some(values.as_slice()),
             _ => None,
         }
@@ -39306,6 +39392,7 @@ impl AggregateDirectColumnAccessor {
 
     fn i64_values(&self) -> Option<&[i64]> {
         match self {
+            Self::NativeNumeric(owner) => owner.i64_values(),
             Self::Int64(values) => Some(values.as_slice()),
             _ => None,
         }
@@ -39313,17 +39400,22 @@ impl AggregateDirectColumnAccessor {
 
     fn f64_values(&self) -> Option<&[f64]> {
         match self {
+            Self::NativeNumeric(owner) => owner.f64_values(),
             Self::Float64(values) => Some(values.as_slice()),
             _ => None,
         }
     }
 
     fn is_direct_integer(&self) -> bool {
+        if let Self::NativeNumeric(owner) = self {
+            return owner.is_integer() && owner.all_valid();
+        }
         self.u64_values().is_some() || self.i64_values().is_some()
     }
 
     fn evidence_kind(&self) -> &'static str {
         match self {
+            Self::NativeNumeric(owner) => owner.evidence_kind(),
             Self::Boolean(_) => "direct_bool",
             Self::NullableBoolean { .. } => "direct_bool_nullable",
             Self::UInt64(_) => "direct_u64",
@@ -39339,7 +39431,8 @@ impl AggregateDirectColumnAccessor {
 
     const fn evidence_family(&self) -> AggregateDirectColumnAccessorEvidenceFamily {
         match self {
-            Self::Boolean(_)
+            Self::NativeNumeric(_)
+            | Self::Boolean(_)
             | Self::NullableBoolean { .. }
             | Self::UInt64(_)
             | Self::NullableUInt64 { .. }
@@ -39357,7 +39450,8 @@ impl AggregateDirectColumnAccessor {
     const fn materialization_blocker(&self) -> Option<&'static str> {
         match self {
             Self::Materialized { blocker, .. } => Some(*blocker),
-            Self::Boolean(_)
+            Self::NativeNumeric(_)
+            | Self::Boolean(_)
             | Self::NullableBoolean { .. }
             | Self::UInt64(_)
             | Self::NullableUInt64 { .. }
@@ -39371,9 +39465,18 @@ impl AggregateDirectColumnAccessor {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn native_numeric_execution_ctx(
+    session: &vortex::session::VortexSession,
+) -> vortex::array::ExecutionCtx {
+    use vortex::array::VortexSessionExecute as _;
+    session.create_execution_ctx()
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn aggregate_direct_column_accessors_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<AggregateAccessorBatch> {
     let mut out = AggregateAccessorBatch {
         values: Vec::with_capacity(declared_columns.len()),
@@ -39382,13 +39485,13 @@ fn aggregate_direct_column_accessors_from_chunk(
     if chunk.dtype().is_struct() {
         for column in declared_columns {
             let array = logical_field_from_native_array(chunk, column)?;
-            let (accessor, work) = aggregate_column_accessor_with_work(column, &array)?;
+            let (accessor, work) = aggregate_column_accessor_in_context(column, &array, ctx)?;
             out.numeric_work.add(&work)?;
             out.values.push(accessor);
         }
     } else {
         let column = declared_columns.first().map_or("value", String::as_str);
-        let (accessor, work) = aggregate_column_accessor_with_work(column, chunk)?;
+        let (accessor, work) = aggregate_column_accessor_in_context(column, chunk, ctx)?;
         out.numeric_work.add(&work)?;
         out.values.push(accessor);
     }
@@ -39401,6 +39504,9 @@ fn aggregate_direct_integer_key_part(
     row_index: usize,
     label: &str,
 ) -> Result<AggregateIntegerKeyPart> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.integer_key(row_index);
+    }
     if let Some(values) = accessor.u64_values() {
         return values
             .get(row_index)
@@ -39451,7 +39557,8 @@ fn aggregate_direct_integer_key_part(
                 ))),
             }
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -39497,7 +39604,8 @@ fn aggregate_numeric_pair_key_accessor_admitted(
                     .all(|value| matches!(value, StatValue::UInt64(_) | StatValue::Int64(_)))
             }
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -39557,7 +39665,8 @@ fn aggregate_minute_key_accessor_admitted(
                 values.iter().all(admits_value)
             }
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -39573,6 +39682,16 @@ fn aggregate_prepared_minute_key_accessor_admitted(
     accessor: &AggregateDirectColumnAccessor,
     row_indices: Option<&[usize]>,
 ) -> bool {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        if !owner.is_integer() || !owner.all_valid() {
+            return false;
+        }
+        let admitted = |row| owner.integer_key(row).is_ok_and(|key| key.bits < 60);
+        return row_indices.map_or_else(
+            || (0..owner.len()).all(admitted),
+            |rows| rows.iter().copied().all(admitted),
+        );
+    }
     let admits_value = |value: &StatValue| match value {
         StatValue::UInt64(value) => *value < 60,
         StatValue::Int64(value) => (0..60).contains(value),
@@ -39610,7 +39729,8 @@ fn aggregate_prepared_minute_key_accessor_admitted(
                 values.iter().all(admits_value)
             }
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -39654,7 +39774,8 @@ fn aggregate_string_key_accessor_admitted(
                     .all(|value| matches!(value, StatValue::Utf8(_)))
             }
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -39671,6 +39792,7 @@ fn aggregate_direct_non_null_row_count(
     row_indices: Option<&[usize]>,
 ) -> Result<u64> {
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(owner) => owner.non_null_count(row_indices),
         AggregateDirectColumnAccessor::Boolean(values) => {
             aggregate_direct_row_count_for_len(values.len(), row_indices)
         }
@@ -39744,31 +39866,38 @@ fn aggregate_direct_non_null_row_count(
             Ok(count)
         }
         AggregateDirectColumnAccessor::Materialized { values, .. } => {
-            if let Some(row_indices) = row_indices {
-                row_indices.iter().try_fold(0_u64, |count, row_index| {
-                    let is_non_null = values
-                        .get(*row_index)
-                        .is_some_and(|value| !matches!(value, StatValue::Null));
-                    if is_non_null {
-                        count.checked_add(1).ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "local Vortex aggregate direct non-null count overflowed u64"
-                                    .to_string(),
-                            )
-                        })
-                    } else {
-                        Ok(count)
-                    }
+            aggregate_materialized_non_null_row_count(values, row_indices)
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_materialized_non_null_row_count(
+    values: &[StatValue],
+    row_indices: Option<&[usize]>,
+) -> Result<u64> {
+    if let Some(row_indices) = row_indices {
+        row_indices.iter().try_fold(0_u64, |count, row_index| {
+            let is_non_null = values
+                .get(*row_index)
+                .is_some_and(|value| !matches!(value, StatValue::Null));
+            if is_non_null {
+                count.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex aggregate direct non-null count overflowed u64".to_string(),
+                    )
                 })
             } else {
-                usize_to_u64(
-                    values
-                        .iter()
-                        .filter(|value| !matches!(value, StatValue::Null))
-                        .count(),
-                )
+                Ok(count)
             }
-        }
+        })
+    } else {
+        usize_to_u64(
+            values
+                .iter()
+                .filter(|value| !matches!(value, StatValue::Null))
+                .count(),
+        )
     }
 }
 
@@ -39792,7 +39921,8 @@ fn aggregate_direct_utf8_rows_admitted(
                     .all(|value| matches!(value, StatValue::Utf8(_) | StatValue::Null))
             }
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -39984,7 +40114,13 @@ fn aggregate_direct_count_distinct_update(
     row_indices: Option<&[usize]>,
     distinct_values: &mut AggregateDistinctSet,
 ) -> Result<AggregateDirectCountDistinctUpdate> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.update_distinct(row_indices, distinct_values);
+    }
     match accessor {
+        AggregateDirectColumnAccessor::NativeNumeric(_) => {
+            unreachable!("native owner handled above")
+        }
         AggregateDirectColumnAccessor::Boolean(values) => {
             aggregate_direct_count_distinct_update_bool_report(
                 values,
@@ -40814,8 +40950,35 @@ fn aggregate_column_accessor_with_work(
     column: &str,
     array: &vortex::array::ArrayRef,
 ) -> Result<(AggregateDirectColumnAccessor, NativeNumericAccessorWork)> {
-    if let Some(accessor) = direct_primitive_aggregate_column_accessor(array) {
-        return Ok((accessor, NativeNumericAccessorWork::default()));
+    use vortex::array::VortexSessionExecute as _;
+    aggregate_column_accessor_in_context(
+        column,
+        array,
+        &mut vortex::array::legacy_session().create_execution_ctx(),
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_column_accessor_in_context(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<(AggregateDirectColumnAccessor, NativeNumericAccessorWork)> {
+    use vortex::array::arrays::PrimitiveArray;
+    if direct_host_primitive(array).is_some()
+        && !matches!(
+            array.dtype(),
+            vortex::array::dtype::DType::Primitive(vortex::array::dtype::PType::F16, _)
+        )
+    {
+        let primitive = array
+            .clone()
+            .execute::<PrimitiveArray>(ctx)
+            .map_err(vortex_error)?;
+        return Ok((
+            AggregateDirectColumnAccessor::NativeNumeric(NativeNumericOwner::new(primitive, ctx)?),
+            NativeNumericAccessorWork::default(),
+        ));
     }
     if let Some(accessor) = direct_bool_aggregate_column_accessor(array) {
         return Ok((accessor, NativeNumericAccessorWork::default()));
@@ -40823,7 +40986,7 @@ fn aggregate_column_accessor_with_work(
     if let Some(accessor) = aggregate_direct_numeric_dictionary_accessor(array)? {
         return Ok((accessor, NativeNumericAccessorWork::default()));
     }
-    if let Some(decoded) = native_numeric_accessor::decode(column, array)? {
+    if let Some(decoded) = native_numeric_accessor::decode(column, array, ctx)? {
         return Ok(decoded);
     }
     if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array)? {
@@ -41304,17 +41467,6 @@ fn aggregate_direct_utf8_dictionary_accessor(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn direct_primitive_aggregate_column_accessor(
-    array: &vortex::array::ArrayRef,
-) -> Option<AggregateDirectColumnAccessor> {
-    if let Some(primitive) = direct_host_primitive(array) {
-        return primitive_aggregate_column_accessor_from_primitive(&primitive);
-    }
-    let filtered = array.as_opt::<vortex::array::arrays::Filter>()?;
-    filtered_primitive_aggregate_column_accessor(filtered)
-}
-
-#[cfg(feature = "vortex-local-primitives")]
 fn direct_bool_aggregate_column_accessor(
     array: &vortex::array::ArrayRef,
 ) -> Option<AggregateDirectColumnAccessor> {
@@ -41355,78 +41507,6 @@ fn bool_aggregate_column_accessor_from_array(
         values,
         (!row_nulls.is_empty()).then_some(row_nulls),
     ))
-}
-
-#[cfg(feature = "vortex-local-primitives")]
-fn filtered_primitive_aggregate_column_accessor(
-    filter: vortex::array::ArrayView<'_, vortex::array::arrays::Filter>,
-) -> Option<AggregateDirectColumnAccessor> {
-    use vortex::array::arrays::filter::FilterArraySlotsExt as _;
-
-    let mask = filter.filter_mask();
-    let primitive = direct_host_primitive(filter.child())?;
-    primitive_aggregate_column_accessor_from_primitive_with_mask(&primitive, Some(mask))
-}
-
-#[cfg(feature = "vortex-local-primitives")]
-fn primitive_aggregate_column_accessor_from_primitive(
-    primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
-) -> Option<AggregateDirectColumnAccessor> {
-    primitive_aggregate_column_accessor_from_primitive_with_mask(primitive, None)
-}
-
-#[cfg(feature = "vortex-local-primitives")]
-fn primitive_aggregate_column_accessor_from_primitive_with_mask(
-    primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
-    mask: Option<&vortex::mask::Mask>,
-) -> Option<AggregateDirectColumnAccessor> {
-    use vortex::array::dtype::PType;
-
-    let row_nulls = aggregate_direct_primitive_row_nulls(primitive, mask)?;
-    let row_nulls = (!row_nulls.is_empty()).then_some(row_nulls);
-    match primitive.ptype() {
-        PType::U8 => Some(aggregate_direct_u64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<u8>(), mask, u64::from)?,
-            row_nulls,
-        )),
-        PType::U16 => Some(aggregate_direct_u64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<u16>(), mask, u64::from)?,
-            row_nulls,
-        )),
-        PType::U32 => Some(aggregate_direct_u64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<u32>(), mask, u64::from)?,
-            row_nulls,
-        )),
-        PType::U64 => Some(aggregate_direct_u64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<u64>(), mask, |value| value)?,
-            row_nulls,
-        )),
-        PType::I8 => Some(aggregate_direct_i64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<i8>(), mask, i64::from)?,
-            row_nulls,
-        )),
-        PType::I16 => Some(aggregate_direct_i64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<i16>(), mask, i64::from)?,
-            row_nulls,
-        )),
-        PType::I32 => Some(aggregate_direct_i64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<i32>(), mask, i64::from)?,
-            row_nulls,
-        )),
-        PType::I64 => Some(aggregate_direct_i64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<i64>(), mask, |value| value)?,
-            row_nulls,
-        )),
-        PType::F16 => None,
-        PType::F32 => Some(aggregate_direct_f64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<f32>(), mask, f64::from)?,
-            row_nulls,
-        )),
-        PType::F64 => Some(aggregate_direct_f64_accessor(
-            aggregate_direct_values_from_slice(primitive.as_slice::<f64>(), mask, |value| value)?,
-            row_nulls,
-        )),
-    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -41803,6 +41883,9 @@ fn aggregate_direct_stat_value(
     accessor: &AggregateDirectColumnAccessor,
     row_index: usize,
 ) -> Result<StatValue> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.stat_value(row_index);
+    }
     if let AggregateDirectColumnAccessor::Boolean(values) = accessor {
         return values
             .get(row_index)
@@ -41891,7 +41974,7 @@ fn aggregate_direct_stat_value(
                         .to_string(),
                 )
             }),
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_) | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::Int64(_)
         | AggregateDirectColumnAccessor::Float64(_) => unreachable!(
@@ -41906,6 +41989,9 @@ fn aggregate_direct_numeric_value(
     accessor: &AggregateDirectColumnAccessor,
     row_index: usize,
 ) -> Result<Option<f64>> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.numeric_value(row_index);
+    }
     if let Some(values) = accessor.u64_values() {
         return values
             .get(row_index)
@@ -41978,7 +42064,7 @@ fn aggregate_direct_numeric_value(
                     .to_string(),
             ))
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_) | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Int64(_)
         | AggregateDirectColumnAccessor::Float64(_) => unreachable!(
             "direct numeric accessors are handled before aggregate_direct_numeric_value match"
@@ -41991,6 +42077,9 @@ fn aggregate_direct_numeric_sum_count(
     accessor: &AggregateDirectColumnAccessor,
     row_indices: Option<&[usize]>,
 ) -> Result<(u64, f64)> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.sum_count(row_indices);
+    }
     let mut count = 0_u64;
     let mut sum = 0.0_f64;
     let mut update_row = |row_index| -> Result<()> {
@@ -42066,7 +42155,7 @@ fn aggregate_direct_utf8_length_value(
                 ))),
             }
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_) | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -42088,6 +42177,9 @@ fn aggregate_direct_add_offset_key(
     row_index: usize,
     offset: i64,
 ) -> Result<AggregateDistinctValue> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.transform_integer(row_index, AggregateValueTransform::AddOffset(offset));
+    }
     if let Some(values) = accessor.u64_values() {
         let value = values.get(row_index).copied().ok_or_else(|| {
             ShardLoomError::InvalidOperation(
@@ -42154,6 +42246,9 @@ fn aggregate_direct_extract_minute_key(
     accessor: &AggregateDirectColumnAccessor,
     row_index: usize,
 ) -> Result<AggregateDistinctValue> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.transform_integer(row_index, AggregateValueTransform::ExtractMinute);
+    }
     if let Some(values) = accessor.u64_values() {
         return values
             .get(row_index)
@@ -42221,6 +42316,9 @@ fn aggregate_direct_date_trunc_minute_key(
     accessor: &AggregateDirectColumnAccessor,
     row_index: usize,
 ) -> Result<AggregateDistinctValue> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.transform_integer(row_index, AggregateValueTransform::DateTruncMinute);
+    }
     if let Some(values) = accessor.u64_values() {
         return values
             .get(row_index)
@@ -42309,6 +42407,14 @@ fn aggregate_direct_prepared_minute_u8(
     accessor: &AggregateDirectColumnAccessor,
     row_index: usize,
 ) -> Result<u8> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        let key = owner.integer_key(row_index)?;
+        return if key.signed {
+            aggregate_prepared_minute_i64_value(key.bits.cast_signed())
+        } else {
+            aggregate_prepared_minute_u64_value(key.bits)
+        };
+    }
     let value = if let Some(values) = accessor.u64_values() {
         values.get(row_index).copied().ok_or_else(|| {
             ShardLoomError::InvalidOperation(
@@ -42427,7 +42533,8 @@ fn aggregate_direct_interned_utf8_key(
             };
             string_interner.intern(value)
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -43247,6 +43354,9 @@ fn aggregate_direct_distinct_value(
     accessor: &AggregateDirectColumnAccessor,
     row_index: usize,
 ) -> Result<AggregateDistinctValue> {
+    if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
+        return owner.distinct_value(row_index);
+    }
     if let Some(value) = aggregate_direct_boolean_distinct_value(accessor, row_index) {
         return value;
     }
@@ -43334,7 +43444,7 @@ fn aggregate_direct_distinct_value(
                         .to_string(),
                 )
             }),
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_) | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::Int64(_)
@@ -43411,7 +43521,8 @@ fn aggregate_direct_distinct_value_for_group_key(
             })?;
             aggregate_distinct_value_for_group_key(value, string_interner)
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -43464,7 +43575,8 @@ fn aggregate_direct_distinct_value_for_group_key_existing(
                 string_interner,
             ))
         }
-        AggregateDirectColumnAccessor::UInt64(_)
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+        | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Boolean(_)
         | AggregateDirectColumnAccessor::NullableBoolean { .. }
         | AggregateDirectColumnAccessor::NullableUInt64 { .. }
@@ -44356,7 +44468,8 @@ impl SimpleAggregateState {
     ) -> bool {
         match self.value_transform {
             AggregateValueTransform::Identity => match accessor {
-                AggregateDirectColumnAccessor::UInt64(_)
+                AggregateDirectColumnAccessor::NativeNumeric(_)
+                | AggregateDirectColumnAccessor::UInt64(_)
                 | AggregateDirectColumnAccessor::NullableUInt64 { .. }
                 | AggregateDirectColumnAccessor::Int64(_)
                 | AggregateDirectColumnAccessor::NullableInt64 { .. }
@@ -44390,6 +44503,7 @@ impl SimpleAggregateState {
             AggregateValueTransform::Identity => match accessor {
                 AggregateDirectColumnAccessor::Boolean(_)
                 | AggregateDirectColumnAccessor::NullableBoolean { .. }
+                | AggregateDirectColumnAccessor::NativeNumeric(_)
                 | AggregateDirectColumnAccessor::UInt64(_)
                 | AggregateDirectColumnAccessor::NullableUInt64 { .. }
                 | AggregateDirectColumnAccessor::Int64(_)
@@ -56809,10 +56923,14 @@ mod tests {
 
         assert_eq!(accessor.evidence_kind(), "direct_i64");
         assert_eq!(accessor.len(), 3);
-        let AggregateDirectColumnAccessor::Int64(values) = accessor else {
-            panic!("filtered primitive should stay in a typed direct accessor");
+        let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor else {
+            panic!("filtered primitive should retain its native typed owner");
         };
-        assert_eq!(values, vec![10, 10, 30]);
+        drop(filtered);
+        assert_eq!(owner.ptype(), vortex::array::dtype::PType::I64);
+        assert!(owner.all_valid());
+        assert!(owner.null_rows(true).is_empty());
+        assert_eq!(owner.i64_values(), Some([10_i64, 10, 30].as_slice()));
     }
 
     #[test]
@@ -56835,10 +56953,14 @@ mod tests {
 
         assert_eq!(accessor.evidence_kind(), "direct_i64");
         assert_eq!(accessor.len(), 3);
-        let AggregateDirectColumnAccessor::Int64(values) = accessor else {
-            panic!("selected valid nullable primitive should stay in a typed direct accessor");
+        let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor else {
+            panic!("selected valid nullable primitive should retain its native typed owner");
         };
-        assert_eq!(values, vec![10, 10, 30]);
+        drop(filtered);
+        assert_eq!(owner.ptype(), vortex::array::dtype::PType::I64);
+        assert!(owner.all_valid());
+        assert!(owner.null_rows(true).is_empty());
+        assert_eq!(owner.i64_values(), Some([10_i64, 10, 30].as_slice()));
     }
 
     #[test]
@@ -56861,11 +56983,26 @@ mod tests {
 
         assert_eq!(accessor.evidence_kind(), "direct_i64_nullable");
         assert_eq!(accessor.len(), 3);
-        let AggregateDirectColumnAccessor::NullableInt64 { values, row_nulls } = accessor else {
-            panic!("retained nullable primitive should stay in a typed direct nullable accessor");
+        let AggregateDirectColumnAccessor::NativeNumeric(owner) = &accessor else {
+            panic!("retained nullable primitive should retain its native typed owner and validity");
         };
-        assert_eq!(values, vec![10, 20, 10]);
-        assert_eq!(row_nulls, vec![false, true, false]);
+        drop(filtered);
+        assert_eq!(owner.ptype(), vortex::array::dtype::PType::I64);
+        assert!(!owner.all_valid());
+        assert_eq!(owner.null_rows(true), vec![1]);
+        assert_eq!(owner.null_rows(false), vec![0, 2]);
+        assert!(owner.i64_values().is_none());
+        let logical_values = (0..accessor.len())
+            .map(|row| aggregate_direct_stat_value(&accessor, row).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            logical_values,
+            vec![StatValue::Int64(10), StatValue::Null, StatValue::Int64(10)]
+        );
+        assert_eq!(
+            aggregate_direct_numeric_sum_count(&accessor, None).unwrap(),
+            (2, 20.0)
+        );
     }
 
     #[test]
@@ -57460,7 +57597,8 @@ mod tests {
                     &chunk,
                     &declared_columns,
                     None,
-                    &mut NativeNumericAccessorWork::default()
+                    &mut NativeNumericAccessorWork::default(),
+                    &mut native_numeric_execution_ctx(vortex::array::legacy_session()),
                 )
                 .expect("dictionary weighted update")
         );

@@ -570,7 +570,7 @@ impl CountWorkers {
         }
         self.merge_nanos += started.elapsed().as_nanos();
         self.partition_handoffs += 1;
-        self.partition_evidence = Some(partitions.evidence());
+        self.partition_evidence = Some(partitions.evidence()?);
         drop(partitions);
         // Existing successful receipts already contributed their complete input
         // weights. Failed count attempts contribute only on this successful retry.
@@ -644,7 +644,7 @@ impl CountWorkers {
         // storage can be released before formatting the bounded result.
         partitions.release_storage()?;
         self.partitions = None;
-        self.partition_evidence = Some(partitions.evidence());
+        self.partition_evidence = Some(partitions.evidence()?);
         Ok(())
     }
 
@@ -758,12 +758,46 @@ impl CountWorkers {
                     "partition_equality_comparisons",
                     evidence.equality_comparisons,
                 ),
+                (
+                    "partition_comparison_publish_calls",
+                    evidence.comparison_publish_calls,
+                ),
+                (
+                    "partition_entry_credit_claim_calls",
+                    evidence.entry_credit_claim_calls,
+                ),
+                (
+                    "partition_entry_credit_granted_entries",
+                    evidence.entry_credit_granted_entries,
+                ),
+                (
+                    "partition_entry_credit_return_calls",
+                    evidence.entry_credit_return_calls,
+                ),
+                (
+                    "partition_entry_credit_refunded_entries",
+                    evidence.entry_credit_refunded_entries,
+                ),
+                (
+                    "partition_entry_credit_wait_calls",
+                    evidence.entry_credit_wait_calls,
+                ),
+                (
+                    "partition_entry_credit_reserved_entries",
+                    evidence.entry_credit_reserved_entries as u64,
+                ),
+                (
+                    "partition_entry_credit_block_entries",
+                    evidence.entry_credit_block_entries as u64,
+                ),
                 ("partition_native_handoffs", self.partition_handoffs),
                 ("partition_selection_jobs", self.selection_jobs),
                 ("partition_retry_jobs", self.retry_jobs),
             ] {
                 object.insert(format!("aggregate_workers_{name}"), value.into());
             }
+            object.insert("aggregate_workers_partition_entry_credit_scope".into(), "hard_distinct_limit_includes_committed_and_reserved_entries;consume_locally_publish_and_refund_at_block_or_partition_exit;wait_only_without_partition_guard_or_unused_credits;group_count_lower_bound_while_blocks_active_exact_after_drain_and_preserved_after_storage_release;final_outstanding_credits_zero;byte_reservations_remain_independent".into());
+            object.insert("aggregate_workers_partition_comparison_scope".into(), "checked_local_matching_hash_byte_comparisons_summed_at_partition_or_refill_or_error_boundaries;includes_rechecks_after_credit_wait;no_per_key_shared_counter_update".into());
             if self.partition_handoffs == 0 {
                 object.insert("candidate_groups".into(), self.partition_groups.into());
                 object.insert(

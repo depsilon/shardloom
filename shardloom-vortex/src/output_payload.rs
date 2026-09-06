@@ -2244,9 +2244,13 @@ mod tests {
     #[cfg(feature = "vortex-staged-output-fs")]
     impl ArtifactWriteFixture {
         fn new() -> Self {
+            use std::sync::atomic::{AtomicU64, Ordering};
             use std::time::{SystemTime, UNIX_EPOCH};
+            static NEXT_FIXTURE: AtomicU64 = AtomicU64::new(0);
             let unique = format!(
-                "shardloom-output-payload-test-{}",
+                "shardloom-output-payload-test-{}-{}-{}",
+                std::process::id(),
+                NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed),
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
@@ -2423,9 +2427,13 @@ mod tests {
     #[cfg(feature = "vortex-write")]
     impl NativePayloadWriteFixture {
         fn new() -> Self {
+            use std::sync::atomic::{AtomicU64, Ordering};
             use std::time::{SystemTime, UNIX_EPOCH};
+            static NEXT_FIXTURE: AtomicU64 = AtomicU64::new(0);
             let unique = format!(
-                "shardloom-native-output-payload-test-{}",
+                "shardloom-native-output-payload-test-{}-{}-{}",
+                std::process::id(),
+                NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed),
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
