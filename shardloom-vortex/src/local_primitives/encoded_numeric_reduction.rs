@@ -357,6 +357,13 @@ pub(super) fn update(
     let Some(arrays) = admitted_arrays(chunk, columns, ctx, &mut structural_resolutions)? else {
         return Ok(false);
     };
+    if selection.is_none() && prefer_native_fused_additive(states, &arrays) {
+        // Dense additive-only fusion still performs every ordered addition.
+        // The measured native typed consumer wins without a second run-table
+        // validation/traversal. Keep weighted extrema/count and selected-run
+        // consumers; decline the whole update before mutating any state.
+        return Ok(false);
+    }
     if selection.is_some_and(|rows| rows.iter().any(|&row| row >= chunk.len())) {
         return Err(failed("selected row exceeds the logical array"));
     }
@@ -432,6 +439,23 @@ pub(super) fn update(
     work.elapsed_nanos = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
     numeric_work.encoded_reduction.add(&work)?;
     Ok(true)
+}
+
+fn prefer_native_fused_additive(states: &SimpleAggregateStates, arrays: &[ArrayRef]) -> bool {
+    arrays.iter().enumerate().any(|(column, array)| {
+        let mut column_states = states
+            .states
+            .iter()
+            .filter(|state| state.column_index == Some(column));
+        column_states.clone().count() >= 2
+            && column_states.all(|state| {
+                matches!(
+                    state.function,
+                    SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg
+                )
+            })
+            && sliced_leaf(array).is_some_and(|(leaf, _)| leaf.is::<RunEnd>())
+    })
 }
 
 fn finish_fused_column(

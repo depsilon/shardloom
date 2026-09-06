@@ -187,7 +187,18 @@ fn encoded_numeric_reduction_wide_fusion_preserves_offsets_and_mixed_measures() 
                 state.count = 2;
             }
         }
+        let mut count_all = states(&["count"], &columns).states.remove(0);
+        count_all.column_index = None;
+        count_all.count = 3;
+        actual.states.push(count_all);
         let mut reference = actual.clone();
+        if !mixed {
+            let mut work = NativeNumericAccessorWork::default();
+            assert!(!update(&mut actual, &array, &columns, None, &mut work, &mut ctx).unwrap());
+            assert_equal(&actual, &reference);
+            assert_eq!(work.encoded_reduction.calls, 0);
+            assert_eq!(work.encoded_reduction.child_primitive_executions, 0);
+        }
         // Successive calls also check that fusion remains per source array,
         // including unordered selections and duplicate rows around null runs.
         for selection in [None, Some([14, 3, 8, 0, 3, 14].as_slice())] {

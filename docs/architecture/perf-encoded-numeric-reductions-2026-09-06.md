@@ -14,6 +14,23 @@ order/multiplicity, count only selected non-null rows, and preserve its sum and
 distinct semantics. The scoped visitor supplies these missing contracts rather
 than assuming that an unqualified child aggregate answers every selected query.
 
+The initial full-suite candidate exposed a dense additive-only regression: Q30
+rose from 0.190227 to 0.591538 seconds. Selecting nonfused states once per column
+instead of checking all 90 measures per run reduced a targeted warm best to
+0.263660 seconds, still above the repeated control's 0.194261 seconds. Preserve
+these intermediate measurements; the optimization is not accepted on overall
+suite gains alone.
+
+Dense RunEnd columns with two or more measures consisting only of SUM/AVG use
+the retained native typed consumer. Ordered addition still visits every logical
+row, so this operator class does not benefit from weighted reduction and pays
+additional run-table traversal. COUNT(*) does not change that admission decision.
+The encoded probe declines the entire update before state mutation or child
+execution. Constants, selected runs, single additive measures and run consumers
+with count/distinct/extrema retain their existing admission. This choice depends
+on operator semantics, never query text or column names. Final retained-candidate
+measurements are recorded in the continuation benchmark report.
+
 Admit identity numeric measures when every referenced column has an admitted
 constant or run-end representation. Inspect all shapes before changing state.
 Keep the existing typed path for other representations and transforms. Native
