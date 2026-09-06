@@ -118,7 +118,7 @@ class HeldoutOperatorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fixture_rows(size)
         matrix = cases(rows)
-        self.assertEqual(len({case["name"] for case in matrix}), 17)
+        self.assertEqual(len({case["name"] for case in matrix}), 19)
         self.assertEqual({case["family"] for case in matrix}, {
             "scalar", "distinct", "numeric_group", "string_group", "composite_group",
             "string_transform", "relational_sort", "relational_collect", "overflow_diagnostic"})
@@ -126,6 +126,20 @@ class HeldoutOperatorTests(unittest.TestCase):
             command = command_args(Path("/tmp/fixture.vortex"), matrix[0], worker)
             self.assertEqual(command[command.index("--max-parallelism") + 1], str(worker))
             self.assertEqual(command[command.index("--execution-policy") + 1], "native_vortex")
+
+    def test_integer_distinct_oracle_keeps_exact_ids_global_ties_and_offsets(self):
+        matrix = {case["name"]: case for case in cases(fixture_rows(133))}
+        expected = [{"cohort_code": key, "different": 19} for key in (-1, 0, 1)]
+        for name in ("exact_integer_distinct_topk", "repeated_integer_distinct_topk"):
+            self.assertEqual(matrix[name]["expected"], expected)
+            self.assertEqual(matrix[name]["comparison"], "ordered_exact_typed_values")
+        rows = fixture_rows(133)
+        # All identifiers remain distinct as integers; binary64 rounds many
+        # together. This mutation must change the independently computed result.
+        for row in rows:
+            row["exact_identifier"] = float(row["exact_identifier"])
+        rounded = {case["name"]: case for case in cases(rows)}
+        self.assertNotEqual(rounded["exact_integer_distinct_topk"]["expected"], expected)
 
     def test_full_values_preserve_type_precision_multiplicity_order_and_no_fallback(self):
         case = {"expected": [{"n": 2, "key": None}, {"n": 1, "key": 2**63 - 1}],

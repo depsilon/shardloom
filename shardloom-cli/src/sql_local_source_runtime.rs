@@ -44357,6 +44357,72 @@ mod tests {
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn assert_ingest_stream_lane_recipe(fields: &BTreeMap<String, String>, requested: usize) {
+        // These fixtures each own one source-reader driver. At P2 the caller
+        // converts and drives the writer; P4 additionally admits one converter
+        // and one provider driver. Queue capacity is not a CPU-worker count.
+        let (conversion, provider, prefetch) = match requested {
+            2 => (0, 0, 0),
+            4 => (1, 1, 3),
+            _ => panic!("fixture has no independently specified lane recipe"),
+        };
+        let topology = fields["vortex_writer_physical_design_writer_queue_topology"]
+            .split(';')
+            .filter_map(|item| item.split_once('='))
+            .collect::<BTreeMap<_, _>>();
+        for (key, expected) in [
+            ("ingest_cpu_requested", requested),
+            ("ingest_cpu_configured", requested),
+            ("ingest_cpu_caller", 1),
+            ("ingest_cpu_source_drivers", 1),
+            ("ingest_cpu_conversion_drivers", conversion),
+            ("ingest_cpu_provider_drivers", provider),
+            ("array_prefetch_window", prefetch),
+        ] {
+            assert_eq!(topology[key].parse::<usize>().unwrap(), expected, "{key}");
+        }
+        assert_eq!(1 + 1 + conversion + provider, requested);
+        assert_eq!(
+            topology["driver_lifetime"],
+            "joined_before_artifact_call_returns"
+        );
+        assert_eq!(
+            topology["ingest_cpu_scope"],
+            "shardloom_owned_drivers_excludes_blocking_io_and_source_library_internal_threads"
+        );
+        assert_field_eq(
+            fields,
+            "vortex_writer_runtime_requested_parallelism",
+            &requested.to_string(),
+        );
+        assert_field_eq(
+            fields,
+            "vortex_writer_runtime_applied_parallelism",
+            &(1 + provider).to_string(),
+        );
+        assert_field_eq(
+            fields,
+            "vortex_writer_runtime_background_workers",
+            &provider.to_string(),
+        );
+        assert_field_eq(
+            fields,
+            "vortex_writer_physical_design_source_executor_applied_parallelism",
+            "1",
+        );
+        assert_field_eq(
+            fields,
+            "vortex_writer_physical_design_array_build_worker_count",
+            &conversion.to_string(),
+        );
+        assert_field_eq(
+            fields,
+            "vortex_array_build_prefetch_window",
+            &prefetch.to_string(),
+        );
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn assert_field_contains(fields: &BTreeMap<String, String>, key: &str, expected: &str) {
         let value = fields
             .get(key)
@@ -46125,17 +46191,18 @@ mod tests {
                 "1",
             );
             assert_field_eq(&fields, "source_state_ingest_executor_unit_count_hint", "1");
+            assert_ingest_stream_lane_recipe(&fields, 2);
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
             );
             assert_field_eq(
                 &fields,
                 "vortex_array_build_strategy",
-                "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
+                "vortex_from_arrow_record_batch_stream",
             );
-            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "1");
+            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "0");
             assert_field_eq(
                 &fields,
                 "vortex_array_build_input_layout",
@@ -46160,7 +46227,7 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "universal_ingest_stream_timing_overlap_policy",
-                "capillary_prefetch_may_overlap_decode_derive_with_encode_write_wall_time",
+                "serial_stream_decode_derive_precedes_each_encode_write_pull",
             );
             for field in [
                 "universal_ingest_source_read_millis",
@@ -46249,10 +46316,11 @@ mod tests {
             "1",
         );
         assert_field_eq(&fields, "vortex_array_build_prefetch_window", "3");
+        assert_ingest_stream_lane_recipe(&fields, 4);
         assert_field_eq(
             &fields,
             "vortex_array_build_strategy",
-            "ordered_morsel_vortex_array_prefetch_threadlocal_conversion_merge",
+            "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
         );
         assert_field_eq(&fields, "vortex_writer_physical_design_status", "applied");
         assert_field_eq(
@@ -46268,7 +46336,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "vortex_writer_physical_design_source_executor_applied_parallelism",
-            "3",
+            "1",
         );
         assert_field_eq(
             &fields,
@@ -46278,7 +46346,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "vortex_writer_physical_design_array_build_worker_count",
-            "3",
+            "1",
         );
         assert_field_eq(
             &fields,
@@ -46429,7 +46497,7 @@ mod tests {
         assert_field_eq(
             &public_fields,
             "public_workflow_preparation_vortex_array_build_strategy",
-            "ordered_morsel_vortex_array_prefetch_threadlocal_conversion_merge",
+            "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
         );
         assert_field_eq(
             &public_fields,
@@ -46444,7 +46512,7 @@ mod tests {
         assert_field_eq(
             &public_fields,
             "public_workflow_preparation_vortex_writer_physical_design_array_build_worker_count",
-            "3",
+            "1",
         );
         assert_field_eq(
             &public_fields,
@@ -46556,8 +46624,9 @@ mod tests {
         assert_field_eq(
             &fields,
             "vortex_array_build_strategy",
-            "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
+            "vortex_from_arrow_record_batch_stream",
         );
+        assert_ingest_stream_lane_recipe(&fields, 2);
         assert_field_eq(&fields, "vortex_writer_stats_concurrency", "1");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -46627,12 +46696,13 @@ mod tests {
             );
             assert_field_eq(&fields, "source_fingerprint_policy", "metadata_only");
             assert_field_eq(&fields, "source_content_fingerprint_performed", "false");
+            assert_ingest_stream_lane_recipe(&fields, 2);
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
             );
-            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "1");
+            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "0");
             assert_field_eq(
                 &fields,
                 "vortex_preparation_spine_decode_boundary_status",
@@ -46714,12 +46784,13 @@ mod tests {
             );
             assert_field_eq(&fields, "source_state_record_batch_count", "1");
             assert_field_eq(&fields, "compatibility_parse_millis", "0");
+            assert_ingest_stream_lane_recipe(&fields, 2);
             assert_field_eq(
                 &fields,
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
             );
-            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "1");
+            assert_field_eq(&fields, "vortex_array_build_prefetch_window", "0");
             assert_field_eq(
                 &fields,
                 "vortex_preparation_spine_decode_boundary_status",

@@ -79,6 +79,61 @@ fn measure_collect(
 }
 
 #[cfg(unix)]
+fn measure_count_where(
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    request: &shardloom_vortex::query_primitive::VortexQueryPrimitiveRequest,
+    iterations: usize,
+    independent_expected: Option<u64>,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    use shardloom_vortex::local_primitives::{
+        VortexLocalPrimitiveExecutionPolicy, prepared_count::prepare_count_where_in_session,
+    };
+    let before = session.snapshot();
+    let started = Instant::now();
+    let prepared = prepare_count_where_in_session(
+        request,
+        VortexLocalPrimitiveExecutionPolicy::new(2)?,
+        session,
+    )?;
+    let prepare_seconds = started.elapsed().as_secs_f64();
+    let warmup = prepared.execute()?;
+    let expected = independent_expected.unwrap_or(warmup.count);
+    if warmup.count != expected {
+        return Err(
+            "prepared filtered count differs from supplied independent expected count".into(),
+        );
+    }
+    drop(warmup);
+    let mut nanos = Vec::with_capacity(iterations);
+    for _ in 0..iterations {
+        let started = Instant::now();
+        let result = black_box(prepared.execute()?);
+        nanos.push(u64::try_from(started.elapsed().as_nanos())?);
+        if result.count != expected || !result.native_io_certificate.is_certified() {
+            return Err("complete prepared filtered count or native certificate changed".into());
+        }
+    }
+    drop(prepared);
+    let after = session.snapshot();
+    if after.prepared_source_opens - before.prepared_source_opens != 1
+        || after.completed_executions - before.completed_executions
+            != u64::try_from(iterations)? + 1
+    {
+        return Err(
+            "prepared filtered count did not retain one source and execute every call".into(),
+        );
+    }
+    Ok(serde_json::json!({
+        "prepare_seconds": prepare_seconds, "count": expected, "warmups": 1,
+        "source_opens": 1, "completed_executions": iterations + 1,
+        "native_count_report": latency(&nanos, "prepared full predicate scan or metadata pruning through complete scalar/report/native certificate return; verification and returned report drop excluded"),
+        "validation": if independent_expected.is_some() { "caller_supplied_independent_exact_count" } else { "repeated parity against initial native result; not an independent oracle" },
+        "transport_comparison": "requires identical fixture and predicate; do not subtract unlike workload timing surfaces",
+    }))
+}
+
+#[cfg(unix)]
+#[allow(clippy::too_many_lines)] // Keep example option admission and separately scoped timing surfaces together.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue};
     use shardloom_plan::ProjectionRequest;
@@ -87,7 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let mut args = std::env::args().skip(1);
     let path = args.next().ok_or(
-        "usage: resident_latency INPUT [ITERATIONS] [--columns CSV] [--filter-ge COLUMN INTEGER]",
+        "usage: resident_latency INPUT [ITERATIONS] [--columns CSV] [--filter-ge COLUMN INTEGER] [--count-where] [--expected-count-where INTEGER]",
     )?;
     let iterations: usize = args.next().map_or(Ok(10_000), |arg| arg.parse())?;
     if !(100..=1_000_000).contains(&iterations) {
@@ -95,9 +150,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let mut columns = None;
     let mut predicate = None;
+    let mut count_where = false;
+    let mut expected_count_where = None;
     while let Some(flag) = args.next() {
         match flag.as_str() {
             "--columns" => columns = Some(args.next().ok_or("--columns requires CSV names")?),
+            "--count-where" => count_where = true,
+            "--expected-count-where" => {
+                expected_count_where = Some(
+                    args.next()
+                        .ok_or("--expected-count-where requires an integer")?
+                        .parse::<u64>()?,
+                );
+            }
             "--filter-ge" => {
                 let column = ColumnRef::new(args.next().ok_or("--filter-ge requires a column")?)?;
                 let threshold = args
@@ -113,8 +178,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => return Err(format!("unknown argument: {flag}").into()),
         }
     }
-    if predicate.is_some() && columns.is_none() {
-        return Err("--filter-ge requires --columns".into());
+    if predicate.is_some() && columns.is_none() && !count_where {
+        return Err("--filter-ge requires --columns or --count-where".into());
+    }
+    if count_where && predicate.is_none() || expected_count_where.is_some() && !count_where {
+        return Err(
+            "--count-where requires --filter-ge; an expected count requires --count-where".into(),
+        );
     }
     let started = Instant::now();
     let session = ResidentVortexSession::new(256 * 1024 * 1024, 2)?;
@@ -139,6 +209,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "prepared native footer count including admission and source generation validation",
         ),
     );
+    if count_where {
+        let request = VortexQueryPrimitiveRequest::count_where(
+            DatasetUri::new(path.clone())?,
+            predicate
+                .clone()
+                .ok_or("filtered count predicate is missing")?,
+        );
+        cases.insert(
+            "filtered_count".into(),
+            measure_count_where(&session, &request, iterations, expected_count_where)?,
+        );
+    }
     if let Some(columns) = columns {
         let projection = ProjectionRequest::columns(
             columns
@@ -161,7 +243,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             cases.insert(name.into(), measure_collect(&session, request, iterations)?);
         }
     }
+    drop(count);
+    drop(source);
     let snapshot = session.snapshot();
+    if snapshot.memory.reserved_bytes != 0 {
+        return Err(
+            "owned native buffers remain after every prepared handle and result was dropped".into(),
+        );
+    }
     println!(
         "{}",
         serde_json::json!({
@@ -170,8 +259,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "cases": cases, "prepared_source_opens": snapshot.prepared_source_opens,
             "completed_executions": snapshot.completed_executions,
             "peak_provider_reserved_bytes": snapshot.memory.peak_reserved_bytes,
+            "final_owned_reserved_bytes": snapshot.memory.reserved_bytes,
             "fallback_attempted": false, "external_engine_invoked": false,
-            "scope": "prepared Rust metadata/optional bounded array and JSON calls; not Python, fresh-process, mixed-load or durable ingest latency",
+            "scope": "prepared Rust metadata/optional full filtered count/bounded array and JSON calls; not Python, fresh-process, mixed-load or durable ingest latency",
             "claim_gate_status": "not_claim_grade", "cache_policy": "provider reader/layout metadata reused; OS cache uncontrolled; no result cache",
         })
     );

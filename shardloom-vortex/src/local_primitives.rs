@@ -10,6 +10,12 @@ mod aggregate_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_timing.rs"]
 mod aggregate_timing;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/bounded_numeric_reduction_experiment.rs"]
+mod bounded_numeric_reduction_experiment;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/compact_string_state.rs"]
+mod compact_string_state;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/compound_count_partial.rs"]
 mod compound_count_partial;
@@ -25,6 +31,9 @@ mod compound_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/encoded_numeric_reduction.rs"]
 mod encoded_numeric_reduction;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/exact_distinct_pairs.rs"]
+mod exact_distinct_pairs;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/lazy_layout_metadata_tests.rs"]
 mod lazy_layout_metadata_tests;
@@ -37,6 +46,12 @@ mod native_numeric_accessor;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_owner.rs"]
 mod native_numeric_owner;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_count.rs"]
+pub mod prepared_count;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_scan.rs"]
+mod prepared_scan;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/string_count_entry_credits.rs"]
 mod string_count_entry_credits;
@@ -50,6 +65,9 @@ pub(crate) mod native_sink;
 mod numeric_count_partial;
 #[cfg(feature = "vortex-local-primitives")]
 use native_numeric_accessor::{AggregateAccessorBatch, NativeNumericAccessorWork};
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_query_run_store.rs"]
+mod query_run_store;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_sort_spill.rs"]
 pub(crate) mod sort_spill;
@@ -13565,6 +13583,7 @@ struct LocalVortexRowsScan {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone)]
 struct LocalVortexScanPlan {
     filter: Option<vortex::array::expr::Expression>,
     residual_predicate: Option<PredicateExpr>,
@@ -13954,7 +13973,18 @@ fn local_vortex_path(
     Ok(Some(path))
 }
 
-#[cfg(feature = "vortex-local-primitives")]
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+fn read_local_vortex_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    primitive_kind: VortexQueryPrimitiveKind,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
+) -> Result<LocalVortexScan> {
+    prepared_scan::read(source_uri, path, primitive_kind, policy, configure)
+}
+
+#[cfg(all(feature = "vortex-local-primitives", not(unix)))]
 #[allow(clippy::too_many_lines)]
 fn read_local_vortex_scan(
     source_uri: &DatasetUri,
@@ -19404,8 +19434,7 @@ fn read_local_vortex_simple_aggregate_scan(
         };
         let prepared = resident.prepare_file(path)?;
         let restore_provider_drivers = external_cpu_pool
-            && required_simple_aggregate(request)?.group_by.len() == 2
-            && !compound_count_workers::request_schema_may_be_admitted(request, prepared.dtype());
+            && aggregate_count_workers::restore_provider_drivers(request, prepared.dtype());
         let worker_memory =
             (external_cpu_pool && !restore_provider_drivers).then(|| resident.memory());
         let reuse = if prepared.has_segment_reuse_field_root()
@@ -19467,7 +19496,7 @@ fn read_local_vortex_simple_aggregate_scan(
                 .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
             summary["aggregate_provider_background_workers"] = drivers.into();
             summary["aggregate_provider_cpu_scope"] =
-                "same_prepared_source;two_key_worker_schema_not_admitted;temporary_provider_drivers;no_concurrent_aggregate_worker_pool".into();
+                "same_prepared_source;worker_schema_not_admitted;temporary_provider_drivers;no_concurrent_aggregate_worker_pool".into();
             result.result_summary = summary.to_string();
             return Ok(result);
         }
@@ -24521,6 +24550,9 @@ struct GroupedAggregateStates<'a> {
     state_template: SimpleAggregateStates,
     compact_measure_specs: Option<Vec<CompactAggregateMeasureSpec>>,
     groups: rustc_hash::FxHashMap<AggregateGroupKey, GroupedAggregateState>,
+    // These are completed COUNT DISTINCT values, never disguised COUNT states
+    // or synthetic distinct sets. Their owner retains the final selection lease.
+    finalized_distinct_counts: Option<exact_distinct_pairs::workers::ExactDistinctResult>,
     single_numeric_count_groups: Option<rustc_hash::FxHashMap<AggregateSingleNumericKey, u64>>,
     numeric_pair_compact_groups:
         Option<rustc_hash::FxHashMap<AggregateNumericPairKey, NumericPairCompactMeasures>>,
@@ -27446,6 +27478,7 @@ impl<'a> GroupedAggregateStates<'a> {
             state_template,
             compact_measure_specs,
             groups: rustc_hash::FxHashMap::default(),
+            finalized_distinct_counts: None,
             single_numeric_count_groups: None,
             numeric_pair_compact_groups: None,
             numeric_pair_late_measure_enabled,
@@ -33178,6 +33211,9 @@ impl<'a> GroupedAggregateStates<'a> {
 
     #[allow(clippy::too_many_lines)]
     fn result_row_count_and_summary(&self, limit: Option<usize>) -> Result<(usize, String)> {
+        if let Some(finalized) = &self.finalized_distinct_counts {
+            return finalized.result_summary(self, limit);
+        }
         let group_by = self
             .group_columns
             .iter()
@@ -35724,7 +35760,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn aggregate_update_strategy(&self) -> &'static str {
-        if self.single_numeric_count_direct_updates {
+        if self.finalized_distinct_counts.is_some() {
+            "complete_integer_pair_partition_distinct"
+        } else if self.single_numeric_count_direct_updates {
             "single_numeric_count_direct_group_update"
         } else if self.source_order_numeric_utf8_dictionary_direct_updates {
             "source_order_numeric_utf8_dictionary_code_count_star_group_update"
@@ -35856,7 +35894,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn compact_group_state_strategy(&self) -> &'static str {
-        if self.single_numeric_count_direct_updates {
+        if self.finalized_distinct_counts.is_some() {
+            "finalized_exact_distinct_counts"
+        } else if self.single_numeric_count_direct_updates {
             "single_numeric_compact_count_star_group_state"
         } else if self.source_order_numeric_utf8_dictionary_direct_updates {
             "source_order_numeric_utf8_dictionary_code_compact_count_star_group_state"
@@ -36098,6 +36138,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn group_count(&self) -> usize {
+        if let Some(finalized) = &self.finalized_distinct_counts {
+            return finalized.group_count();
+        }
         if let Some(groups) = self.complete_key_partition_group_count {
             return groups;
         }
@@ -36319,6 +36362,11 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn estimated_group_key_storage_bytes(&self) -> usize {
+        if let Some(finalized) = &self.finalized_distinct_counts {
+            return finalized
+                .retained_count()
+                .saturating_mul(size_of::<AggregateSingleNumericKey>());
+        }
         if let Some(groups) = self.single_numeric_count_groups.as_ref() {
             return groups
                 .len()
@@ -36776,6 +36824,9 @@ impl<'a> GroupedAggregateStates<'a> {
             !request.order_by.is_empty() || result_row_count < self.group_count();
         let has_offset = request.offset > 0;
         let mut state_family = "grouped_aggregate_state".to_string();
+        if self.finalized_distinct_counts.is_some() {
+            state_family.push_str("+complete_pair_partition+finalized_distinct_counts");
+        }
         if has_count_distinct {
             state_family.push_str("+count_distinct");
         }
@@ -36906,7 +36957,14 @@ impl<'a> GroupedAggregateStates<'a> {
             "group_state_rows",
         ];
         if has_count_distinct {
-            capillary_work_units.push("count_distinct_set");
+            if self.finalized_distinct_counts.is_some() {
+                capillary_work_units.push("complete_integer_pair_partition_reconciliation");
+                capillary_work_units.push("complete_distinct_eof_group_reduction");
+                capillary_work_units.push("owned_bounded_final_distinct_count_selection");
+                pulseweave_pressure_signals.push("complete_pair_identity_proof");
+            } else {
+                capillary_work_units.push("count_distinct_set");
+            }
             pulseweave_pressure_signals.push("distinct_value_cardinality");
         }
         if has_grouped_topk {

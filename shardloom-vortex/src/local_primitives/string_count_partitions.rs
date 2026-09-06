@@ -19,6 +19,10 @@ use std::{
 use super::string_count_entry_credits as entry_credits;
 use entry_credits::{Claim, EntryBlock, EntryCredits};
 
+#[cfg(test)]
+#[path = "string_count_owner_scheduling.rs"]
+mod owner_scheduling;
+
 pub(super) const PARTITIONS: usize = 64;
 
 #[derive(Clone, Copy, Default)]
@@ -36,6 +40,9 @@ struct Partition {
     slots_lease: MemoryLease,
     bytes_lease: MemoryLease,
     selection_lease: Option<MemoryLease>,
+    // Actual copy sites, enabled only in the paired experiment/test binary.
+    #[cfg(test)]
+    benchmark_payload_bytes_copied: u64,
 }
 
 pub(super) struct PartitionReceipt {
@@ -139,6 +146,8 @@ impl StringCountPartitions {
                 slots_lease: memory.reserve(0)?,
                 bytes_lease: memory.reserve(0)?,
                 selection_lease: Some(lease.split(selection_bytes / PARTITIONS as u64)?),
+                #[cfg(test)]
+                benchmark_payload_bytes_copied: 0,
             }));
         }
         Ok(Some(Arc::new(Self {
@@ -593,6 +602,16 @@ impl Partition {
                 return Ok(false);
             };
             bytes.extend_from_slice(&self.bytes);
+            #[cfg(test)]
+            {
+                self.benchmark_payload_bytes_copied = self
+                    .benchmark_payload_bytes_copied
+                    .checked_add(
+                        u64::try_from(self.bytes.len())
+                            .map_err(|_| failed("benchmark copy size overflowed"))?,
+                    )
+                    .ok_or_else(|| failed("benchmark copy counter overflowed"))?;
+            }
             self.bytes = bytes;
             self.bytes_lease = lease;
         }
@@ -607,6 +626,16 @@ impl Partition {
             count,
         };
         self.bytes.extend_from_slice(value);
+        #[cfg(test)]
+        {
+            self.benchmark_payload_bytes_copied = self
+                .benchmark_payload_bytes_copied
+                .checked_add(
+                    u64::try_from(value.len())
+                        .map_err(|_| failed("benchmark copy size overflowed"))?,
+                )
+                .ok_or_else(|| failed("benchmark copy counter overflowed"))?;
+        }
         self.groups = next_groups;
         Ok(true)
     }
@@ -675,3 +704,7 @@ pub(super) fn failed(reason: &str) -> ShardLoomError {
 #[cfg(test)]
 #[path = "string_count_partitions_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "string_count_partition_benchmark.rs"]
+pub(super) mod benchmark;

@@ -51,6 +51,10 @@ def cases(rows: list[dict]) -> list[dict]:
          "predicate": "gte:cohort_key:24", "expected": rows[24:]},
         {"name": "empty_filtered_rows", "primitive": "filter_project", "columns": columns,
          "predicate": "gte:cohort_key:99", "expected": []},
+        {"name": "filtered_count", "primitive": "count_where",
+         "predicate": "gte:cohort_key:24", "expected": sum(row["cohort_key"] >= 24 for row in rows)},
+        {"name": "empty_filtered_count", "primitive": "count_where",
+         "predicate": "gte:cohort_key:99", "expected": 0},
     ]
 
 
@@ -185,6 +189,19 @@ def validate_candidate_reuse(fields: dict, surface: str, sample: int) -> None:
         raise ValueError("candidate prepared reader/operation reuse evidence disagrees with call path")
 
 
+def validate_candidate_count_where(fields: dict, expected: int) -> None:
+    required = {
+        "filtered_count_local_execution_count": str(expected),
+        "local_primitive_native_io_certificate_emitted": "true",
+        "local_primitive_native_io_certified": "true",
+        "local_primitive_execution_certificate_emitted": "false",
+        "local_primitive_no_query_answer_cache": "true",
+        "resident_source_generation_validation": "before_and_after_native_scan_including_metadata_pruned_result",
+    }
+    if any(str(fields.get(key)) != value for key, value in required.items()):
+        raise ValueError("prepared filtered count lacks actual count, generation, or native certificate evidence")
+
+
 def execute(args) -> Path:
     if os.name != "posix":
         raise ValueError("this local process-group/selector harness requires a POSIX host")
@@ -292,6 +309,8 @@ def execute(args) -> Path:
                             record["resident_completed_executions"] = fields.get("resident_completed_executions")
                             if name == "candidate":
                                 validate_candidate_reuse(fields, surface, sample)
+                                if case["primitive"] == "count_where":
+                                    validate_candidate_count_where(fields, case["expected"])
                             record["passed"] = True
                             guard()
                 for name in binaries:

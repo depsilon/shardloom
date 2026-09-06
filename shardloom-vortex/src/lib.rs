@@ -51,7 +51,7 @@ pub use adapter::{
 };
 
 pub mod bounded_execution;
-#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 mod column_addressable_layout;
 pub mod columnar_result_dataplane;
 pub mod commit_execution_gate;
@@ -83,6 +83,8 @@ pub mod generalized_encoded_primitive_gate;
 pub mod generalized_encoded_projection_execution;
 pub mod generalized_filter_execution;
 pub mod generalized_projection_execution;
+#[cfg(feature = "universal-format-io")]
+mod ingest_cpu_lanes;
 pub mod manifest_finalization;
 pub mod memory_bridge;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
@@ -108,6 +110,11 @@ pub mod read_planning;
 pub mod resident_memory_source;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
 pub mod resident_session;
+#[cfg(any(
+    feature = "vortex-write",
+    all(feature = "vortex-local-primitives", not(target_arch = "wasm32"))
+))]
+mod resident_worker_group;
 pub mod runtime_bridge;
 pub mod runtime_utilization;
 pub mod scheduler_bridge;

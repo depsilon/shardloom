@@ -38,6 +38,7 @@ SUMMARY_COUNTER_PREFIXES = (
     "local_primitive_aggregate_provider_",
     "local_primitive_aggregate_native_numeric_accessor_",
     "local_primitive_aggregate_encoded_numeric_reduction_",
+    "local_primitive_exact_distinct_",
     "local_primitive_scan_segment_reuse_",
     "local_primitive_native_sort_spill_", "local_primitive_sort_spill_", "local_primitive_resource_",
     "local_primitive_physical_policy_selected_", "local_primitive_memory_",
@@ -114,6 +115,10 @@ def cases(rows: list[dict]) -> list[dict]:
     unique = sorted(group_oracle(rows, ("unique_text",)), key=lambda row: row["unique_text"])[:12]
     compound_topk = sorted(group_oracle(rows, ("cohort_code", "category_text")),
                            key=lambda row: (-row["n"], row["cohort_code"], row["category_text"]))[:12]
+    def integer_distinct_topk(column):
+        counts = group_oracle(rows, ("cohort_code",), lambda members: {
+            "different": len({row[column] for row in members})})
+        return sorted(counts, key=lambda row: (-row["different"], row["cohort_code"]))[2:5]
     filtered = [row for row in rows if row["metric_units"] >= 5 and row["cohort_code"] < 2]
     filtered = sorted(filtered, key=lambda row: (-row["metric_units"], row["row_key"]))[3:15]
     tail = rows[-12:]
@@ -130,6 +135,8 @@ def cases(rows: list[dict]) -> list[dict]:
         case("composite_group", "composite_group", "SELECT cohort_code, category_text, COUNT(*) AS n FROM heldout GROUP BY cohort_code, category_text", group_oracle(rows, ("cohort_code", "category_text"))),
         case("compound_count_topk", "composite_group", "SELECT cohort_code, category_text, COUNT(*) AS n FROM heldout GROUP BY cohort_code, category_text ORDER BY n DESC LIMIT 12", compound_topk, True),
         case("nullable_group_distinct", "distinct", "SELECT cohort_code, COUNT(*) AS n, COUNT(DISTINCT optional_text) AS different FROM heldout GROUP BY cohort_code", distinct_groups),
+        case("exact_integer_distinct_topk", "distinct", "SELECT cohort_code, COUNT(DISTINCT exact_identifier) AS different FROM heldout GROUP BY cohort_code ORDER BY different DESC, cohort_code ASC LIMIT 3 OFFSET 2", integer_distinct_topk("exact_identifier"), True),
+        case("repeated_integer_distinct_topk", "distinct", "SELECT cohort_code, COUNT(DISTINCT metric_units) AS different FROM heldout GROUP BY cohort_code ORDER BY different DESC, cohort_code ASC LIMIT 3 OFFSET 2", integer_distinct_topk("metric_units"), True),
         case("utf8_byte_length", "string_transform", "SELECT cohort_code, COUNT(*) AS n, SUM(length(category_text)) AS bytes_total FROM heldout WHERE category_text <> '' GROUP BY cohort_code", lengths),
         case("all_unique_group_topk", "string_group", "SELECT unique_text, COUNT(*) AS n FROM heldout GROUP BY unique_text ORDER BY n DESC, unique_text ASC LIMIT 12", unique, True),
         case("filtered_sort_offset", "relational_sort", "SELECT row_key, metric_units, optional_text, exact_identifier FROM heldout WHERE metric_units >= 5 AND cohort_code < 2 ORDER BY metric_units DESC, row_key ASC LIMIT 12 OFFSET 3", projected(filtered, ("row_key", "metric_units", "optional_text", "exact_identifier")), True),

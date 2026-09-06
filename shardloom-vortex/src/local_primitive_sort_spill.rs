@@ -1,21 +1,26 @@
 //! Query-owned exact numeric sort runs. Vortex remains the persistence provider;
 //! the operator owns admission, byte quotas, bounded fan-in, and exact cleanup.
 
+#[cfg(feature = "vortex-write")]
+use super::query_run_store;
+pub(super) use super::query_run_store::RunSourceGeneration as SortSourceGeneration;
+use super::query_run_store::{
+    MARKER_BYTE_RESERVATION, MAX_LIVE_RUNS, NativeQueryRun, QueryRunReader, QueryRunSpec,
+    QueryRunStore, QueryRunStorePolicy,
+};
 use super::{
     LocalVortexRuntime, Result, ShardLoomError, SortRowCandidate, StatValue,
-    VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexSortTiePolicy, native_flat_layout,
-    predicate_field_expr, row_export_columns_from_chunk, vortex_error,
+    VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexSortTiePolicy,
+    predicate_field_expr, row_export_columns_from_chunk,
 };
 use crate::{VortexSortSpillPolicy, VortexSortSpillReport};
-use sha2::{Digest, Sha256};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
+#[cfg(feature = "vortex-write")]
+use std::path::Path;
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, VecDeque},
-    fs::{self, File, OpenOptions},
-    io::{Read, Write},
-    path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{Arc, atomic::Ordering},
 };
 use vortex::{
     array::{
@@ -24,16 +29,10 @@ use vortex::{
         dtype::{DType, Nullability, PType},
         validity::Validity,
     },
-    file::{OpenOptionsSessionExt as _, WriteOptionsSessionExt as _},
-    io::runtime::BlockingRuntime as _,
-    layout::scan::split_by::SplitBy,
     session::VortexSession,
 };
 
 const MERGE_FAN_IN: usize = 8;
-// A binary carry per level keeps each input row in at most 64 merge generations.
-// The u64 row-count contract cannot produce a 65th occupied level.
-const MAX_LIVE_RUNS: usize = 64;
 const MIN_BLOCK_ROWS: usize = 256;
 const MAX_BLOCK_ROWS: usize = 1024;
 // Each reader can retain the provider's 64 KiB initial footer read, including
@@ -45,40 +44,6 @@ const MERGE_FIXED_BYTES: u64 = 16 * 1024;
 const MERGE_BYTES_PER_BLOCK_ROW: u64 = 1024;
 const RUN_METADATA_BYTES_PER_BLOCK: u64 = 1024;
 const RUN_METADATA_BASE_BYTES: u64 = 4096;
-const OWNERSHIP_MARKER: &str = "owner.json";
-const MARKER_BYTE_RESERVATION: u64 = 32 * 1024;
-static NEXT_WORKSPACE: AtomicU64 = AtomicU64::new(0);
-
-#[cfg(unix)]
-pub(super) type SortSourceGeneration = crate::resident_session::SourceIdentity;
-
-#[cfg(not(unix))]
-pub(super) struct SortSourceGeneration;
-
-#[cfg(not(unix))]
-impl SortSourceGeneration {
-    pub(super) fn reader(
-        self: &std::sync::Arc<Self>,
-        _: vortex::array::memory::HostAllocatorRef,
-        _: vortex::io::runtime::Handle,
-        _: usize,
-    ) -> std::sync::Arc<dyn vortex::io::VortexReadAt> {
-        unreachable!("non-Unix source capture always rejects native sort spill")
-    }
-
-    pub(super) fn capture(_: &Path) -> Result<Self> {
-        Err(spill_error(
-            "native sort source generation requires Unix file identity",
-        ))
-    }
-
-    pub(super) fn validate(&self) -> Result<()> {
-        Err(spill_error(
-            "native sort source generation requires Unix file identity",
-        ))
-    }
-}
-
 #[cfg(test)]
 type BeforeMaterializationHook = Box<dyn FnOnce()>;
 
@@ -148,14 +113,8 @@ struct SpillRow {
 
 #[derive(Debug)]
 struct Run {
-    path: PathBuf,
-    identity: (u64, u64),
-    rows: u64,
-    bytes: u64,
-    digest: [u8; 32],
-    metadata_bytes: u64,
+    native: NativeQueryRun,
     level: u32,
-    block_rows: usize,
 }
 
 /// Reservation coverage is deliberately scoped to owned sort candidates,
@@ -164,19 +123,12 @@ struct Run {
 /// separate resource scopes; this counter is not process RSS.
 pub(super) struct NumericSortSpill {
     policy: VortexSortSpillPolicy,
-    directory: PathBuf,
-    owned: Vec<PathBuf>,
-    identities: std::collections::BTreeMap<PathBuf, (u64, u64)>,
-    marker_identity: Option<(u64, u64)>,
+    store: QueryRunStore,
     runs: Vec<Run>,
-    next_run: u64,
-    live_disk_bytes: u64,
     report: VortexSortSpillReport,
     memory: LiveMemoryPool,
     _state: MemoryLease,
-    _merge: MemoryLease,
-    _scratch: MemoryLease,
-    metadata: MemoryLease,
+    merge: Arc<MemoryLease>,
     capacity_rows: usize,
     block_rows: usize,
     merge_fan_in: usize,
@@ -207,7 +159,6 @@ impl NumericSortSpill {
         let state = memory.reserve(policy.memory_bytes / 4)?;
         let merge = memory.reserve(policy.memory_bytes / 2)?;
         let scratch = memory.reserve(policy.memory_bytes / 8)?;
-        let metadata = memory.reserve(0)?;
         let (block_rows, merge_fan_in) = merge_geometry(merge.bytes())?;
         let capacity_rows = usize::try_from(state.bytes() / 256).unwrap_or(usize::MAX);
         if capacity_rows < block_rows || limit > capacity_rows {
@@ -223,39 +174,15 @@ impl NumericSortSpill {
                 "native numeric sort spill does not admit tie expansion",
             ));
         }
-        let root_metadata = fs::symlink_metadata(&policy.workspace).map_err(io_error)?;
-        if !root_metadata.is_dir() || root_metadata.file_type().is_symlink() {
-            return Err(spill_error(
-                "sort spill workspace must be an existing real directory",
-            ));
-        }
-        let root = fs::canonicalize(&policy.workspace).map_err(io_error)?;
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| spill_error("system clock precedes the Unix epoch"))?
-            .as_nanos();
-        let directory = root.join(format!(
-            "shardloom-query-sort-{}-{nonce}-{}",
-            std::process::id(),
-            NEXT_WORKSPACE.fetch_add(1, Ordering::Relaxed)
-        ));
-        shardloom_core::plan_workspace_safe_local_output(&root, &directory, false)?;
-        let mut directory_builder = fs::DirBuilder::new();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::DirBuilderExt as _;
-            directory_builder.mode(0o700);
-        }
-        directory_builder.create(&directory).map_err(io_error)?;
-        let mut this = Self {
+        let store = QueryRunStore::new(
+            QueryRunStorePolicy::numeric_sort(policy),
+            memory.clone(),
+            scratch,
+        )?;
+        let this = Self {
             policy: policy.clone(),
-            directory,
-            owned: Vec::with_capacity(MAX_LIVE_RUNS + 1),
-            identities: std::collections::BTreeMap::new(),
-            marker_identity: None,
+            store,
             runs: Vec::with_capacity(MAX_LIVE_RUNS),
-            next_run: 0,
-            live_disk_bytes: MARKER_BYTE_RESERVATION,
             report: VortexSortSpillReport {
                 workspace: policy.workspace.clone(),
                 quota_bytes: policy.quota_bytes,
@@ -272,9 +199,7 @@ impl NumericSortSpill {
             },
             memory,
             _state: state,
-            _merge: merge,
-            _scratch: scratch,
-            metadata,
+            merge: Arc::new(merge),
             capacity_rows,
             block_rows,
             merge_fan_in,
@@ -282,7 +207,6 @@ impl NumericSortSpill {
             tie_policy,
             signed,
         };
-        this.write_marker()?;
         Ok(this)
     }
 
@@ -376,102 +300,36 @@ impl NumericSortSpill {
         session: &VortexSession,
     ) -> Result<Run> {
         check_cancelled(&self.policy)?;
-        if self.owned.len() > MAX_LIVE_RUNS {
-            return Err(spill_error("native sort run metadata file bound exceeded"));
-        }
-        let metadata_bytes = Self::metadata_for_rows(count, self.block_rows)?;
-        self.metadata.resize(
-            self.metadata
-                .bytes()
-                .checked_add(metadata_bytes)
-                .ok_or_else(|| spill_error("sort metadata reservation overflow"))?,
-        )?;
-        let path = self.directory.join(format!("run-{}.vortex", self.next_run));
-        self.next_run = self
-            .next_run
-            .checked_add(1)
-            .ok_or_else(|| spill_error("sort run ID overflow"))?;
-        let file = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&path)
-            .map_err(io_error)?;
-        self.owned.push(path.clone());
-        self.identities.insert(path.clone(), file_identity(&path)?);
-        self.write_marker()?;
-        let available = self
-            .policy
-            .quota_bytes
-            .checked_sub(self.live_disk_bytes)
-            .ok_or_else(|| spill_error("sort spill quota exhausted"))?;
-        let mut writer = QuotaWriter {
-            file,
-            remaining: available,
-            written: 0,
-            digest: Sha256::new(),
-        };
         let mut rows = rows;
         let policy = self.policy.clone();
         let block_rows = self.block_rows;
         let blocks = std::iter::from_fn(move || {
             if let Err(error) = check_cancelled(&policy) {
-                return Some(Err(vortex::error::vortex_err!("{error}")));
+                return Some(Err(error));
             }
             let mut block = Vec::with_capacity(block_rows);
             while block.len() < block_rows {
                 match rows.next() {
                     Some(Ok(row)) => block.push(row),
-                    Some(Err(error)) => return Some(Err(vortex::error::vortex_err!("{error}"))),
+                    Some(Err(error)) => return Some(Err(error)),
                     None => break,
                 }
             }
             (!block.is_empty()).then(|| Ok(rows_array(&block)))
         });
-        let max_chunks = usize::try_from(count.div_ceil(self.block_rows as u64))
-            .map_err(|_| spill_error("native run chunk count overflow"))?;
-        let strategy = native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks);
-        let mut native_writer = session
-            .write_options()
-            .with_strategy(strategy)
-            .with_file_statistics(Vec::new())
-            .blocking(runtime)
-            .writer(&mut writer, run_dtype());
-        for block in blocks {
-            native_writer
-                .push(block.map_err(vortex_error)?)
-                .map_err(vortex_error)?;
-        }
-        let summary = native_writer.finish().map_err(vortex_error)?;
-        writer.flush().map_err(io_error)?;
-        if summary.row_count() != count
-            || summary
-                .footer()
-                .approx_byte_size()
-                .is_none_or(|bytes| u64::try_from(bytes).unwrap_or(u64::MAX) > metadata_bytes)
-        {
-            return Err(spill_error(
-                "native run row count or footer exceeded its declared bound",
-            ));
-        }
-        self.live_disk_bytes = self
-            .live_disk_bytes
-            .checked_add(writer.written)
-            .ok_or_else(|| spill_error("sort disk accounting overflow"))?;
-        self.report.peak_disk_bytes = self.report.peak_disk_bytes.max(self.live_disk_bytes);
-        self.report.runs_written += 1;
-        let run = Run {
-            identity: file_identity(&path)?,
-            path,
-            rows: count,
-            bytes: writer.written,
-            digest: writer.digest.finalize().into(),
-            metadata_bytes,
-            level: 0,
-            block_rows: self.block_rows,
-        };
-        validate_run_bytes(&run)?;
-        self.report.runs_validated += 1;
-        Ok(run)
+        let native = self.store.write_arrays(
+            &QueryRunSpec {
+                dtype: run_dtype(),
+                rows: count,
+                block_rows,
+                metadata_bytes: Self::metadata_for_rows(count, block_rows)?,
+            },
+            blocks,
+            runtime,
+            session,
+            &self.merge,
+        )?;
+        Ok(Run { native, level: 0 })
     }
 
     fn open_merge<'runtime>(
@@ -483,7 +341,7 @@ impl NumericSortSpill {
         let readers = self
             .runs
             .iter()
-            .map(|run| RunReader::open(run, runtime, session))
+            .map(|run| RunReader::open(run, &self.store, Arc::clone(&self.merge), runtime, session))
             .collect::<Result<Vec<_>>>()?;
         RunMerge::new(readers, self.policy.clone(), runtime, self.merge_fan_in)
     }
@@ -499,7 +357,7 @@ impl NumericSortSpill {
         }
         let old = self.runs.split_off(self.runs.len() - fan_in);
         let count = old.iter().try_fold(0_u64, |sum, run| {
-            sum.checked_add(run.rows)
+            sum.checked_add(run.native.rows)
                 .ok_or_else(|| spill_error("merged sort run row overflow"))
         })?;
         let level = old
@@ -512,7 +370,7 @@ impl NumericSortSpill {
             .ok_or_else(|| spill_error("native sort merge level overflow"))?;
         let readers = old
             .iter()
-            .map(|run| RunReader::open(run, runtime, session))
+            .map(|run| RunReader::open(run, &self.store, Arc::clone(&self.merge), runtime, session))
             .collect::<Result<Vec<_>>>()?;
         let merge = RunMerge::new(readers, self.policy.clone(), runtime, self.merge_fan_in)?;
         self.report.max_open_runs = self.report.max_open_runs.max(fan_in + 1);
@@ -527,14 +385,7 @@ impl NumericSortSpill {
     }
 
     fn remove_run(&mut self, run: &Run) -> Result<()> {
-        validate_run_bytes(run)?;
-        fs::remove_file(&run.path).map_err(io_error)?;
-        self.owned.retain(|path| path != &run.path);
-        self.identities.remove(&run.path);
-        self.live_disk_bytes -= run.bytes;
-        self.metadata
-            .resize(self.metadata.bytes() - run.metadata_bytes)?;
-        self.write_marker()
+        self.store.remove(&run.native)
     }
 
     pub(super) fn finish(
@@ -575,101 +426,16 @@ impl NumericSortSpill {
                 });
             }
         }
+        merge.validate_sources()?;
         drop(merge);
         self.report.peak_reserved_bytes = self.memory.snapshot().peak_reserved_bytes;
-        self.cleanup()?;
+        let storage = self.store.snapshot();
+        self.report.peak_disk_bytes = storage.peak_disk_bytes;
+        self.report.runs_written = storage.runs_written;
+        self.report.runs_validated = storage.runs_validated;
+        self.store.cleanup()?;
         self.report.owned_cleanup_completed = true;
         Ok((selected, self.report.clone()))
-    }
-
-    fn write_marker(&mut self) -> Result<()> {
-        let payload = serde_json::json!({
-            "schema": "shardloom.native_numeric_sort_workspace.v1",
-            "files": self.owned.iter().map(|path| {
-                let identity = self.identities.get(path).copied().unwrap_or((0, 0));
-                serde_json::json!({"name": path.file_name().and_then(|name| name.to_str()).unwrap_or(""), "device": identity.0, "inode": identity.1})
-            }).collect::<Vec<_>>(),
-        });
-        let marker = self.directory.join(OWNERSHIP_MARKER);
-        if let Some(identity) = self.marker_identity {
-            if file_identity(&marker)? != identity {
-                return Err(spill_error("sort ownership marker identity changed"));
-            }
-        } else if fs::symlink_metadata(&marker).is_ok() {
-            return Err(spill_error("sort ownership marker already exists"));
-        }
-        let payload = payload.to_string();
-        if payload.len() > (MARKER_BYTE_RESERVATION / 2) as usize {
-            return Err(spill_error(
-                "sort ownership marker exceeded its byte reservation",
-            ));
-        }
-        shardloom_core::write_workspace_safe_bytes(
-            &self.directory,
-            &marker,
-            true,
-            "native sort ownership",
-            payload.as_bytes(),
-        )?;
-        self.marker_identity = Some(file_identity(&marker)?);
-        Ok(())
-    }
-
-    fn cleanup(&mut self) -> Result<()> {
-        let marker = self.directory.join(OWNERSHIP_MARKER);
-        if let Some(identity) = self.marker_identity
-            && file_identity(&marker)? != identity
-        {
-            return Err(spill_error(
-                "sort ownership marker identity changed; workspace preserved",
-            ));
-        }
-        while let Some(path) = self.owned.last() {
-            if self.identities.get(path).copied() != Some(file_identity(path)?) {
-                return Err(spill_error("owned sort run file identity changed"));
-            }
-            fs::remove_file(path).map_err(io_error)?;
-            self.identities.remove(path);
-            self.owned.pop();
-        }
-        self.identities.clear();
-        if self.marker_identity.is_some() {
-            fs::remove_file(marker).map_err(io_error)?;
-            self.marker_identity = None;
-        }
-        fs::remove_dir(&self.directory).map_err(io_error)
-    }
-}
-
-impl Drop for NumericSortSpill {
-    fn drop(&mut self) {
-        if self.directory.exists() {
-            let _ = self.cleanup();
-        }
-    }
-}
-
-struct QuotaWriter {
-    file: File,
-    remaining: u64,
-    written: u64,
-    digest: Sha256,
-}
-impl Write for QuotaWriter {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > self.remaining {
-            return Err(std::io::Error::other(
-                "native sort spill byte quota exhausted",
-            ));
-        }
-        let count = self.file.write(bytes)?;
-        self.digest.update(&bytes[..count]);
-        self.remaining -= count as u64;
-        self.written += count as u64;
-        Ok(count)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.file.flush()
     }
 }
 
@@ -700,32 +466,6 @@ fn run_dtype() -> vortex::array::dtype::DType {
     rows_array(&[]).dtype().clone()
 }
 
-fn validate_run_bytes(run: &Run) -> Result<()> {
-    if file_identity(&run.path)? != run.identity {
-        return Err(spill_error("native sort run file identity changed"));
-    }
-    let metadata = fs::symlink_metadata(&run.path).map_err(io_error)?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() != run.bytes {
-        return Err(spill_error("native sort run type or byte length changed"));
-    }
-    let mut file = File::open(&run.path).map_err(io_error)?;
-    let mut digest = Sha256::new();
-    // The operator reserves at least 128 KiB of checksum/conversion scratch.
-    let mut buffer = vec![0_u8; 64 * 1024].into_boxed_slice();
-    loop {
-        let count = file.read(&mut buffer).map_err(io_error)?;
-        if count == 0 {
-            break;
-        }
-        digest.update(&buffer[..count]);
-    }
-    let actual: [u8; 32] = digest.finalize().into();
-    if actual != run.digest {
-        return Err(spill_error("native sort run checksum changed"));
-    }
-    Ok(())
-}
-
 fn merge_geometry(reserved_bytes: u64) -> Result<(usize, usize)> {
     for fan_in in [MERGE_FAN_IN, 4, 2] {
         let fixed = MERGE_FIXED_BYTES + fan_in as u64 * MERGE_READER_BYTES;
@@ -742,72 +482,36 @@ fn merge_geometry(reserved_bytes: u64) -> Result<(usize, usize)> {
 }
 
 struct RunReader {
-    file: vortex::file::VortexFile,
+    reader: QueryRunReader,
     rows: VecDeque<SpillRow>,
     remaining: u64,
     previous: Option<SpillRow>,
-    next_block_offset: u64,
-    block_rows: usize,
 }
 impl RunReader {
-    fn open(run: &Run, runtime: &LocalVortexRuntime, session: &VortexSession) -> Result<Self> {
-        validate_run_bytes(run)?;
-        let file = runtime
-            .block_on(
-                session
-                    .open_options()
-                    .with_layout_reader_cache()
-                    .open_path(&run.path),
-            )
-            .map_err(vortex_error)?;
-        if file.dtype() != &run_dtype() || file.row_count() != run.rows {
-            return Err(spill_error("native sort run schema or row count changed"));
-        }
+    fn open(
+        run: &Run,
+        store: &QueryRunStore,
+        work: Arc<MemoryLease>,
+        runtime: &LocalVortexRuntime,
+        session: &VortexSession,
+    ) -> Result<Self> {
+        let reader = store.open(&run.native, &run_dtype(), runtime, session, work)?;
         Ok(Self {
-            file,
-            rows: VecDeque::with_capacity(run.block_rows),
-            remaining: run.rows,
+            reader,
+            rows: VecDeque::with_capacity(run.native.block_rows),
+            remaining: run.native.rows,
             previous: None,
-            next_block_offset: 0,
-            block_rows: run.block_rows,
         })
     }
 
     fn refill(&mut self, runtime: &LocalVortexRuntime) -> Result<()> {
-        let start = self.next_block_offset;
-        let end = start
-            .saturating_add(self.block_rows as u64)
-            .min(self.file.row_count());
-        // Both scan-stream concurrency and blocking iterator buffering scale by
-        // host cores in Vortex 0.85. Build one exact Flat-leaf task and drive it
-        // directly; no other run payload may be prefetched during this refill.
-        let mut tasks = self
-            .file
-            .scan()
-            .map_err(vortex_error)?
-            .with_row_range(start..end)
-            .with_split_by(SplitBy::RowCount(self.block_rows))
-            .build()
-            .map_err(vortex_error)?;
-        if tasks.len() != 1 {
-            return Err(spill_error(
-                "native sort run block must produce exactly one scan task",
-            ));
-        }
-        let task = tasks
-            .pop()
-            .ok_or_else(|| spill_error("native sort run block task is absent"))?;
-        let array = runtime
-            .block_on(task)
-            .map_err(vortex_error)?
+        let block = self
+            .reader
+            .next_block(runtime)?
             .ok_or_else(|| spill_error("native sort run block returned no rows"))?;
-        if array.len() as u64 != end - start || array.len() > self.block_rows {
-            return Err(spill_error(
-                "native sort run read exceeded or truncated its block bound",
-            ));
-        }
+        let array = block.array();
         let columns =
-            row_export_columns_from_chunk(&array, &["key".into(), "tie".into(), "source".into()])?;
+            row_export_columns_from_chunk(array, &["key".into(), "tie".into(), "source".into()])?;
         for index in 0..array.len() {
             let mut values = [0_u64; 3];
             for (column, value) in columns.iter().zip(&mut values) {
@@ -822,7 +526,7 @@ impl RunReader {
                 source: values[2],
             });
         }
-        self.next_block_offset = end;
+        self.reader.validate()?;
         Ok(())
     }
 
@@ -831,6 +535,7 @@ impl RunReader {
             self.refill(runtime)?;
         }
         let Some(row) = self.rows.pop_front() else {
+            self.reader.validate()?;
             if self.remaining != 0 {
                 return Err(spill_error(
                     "native sort run ended before its declared row count",
@@ -855,6 +560,13 @@ struct RunMerge<'runtime> {
     runtime: &'runtime LocalVortexRuntime,
 }
 impl<'runtime> RunMerge<'runtime> {
+    fn validate_sources(&self) -> Result<()> {
+        for reader in &self.readers {
+            reader.reader.validate()?;
+        }
+        Ok(())
+    }
+
     fn new(
         mut readers: Vec<RunReader>,
         policy: VortexSortSpillPolicy,
@@ -914,123 +626,11 @@ fn check_cancelled(policy: &VortexSortSpillPolicy) -> Result<()> {
 fn spill_error(message: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!("{message}; no fallback execution was attempted"))
 }
-fn io_error(error: impl std::fmt::Display) -> ShardLoomError {
-    spill_error(&format!("native sort spill I/O: {error}"))
-}
-
-fn file_identity(path: &Path) -> Result<(u64, u64)> {
-    let metadata = fs::symlink_metadata(path).map_err(io_error)?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() {
-        return Err(spill_error("owned sort run must remain a regular file"));
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt as _;
-        Ok((metadata.dev(), metadata.ino()))
-    }
-    #[cfg(not(unix))]
-    {
-        Err(spill_error("native sort spill requires Unix file identity"))
-    }
-}
-
-/// Explicit crash cleanup accepts only an owned immediate child of the admitted
-/// workspace. A malformed marker, replaced inode, symlink, or unknown entry
-/// leaves the workspace untouched instead of deleting unowned data.
+/// The public numeric-sort recovery policy keeps its existing namespace and
+/// marker schema while delegating storage validation and cleanup.
 #[cfg(feature = "vortex-write")]
 pub(crate) fn recover(policy: &VortexSortSpillPolicy, directory: &Path) -> Result<()> {
-    let root = fs::canonicalize(&policy.workspace).map_err(io_error)?;
-    let metadata = fs::symlink_metadata(directory).map_err(io_error)?;
-    if !metadata.is_dir() || metadata.file_type().is_symlink() {
-        return Err(spill_error("sort recovery requires a real owned directory"));
-    }
-    let directory = fs::canonicalize(directory).map_err(io_error)?;
-    if directory.parent() != Some(root.as_path())
-        || !directory
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| name.starts_with("shardloom-query-sort-"))
-    {
-        return Err(spill_error(
-            "sort recovery directory is outside its admitted workspace",
-        ));
-    }
-    let marker = directory.join(OWNERSHIP_MARKER);
-    let marker_identity = file_identity(&marker)?;
-    let marker_metadata = fs::symlink_metadata(&marker).map_err(io_error)?;
-    if !marker_metadata.is_file()
-        || marker_metadata.file_type().is_symlink()
-        || marker_metadata.len() > MARKER_BYTE_RESERVATION / 2
-    {
-        return Err(spill_error("invalid sort recovery ownership marker"));
-    }
-    let value: serde_json::Value = serde_json::from_slice(&fs::read(&marker).map_err(io_error)?)
-        .map_err(|_| spill_error("invalid sort recovery marker JSON"))?;
-    if value.get("schema").and_then(serde_json::Value::as_str)
-        != Some("shardloom.native_numeric_sort_workspace.v1")
-    {
-        return Err(spill_error("unsupported sort recovery marker schema"));
-    }
-    let files = value
-        .get("files")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| spill_error("sort recovery marker requires owned files"))?;
-    if files.len() > MAX_LIVE_RUNS + 1 {
-        return Err(spill_error("sort recovery marker exceeds file bound"));
-    }
-    let mut owned = std::collections::BTreeSet::new();
-    for file in files {
-        let name = file
-            .get("name")
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| spill_error("sort recovery run name is missing"))?;
-        let id = name
-            .strip_prefix("run-")
-            .and_then(|name| name.strip_suffix(".vortex"));
-        if id.is_none_or(|id| id.is_empty() || !id.bytes().all(|byte| byte.is_ascii_digit())) {
-            return Err(spill_error("sort recovery run name is invalid"));
-        }
-        let path = directory.join(name);
-        let device = file
-            .get("device")
-            .and_then(serde_json::Value::as_u64)
-            .ok_or_else(|| spill_error("sort recovery device is missing"))?;
-        let inode = file
-            .get("inode")
-            .and_then(serde_json::Value::as_u64)
-            .ok_or_else(|| spill_error("sort recovery inode is missing"))?;
-        if !owned.insert(path.clone()) {
-            return Err(spill_error("sort recovery run is duplicated"));
-        }
-        let current_identity = match fs::symlink_metadata(&path) {
-            Ok(_) => Some(file_identity(&path)?),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-            Err(error) => return Err(io_error(error)),
-        };
-        if current_identity.is_some_and(|identity| identity != (device, inode)) {
-            return Err(spill_error("sort recovery run ownership changed"));
-        }
-    }
-    for entry in fs::read_dir(&directory).map_err(io_error)? {
-        let entry = entry.map_err(io_error)?.path();
-        if entry != marker && !owned.contains(&entry) {
-            return Err(spill_error(
-                "sort recovery found an unknown file; owned workspace left intact",
-            ));
-        }
-    }
-    if file_identity(&marker)? != marker_identity {
-        return Err(spill_error("sort recovery ownership marker changed"));
-    }
-    for path in owned {
-        match fs::remove_file(path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(io_error(error)),
-        }
-    }
-    fs::remove_file(marker).map_err(io_error)?;
-    fs::remove_dir(directory).map_err(io_error)
+    query_run_store::recover(&QueryRunStorePolicy::numeric_sort(policy), directory)
 }
 
 #[cfg(all(test, feature = "vortex-write"))]

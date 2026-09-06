@@ -5,7 +5,16 @@ use super::super::{
     execute_vortex_local_primitive_with_policy, local_primitive_native_io_certificate,
     local_primitive_native_io_safe, local_vortex_runtime,
 };
+use super::query_run_store::{OWNERSHIP_MARKER, bounded_marker_bytes};
 use super::*;
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{Read, Write},
+    path::PathBuf,
+    sync::atomic::AtomicU64,
+};
+use vortex::{file::WriteOptionsSessionExt as _, io::runtime::BlockingRuntime as _};
+static NEXT_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 use vortex::{
     VortexSessionDefault as _, array::iter::ArrayIteratorAdapter,
     io::session::RuntimeSessionExt as _,
@@ -103,21 +112,28 @@ fn run_reader_refills_one_native_leaf_without_host_core_prefetch() {
         .map(|row| source_candidate(row, StatValue::Int64(i64::try_from(row).unwrap())))
         .collect();
     spill.flush(&mut candidates, &runtime, &session).unwrap();
-    let mut reader = RunReader::open(&spill.runs[0], &runtime, &session).unwrap();
-    assert_eq!(reader.next_block_offset, 0);
+    let mut reader = RunReader::open(
+        &spill.runs[0],
+        &spill.store,
+        Arc::clone(&spill.merge),
+        &runtime,
+        &session,
+    )
+    .unwrap();
+    assert_eq!(reader.reader.next_block_offset(), 0);
     for index in 0..block_rows {
         assert_eq!(
             reader.next_row(&runtime).unwrap().unwrap().source,
             index as u64
         );
-        assert_eq!(reader.next_block_offset, block_rows as u64);
+        assert_eq!(reader.reader.next_block_offset(), block_rows as u64);
         assert!(reader.rows.len() < block_rows);
     }
     assert_eq!(
         reader.next_row(&runtime).unwrap().unwrap().source,
         block_rows as u64
     );
-    assert_eq!(reader.next_block_offset, 2 * block_rows as u64);
+    assert_eq!(reader.reader.next_block_offset(), 2 * block_rows as u64);
     drop(reader);
     drop(spill);
     workspace.assert_empty();
@@ -612,10 +628,10 @@ fn truncated_and_changed_native_runs_fail_before_merge_and_cleanup_remains_owned
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
-            .open(&run.path)
+            .open(&run.native.path)
             .unwrap();
         if truncate {
-            file.set_len(run.bytes - 1).unwrap();
+            file.set_len(run.native.bytes - 1).unwrap();
         } else {
             let mut byte = [0];
             file.read_exact(&mut byte).unwrap();
@@ -628,6 +644,111 @@ fn truncated_and_changed_native_runs_fail_before_merge_and_cleanup_remains_owned
         drop(spill);
         workspace.assert_empty();
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn verified_run_generation_rejects_replacement_and_mutation_after_native_open() {
+    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let session = VortexSession::default().with_handle(runtime.handle());
+    for replace in [false, true] {
+        let workspace = Workspace::new();
+        let mut spill = NumericSortSpill::new(
+            &workspace.policy(),
+            false,
+            VortexSortTiePolicy::First,
+            true,
+            4,
+        )
+        .unwrap();
+        spill
+            .flush(
+                &mut vec![
+                    source_candidate(0, StatValue::Int64(7)),
+                    source_candidate(1, StatValue::Int64(9)),
+                ],
+                &runtime,
+                &session,
+            )
+            .unwrap();
+        let run = &spill.runs[0];
+        let mut reader = RunReader::open(
+            run,
+            &spill.store,
+            Arc::clone(&spill.merge),
+            &runtime,
+            &session,
+        )
+        .unwrap();
+        reader.refill(&runtime).unwrap();
+        let path = run.native.path.clone();
+        let saved = path.with_extension("saved");
+        if replace {
+            fs::rename(&path, &saved).unwrap();
+            fs::copy(&saved, &path).unwrap();
+        } else {
+            // Same inode and unchanged length; changing mtime/ctime still
+            // invalidates the generation captured before checksum verification.
+            let bytes = fs::read(&path).unwrap();
+            fs::write(&path, &bytes).unwrap();
+        }
+        assert!(
+            reader
+                .refill(&runtime)
+                .unwrap_err()
+                .to_string()
+                .contains("prepared source")
+        );
+        let merge = RunMerge {
+            readers: vec![reader],
+            heads: BinaryHeap::new(),
+            policy: workspace.policy(),
+            failed: false,
+            runtime: &runtime,
+        };
+        // Bounded top-K can stop with prefetched rows remaining. Its final
+        // boundary must validate every run even without requesting EOF.
+        assert!(
+            merge
+                .validate_sources()
+                .unwrap_err()
+                .to_string()
+                .contains("prepared source")
+        );
+        drop(merge);
+        if replace {
+            assert!(spill.store.cleanup().is_err());
+            assert!(path.exists());
+            fs::remove_file(&path).unwrap();
+            fs::rename(&saved, &path).unwrap();
+        }
+        drop(spill);
+        workspace.assert_empty();
+    }
+}
+
+#[test]
+fn recovery_marker_read_is_bounded_even_if_the_stream_grows_after_admission() {
+    struct GrowingReader {
+        consumed: usize,
+    }
+    impl Read for GrowingReader {
+        fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+            output.fill(b' ');
+            self.consumed += output.len();
+            Ok(output.len())
+        }
+    }
+    let mut reader = GrowingReader { consumed: 0 };
+    assert!(
+        bounded_marker_bytes(&mut reader)
+            .unwrap_err()
+            .to_string()
+            .contains("byte bound")
+    );
+    assert_eq!(reader.consumed as u64, MARKER_BYTE_RESERVATION / 2 + 1);
+    let valid = b"{\"schema\":\"test\"}";
+    assert_eq!(bounded_marker_bytes(valid.as_slice()).unwrap(), valid);
 }
 
 #[test]
@@ -646,7 +767,7 @@ fn spill_rejects_unsupported_keys_and_reservation_growth_without_leaking_files()
     let mut candidates = vec![source_candidate(0, StatValue::Null)];
     assert!(spill.flush(&mut candidates, &runtime, &session).is_err());
     let state_before = spill.memory.snapshot().reserved_bytes;
-    assert!(spill.metadata.resize(spill.policy.memory_bytes).is_err());
+    assert!(spill.memory.reserve(spill.policy.memory_bytes).is_err());
     assert_eq!(spill.memory.snapshot().reserved_bytes, state_before);
     drop(spill);
     workspace.assert_empty();
@@ -667,7 +788,7 @@ fn crash_recovery_refuses_unknown_files_then_removes_only_recorded_inodes() {
             &session,
         )
         .unwrap();
-    let directory = spill.directory.clone();
+    let directory = spill.store.directory().to_path_buf();
     let unknown = directory.join("user-note.txt");
     fs::write(&unknown, b"preserve me").unwrap();
     assert!(
@@ -677,7 +798,7 @@ fn crash_recovery_refuses_unknown_files_then_removes_only_recorded_inodes() {
             .contains("unknown file")
     );
     assert_eq!(fs::read(&unknown).unwrap(), b"preserve me");
-    assert!(spill.runs[0].path.exists());
+    assert!(spill.runs[0].native.path.exists());
     fs::remove_file(unknown).unwrap();
     recover(&policy, &directory).unwrap();
     drop(spill);
@@ -699,8 +820,8 @@ fn recovery_tolerates_interrupted_known_file_cleanup() {
             &session,
         )
         .unwrap();
-    fs::remove_file(&spill.runs[0].path).unwrap();
-    policy.cleanup_abandoned(&spill.directory).unwrap();
+    fs::remove_file(&spill.runs[0].native.path).unwrap();
+    policy.cleanup_abandoned(spill.store.directory()).unwrap();
     workspace.assert_empty();
 }
 
@@ -713,15 +834,19 @@ fn private_workspace_preserves_replaced_ownership_marker() {
     let mut spill =
         NumericSortSpill::new(&policy, false, VortexSortTiePolicy::First, true, 1).unwrap();
     assert_eq!(
-        fs::metadata(&spill.directory).unwrap().permissions().mode() & 0o777,
+        fs::metadata(spill.store.directory())
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
         0o700
     );
-    let marker = spill.directory.join(OWNERSHIP_MARKER);
-    let saved = spill.directory.join("saved-owner.json");
+    let marker = spill.store.directory().join(OWNERSHIP_MARKER);
+    let saved = spill.store.directory().join("saved-owner.json");
     fs::rename(&marker, &saved).unwrap();
     fs::write(&marker, b"unrelated owner replacement").unwrap();
-    assert!(spill.cleanup().is_err());
-    assert!(spill.write_marker().is_err());
+    assert!(spill.store.cleanup().is_err());
+    assert!(spill.store.write_marker().is_err());
     assert_eq!(fs::read(&marker).unwrap(), b"unrelated owner replacement");
     fs::remove_file(&marker).unwrap();
     fs::rename(&saved, &marker).unwrap();
@@ -753,12 +878,12 @@ fn symlink_workspaces_and_replaced_run_inodes_are_rejected_without_deleting_targ
             &session,
         )
         .unwrap();
-    let path = spill.runs[0].path.clone();
-    let original = spill.directory.join("original.vortex");
+    let path = spill.runs[0].native.path.clone();
+    let original = spill.store.directory().join("original.vortex");
     fs::rename(&path, &original).unwrap();
     fs::write(&path, b"unowned replacement").unwrap();
-    assert!(spill.cleanup().is_err());
-    assert!(recover(&policy, &spill.directory).is_err());
+    assert!(spill.store.cleanup().is_err());
+    assert!(recover(&policy, spill.store.directory()).is_err());
     assert_eq!(fs::read(&path).unwrap(), b"unowned replacement");
     fs::remove_file(&path).unwrap();
     fs::rename(original, path).unwrap();

@@ -306,6 +306,14 @@ checks. Numeric compression stays retained. Exact distinct, compact state,
 ordinary column-layout promotion, ingest scaling, broader spill and the rest of
 the continuation ledger remain open; no whole PERF or competitive gate is closed.
 
+The next implementation checkpoint adds exact integer-distinct workers, prepared
+filtered-count scans, a shared native query-run store and explicit ingest CPU
+ceilings. Its private column-layout, compact-state, scheduling, numeric-consumer
+and text-codec experiments have correctness coverage; default workspace tests
+(3,406) and the combined native CLI/Vortex tests (3,137) pass. Fresh timings,
+public aggregate spill, binding/export prototype validation and the remaining
+ledger work are still required. These tests establish no additional speedup.
+
 - [ ] `PERF-01` reconcile and instrument the public baseline.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied performance overhaul section 10, RFC 0044; accepted.

@@ -8,7 +8,7 @@ import unittest
 
 from run_resident_call_path_uat import (
     Worker, cases, command_args, fixture_rows, paired_order, percentiles,
-    request_options, validate, validate_candidate_reuse, validate_preparation,
+    request_options, validate, validate_candidate_count_where, validate_candidate_reuse, validate_preparation,
 )
 
 
@@ -30,6 +30,10 @@ class ResidentCallPathTests(unittest.TestCase):
         self.assertTrue(all(abs(row["exact_identifier"]) > 2**53 for row in rows))
         self.assertEqual(cases(rows)[2]["expected"], rows[24:])
         self.assertEqual(cases(rows)[3]["expected"], [])
+        counts = {case["name"]: case for case in cases(rows) if case["primitive"] == "count_where"}
+        self.assertEqual(counts["filtered_count"]["expected"], 8)
+        self.assertEqual(counts["empty_filtered_count"]["expected"], 0)
+        self.assertTrue(all("columns" not in case for case in counts.values()))
 
     def test_public_command_and_python_options_describe_same_native_operation(self):
         source = Path("/tmp/renamed.vortex")
@@ -81,6 +85,25 @@ class ResidentCallPathTests(unittest.TestCase):
                     validate_candidate_reuse(fields, surface, 3)
         validate_candidate_reuse({"resident_source_opens": "1",
                                   "resident_completed_executions": "1"}, "fresh_cli_process", 3)
+
+    def test_filtered_count_requires_actual_native_proof_without_invented_oracle(self):
+        fields = {"filtered_count_local_execution_count": "8",
+                  "local_primitive_native_io_certificate_emitted": "true",
+                  "local_primitive_native_io_certified": "true",
+                  "local_primitive_execution_certificate_emitted": "false",
+                  "local_primitive_no_query_answer_cache": "true",
+                  "resident_source_generation_validation": "before_and_after_native_scan_including_metadata_pruned_result"}
+        validate_candidate_count_where(fields, 8)
+        for key in fields:
+            missing = dict(fields)
+            del missing[key]
+            with self.assertRaises(ValueError):
+                validate_candidate_count_where(missing, 8)
+        for key, value in (("filtered_count_local_execution_count", "0"),
+                           ("local_primitive_execution_certificate_emitted", "true"),
+                           ("local_primitive_native_io_certified", "false")):
+            with self.assertRaises(ValueError):
+                validate_candidate_count_where({**fields, key: value}, 8)
 
     @unittest.skipUnless(os.name == "posix", "native process group fixture")
     def test_worker_retains_exact_raw_response_and_times_out_without_leaking_child(self):

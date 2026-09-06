@@ -111,6 +111,10 @@ type PublicWorkflowRoutePlanResult<T> = Result<T, Box<PublicWorkflowRoutePlan>>;
 #[path = "public_resident_count.rs"]
 mod resident_count;
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "public_resident_count_where.rs"]
+mod resident_count_where;
+
 /// Caller-owned prepared execution. Only the latest file count or collection is retained;
 /// results are never cached and every execution validates its source generation.
 #[derive(Default)]
@@ -119,6 +123,8 @@ pub(crate) struct PublicExecutionSession {
     collect: Option<PreparedPublicCollect>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     count: Option<PreparedPublicCount>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    count_where: Option<PreparedPublicCountWhere>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     memory: Option<(
         u64,
@@ -138,6 +144,12 @@ struct PreparedPublicCount {
     request: PublicWorkflowRouteRequest,
     operation: shardloom_vortex::resident_session::PreparedVortexCount,
     session: shardloom_vortex::resident_session::ResidentVortexSession,
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+struct PreparedPublicCountWhere {
+    request: PublicWorkflowRouteRequest,
+    operation: shardloom_vortex::local_primitives::prepared_count::PreparedVortexCountWhere,
 }
 
 impl PublicExecutionSession {
@@ -192,6 +204,10 @@ pub(crate) fn handle_public_workflow_run(
         .is_some_and(|entry| entry.request != request)
         || execution_session
             .count
+            .as_ref()
+            .is_some_and(|entry| entry.request != request)
+        || execution_session
+            .count_where
             .as_ref()
             .is_some_and(|entry| entry.request != request)
         || (execution_session.memory.is_some() && plan.route_id != "generated_rows_memory_collect")
@@ -2378,6 +2394,24 @@ fn native_vortex_manifest_input_binding(
     })
 }
 
+fn native_vortex_primitive_materializes(primitive: PublicVortexPrimitive) -> bool {
+    matches!(
+        primitive,
+        PublicVortexPrimitive::Distinct
+            | PublicVortexPrimitive::DropDuplicates
+            | PublicVortexPrimitive::DuplicateMask
+            | PublicVortexPrimitive::Tail
+            | PublicVortexPrimitive::Sample
+            | PublicVortexPrimitive::ExpressionProject
+            | PublicVortexPrimitive::Melt
+            | PublicVortexPrimitive::Explode
+            | PublicVortexPrimitive::Pivot
+            | PublicVortexPrimitive::RollingWindow
+            | PublicVortexPrimitive::Aggregate
+            | PublicVortexPrimitive::SortRows
+    )
+}
+
 fn execute_native_vortex_primitive_run_with_extra(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -2396,21 +2430,7 @@ fn execute_native_vortex_primitive_run_with_extra(
         );
         return emit_blocked_facade("run", format, request, &blocked);
     };
-    if matches!(
-        primitive,
-        PublicVortexPrimitive::Distinct
-            | PublicVortexPrimitive::DropDuplicates
-            | PublicVortexPrimitive::DuplicateMask
-            | PublicVortexPrimitive::Tail
-            | PublicVortexPrimitive::Sample
-            | PublicVortexPrimitive::ExpressionProject
-            | PublicVortexPrimitive::Melt
-            | PublicVortexPrimitive::Explode
-            | PublicVortexPrimitive::Pivot
-            | PublicVortexPrimitive::RollingWindow
-            | PublicVortexPrimitive::Aggregate
-            | PublicVortexPrimitive::SortRows
-    ) {
+    if native_vortex_primitive_materializes(primitive) {
         return execute_native_vortex_materializing_primitive_run_with_extra(
             request,
             plan,
@@ -2445,6 +2465,17 @@ fn execute_native_vortex_primitive_run_with_extra(
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     if request.requested_output == "collect" && primitive == PublicVortexPrimitive::Count {
         return resident_count::execute_native_vortex_resident_count(
+            request,
+            plan,
+            format,
+            extra_fields,
+            &binding,
+            execution_session,
+        );
+    }
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if request.requested_output == "collect" && primitive == PublicVortexPrimitive::CountWhere {
+        return resident_count_where::run(
             request,
             plan,
             format,
@@ -2956,7 +2987,9 @@ fn public_workflow_effective_max_parallelism(
         Some(value) => positive_usize_arg("max_parallelism", value)?,
         None => default_public_local_runtime_max_parallelism(),
     };
-    Ok(requested.max(MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM))
+    // The default remains at least two. An explicit positive maximum is a
+    // ceiling, including a single caller-driven native execution lane.
+    Ok(requested)
 }
 
 fn public_workflow_effective_resource_envelope(
@@ -2969,7 +3002,9 @@ fn public_workflow_effective_resource_envelope(
 }
 
 fn public_workflow_dynamic_parallelism_floor_applied(request: &PublicWorkflowRouteRequest) -> bool {
-    public_workflow_requested_max_parallelism(request) < MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
+    request.max_parallelism.is_none()
+        && public_workflow_requested_max_parallelism(request)
+            < MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
 }
 
 fn native_vortex_materializing_execution_certificate(
@@ -3293,6 +3328,18 @@ fn append_local_primitive_result_summary_evidence_fields(
         "aggregate_workers_compound_partition_strings",
         "aggregate_workers_compound_partition_utf8_bytes_copied",
         "aggregate_workers_compound_key_scope",
+        "aggregate_workers_distinct_group_reduction_jobs",
+        "aggregate_workers_exact_distinct_complete_pairs",
+        "aggregate_workers_exact_distinct_committed_rows",
+        "aggregate_workers_exact_distinct_partition_comparisons",
+        "aggregate_workers_exact_distinct_partition_lock_wait_nanos",
+        "aggregate_workers_exact_distinct_partition_reconcile_nanos",
+        "aggregate_workers_exact_distinct_group_reduce_nanos",
+        "aggregate_workers_exact_distinct_entry_credit_claims",
+        "aggregate_workers_exact_distinct_entry_credit_returns",
+        "aggregate_workers_exact_distinct_scope",
+        "exact_distinct_final_reserved_bytes",
+        "exact_distinct_final_reservation_scope",
         "aggregate_workers_scope",
     ] {
         if let Some(value) = object.get(key) {
@@ -11083,9 +11130,8 @@ fn add_route_native_vortex_resource_fields(
 }
 
 fn public_workflow_effective_max_parallelism_label(request: &PublicWorkflowRouteRequest) -> String {
-    public_workflow_requested_max_parallelism(request)
-        .max(MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM)
-        .to_string()
+    public_workflow_effective_max_parallelism(request)
+        .map_or_else(|_| "invalid".to_owned(), |value| value.to_string())
 }
 
 fn push_native_vortex_contract_fields(
@@ -13216,6 +13262,44 @@ fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)
 #[cfg(test)]
 mod tests {
     #[test]
+    fn exact_distinct_summary_preserves_counts_and_reservation_scope() {
+        let payload = serde_json::json!({
+            "aggregate_workers_distinct_group_reduction_jobs": 1,
+            "aggregate_workers_exact_distinct_complete_pairs": 19,
+            "aggregate_workers_exact_distinct_committed_rows": 101,
+            "aggregate_workers_exact_distinct_partition_comparisons": 73,
+            "aggregate_workers_exact_distinct_partition_lock_wait_nanos": 21,
+            "aggregate_workers_exact_distinct_partition_reconcile_nanos": 90,
+            "aggregate_workers_exact_distinct_group_reduce_nanos": 17,
+            "aggregate_workers_exact_distinct_entry_credit_claims": 3,
+            "aggregate_workers_exact_distinct_entry_credit_returns": 3,
+            "aggregate_workers_exact_distinct_scope": "complete pair reduction; not local top-k",
+            "exact_distinct_final_reserved_bytes": 4096,
+            "exact_distinct_final_reservation_scope": "retained complete groups"
+        });
+        let mut fields = Vec::new();
+        super::append_local_primitive_result_summary_evidence_fields(
+            &mut fields,
+            Some(&payload.to_string()),
+        );
+        for (key, value) in payload.as_object().unwrap() {
+            assert!(
+                fields.contains(&(
+                    format!("local_primitive_{key}"),
+                    value
+                        .as_str()
+                        .map_or_else(|| value.to_string(), str::to_owned)
+                ))
+            );
+        }
+        assert!(
+            !fields
+                .iter()
+                .any(|(key, _)| key == "local_primitive_aggregate_workers_rows")
+        );
+    }
+
+    #[test]
     fn aggregate_worker_observations_survive_public_summary_without_invented_counters() {
         let summary = serde_json::json!({
             "aggregate_workers_rows": 101,
@@ -14762,7 +14846,7 @@ mod tests {
     }
 
     #[test]
-    fn route_planner_applies_public_runtime_parallelism_floor_with_evidence() {
+    fn route_planner_preserves_explicit_runtime_parallelism_ceiling_with_evidence() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "dataframe",
@@ -14798,19 +14882,40 @@ mod tests {
 
         assert_eq!(plan.status, CommandStatus::Success);
         assert_eq!(field(&fields, "requested_max_parallelism"), "1");
-        assert_eq!(field(&fields, "max_parallelism"), "2");
-        assert_eq!(field(&fields, "dynamic_parallelism_floor_applied"), "true");
+        assert_eq!(field(&fields, "max_parallelism"), "1");
+        assert_eq!(field(&fields, "dynamic_parallelism_floor_applied"), "false");
         assert_eq!(
             field(&attachments, "public_workflow_requested_max_parallelism"),
             "1"
         );
-        assert_eq!(field(&attachments, "public_workflow_max_parallelism"), "2");
+        assert_eq!(field(&attachments, "public_workflow_max_parallelism"), "1");
         assert_eq!(
             field(
                 &attachments,
                 "public_workflow_dynamic_parallelism_floor_applied"
             ),
-            "true"
+            "false"
+        );
+        assert_eq!(
+            public_workflow_effective_resource_envelope(&request)
+                .unwrap()
+                .1,
+            1
+        );
+        let mut invalid = request.clone();
+        invalid.max_parallelism = Some("0".into());
+        assert!(public_workflow_effective_resource_envelope(&invalid).is_err());
+        assert_eq!(
+            public_workflow_effective_max_parallelism_label(&invalid),
+            "invalid"
+        );
+        let mut automatic = request;
+        automatic.max_parallelism = None;
+        assert!(
+            public_workflow_effective_resource_envelope(&automatic)
+                .unwrap()
+                .1
+                >= MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
         );
     }
 

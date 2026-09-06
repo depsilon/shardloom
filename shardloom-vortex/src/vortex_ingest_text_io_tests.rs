@@ -325,7 +325,8 @@ fn write_artifact(
     let source_prepare_ns = prepare_started.elapsed().as_nanos();
     let setup_started = Instant::now();
     let context = LocalVortexWriteContext::open();
-    context.worker_pool.set_workers(1);
+    let _drivers =
+        crate::resident_worker_group::ResidentWorkerGroup::new(&context.runtime, 1).unwrap();
     let timing = VortexWriterStageTiming::default();
     let fields = [TEXT.to_string()];
     let selected_strategy = match writer {

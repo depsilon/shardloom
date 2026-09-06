@@ -1083,10 +1083,8 @@ fn annotate_parquet_extent_plan_source(
 }
 
 fn parquet_row_group_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
-    // Reserve one lane for the Vortex writer. The remaining default lane keeps
-    // source/native normalization overlapped without returning to unbounded
-    // row-group buffering.
-    requested_max_parallelism.saturating_sub(1)
+    crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(requested_max_parallelism, usize::MAX)
+        .source_workers()
 }
 
 fn stream_parquet_row_group_batches(
@@ -2678,10 +2676,17 @@ fn parse_timestamp_minute(value: &str) -> Option<u8> {
 /// consumption and preserves source order through a bounded channel.
 #[must_use]
 pub fn with_capillary_prefetch_columnar_stream_source(
-    source: FlatLocalColumnarStreamSource,
+    mut source: FlatLocalColumnarStreamSource,
     requested_max_parallelism: usize,
 ) -> FlatLocalColumnarStreamSource {
     if columnar_stream_source_already_has_capillary_executor(&source) {
+        // Keep the existing owner, never wrap it in another source thread. A
+        // stricter later request must still constrain conversion/writer lanes;
+        // their admission rejects it if the existing source alone cannot fit.
+        source.ingest_executor_requested_parallelism = source
+            .ingest_executor_requested_parallelism
+            .max(1)
+            .min(requested_max_parallelism.max(1));
         return source;
     }
     let requested_max_parallelism = requested_max_parallelism.max(1);
@@ -2781,10 +2786,8 @@ fn columnar_stream_source_already_has_capillary_executor(
 }
 
 fn columnar_prefetch_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
-    // Reserve one lane for the Vortex writer. Even the public default
-    // `max_parallelism=2` should keep a bounded source prefetch lane active
-    // rather than collapsing the product path back to serial pull.
-    requested_max_parallelism.saturating_sub(1)
+    // This adapter owns exactly one thread. Queue depth is not CPU parallelism.
+    crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(requested_max_parallelism, 1).source_workers()
 }
 
 /// Convert admitted local text scalar rows into a streaming Arrow source for
@@ -6722,7 +6725,10 @@ mod tests {
             "source_reader_to_vortex_writer_prefetch_pipeline"
         );
         assert_eq!(source.ingest_executor_requested_parallelism, 4);
-        assert_eq!(source.ingest_executor_applied_parallelism, 2);
+        assert_eq!(
+            source.ingest_executor_applied_parallelism, 1,
+            "the prefetch adapter owns one source thread"
+        );
         assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
         assert_eq!(source.source_stream_batch_size, 0);
         assert_eq!(source.source_stream_unit_count_hint, Some(2));

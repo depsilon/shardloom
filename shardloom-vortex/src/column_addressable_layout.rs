@@ -109,11 +109,15 @@ impl ColumnAddressableLayout {
         Arc::clone(&self.counters)
     }
 
-    fn admit_dtype(&self, dtype: &DType) -> VortexResult<usize> {
+    pub(crate) fn admits_dtype(dtype: &DType, bounds: ColumnLayoutBounds) -> bool {
+        Self::admit_dtype(dtype, bounds).is_ok()
+    }
+
+    fn admit_dtype(dtype: &DType, bounds: ColumnLayoutBounds) -> VortexResult<usize> {
         let fields = dtype
             .as_struct_fields_opt()
             .ok_or_else(|| vortex_err!("column-addressable writer requires Struct input"))?;
-        if dtype.is_nullable() || fields.nfields() > self.bounds.max_columns {
+        if dtype.is_nullable() || fields.nfields() > bounds.max_columns {
             return Err(vortex_err!(
                 "column-addressable writer requires a nonnullable root within the column bound"
             ));
@@ -180,7 +184,7 @@ impl LayoutStrategy for ColumnAddressableLayout {
                 ));
             }
             let dtype = input.dtype().clone();
-            let columns = self.admit_dtype(&dtype)?;
+            let columns = Self::admit_dtype(&dtype, self.bounds)?;
             let mut matrix =
                 ReferenceMatrix::new(columns, &self.memory, Arc::clone(&self.counters))?;
             let mut rows = 0_u64;

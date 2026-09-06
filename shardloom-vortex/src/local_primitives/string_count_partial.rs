@@ -50,6 +50,55 @@ pub(super) struct StringCountPartial {
 }
 
 impl StringCountPartial {
+    /// Test-only weighted native input for the retained reducer benchmark.
+    /// Constructed before either state clock; it is not a second count table.
+    #[cfg(test)]
+    pub(super) fn benchmark_weighted(
+        input: &[(&str, u64, u64)],
+        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    ) -> Result<Self> {
+        let capacity_bytes = input
+            .len()
+            .checked_mul(size_of::<CountSlot>())
+            .and_then(|bytes| u64::try_from(bytes).ok())
+            .ok_or_else(|| failed("benchmark partial capacity overflowed"))?;
+        let lease = memory.reserve(capacity_bytes)?;
+        let mut counts = Vec::new();
+        counts
+            .try_reserve_exact(input.len())
+            .map_err(|_| failed("benchmark partial allocation failed"))?;
+        if counts.capacity() != input.len() {
+            return Err(failed("benchmark partial capacity exceeds reservation"));
+        }
+        let mut rows = 0_u64;
+        for (value_index, (_, hash, count)) in input.iter().enumerate() {
+            if *count == 0 {
+                return Err(failed("zero-weight benchmark entry"));
+            }
+            rows = rows
+                .checked_add(*count)
+                .ok_or_else(|| failed("benchmark weight overflowed"))?;
+            counts.push(CountSlot {
+                hash: *hash,
+                value_index,
+                count: *count,
+            });
+        }
+        Ok(Self {
+            values: VarBinViewArray::from_iter_str(input.iter().map(|entry| entry.0)),
+            counts,
+            work: StringCountPartialWork {
+                rows,
+                partial_entries: u64_count(input.len())?,
+                partial_capacity_bytes: capacity_bytes,
+                ..StringCountPartialWork::default()
+            },
+            preserves_existing_key_order: true,
+            _counts_lease: lease,
+            deferred_metadata_lease: None,
+        })
+    }
+
     pub(super) fn deferred_metadata_bytes() -> u64 {
         (size_of::<Self>() + 2 * size_of::<usize>()) as u64
     }

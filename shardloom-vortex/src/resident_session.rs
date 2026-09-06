@@ -37,9 +37,7 @@ use vortex::{
 
 use crate::owned_buffers::ReservedHostAllocator;
 
-#[path = "resident_worker_group.rs"]
-mod worker_group;
-use worker_group::ResidentWorkerGroup;
+use crate::resident_worker_group::ResidentWorkerGroup;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_segment_reuse.rs"]
@@ -279,6 +277,14 @@ impl PreparedSourceOwner {
 pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 
 impl PreparedVortexSource {
+    #[cfg(unix)]
+    pub(crate) fn resource_limits(&self) -> (u64, usize) {
+        (
+            self.0.runtime.memory.snapshot().limit_bytes,
+            self.0.runtime.parallelism,
+        )
+    }
+
     pub(crate) fn validate_generation(&self) -> Result<()> {
         self.0.validate()
     }
@@ -384,7 +390,12 @@ impl PreparedVortexSource {
     /// The returned snapshot follows cache close; result-owned slices may still
     /// retain payload credit until their last owner drops. No query answers or
     /// layout readers survive in the cache for a subsequent prepared execution.
-    #[cfg(all(test, feature = "vortex-local-primitives", unix))]
+    #[cfg(all(
+        test,
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        unix
+    ))]
     pub(crate) fn with_native_execution_cached<T>(
         &self,
         policy: segment_reuse::SegmentReusePolicy,
@@ -395,7 +406,12 @@ impl PreparedVortexSource {
         })
     }
 
-    #[cfg(all(test, feature = "vortex-local-primitives", unix))]
+    #[cfg(all(
+        test,
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        unix
+    ))]
     pub(crate) fn with_native_execution_cached_retry<T>(
         &self,
         policy: segment_reuse::SegmentReusePolicy,
@@ -766,6 +782,54 @@ pub(crate) struct SourceIdentity {
 }
 
 impl SourceIdentity {
+    /// Verify bytes from the same held descriptor used by native positional
+    /// reads. Generation checks surround hashing; no pathname is reopened.
+    #[cfg(unix)]
+    pub(crate) fn verify_contents(
+        &self,
+        expected_identity: (u64, u64),
+        expected_bytes: u64,
+        expected_digest: &[u8; 32],
+        scratch: &mut [u8],
+    ) -> Result<()> {
+        use sha2::{Digest as _, Sha256};
+        use std::os::unix::fs::FileExt as _;
+        self.validate()?;
+        if (self.generation.device, self.generation.inode) != expected_identity
+            || self.generation.len != expected_bytes
+            || scratch.is_empty()
+        {
+            return Err(resident_error(
+                "owned native file identity or byte length changed",
+            ));
+        }
+        let mut digest = Sha256::new();
+        let mut offset = 0_u64;
+        while offset < expected_bytes {
+            let capacity = usize::try_from((expected_bytes - offset).min(scratch.len() as u64))
+                .map_err(native_error)?;
+            let count = self
+                .file
+                .read_at(&mut scratch[..capacity], offset)
+                .map_err(native_error)?;
+            if count == 0 {
+                return Err(resident_error(
+                    "owned native file ended before its declared byte length",
+                ));
+            }
+            digest.update(&scratch[..count]);
+            offset = offset.checked_add(count as u64).ok_or_else(|| {
+                resident_error("owned native file verification offset overflowed")
+            })?;
+        }
+        self.validate()?;
+        let actual: [u8; 32] = digest.finalize().into();
+        if &actual != expected_digest {
+            return Err(resident_error("owned native file checksum changed"));
+        }
+        Ok(())
+    }
+
     pub(crate) fn reader(
         self: &Arc<Self>,
         allocator: HostAllocatorRef,
