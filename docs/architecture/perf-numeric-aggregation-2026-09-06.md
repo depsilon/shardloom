@@ -44,6 +44,13 @@ floating-point accumulation order, filter selections and dictionary domains.
 Do not turn a typed hot path into per-row generic scalar dispatch. No external
 engine executes residual work, and zero-decode policy remains explicit.
 
+All-valid integer key views cover all eight signed/unsigned physical widths.
+Single-key and pair iterators dispatch before scanning, including numeric/string,
+numeric/minute/string and near-unique pair reductions. Selected rows keep their
+order and multiplicity. Nullable and materialized inputs retain their prior
+admission and lazy lookup behavior. Strategy tests exercise narrow integer keys
+with mixed measures; 64 width-pair combinations check exact integer identities.
+
 ShardLoom owns the global distinct-entry limit rather than the Vortex provider.
 Reserve entry credits in bounded blocks, consuming them locally. The sum of
 committed entries and outstanding reserved credits must never exceed the hard

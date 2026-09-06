@@ -13,11 +13,12 @@ use vortex::mask::Mask;
 
 use super::{
     AGGREGATE_DIRECT_DISTINCT_DENSE_RANGE_LIMIT, AggregateDirectCountDistinctUpdate,
-    AggregateDistinctSet, AggregateDistinctValue, AggregateIntegerKeyPart, AggregateValueTransform,
-    ComparisonOp, StatValue, TypedFloatInList, TypedHashInList, coerce_compare_rhs_f64,
-    coerce_compare_rhs_i64, coerce_compare_rhs_u64, coerce_in_list_rhs_f64, coerce_in_list_rhs_i64,
-    coerce_in_list_rhs_u64, comparison_op_matches_ordering, float_in_list_contains,
-    native_numeric_accessor::failed, reserve_hash_set_capacity, vortex_error,
+    AggregateDirectIntegerKeySlice, AggregateDistinctSet, AggregateDistinctValue,
+    AggregateIntegerKeyPart, AggregateValueTransform, ComparisonOp, StatValue, TypedFloatInList,
+    TypedHashInList, coerce_compare_rhs_f64, coerce_compare_rhs_i64, coerce_compare_rhs_u64,
+    coerce_in_list_rhs_f64, coerce_in_list_rhs_i64, coerce_in_list_rhs_u64,
+    comparison_op_matches_ordering, float_in_list_contains, native_numeric_accessor::failed,
+    reserve_hash_set_capacity, vortex_error,
 };
 
 pub(super) struct NativeNumericOwner {
@@ -81,7 +82,7 @@ impl NativeNumericOwner {
     pub(super) fn is_integer(&self) -> bool {
         self.primitive.ptype().is_int()
     }
-    pub(super) fn signed(&self) -> bool {
+    fn signed(&self) -> bool {
         self.primitive.ptype().is_signed_int()
     }
     pub(super) fn ptype(&self) -> PType {
@@ -99,6 +100,22 @@ impl NativeNumericOwner {
     }
     pub(super) fn f64_values(&self) -> Option<&[f64]> {
         (self.all_valid() && self.ptype() == PType::F64).then(|| self.primitive.as_slice::<f64>())
+    }
+    pub(super) fn integer_key_slice(&self) -> Option<AggregateDirectIntegerKeySlice<'_>> {
+        if !self.all_valid() {
+            return None;
+        }
+        Some(match self.ptype() {
+            PType::U8 => AggregateDirectIntegerKeySlice::UInt8(self.primitive.as_slice::<u8>()),
+            PType::U16 => AggregateDirectIntegerKeySlice::UInt16(self.primitive.as_slice::<u16>()),
+            PType::U32 => AggregateDirectIntegerKeySlice::UInt32(self.primitive.as_slice::<u32>()),
+            PType::U64 => AggregateDirectIntegerKeySlice::UInt64(self.primitive.as_slice::<u64>()),
+            PType::I8 => AggregateDirectIntegerKeySlice::Int8(self.primitive.as_slice::<i8>()),
+            PType::I16 => AggregateDirectIntegerKeySlice::Int16(self.primitive.as_slice::<i16>()),
+            PType::I32 => AggregateDirectIntegerKeySlice::Int32(self.primitive.as_slice::<i32>()),
+            PType::I64 => AggregateDirectIntegerKeySlice::Int64(self.primitive.as_slice::<i64>()),
+            _ => return None,
+        })
     }
     pub(super) fn evidence_kind(&self) -> &'static str {
         match (self.ptype(), self.all_valid()) {

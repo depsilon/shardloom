@@ -471,6 +471,384 @@ fn native_numeric_owner_nullable_transforms_preserve_existing_errors_and_values(
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One cross-width matrix verifies owners, exact keys, selections, and stop-on-error.
+fn native_numeric_integer_views_dispatch_all_width_pairs_without_copying() {
+    use crate::local_primitives::{
+        AggregateDirectIntegerKeySlice, aggregate_direct_integer_key_slice,
+    };
+    let mut fixtures = Vec::new();
+    macro_rules! fixture {
+        ($ty:ty, $variant:ident, $signed:expr, $wide:ty) => {{
+            let values = [<$ty>::MIN, <$ty>::MAX, 0];
+            let expected = values.map(|value| {
+                let wide = <$wide>::from(value);
+                (wide.to_ne_bytes(), $signed)
+            });
+            let array = PrimitiveArray::new(values.to_vec(), Validity::NonNullable).into_array();
+            let (accessor, work) =
+                aggregate_column_accessor_with_work("integer_alias", &array).unwrap();
+            assert_eq!(work.typed_value_bytes_copied, 0);
+            let keys = aggregate_direct_integer_key_slice(&accessor).unwrap();
+            let AggregateDirectIntegerKeySlice::$variant(slice) = keys else {
+                panic!("original width must remain borrowed")
+            };
+            let AggregateDirectColumnAccessor::NativeNumeric(owner) = &accessor else {
+                panic!("native owner")
+            };
+            assert_eq!(slice.as_ptr(), owner.primitive().as_slice::<$ty>().as_ptr());
+            drop(array);
+            fixtures.push((
+                accessor,
+                expected.map(|(bytes, signed)| (u64::from_ne_bytes(bytes), signed)),
+            ));
+        }};
+    }
+    fixture!(u8, UInt8, false, u64);
+    fixture!(u16, UInt16, false, u64);
+    fixture!(u32, UInt32, false, u64);
+    fixture!(u64, UInt64, false, u64);
+    fixture!(i8, Int8, true, i64);
+    fixture!(i16, Int16, true, i64);
+    fixture!(i32, Int32, true, i64);
+    fixture!(i64, Int64, true, i64);
+    for (first, first_expected) in &fixtures {
+        let first = aggregate_direct_integer_key_slice(first).unwrap();
+        let mut selected = Vec::new();
+        first
+            .for_each(Some(&[2, 0, 2]), |row, key| {
+                selected.push((row, key.bits, key.signed));
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(
+            selected,
+            [2, 0, 2].map(|row| (row, first_expected[row].0, first_expected[row].1))
+        );
+        for (second, second_expected) in &fixtures {
+            let second = aggregate_direct_integer_key_slice(second).unwrap();
+            for selection in [None, Some([2_usize, 0, 2].as_slice())] {
+                let mut actual = Vec::new();
+                first
+                    .for_each_pair(second, selection, |row, pair| {
+                        actual.push((row, pair.first_bits, pair.second_bits, pair.key_kinds));
+                        Ok(())
+                    })
+                    .unwrap();
+                let expected_rows = selection.unwrap_or(&[0, 1, 2]);
+                let expected = expected_rows
+                    .iter()
+                    .map(|&row| {
+                        (
+                            row,
+                            first_expected[row].0,
+                            second_expected[row].0,
+                            u8::from(first_expected[row].1)
+                                | (u8::from(second_expected[row].1) << 1),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(actual, expected);
+            }
+        }
+        let mut visited = 0;
+        assert!(
+            first
+                .for_each_pair(AggregateDirectIntegerKeySlice::UInt8(&[]), None, |_, _| {
+                    visited += 1;
+                    Ok(())
+                })
+                .is_err()
+        );
+        assert_eq!(visited, 0);
+        assert!(
+            first
+                .for_each(Some(&[3]), |_, _| {
+                    visited += 1;
+                    Ok(())
+                })
+                .is_err()
+        );
+        assert_eq!(visited, 0);
+        first
+            .for_each_pair(first, Some(&[]), |_, _| {
+                visited += 1;
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(visited, 0);
+        let error = first
+            .for_each_pair(first, None, |row, _| {
+                visited += 1;
+                if row == 1 {
+                    return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                        "stop typed loop".into(),
+                    ));
+                }
+                Ok(())
+            })
+            .unwrap_err();
+        assert!(error.to_string().contains("stop typed loop"));
+        assert_eq!(visited, 2);
+    }
+}
+
+#[test]
+fn native_numeric_integer_views_preserve_nullable_and_materialized_boundaries() {
+    use crate::local_primitives::{
+        aggregate_direct_integer_key_slice, numeric_utf8_topk_exact_chunk_counts,
+    };
+    let input = PrimitiveArray::from_option_iter([Some(7_i16), None, Some(9)]).into_array();
+    let (nullable, _) = aggregate_column_accessor_with_work("nullable_key", &input).unwrap();
+    assert!(aggregate_direct_integer_key_slice(&nullable).is_none());
+    let selected = FilterArray::new(input, Mask::from_iter([true, false, true])).into_array();
+    let (selected, _) = aggregate_column_accessor_with_work("selected_key", &selected).unwrap();
+    assert!(aggregate_direct_integer_key_slice(&selected).is_some());
+    let materialized =
+        AggregateDirectColumnAccessor::materialized(vec![StatValue::Null], "test boundary");
+    assert!(aggregate_direct_integer_key_slice(&materialized).is_none());
+    // The absent dictionary candidate skips a numeric null before lookup, as it
+    // did on the existing materialized/nullable path. The view must not broaden admission.
+    assert!(
+        numeric_utf8_topk_exact_chunk_counts(&materialized, &[0], &[None])
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        numeric_utf8_topk_exact_chunk_counts(&nullable, &[0, 0, 0], &[None])
+            .unwrap()
+            .is_empty()
+    );
+}
+
+fn native_integer_fixture(array: ArrayRef) -> AggregateDirectColumnAccessor {
+    let (accessor, work) = aggregate_column_accessor_with_work("fixture_alias", &array).unwrap();
+    assert!(matches!(
+        accessor,
+        AggregateDirectColumnAccessor::NativeNumeric(_)
+    ));
+    assert_eq!(work.typed_value_bytes_copied, 0);
+    // Every fixture consumer below must work after the original array owner drops.
+    drop(array);
+    accessor
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // Raw signed/unsigned and prepared-minute representations share one independent oracle.
+fn native_numeric_narrow_minute_dictionary_strategy_matches_renamed_reference() {
+    use crate::local_primitives::{AggregateUtf8DictionarySource, GroupedAggregateStates};
+    use crate::{
+        VortexAggregateExpression, VortexAggregateOrderExpr, VortexSimpleAggregateMeasure,
+        VortexSimpleAggregateRequest,
+    };
+    use shardloom_core::ColumnRef;
+    use std::{collections::BTreeMap, sync::Arc};
+    let actors = [42_u16, 42, 7, 7, 42, 9];
+    let labels = ["alpha", "alpha", "beta", "beta", "gamma", "gamma"];
+    let raw_times = [60_i32, 61, 120, 121, 62, -1];
+    let mut counts = BTreeMap::new();
+    for ((actor, time), label) in actors.into_iter().zip(raw_times).zip(labels) {
+        *counts
+            .entry((actor, time.rem_euclid(3600) / 60, label))
+            .or_insert(0_u64) += 1;
+    }
+    let mut expected = counts.into_iter().collect::<Vec<_>>();
+    expected.sort_by(|(left, lc), (right, rc)| rc.cmp(lc).then_with(|| left.cmp(right)));
+    let expected = expected.into_iter().skip(1).take(3).map(|((actor, minute, phrase), count)| serde_json::json!({"actor_alias":actor,"phrase_alias":phrase,"minute_alias":minute,"n_alias":count})).collect::<Vec<_>>();
+    let clocks = [
+        (
+            PrimitiveArray::new(raw_times.to_vec(), Validity::NonNullable).into_array(),
+            false,
+        ),
+        (
+            PrimitiveArray::new(vec![60_u32, 61, 120, 121, 62, 3599], Validity::NonNullable)
+                .into_array(),
+            false,
+        ),
+        (
+            PrimitiveArray::new(vec![1_u8, 1, 2, 2, 1, 59], Validity::NonNullable).into_array(),
+            true,
+        ),
+    ];
+    for (clock, prepared) in clocks {
+        let clock_name = if prepared {
+            "__shardloom_derived_extract_minute_clock_alias"
+        } else {
+            "clock_alias"
+        };
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("actor_alias").unwrap(),
+                ColumnRef::new("phrase_alias").unwrap(),
+            ],
+            vec![VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "n_alias".into(),
+            )],
+        )
+        .with_group_expressions(vec![VortexAggregateExpression::new(
+            "minute_alias".into(),
+            ColumnRef::new(clock_name).unwrap(),
+            if prepared {
+                "identity"
+            } else {
+                "extract_minute"
+            },
+        )])
+        .with_order_by(vec![VortexAggregateOrderExpr::new("n_alias", true)])
+        .with_offset(1);
+        let columns = vec![
+            "actor_alias".into(),
+            "phrase_alias".into(),
+            clock_name.into(),
+        ];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(3), &columns, false, false).unwrap();
+        let accessors = vec![
+            native_integer_fixture(
+                PrimitiveArray::new(actors.to_vec(), Validity::NonNullable).into_array(),
+            ),
+            AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids: vec![0, 0, 1, 1, 2, 2],
+                values: ["alpha", "beta", "gamma"].map(Arc::<str>::from).to_vec(),
+                value_nulls: None,
+                row_nulls: None,
+                source: AggregateUtf8DictionarySource::VortexDictArray,
+            },
+            native_integer_fixture(clock),
+        ];
+        assert!(
+            states
+                .update_numeric_minute_string_count_direct_from_accessors(&accessors, None)
+                .unwrap()
+        );
+        assert!(states.numeric_minute_string_direct_slice_updates);
+        assert_eq!(states.numeric_minute_string_direct_slice_update_rows, 6);
+        assert_eq!(
+            states
+                .numeric_minute_string_group_roles
+                .unwrap()
+                .minute_column_prepared,
+            prepared
+        );
+        let (rows, summary) = states.result_row_count_and_summary(Some(3)).unwrap();
+        let payload: serde_json::Value = serde_json::from_str(&summary).unwrap();
+        assert_eq!(rows, 3);
+        assert_eq!(payload["numeric_minute_string_direct_slice_updates"], true);
+        assert_eq!(payload["values"], serde_json::json!(expected));
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // One near-unique fixture proves both passes, mixed measures, and offset/tie ordering.
+fn native_numeric_narrow_pair_near_unique_strategy_matches_mixed_measure_reference() {
+    use crate::local_primitives::{
+        AggregateDirectIntegerKeySlice, GroupedAggregateStates, aggregate_direct_integer_key_slice,
+    };
+    use crate::{
+        VortexAggregateOrderExpr, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
+    };
+    use shardloom_core::ColumnRef;
+    use std::collections::BTreeMap;
+    let mut actors = (0..20_000_u32)
+        .map(|row| (1_u64 << 60) + u64::from(row))
+        .collect::<Vec<_>>();
+    let mut regions = (0..20_000_u32).collect::<Vec<_>>();
+    let mut flags = vec![0_u8; actors.len()];
+    let mut widths = vec![100_u16; actors.len()];
+    for (row, source) in [(100, 42), (101, 42), (200, 7)] {
+        actors[row] = actors[source];
+        regions[row] = regions[source];
+    }
+    flags[42] = 1;
+    flags[100] = 1;
+    widths[100] = 300;
+    widths[101] = 200;
+    let mut reference = BTreeMap::new();
+    for row in 0..actors.len() {
+        let entry = reference
+            .entry((actors[row], regions[row]))
+            .or_insert((0_u32, 0_u32, 0_u32));
+        entry.0 += 1;
+        entry.1 += u32::from(flags[row]);
+        entry.2 += u32::from(widths[row]);
+    }
+    let mut reference = reference.into_iter().collect::<Vec<_>>();
+    reference.sort_by(|(left, lc), (right, rc)| rc.0.cmp(&lc.0).then_with(|| left.cmp(right)));
+    let accessors = vec![
+        native_integer_fixture(PrimitiveArray::new(actors, Validity::NonNullable).into_array()),
+        native_integer_fixture(PrimitiveArray::new(regions, Validity::NonNullable).into_array()),
+        native_integer_fixture(PrimitiveArray::new(flags, Validity::NonNullable).into_array()),
+        native_integer_fixture(PrimitiveArray::new(widths, Validity::NonNullable).into_array()),
+    ];
+    assert!(matches!(
+        aggregate_direct_integer_key_slice(&accessors[0]),
+        Some(AggregateDirectIntegerKeySlice::UInt64(_))
+    ));
+    assert!(matches!(
+        aggregate_direct_integer_key_slice(&accessors[1]),
+        Some(AggregateDirectIntegerKeySlice::UInt32(_))
+    ));
+    for offset in [0, 1] {
+        let request = VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("actor_alias").unwrap(),
+                ColumnRef::new("region_alias").unwrap(),
+            ],
+            vec![
+                VortexSimpleAggregateMeasure::new("count", None, "n_alias".into()),
+                VortexSimpleAggregateMeasure::new(
+                    "sum",
+                    Some(ColumnRef::new("flag_alias").unwrap()),
+                    "sum_alias".into(),
+                ),
+                VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(ColumnRef::new("width_alias").unwrap()),
+                    "avg_alias".into(),
+                ),
+            ],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("n_alias", true)])
+        .with_offset(offset);
+        let columns = ["actor_alias", "region_alias", "flag_alias", "width_alias"]
+            .map(str::to_string)
+            .to_vec();
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(4), &columns, true, false).unwrap();
+        assert!(
+            states
+                .update_numeric_pair_late_measure_count_direct_from_accessors(&accessors, None)
+                .unwrap()
+        );
+        assert!(states.numeric_pair_late_measure_near_unique_directory_updates);
+        assert!(states.numeric_pair_direct_key_slice_updates);
+        states
+            .prepare_numeric_pair_late_measure_second_pass(Some(4))
+            .unwrap();
+        assert!(
+            states
+                .numeric_pair_late_measure_near_unique_directory
+                .is_none()
+        );
+        assert!(
+            states
+                .update_numeric_pair_late_measure_direct_from_accessors(&accessors)
+                .unwrap()
+        );
+        let (rows, summary) = states.result_row_count_and_summary(Some(4)).unwrap();
+        let payload: serde_json::Value = serde_json::from_str(&summary).unwrap();
+        let expected = reference.iter().skip(offset).take(4).map(|((actor, region), (count, sum, width))| serde_json::json!({"actor_alias":actor,"region_alias":region,"n_alias":count,"sum_alias":f64::from(*sum),"avg_alias":f64::from(*width)/f64::from(*count)})).collect::<Vec<_>>();
+        assert_eq!(rows, 4);
+        assert_eq!(
+            payload["aggregate_update_strategy"],
+            "numeric_pair_near_unique_directory_count_topk_late_measure_second_pass"
+        );
+        assert_eq!(payload["values"], serde_json::json!(expected));
+    }
+}
+
+#[test]
 fn native_numeric_owner_credits_follow_payload_and_pinned_builder_gap_is_explicit() {
     use crate::{
         local_primitives::aggregate_column_accessor_in_context,

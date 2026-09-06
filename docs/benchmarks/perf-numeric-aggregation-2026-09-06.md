@@ -52,6 +52,15 @@ typed kernels, native validity, exact integer identities, native ownership and
 configured-context forwarding. Admitted-buffer credits and pinned provider
 allocation gaps are separate evidence. Native decompression remains real work.
 
+Native accessor call/row totals are not coverage-equivalent between snapshots.
+The control's Filter-over-host-Primitive shortcut applied its mask into a typed
+vector while returning default numeric work. The candidate routes eligible
+filtered arrays through instrumented native Primitive execution, so the counter
+includes newly observed filtering/canonicalization as well as compressed
+decoding. Increased calls or call-rows alone do not establish additional source
+scans, query passes or compressed-decode work. No per-array trace attributes all
+observed query deltas to this instrumentation change.
+
 Q34 and Q35 each reconcile 18,342,019 complete groups. The frozen corrected control
 claims a shared entry counter for every new group and shares a comparison counter
 between partitions. The unmeasured candidate reserves at most 1,024 entries per
