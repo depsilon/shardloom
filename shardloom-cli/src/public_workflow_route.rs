@@ -107,6 +107,45 @@ struct PublicWorkflowRoutePlan {
 
 type PublicWorkflowRoutePlanResult<T> = Result<T, Box<PublicWorkflowRoutePlan>>;
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "public_resident_count.rs"]
+mod resident_count;
+
+/// Caller-owned prepared execution. Only the latest file count or collection is retained;
+/// results are never cached and every execution validates its source generation.
+#[derive(Default)]
+pub(crate) struct PublicExecutionSession {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    collect: Option<PreparedPublicCollect>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    count: Option<PreparedPublicCount>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    memory: Option<(
+        u64,
+        usize,
+        shardloom_vortex::resident_session::ResidentVortexSession,
+    )>,
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+struct PreparedPublicCollect {
+    request: PublicWorkflowRouteRequest,
+    operation: shardloom_vortex::local_primitives::collect::PreparedVortexCollect,
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+struct PreparedPublicCount {
+    request: PublicWorkflowRouteRequest,
+    operation: shardloom_vortex::resident_session::PreparedVortexCount,
+    session: shardloom_vortex::resident_session::ResidentVortexSession,
+}
+
+impl PublicExecutionSession {
+    pub(crate) fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
 pub(crate) fn handle_public_workflow_route(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
@@ -135,20 +174,39 @@ pub(crate) fn handle_public_workflow_route(
 pub(crate) fn handle_public_workflow_run(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
     let request = match PublicWorkflowRouteRequest::parse(args) {
         Ok(request) => request,
         Err(error) => {
+            execution_session.clear();
             return emit_error("run", format, "public workflow run failed", &error);
         }
     };
     let request = effective_public_workflow_request(&request);
     let plan = plan_public_workflow_route(&request);
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if execution_session
+        .collect
+        .as_ref()
+        .is_some_and(|entry| entry.request != request)
+        || execution_session
+            .count
+            .as_ref()
+            .is_some_and(|entry| entry.request != request)
+        || (execution_session.memory.is_some() && plan.route_id != "generated_rows_memory_collect")
+    {
+        execution_session.clear();
+    }
     if plan.status != CommandStatus::Success {
+        execution_session.clear();
         return emit_blocked_facade("run", format, &request, &plan);
     }
 
     match plan.route_id {
+        "generated_rows_memory_collect" => {
+            execute_generated_memory_collect(&request, &plan, format, execution_session)
+        }
         "source_free_generated_output"
         | "generated_user_rows_direct_output"
         | "generated_range_direct_output"
@@ -171,7 +229,9 @@ pub(crate) fn handle_public_workflow_run(
         | "native_vortex_pivot"
         | "native_vortex_rolling_window"
         | "native_vortex_aggregate"
-        | "native_vortex_sort_rows" => execute_native_vortex_primitive_run(&request, &plan, format),
+        | "native_vortex_sort_rows" => {
+            execute_native_vortex_primitive_run(&request, &plan, format, execution_session)
+        }
         "native_vortex_user_aggregate"
         | "native_vortex_user_join"
         | "native_vortex_user_top_n"
@@ -182,9 +242,12 @@ pub(crate) fn handle_public_workflow_run(
         "native_vortex_primitive_row_export" => {
             execute_native_vortex_primitive_row_export_run(&request, &plan, format)
         }
-        "local_file_prepare_once_first_query" => {
-            execute_local_file_prepare_once_first_query_run(&request, &plan, format)
-        }
+        "local_file_prepare_once_first_query" => execute_local_file_prepare_once_first_query_run(
+            &request,
+            &plan,
+            format,
+            execution_session,
+        ),
         _ => {
             let blocked = run_route_not_executable_yet(&plan);
             emit_blocked_facade("run", format, &request, &blocked)
@@ -913,7 +976,11 @@ fn append_native_vortex_primitive_row_export_fields(
     push_field(
         fields,
         "native_vortex_result_export_kind",
-        "primitive_row_stream",
+        if report.evidence.native_array_sink.is_some() {
+            "owned_native_array_stream"
+        } else {
+            "primitive_row_stream"
+        },
     );
     push_field(
         fields,
@@ -943,7 +1010,11 @@ fn append_native_vortex_primitive_row_export_fields(
     push_field(
         fields,
         "decode_materialization_boundary",
-        "native_vortex_scan_pushdown_then_selected_column_decode_at_compatibility_sink",
+        if report.evidence.native_array_sink.is_some() {
+            "native_scan_arrays_to_native_flat_writer;no_adapter_scalar_or_arrow_conversion;provider_decode_may_occur"
+        } else {
+            "native_vortex_scan_pushdown_then_selected_column_decode_at_compatibility_sink"
+        },
     );
     push_bool_field(fields, "data_read", report.evidence.side_effects.data_read);
     push_bool_field(
@@ -989,7 +1060,82 @@ fn append_native_vortex_primitive_row_export_fields(
         &report.resource_envelope,
         &report.state_budget,
     );
+    if let Some(native) = &report.evidence.native_array_sink {
+        append_native_array_sink_fields(fields, native);
+    }
     push_field(fields, "claim_gate_status", "not_claim_grade");
+}
+
+fn append_native_array_sink_fields(
+    fields: &mut Vec<(String, String)>,
+    evidence: &shardloom_vortex::VortexNativeArraySinkEvidence,
+) {
+    for (name, value) in [
+        (
+            "arrays_submitted",
+            evidence.native_arrays_submitted.to_string(),
+        ),
+        (
+            "array_logical_bytes",
+            evidence.native_array_logical_bytes.to_string(),
+        ),
+        (
+            "adapter_payload_bytes_copied",
+            evidence.adapter_payload_bytes_copied.to_string(),
+        ),
+        (
+            "scalar_values_materialized",
+            evidence.scalar_values_materialized.to_string(),
+        ),
+        ("scan_row_bound", evidence.scan_row_bound.to_string()),
+        (
+            "writer_input_batch_bound",
+            evidence.writer_input_batch_bound.to_string(),
+        ),
+        (
+            "peak_reserved_bytes",
+            evidence.peak_reserved_bytes.to_string(),
+        ),
+        (
+            "metadata_reserved_bytes",
+            evidence.metadata_reserved_bytes.to_string(),
+        ),
+        (
+            "pre_limit_result_row_count",
+            evidence.pre_limit_result_row_count.to_string(),
+        ),
+        (
+            "pre_limit_result_row_count_status",
+            if evidence.pre_limit_result_row_count_exact {
+                "exact"
+            } else {
+                "lower_bound_scan_stopped_at_limit"
+            }
+            .to_string(),
+        ),
+        (
+            "source_generation_validated",
+            evidence.source_generation_validated.to_string(),
+        ),
+        (
+            "dtype_and_row_count_validated",
+            evidence.dtype_and_row_count_validated.to_string(),
+        ),
+        ("output_sha256", evidence.output_sha256.clone()),
+        ("metadata_fidelity", evidence.metadata_fidelity.to_string()),
+    ] {
+        push_field(fields, format!("native_vortex_array_sink_{name}"), value);
+    }
+    push_field(
+        fields,
+        "native_vortex_array_sink_memory_scope",
+        "session_host_allocator_buffers_and_reserved_layout_metadata;excludes_provider_bypass_allocations_and_process_rss",
+    );
+    push_field(
+        fields,
+        "native_vortex_array_sink_byte_work_scope",
+        "logical_array_bytes_may_share_buffers;zero_adapter_copies_does_not_assert_zero_provider_decode_or_copy",
+    );
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1294,6 +1440,15 @@ fn append_local_primitive_memory_admission_fields(
     let requested_bytes = local_primitive_memory_reservation_request_bytes(state_budget);
     push_field(
         fields,
+        "local_primitive_memory_admission_measurement_basis",
+        if state_budget.native_sort_spill.is_some() {
+            "post_execution_descriptor_check_of_measured_sort_spill_peak;runtime_scope_owned_candidates_merge_batches_run_metadata_checksum_scratch"
+        } else {
+            "post_execution_descriptor_check_not_runtime_allocation_enforcement"
+        },
+    );
+    push_field(
+        fields,
         "local_primitive_memory_reservation_requested_bytes",
         requested_bytes.to_string(),
     );
@@ -1450,6 +1605,9 @@ fn append_local_primitive_memory_admission_error_fields(
 fn local_primitive_memory_reservation_request_bytes(
     state_budget: &shardloom_vortex::VortexLocalPrimitiveStateBudgetReport,
 ) -> u64 {
+    if let Some(spill) = &state_budget.native_sort_spill {
+        return spill.peak_reserved_bytes;
+    }
     if !state_budget.state_budget_required {
         return 0;
     }
@@ -1538,6 +1696,16 @@ fn append_local_primitive_embedded_layout_fields(
         fields,
         "local_primitive_layout_encoding_inventory",
         &embedded_layout.layout_encoding_inventory,
+    );
+    push_field(
+        fields,
+        "local_primitive_layout_inventory_scope",
+        &embedded_layout.layout_inventory_scope,
+    );
+    push_field(
+        fields,
+        "local_primitive_layout_inventory_nodes_inspected",
+        embedded_layout.layout_inventory_nodes_inspected.to_string(),
     );
     push_field(
         fields,
@@ -1983,8 +2151,15 @@ fn execute_native_vortex_primitive_run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
+    execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
-    execute_native_vortex_primitive_run_with_extra(request, plan, format, Vec::new())
+    execute_native_vortex_primitive_run_with_extra(
+        request,
+        plan,
+        format,
+        Vec::new(),
+        execution_session,
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -2208,7 +2383,11 @@ fn execute_native_vortex_primitive_run_with_extra(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     mut extra_fields: Vec<(String, String)>,
+    execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
+    if request.requested_output != "collect" {
+        execution_session.clear();
+    }
     let Some(primitive) = normalized_vortex_primitive(request) else {
         let blocked = native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_primitive",
@@ -2243,6 +2422,7 @@ fn execute_native_vortex_primitive_run_with_extra(
     let binding = match native_vortex_input_binding_for_request(request) {
         Ok(binding) => binding,
         Err(error) => {
+            execution_session.clear();
             return emit_error(
                 "run",
                 format,
@@ -2252,6 +2432,7 @@ fn execute_native_vortex_primitive_run_with_extra(
         }
     };
     if binding.mode != "single_file" {
+        execution_session.clear();
         return execute_native_vortex_bound_primitive_run_with_extra(
             request,
             plan,
@@ -2259,6 +2440,17 @@ fn execute_native_vortex_primitive_run_with_extra(
             extra_fields,
             primitive,
             &binding,
+        );
+    }
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if request.requested_output == "collect" && primitive == PublicVortexPrimitive::Count {
+        return resident_count::execute_native_vortex_resident_count(
+            request,
+            plan,
+            format,
+            extra_fields,
+            &binding,
+            execution_session,
         );
     }
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -2277,6 +2469,7 @@ fn execute_native_vortex_primitive_run_with_extra(
             extra_fields,
             primitive,
             &binding,
+            execution_session,
         );
     }
     let runtime_args = match native_vortex_primitive_runtime_args(request, primitive) {
@@ -2298,6 +2491,7 @@ fn execute_native_vortex_owned_collect(
     mut extra_fields: Vec<(String, String)>,
     primitive: PublicVortexPrimitive,
     binding: &NativeVortexInputBinding,
+    execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
     let result = (|| {
         if request.materialization_policy == "zero_decode" {
@@ -2308,11 +2502,41 @@ fn execute_native_vortex_owned_collect(
         let (primitive_request, _, _) =
             native_vortex_bound_request_and_arg(request, primitive, binding)?;
         let policy = native_vortex_materializing_policy(request)?;
-        shardloom_vortex::local_primitives::collect::collect_rows(&primitive_request, policy)
+        if !execution_session
+            .collect
+            .as_ref()
+            .is_some_and(|entry| entry.request == *request)
+        {
+            // Release the previous reader/runtime before admitting the next budget.
+            execution_session.clear();
+            let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
+                policy.resource_envelope.memory_budget_bytes,
+                policy.max_parallelism,
+            )?;
+            let operation = shardloom_vortex::local_primitives::collect::prepare_rows_in_session(
+                &primitive_request,
+                &session,
+            )?;
+            execution_session.collect = Some(PreparedPublicCollect {
+                request: request.clone(),
+                operation,
+            });
+        }
+        execution_session
+            .collect
+            .as_ref()
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation("prepared collect was not admitted".to_string())
+            })?
+            .operation
+            .execute()
     })();
     let result = match result {
         Ok(result) => result,
-        Err(error) => return native_vortex_materializing_error(format, primitive, &error),
+        Err(error) => {
+            execution_session.clear();
+            return native_vortex_materializing_error(format, primitive, &error);
+        }
     };
     let mut fields = execution_attachment_fields("run", request, plan);
     fields.append(&mut extra_fields);
@@ -2555,6 +2779,13 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
     mut extra_fields: Vec<(String, String)>,
     primitive: PublicVortexPrimitive,
 ) -> ExitCode {
+    if primitive == PublicVortexPrimitive::Aggregate
+        && request.materialization_policy == "zero_decode"
+    {
+        return native_vortex_materializing_error(format, primitive, &ShardLoomError::InvalidOperation(
+            "aggregate compute requires admitted native array decoding and typed materialization; use --materialization-policy bounded or the metadata-only count primitive; no fallback execution was attempted".to_string(),
+        ));
+    }
     let binding = match native_vortex_input_binding_for_request(request) {
         Ok(binding) => binding,
         Err(error) => return native_vortex_materializing_error(format, primitive, &error),
@@ -2998,6 +3229,72 @@ fn append_local_primitive_result_summary_evidence_fields(
     let Some(object) = payload.as_object() else {
         return;
     };
+    append_native_numeric_accessor_evidence_fields(fields, object);
+    for key in [
+        "aggregate_first_pass_scan_next_nanos",
+        "aggregate_first_pass_reader_evidence_nanos",
+        "aggregate_first_pass_accessor_nanos",
+        "aggregate_first_pass_group_update_nanos",
+        "aggregate_first_pass_accessor_chunks",
+        "aggregate_first_pass_accessor_rows",
+        "aggregate_result_finalization_nanos",
+        "aggregate_timing_scope",
+        "aggregate_workers_rows",
+        "aggregate_workers_partial_entries",
+        "aggregate_workers_submitted_chunks",
+        "aggregate_workers_completed_chunks",
+        "aggregate_workers_outstanding_chunks",
+        "aggregate_workers_peak_outstanding_chunks",
+        "aggregate_workers_cpu_ceiling",
+        "aggregate_workers_compute_threads",
+        "aggregate_workers_provider_background_workers",
+        "aggregate_workers_peak_active_workers",
+        "aggregate_workers_worker_busy_elapsed_nanos",
+        "aggregate_workers_inline_busy_elapsed_nanos",
+        "aggregate_workers_canonicalization_work_nanos",
+        "aggregate_workers_count_work_nanos",
+        "aggregate_workers_caller_merge_nanos",
+        "aggregate_workers_caller_join_wait_nanos",
+        "aggregate_workers_caller_submit_elapsed_nanos",
+        "aggregate_workers_utf8_bytes_hashed",
+        "aggregate_workers_equality_comparisons",
+        "aggregate_workers_native_dictionary_chunks",
+        "aggregate_workers_native_dictionary_values",
+        "aggregate_workers_new_global_strings",
+        "aggregate_workers_peak_estimated_global_string_bytes",
+        "aggregate_workers_native_constant_chunks",
+        "aggregate_workers_peak_partial_capacity_bytes",
+        "aggregate_workers_shared_live_peak_bytes",
+        "aggregate_workers_shared_live_limit_bytes",
+        "aggregate_workers_string_pressure_transitions",
+        "aggregate_workers_released_histogram_entries",
+        "aggregate_workers_retained_interner_values_on_pressure",
+        "aggregate_workers_partition_count",
+        "aggregate_workers_partition_complete_groups",
+        "aggregate_workers_partition_committed_rows",
+        "aggregate_workers_partition_lock_wait_nanos",
+        "aggregate_workers_partition_reconcile_work_nanos",
+        "aggregate_workers_partition_arrange_work_nanos",
+        "aggregate_workers_partition_selection_work_nanos",
+        "aggregate_workers_partition_equality_comparisons",
+        "aggregate_workers_partition_native_handoffs",
+        "aggregate_workers_partition_selection_jobs",
+        "aggregate_workers_partition_retry_jobs",
+        "aggregate_workers_partition_source_replays",
+        "aggregate_workers_partition_discarded_input_rows",
+        "aggregate_workers_partition_discarded_attempt_nanos",
+        "aggregate_workers_partition_source_replay_nanos",
+        "aggregate_workers_scope",
+    ] {
+        if let Some(value) = object.get(key) {
+            fields.push((
+                format!("local_primitive_{key}"),
+                value
+                    .as_str()
+                    .map_or_else(|| value.to_string(), str::to_string),
+            ));
+        }
+    }
     for (summary_key, field_key) in [
         (
             "group_output_strategy",
@@ -3424,6 +3721,37 @@ fn append_local_primitive_result_summary_evidence_fields(
     }
 }
 
+fn append_native_numeric_accessor_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: &serde_json::Map<String, serde_json::Value>,
+) {
+    let Some(work) = summary
+        .get("aggregate_native_numeric_accessor")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return;
+    };
+    for key in [
+        "native_decode_calls",
+        "rows",
+        "source_array_nbytes_estimate",
+        "canonical_array_nbytes_estimate",
+        "typed_value_bytes_copied",
+        "decode_and_typed_copy_nanos",
+        "max_source_array_rows",
+        "columns",
+        "scope",
+    ] {
+        if let Some(value) = work.get(key) {
+            push_field(
+                fields,
+                format!("local_primitive_aggregate_native_numeric_accessor_{key}"),
+                json_value_to_field_string(value),
+            );
+        }
+    }
+}
+
 fn local_primitive_result_summary_payload(result_summary: &str) -> Option<serde_json::Value> {
     if let Ok(payload) = serde_json::from_str::<serde_json::Value>(result_summary) {
         return Some(payload);
@@ -3441,6 +3769,119 @@ fn json_value_to_field_string(value: &serde_json::Value) -> String {
         serde_json::Value::String(value) => value.clone(),
         serde_json::Value::Array(_) | serde_json::Value::Object(_) => value.to_string(),
     }
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+fn execute_generated_memory_collect(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    execution_session: &mut PublicExecutionSession,
+) -> ExitCode {
+    let result = (|| {
+        let policy = native_vortex_materializing_policy(request)?;
+        let bytes = policy.resource_envelope.memory_budget_bytes;
+        let workers = policy.max_parallelism;
+        if !execution_session
+            .memory
+            .as_ref()
+            .is_some_and(|(old_bytes, old_workers, _)| {
+                *old_bytes == bytes && *old_workers == workers
+            })
+        {
+            execution_session.clear();
+            execution_session.memory = Some((
+                bytes,
+                workers,
+                shardloom_vortex::resident_session::ResidentVortexSession::new(bytes, workers)?,
+            ));
+        }
+        let (_, _, session) = execution_session.memory.as_ref().ok_or_else(|| {
+            ShardLoomError::InvalidOperation("native memory runtime was not admitted".into())
+        })?;
+        generated_source_runtime::collect_generated_rows_memory(
+            request.generated_source_kind.as_deref().unwrap_or(""),
+            request.generated_schema.as_deref().unwrap_or(""),
+            request.generated_rows.as_deref().unwrap_or(""),
+            session,
+        )
+    })();
+    let result = match result {
+        Ok(result) => result,
+        Err(error) => {
+            execution_session.clear();
+            return emit_error("run", format, "native memory collect failed", &error);
+        }
+    };
+    let mut fields = execution_attachment_fields("run", request, plan);
+    append_owned_collect_fields(
+        &mut fields,
+        PublicVortexPrimitive::Project,
+        &result.collected,
+    );
+    fields.retain(|(key, _)| key != "execution");
+    fields.extend([
+        (
+            "execution".into(),
+            "resident_vortex_memory_to_json_sink".into(),
+        ),
+        ("publication_state".into(), "visible_in_memory".into()),
+        ("durable".into(), "false".into()),
+        ("write_io_performed".into(), "false".into()),
+        ("result_known".into(), "true".into()),
+        ("output_row_count".into(), result.collected.rows.to_string()),
+        (
+            "memory_input_logical_bytes".into(),
+            result.input_logical_bytes.to_string(),
+        ),
+        (
+            "resident_source_opens".into(),
+            result.collected.runtime.prepared_source_opens.to_string(),
+        ),
+        (
+            "resident_completed_executions".into(),
+            result.collected.runtime.completed_executions.to_string(),
+        ),
+        (
+            "resident_peak_reserved_buffer_bytes".into(),
+            result
+                .collected
+                .runtime
+                .memory
+                .peak_reserved_bytes
+                .to_string(),
+        ),
+        (
+            "local_primitive_no_query_answer_cache".into(),
+            "true".into(),
+        ),
+        ("fallback_attempted".into(), "false".into()),
+        ("external_engine_invoked".into(), "false".into()),
+    ]);
+    emit(
+        "run",
+        format,
+        CommandStatus::Success,
+        "native Vortex memory collect".into(),
+        format!(
+            "result summary: native_collect values={{\"rows\":{},\"values\":{}}}\n",
+            result.collected.rows,
+            result.collected.values_json.value()
+        ),
+        Vec::new(),
+        fields,
+    );
+    ExitCode::SUCCESS
+}
+
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+fn execute_generated_memory_collect(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    _execution_session: &mut PublicExecutionSession,
+) -> ExitCode {
+    emit_blocked_facade("run", format, request, plan)
 }
 
 fn execute_generated_source_run(
@@ -3574,6 +4015,7 @@ fn execute_local_file_prepare_once_first_query_run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
+    execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
     if is_write_request(request)
         && !matches!(
@@ -3656,7 +4098,13 @@ fn execute_local_file_prepare_once_first_query_run(
         ));
     }
 
-    execute_prepared_local_native_route(&prepared_run.request, &native_plan, format, extra_fields)
+    execute_prepared_local_native_route(
+        &prepared_run.request,
+        &native_plan,
+        format,
+        extra_fields,
+        execution_session,
+    )
 }
 
 fn execute_prepared_local_native_route(
@@ -3664,6 +4112,7 @@ fn execute_prepared_local_native_route(
     native_plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     extra_fields: Vec<(String, String)>,
+    execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
     match native_plan.route_id {
         "native_vortex_count_all"
@@ -3687,6 +4136,7 @@ fn execute_prepared_local_native_route(
             native_plan,
             format,
             extra_fields,
+            execution_session,
         ),
         "native_vortex_user_aggregate"
         | "native_vortex_user_join"
@@ -4894,6 +5344,10 @@ fn plan_public_workflow_route(request: &PublicWorkflowRouteRequest) -> PublicWor
     }
     if matches!(request.requested_output.as_str(), "collect") && !request.bounded {
         return unbounded_collect_blocked_route();
+    }
+
+    if request.generated_source_kind.is_some() && request.requested_output == "collect" {
+        return generated_memory_collect_route(request);
     }
 
     if request.execution_policy == "native_vortex"
@@ -9881,6 +10335,19 @@ fn native_vortex_structured_sink_payload_blocked_route(
 fn native_vortex_row_export_requires_structured_payload(
     request: &PublicWorkflowRouteRequest,
 ) -> bool {
+    if cfg!(all(feature = "vortex-write", unix))
+        && request.requested_output == "write_vortex"
+        && matches!(
+            normalized_vortex_primitive(request),
+            Some(
+                PublicVortexPrimitive::Project
+                    | PublicVortexPrimitive::Filter
+                    | PublicVortexPrimitive::FilterProject
+            )
+        )
+    {
+        return false;
+    }
     matches!(
         request.requested_output.as_str(),
         "write_vortex" | "write_parquet" | "write_arrow_ipc" | "write_avro"
@@ -9931,6 +10398,68 @@ fn source_free_generated_output_route() -> PublicWorkflowRoutePlan {
 
 fn is_generated_source_write_request(request: &PublicWorkflowRouteRequest) -> bool {
     request.generated_source_kind.is_some() && is_write_request(request)
+}
+
+fn generated_memory_collect_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
+    let mut admitted = PublicWorkflowRouteRequest::new(request.surface.clone());
+    admitted
+        .generated_source_kind
+        .clone_from(&request.generated_source_kind);
+    admitted
+        .generated_schema
+        .clone_from(&request.generated_schema);
+    admitted.generated_rows.clone_from(&request.generated_rows);
+    admitted
+        .execution_policy
+        .clone_from(&request.execution_policy);
+    admitted
+        .materialization_policy
+        .clone_from(&request.materialization_policy);
+    admitted.evidence_level.clone_from(&request.evidence_level);
+    admitted.bounded = true;
+    admitted.memory_gb.clone_from(&request.memory_gb);
+    admitted
+        .max_parallelism
+        .clone_from(&request.max_parallelism);
+    admitted.infer_defaults();
+    if admitted != *request
+        || !matches!(
+            normalized_generated_source_kind(request),
+            Some(
+                "user_rows"
+                    | "literal_table"
+                    | "calendar"
+                    | "dataframe_source_free_projection"
+                    | "dataframe_generated_with_column"
+            )
+        )
+        || request.generated_schema.is_none()
+        || request.generated_rows.is_none()
+        || request.materialization_policy == "zero_decode"
+        || request.execution_policy == "prepare_once"
+    {
+        return generated_source_payload_blocked_route(
+            "public_workflow_route.memory_collect",
+            "memory collect requires explicit typed rows and bounded JSON output without file or residual operation requests",
+            "pass --generated-source-kind user_rows --generated-schema <schema> --generated-rows <rows> --request collect --bounded true --materialization-policy bounded; use the native Rust memory source API for typed filtering",
+        );
+    }
+    if !cfg!(all(feature = "vortex-local-primitives", unix)) {
+        return generated_source_payload_blocked_route(
+            "public_workflow_route.memory_collect",
+            "native memory collection is unavailable in this build",
+            "use a Unix build with the vortex-local-primitives feature; no fallback execution was attempted",
+        );
+    }
+    admitted_route(
+        "generated_rows_memory_collect",
+        "run",
+        "generated_user_rows",
+        "validated_immutable_vortex_memory",
+        "visible_in_memory",
+        false,
+        false,
+    )
 }
 
 fn generated_source_output_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
@@ -10820,6 +11349,12 @@ fn native_vortex_required_feature_gate(
     if !is_native_vortex_route(request) {
         return "not_applicable";
     }
+    if plan.route_id == "native_vortex_primitive_row_export"
+        && request.requested_output == "write_vortex"
+        && !native_vortex_row_export_requires_structured_payload(request)
+    {
+        return "vortex-local-primitives,vortex-write";
+    }
     if matches!(plan.route_id, "native_vortex_primitive_row_export")
         && native_vortex_row_export_requires_structured_payload(request)
     {
@@ -11114,6 +11649,9 @@ fn typed_sink_contract(
                 "native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink"
             }
         }
+        "native_vortex_primitive_row_export" if request.requested_output == "write_vortex" => {
+            "native_vortex_array_stream_to_vortex_sink"
+        }
         "native_vortex_primitive_row_export" => {
             "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink"
         }
@@ -11238,6 +11776,7 @@ fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_filter"
         | "native_vortex_project"
         | "native_vortex_filter_project"
+        | "generated_rows_memory_collect"
         | "source_free_generated_output"
         | "generated_user_rows_direct_output"
         | "generated_range_direct_output"
@@ -11256,6 +11795,7 @@ fn route_runtime_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
 
 fn vortex_middle_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
     match plan.route_id {
+        "generated_rows_memory_collect" => "validated_immutable_vortex_memory",
         "local_file_prepare_once"
         | "local_file_prepare_once_first_query"
         | "native_vortex_artifact_prepare" => "prepared_vortex_state",
@@ -12566,6 +13106,77 @@ fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn aggregate_worker_observations_survive_public_summary_without_invented_counters() {
+        let summary = serde_json::json!({
+            "aggregate_workers_rows": 101,
+            "aggregate_workers_peak_active_workers": 3,
+            "aggregate_workers_count_work_nanos": 900,
+            "aggregate_workers_scope": "parallel work sums; caller merge separate"
+        })
+        .to_string();
+        let mut fields = Vec::new();
+        super::append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+        for (key, value) in [
+            ("rows", "101"),
+            ("peak_active_workers", "3"),
+            ("count_work_nanos", "900"),
+            ("scope", "parallel work sums; caller merge separate"),
+        ] {
+            assert!(fields.contains(&(
+                format!("local_primitive_aggregate_workers_{key}"),
+                value.into()
+            )));
+        }
+        assert!(
+            !fields
+                .iter()
+                .any(|(key, _)| key == "local_primitive_aggregate_workers_compute_threads")
+        );
+    }
+
+    #[test]
+    fn complete_partition_observations_preserve_each_provided_counter() {
+        let mut payload = serde_json::Map::new();
+        let counters = [
+            "count",
+            "complete_groups",
+            "committed_rows",
+            "lock_wait_nanos",
+            "reconcile_work_nanos",
+            "arrange_work_nanos",
+            "selection_work_nanos",
+            "equality_comparisons",
+            "native_handoffs",
+            "selection_jobs",
+            "retry_jobs",
+            "source_replays",
+            "discarded_input_rows",
+            "discarded_attempt_nanos",
+            "source_replay_nanos",
+        ];
+        for (index, name) in counters.iter().enumerate() {
+            payload.insert(
+                format!("aggregate_workers_partition_{name}"),
+                (index + 1).into(),
+            );
+        }
+        let summary = serde_json::Value::Object(payload).to_string();
+        let mut fields = Vec::new();
+        super::append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+        for (index, name) in counters.iter().enumerate() {
+            assert!(fields.contains(&(
+                format!("local_primitive_aggregate_workers_partition_{name}"),
+                (index + 1).to_string()
+            )));
+        }
+        assert!(
+            !fields
+                .iter()
+                .any(|(key, _)| key == "local_primitive_aggregate_workers_rows")
+        );
+    }
+
     use super::*;
 
     fn field(fields: &[(String, String)], key: &str) -> String {
@@ -12582,6 +13193,54 @@ mod tests {
                 *expected_value,
                 "unexpected route field value for {key}"
             );
+        }
+    }
+
+    #[test]
+    fn local_primitive_result_summary_lifts_native_numeric_decode_work_exactly() {
+        let scope = "retained_aggregate_attempt;one_source_array_native_primitive_execution_then_typed_values_copy;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;null_mask_work_additional;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound";
+        let payload = serde_json::json!({
+            "aggregate_native_numeric_accessor": {
+                "native_decode_calls": 3,
+                "rows": 23,
+                "source_array_nbytes_estimate": 101,
+                "canonical_array_nbytes_estimate": 191,
+                "typed_value_bytes_copied": 184,
+                "decode_and_typed_copy_nanos": 9_007_199_254_740_993_u64,
+                "max_source_array_rows": 11,
+                "columns": ["renamed_measure", "東京"],
+                "scope": scope,
+                "future_unadmitted_counter": 99
+            }
+        });
+        for summary in [payload.to_string(), format!("aggregate values={payload}")] {
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+            for (key, expected) in [
+                ("native_decode_calls", "3"),
+                ("rows", "23"),
+                ("source_array_nbytes_estimate", "101"),
+                ("canonical_array_nbytes_estimate", "191"),
+                ("typed_value_bytes_copied", "184"),
+                ("decode_and_typed_copy_nanos", "9007199254740993"),
+                ("max_source_array_rows", "11"),
+                ("columns", "[\"renamed_measure\",\"東京\"]"),
+                ("scope", scope),
+            ] {
+                assert_eq!(
+                    field(
+                        &fields,
+                        &format!("local_primitive_aggregate_native_numeric_accessor_{key}")
+                    ),
+                    expected
+                );
+            }
+            assert_eq!(fields.len(), 9);
+        }
+        for summary in ["{}", "{\"aggregate_native_numeric_accessor\":null}"] {
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(&mut fields, Some(summary));
+            assert!(fields.is_empty());
         }
     }
 
@@ -12998,6 +13657,8 @@ mod tests {
         embedded_layout.footer_approx_bytes = Some(4096);
         embedded_layout.footer_dtype_summary = "struct(value=u32,metric=i64)".to_string();
         embedded_layout.footer_layout_summary = "vortex_footer_root_layout".to_string();
+        embedded_layout.layout_inventory_scope = "root_only;full_tree_deferred".to_string();
+        embedded_layout.layout_inventory_nodes_inspected = 1;
         embedded_layout.metadata_persisted_in_artifact = true;
         embedded_layout.metadata_first_pruning_available = true;
         embedded_layout.metadata_first_pruning_consulted = true;
@@ -13026,6 +13687,14 @@ mod tests {
             "metadata_pruned_entire_input"
         );
         assert_eq!(field(&fields, "local_primitive_footer_row_count"), "5");
+        assert_eq!(
+            field(&fields, "local_primitive_layout_inventory_scope"),
+            "root_only;full_tree_deferred"
+        );
+        assert_eq!(
+            field(&fields, "local_primitive_layout_inventory_nodes_inspected"),
+            "1"
+        );
         assert_eq!(
             field(&fields, "local_primitive_footer_statistics_available"),
             "true"

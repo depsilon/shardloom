@@ -19,6 +19,7 @@ import platform
 import re
 import signal
 import subprocess
+import sys
 import threading
 import time
 
@@ -144,23 +145,48 @@ def run_command(command: list[str], stdout: Path, stderr: Path, timeout: float, 
     return {"returncode": returncode, "seconds": seconds, "guard_failures": failures}
 
 
-def score(records: list[dict], query_count: int) -> dict:
-    complete = (len(records) == query_count * 3
+def run_profiled_command(command: list[str], prefix: Path, timeout: float, guard) -> dict:
+    """Use one supervisor per operation so CPU/RSS never include earlier queries."""
+    timing = prefix.with_suffix(".timing.json")
+    supervisor = [sys.executable, str(Path(__file__).with_name("timed_native_command.py")),
+                  "--timing", str(timing), "--pid-file", str(prefix.with_suffix(".pid")),
+                  "--shared-process-group", "--", *command]
+    result = run_command(supervisor, prefix.with_suffix(".stdout.json"),
+                         prefix.with_suffix(".stderr.txt"), timeout, guard)
+    result["supervised_wall_seconds"] = result["seconds"]
+    if timing.exists():
+        native = strict_json(timing.read_text())
+        result["seconds"] = native["seconds"]
+        result["native_peak_rss_bytes"] = native["peak_rss_bytes"]
+        result["user_cpu_seconds"] = native["user_cpu_seconds"]
+        result["system_cpu_seconds"] = native["system_cpu_seconds"]
+        if native["returncode"] != 0:
+            result["guard_failures"].append("profiled native command failed")
+    else:
+        result["guard_failures"].append("native timing evidence is missing")
+    return result
+
+
+def score(records: list[dict], query_count: int, selected: list[int] | None = None) -> dict:
+    queries = list(range(1, query_count + 1)) if selected is None else selected
+    if not queries or len(set(queries)) != len(queries) or any(q < 1 or q > query_count for q in queries):
+        raise ValueError("invalid selected query ids")
+    complete = (len(records) == len(queries) * 3
                 and all(record["passed"] for record in records)
                 and {(record["query"], record["run"]) for record in records}
-                == {(query, run) for query in range(1, query_count + 1) for run in range(1, 4)})
+                == {(query, run) for query in queries for run in range(1, 4)})
     if not complete:
         return {"complete": False, "runs_completed": len(records), "runs_passed": sum(record["passed"] for record in records)}
-    timings = [[record["seconds"] for record in records if record["query"] == query] for query in range(1, query_count + 1)]
+    timings = [[record["seconds"] for record in sorted(records, key=lambda r: r["run"]) if record["query"] == query] for query in queries]
     best = [min(runs) for runs in timings]
     hot = [min(runs[1:]) for runs in timings]
     return {
-        "complete": True, "queries_passed": query_count,
+        "complete": True, "queries_passed": len(queries), "query_ids": queries,
         "runs_completed": len(records), "runs_passed": len(records),
         "query_total_seconds": sum(best), "hot_total_seconds": sum(hot),
         "all_raw_run_seconds": sum(sum(runs) for runs in timings),
-        "geomean_seconds": math.exp(sum(math.log(value) for value in best) / query_count),
-        "hot_geomean_seconds": math.exp(sum(math.log(value) for value in hot) / query_count),
+        "geomean_seconds": math.exp(sum(math.log(value) for value in best) / len(queries)),
+        "hot_geomean_seconds": math.exp(sum(math.log(value) for value in hot) / len(queries)),
         "query_runs": timings,
     }
 
@@ -178,9 +204,15 @@ def main() -> int:
     parser.add_argument("--memory-gb", type=int, default=24)
     parser.add_argument("--max-parallelism", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=120)
+    parser.add_argument("--query-ids", help="comma-separated targeted query ids; never a full-suite score")
     args = parser.parse_args()
     if args.memory_gb <= 0 or args.max_parallelism <= 0 or not math.isfinite(args.timeout) or args.timeout <= 0:
         parser.error("memory, parallelism and timeout must be positive")
+    try:
+        selected = [int(value) for value in args.query_ids.split(",")] if args.query_ids else list(range(1, 44))
+        score([], 43, selected)
+    except ValueError as error:
+        parser.error(str(error))
     root = require_local_path(args.uat_root, Path.home(), os.sys.platform)
     source = require_local_path(args.input, Path.home(), os.sys.platform)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -220,7 +252,10 @@ def main() -> int:
                                   "ctime_ns": identity.st_ctime_ns},
             "machine": platform.machine(), "cpu_count": os.cpu_count(),
             "memory_gb": args.memory_gb, "max_parallelism": args.max_parallelism,
-            "timing_boundary": "process creation through completed public CLI output and process exit",
+            "timing_boundary": "native process creation through completed public CLI output and process exit",
+            "cpu_timing_boundary": "native child CPU work; overlaps wall time and other worker CPU",
+            "selected_query_ids": selected,
+            "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_queries_only",
             "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
             "reference": str(args.reference_dir),
             "reference_override": override,
@@ -228,13 +263,16 @@ def main() -> int:
             "records": records,
         }
         for index, (query, expected) in enumerate(zip(queries, references), 1):
+            if index not in selected:
+                continue
             for run in range(1, 4):
                 prefix = logs / f"q{index:02d}_run{run}"
                 command = [str(args.binary), "run", "sql", "--input", str(source), "--input-format", "vortex", "--sql", query,
                            "--request", "collect", "--bounded", "true", "--memory-gb", str(args.memory_gb),
                            "--max-parallelism", str(args.max_parallelism), "--format", "json"]
-                result = run_command(command, prefix.with_suffix(".stdout.json"), prefix.with_suffix(".stderr.txt"), args.timeout, guard)
-                result.update(query=index, run=run, passed=False)
+                result = run_profiled_command(command, prefix, args.timeout, guard)
+                result.update(query=index, run=run, command=command, passed=False)
+                validation_started = time.perf_counter()
                 try:
                     if result["returncode"] != 0 or result["guard_failures"]:
                         raise ValueError("native command or watchdog failed")
@@ -265,13 +303,22 @@ def main() -> int:
                     result["validation"] = validation
                 except (OSError, ValueError) as error:
                     result["failure"] = str(error)
+                result["validation_seconds"] = time.perf_counter() - validation_started
+                result["stdout_bytes"] = prefix.with_suffix(".stdout.json").stat().st_size
+                result["stderr_bytes"] = prefix.with_suffix(".stderr.txt").stat().st_size
                 records.append(result)
-                summary.update(score(records, 43))
+                summary.update(score(records, 43, selected))
                 summary["full_result_validation"] = len(records) == 129 and all(record.get("validation") == "complete_values" for record in records)
                 (logs / "summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
                 print(json.dumps(result), flush=True)
                 if not result["passed"]:
                     return 1
+        if (file_sha256(args.binary) != summary["binary_sha256"]
+                or file_sha256(args.queries) != summary["queries_sha256"]):
+            summary.update(complete=False, full_result_validation=False,
+                           failure="binary or query file changed during UAT")
+            (logs / "summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+            return 1
         return 0
     finally:
         lock.rmdir()

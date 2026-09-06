@@ -64,6 +64,36 @@
       "shardloom sqlite-local-import-export-smoke --format json"
     ]
   },
+  "resident_native_results": {
+    "reference": "docs/reference/resident-native-results.md",
+    "required_feature": "vortex-local-primitives",
+    "required_platform": "unix",
+    "rust_memory_source": "shardloom_vortex::resident_memory_source::ResidentMemorySource",
+    "nullable_types": ["int64", "finite_float64", "bool", "utf8"],
+    "native_result": "OwnedVortexResultBatch",
+    "public_generated_collect_route": "generated_rows_memory_collect",
+    "public_row_grammar_null_token": false,
+    "publication_state": "visible_in_memory",
+    "durable": false,
+    "native_python_binding": false,
+    "query_answer_cache": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
+  "native_numeric_sort_spill": {
+    "reference": "docs/reference/native-query-spill.md",
+    "required_features": ["vortex-local-primitives", "vortex-write"],
+    "required_platform": "unix",
+    "sort_key_types": ["nonnullable_int64", "nonnullable_uint64"],
+    "key_count": 1,
+    "explicit_workspace_required": true,
+    "explicit_output_bound_required": true,
+    "minimum_memory_bytes": 1048576,
+    "minimum_quota_bytes": 32768,
+    "synthetic_spill": false,
+    "query_answer_cache": false,
+    "fallback_attempted": false
+  },
   "python": {
     "ordinary_import": "import shardloom as sl",
     "ordinary_context": "ctx = sl.context()",

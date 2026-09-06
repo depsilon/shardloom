@@ -112,7 +112,7 @@ jobs:
           - lane: native_vortex_tests
             command: cargo test -p shardloom-vortex --lib --features release-user-surfaces
           - lane: native_public_surface_tests
-            command: cargo test -p shardloom-cli --bin shardloom --test sql_local_source_runtime_smoke --test public_workflow_route --features release-user-surfaces
+            command: cargo test -p shardloom-cli --bin shardloom --test sql_local_source_runtime_smoke --test public_workflow_route --test resident_worker --features release-user-surfaces
           - lane: native_release_clippy
             command: cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
           - lane: packaging_deployment
@@ -209,6 +209,12 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_local_uat_storage.py -v
       - name: ClickBench result and timing harness
         run: python -B -m unittest discover -s scripts -p test_clickbench_query_uat.py -v
+      - name: Resident public call path harness
+        run: python -B -m unittest discover -s scripts -p test_resident_call_path_uat.py -v
+      - name: Held-out native operator harness
+        run: python -B -m unittest discover -s scripts -p test_heldout_operator_uat.py -v
+      - name: Native output acceptance harness
+        run: python -B -m unittest discover -s scripts -p test_native_output_uat.py -v
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7

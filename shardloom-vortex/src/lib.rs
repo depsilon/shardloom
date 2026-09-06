@@ -83,6 +83,8 @@ pub mod generalized_filter_execution;
 pub mod generalized_projection_execution;
 pub mod manifest_finalization;
 pub mod memory_bridge;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+pub mod memory_file_generation;
 pub mod metadata_async_boundary;
 pub mod metadata_executor;
 pub mod metadata_physical_kernel;
@@ -92,12 +94,16 @@ pub mod metadata_summary;
 pub mod output_payload;
 #[cfg(feature = "upstream-vortex")]
 pub mod owned_buffers;
+#[cfg(feature = "vortex-file-io")]
+pub mod physical_encoding_inventory;
 pub mod physical_operator_bridge;
 pub mod projection_readiness;
 pub mod query_primitive;
 pub mod query_primitives;
 pub mod query_trace;
 pub mod read_planning;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub mod resident_memory_source;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
 pub mod resident_session;
 pub mod runtime_bridge;
@@ -415,9 +421,10 @@ pub use query_primitive::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
     VortexRollingWindowRequest, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
-    VortexSortRowsRequest, VortexSortTiePolicy, VortexStructuredProjectionColumn,
-    VortexStructuredProjectionExpr, VortexStructuredProjectionRequest,
-    evaluate_vortex_count_all_from_summary, evaluate_vortex_query_primitive,
+    VortexSortRowsRequest, VortexSortSpillPolicy, VortexSortSpillReport, VortexSortTiePolicy,
+    VortexStructuredProjectionColumn, VortexStructuredProjectionExpr,
+    VortexStructuredProjectionRequest, evaluate_vortex_count_all_from_summary,
+    evaluate_vortex_query_primitive,
 };
 pub use query_primitives::{
     VortexQueryPrimitiveEffect, VortexQueryPrimitiveKind as VortexQueryPrimitiveBoundaryKind,
@@ -711,8 +718,8 @@ pub use local_primitives::{
     VortexLocalPrimitiveExecutionStatus, VortexLocalPrimitivePhysicalPolicyReport,
     VortexLocalPrimitiveResourceEnvelope, VortexLocalPrimitiveRowExportFormat,
     VortexLocalPrimitiveRowExportReport, VortexLocalPrimitiveStateBudgetReport,
-    execute_vortex_local_partitioned_primitive_with_policy, execute_vortex_local_primitive,
-    execute_vortex_local_primitive_row_export_with_policy,
+    VortexNativeArraySinkEvidence, execute_vortex_local_partitioned_primitive_with_policy,
+    execute_vortex_local_primitive, execute_vortex_local_primitive_row_export_with_policy,
     execute_vortex_local_primitive_with_policy, local_primitive_correctness_fixture_for_request,
     local_primitive_execution_certificate, local_primitive_native_io_certificate,
 };

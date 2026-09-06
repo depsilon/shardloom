@@ -3373,13 +3373,35 @@ fn parse_sort_rows_primitive_request(
         json_optional_projection_field_any(object, &["columns", "projection"])?
             .unwrap_or_else(ProjectionRequest::all)
     };
+    let mut sort_rows = VortexSortRowsRequest::new(order_by)
+        .with_offset(offset)
+        .with_tie_policy(tie_policy);
+    if let Some(spill) = object.get("spill") {
+        let spill = spill.as_object().ok_or_else(|| {
+            ShardLoomError::InvalidOperation("sort spill policy must be an object".into())
+        })?;
+        let workspace = json_string_field_any(spill, &["workspace"])?;
+        let required_bytes = |field: &str| {
+            spill
+                .get(field)
+                .and_then(serde_json::Value::as_u64)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "sort spill policy requires unsigned {field}"
+                    ))
+                })
+        };
+        sort_rows = sort_rows.with_spill(shardloom_vortex::VortexSortSpillPolicy::new(
+            workspace,
+            required_bytes("quota_bytes")?,
+            required_bytes("memory_bytes")?,
+        )?);
+    }
     let request = shardloom_vortex::VortexQueryPrimitiveRequest::sort_rows(
         uri,
         projection,
         predicate.map(parse_tiny_predicate).transpose()?,
-        VortexSortRowsRequest::new(order_by)
-            .with_offset(offset)
-            .with_tie_policy(tie_policy),
+        sort_rows,
         limit,
     );
     Ok(request)
@@ -8823,6 +8845,45 @@ fn handle_vortex_count_local_encoded(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_sort_spill_parser_admits_explicit_bytes_without_workspace_effects() {
+        let workspace =
+            std::env::temp_dir().join(format!("absent-sort-parser-{}", std::process::id()));
+        assert!(!workspace.exists());
+        let mut payload = serde_json::json!({"order_by":[{"column":"priority","descending":true}], "offset":45003,"limit":7,
+            "spill":{"workspace":workspace,"quota_bytes":33_554_432,"memory_bytes":4_194_304}});
+        let parse = |value: &serde_json::Value| {
+            parse_sort_rows_primitive_request(
+                DatasetUri::new("/source.vortex").unwrap(),
+                &value.to_string(),
+                None,
+                None,
+            )
+        };
+        let request = parse(&payload).unwrap();
+        let sort = request.sort_rows.unwrap();
+        assert_eq!(sort.offset, 45003);
+        assert_eq!(request.source_order_limit, Some(7));
+        let spill = sort.spill.unwrap();
+        assert_eq!(spill.workspace, workspace);
+        assert_eq!(spill.memory_bytes, 4_194_304);
+        assert_eq!(spill.quota_bytes, 33_554_432);
+        assert!(!workspace.exists());
+        payload["spill"]["workspace"] = serde_json::json!("relative");
+        assert!(parse(&payload).is_err());
+        payload["spill"]["workspace"] = serde_json::json!(workspace);
+        for invalid in [
+            serde_json::json!(-1),
+            serde_json::json!(0),
+            serde_json::json!("many"),
+            serde_json::Value::Null,
+        ] {
+            payload["spill"]["quota_bytes"] = invalid;
+            assert!(parse(&payload).is_err());
+        }
+        assert!(!workspace.exists());
+    }
 
     fn test_field(fields: &[(String, String)], key: &str) -> String {
         fields

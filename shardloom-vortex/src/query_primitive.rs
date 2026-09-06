@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 
 use shardloom_core::{
     ColumnRef, ComparisonOp, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity,
-    PredicateExpr, Result, ScalarValue, StatValue,
+    PredicateExpr, Result, ScalarValue, ShardLoomError, StatValue,
 };
 use shardloom_plan::ProjectionRequest;
 
@@ -789,6 +789,85 @@ pub struct VortexSortRowsRequest {
     pub order_by: Vec<VortexAggregateOrderExpr>,
     pub offset: usize,
     pub tie_policy: VortexSortTiePolicy,
+    pub spill: Option<VortexSortSpillPolicy>,
+}
+
+/// Explicit admission for query-local native sort runs. Construction is free of
+/// filesystem effects; execution requires an existing caller-owned workspace.
+#[derive(Debug, Clone)]
+pub struct VortexSortSpillPolicy {
+    pub workspace: std::path::PathBuf,
+    pub quota_bytes: u64,
+    pub memory_bytes: u64,
+    pub(crate) cancellation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl PartialEq for VortexSortSpillPolicy {
+    fn eq(&self, other: &Self) -> bool {
+        self.workspace == other.workspace
+            && self.quota_bytes == other.quota_bytes
+            && self.memory_bytes == other.memory_bytes
+            && std::sync::Arc::ptr_eq(&self.cancellation, &other.cancellation)
+    }
+}
+
+impl Eq for VortexSortSpillPolicy {}
+
+impl VortexSortSpillPolicy {
+    /// # Errors
+    /// Rejects relative/empty workspace paths, zero quota, and less than 1 MiB
+    /// of operator memory. No filesystem is inspected or changed here.
+    pub fn new(
+        workspace: impl Into<std::path::PathBuf>,
+        quota_bytes: u64,
+        memory_bytes: u64,
+    ) -> Result<Self> {
+        let workspace = workspace.into();
+        if !workspace.is_absolute() || quota_bytes == 0 || memory_bytes < 1024 * 1024 {
+            return Err(ShardLoomError::InvalidOperation(
+                "native sort spill requires an absolute workspace, positive byte quota, and at least 1 MiB operator memory; no fallback execution was attempted".to_string(),
+            ));
+        }
+        Ok(Self {
+            workspace,
+            quota_bytes,
+            memory_bytes,
+            cancellation: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        })
+    }
+
+    /// Cancel this operation and its clones at the next native spill checkpoint.
+    pub fn cancel(&self) {
+        self.cancellation
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
+
+    /// Remove an abandoned owned run directory under this workspace. Unknown
+    /// files, symlinks, and replaced run identities are rejected and preserved.
+    ///
+    /// # Errors
+    /// Returns an error unless every remaining entry is verified as query-owned.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write"))]
+    pub fn cleanup_abandoned(&self, directory: &std::path::Path) -> Result<()> {
+        crate::local_primitives::sort_spill::recover(self, directory)
+    }
+}
+
+/// Verified ownership evidence for the scoped native numeric sort spill path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexSortSpillReport {
+    pub workspace: std::path::PathBuf,
+    pub quota_bytes: u64,
+    pub memory_bytes: u64,
+    pub peak_reserved_bytes: u64,
+    pub peak_disk_bytes: u64,
+    pub runs_written: u64,
+    pub runs_validated: u64,
+    pub merge_passes: u64,
+    pub run_block_rows: usize,
+    pub merge_fan_in: usize,
+    pub max_open_runs: usize,
+    pub owned_cleanup_completed: bool,
 }
 impl VortexSortRowsRequest {
     #[must_use]
@@ -797,6 +876,7 @@ impl VortexSortRowsRequest {
             order_by,
             offset: 0,
             tie_policy: VortexSortTiePolicy::First,
+            spill: None,
         }
     }
 
@@ -809,6 +889,12 @@ impl VortexSortRowsRequest {
     #[must_use]
     pub fn with_tie_policy(mut self, tie_policy: VortexSortTiePolicy) -> Self {
         self.tie_policy = tie_policy;
+        self
+    }
+
+    #[must_use]
+    pub fn with_spill(mut self, spill: VortexSortSpillPolicy) -> Self {
+        self.spill = Some(spill);
         self
     }
 

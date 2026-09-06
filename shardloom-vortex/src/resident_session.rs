@@ -29,10 +29,7 @@ use vortex::{
     file::{OpenOptionsSessionExt as _, VortexFile},
     io::{
         CoalesceConfig, VortexReadAt,
-        runtime::{
-            BlockingRuntime as _, Handle,
-            current::{CurrentThreadRuntime, CurrentThreadWorkerPool},
-        },
+        runtime::{BlockingRuntime as _, Handle, current::CurrentThreadRuntime},
         session::RuntimeSessionExt as _,
     },
     session::VortexSession,
@@ -40,13 +37,18 @@ use vortex::{
 
 use crate::owned_buffers::ReservedHostAllocator;
 
+#[path = "resident_worker_group.rs"]
+mod worker_group;
+use worker_group::ResidentWorkerGroup;
+
 struct RuntimeOwner {
     session: VortexSession,
     runtime: CurrentThreadRuntime,
-    _workers: CurrentThreadWorkerPool,
+    _workers: ResidentWorkerGroup,
     admission: Mutex<()>,
     memory: LiveMemoryPool,
     parallelism: usize,
+    provider_background_workers: usize,
     opens: AtomicU64,
     executions: AtomicU64,
 }
@@ -68,10 +70,93 @@ impl ResidentVortexSession {
     pub(crate) fn memory(&self) -> &LiveMemoryPool {
         &self.0.memory
     }
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn with_native_session<T>(
+        &self,
+        execute: impl FnOnce(&VortexSession, &CurrentThreadRuntime) -> Result<T>,
+    ) -> Result<T> {
+        let _gate = self
+            .0
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        execute(&self.0.session, &self.0.runtime)
+    }
+
+    /// Only engine-constructed immutable segment sources may enter here.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn prepare_immutable_file(&self, file: VortexFile) -> PreparedVortexSource {
+        PreparedVortexSource(Arc::new(PreparedSourceOwner {
+            file,
+            identity: None,
+            runtime: Arc::clone(&self.0),
+        }))
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn native_allocator(&self) -> HostAllocatorRef {
+        self.0.session.allocator()
+    }
+
+    /// Complete an admitted native array operation using this session's execution
+    /// context. The producer must own its buffers through this session allocator;
+    /// this is not an admission path for arbitrary externally allocated arrays.
+    #[cfg(unix)]
+    pub(crate) fn execute_owned_array(
+        &self,
+        max_rows: u64,
+        max_output_bytes: u64,
+        execute: impl FnOnce(&VortexSession) -> Result<ArrayRef>,
+    ) -> Result<OwnedVortexResultBatch> {
+        let _gate = self
+            .0
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        let ownership = self
+            .0
+            .memory
+            .reserve(std::mem::size_of::<ArrayRef>() as u64)?;
+        let array = execute(&self.0.session)?;
+        let rows = u64::try_from(array.len()).map_err(native_error)?;
+        let logical_buffer_bytes = array.nbytes();
+        if rows > max_rows || logical_buffer_bytes > max_output_bytes {
+            return Err(resident_error("projection exceeds completed output bounds"));
+        }
+        let result = OwnedVortexResultBatch {
+            arrays: Budgeted::new(vec![array], ownership),
+            runtime: Arc::clone(&self.0),
+            rows,
+            logical_buffer_bytes,
+        };
+        self.0.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
     /// # Errors
     /// Rejects empty memory or CPU budgets. File generation checks currently
     /// require Unix device/inode/change-time identity; other hosts fail explicitly.
     pub fn new(memory_bytes: u64, max_parallelism: usize) -> Result<Self> {
+        Self::with_cpu_driver_policy(memory_bytes, max_parallelism, false)
+    }
+
+    /// The caller and its dedicated compute pool own the CPU budget. Provider
+    /// progress runs only while the caller drives the runtime; positional I/O
+    /// concurrency remains separately bounded by `max_io_parallelism`.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn for_external_cpu_pool(
+        memory_bytes: u64,
+        max_io_parallelism: usize,
+    ) -> Result<Self> {
+        Self::with_cpu_driver_policy(memory_bytes, max_io_parallelism, true)
+    }
+
+    fn with_cpu_driver_policy(
+        memory_bytes: u64,
+        max_parallelism: usize,
+        external_cpu_pool: bool,
+    ) -> Result<Self> {
         if max_parallelism == 0 {
             return Err(resident_error("parallelism must be greater than zero"));
         }
@@ -79,8 +164,13 @@ impl ResidentVortexSession {
             .min(std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get));
         let memory = LiveMemoryPool::new(memory_bytes)?;
         let runtime = CurrentThreadRuntime::new();
-        let workers = runtime.new_pool();
-        workers.set_workers(parallelism - 1);
+        let provider_background_workers = if external_cpu_pool {
+            0
+        } else {
+            parallelism - 1
+        };
+        let workers = ResidentWorkerGroup::new(&runtime, provider_background_workers)
+            .map_err(native_error)?;
         let session = VortexSession::default()
             .with_handle(runtime.handle())
             .with_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
@@ -91,6 +181,7 @@ impl ResidentVortexSession {
             admission: Mutex::new(()),
             memory,
             parallelism,
+            provider_background_workers,
             opens: AtomicU64::new(0),
             executions: AtomicU64::new(0),
         })))
@@ -101,7 +192,7 @@ impl ResidentVortexSession {
         ResidentSessionSnapshot {
             prepared_source_opens: self.0.opens.load(Ordering::Relaxed),
             completed_executions: self.0.executions.load(Ordering::Relaxed),
-            provider_background_workers: self.0.parallelism - 1,
+            provider_background_workers: self.0.provider_background_workers,
             memory: self.0.memory.snapshot(),
         }
     }
@@ -118,26 +209,12 @@ impl ResidentVortexSession {
             .admission
             .lock()
             .map_err(|_| resident_error("session admission poisoned"))?;
-        let path = std::path::absolute(path.as_ref()).map_err(native_error)?;
-        let file = File::open(&path).map_err(native_error)?;
-        let metadata = file.metadata().map_err(native_error)?;
-        if !metadata.is_file() {
-            return Err(resident_error("source must be a regular file"));
-        }
-        let generation = FileGeneration::read(&metadata)?;
-        let identity = Arc::new(SourceIdentity {
-            path,
-            file,
-            generation,
-            invalidated: AtomicBool::new(false),
-        });
-        identity.validate()?;
-        let input = Arc::new(ResidentFileReadAt {
-            identity: Arc::clone(&identity),
-            allocator: self.0.session.allocator(),
-            handle: self.0.runtime.handle(),
-            concurrency: self.0.parallelism,
-        });
+        let identity = Arc::new(SourceIdentity::capture(path.as_ref())?);
+        let input = identity.reader(
+            self.0.session.allocator(),
+            self.0.runtime.handle(),
+            self.0.parallelism,
+        );
         let file = self
             .0
             .runtime
@@ -153,7 +230,7 @@ impl ResidentVortexSession {
         self.0.opens.fetch_add(1, Ordering::Relaxed);
         Ok(PreparedVortexSource(Arc::new(PreparedSourceOwner {
             file,
-            identity,
+            identity: Some(identity),
             runtime: Arc::clone(&self.0),
         })))
     }
@@ -161,8 +238,17 @@ impl ResidentVortexSession {
 
 struct PreparedSourceOwner {
     file: VortexFile,
-    identity: Arc<SourceIdentity>,
+    // Engine-owned immutable memory needs no external pathname validation.
+    identity: Option<Arc<SourceIdentity>>,
     runtime: Arc<RuntimeOwner>,
+}
+
+impl PreparedSourceOwner {
+    fn validate(&self) -> Result<()> {
+        self.identity
+            .as_ref()
+            .map_or(Ok(()), |identity| identity.validate())
+    }
 }
 
 #[derive(Clone)]
@@ -170,7 +256,35 @@ pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 
 impl PreparedVortexSource {
     pub(crate) fn validate_generation(&self) -> Result<()> {
-        self.0.identity.validate()
+        self.0.validate()
+    }
+
+    /// Drive native work under one source generation, allocator, and admission
+    /// gate. Callers drain borrowed work inside the closure and expose output
+    /// only after this method's final generation validation succeeds.
+    #[cfg(all(
+        any(feature = "vortex-write", feature = "vortex-local-primitives"),
+        unix
+    ))]
+    pub(crate) fn with_native_execution<T>(
+        &self,
+        execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
+    ) -> Result<T> {
+        let source = &self.0;
+        let _gate = source
+            .runtime
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        source.validate()?;
+        let result = execute(
+            &source.file,
+            &source.runtime.session,
+            &source.runtime.runtime,
+        )?;
+        source.validate()?;
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
     }
     pub(crate) fn file(&self) -> &VortexFile {
         &self.0.file
@@ -196,7 +310,7 @@ impl PreparedVortexSource {
         max_rows: u64,
         max_output_bytes: u64,
     ) -> Result<PreparedVortexProjection> {
-        self.0.identity.validate()?;
+        self.0.validate()?;
         if columns.is_empty() || max_rows == 0 || max_output_bytes == 0 {
             return Err(resident_error(
                 "projection requires fields and positive row/byte bounds",
@@ -234,9 +348,9 @@ impl PreparedVortexCount {
             .admission
             .lock()
             .map_err(|_| resident_error("session admission poisoned"))?;
-        source.identity.validate()?;
+        source.validate()?;
         let rows = source.file.row_count();
-        source.identity.validate()?;
+        source.validate()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(rows)
     }
@@ -295,7 +409,7 @@ impl PreparedVortexProjection {
             .admission
             .lock()
             .map_err(|_| resident_error("session admission poisoned"))?;
-        source.identity.validate()?;
+        source.validate()?;
         let scan = source
             .file
             .scan()
@@ -351,7 +465,7 @@ impl PreparedVortexProjection {
                 break;
             }
         }
-        source.identity.validate()?;
+        source.validate()?;
         runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(OwnedVortexResultBatch {
             arrays: Budgeted::new(arrays, lease),
@@ -392,7 +506,7 @@ impl FileGeneration {
     }
 }
 
-struct SourceIdentity {
+pub(crate) struct SourceIdentity {
     path: PathBuf,
     file: File,
     generation: FileGeneration,
@@ -400,7 +514,40 @@ struct SourceIdentity {
 }
 
 impl SourceIdentity {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn reader(
+        self: &Arc<Self>,
+        allocator: HostAllocatorRef,
+        handle: Handle,
+        concurrency: usize,
+    ) -> Arc<dyn VortexReadAt> {
+        Arc::new(ResidentFileReadAt {
+            identity: Arc::clone(self),
+            allocator,
+            handle,
+            concurrency,
+        })
+    }
+
+    /// Capture a generation for another native path that must reopen the source.
+    /// Validation checks both the retained handle and the current source path.
+    pub(crate) fn capture(path: &Path) -> Result<Self> {
+        let path = std::path::absolute(path).map_err(native_error)?;
+        let file = File::open(&path).map_err(native_error)?;
+        let metadata = file.metadata().map_err(native_error)?;
+        if !metadata.is_file() {
+            return Err(resident_error("source must be a regular file"));
+        }
+        let identity = Self {
+            path,
+            file,
+            generation: FileGeneration::read(&metadata)?,
+            invalidated: AtomicBool::new(false),
+        };
+        identity.validate()?;
+        Ok(identity)
+    }
+
+    pub(crate) fn validate(&self) -> Result<()> {
         if self.invalidated.load(Ordering::Acquire) {
             return Err(resident_error(
                 "prepared source generation invalidated; prepare the source again",
@@ -498,6 +645,10 @@ fn resident_error(message: &str) -> ShardLoomError {
 fn native_error(error: impl std::fmt::Display) -> ShardLoomError {
     resident_error(&error.to_string())
 }
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "resident_session_read_observer.rs"]
+pub(crate) mod read_observer;
 
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_session_tests.rs"]

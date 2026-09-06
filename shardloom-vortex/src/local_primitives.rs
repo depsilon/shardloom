@@ -2,6 +2,41 @@
 
 use std::fmt::Write as _;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/aggregate_chunk_jobs.rs"]
+mod aggregate_chunk_jobs;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/aggregate_count_workers.rs"]
+mod aggregate_count_workers;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/aggregate_timing.rs"]
+mod aggregate_timing;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/lazy_layout_metadata_tests.rs"]
+mod lazy_layout_metadata_tests;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_native_flat_layout.rs"]
+mod native_flat_layout;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/native_numeric_accessor.rs"]
+mod native_numeric_accessor;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitive_native_sink.rs"]
+pub(crate) mod native_sink;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/numeric_count_partial.rs"]
+mod numeric_count_partial;
+#[cfg(feature = "vortex-local-primitives")]
+use native_numeric_accessor::{AggregateAccessorBatch, NativeNumericAccessorWork};
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_sort_spill.rs"]
+pub(crate) mod sort_spill;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/string_count_partial.rs"]
+mod string_count_partial;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/string_count_partitions.rs"]
+mod string_count_partitions;
+#[cfg(feature = "vortex-local-primitives")]
 use std::time::Instant;
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -129,6 +164,7 @@ pub struct VortexLocalPrimitiveStateBudgetReport {
     pub spill_required: bool,
     pub spill_supported: bool,
     pub spill_io_performed: bool,
+    pub native_sort_spill: Option<crate::VortexSortSpillReport>,
     pub fail_closed_if_spill_required: bool,
     pub diagnostic_code: String,
     pub next_action: String,
@@ -153,6 +189,7 @@ impl VortexLocalPrimitiveStateBudgetReport {
             spill_required: false,
             spill_supported: false,
             spill_io_performed: false,
+            native_sort_spill: None,
             fail_closed_if_spill_required: false,
             diagnostic_code: "none".to_string(),
             next_action: "none".to_string(),
@@ -194,6 +231,7 @@ impl VortexLocalPrimitiveStateBudgetReport {
             spill_required: false,
             spill_supported: false,
             spill_io_performed: false,
+            native_sort_spill: None,
             fail_closed_if_spill_required: true,
             diagnostic_code: diagnostic_code.to_string(),
             next_action: next_action.to_string(),
@@ -314,6 +352,10 @@ pub struct VortexLocalPrimitiveEmbeddedLayoutReport {
     pub footer_layout_summary: String,
     pub root_layout_encoding: String,
     pub layout_encoding_inventory: String,
+    /// Query metadata reads the root only; explicit inspection visits every layout.
+    pub layout_inventory_scope: String,
+    /// Nodes inspected for this report, excluding provider scan/pruning work.
+    pub layout_inventory_nodes_inspected: u64,
     pub per_column_metadata_contract: String,
     pub segment_membership_status: String,
     pub domain_dictionary_status: String,
@@ -335,31 +377,58 @@ pub struct VortexLocalPrimitiveEmbeddedLayoutReport {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+const DEFERRED_LAYOUT_INVENTORY: &str = "deferred_until_explicit_layout_inspection";
+
+#[cfg(feature = "vortex-local-primitives")]
 fn collect_vortex_local_layout_encodings(
     layout: &dyn vortex::layout::DynLayout,
     encodings: &mut std::collections::BTreeSet<String>,
-) {
+    max_layout_nodes: usize,
+) -> Result<u64> {
+    if max_layout_nodes == 0 {
+        return Err(ShardLoomError::InvalidOperation(
+            "layout inspection requires a positive node bound".into(),
+        ));
+    }
     encodings.insert(layout.encoding_id().to_string());
-    if let Ok(children) = layout.children() {
-        for child in children {
-            collect_vortex_local_layout_encodings(child.as_ref(), encodings);
+    let mut inspected = 1;
+    let mut pending = vec![(layout.to_layout(), 0)];
+    while let Some((parent, next_slot)) = pending.last_mut() {
+        if *next_slot == parent.nslots() {
+            pending.pop();
+            continue;
+        }
+        if inspected == max_layout_nodes && parent.slot_type(*next_slot).is_some() {
+            return Err(ShardLoomError::InvalidOperation(
+                "layout inspection exceeded its node bound".into(),
+            ));
+        }
+        let child = parent.slot(*next_slot).map_err(vortex_error)?;
+        *next_slot += 1;
+        if let Some(child) = child {
+            inspected += 1;
+            encodings.insert(child.encoding_id().to_string());
+            pending.push((child, 0));
         }
     }
+    u64::try_from(inspected).map_err(vortex_error)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
 fn vortex_local_layout_encoding_inventory(
     layout: &dyn vortex::layout::DynLayout,
-) -> (String, String) {
+    max_layout_nodes: usize,
+) -> Result<(String, String, u64)> {
     let root_layout_encoding = layout.encoding_id().to_string();
     let mut encodings = std::collections::BTreeSet::new();
-    collect_vortex_local_layout_encodings(layout, &mut encodings);
+    let inspected =
+        collect_vortex_local_layout_encodings(layout, &mut encodings, max_layout_nodes)?;
     let layout_encoding_inventory = if encodings.is_empty() {
         "none".to_string()
     } else {
         encodings.into_iter().collect::<Vec<_>>().join(",")
     };
-    (root_layout_encoding, layout_encoding_inventory)
+    Ok((root_layout_encoding, layout_encoding_inventory, inspected))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -367,6 +436,9 @@ fn vortex_local_domain_dictionary_status(
     dtype_summary: &str,
     layout_encoding_inventory: &str,
 ) -> String {
+    if layout_encoding_inventory.contains(DEFERRED_LAYOUT_INVENTORY) {
+        return "dictionary_layout_availability_not_inspected".into();
+    }
     let lower_encodings = layout_encoding_inventory.to_ascii_lowercase();
     let lower_dtype = dtype_summary.to_ascii_lowercase();
     if lower_encodings.contains("dict") || lower_encodings.contains("dictionary") {
@@ -465,6 +537,9 @@ fn vortex_local_column_encoding_status(
     dtype: &vortex::array::dtype::DType,
     layout_encoding_inventory: &str,
 ) -> &'static str {
+    if layout_encoding_inventory.contains(DEFERRED_LAYOUT_INVENTORY) {
+        return "layout_encoding_not_inspected";
+    }
     let lower_dtype = dtype.to_string().to_ascii_lowercase();
     let lower_layout = layout_encoding_inventory.to_ascii_lowercase();
     if lower_dtype.contains("dict")
@@ -549,6 +624,8 @@ fn vortex_local_operator_selection_metadata_status(per_column_contract: &str) ->
         "per_column_embedded_metadata_available_for_operator_selection".to_string()
     } else if per_column_contract.contains("encoding=dictionary_or_code_available") {
         "per_column_dictionary_metadata_available_for_operator_selection".to_string()
+    } else if per_column_contract.contains("encoding=layout_encoding_not_inspected") {
+        "per_column_logical_metadata_available_layout_inspection_deferred".to_string()
     } else if per_column_contract.is_empty() || per_column_contract == "not_available" {
         "per_column_metadata_not_available".to_string()
     } else {
@@ -629,6 +706,8 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             footer_layout_summary: "not_available".to_string(),
             root_layout_encoding: "not_available".to_string(),
             layout_encoding_inventory: "not_available".to_string(),
+            layout_inventory_scope: "not_available".to_string(),
+            layout_inventory_nodes_inspected: 0,
             per_column_metadata_contract: "not_available".to_string(),
             segment_membership_status: "not_available".to_string(),
             domain_dictionary_status: "not_available".to_string(),
@@ -664,8 +743,10 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             .approx_byte_size()
             .and_then(|value| u64::try_from(value).ok());
         let footer_dtype_summary = file.dtype().to_string();
-        let (root_layout_encoding, layout_encoding_inventory) =
-            vortex_local_layout_encoding_inventory(footer.layout().as_ref());
+        // DynLayout::slot/children materializes lazy provider layouts. Ordinary
+        // queries need only root metadata here; the scan realizes selected paths.
+        let root_layout_encoding = footer.layout().encoding_id().to_string();
+        let layout_encoding_inventory = DEFERRED_LAYOUT_INVENTORY.to_string();
         let per_column_metadata_contract = vortex_local_per_column_metadata_contract(
             file.dtype(),
             &layout_encoding_inventory,
@@ -702,6 +783,9 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             ),
             root_layout_encoding,
             layout_encoding_inventory,
+            layout_inventory_scope:
+                "root_only;full_tree_deferred;no_child_layouts_realized_for_inventory".into(),
+            layout_inventory_nodes_inspected: 1,
             per_column_metadata_contract,
             segment_membership_status,
             domain_dictionary_status,
@@ -728,6 +812,46 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
         }
     }
 
+    /// Inspect the complete layout tree of an already opened native file.
+    /// This explicit diagnostic materializes all lazy layout metadata, including
+    /// unprojected fields. It performs no segment reads or query execution.
+    ///
+    /// # Errors
+    /// Propagates malformed or unsupported child layout metadata and rejects a
+    /// zero/exceeded node bound. A partial walk is never reported as complete.
+    #[cfg(feature = "vortex-local-primitives")]
+    pub fn inspect_file_layouts(
+        file: &vortex::file::VortexFile,
+        max_layout_nodes: usize,
+    ) -> Result<Self> {
+        let mut report = Self::from_file(file, VortexQueryPrimitiveKind::CountAll, false, false);
+        let (root, inventory, inspected) = vortex_local_layout_encoding_inventory(
+            file.footer().layout().as_ref(),
+            max_layout_nodes,
+        )?;
+        report.root_layout_encoding = root;
+        report.layout_encoding_inventory = inventory;
+        report.layout_inventory_nodes_inspected = inspected;
+        report.layout_inventory_scope = "complete_tree;explicit_metadata_inspection".into();
+        report.footer_layout_summary = format!(
+            "vortex_footer_root_layout;root={};encodings={}",
+            report.root_layout_encoding, report.layout_encoding_inventory
+        );
+        report.per_column_metadata_contract = vortex_local_per_column_metadata_contract(
+            file.dtype(),
+            &report.layout_encoding_inventory,
+            report.footer_statistics_available,
+        );
+        report.operator_selection_metadata_status =
+            vortex_local_operator_selection_metadata_status(&report.per_column_metadata_contract);
+        report.domain_dictionary_status = vortex_local_domain_dictionary_status(
+            &report.footer_dtype_summary,
+            &report.layout_encoding_inventory,
+        );
+        report.planner_consumption_status = "explicit_layout_inspection_no_query_executed".into();
+        Ok(report)
+    }
+
     #[cfg(feature = "vortex-local-primitives")]
     fn partitioned() -> Self {
         Self {
@@ -742,6 +866,9 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             footer_layout_summary: "partitioned_vortex_footer_root_layouts".to_string(),
             root_layout_encoding: "partitioned_vortex_roots_pending_merge".to_string(),
             layout_encoding_inventory: "partitioned_vortex_encodings_pending_merge".to_string(),
+            layout_inventory_scope:
+                "root_only;full_tree_deferred;no_child_layouts_realized_for_inventory".into(),
+            layout_inventory_nodes_inspected: 0,
             per_column_metadata_contract: "partitioned_per_column_metadata_pending_merge"
                 .to_string(),
             segment_membership_status: "partitioned_segment_maps_pending_merge".to_string(),
@@ -861,6 +988,17 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             &self.layout_encoding_inventory,
             &child.layout_encoding_inventory,
         );
+        self.layout_inventory_nodes_inspected = self
+            .layout_inventory_nodes_inspected
+            .checked_add(child.layout_inventory_nodes_inspected)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partition layout inspection count overflow".into(),
+                )
+            })?;
+        if self.layout_inventory_scope != child.layout_inventory_scope {
+            self.layout_inventory_scope = "mixed_partition_inspection_scopes".into();
+        }
         self.per_column_metadata_contract = merge_partitioned_layout_status(
             "partitioned_per_column_metadata",
             &self.per_column_metadata_contract,
@@ -923,7 +1061,7 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
     #[must_use]
     pub fn compact_summary(&self) -> String {
         format!(
-            "schema={};status={};rows={};segments={};stats={};root_layout={};layout_encodings={};per_column_metadata={};operator_selection_metadata={};segment_membership={};domain_dictionary={};derived_stats={};row_position_locality={};layout_reader_cache={};pruning_available={};pruning_consulted={};pruned_entire_input={};selected_segments={};skipped_segments={};planner_status={};late_materialization={};no_query_answer_cache={}",
+            "schema={};status={};rows={};segments={};stats={};root_layout={};layout_encodings={};per_column_metadata={};operator_selection_metadata={};segment_membership={};domain_dictionary={};derived_stats={};row_position_locality={};layout_reader_cache={};pruning_available={};pruning_consulted={};pruned_entire_input={};selected_segments={};skipped_segments={};planner_status={};late_materialization={};no_query_answer_cache={};layout_inventory_scope={};layout_inventory_nodes_inspected={}",
             self.schema_version,
             self.status,
             self.footer_row_count,
@@ -945,7 +1083,9 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             self.skipped_segment_count,
             self.planner_consumption_status,
             self.late_materialization_status,
-            self.no_query_answer_cache
+            self.no_query_answer_cache,
+            self.layout_inventory_scope,
+            self.layout_inventory_nodes_inspected
         )
     }
 }
@@ -2002,7 +2142,7 @@ fn local_vortex_runtime(policy: VortexLocalPrimitiveExecutionPolicy) -> LocalVor
     }
 }
 
-/// Compatibility row-output format for a scoped local Vortex primitive export.
+/// Native or compatibility output format for a scoped local Vortex primitive export.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalPrimitiveRowExportFormat {
     Jsonl,
@@ -2039,8 +2179,8 @@ impl VortexLocalPrimitiveRowExportFormat {
     }
 }
 
-/// Materializing compatibility export report for supported local Vortex
-/// primitive row streams.
+/// Native-array or materializing row export report for supported local Vortex
+/// primitives. The evidence identifies the actual sink boundary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexLocalPrimitiveRowExportReport {
     pub status: VortexLocalPrimitiveExecutionStatus,
@@ -2078,6 +2218,27 @@ pub struct VortexLocalPrimitiveRowExportEvidence {
     pub side_effects: NativeIoSideEffectReport,
     pub upstream_scan_called: bool,
     pub materialization_boundary_reported: bool,
+    pub native_array_sink: Option<VortexNativeArraySinkEvidence>,
+}
+
+/// Native sink ownership and fidelity evidence. Byte counters describe explicit
+/// adapter work and allocator-owned buffers, not all provider internals or RSS.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexNativeArraySinkEvidence {
+    pub native_arrays_submitted: u64,
+    pub native_array_logical_bytes: u64,
+    pub adapter_payload_bytes_copied: u64,
+    pub scalar_values_materialized: u64,
+    pub scan_row_bound: usize,
+    pub writer_input_batch_bound: usize,
+    pub peak_reserved_bytes: u64,
+    pub metadata_reserved_bytes: u64,
+    pub pre_limit_result_row_count: u64,
+    pub pre_limit_result_row_count_exact: bool,
+    pub source_generation_validated: bool,
+    pub dtype_and_row_count_validated: bool,
+    pub output_sha256: String,
+    pub metadata_fidelity: &'static str,
 }
 
 fn disabled_row_export_evidence() -> VortexLocalPrimitiveRowExportEvidence {
@@ -2102,6 +2263,7 @@ fn disabled_row_export_evidence() -> VortexLocalPrimitiveRowExportEvidence {
         },
         upstream_scan_called: false,
         materialization_boundary_reported: false,
+        native_array_sink: None,
     }
 }
 
@@ -2132,6 +2294,7 @@ fn executed_row_export_evidence(
         },
         upstream_scan_called: true,
         materialization_boundary_reported: true,
+        native_array_sink: None,
     }
 }
 
@@ -2162,6 +2325,7 @@ fn metadata_pruned_row_export_evidence(
         },
         upstream_scan_called: false,
         materialization_boundary_reported: true,
+        native_array_sink: None,
     }
 }
 
@@ -2598,7 +2762,33 @@ fn local_primitive_native_io_safe(
     request: &VortexQueryPrimitiveRequest,
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> bool {
-    let common_safe = request.kind == report.primitive_kind
+    let spill_admission_matches = match (
+        request
+            .sort_rows
+            .as_ref()
+            .and_then(|sort| sort.spill.as_ref()),
+        report.state_budget.native_sort_spill.as_ref(),
+    ) {
+        (None, None) => true,
+        (Some(policy), Some(evidence)) => {
+            request.kind == VortexQueryPrimitiveKind::SortRows
+                && request.predicate.is_none()
+                && request.sort_rows.as_ref().is_some_and(|sort| {
+                    sort.order_by.len() == 1
+                        && matches!(
+                            sort.tie_policy,
+                            crate::VortexSortTiePolicy::First | crate::VortexSortTiePolicy::Last
+                        )
+                })
+                && policy.workspace == evidence.workspace
+                && policy.quota_bytes == evidence.quota_bytes
+                && policy.memory_bytes == evidence.memory_bytes
+                && local_primitive_verified_sort_spill(report)
+        }
+        _ => false,
+    };
+    let common_safe = spill_admission_matches
+        && request.kind == report.primitive_kind
         && request.diagnostics.iter().all(|diagnostic| {
             !matches!(
                 diagnostic.severity,
@@ -3454,10 +3644,34 @@ fn local_primitive_unsafe_effect_detected(report: &VortexLocalPrimitiveExecution
         || (report.full_stream_collected && !materialization_declared)
         || report.arrow_converted
         || report.object_store_io
-        || report.write_io
-        || report.spill_io_performed
+        || ((report.write_io
+            || report.spill_io_performed
+            || report.state_budget.native_sort_spill.is_some())
+            && !local_primitive_verified_sort_spill(report))
         || report.external_effects_executed
         || report.fallback_execution_allowed
+}
+
+fn local_primitive_verified_sort_spill(report: &VortexLocalPrimitiveExecutionReport) -> bool {
+    report.primitive_kind == VortexQueryPrimitiveKind::SortRows
+        && report.write_io
+        && report.spill_io_performed
+        && report.state_budget.spill_io_performed
+        && report.state_budget.spill_supported
+        && report
+            .state_budget
+            .native_sort_spill
+            .as_ref()
+            .is_some_and(|spill| {
+                spill.workspace.is_absolute()
+                    && spill.owned_cleanup_completed
+                    && spill.memory_bytes >= 1024 * 1024
+                    && spill.quota_bytes >= 32 * 1024
+                    && spill.peak_reserved_bytes <= spill.memory_bytes
+                    && spill.peak_disk_bytes <= spill.quota_bytes
+                    && spill.runs_written == spill.runs_validated
+                    && spill.max_open_runs <= 9
+            })
 }
 
 fn local_primitive_correctness_passed(
@@ -3503,6 +3717,21 @@ pub fn execute_vortex_local_primitive_with_policy(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
+    if request
+        .sort_rows
+        .as_ref()
+        .is_some_and(|sort| sort.spill.is_some())
+        && (request.kind != VortexQueryPrimitiveKind::SortRows
+            || !cfg!(all(
+                feature = "vortex-local-primitives",
+                feature = "vortex-write"
+            )))
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "native numeric sort spill requires SortRows and the vortex-local-primitives and vortex-write features; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
     #[cfg(feature = "vortex-local-primitives")]
     {
         execute_vortex_local_primitive_enabled(request, policy)
@@ -3534,6 +3763,15 @@ pub fn execute_vortex_local_partitioned_primitive_with_policy(
     source_uris: &[DatasetUri],
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
+    if request
+        .sort_rows
+        .as_ref()
+        .is_some_and(|sort| sort.spill.is_some())
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "native sort spill is not admitted for partitioned sources; no fallback execution was attempted".to_string(),
+        ));
+    }
     #[cfg(feature = "vortex-local-primitives")]
     {
         execute_vortex_local_partitioned_primitive_enabled(request, source_uris, policy)
@@ -3567,6 +3805,15 @@ pub fn execute_vortex_local_primitive_row_export_with_policy(
     allow_overwrite: bool,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
+    if request
+        .sort_rows
+        .as_ref()
+        .is_some_and(|sort| sort.spill.is_some())
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "native sort spill currently returns bounded query rows; combined row-file export is not admitted; no fallback execution was attempted".to_string(),
+        ));
+    }
     #[cfg(feature = "vortex-local-primitives")]
     {
         execute_vortex_local_primitive_row_export_enabled(
@@ -3694,6 +3941,13 @@ fn execute_vortex_local_primitive_row_export_enabled(
         )
         .with_physical_policy(physical_policy));
     };
+    #[cfg(all(feature = "vortex-write", unix))]
+    if output_format == VortexLocalPrimitiveRowExportFormat::Vortex
+        && let Some(report) =
+            native_sink::try_execute(request, &path, output_path, allow_overwrite, policy)?
+    {
+        return Ok(report.with_physical_policy(physical_policy));
+    }
     if output_format.is_structured_projection_export() {
         return execute_vortex_local_structured_binary_row_export_enabled(
             request,
@@ -6097,23 +6351,43 @@ fn write_csv_header(output: &mut std::fs::File, columns: &[String]) -> Result<()
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn logical_field_from_native_array(
+    array: &vortex::array::ArrayRef,
+    column: &str,
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::{
+        arrays::{Struct, struct_::StructArrayExt as _},
+        dtype::Nullability,
+    };
+    use vortex::expr::{get_item, root};
+
+    // Physical child slots are not logical fields for chunked, constant, or
+    // expression arrays. A nonnullable physical Struct is the one exact direct
+    // accessor; get_item also applies parent validity for nullable structures.
+    if array.dtype().nullability() == Nullability::NonNullable
+        && let Some(struct_array) = array.as_opt::<Struct>()
+    {
+        return struct_array
+            .unmasked_field_by_name(column)
+            .cloned()
+            .map_err(vortex_error);
+    }
+    let projection = get_item(column, root())
+        .bind(array.dtype())
+        .map_err(vortex_error)?;
+    array.clone().apply_bound(&projection).map_err(vortex_error)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn row_export_columns_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
 ) -> Result<Vec<Vec<StatValue>>> {
     let mut out = Vec::with_capacity(declared_columns.len());
     if chunk.dtype().is_struct() {
-        let children = chunk
-            .named_children()
-            .into_iter()
-            .collect::<std::collections::BTreeMap<_, _>>();
         for column in declared_columns {
-            let Some(array) = children.get(column.as_str()) else {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "local Vortex row export column '{column}' was not present in scanned chunk; no fallback execution was attempted"
-                )));
-            };
-            out.push(row_export_values_from_vortex_array(column, array)?);
+            let array = logical_field_from_native_array(chunk, column)?;
+            out.push(row_export_values_from_vortex_array(column, &array)?);
         }
     } else {
         let column = declared_columns.first().map_or("value", String::as_str);
@@ -6139,19 +6413,11 @@ fn row_export_selected_columns_from_chunk(
 ) -> Result<Vec<Vec<StatValue>>> {
     let mut out = Vec::with_capacity(declared_columns.len());
     if chunk.dtype().is_struct() {
-        let children = chunk
-            .named_children()
-            .into_iter()
-            .collect::<std::collections::BTreeMap<_, _>>();
         for column in declared_columns {
-            let Some(array) = children.get(column.as_str()) else {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "local Vortex selected row export column '{column}' was not present in scanned chunk; no fallback execution was attempted"
-                )));
-            };
+            let array = logical_field_from_native_array(chunk, column)?;
             out.push(row_export_selected_values_from_vortex_array(
                 column,
-                array,
+                &array,
                 row_indices,
             )?);
         }
@@ -13255,6 +13521,7 @@ struct LocalVortexAggregateScan {
 struct LocalVortexRowsScan {
     scan: LocalVortexScan,
     result_summary: String,
+    spill_report: Option<crate::VortexSortSpillReport>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -16943,6 +17210,31 @@ fn sort_rows_report(
         .as_ref()
         .map_or_else(|| "none".to_string(), VortexSortRowsRequest::summary);
     let result_summary = rows_scan.result_summary.clone();
+    let mut state_budget = sort_rows_state_budget_report(request, scan, input_rows)?;
+    if let Some(spill) = &rows_scan.spill_report {
+        state_budget.state_budget_status = "bounded_native_sort_runs".to_string();
+        state_budget.state_pressure_class = "reserved_within_operator_budget".to_string();
+        state_budget.state_family = "native_numeric_sort_candidates_and_runs".to_string();
+        state_budget.observed_state_items = rows;
+        state_budget.capillary_work_units = vec![
+            "bounded_numeric_sort_candidates".to_string(),
+            "native_vortex_sort_runs".to_string(),
+            "bounded_fan_in_merge".to_string(),
+            "final_row_reference_materialization".to_string(),
+        ];
+        state_budget.pulseweave_pressure_signals = vec![
+            "reserved_operator_bytes".to_string(),
+            "native_run_disk_bytes".to_string(),
+            "open_run_count".to_string(),
+        ];
+        state_budget.budget_scope = "owned_sort_candidates_merge_batches_run_metadata_checksum_scratch_excludes_source_provider_and_output_payload".to_string();
+        state_budget.spill_policy = "explicit_caller_workspace_native_numeric_sort".to_string();
+        state_budget.spill_supported = true;
+        state_budget.spill_io_performed = true;
+        state_budget.native_sort_spill = Some(spill.clone());
+        state_budget.diagnostic_code = "none".to_string();
+        state_budget.next_action = "none".to_string();
+    }
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
@@ -16979,7 +17271,7 @@ fn sort_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(input_rows),
         source_order_limit_rows_output: Some(rows),
-        state_budget: sort_rows_state_budget_report(request, scan, input_rows)?,
+        state_budget,
         embedded_layout: scan.embedded_layout.clone(),
         evidence_collector: scan.evidence_collector(),
         data_read: scan.data_read(),
@@ -16989,8 +17281,8 @@ fn sort_rows_report(
         row_read: scan.data_read(),
         arrow_converted: false,
         object_store_io: false,
-        write_io: false,
-        spill_io_performed: false,
+        write_io: rows_scan.spill_report.is_some(),
+        spill_io_performed: rows_scan.spill_report.is_some(),
         external_effects_executed: false,
         fallback_execution_allowed: false,
         materialization_boundary_reported: scan.data_read(),
@@ -19056,28 +19348,75 @@ fn read_local_vortex_simple_aggregate_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexAggregateScan> {
-    use vortex::VortexSessionDefault as _;
-    use vortex::file::OpenOptionsSessionExt as _;
-    use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
+    #[cfg(unix)]
+    {
+        let external_cpu_pool = aggregate_count_workers::request_may_be_admitted(request);
+        let resident = if external_cpu_pool {
+            crate::resident_session::ResidentVortexSession::for_external_cpu_pool(
+                policy.resource_envelope.memory_budget_bytes,
+                policy.resource_envelope.max_parallelism,
+            )?
+        } else {
+            crate::resident_session::ResidentVortexSession::new(
+                policy.resource_envelope.memory_budget_bytes,
+                policy.resource_envelope.max_parallelism,
+            )?
+        };
+        let prepared = resident.prepare_file(path)?;
+        prepared.with_native_execution(|file, session, runtime| {
+            read_prepared_vortex_simple_aggregate_scan(
+                source_uri,
+                request,
+                policy,
+                file,
+                session,
+                runtime,
+                external_cpu_pool.then(|| resident.memory()),
+            )
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        use vortex::VortexSessionDefault as _;
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
 
-    let aggregate = required_simple_aggregate(request)?;
-    let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
-    let file = runtime
-        .block_on(
-            session
-                .open_options()
-                .with_layout_reader_cache()
-                .open_path(path),
+        let runtime = local_vortex_runtime(policy);
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let file = runtime
+            .block_on(
+                session
+                    .open_options()
+                    .with_layout_reader_cache()
+                    .open_path(path),
+            )
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to open local Vortex target for {}: {error}",
+                    request.kind.as_str()
+                ))
+            })?;
+        read_prepared_vortex_simple_aggregate_scan(
+            source_uri, request, policy, &file, &session, &runtime, None,
         )
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to open local Vortex target for {}: {error}",
-                request.kind.as_str()
-            ))
-        })?;
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_prepared_vortex_simple_aggregate_scan(
+    source_uri: &DatasetUri,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: &vortex::file::VortexFile,
+    session: &vortex::session::VortexSession,
+    runtime: &impl vortex::io::runtime::BlockingRuntime,
+    worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+) -> Result<LocalVortexAggregateScan> {
+    let attempt_started = Instant::now();
+    let aggregate = required_simple_aggregate(request)?;
     let source_row_count = file.row_count();
     let aggregate_plan = rewrite_simple_aggregate_for_embedded_derived_columns(
         file.dtype(),
@@ -19112,7 +19451,7 @@ fn read_local_vortex_simple_aggregate_scan(
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
     let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
-        &file,
+        file,
         request.kind,
         filter_pushdown_applied,
         projection_pushdown_applied,
@@ -19123,22 +19462,28 @@ fn read_local_vortex_simple_aggregate_scan(
     }
     let aggregate_has_grouping =
         !aggregate.group_by.is_empty() || !aggregate.group_expressions.is_empty();
+    // These compact candidate states represent non-null keys. Decide from the
+    // complete source schema before any chunk contributes: a later null must not
+    // split one logical group family across compact and general states.
+    let nonnullable_group_keys = aggregate_group_key_dtypes_nonnullable(file.dtype(), aggregate);
     let residual_free_predicate = residual_predicate.is_none();
-    let numeric_pair_late_measure_enabled = numeric_pair_late_measure_route_enabled(
-        source_row_count,
-        aggregate,
-        request,
-        residual_free_predicate,
-    );
+    let numeric_pair_late_measure_enabled = nonnullable_group_keys
+        && numeric_pair_late_measure_route_enabled(
+            source_row_count,
+            aggregate,
+            request,
+            residual_free_predicate,
+        );
     let string_count_topk_residual_exact_row_filter_supported = residual_predicate
         .as_ref()
         .is_none_or(predicate_exact_row_filter_supported);
-    let string_count_topk_heavy_hitter_enabled = string_count_topk_heavy_hitter_route_enabled(
-        source_row_count,
-        aggregate,
-        request,
-        string_count_topk_residual_exact_row_filter_supported,
-    );
+    let string_count_topk_heavy_hitter_enabled = nonnullable_group_keys
+        && string_count_topk_heavy_hitter_route_enabled(
+            source_row_count,
+            aggregate,
+            request,
+            string_count_topk_residual_exact_row_filter_supported,
+        );
     let string_count_topk_first_pass_exact_histogram_enabled =
         string_count_topk_heavy_hitter_enabled
             && string_count_topk_first_pass_exact_histogram_route_enabled(
@@ -19148,24 +19493,26 @@ fn read_local_vortex_simple_aggregate_scan(
                 pushdown_predicate.is_none() && residual_predicate.is_none(),
                 policy.resource_envelope(),
             );
-    let string_count_distinct_topk_heavy_hitter_enabled =
-        string_count_distinct_topk_heavy_hitter_route_enabled(
+    let string_count_distinct_topk_heavy_hitter_enabled = nonnullable_group_keys
+        && string_count_distinct_topk_heavy_hitter_route_enabled(
             source_row_count,
             aggregate,
             request,
             residual_predicate.is_none(),
         );
-    let numeric_utf8_topk_heavy_hitter_enabled = numeric_utf8_topk_heavy_hitter_route_enabled(
-        source_row_count,
-        aggregate,
-        request,
-        residual_free_predicate,
-    );
+    let numeric_utf8_topk_heavy_hitter_enabled = nonnullable_group_keys
+        && numeric_utf8_topk_heavy_hitter_route_enabled(
+            source_row_count,
+            aggregate,
+            request,
+            residual_free_predicate,
+        );
     let mut scalar_states = if aggregate_has_grouping {
         None
     } else {
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
+    let mut scalar_numeric_accessor_work = NativeNumericAccessorWork::default();
     let mut grouped_states = if aggregate_has_grouping {
         let mut states = GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
@@ -19193,6 +19540,22 @@ fn read_local_vortex_simple_aggregate_scan(
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
         .transpose()?;
 
+    let mut count_workers = if residual_evaluator.is_none()
+        && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
+    {
+        aggregate_count_workers::CountWorkers::admit(
+            states,
+            file.dtype(),
+            &declared_columns,
+            policy,
+            session,
+            memory,
+        )?
+    } else {
+        None
+    };
+    let mut aggregate_timing = aggregate_timing::AggregateFirstPassTiming::default();
+
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
@@ -19200,17 +19563,102 @@ fn read_local_vortex_simple_aggregate_scan(
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     if !embedded_layout.metadata_pruned_entire_input {
+        let initial_scan_denials =
+            worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
-            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
+            scan = scan.with_filter(bind_vortex_scan_expr(file, &filter)?);
         }
         if let Some(projection) = plan.projection {
-            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+            scan = scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
-        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
-            let chunk = chunk.map_err(vortex_error)?;
+        let mut scan = scan.into_array_iter(runtime).map_err(vortex_error)?;
+        loop {
+            if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut())
+            {
+                workers.before_next(states)?;
+            }
+            let scan_started = Instant::now();
+            #[cfg(test)]
+            let injected = count_workers.as_ref().and_then(|workers| {
+                worker_memory.and_then(|memory| {
+                    workers.inject_scan_fault_for_test(memory, arrays_read_count)
+                })
+            });
+            #[cfg(test)]
+            let chunk = injected.or_else(|| scan.next());
+            #[cfg(not(test))]
+            let chunk = scan.next();
+            aggregate_timing.scan_next_nanos += scan_started.elapsed().as_nanos();
+            let Some(chunk) = chunk else {
+                break;
+            };
+            let chunk = match chunk {
+                Ok(chunk) => chunk,
+                Err(error)
+                    if count_workers.as_ref().is_some_and(
+                        aggregate_count_workers::CountWorkers::has_active_partitions,
+                    ) && worker_memory.is_some_and(|memory| {
+                        memory.snapshot().denied_reservations > initial_scan_denials
+                    }) && crate::owned_buffers::is_owned_reservation_denial(&error) =>
+                {
+                    // A new representation must not turn source allocation into
+                    // an unsupported query. Discard this complete attempt, drain
+                    // the owned workers, then replay on the SAME retained file.
+                    // None disables this branch on the single replay attempt.
+                    if let Some(workers) = count_workers.as_ref() {
+                        workers.cancel_for_source_replay();
+                    }
+                    drop(scan);
+                    drop(count_workers.take());
+                    drop(grouped_states.take());
+                    drop(scalar_states.take());
+                    drop(reader_splits);
+                    drop(encoded_kernel_inputs);
+                    let discarded_nanos = attempt_started.elapsed().as_nanos();
+                    let replay_started = Instant::now();
+                    let mut replayed = read_prepared_vortex_simple_aggregate_scan(
+                        source_uri, request, policy, file, session, runtime, None,
+                    )?;
+                    let mut summary: serde_json::Value =
+                        serde_json::from_str(&replayed.result_summary)
+                            .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
+                    let object = summary.as_object_mut().ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "aggregate replay summary is not an object".into(),
+                        )
+                    })?;
+                    object.insert(
+                        "aggregate_workers_partition_source_replays".into(),
+                        1.into(),
+                    );
+                    object.insert(
+                        "aggregate_workers_partition_discarded_input_rows".into(),
+                        pre_limit_result_row_count.into(),
+                    );
+                    object.insert(
+                        "aggregate_workers_partition_discarded_attempt_nanos".into(),
+                        u64::try_from(discarded_nanos).unwrap_or(u64::MAX).into(),
+                    );
+                    object.insert(
+                        "aggregate_workers_partition_source_replay_nanos".into(),
+                        u64::try_from(replay_started.elapsed().as_nanos())
+                            .unwrap_or(u64::MAX)
+                            .into(),
+                    );
+                    object.insert("aggregate_workers_scope".into(), "owned_source_reservation_denial;partition_jobs_cancelled_joined_and_released;one_full_native_replay_on_same_retained_vortex_file;source_generation_validated_after_replay;no_cached_answer_or_external_execution".into());
+                    replayed.result_summary = summary.to_string();
+                    replayed
+                        .state_budget
+                        .capillary_work_units
+                        .push("complete_key_partition_source_pressure_native_replay".into());
+                    return Ok(replayed);
+                }
+                Err(error) => return Err(vortex_error(error)),
+            };
             let rows = chunk.len();
+            let evidence_started = Instant::now();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
                 source_uri.clone(),
                 arrays_read_count,
@@ -19226,6 +19674,7 @@ fn read_local_vortex_simple_aggregate_scan(
                 &chunk,
             )?);
             reader_splits.push(split);
+            aggregate_timing.reader_evidence_nanos += evidence_started.elapsed().as_nanos();
             if let Some(predicate) = residual_evaluator.as_ref() {
                 let selected_rows = if let Some(row_indices) = predicate
                     .fast_exact_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
@@ -19237,15 +19686,17 @@ fn read_local_vortex_simple_aggregate_scan(
                             &chunk,
                             &declared_columns,
                             row_index_filter,
+                            &mut scalar_numeric_accessor_work,
                         )?
                     } else {
                         false
                     };
                     let direct_compact_updated = if let Some(states) = grouped_states.as_mut() {
-                        states.update_compact_direct_from_chunk(
+                        states.update_compact_direct_from_chunk_profiled(
                             &chunk,
                             &declared_columns,
                             row_index_filter,
+                            &mut aggregate_timing,
                         )?
                     } else {
                         false
@@ -19358,13 +19809,32 @@ fn read_local_vortex_simple_aggregate_scan(
                         )
                     })?;
             } else {
-                let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
-                    states.update_direct_from_chunk(&chunk, &declared_columns, None)?
+                let worker_updated = if let (Some(workers), Some(states)) =
+                    (count_workers.as_mut(), grouped_states.as_mut())
+                {
+                    workers.submit(&chunk, states)?
                 } else {
                     false
                 };
-                let direct_compact_updated = if let Some(states) = grouped_states.as_mut() {
-                    states.update_compact_direct_from_chunk(&chunk, &declared_columns, None)?
+                let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
+                    states.update_direct_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        None,
+                        &mut scalar_numeric_accessor_work,
+                    )?
+                } else {
+                    false
+                };
+                let direct_compact_updated = if worker_updated {
+                    true
+                } else if let Some(states) = grouped_states.as_mut() {
+                    states.update_compact_direct_from_chunk_profiled(
+                        &chunk,
+                        &declared_columns,
+                        None,
+                        &mut aggregate_timing,
+                    )?
                 } else {
                     false
                 };
@@ -19398,6 +19868,9 @@ fn read_local_vortex_simple_aggregate_scan(
             arrays_read_count += 1;
         }
     }
+    if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut()) {
+        workers.finish(states)?;
+    }
     let result_limit = request.source_order_limit;
     if let Some(states) = grouped_states.as_mut()
         && states.needs_numeric_pair_late_measure_second_pass()
@@ -19414,16 +19887,13 @@ fn read_local_vortex_simple_aggregate_scan(
         let mut second_scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            second_scan = second_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
+            second_scan = second_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
         }
         if let Some(projection) = second_plan.projection.take() {
-            second_scan = second_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+            second_scan = second_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
         }
         second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
-        for chunk in second_scan
-            .into_array_iter(&runtime)
-            .map_err(vortex_error)?
-        {
+        for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -19464,17 +19934,14 @@ fn read_local_vortex_simple_aggregate_scan(
             let mut second_scan = file.scan().map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
                 let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-                second_scan = second_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
+                second_scan = second_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
                 second_scan =
-                    second_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+                    second_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
-            for chunk in second_scan
-                .into_array_iter(&runtime)
-                .map_err(vortex_error)?
-            {
+            for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
                 let chunk = chunk.map_err(vortex_error)?;
                 let rows = chunk.len();
                 let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -19531,13 +19998,13 @@ fn read_local_vortex_simple_aggregate_scan(
         let mut exact_scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
+            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
-        for chunk in exact_scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -19586,17 +20053,14 @@ fn read_local_vortex_simple_aggregate_scan(
             let mut second_scan = file.scan().map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
                 let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-                second_scan = second_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
+                second_scan = second_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
                 second_scan =
-                    second_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+                    second_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
-            for chunk in second_scan
-                .into_array_iter(&runtime)
-                .map_err(vortex_error)?
-            {
+            for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
                 let chunk = chunk.map_err(vortex_error)?;
                 let rows = chunk.len();
                 let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -19670,13 +20134,13 @@ fn read_local_vortex_simple_aggregate_scan(
         let mut exact_scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
+            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
-        for chunk in exact_scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -19726,17 +20190,14 @@ fn read_local_vortex_simple_aggregate_scan(
             let mut second_scan = file.scan().map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
                 let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-                second_scan = second_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
+                second_scan = second_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
                 second_scan =
-                    second_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+                    second_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
-            for chunk in second_scan
-                .into_array_iter(&runtime)
-                .map_err(vortex_error)?
-            {
+            for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
                 let chunk = chunk.map_err(vortex_error)?;
                 let rows = chunk.len();
                 let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -19795,13 +20256,13 @@ fn read_local_vortex_simple_aggregate_scan(
         let mut exact_scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(&file, &filter_expr)?);
+            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
-        for chunk in exact_scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -19830,6 +20291,13 @@ fn read_local_vortex_simple_aggregate_scan(
         }
         grouped_states = Some(exact_states);
     }
+    let finalization_started = Instant::now();
+    let numeric_accessor_work = grouped_states
+        .as_ref()
+        .map_or(&scalar_numeric_accessor_work, |states| {
+            &states.native_numeric_accessor_work
+        })
+        .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
         let (result_row_count, result_summary) =
@@ -19857,8 +20325,14 @@ fn read_local_vortex_simple_aggregate_scan(
             states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
         )
     };
+    aggregate_timing.finalization_nanos = finalization_started.elapsed().as_nanos();
+    numeric_accessor_work.annotate(&mut result_summary)?;
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, &aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
+    aggregate_timing.annotate_summary(&mut result_summary)?;
+    if let Some(workers) = count_workers.as_ref() {
+        workers.annotate_summary(&mut result_summary)?;
+    }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
@@ -20064,6 +20538,30 @@ fn string_count_topk_heavy_hitter_route_enabled(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn aggregate_group_key_dtypes_nonnullable(
+    dtype: &vortex::array::dtype::DType,
+    aggregate: &VortexSimpleAggregateRequest,
+) -> bool {
+    if dtype.is_nullable() {
+        return false;
+    }
+    let vortex::array::dtype::DType::Struct(fields, _) = dtype else {
+        return true;
+    };
+    aggregate
+        .group_by
+        .iter()
+        .chain(aggregate.group_expressions.iter().flat_map(|expression| {
+            std::iter::once(&expression.column).chain(&expression.extra_columns)
+        }))
+        .all(|column| {
+            fields
+                .field(column.as_str())
+                .is_some_and(|field| !field.is_nullable())
+        })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn string_count_topk_first_pass_exact_histogram_route_enabled(
     source_row_count: u64,
     aggregate: &VortexSimpleAggregateRequest,
@@ -20252,6 +20750,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     } else {
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
+    let mut scalar_numeric_accessor_work = NativeNumericAccessorWork::default();
     let mut grouped_states = if aggregate_has_grouping {
         Some(GroupedAggregateStates::new_with_resource_envelope(
             aggregate,
@@ -20379,6 +20878,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                             &chunk,
                             &declared_columns,
                             row_index_filter,
+                            &mut scalar_numeric_accessor_work,
                         )?
                     } else {
                         false
@@ -20501,7 +21001,12 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                     })?;
             } else {
                 let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
-                    states.update_direct_from_chunk(&chunk, &declared_columns, None)?
+                    states.update_direct_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        None,
+                        &mut scalar_numeric_accessor_work,
+                    )?
                 } else {
                     false
                 };
@@ -20541,6 +21046,12 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         }
     }
     let result_limit = request.source_order_limit;
+    let numeric_accessor_work = grouped_states
+        .as_ref()
+        .map_or(&scalar_numeric_accessor_work, |states| {
+            &states.native_numeric_accessor_work
+        })
+        .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
         let (result_row_count, result_summary) =
@@ -20568,6 +21079,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
             states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
         )
     };
+    numeric_accessor_work.annotate(&mut result_summary)?;
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, &aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     let source = UniversalInputSource::from_dataset_uri(sources[0].uri.clone())?;
@@ -20705,6 +21217,13 @@ fn read_local_vortex_sort_rows_scan(
     use vortex::session::VortexSession;
 
     let sort_rows = required_sort_rows(request)?;
+    // Spill always reads sort keys and final payloads in separate passes. Pin
+    // generation before the first open so those passes cannot mix source files.
+    let spill_source_generation = sort_rows
+        .spill
+        .as_ref()
+        .map(|_| sort_spill::SortSourceGeneration::capture(path).map(std::sync::Arc::new))
+        .transpose()?;
     let Some(limit) = request.source_order_limit else {
         return Err(ShardLoomError::InvalidOperation(
             "local Vortex sort rows requires a bounded row count; no fallback execution was attempted"
@@ -20726,12 +21245,21 @@ fn read_local_vortex_sort_rows_scan(
     let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
-        .block_on(
-            session
-                .open_options()
-                .with_layout_reader_cache()
-                .open_path(path),
-        )
+        .block_on(async {
+            let options = session.open_options().with_layout_reader_cache();
+            if let Some(generation) = &spill_source_generation {
+                use vortex::array::memory::MemorySessionExt as _;
+                options
+                    .open(generation.reader(
+                        session.allocator(),
+                        runtime.handle(),
+                        policy.scan_concurrency_per_worker(),
+                    ))
+                    .await
+            } else {
+                options.open_path(path).await
+            }
+        })
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to open local Vortex target for {}: {error}",
@@ -20755,12 +21283,22 @@ fn read_local_vortex_sort_rows_scan(
         predicate_rewrite.as_ref().map_or((None, None), |rewrite| {
             split_predicate_for_vortex_pushdown(&rewrite.predicate, request.kind)
         });
-    let late_materialization_policy = sort_rows_late_materialization_policy(
+    let mut late_materialization_policy = sort_rows_late_materialization_policy(
         source_row_count,
         &output_columns,
         sort_rows,
         retained_cap,
     );
+    let mut spill = sort_spill::admit(
+        request,
+        file.dtype(),
+        policy.resource_envelope().memory_budget_bytes,
+        limit,
+    )?;
+    if spill.is_some() {
+        late_materialization_policy.enabled = true;
+        late_materialization_policy.reason = "explicit_native_sort_spill_row_refs";
+    }
     let wide_output_second_pass = late_materialization_policy.enabled;
     let force_residual_predicate_for_source_ordinals =
         wide_output_second_pass && candidate_residual_predicate.is_some();
@@ -20872,7 +21410,11 @@ fn read_local_vortex_sort_rows_scan(
         .transpose()?;
     let retention_flush_threshold =
         sort_retention_flush_threshold_for_envelope(retained_cap, policy.resource_envelope());
-    let mut candidates = Vec::<SortRowCandidate>::new();
+    let mut candidates = Vec::<SortRowCandidate>::with_capacity(
+        spill
+            .as_ref()
+            .map_or(0, sort_spill::NumericSortSpill::capacity_rows),
+    );
     let mut selected_rows = 0usize;
     let mut source_rows_seen = 0usize;
     let mut arrays_read_count = 0usize;
@@ -20882,7 +21424,7 @@ fn read_local_vortex_sort_rows_scan(
     let mut topk_threshold_pruned_chunks = 0usize;
     let mut topk_threshold_pruned_rows = 0usize;
     if !embedded_layout.metadata_pruned_entire_input {
-        let mut scan = file.scan().map_err(vortex_error)?;
+        let mut scan = file.scan().map_err(vortex_error)?.with_ordered(true);
         if let Some(filter) = plan.filter {
             scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
         }
@@ -20945,6 +21487,9 @@ fn read_local_vortex_sort_rows_scan(
                                 &candidate_value_column_indices,
                             )?,
                         });
+                        if let Some(spill) = spill.as_mut() {
+                            spill.flush_if_full(&mut candidates, &runtime, &session)?;
+                        }
                     }
                 } else {
                     let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
@@ -20976,17 +21521,22 @@ fn read_local_vortex_sort_rows_scan(
                                 &candidate_value_column_indices,
                             )?,
                         });
+                        if let Some(spill) = spill.as_mut() {
+                            spill.flush_if_full(&mut candidates, &runtime, &session)?;
+                        }
                     }
                 }
             } else {
                 let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-                if sort_chunk_topk_threshold_pruning_admitted(
-                    materialized_rows,
-                    retained_cap,
-                    candidates.len(),
-                    sort_rows.tie_policy,
-                ) {
+                if spill.is_none()
+                    && sort_chunk_topk_threshold_pruning_admitted(
+                        materialized_rows,
+                        retained_cap,
+                        candidates.len(),
+                        sort_rows.tie_policy,
+                    )
+                {
                     if candidates.len() > retained_cap {
                         retain_sort_top_window(
                             &mut candidates,
@@ -21064,9 +21614,13 @@ fn read_local_vortex_sort_rows_scan(
                             &candidate_value_column_indices,
                         )?,
                     });
+                    if let Some(spill) = spill.as_mut() {
+                        spill.flush_if_full(&mut candidates, &runtime, &session)?;
+                    }
                 }
             }
-            if sort_rows.tie_policy != VortexSortTiePolicy::All
+            if spill.is_none()
+                && sort_rows.tie_policy != VortexSortTiePolicy::All
                 && candidates.len() > retention_flush_threshold
             {
                 retain_sort_top_window(
@@ -21087,19 +21641,34 @@ fn read_local_vortex_sort_rows_scan(
             arrays_read_count += 1;
         }
     }
-    sort_materialized_rows(
-        &mut candidates,
-        &sort_rows.order_by,
-        &candidate_order_column_indices,
-        sort_rows.tie_policy,
-    );
-    let selected_candidates = select_sort_rows_with_tie_policy(
-        &candidates,
-        &candidate_order_column_indices,
-        sort_rows.offset,
-        limit,
-        sort_rows.tie_policy,
-    );
+    let spill_report = if let Some(spill) = spill {
+        if let Some(generation) = &spill_source_generation {
+            generation.validate()?;
+        }
+        let (selected, report) =
+            spill.finish(&mut candidates, sort_rows.offset, limit, &runtime, &session)?;
+        candidates = selected;
+        Some(report)
+    } else {
+        sort_materialized_rows(
+            &mut candidates,
+            &sort_rows.order_by,
+            &candidate_order_column_indices,
+            sort_rows.tie_policy,
+        );
+        None
+    };
+    let selected_candidates = if spill_report.is_some() {
+        candidates.iter().collect::<Vec<_>>()
+    } else {
+        select_sort_rows_with_tie_policy(
+            &candidates,
+            &candidate_order_column_indices,
+            sort_rows.offset,
+            limit,
+            sort_rows.tie_policy,
+        )
+    };
     let mut late_materialization_chunks_scanned = 0usize;
     let mut late_materialization_early_stop_applied = false;
     let mut late_materialization_row_index_selection_applied = false;
@@ -21107,6 +21676,13 @@ fn read_local_vortex_sort_rows_scan(
     let mut late_materialization_min_selected_source_ordinal = None::<usize>;
     let mut late_materialization_max_selected_source_ordinal = None::<usize>;
     let mut late_materialization_selected_row_refs_used = false;
+    #[cfg(test)]
+    if spill_source_generation.is_some() {
+        sort_spill::before_materialization_test_hook();
+    }
+    if let Some(generation) = &spill_source_generation {
+        generation.validate()?;
+    }
     let result_rows = if let Some(output_column_indices) = output_column_indices.as_ref() {
         selected_candidates
             .into_iter()
@@ -21130,7 +21706,14 @@ fn read_local_vortex_sort_rows_scan(
             .map(|candidate| candidate.source_ordinal)
             .collect::<Vec<_>>();
         let materialization = materialize_local_vortex_sort_output_rows_by_source_ordinals(
-            path,
+            if spill_source_generation.is_some() {
+                SortRowsMaterializationSource::Retained {
+                    file: &file,
+                    runtime: &runtime,
+                }
+            } else {
+                SortRowsMaterializationSource::Path(path)
+            },
             request,
             &output_columns,
             &selected_source_ordinals,
@@ -21150,6 +21733,9 @@ fn read_local_vortex_sort_rows_scan(
             materialization.selected_row_materialization_used;
         materialization.rows
     };
+    if let Some(generation) = &spill_source_generation {
+        generation.validate()?;
+    }
     let result_row_count = result_rows.len();
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
@@ -21161,6 +21747,21 @@ fn read_local_vortex_sort_rows_scan(
             &encoded_kernel_inputs,
         )
     };
+    let spill_json = spill_report.as_ref().map(|spill| serde_json::json!({
+        "workspace": spill.workspace,
+        "quota_bytes": spill.quota_bytes,
+        "memory_bytes": spill.memory_bytes,
+        "peak_reserved_bytes": spill.peak_reserved_bytes,
+        "peak_disk_bytes": spill.peak_disk_bytes,
+        "runs_written": spill.runs_written,
+        "runs_validated": spill.runs_validated,
+        "merge_passes": spill.merge_passes,
+        "run_block_rows": spill.run_block_rows,
+        "merge_fan_in": spill.merge_fan_in,
+        "max_open_runs": spill.max_open_runs,
+        "owned_cleanup_completed": spill.owned_cleanup_completed,
+        "reservation_scope": "owned_sort_candidates_merge_batches_run_metadata_checksum_scratch_excludes_source_provider_and_output_payload"
+    }));
     let mut result_summary = serde_json::json!({
         "rows": result_rows.len(),
         "order_by": sort_rows
@@ -21171,7 +21772,7 @@ fn read_local_vortex_sort_rows_scan(
             .join(","),
         "offset": sort_rows.offset,
         "tie_policy": sort_rows.tie_policy.as_str(),
-        "bounded_topk_strategy": if sort_rows.tie_policy == VortexSortTiePolicy::All {
+        "bounded_topk_strategy": if spill_report.is_some() { "native_numeric_sort_runs" } else if sort_rows.tie_policy == VortexSortTiePolicy::All {
             "tie_expansion_full_sort"
         } else {
             "capillary_select_nth_retention_window"
@@ -21203,7 +21804,7 @@ fn read_local_vortex_sort_rows_scan(
         },
         "candidate_rows_seen": selected_rows,
         "retained_candidate_rows": candidates.len(),
-        "retention_selection_strategy": if sort_rows.tie_policy == VortexSortTiePolicy::All {
+        "retention_selection_strategy": if spill_report.is_some() { "native_numeric_sort_runs" } else if sort_rows.tie_policy == VortexSortTiePolicy::All {
             "tie_expansion_full_sort"
         } else {
             "capillary_select_nth_retention_window"
@@ -21219,6 +21820,7 @@ fn read_local_vortex_sort_rows_scan(
         "sort_candidate_value_column_count": candidate_value_column_indices.len(),
         "sort_candidate_value_columns": candidate_value_columns,
         "values": result_rows,
+        "native_sort_spill": spill_json,
     })
     .to_string();
     if let Some(rewrite) = predicate_rewrite.as_ref() {
@@ -21255,6 +21857,7 @@ fn read_local_vortex_sort_rows_scan(
                 .map_or_else(Vec::new, |rewrite| rewrite.rewritten_columns.clone()),
         },
         result_summary: result_summary.clone(),
+        spill_report,
     })
 }
 
@@ -21973,6 +22576,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 .map_or_else(Vec::new, |rewrite| rewrite.rewritten_columns.clone()),
         },
         result_summary,
+        spill_report: None,
     })
 }
 
@@ -22039,7 +22643,7 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
             .map(|(_position, ordinal)| *ordinal)
             .collect::<Vec<_>>();
         let materialization = materialize_local_vortex_sort_output_rows_by_source_ordinals(
-            &source.path,
+            SortRowsMaterializationSource::Path(&source.path),
             request,
             output_columns,
             &ordinals,
@@ -22137,9 +22741,19 @@ fn local_vortex_sort_rows_output_columns(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy)]
+enum SortRowsMaterializationSource<'a> {
+    Path(&'a std::path::Path),
+    Retained {
+        file: &'a vortex::file::VortexFile,
+        runtime: &'a LocalVortexRuntime,
+    },
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::too_many_lines)]
 fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
-    path: &std::path::Path,
+    source: SortRowsMaterializationSource<'_>,
     request: &VortexQueryPrimitiveRequest,
     output_columns: &[String],
     selected_source_ordinals: &[usize],
@@ -22171,20 +22785,23 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
         ordinal_positions.entry(ordinal).or_default().push(position);
     }
     let selected_unique_source_ordinals = ordinal_positions.keys().copied().collect::<Vec<_>>();
-    let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
-    let file = runtime
-        .block_on(
-            session
-                .open_options()
-                .with_layout_reader_cache()
-                .open_path(path),
-        )
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to reopen local Vortex target for wide sort output materialization: {error}"
-            ))
-        })?;
+    let opened_runtime;
+    let opened_file;
+    let (runtime, file) = match source {
+        SortRowsMaterializationSource::Retained { file, runtime } => (runtime, file),
+        SortRowsMaterializationSource::Path(path) => {
+            opened_runtime = local_vortex_runtime(policy);
+            let session = VortexSession::default().with_handle(opened_runtime.handle());
+            opened_file = opened_runtime
+                .block_on(session.open_options().with_layout_reader_cache().open_path(path))
+                .map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to reopen local Vortex target for wide sort output materialization: {error}"
+                    ))
+                })?;
+            (&opened_runtime, &opened_file)
+        }
+    };
     let projection = ProjectionRequest::columns(
         output_columns
             .iter()
@@ -22202,10 +22819,10 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     let declared_columns = plan.projected_columns;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
-        scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
+        scan = scan.with_filter(bind_vortex_scan_expr(file, &filter)?);
     }
     if let Some(projection) = plan.projection {
-        scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+        scan = scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
     }
     let row_index_selection_applied = materialization_filter_predicate.is_none();
     if row_index_selection_applied {
@@ -22242,7 +22859,7 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     let mut selected_row_materialization_used = false;
     if row_index_selection_applied {
         let mut selected_unique_rows_seen = 0usize;
-        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             chunks_scanned = chunks_scanned.checked_add(1).ok_or_else(|| {
@@ -22325,7 +22942,7 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
             ));
         }
     } else {
-        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             chunks_scanned = chunks_scanned.checked_add(1).ok_or_else(|| {
@@ -23089,8 +23706,10 @@ impl SimpleAggregateStates {
         chunk: &vortex::array::ArrayRef,
         declared_columns: &[String],
         row_indices: Option<&[usize]>,
+        numeric_work: &mut NativeNumericAccessorWork,
     ) -> Result<bool> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        numeric_work.add(&accessors.numeric_work)?;
         if !self.direct_update_admitted(&accessors, row_indices) {
             return Ok(false);
         }
@@ -23838,6 +24457,7 @@ struct GroupedAggregateStates<'a> {
     numeric_utf8_topk_chunk_compacted_updates: bool,
     group_order: Vec<AggregateGroupKey>,
     string_interner: AggregateStringInterner,
+    complete_key_partition_group_count: Option<usize>,
     transformed_dictionary_dense_general_groups:
         Option<rustc_hash::FxHashMap<u64, TransformedDictionaryDenseGeneralState>>,
     transformed_dictionary_dense_general_plan: Option<TransformedDictionaryDenseGeneralPlan>,
@@ -23886,6 +24506,7 @@ struct GroupedAggregateStates<'a> {
     source_order_numeric_utf8_dictionary_direct_updates: bool,
     source_order_limited_group_admission: bool,
     general_direct_group_state_pre_reserved: bool,
+    native_numeric_accessor_work: NativeNumericAccessorWork,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
     aggregate_vortex_dictionary_accessor_columns: std::collections::BTreeSet<String>,
     aggregate_chunk_dictionary_accessor_columns: std::collections::BTreeSet<String>,
@@ -26751,6 +27372,7 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_utf8_topk_chunk_compacted_updates: false,
             group_order: Vec::new(),
             string_interner: AggregateStringInterner::default(),
+            complete_key_partition_group_count: None,
             transformed_dictionary_dense_general_groups: None,
             transformed_dictionary_dense_general_plan: None,
             count_star_direct_updates: false,
@@ -26798,6 +27420,7 @@ impl<'a> GroupedAggregateStates<'a> {
             source_order_limited_group_admission: false,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
+            native_numeric_accessor_work: NativeNumericAccessorWork::default(),
             aggregate_vortex_dictionary_accessor_columns: std::collections::BTreeSet::new(),
             aggregate_chunk_dictionary_accessor_columns: std::collections::BTreeSet::new(),
             aggregate_primitive_accessor_columns: std::collections::BTreeSet::new(),
@@ -26890,35 +27513,46 @@ impl<'a> GroupedAggregateStates<'a> {
             return Ok(false);
         }
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
-        if self.update_single_numeric_count_direct_from_accessors(&accessors, row_indices)? {
+        self.update_count_star_direct_from_accessors(&accessors, row_indices, chunk.len())
+    }
+
+    fn update_count_star_direct_from_accessors(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+        chunk_rows: usize,
+    ) -> Result<bool> {
+        if self.update_single_numeric_count_direct_from_accessors(accessors, row_indices)? {
             return Ok(true);
         }
-        if self.update_numeric_minute_string_count_direct_from_accessors(&accessors, row_indices)? {
+        if self.update_numeric_minute_string_count_direct_from_accessors(accessors, row_indices)? {
             return Ok(true);
         }
-        if self.update_string_count_topk_heavy_hitter_from_accessors(&accessors, row_indices)? {
+        if self.update_string_count_topk_heavy_hitter_from_accessors(accessors, row_indices)? {
             return Ok(true);
         }
-        if self.update_numeric_utf8_topk_heavy_hitter_from_accessors(&accessors, row_indices)? {
+        if self.update_numeric_utf8_topk_heavy_hitter_from_accessors(accessors, row_indices)? {
             return Ok(true);
         }
-        if self.update_source_order_numeric_utf8_count_from_accessors(&accessors, row_indices)? {
+        if self.update_source_order_numeric_utf8_count_from_accessors(accessors, row_indices)? {
             return Ok(true);
         }
-        if self.update_count_star_direct_from_chunk_dictionary(&accessors, row_indices)? {
+        if self.update_count_star_direct_from_chunk_dictionary(accessors, row_indices)? {
             self.count_star_direct_updates = true;
             self.chunk_dictionary_direct_updates = true;
             return Ok(true);
         }
-        if self.update_count_star_direct_from_transformed_dictionary(&accessors, row_indices)? {
+        if self.update_count_star_direct_from_transformed_dictionary(accessors, row_indices)? {
             self.count_star_direct_updates = true;
             self.chunk_dictionary_direct_updates = true;
             self.transformed_dictionary_direct_updates = true;
             return Ok(true);
         }
         if self
-            .update_count_star_direct_from_materialized_string_partials(&accessors, row_indices)?
+            .update_count_star_direct_from_materialized_string_partials(accessors, row_indices)?
         {
             self.count_star_direct_updates = true;
             self.chunk_materialized_partial_updates = true;
@@ -26927,12 +27561,12 @@ impl<'a> GroupedAggregateStates<'a> {
         match row_indices {
             Some(row_indices) => {
                 for &row_index in row_indices {
-                    self.update_count_star_direct_row(&accessors, row_index)?;
+                    self.update_count_star_direct_row(accessors, row_index)?;
                 }
             }
             None => {
-                for row_index in 0..chunk.len() {
-                    self.update_count_star_direct_row(&accessors, row_index)?;
+                for row_index in 0..chunk_rows {
+                    self.update_count_star_direct_row(accessors, row_index)?;
                 }
             }
         }
@@ -27211,6 +27845,8 @@ impl<'a> GroupedAggregateStates<'a> {
         declared_columns: &[String],
     ) -> Result<bool> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_numeric_utf8_topk_heavy_hitter_exact_from_accessors(&accessors)
     }
@@ -28708,6 +29344,7 @@ impl<'a> GroupedAggregateStates<'a> {
     fn string_count_topk_first_pass_dictionary_ids(
         &mut self,
         group_accessor: &AggregateDirectColumnAccessor,
+        counts: &[u64],
     ) -> Result<Option<Vec<u64>>> {
         let needs_exact_dictionary_ids = self
             .string_count_topk_first_pass_exact_histogram_counts
@@ -28715,14 +29352,29 @@ impl<'a> GroupedAggregateStates<'a> {
         if !needs_exact_dictionary_ids {
             return Ok(None);
         }
-        aggregate_direct_utf8_dictionary_interner_ids(group_accessor, &mut self.string_interner)?
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex string top-K first-pass exact histogram requires dictionary-coded UTF-8 keys; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })
-            .map(Some)
+        let AggregateDirectColumnAccessor::Utf8Dictionary { values, .. } = group_accessor else {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex string top-K first-pass exact histogram requires dictionary-coded UTF-8 keys; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        };
+        if values.len() != counts.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex string top-K dictionary values and counts differ in length; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        // Only referenced entries enter the global interner. Unused dictionary
+        // slots carry a sentinel that every count consumer skips at zero weight.
+        let mut ids = vec![u64::MAX; values.len()];
+        for ((value, count), id) in values.iter().zip(counts).zip(&mut ids) {
+            if *count != 0 {
+                *id = self
+                    .string_interner
+                    .intern_arc(std::sync::Arc::clone(value))?;
+            }
+        }
+        Ok(Some(ids))
     }
 
     fn update_string_count_topk_exact_histogram_primary_from_counts(
@@ -28787,7 +29439,7 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             return Ok(false);
         }
-        let (group_index, group_accessor) = self.string_count_topk_group_accessor(accessors)?;
+        let (_, group_accessor) = self.string_count_topk_group_accessor(accessors)?;
         let AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids,
             values,
@@ -28806,13 +29458,35 @@ impl<'a> GroupedAggregateStates<'a> {
             row_indices,
         ));
         let counts = dictionary_value_counts_for_rows(row_ids, values.len(), row_indices)?;
+        self.update_string_count_topk_heavy_hitter_from_counts(accessors, &counts, row_indices)
+    }
+
+    fn update_string_count_topk_heavy_hitter_from_counts(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        counts: &[u64],
+        row_indices: Option<&[usize]>,
+    ) -> Result<bool> {
+        let (group_index, group_accessor) = self.string_count_topk_group_accessor(accessors)?;
+        let AggregateDirectColumnAccessor::Utf8Dictionary { values, .. } = group_accessor else {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex dictionary histogram merge requires dictionary-coded keys; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        };
+        if counts.len() != values.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex dictionary histogram merge has inconsistent dictionary lengths; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
         let dictionary_string_ids =
-            self.string_count_topk_first_pass_dictionary_ids(group_accessor)?;
+            self.string_count_topk_first_pass_dictionary_ids(group_accessor, counts)?;
         if let Some(dictionary_string_ids) = dictionary_string_ids.as_ref()
             && let Some(active_rows) = self
                 .update_string_count_topk_exact_histogram_primary_from_counts(
                     dictionary_string_ids,
-                    &counts,
+                    counts,
                 )?
         {
             return self.accept_string_count_topk_primary_update(group_index, active_rows);
@@ -28836,14 +29510,14 @@ impl<'a> GroupedAggregateStates<'a> {
                 update_string_count_topk_sketch_from_dictionary_ids(
                     sketch,
                     dictionary_string_ids,
-                    &counts,
+                    counts,
                     self.string_count_topk_total_weight,
                 )?;
         } else {
             self.string_count_topk_total_weight = update_string_count_topk_sketch_from_values(
                 sketch,
                 values,
-                &counts,
+                counts,
                 &mut self.string_interner,
                 self.string_count_topk_total_weight,
             )?;
@@ -28852,7 +29526,7 @@ impl<'a> GroupedAggregateStates<'a> {
         self.update_string_count_topk_first_pass_late_measures_from_accessors(
             accessors,
             group_accessor,
-            &counts,
+            counts,
             row_indices,
         )?;
         Ok(true)
@@ -29144,6 +29818,8 @@ impl<'a> GroupedAggregateStates<'a> {
         row_indices: Option<&[usize]>,
     ) -> Result<bool> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_string_count_topk_heavy_hitter_exact_from_accessors(&accessors, row_indices)
     }
@@ -29873,6 +30549,8 @@ impl<'a> GroupedAggregateStates<'a> {
         declared_columns: &[String],
     ) -> Result<bool> {
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_string_count_distinct_topk_heavy_hitter_exact_from_accessors(&accessors)
     }
@@ -30141,39 +30819,86 @@ impl<'a> GroupedAggregateStates<'a> {
             return Ok(true);
         }
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
-        self.observe_aggregate_accessors(declared_columns, &accessors);
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
+        self.update_compact_direct_from_accessors(
+            &accessors,
+            declared_columns,
+            row_indices,
+            chunk.len(),
+        )
+    }
+
+    fn update_compact_direct_from_chunk_profiled(
+        &mut self,
+        chunk: &vortex::array::ArrayRef,
+        declared_columns: &[String],
+        row_indices: Option<&[usize]>,
+        timing: &mut aggregate_timing::AggregateFirstPassTiming,
+    ) -> Result<bool> {
+        let started = Instant::now();
+        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns);
+        timing.accessor_nanos += started.elapsed().as_nanos();
+        let accessors = accessors?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
+        timing.accessor_chunks += 1;
+        timing.accessor_rows += u64::try_from(chunk.len()).unwrap_or(u64::MAX);
+        let started = Instant::now();
+        let result = if self.admits_count_star_direct_updates() {
+            self.observe_aggregate_accessors(declared_columns, &accessors);
+            self.update_count_star_direct_from_accessors(&accessors, row_indices, chunk.len())
+        } else {
+            self.update_compact_direct_from_accessors(
+                &accessors,
+                declared_columns,
+                row_indices,
+                chunk.len(),
+            )
+        };
+        timing.group_update_nanos += started.elapsed().as_nanos();
+        result
+    }
+
+    fn update_compact_direct_from_accessors(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        declared_columns: &[String],
+        row_indices: Option<&[usize]>,
+        chunk_rows: usize,
+    ) -> Result<bool> {
+        self.observe_aggregate_accessors(declared_columns, accessors);
         if self
-            .update_numeric_pair_late_measure_count_direct_from_accessors(&accessors, row_indices)?
+            .update_numeric_pair_late_measure_count_direct_from_accessors(accessors, row_indices)?
         {
             return Ok(true);
         }
-        if self.update_string_count_topk_heavy_hitter_from_accessors(&accessors, row_indices)? {
+        if self.update_string_count_topk_heavy_hitter_from_accessors(accessors, row_indices)? {
             return Ok(true);
         }
-        if self.update_string_count_distinct_topk_heavy_hitter_from_accessors(
-            &accessors,
-            row_indices,
-        )? {
+        if self
+            .update_string_count_distinct_topk_heavy_hitter_from_accessors(accessors, row_indices)?
+        {
             return Ok(true);
         }
         if self.compact_measure_specs.is_some() {
-            if self.update_numeric_pair_compact_direct_from_accessors(&accessors, row_indices)? {
+            if self.update_numeric_pair_compact_direct_from_accessors(accessors, row_indices)? {
                 return Ok(true);
             }
-            if self.update_compact_direct_from_dictionary_group(&accessors, row_indices)? {
+            if self.update_compact_direct_from_dictionary_group(accessors, row_indices)? {
                 return Ok(true);
             }
-            if self.update_compact_direct_from_transformed_dictionary(&accessors, row_indices)? {
+            if self.update_compact_direct_from_transformed_dictionary(accessors, row_indices)? {
                 return Ok(true);
             }
         }
-        if self.update_dense_general_direct_from_transformed_dictionary(&accessors, row_indices)? {
+        if self.update_dense_general_direct_from_transformed_dictionary(accessors, row_indices)? {
             return Ok(true);
         }
-        if self.update_general_direct_from_transformed_dictionary(&accessors, row_indices)? {
+        if self.update_general_direct_from_transformed_dictionary(accessors, row_indices)? {
             return Ok(true);
         }
-        if self.update_general_direct_from_accessors(&accessors, row_indices, chunk.len())? {
+        if self.update_general_direct_from_accessors(accessors, row_indices, chunk_rows)? {
             return Ok(true);
         }
         if self.compact_measure_specs.is_none() {
@@ -30182,12 +30907,12 @@ impl<'a> GroupedAggregateStates<'a> {
         match row_indices {
             Some(row_indices) => {
                 for &row_index in row_indices {
-                    self.update_compact_measure_direct_row(&accessors, row_index)?;
+                    self.update_compact_measure_direct_row(accessors, row_index)?;
                 }
             }
             None => {
-                for row_index in 0..chunk.len() {
-                    self.update_compact_measure_direct_row(&accessors, row_index)?;
+                for row_index in 0..chunk_rows {
+                    self.update_compact_measure_direct_row(accessors, row_index)?;
                 }
             }
         }
@@ -31591,6 +32316,8 @@ impl<'a> GroupedAggregateStates<'a> {
             return Ok(false);
         }
         let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns)?;
+        self.native_numeric_accessor_work
+            .add(&accessors.numeric_work)?;
         self.observe_aggregate_accessors(declared_columns, &accessors);
         self.update_numeric_pair_late_measure_direct_from_accessors(&accessors)
     }
@@ -33257,6 +33984,9 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         let uniqueness_proof_status = if self.string_count_topk_first_pass_exact_counts {
             match self.string_count_topk_exact_counts_source {
+                Some("complete_key_partition_topk") => {
+                    "complete_key_partition_count_desc_utf8_asc_exact_topk"
+                }
                 Some("first_pass_dictionary_exact_histogram") => {
                     "proofbound_heavy_hitter_exact_first_pass_dictionary_histogram"
                 }
@@ -34837,9 +35567,24 @@ impl<'a> GroupedAggregateStates<'a> {
         aggregate_accessor_set_summary(&self.aggregate_accessor_blockers)
     }
 
+    fn has_owned_string_count_partials(&self) -> bool {
+        self.aggregate_accessor_summary
+            .contains("native_canonical_utf8_owned_all_key_count_partial")
+            || self
+                .aggregate_accessor_summary
+                .contains("native_dictionary_owned_all_key_count_partial")
+            || self
+                .aggregate_accessor_summary
+                .contains("native_complete_key_partition_counts")
+    }
+
     fn aggregate_accessor_materialization_status(&self) -> &'static str {
         if self.aggregate_accessor_summary.is_empty() {
             "not_observed"
+        } else if self.aggregate_materialized_accessor_columns.is_empty()
+            && self.has_owned_string_count_partials()
+        {
+            "native_canonical_utf8_with_optional_dictionary_or_primitive"
         } else if self.aggregate_materialized_accessor_columns.is_empty()
             && !self.aggregate_vortex_dictionary_accessor_columns.is_empty()
         {
@@ -34853,6 +35598,7 @@ impl<'a> GroupedAggregateStates<'a> {
         } else if !self.aggregate_vortex_dictionary_accessor_columns.is_empty()
             || !self.aggregate_chunk_dictionary_accessor_columns.is_empty()
             || !self.aggregate_primitive_accessor_columns.is_empty()
+            || self.has_owned_string_count_partials()
         {
             "mixed_direct_and_materialized_accessors"
         } else {
@@ -34869,7 +35615,11 @@ impl<'a> GroupedAggregateStates<'a> {
             } else if self.string_count_topk_first_pass_late_measures {
                 Some("string_count_topk_first_pass_late_measure_exact")
             } else if self.string_count_topk_first_pass_exact_histogram_promoted() {
-                Some("string_dictionary_code_count_topk_first_pass_exact_histogram")
+                if self.has_owned_string_count_partials() {
+                    Some("string_owned_all_key_count_partials_first_pass_exact_histogram")
+                } else {
+                    Some("string_dictionary_code_count_topk_first_pass_exact_histogram")
+                }
             } else if self.string_count_topk_dictionary_code_reuse {
                 Some("string_dictionary_code_count_topk_heavy_hitter_first_pass_exact")
             } else {
@@ -35267,6 +36017,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn group_count(&self) -> usize {
+        if let Some(groups) = self.complete_key_partition_group_count {
+            return groups;
+        }
         if let Some(groups) = self.single_numeric_count_groups.as_ref() {
             return groups.len();
         }
@@ -36296,7 +37049,12 @@ impl<'a> GroupedAggregateStates<'a> {
             pulseweave_pressure_signals.push("numeric_pair_weighted_count_updates");
         }
         if self.string_count_topk_heavy_hitter_direct_updates {
-            if self.string_count_topk_first_pass_exact_histogram_promoted() {
+            if self.string_count_topk_exact_counts_source == Some("complete_key_partition_topk") {
+                capillary_work_units.push("complete_key_string_partition_reconciliation");
+                capillary_work_units.push("complete_key_partition_final_topk");
+                pulseweave_pressure_signals.push("complete_key_partition_exact_topk_proof");
+                pulseweave_pressure_signals.push("string_topk_sketch_update_elided");
+            } else if self.string_count_topk_first_pass_exact_histogram_promoted() {
                 capillary_work_units.push("string_topk_exact_histogram_primary_update");
                 pulseweave_pressure_signals.push("string_topk_sketch_update_elided");
             } else {
@@ -36320,7 +37078,10 @@ impl<'a> GroupedAggregateStates<'a> {
                         pulseweave_pressure_signals.push("retained_candidate_distinct_values");
                     }
                 }
-                if self.string_count_topk_exact_counts_source
+                if self.string_count_topk_exact_counts_source == Some("complete_key_partition_topk")
+                {
+                    pulseweave_pressure_signals.push("string_topk_second_scan_elided");
+                } else if self.string_count_topk_exact_counts_source
                     == Some("first_pass_bounded_exact_mirror")
                 {
                     capillary_work_units.push("string_heavy_hitter_bounded_exact_mirror");
@@ -38613,24 +39374,23 @@ impl AggregateDirectColumnAccessor {
 fn aggregate_direct_column_accessors_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
-) -> Result<Vec<AggregateDirectColumnAccessor>> {
-    let mut out = Vec::with_capacity(declared_columns.len());
+) -> Result<AggregateAccessorBatch> {
+    let mut out = AggregateAccessorBatch {
+        values: Vec::with_capacity(declared_columns.len()),
+        numeric_work: NativeNumericAccessorWork::default(),
+    };
     if chunk.dtype().is_struct() {
-        let children = chunk
-            .named_children()
-            .into_iter()
-            .collect::<std::collections::BTreeMap<_, _>>();
         for column in declared_columns {
-            let Some(array) = children.get(column.as_str()) else {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "local Vortex aggregate direct column '{column}' was not present in scanned chunk; no fallback execution was attempted"
-                )));
-            };
-            out.push(aggregate_direct_column_accessor(column, array)?);
+            let array = logical_field_from_native_array(chunk, column)?;
+            let (accessor, work) = aggregate_column_accessor_with_work(column, &array)?;
+            out.numeric_work.add(&work)?;
+            out.values.push(accessor);
         }
     } else {
         let column = declared_columns.first().map_or("value", String::as_str);
-        out.push(aggregate_direct_column_accessor(column, chunk)?);
+        let (accessor, work) = aggregate_column_accessor_with_work(column, chunk)?;
+        out.numeric_work.add(&work)?;
+        out.values.push(accessor);
     }
     Ok(out)
 }
@@ -40046,24 +40806,38 @@ fn aggregate_direct_column_accessor(
     column: &str,
     array: &vortex::array::ArrayRef,
 ) -> Result<AggregateDirectColumnAccessor> {
+    aggregate_column_accessor_with_work(column, array).map(|(accessor, _)| accessor)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_column_accessor_with_work(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<(AggregateDirectColumnAccessor, NativeNumericAccessorWork)> {
     if let Some(accessor) = direct_primitive_aggregate_column_accessor(array) {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
     }
     if let Some(accessor) = direct_bool_aggregate_column_accessor(array) {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
     }
     if let Some(accessor) = aggregate_direct_numeric_dictionary_accessor(array)? {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
+    }
+    if let Some(decoded) = native_numeric_accessor::decode(column, array)? {
+        return Ok(decoded);
     }
     if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array)? {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
     }
     if let Some(accessor) = aggregate_direct_utf8_chunk_dictionary_accessor(column, array)? {
-        return Ok(accessor);
+        return Ok((accessor, NativeNumericAccessorWork::default()));
     }
-    Ok(AggregateDirectColumnAccessor::materialized(
-        row_export_values_from_vortex_array(column, array)?,
-        aggregate_direct_materialization_blocker(array),
+    Ok((
+        AggregateDirectColumnAccessor::materialized(
+            row_export_values_from_vortex_array(column, array)?,
+            aggregate_direct_materialization_blocker(array),
+        ),
+        NativeNumericAccessorWork::default(),
     ))
 }
 
@@ -44657,7 +45431,12 @@ fn annotate_simple_aggregate_layout_correlation_summary(
     let string_domain_present = embedded_layout
         .domain_dictionary_status
         .contains("utf8_domain_columns_present");
-    let status = if layout_dictionary_present {
+    let status = if embedded_layout
+        .layout_encoding_inventory
+        .contains(DEFERRED_LAYOUT_INVENTORY)
+    {
+        "artifact_layout_inventory_deferred_accessor_materialized"
+    } else if layout_dictionary_present {
         "artifact_dictionary_layout_present_accessor_materialized"
     } else if string_encoding_layout_present {
         "artifact_string_encoding_layout_present_accessor_materialized"
@@ -50261,6 +51040,17 @@ mod tests {
         assert_ne!(
             report.embedded_layout.layout_encoding_inventory,
             "not_available"
+        );
+        assert_eq!(report.embedded_layout.layout_inventory_nodes_inspected, 1);
+        assert_eq!(
+            report.embedded_layout.layout_encoding_inventory,
+            DEFERRED_LAYOUT_INVENTORY
+        );
+        assert!(
+            report
+                .embedded_layout
+                .layout_inventory_scope
+                .contains("full_tree_deferred")
         );
         assert!(
             report
@@ -56666,7 +57456,12 @@ mod tests {
 
         assert!(
             states
-                .update_direct_from_chunk(&chunk, &declared_columns, None)
+                .update_direct_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                    None,
+                    &mut NativeNumericAccessorWork::default()
+                )
                 .expect("dictionary weighted update")
         );
 
@@ -61564,6 +62359,123 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
+    #[allow(clippy::too_many_lines)]
+    fn partition_source_owned_pressure_replays_filtered_native_file_once_and_preserves_corruption()
+    {
+        use aggregate_count_workers::{SOURCE_SCAN_TEST_FAULT, SourceScanTestFault};
+        use vortex::{
+            VortexSessionDefault as _,
+            array::{
+                IntoArray as _,
+                arrays::{StructArray, VarBinViewArray},
+                dtype::FieldNames,
+                validity::Validity,
+            },
+            file::WriteOptionsSessionExt as _,
+            io::{
+                runtime::{BlockingRuntime as _, single::SingleThreadRuntime},
+                session::RuntimeSessionExt as _,
+            },
+            session::VortexSession,
+        };
+        let path = unique_vortex_path("partition-source-pressure-replay");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let chunks = [
+            ["tea", "tea", "skip", "東京"],
+            ["coffee", "東京", "skip", "tea"],
+            ["東京", "tea", "coffee", "skip"],
+        ]
+        .map(|values| {
+            StructArray::try_new(
+                FieldNames::from(["renamed_key"]),
+                vec![VarBinViewArray::from_iter_str(values).into_array()],
+                4,
+                Validity::NonNullable,
+            )
+            .unwrap()
+            .into_array()
+        });
+        let mut bytes = Vec::new();
+        let mut writer = session
+            .write_options()
+            .with_strategy(native_flat_layout::SequentialNativeFlatLayout::strategy(
+                chunks.len(),
+            ))
+            .with_file_statistics(Vec::new())
+            .blocking(&runtime)
+            .writer(&mut bytes, chunks[0].dtype().clone());
+        for chunk in chunks {
+            writer.push(chunk).unwrap();
+        }
+        assert_eq!(writer.finish().unwrap().row_count(), 12);
+        let workspace = shardloom_core::infer_local_output_workspace_root(&path).unwrap();
+        shardloom_core::write_workspace_safe_bytes(
+            workspace,
+            &path,
+            false,
+            "partition source pressure fixture",
+            &bytes,
+        )
+        .unwrap();
+        let mut request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).unwrap(),
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("renamed_key").unwrap()],
+                vec![crate::VortexSimpleAggregateMeasure::new(
+                    "count",
+                    None,
+                    "n".into(),
+                )],
+            )
+            .with_order_by(vec![crate::VortexAggregateOrderExpr::new("n", true)]),
+        )
+        .with_source_order_limit(2);
+        request.predicate = Some(PredicateExpr::Compare {
+            column: ColumnRef::new("renamed_key").unwrap(),
+            op: ComparisonOp::NotEq,
+            value: StatValue::Utf8("skip".into()),
+        });
+        SOURCE_SCAN_TEST_FAULT.with(|fault| fault.set(Some(SourceScanTestFault::OwnedDenial)));
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        )
+        .unwrap();
+        assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
+        let summary = simple_aggregate_values_json(report.result_summary.as_deref().unwrap());
+        assert_eq!(
+            summary["values"],
+            serde_json::json!([{"renamed_key":"tea","n":4}, {"renamed_key":"東京","n":3}])
+        );
+        assert_eq!(summary["aggregate_workers_partition_source_replays"], 1);
+        assert!(
+            summary["aggregate_workers_partition_discarded_input_rows"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+        assert!(!report.fallback_execution_allowed);
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"complete_key_partition_source_pressure_native_replay".to_owned())
+        );
+        SOURCE_SCAN_TEST_FAULT
+            .with(|fault| fault.set(Some(SourceScanTestFault::CorruptionWithConcurrentDenial)));
+        let error = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("injected source corruption"));
+        assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
     fn grouped_count_star_ordered_topk_uses_compact_counts_without_fallback() {
         let path = unique_vortex_path("grouped-count-star-ordered-compact");
         write_pivot_struct_fixture(&path).expect("fixture");
@@ -61593,7 +62505,11 @@ mod tests {
         assert!(!report.fallback_execution_allowed);
         assert_eq!(
             report.state_budget.state_family,
-            "grouped_aggregate_state+topk+count_star_direct+compact_group_state+chunk_dictionary_counts"
+            if cfg!(unix) {
+                "grouped_aggregate_state+topk+count_star_direct+compact_group_state"
+            } else {
+                "grouped_aggregate_state+topk+count_star_direct+compact_group_state+chunk_dictionary_counts"
+            }
         );
         assert!(
             report
@@ -61602,10 +62518,14 @@ mod tests {
                 .contains(&"compact_group_state_memory".to_string())
         );
         assert!(
-            report
-                .state_budget
-                .capillary_work_units
-                .contains(&"chunk_dictionary_count_star_group_update".to_string())
+            report.state_budget.capillary_work_units.contains(
+                &if cfg!(unix) {
+                    "count_star_direct_group_update"
+                } else {
+                    "chunk_dictionary_count_star_group_update"
+                }
+                .to_string()
+            )
         );
         assert!(
             report
@@ -61617,19 +62537,35 @@ mod tests {
         let payload = simple_aggregate_values_json(&summary);
         assert_eq!(
             payload["group_output_strategy"],
-            "capillary_streaming_count_star_topk"
+            if cfg!(unix) {
+                "complete_key_partition_exact_topk"
+            } else {
+                "capillary_streaming_count_star_topk"
+            }
         );
         assert_eq!(
             payload["compact_group_state_strategy"],
-            "chunk_dictionary_count_star_group_state"
+            if cfg!(unix) {
+                "compact_count_star_group_state"
+            } else {
+                "chunk_dictionary_count_star_group_state"
+            }
         );
         assert_eq!(
             payload["aggregate_update_strategy"],
-            "chunk_dictionary_count_star_group_update"
+            if cfg!(unix) {
+                "count_star_direct_group_update"
+            } else {
+                "chunk_dictionary_count_star_group_update"
+            }
         );
         assert_eq!(
             payload["group_key_storage"],
-            "typed_single_key+interned_utf8"
+            if cfg!(unix) {
+                "owned_utf8_complete_key_partitions"
+            } else {
+                "typed_single_key+interned_utf8"
+            }
         );
         assert_eq!(
             payload["source_order_key_retention"],
@@ -61658,6 +62594,28 @@ mod tests {
             payload["materialized_group_value_count"],
             serde_json::json!(0)
         );
+        #[cfg(unix)]
+        {
+            assert_eq!(payload["aggregate_workers_rows"], 3);
+            assert_eq!(payload["aggregate_workers_submitted_chunks"], 1);
+            assert_eq!(payload["aggregate_workers_completed_chunks"], 1);
+            assert_eq!(payload["aggregate_workers_partial_entries"], 2);
+            assert_eq!(payload["aggregate_workers_outstanding_chunks"], 0);
+            assert_eq!(payload["aggregate_workers_compute_threads"], 0);
+            assert_eq!(payload["aggregate_workers_provider_background_workers"], 0);
+            assert!(
+                payload["aggregate_workers_count_work_nanos"]
+                    .as_u64()
+                    .unwrap()
+                    > 0
+            );
+            assert!(
+                payload["aggregate_workers_caller_merge_nanos"]
+                    .as_u64()
+                    .unwrap()
+                    > 0
+            );
+        }
         let values = payload["values"].as_array().expect("values");
         assert_eq!(values.len(), 1);
         assert_eq!(values[0]["label"], serde_json::json!("paid"));

@@ -30,6 +30,12 @@ use crate::{
     cli_unknown_arg_error,
 };
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "generated_memory_collect.rs"]
+mod memory_collect;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) use memory_collect::collect_generated_rows_memory;
+
 const USER_ROWS_COMMAND: &str = "generated-source-user-rows";
 pub(crate) const USER_ROWS_SMOKE_ALIAS_COMMAND: &str = "generated-source-user-rows-smoke";
 const USER_ROWS_SCHEMA_VERSION: &str = "shardloom.generated_source_user_rows_runtime.v1";

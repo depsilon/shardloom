@@ -33,12 +33,36 @@ impl HostAllocator for ReservedHostAllocator {
         let lease = self
             .memory
             .reserve(capacity)
-            .map_err(|error| vortex_err!("{error}"))?;
+            .map_err(|error| vortex_err!(External: OwnedReservationDenied(error)))?;
         let buffer = DefaultHostAllocator.allocate(len, alignment)?;
         Ok(WritableHostBuffer::new(Box::new(ReservedWritableBuffer {
             buffer,
             lease,
         })))
+    }
+}
+
+#[derive(Debug)]
+struct OwnedReservationDenied(shardloom_core::ShardLoomError);
+
+impl std::fmt::Display for OwnedReservationDenied {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, formatter)
+    }
+}
+
+impl std::error::Error for OwnedReservationDenied {}
+
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) fn is_owned_reservation_denial(mut error: &(dyn std::error::Error + 'static)) -> bool {
+    loop {
+        if error.is::<OwnedReservationDenied>() {
+            return true;
+        }
+        let Some(source) = error.source() else {
+            return false;
+        };
+        error = source;
     }
 }
 
@@ -86,6 +110,27 @@ impl AsRef<[u8]> for ReservedBufferOwner {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(feature = "vortex-local-primitives")]
+    fn owned_denial_remains_typed_through_native_context_and_shared_wrappers() {
+        let memory = LiveMemoryPool::new(16).unwrap();
+        let allocator = ReservedHostAllocator::new(memory);
+        let denied = allocator
+            .allocate(128, Alignment::DEFAULT_ALIGNMENT)
+            .err()
+            .unwrap();
+        assert!(is_owned_reservation_denial(&denied));
+        let contextual = denied.with_context("native filter allocation");
+        let shared = vortex::error::VortexError::Shared(std::sync::Arc::new(contextual));
+        assert!(is_owned_reservation_denial(&shared));
+        assert!(!is_owned_reservation_denial(
+            &vortex_err!(InvalidArgument: "corrupt source")
+        ));
+        assert!(!is_owned_reservation_denial(&vortex_err!(
+            "cancelled; memory reservation denied:"
+        )));
+    }
 
     #[test]
     fn slices_and_clones_retain_full_allocation_credit_without_copying() {

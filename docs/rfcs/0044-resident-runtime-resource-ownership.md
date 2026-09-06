@@ -63,6 +63,15 @@ and remove owned runs. Crash recovery must identify owned runs without deleting
 unknown files. Spill must fail deterministically when no workspace is admitted.
 Existing synthetic-spill gates retain their meaning and do not prove query spill.
 
+The numeric sort run geometry may scale with its existing merge reservation:
+256..=1024 rows per native Flat leaf, with a bounded 2/4/8-way merge. Retain the
+full per-leaf metadata charge and account for simultaneous input/output footers.
+Poll one exact native run row-range task at a time so upstream machine-core
+prefetch does not multiply retained run payloads. Validate the 131,072-row,
+large-offset public query at 4 MiB; 1 MiB is an admission minimum, not a promise
+that arbitrarily many run footers fit. This remains a scoped operator reservation,
+not an RSS or whole-query bound.
+
 ## Memory-Visible Publication
 
 PERF-11 may publish validated, immutable in-memory Vortex arrays without creating a
@@ -92,6 +101,17 @@ are bounded explicitly. No enqueue acknowledgment is reported as a completed que
 
 ## Verification
 
+PERF-04/09 numeric consumer follow-up admits a per-source-array native Primitive
+execution after existing direct and dictionary accessors miss. The resulting
+typed slice feeds the existing exact aggregate kernels instead of a row-wise
+`StatValue` vector. Dtype, row order and nullable validity remain unchanged;
+integer keys never pass through floating point. Actual native decode work and
+typed value copies are reported separately from encoded execution. This bounds
+the adapter's temporary representation by the source array, not process RSS or
+arbitrary provider allocations. Public zero-decode aggregate requests reject
+before opening the source. No alternate engine or failure-swallowing retry is
+introduced. Retention requires exact encoded fixtures and paired measurement.
+
 Test reservation overflow, contention, growth, drop, cancellation, pool reuse,
 bounded queues, deterministic reduction, source replacement and mutation, result
 lifetime, exact low-memory aggregation, spill cleanup, and writer atomicity.
@@ -99,3 +119,58 @@ Use renamed schemas, adversarial distributions, nulls, and non-ClickBench cases.
 Record latency percentiles, actual active worker time, live/peak bytes, and completed
 output. Run a clean same-commit full UAT once storage permits; retain historical
 evidence separately. Do not mark unfinished packets complete from policy reports.
+
+## Immutable memory-backed file generation prototype
+
+The maintainer's additional 2026-09-05 planning packet authorizes an executable
+prototype under PERF-07/PERF-11. This is a bounded immutable generation, not a new
+live-update protocol or a serialized layout template. Existing tiny native-array
+operations remain direct; callers explicitly choose the file-generation boundary.
+
+Vortex-first provider check: wrap the pinned Vortex 0.85 `VortexFile`, `Footer`,
+`SegmentSink`/`SegmentSource`, native Flat layout writer, cached reader tree, and
+`FooterSerializer`. Typed intake uses the existing `ResidentMemorySource` and
+reservation-owning allocator. The Flat serializer runs once; each resulting
+segment is assembled into an admitted aligned owned buffer. Actual segment byte
+copies are reported, rather than described as zero-copy. A real bound native
+filter/project/ordered-limit query reads the immutable segments through
+`VortexFile::scan`. No Arrow or external query engine evaluates the query.
+
+Durable publication writes those same represented segment bytes, their declared
+alignment padding, and the upstream footer serialization into one exclusively
+created staging file. It performs flush, independent checksum readback, native
+dtype/row-count reopen validation, then owned atomic publication. Publication does
+not execute a second array serializer or rebuild a dictionary. Existing readers
+retain the memory generation; publishing a durable backing does not mutate their
+segment source or invalidate a cached reader tree. The generation remains
+`visible_in_memory` until publication completes; file and directory synchronization
+define the reported durable boundary.
+This bounded publication requires an existing real parent directory and rejects
+missing directory ancestry before creating staging output. It does not claim
+durability for newly created ancestor directory entries.
+The held parent directory's device/inode identity must match the admitted path
+after opening, before commit, and after synchronization. Post-publication drift
+returns an explicit published-but-durability-unconfirmed error.
+The final durability boundary also checks that the published pathname and held
+file still match the verified size/mtime and post-commit inode/ctime generation.
+Replacement, unlink or in-place mutation returns a published-but-durability-unconfirmed
+error and preserves the current destination. This check does not prevent another
+writer from changing the pathname after publication returns.
+
+Admission bounds segment count, serialized segment bytes, retained total bytes,
+and metadata capacity before publishing the generation. Native allocations retain
+their credits through the last buffer reference. Report actual intake copies,
+segment assembly copies, serializer calls, segment requests/bytes, durable bytes,
+readback bytes, file opens, and publication serializer calls separately. Codec
+internals, provider allocations bypassing the allocator, parser storage, OS page
+cache and total RSS remain excluded unless independently measured. File statistics
+and user metadata not produced by this prototype are explicitly absent.
+
+Acceptance requires exact independent values including empty input, nullable
+Unicode, integer extremes, booleans and finite floats before and after durable
+publication; lifetime survival after dropping the input/session; repeated queries
+without encoding or source reopening; byte-bound rejection; cleanup on failed
+write/validation; preservation of foreign destinations; and immutable generation
+isolation. Benchmarks compare actual build/query/publish/reopen work before any
+latency claim. Generic streaming ingestion, mutable generations, background
+compaction and broad production performance claims remain outside this prototype.

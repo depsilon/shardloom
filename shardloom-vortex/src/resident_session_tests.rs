@@ -91,6 +91,55 @@ fn prepared_calls_reuse_reader_and_workers_without_caching_answers() {
     assert!(snapshot.memory.peak_reserved_bytes <= snapshot.memory.limit_bytes);
 }
 
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn external_compute_sessions_create_no_provider_cpu_drivers_and_retain_one_generation() {
+    let fixture = Fixture::new();
+    for workers in [1, 2, 4, 8, 12] {
+        let session =
+            ResidentVortexSession::for_external_cpu_pool(8 * 1024 * 1024, workers).unwrap();
+        assert_eq!(session.snapshot().provider_background_workers, 0);
+        let source = session.prepare_file(fixture.input()).unwrap();
+        let rows = source
+            .with_native_execution(|file, _, runtime| {
+                let mut rows = 0;
+                for chunk in file
+                    .scan()
+                    .map_err(native_error)?
+                    .into_array_iter(runtime)
+                    .map_err(native_error)?
+                {
+                    rows += chunk.map_err(native_error)?.len();
+                }
+                Ok(rows)
+            })
+            .unwrap();
+        assert_eq!(rows, 5);
+        assert_eq!(session.snapshot().prepared_source_opens, 1);
+        assert_eq!(session.snapshot().completed_executions, 1);
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn native_execution_rejects_result_if_source_changes_after_its_last_read() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::for_external_cpu_pool(8 * 1024 * 1024, 4).unwrap();
+    let source = session.prepare_file(fixture.input()).unwrap();
+    let replacement = fixture.0.join("replacement.vortex");
+    std::fs::copy(fixture.input(), &replacement).unwrap();
+    let result = source.with_native_execution(|file, _, _| {
+        let answer = file.row_count();
+        // The last scan can finish before ordered merge/refinement does. The
+        // final boundary must validate after all work, including metadata reads.
+        std::fs::rename(&replacement, fixture.input()).unwrap();
+        Ok(answer)
+    });
+    assert!(result.is_err());
+    assert_eq!(session.snapshot().completed_executions, 0);
+    assert!(source.prepare_count().execute().is_err());
+}
+
 #[test]
 fn executable_array_result_outlives_source_and_session() {
     let fixture = Fixture::new();
