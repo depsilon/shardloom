@@ -440,6 +440,16 @@ worker regressions. The separate row-execution and independent correctness-oracl
 certificates remain absent. Earlier frozen resident latency samples predate this
 additional certificate construction and rendering.
 
+Merge-readiness verification covers source commit
+`50f997b54e5250dd6cd57b58e57d5c9fd94886a3`: default workspace all-target tests
+pass 3,403 tests across 102 suites; combined `shardloom-vortex`/`shardloom-cli`
+`release-user-surfaces` all-target tests pass 2,967 across 82 suites, with one
+intentional fixture-generation ignore. Both corresponding clippy gates,
+formatting, 24 Python UAT tests, user-surface reference, contribution governance
+and CI-gate matrix checks pass. Earlier failed validation and the corrected
+prefetch race remain recorded in local `review-fix-*` logs under
+`/Users/dylan/LocalData/shardloom/perf-text-layout-20260905/`.
+
 Retain the demonstrated duplicate-checksum removal, compact schema evidence,
 native result correctness repair, and tested runtime ownership foundation. The
 later b3 implementation adds the scoped boundaries listed above; global admission,
