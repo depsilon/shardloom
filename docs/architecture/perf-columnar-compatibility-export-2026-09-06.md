@@ -3,8 +3,14 @@
 This PERF-02/PERF-07 candidate implements the supplied performance plan's
 explicit array-ownership and sink-boundary requirements. The integrated candidate
 selects this route for admitted existing structured Arrow IPC/Parquet exports.
-Validation and retention measurements remain pending. The retained native Vortex
-writer is unchanged; it shares only source-plan preparation with this sink.
+The [September 8 release lifecycle packet](../benchmarks/retained-native-export-2026-09-08.md)
+retains that bounded route at `e739edeb`: all 96 complete output checks pass;
+65,536-row complete-artifact medians improve 3.528x for IPC and 3.523x for
+Parquet. At 4,096 rows IPC improves 11.82% and Parquet regresses 1.45%; the
+original legacy API is faster at that size because it omits several output
+checks. Source-generation guarantees still differ. No broader public-scale or
+RSS improvement is established. The retained native Vortex writer is unchanged;
+it shares only source-plan preparation with this sink.
 
 The existing structured compatibility exporter builds scalar row dictionaries
 and then rebuilds Arrow arrays. The candidate reuses the native sink's prepared
@@ -76,8 +82,9 @@ after a real batch; output collision; and released owned credits. A repeated
 prepared handle must execute and validate again without cached answers. Latency
 comparison must include complete write/finish/sync/checksum/reopen/publication,
 separate preparation and independent value validation, and actual output sizes.
-The candidate is retained only after those gates and a matched existing-route
-comparison. No unmeasured speedup or broad PERF completion follows from this note.
+The bounded candidate has passed those correctness gates and the matched
+existing-route lifecycle comparison linked above. Broader result composition,
+production-scale acceptance and PERF completion remain open.
 
 The ignored release lifecycle fixture uses 4,096 and 65,536 rows, both formats,
 one warmup and seven alternating legacy/candidate pairs. It calls the legacy
