@@ -70,7 +70,7 @@ use crate::universal_format_io::{FlatLocalColumnarSource, FlatLocalColumnarStrea
 mod arrow_ownership;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "ingest_bounded_layout.rs"]
-mod bounded_ingest_layout;
+pub(crate) mod bounded_ingest_layout;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Clone)]

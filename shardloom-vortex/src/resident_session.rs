@@ -39,7 +39,31 @@ use crate::owned_buffers::ReservedHostAllocator;
 
 #[path = "resident_worker_group.rs"]
 mod worker_group;
-use worker_group::ResidentWorkerGroup;
+pub(crate) use worker_group::ResidentWorkerGroup;
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "resident_segment_reuse.rs"]
+pub(crate) mod segment_reuse;
+
+/// Only the terminal native error boundary may request an uncached replay.
+/// Counter deltas or error-message contents are never used to classify it.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) struct SegmentReuseAttempt {
+    enabled: bool,
+    retry_requested: bool,
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+impl SegmentReuseAttempt {
+    pub(crate) fn request_uncached_retry(&mut self, error: &vortex::error::VortexError) -> bool {
+        if self.enabled && crate::owned_buffers::is_owned_reservation_denial(error) {
+            self.retry_requested = true;
+            true
+        } else {
+            false
+        }
+    }
+}
 
 struct RuntimeOwner {
     session: VortexSession,
@@ -259,6 +283,42 @@ impl PreparedVortexSource {
         self.0.validate()
     }
 
+    /// Cheap immutable-metadata preflight before optional duplicate planning.
+    /// This neither visits children nor replaces execution generation validation.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn has_segment_reuse_field_root(&self) -> bool {
+        self.0
+            .file
+            .footer()
+            .layout()
+            .is::<vortex::layout::layouts::struct_::Struct>()
+    }
+
+    /// Query-local reuse admission uses the exact lowered filter/projection and
+    /// only this retained file's root/schema. It does not open or execute a scan.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn segment_reuse_policy(
+        &self,
+        predicate: &shardloom_core::PredicateExpr,
+        projected_columns: &[shardloom_core::ColumnRef],
+    ) -> Result<Option<segment_reuse::SegmentReusePolicy>> {
+        let source = &self.0;
+        let _gate = source
+            .runtime
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        source.validate()?;
+        let policy = segment_reuse::SegmentReusePolicy::for_scan(
+            predicate,
+            projected_columns,
+            source.file.footer().layout().as_ref(),
+            source.runtime.memory.snapshot().limit_bytes,
+        );
+        source.validate()?;
+        Ok(policy)
+    }
+
     /// Drive native work under one source generation, allocator, and admission
     /// gate. Callers drain borrowed work inside the closure and expose output
     /// only after this method's final generation validation succeeds.
@@ -285,6 +345,191 @@ impl PreparedVortexSource {
         source.validate()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(result)
+    }
+
+    /// Use when schema admission rejected the dedicated aggregate CPU pool.
+    /// The caller must not create a second compute pool inside this callback.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_native_execution_temporary_drivers<T>(
+        &self,
+        execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
+    ) -> Result<(T, usize)> {
+        let source = &self.0;
+        let _gate = source
+            .runtime
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        source.validate()?;
+        let additional = source
+            .runtime
+            .parallelism
+            .saturating_sub(1 + source.runtime.provider_background_workers);
+        let _workers =
+            ResidentWorkerGroup::new(&source.runtime.runtime, additional).map_err(native_error)?;
+        let result = execute(
+            &source.file,
+            &source.runtime.session,
+            &source.runtime.runtime,
+        )?;
+        source.validate()?;
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok((
+            result,
+            additional + source.runtime.provider_background_workers,
+        ))
+    }
+
+    /// Reuse compressed segments only within this admitted native operation.
+    /// The returned snapshot follows cache close; result-owned slices may still
+    /// retain payload credit until their last owner drops. No query answers or
+    /// layout readers survive in the cache for a subsequent prepared execution.
+    #[cfg(all(
+        test,
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        unix
+    ))]
+    pub(crate) fn with_native_execution_cached<T>(
+        &self,
+        policy: segment_reuse::SegmentReusePolicy,
+        mut execute: impl FnMut(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
+    ) -> Result<(T, segment_reuse::SegmentReuseSnapshot)> {
+        self.with_native_execution_cached_retry(policy, |file, session, runtime, _| {
+            execute(file, session, runtime)
+        })
+    }
+
+    #[cfg(all(
+        test,
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        unix
+    ))]
+    pub(crate) fn with_native_execution_cached_retry<T>(
+        &self,
+        policy: segment_reuse::SegmentReusePolicy,
+        execute: impl FnMut(
+            &VortexFile,
+            &VortexSession,
+            &CurrentThreadRuntime,
+            &mut SegmentReuseAttempt,
+        ) -> Result<T>,
+    ) -> Result<(T, segment_reuse::SegmentReuseSnapshot)> {
+        self.with_native_execution_cached_retry_with_drivers(policy, false, execute)
+    }
+
+    /// Temporary provider drivers are permitted only when the caller has
+    /// rejected its dedicated compute pool. All driver creation and teardown
+    /// occurs inside the existing source/session execution gate.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_native_execution_cached_retry_with_drivers<T>(
+        &self,
+        policy: segment_reuse::SegmentReusePolicy,
+        restore_provider_drivers: bool,
+        mut execute: impl FnMut(
+            &VortexFile,
+            &VortexSession,
+            &CurrentThreadRuntime,
+            &mut SegmentReuseAttempt,
+        ) -> Result<T>,
+    ) -> Result<(T, segment_reuse::SegmentReuseSnapshot)> {
+        let source = &self.0;
+        let _gate = source
+            .runtime
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        source.validate()?;
+        let additional = if restore_provider_drivers {
+            source
+                .runtime
+                .parallelism
+                .saturating_sub(1 + source.runtime.provider_background_workers)
+        } else {
+            0
+        };
+        let _workers =
+            ResidentWorkerGroup::new(&source.runtime.runtime, additional).map_err(native_error)?;
+        let provider_workers = additional + source.runtime.provider_background_workers;
+        let started = std::time::Instant::now();
+        let generation = Arc::clone(source);
+        let Some(cache) = segment_reuse::ScanSegmentReuse::try_new(
+            source.file.segment_source(),
+            source.runtime.memory.clone(),
+            policy,
+            move || {
+                generation
+                    .validate()
+                    .map_err(|error| vortex_err!("{error}"))
+            },
+        )?
+        else {
+            let mut attempt = SegmentReuseAttempt {
+                enabled: false,
+                retry_requested: false,
+            };
+            let result = execute(
+                &source.file,
+                &source.runtime.session,
+                &source.runtime.runtime,
+                &mut attempt,
+            )?;
+            source.validate()?;
+            source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+            let mut snapshot =
+                segment_reuse::SegmentReuseSnapshot::skipped(policy, &source.runtime.memory);
+            snapshot.provider_background_workers = provider_workers;
+            return Ok((result, snapshot));
+        };
+        let file = source
+            .file
+            .clone()
+            .with_segment_source(Arc::new(cache.clone()));
+        let mut attempt = SegmentReuseAttempt {
+            enabled: true,
+            retry_requested: false,
+        };
+        let result = execute(
+            &file,
+            &source.runtime.session,
+            &source.runtime.runtime,
+            &mut attempt,
+        );
+        // Close on both success and failure; a leaked file clone cannot retain
+        // cache entries or register new work after this execution boundary.
+        cache.close().map_err(native_error)?;
+        drop(file);
+        let mut snapshot = cache.snapshot().map_err(native_error)?;
+        snapshot.provider_background_workers = provider_workers;
+        drop(cache);
+        source.validate()?;
+        let result = if result.is_err() && attempt.retry_requested {
+            drop(result);
+            snapshot.uncached_replays = 1;
+            snapshot.discarded_attempt_nanos =
+                u64::try_from(started.elapsed().as_nanos()).map_err(native_error)?;
+            let replay_started = std::time::Instant::now();
+            let mut attempt = SegmentReuseAttempt {
+                enabled: false,
+                retry_requested: false,
+            };
+            let result = execute(
+                &source.file,
+                &source.runtime.session,
+                &source.runtime.runtime,
+                &mut attempt,
+            );
+            source.validate()?;
+            snapshot.uncached_replay_nanos =
+                u64::try_from(replay_started.elapsed().as_nanos()).map_err(native_error)?;
+            snapshot.session = source.runtime.memory.snapshot();
+            result?
+        } else {
+            result?
+        };
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok((result, snapshot))
     }
     pub(crate) fn file(&self) -> &VortexFile {
         &self.0.file
@@ -327,6 +572,7 @@ impl PreparedVortexSource {
             source: self.clone(),
             projection,
             filter: None,
+            row_range: None,
             max_rows,
             max_output_bytes,
         })
@@ -360,6 +606,7 @@ pub struct PreparedVortexProjection {
     source: PreparedVortexSource,
     projection: BoundExpression,
     filter: Option<BoundExpression>,
+    row_range: Option<std::ops::Range<u64>>,
     max_rows: u64,
     max_output_bytes: u64,
 }
@@ -394,6 +641,16 @@ impl OwnedVortexResultBatch {
 }
 
 impl PreparedVortexProjection {
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn with_row_range(mut self, range: std::ops::Range<u64>) -> Result<Self> {
+        if range.start > range.end || range.end > self.source.0.file.row_count() {
+            return Err(resident_error(
+                "projection row range exceeds source generation",
+            ));
+        }
+        self.row_range = Some(range);
+        Ok(self)
+    }
     pub(crate) fn with_filter(mut self, filter: Option<BoundExpression>) -> Self {
         self.filter = filter;
         self
@@ -418,6 +675,11 @@ impl PreparedVortexProjection {
             .with_some_filter(self.filter.clone())
             .with_ordered(true)
             .with_concurrency(runtime.parallelism);
+        let scan = if let Some(range) = &self.row_range {
+            scan.with_row_range(range.clone())
+        } else {
+            scan
+        };
         // Vortex 0.85 rejects filter+limit. Keep the exact filter in the
         // provider and apply the source-order limit to returned array slices.
         let scan = if self.filter.is_none() {

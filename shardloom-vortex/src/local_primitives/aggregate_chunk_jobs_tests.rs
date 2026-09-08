@@ -2,6 +2,70 @@ use super::*;
 use std::sync::{Barrier, mpsc};
 
 #[test]
+fn initial_reservation_denial_never_runs_or_advances_job_and_remains_retryable() {
+    for parallelism in [1, 2] {
+        let memory = LiveMemoryPool::new(128).unwrap();
+        let mut jobs = AggregateChunkJobs::<u64>::new(parallelism, 2, 128, memory.clone()).unwrap();
+        let competing = memory.reserve(128).unwrap();
+        let error = match jobs
+            .try_submit(32, |_, _| panic!("unadmitted job ran"))
+            .unwrap()
+        {
+            SubmitOutcome::InitialCapacityDenied(error) => error,
+            SubmitOutcome::Submitted(_) => panic!("exhausted pool admitted a job"),
+        };
+        assert!(error.to_string().contains("memory reservation denied"));
+        let legacy_error = jobs.submit(32, |_, _| panic!("unadmitted legacy job ran"));
+        assert_eq!(legacy_error.err().unwrap().to_string(), error.to_string());
+        assert_eq!(jobs.submitted(), 0);
+        assert_eq!(jobs.outstanding(), 0);
+        assert_eq!(jobs.peak_outstanding(), 0);
+        assert_eq!(memory.snapshot().denied_reservations, 2);
+        drop(competing);
+        assert!(matches!(
+            jobs.try_submit(32, |context, _| {
+                context.check_cancelled()?;
+                Ok(73)
+            })
+            .unwrap(),
+            SubmitOutcome::Submitted(0)
+        ));
+        let completed = jobs.join_next().unwrap().unwrap();
+        assert_eq!(completed.ordinal(), 0);
+        assert_eq!(*completed.value(), 73);
+        drop(completed);
+        drop(jobs);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn try_submit_preserves_execution_errors_despite_coincident_capacity_denial() {
+    let memory = LiveMemoryPool::new(128).unwrap();
+    let mut jobs = AggregateChunkJobs::<u64>::new(1, 2, 128, memory.clone()).unwrap();
+    assert!(jobs.try_submit(129, |_, _| Ok(0)).is_err());
+    assert_eq!(memory.snapshot().denied_reservations, 0);
+    let concurrent = memory.clone();
+    let result = jobs.try_submit(32, move |_, _| {
+        assert!(concurrent.reserve(128).is_err());
+        Err(failed("injected provider corruption"))
+    });
+    assert!(
+        result
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("injected provider corruption")
+    );
+    assert_eq!(memory.snapshot().denied_reservations, 1);
+    assert!(jobs.try_submit(32, |_, _| Ok(0)).is_err());
+    assert_eq!(jobs.submitted(), 0);
+    assert_eq!(jobs.outstanding(), 0);
+    drop(jobs);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn completed_results_keep_window_and_memory_until_ordered_merge_finishes() {
     for parallelism in [1, 2, 4, 8, 12] {
         let memory = LiveMemoryPool::new(1024).unwrap();

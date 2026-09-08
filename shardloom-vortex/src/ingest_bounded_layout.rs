@@ -26,7 +26,7 @@ use vortex::{
     session::VortexSession,
 };
 
-pub(super) struct BoundedIngestLayout {
+pub(crate) struct BoundedIngestLayout {
     child: Arc<dyn LayoutStrategy>,
     initial_chunks: usize,
     // Shared with the returned children: the provider drops the strategy before
@@ -69,7 +69,7 @@ impl LayoutChildren for ReservedLayoutChildren {
 }
 
 impl BoundedIngestLayout {
-    pub(super) fn new(
+    pub(crate) fn new(
         child: Arc<dyn LayoutStrategy>,
         initial_chunks: usize,
         layout_references: MemoryLease,

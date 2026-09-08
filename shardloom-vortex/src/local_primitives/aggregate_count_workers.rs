@@ -49,6 +49,108 @@ enum Partial {
     Unsigned(OwnedNumericCounts<u64>, NumericWork),
 }
 
+// One caller-owned coordinator per query; keep it inline instead of introducing
+// an additional heap owner just to make the two private variants equally sized.
+#[allow(clippy::large_enum_variant)]
+pub(super) enum CountWorkers {
+    Single(SingleCountWorkers),
+    Compound(super::compound_count_workers::CompoundWorkers),
+}
+
+impl CountWorkers {
+    pub(super) fn admit(
+        states: &GroupedAggregateStates<'_>,
+        dtype: &DType,
+        columns: &[String],
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        session: &VortexSession,
+        memory: &LiveMemoryPool,
+    ) -> Result<Option<Self>> {
+        #[cfg(test)]
+        let _admission_pressure = ADMISSION_TEST_PRESSURE
+            .with(std::cell::Cell::take)
+            .then(|| {
+                let snapshot = memory.snapshot();
+                memory
+                    .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)
+                    .expect("one-shot pressure reserves only currently available query credit")
+            });
+        if let Some(workers) = super::compound_count_workers::CompoundWorkers::admit(
+            states, dtype, columns, policy, session, memory,
+        )? {
+            return Ok(Some(Self::Compound(workers)));
+        }
+        SingleCountWorkers::admit(states, dtype, columns, policy, session, memory)
+            .map(|workers| workers.map(Self::Single))
+    }
+    pub(super) fn before_next(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        match self {
+            Self::Single(workers) => workers.before_next(states),
+            Self::Compound(workers) => workers.before_next(states),
+        }
+    }
+    pub(super) fn submit(
+        &mut self,
+        chunk: &ArrayRef,
+        states: &mut GroupedAggregateStates<'_>,
+    ) -> Result<bool> {
+        match self {
+            Self::Single(workers) => workers.submit(chunk, states),
+            Self::Compound(workers) => workers.submit(chunk, states),
+        }
+    }
+    pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        match self {
+            Self::Single(workers) => workers.finish(states),
+            Self::Compound(workers) => workers.finish(states),
+        }
+    }
+    pub(super) fn annotate_summary(&self, summary: &mut String) -> Result<()> {
+        match self {
+            Self::Single(workers) => workers.annotate_summary(summary),
+            Self::Compound(workers) => workers.annotate_summary(summary),
+        }
+    }
+    pub(super) fn has_active_partitions(&self) -> bool {
+        match self {
+            Self::Single(workers) => workers.has_active_partitions(),
+            Self::Compound(workers) => workers.has_active_partitions(),
+        }
+    }
+    pub(super) fn cancel_for_source_replay(&self) {
+        match self {
+            Self::Single(workers) => workers.cancel_for_source_replay(),
+            Self::Compound(workers) => workers.cancel_for_source_replay(),
+        }
+    }
+    #[cfg(test)]
+    pub(super) fn inject_scan_fault_for_test(
+        &self,
+        memory: &LiveMemoryPool,
+        chunks: usize,
+    ) -> Option<vortex::error::VortexResult<ArrayRef>> {
+        match self {
+            Self::Single(workers) => workers.inject_scan_fault_for_test(memory, chunks),
+            Self::Compound(workers) if chunks != 0 && workers.has_committed_groups() => {
+                use vortex::array::memory::HostAllocator as _;
+                let fault = SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::take)?;
+                let snapshot = memory.snapshot();
+                let len = usize::try_from(snapshot.limit_bytes - snapshot.reserved_bytes).ok()?;
+                let denied = crate::owned_buffers::ReservedHostAllocator::new(memory.clone())
+                    .allocate(len, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)
+                    .expect_err("native allocator denial includes alignment capacity");
+                Some(Err(match fault {
+                    SourceScanTestFault::OwnedDenial => denied,
+                    SourceScanTestFault::CorruptionWithConcurrentDenial => {
+                        vortex::error::vortex_err!(InvalidArgument: "injected source corruption")
+                    }
+                }))
+            }
+            Self::Compound(_) => None,
+        }
+    }
+}
+
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
 pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
@@ -60,13 +162,13 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
         .iter()
         .map(|column| column.as_str().to_owned())
         .collect::<Vec<_>>();
-    aggregate.group_by.len() == 1
+    matches!(aggregate.group_by.len(), 1 | 2)
         && super::aggregate_group_expressions_are_reconstructable_constants(aggregate)
         && super::SimpleAggregateStates::new(aggregate, &columns)
             .is_ok_and(|states| states.is_count_star_only())
 }
 
-pub(super) struct CountWorkers {
+pub(super) struct SingleCountWorkers {
     jobs: AggregateChunkJobs<Partial>,
     kind: KeyKind,
     group_index: usize,
@@ -98,7 +200,7 @@ pub(super) struct CountWorkers {
     max_parallelism: usize,
 }
 
-impl CountWorkers {
+impl SingleCountWorkers {
     #[cfg(test)]
     pub(super) fn inject_scan_fault_for_test(
         &self,
@@ -833,6 +935,9 @@ pub(super) enum SourceScanTestFault {
 #[cfg(test)]
 thread_local! {
     pub(super) static SOURCE_SCAN_TEST_FAULT: std::cell::Cell<Option<SourceScanTestFault>> = const { std::cell::Cell::new(None) };
+    // Scoped to the calling test thread and consumed once. The real admission
+    // reservation fails while this lease is held; it refunds before any scan.
+    pub(super) static ADMISSION_TEST_PRESSURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn install_weighted_string(

@@ -27,6 +27,10 @@ use crate::local_primitives::collect::{
 };
 use crate::resident_session::{OwnedVortexResultBatch, ResidentVortexSession};
 
+#[path = "resident_memory_owned_intake.rs"]
+mod owned_intake;
+pub use owned_intake::OwnedMemoryColumn;
+
 /// Explicit flat-scalar input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
 #[derive(Clone, Copy)]
@@ -79,6 +83,77 @@ struct MemorySourceOwner {
 pub struct ResidentMemorySource(Arc<MemorySourceOwner>);
 
 impl ResidentMemorySource {
+    /// Transfer private, capacity-admitted native columns into one immutable
+    /// source. Payload buffers remain shared with their original allocation
+    /// credits; this never accepts arbitrary externally allocated `ArrayRef` values.
+    ///
+    /// # Errors
+    /// Rejects foreign budgets, invalid names/lengths and source bounds.
+    pub fn from_owned_columns(
+        session: &ResidentVortexSession,
+        columns: Vec<OwnedMemoryColumn>,
+        bounds: MemorySourceBounds,
+    ) -> Result<Self> {
+        if columns.is_empty()
+            || columns.len() > 64
+            || bounds.max_input_rows == 0
+            || bounds.max_input_rows > 65_536
+            || bounds.max_output_rows == 0
+            || bounds.max_output_rows > 65_536
+            || bounds.max_input_bytes == 0
+            || bounds.max_output_bytes == 0
+        {
+            return Err(memory_error(
+                "owned memory intake requires 1..=64 columns and positive bounds up to 65,536 rows",
+            ));
+        }
+        let rows = columns[0].array.len();
+        let mut input_logical_bytes = 0usize;
+        for (index, column) in columns.iter().enumerate() {
+            if !session.memory().owns(&column.identity) {
+                return Err(memory_error(
+                    "owned column belongs to a different shared memory budget",
+                ));
+            }
+            if column.array.len() != rows || rows > bounds.max_input_rows {
+                return Err(memory_error(
+                    "owned column lengths disagree or exceed the input row bound",
+                ));
+            }
+            if columns[..index]
+                .iter()
+                .any(|prior| prior.name == column.name)
+            {
+                return Err(memory_error("owned column names must be distinct"));
+            }
+            input_logical_bytes = input_logical_bytes
+                .checked_add(usize::try_from(column.array.nbytes()).map_err(native_error)?)
+                .and_then(|bytes| bytes.checked_add(column.name.len()))
+                .filter(|bytes| *bytes <= bounds.max_input_bytes)
+                .ok_or_else(|| memory_error("owned input byte bound exceeded"))?;
+        }
+        let names = FieldNames::from(
+            columns
+                .iter()
+                .map(|column| column.name.as_str())
+                .collect::<Vec<_>>(),
+        );
+        let fields = columns
+            .into_iter()
+            .map(|column| column.array)
+            .collect::<Vec<_>>();
+        let array = StructArray::try_new(names, fields, rows, Validity::NonNullable)
+            .map_err(native_error)?
+            .into_array();
+        Ok(Self(Arc::new(MemorySourceOwner {
+            array,
+            session: session.clone(),
+            bounds,
+            input_logical_bytes,
+            intake_payload_bytes_copied: 0,
+        })))
+    }
+
     /// Validate all input sizes and values before allocating native buffers.
     /// Caller-owned input bytes are copied once into session-owned native arrays.
     ///
@@ -150,6 +225,31 @@ impl ResidentMemorySource {
             self.0.input_logical_bytes,
             self.0.intake_payload_bytes_copied,
             bounds,
+        )
+    }
+
+    /// Explicitly choose native column/row-group geometry. Cancellation is
+    /// checked before intake serialization, between each leaf, and before
+    /// publication in memory; an in-progress leaf completes synchronously.
+    /// Ordinary array queries do not pass through this boundary.
+    ///
+    /// # Errors
+    /// Rejects geometry/byte limits, cancellation and native serialization errors.
+    #[cfg(feature = "vortex-write")]
+    pub fn file_generation_with_layout(
+        &self,
+        bounds: crate::memory_file_generation::MemoryFileGenerationBounds,
+        layout: crate::memory_file_generation::MemoryFileGenerationLayout,
+        cancelled: Option<&std::sync::atomic::AtomicBool>,
+    ) -> Result<crate::memory_file_generation::MemoryFileGeneration> {
+        crate::memory_file_generation::MemoryFileGeneration::build_with_layout(
+            &self.0.session,
+            &self.0.array,
+            self.0.input_logical_bytes,
+            self.0.intake_payload_bytes_copied,
+            bounds,
+            layout,
+            cancelled,
         )
     }
 

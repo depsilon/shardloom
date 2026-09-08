@@ -62,6 +62,15 @@ class HeldoutOperatorTests(unittest.TestCase):
                     self.assertIs(type(actual[key]), type(value))
                 self.assertEqual(source, original)
 
+    def test_summary_preserves_encoded_reduction_work_without_expanded_payload(self):
+        prefix = "local_primitive_aggregate_encoded_numeric_reduction_"
+        expected = {prefix + "logical_rows": "100000000", prefix + "child_rows": "4",
+                    prefix + "constant_arrays": "0", prefix + "elapsed_nanos": "9007199254740993",
+                    "local_primitive_scan_segment_reuse_hits": "2",
+                    "local_primitive_scan_segment_reuse_retention_live_owned_bytes": "97"}
+        source = {"fields": [{"key": key, "value": value} for key, value in expected.items()]}
+        self.assertEqual(concise_execution_fields(source), expected)
+
     def test_stdout_archive_is_lossless_hashed_and_never_overwrites_existing_evidence(self):
         raw = ('{"utf8":"東京🙂","exact":9223372036854775807,"escaped":"\\n"}\n' * 200).encode()
         with tempfile.TemporaryDirectory() as directory:
@@ -109,7 +118,7 @@ class HeldoutOperatorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fixture_rows(size)
         matrix = cases(rows)
-        self.assertEqual(len({case["name"] for case in matrix}), 16)
+        self.assertEqual(len({case["name"] for case in matrix}), 17)
         self.assertEqual({case["family"] for case in matrix}, {
             "scalar", "distinct", "numeric_group", "string_group", "composite_group",
             "string_transform", "relational_sort", "relational_collect", "overflow_diagnostic"})

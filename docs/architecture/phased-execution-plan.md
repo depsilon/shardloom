@@ -294,6 +294,18 @@ allocator gaps. Broader compound parallelism, segment residency, query-oriented
 layouts and ingest overlap remain separate open work; this continuation does not
 mark whole PERF packets or competitive gates complete.
 
+The maintainer subsequently requested execution of all remaining suggestions.
+The [remaining performance work ledger](performance-continuation-2026-09-06.md)
+tracks that continuation under the existing PERF items, including implementation,
+feasibility experiments and measured retain/drop evidence.
+
+Its [first retained native checkpoint](../benchmarks/perf-native-continuation-2026-09-06.md)
+records runtime `75fc09a0`: 98.831499 seconds versus the fresh control's 119.887782
+seconds, 129/129 complete public results and 1,360/1,360 independent held-out
+checks. Numeric compression stays retained. Exact distinct, compact state,
+ordinary column-layout promotion, ingest scaling, broader spill and the rest of
+the continuation ledger remain open; no whole PERF or competitive gate is closed.
+
 - [ ] `PERF-01` reconcile and instrument the public baseline.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied performance overhaul section 10, RFC 0044; accepted.

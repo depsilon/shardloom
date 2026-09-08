@@ -10,7 +10,7 @@ use std::{io, thread};
 use futures::channel::oneshot;
 use vortex::io::runtime::{BlockingRuntime as _, current::CurrentThreadRuntime};
 
-pub(super) struct ResidentWorkerGroup {
+pub(crate) struct ResidentWorkerGroup {
     workers: Vec<ResidentWorker>,
 }
 
@@ -20,7 +20,7 @@ struct ResidentWorker {
 }
 
 impl ResidentWorkerGroup {
-    pub(super) fn new(runtime: &CurrentThreadRuntime, count: usize) -> io::Result<Self> {
+    pub(crate) fn new(runtime: &CurrentThreadRuntime, count: usize) -> io::Result<Self> {
         Self::with_spawner(count, |index, shutdown| {
             let runtime = runtime.clone();
             thread::Builder::new()

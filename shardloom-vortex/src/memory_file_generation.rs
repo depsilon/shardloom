@@ -1,6 +1,6 @@
 //! Immutable native file layouts over owned memory segments, with explicit durability.
 //!
-//! Arrays are serialized once into one admitted Flat segment. Queries use the
+//! Columns and row groups are serialized once into admitted Flat segments. Queries use the
 //! ordinary native file scanner; durable publication reuses the segment bytes.
 //! No serialized template, whole-file staging buffer, or external engine is used.
 
@@ -11,7 +11,7 @@ use std::{
     path::Path,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
 
@@ -20,20 +20,33 @@ use sha2::{Digest, Sha256};
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
-    array::{ArrayContext, ArrayRef, buffer::BufferHandle, dtype::DType, memory::HostAllocatorRef},
-    buffer::ByteBuffer,
+    array::{
+        ArrayContext, ArrayRef, IntoArray as _,
+        arrays::{
+            Primitive, PrimitiveArray, Struct, VarBin, VarBinArray,
+            primitive::PrimitiveArrayExt as _, struct_::StructArrayExt as _,
+            varbin::VarBinArraySlotsExt as _,
+        },
+        buffer::BufferHandle,
+        dtype::{DType, PType},
+        memory::HostAllocatorRef,
+        validity::Validity,
+    },
+    buffer::{Alignment, Buffer, ByteBuffer},
     editions::{ComponentKind, EditionSessionExt as _},
     error::{VortexResult, vortex_err},
     expr::Expression,
     file::{Footer, MAGIC_BYTES, OpenOptionsSessionExt as _, SegmentSpec, VortexFile},
-    io::runtime::BlockingRuntime as _,
+    io::runtime::{BlockingRuntime as _, current::CurrentThreadRuntime},
     layout::{
-        LayoutContext, LayoutStrategy, LayoutWriterContext,
-        layouts::flat::writer::FlatLayoutStrategy,
+        LayoutChildren, LayoutContext, LayoutRef, LayoutStrategy, LayoutWriterContext,
+        layouts::{
+            chunked::ChunkedLayout, flat::writer::FlatLayoutStrategy, struct_::StructLayout,
+        },
         segments::{SegmentFuture, SegmentId, SegmentSink, SegmentSource},
         sequence::{SequenceId, SequentialArrayStreamExt as _},
     },
-    session::registry::ReadContext,
+    session::{VortexSession, registry::ReadContext},
 };
 
 use crate::{
@@ -44,7 +57,7 @@ use crate::{
     resident_session::{PreparedVortexProjection, PreparedVortexSource, ResidentVortexSession},
 };
 
-/// Bounds for this flat, immutable generation. Intake already admits at most
+/// Bounds for this immutable generation. Intake already admits at most
 /// 65,536 rows and 64 typed fields. No generic streaming-ingest claim follows.
 #[derive(Debug, Clone, Copy)]
 pub struct MemoryFileGenerationBounds {
@@ -59,6 +72,34 @@ impl Default for MemoryFileGenerationBounds {
             max_metadata_bytes: 128 * 1024,
         }
     }
+}
+
+/// Explicit geometry for independently addressed native column/row-group leaves.
+#[derive(Debug, Clone, Copy)]
+pub struct MemoryFileGenerationLayout {
+    pub row_group_rows: usize,
+    pub max_segments: usize,
+}
+
+impl Default for MemoryFileGenerationLayout {
+    fn default() -> Self {
+        Self {
+            row_group_rows: 8192,
+            max_segments: 4096,
+        }
+    }
+}
+
+/// Actual memory-provider activity for one immutable segment, not device I/O.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MemoryFileSegmentEvidence {
+    pub segment_id: usize,
+    pub column_index: usize,
+    pub row_start: usize,
+    pub rows: usize,
+    pub serialized_bytes: u64,
+    pub requests: u64,
+    pub returned_bytes: u64,
 }
 
 /// Actual generation work. Counts describe calls/bytes at the named adapter
@@ -76,6 +117,12 @@ pub struct MemoryFileGenerationEvidence {
     pub source_file_opens: u64,
     pub memory_segment_requests: u64,
     pub memory_segment_bytes_returned: u64,
+    pub columns: usize,
+    pub row_groups: usize,
+    pub row_group_rows: usize,
+    pub row_group_offset_bytes_built: u64,
+    pub construction_footer_serializer_calls: u64,
+    pub construction_footer_bytes: u64,
 }
 
 /// Completed durable publication of precisely the generation's encoded bytes.
@@ -100,12 +147,24 @@ struct GenerationOwner {
     input_logical_bytes: u64,
     intake_payload_bytes_copied: u64,
     bounds: MemoryFileGenerationBounds,
+    geometry: MemoryFileGenerationLayout,
+    rows: usize,
+    row_groups: usize,
+    columns: usize,
+    row_group_offset_bytes_built: u64,
+    construction_footer_bytes: u64,
 }
 
 /// A real Vortex file whose immutable segments are backed by reservation-owned
 /// memory. Clones share the generation and its cached native reader tree.
 #[derive(Clone)]
 pub struct MemoryFileGeneration(Arc<GenerationOwner>);
+
+struct GenerationBuildControl<'a> {
+    cancelled: Option<&'a AtomicBool>,
+    #[cfg(test)]
+    after_leaf: Option<&'a dyn Fn(usize)>,
+}
 
 impl MemoryFileGeneration {
     pub(crate) fn build(
@@ -115,58 +174,55 @@ impl MemoryFileGeneration {
         intake_payload_bytes_copied: u64,
         bounds: MemoryFileGenerationBounds,
     ) -> Result<Self> {
-        if bounds.max_serialized_bytes == 0 || bounds.max_metadata_bytes < 128 * 1024 {
-            return Err(generation_error(
-                "generation requires positive serialized bytes and at least 128 KiB metadata",
-            ));
-        }
-        let metadata = session.memory().reserve(bounds.max_metadata_bytes)?;
-        let sink = Arc::new(MemorySegmentBuilder {
-            allocator: session.native_allocator(),
-            max_bytes: bounds.max_serialized_bytes,
-            segments: Mutex::new(Vec::with_capacity(1)),
-        });
-        let file = session.with_native_session(|native, runtime| {
-            let mut enabled = native.enabled_component_ids(ComponentKind::Array);
-            enabled.sort();
-            let context =
-                ArrayContext::new(enabled.clone()).with_allowed_ids(enabled.into_iter().collect());
-            let (pointer, eof) = SequenceId::root().split();
-            let segments = Arc::clone(&sink);
-            let layout = runtime
-                .block_on(FlatLayoutStrategy::default().write_stream(
-                    LayoutWriterContext::new(context.clone()),
-                    segments,
-                    array.to_array_stream().sequenced(pointer),
-                    eof,
-                    native,
-                ))
-                .map_err(generation_error)?;
-            let owned = sink
-                .segments
-                .lock()
-                .map_err(|_| generation_error("segment builder poisoned"))?
-                .clone();
-            let specs = owned.iter().map(|segment| segment.spec).collect::<Vec<_>>();
-            let segments = Arc::new(MemorySegments {
-                segments: owned,
-                _metadata: metadata,
-                requests: AtomicU64::new(0),
-                returned_bytes: AtomicU64::new(0),
-            });
-            let footer = Footer::new(
-                layout,
-                specs.into(),
-                None,
-                ReadContext::new(context.to_ids()),
-            );
-            let file = VortexFile::new(footer, segments.clone(), native.clone()).with_caching();
-            // Constructing the native reader validates layout/provider admission
-            // before making this generation visible; it does not fetch segments.
-            file.layout_reader().map_err(generation_error)?;
-            Ok((file, segments))
-        })?;
-        let (file, segments) = file;
+        Self::build_with_layout(
+            session,
+            array,
+            input_logical_bytes,
+            intake_payload_bytes_copied,
+            bounds,
+            MemoryFileGenerationLayout::default(),
+            None,
+        )
+    }
+
+    pub(crate) fn build_with_layout(
+        session: &ResidentVortexSession,
+        array: &ArrayRef,
+        input_logical_bytes: usize,
+        intake_payload_bytes_copied: u64,
+        bounds: MemoryFileGenerationBounds,
+        geometry: MemoryFileGenerationLayout,
+        cancelled: Option<&AtomicBool>,
+    ) -> Result<Self> {
+        Self::build_controlled(
+            session,
+            array,
+            input_logical_bytes,
+            intake_payload_bytes_copied,
+            bounds,
+            geometry,
+            GenerationBuildControl {
+                cancelled,
+                #[cfg(test)]
+                after_leaf: None,
+            },
+        )
+    }
+
+    fn build_controlled(
+        session: &ResidentVortexSession,
+        array: &ArrayRef,
+        input_logical_bytes: usize,
+        intake_payload_bytes_copied: u64,
+        bounds: MemoryFileGenerationBounds,
+        geometry: MemoryFileGenerationLayout,
+        control: GenerationBuildControl<'_>,
+    ) -> Result<Self> {
+        let builder = GenerationBuilder::new(session, array, bounds, geometry, control)?;
+        let columns = builder.columns;
+        let row_groups = builder.row_groups;
+        let (file, segments, row_group_offset_bytes_built, construction_footer_bytes) = session
+            .with_native_session(|native, runtime| builder.finish(native, runtime, bounds))?;
         Ok(Self(Arc::new(GenerationOwner {
             source: session.prepare_immutable_file(file),
             session: session.clone(),
@@ -174,6 +230,12 @@ impl MemoryFileGeneration {
             input_logical_bytes: input_logical_bytes as u64,
             intake_payload_bytes_copied,
             bounds,
+            geometry,
+            rows: array.len(),
+            row_groups,
+            columns,
+            row_group_offset_bytes_built,
+            construction_footer_bytes,
         })))
     }
 
@@ -205,7 +267,53 @@ impl MemoryFileGeneration {
             source_file_opens: 0,
             memory_segment_requests: self.0.segments.requests.load(Ordering::Relaxed),
             memory_segment_bytes_returned: self.0.segments.returned_bytes.load(Ordering::Relaxed),
+            columns: self.0.columns,
+            row_groups: self.0.row_groups,
+            row_group_rows: self.0.geometry.row_group_rows,
+            row_group_offset_bytes_built: self.0.row_group_offset_bytes_built,
+            construction_footer_serializer_calls: 1,
+            construction_footer_bytes: self.0.construction_footer_bytes,
         }
+    }
+
+    /// Snapshot every real segment's column/row interval and provider requests.
+    #[must_use]
+    pub fn segment_evidence(&self) -> Vec<MemoryFileSegmentEvidence> {
+        self.0
+            .segments
+            .segments
+            .iter()
+            .enumerate()
+            .map(|(id, segment)| {
+                let row_start = (id % self.0.row_groups) * self.0.geometry.row_group_rows;
+                MemoryFileSegmentEvidence {
+                    segment_id: id,
+                    column_index: id / self.0.row_groups,
+                    row_start,
+                    rows: self.0.geometry.row_group_rows.min(self.0.rows - row_start),
+                    serialized_bytes: u64::from(segment.spec.length),
+                    requests: segment.requests.load(Ordering::Relaxed),
+                    returned_bytes: segment.returned_bytes.load(Ordering::Relaxed),
+                }
+            })
+            .collect()
+    }
+
+    /// Bind a source row range before filtering and ordered limiting. Other
+    /// columns and row-group segments remain independently addressable.
+    ///
+    /// # Errors
+    /// Rejects invalid ranges and the same schema/output limits as projection.
+    pub fn prepare_projection_range(
+        &self,
+        columns: &[&str],
+        filter: Option<Expression>,
+        range: std::ops::Range<u64>,
+        max_rows: u64,
+        max_output_bytes: u64,
+    ) -> Result<PreparedVortexProjection> {
+        self.prepare_projection(columns, filter, max_rows, max_output_bytes)?
+            .with_row_range(range)
     }
 
     /// Bind the existing native projection/filter/ordered-limit scanner. Prepared
@@ -367,34 +475,12 @@ impl MemoryFileGeneration {
                 writer.write_padding(padding)?;
                 writer.write(&segment.buffer)?;
             }
-            let footer = self
-                .0
-                .source
-                .file()
-                .footer()
-                .clone()
-                .into_serializer()
-                .with_layout_context(
-                    LayoutContext::default().with_allowed_ids(
-                        native
-                            .enabled_component_ids(ComponentKind::Layout)
-                            .into_iter()
-                            .collect(),
-                    ),
-                )
-                .with_offset(writer.bytes)
-                .serialize()
-                .map_err(generation_error)?;
-            let metadata_bytes = footer.iter().try_fold(0_u64, |bytes, buffer| {
-                bytes
-                    .checked_add(buffer.len() as u64)
-                    .ok_or_else(|| generation_error("footer byte overflow"))
-            })?;
-            if metadata_bytes > self.0.bounds.max_metadata_bytes {
-                return Err(generation_error(
-                    "native footer exceeded admitted metadata bytes",
-                ));
-            }
+            let footer = serialize_generation_footer(
+                self.0.source.file().footer(),
+                native,
+                writer.bytes,
+                self.0.bounds.max_metadata_bytes,
+            )?;
             for buffer in footer {
                 writer.write(&buffer)?;
             }
@@ -515,15 +601,275 @@ fn publication_unconfirmed(error: impl std::fmt::Display) -> ShardLoomError {
     ))
 }
 
-#[derive(Clone)]
+struct GenerationBuilder<'a> {
+    array: &'a ArrayRef,
+    geometry: MemoryFileGenerationLayout,
+    control: GenerationBuildControl<'a>,
+    columns: usize,
+    row_groups: usize,
+    metadata: Arc<MemoryLease>,
+    sink: Arc<MemorySegmentBuilder>,
+}
+
+impl<'a> GenerationBuilder<'a> {
+    fn new(
+        session: &ResidentVortexSession,
+        array: &'a ArrayRef,
+        bounds: MemoryFileGenerationBounds,
+        geometry: MemoryFileGenerationLayout,
+        control: GenerationBuildControl<'a>,
+    ) -> Result<Self> {
+        check_cancelled(control.cancelled)?;
+        if bounds.max_serialized_bytes == 0 || bounds.max_metadata_bytes < 128 * 1024 {
+            return Err(generation_error(
+                "generation requires positive serialized bytes and at least 128 KiB metadata",
+            ));
+        }
+        if array.as_opt::<Struct>().is_none()
+            || array.dtype().is_nullable()
+            || array.len() > 65_536
+            || geometry.row_group_rows == 0
+            || geometry.row_group_rows > 65_536
+            || geometry.max_segments == 0
+            || geometry.max_segments > 4096
+        {
+            return Err(generation_error(
+                "generation requires admitted nonnullable Struct intake and bounded positive row-group/segment geometry",
+            ));
+        }
+        let columns = array
+            .dtype()
+            .as_struct_fields_opt()
+            .expect("checked Struct")
+            .nfields();
+        if !(1..=64).contains(&columns) {
+            return Err(generation_error("generation requires 1..=64 columns"));
+        }
+        let row_groups = array.len().div_ceil(geometry.row_group_rows);
+        let segment_count = columns
+            .checked_mul(row_groups)
+            .filter(|count| *count <= geometry.max_segments)
+            .ok_or_else(|| generation_error("generation segment count bound exceeded"))?;
+        let references = generation_reference_bytes(segment_count, columns)?;
+        let metadata = Arc::new(
+            session.memory().reserve(
+                bounds
+                    .max_metadata_bytes
+                    .checked_add(references)
+                    .ok_or_else(|| generation_error("generation metadata capacity overflow"))?,
+            )?,
+        );
+        let sink = Arc::new(MemorySegmentBuilder {
+            allocator: session.native_allocator(),
+            max_bytes: bounds.max_serialized_bytes,
+            max_segments: segment_count,
+            segments: Mutex::new(Vec::with_capacity(segment_count)),
+        });
+        Ok(Self {
+            array,
+            geometry,
+            control,
+            columns,
+            row_groups,
+            metadata,
+            sink,
+        })
+    }
+
+    fn write_layout(
+        &self,
+        context: &ArrayContext,
+        native: &VortexSession,
+        runtime: &CurrentThreadRuntime,
+    ) -> Result<(LayoutRef, u64)> {
+        let fields = self.array.as_opt::<Struct>().expect("admitted Struct");
+        let mut children = Vec::with_capacity(self.columns);
+        let mut offset_bytes_built = 0_u64;
+        for field in fields.iter_unmasked_fields() {
+            let mut leaves = Vec::with_capacity(self.row_groups);
+            for start in (0..self.array.len()).step_by(self.geometry.row_group_rows) {
+                check_cancelled(self.control.cancelled)?;
+                let end = start
+                    .saturating_add(self.geometry.row_group_rows)
+                    .min(self.array.len());
+                let (chunk, offset_bytes) =
+                    slice_generation_column(field, start..end, &self.sink.allocator)?;
+                offset_bytes_built = offset_bytes_built
+                    .checked_add(offset_bytes)
+                    .ok_or_else(|| generation_error("row-group offset work counter overflow"))?;
+                let (pointer, eof) = SequenceId::root().split();
+                let leaf = runtime
+                    .block_on(
+                        FlatLayoutStrategy::default()
+                            .with_max_variable_length_statistics_size(usize::MAX)
+                            .write_stream(
+                                LayoutWriterContext::new(context.clone()),
+                                self.sink.clone(),
+                                chunk.to_array_stream().sequenced(pointer),
+                                eof,
+                                native,
+                            ),
+                    )
+                    .map_err(generation_error)?;
+                leaves.push(leaf);
+                #[cfg(test)]
+                if let Some(after_leaf) = self.control.after_leaf {
+                    let completed = self
+                        .sink
+                        .segments
+                        .lock()
+                        .map_err(|_| generation_error("segment builder poisoned"))?
+                        .len();
+                    after_leaf(completed);
+                }
+            }
+            children.push(
+                ChunkedLayout::new(
+                    self.array.len() as u64,
+                    field.dtype().clone(),
+                    Arc::new(GenerationLayoutChildren {
+                        children: Arc::new(leaves),
+                        metadata: Arc::clone(&self.metadata),
+                    }),
+                )
+                .into_layout(),
+            );
+        }
+        check_cancelled(self.control.cancelled)?;
+        Ok((
+            StructLayout::new(
+                self.array.len() as u64,
+                self.array.dtype().clone(),
+                children,
+            )
+            .into_layout(),
+            offset_bytes_built,
+        ))
+    }
+
+    fn finish(
+        self,
+        native: &VortexSession,
+        runtime: &CurrentThreadRuntime,
+        bounds: MemoryFileGenerationBounds,
+    ) -> Result<(VortexFile, Arc<MemorySegments>, u64, u64)> {
+        let mut enabled = native.enabled_component_ids(ComponentKind::Array);
+        enabled.sort();
+        let context =
+            ArrayContext::new(enabled.clone()).with_allowed_ids(enabled.into_iter().collect());
+        let (layout, offset_bytes_built) = self.write_layout(&context, native, runtime)?;
+        let owned = std::mem::take(
+            &mut *self
+                .sink
+                .segments
+                .lock()
+                .map_err(|_| generation_error("segment builder poisoned"))?,
+        );
+        if owned.len() != self.sink.max_segments {
+            return Err(generation_error(
+                "native Flat writer emitted an unexpected segment count",
+            ));
+        }
+        let end = owned.last().map_or(MAGIC_BYTES.len() as u64, |segment| {
+            segment.spec.offset + u64::from(segment.spec.length)
+        });
+        let specs = owned.iter().map(|segment| segment.spec).collect::<Vec<_>>();
+        let footer = Footer::new(
+            layout,
+            specs.into(),
+            None,
+            ReadContext::new(context.to_ids()),
+        );
+        // Validate the serialized footer bound once during explicit generation
+        // construction. Publication serializes it again; queries do neither.
+        let footer_buffers =
+            serialize_generation_footer(&footer, native, end, bounds.max_metadata_bytes)?;
+        let footer_bytes = footer_buffers
+            .iter()
+            .map(|buffer| buffer.len() as u64)
+            .sum();
+        drop(footer_buffers);
+        check_cancelled(self.control.cancelled)?;
+        let segments = Arc::new(MemorySegments {
+            segments: owned,
+            _metadata: self.metadata,
+            requests: AtomicU64::new(0),
+            returned_bytes: AtomicU64::new(0),
+        });
+        let file = VortexFile::new(footer, segments.clone(), native.clone()).with_caching();
+        // Provider admission constructs a reader, without requesting payloads.
+        file.layout_reader().map_err(generation_error)?;
+        Ok((file, segments, offset_bytes_built, footer_bytes))
+    }
+}
+
+fn generation_reference_bytes(segments: usize, columns: usize) -> Result<u64> {
+    // Reserve exact adapter vector capacities plus Arc counters/containers.
+    // Native layout object internals and footer serializer scratch are excluded;
+    // the separate footer allowance is checked against actual serialized bytes.
+    let per_segment = std::mem::size_of::<MemorySegment>()
+        + std::mem::size_of::<SegmentSpec>()
+        + std::mem::size_of::<LayoutRef>()
+        + 2 * (std::mem::size_of::<AtomicU64>() + 2 * std::mem::size_of::<usize>());
+    let per_column = std::mem::size_of::<LayoutRef>()
+        + std::mem::size_of::<GenerationLayoutChildren>()
+        + std::mem::size_of::<Vec<LayoutRef>>()
+        + 4 * std::mem::size_of::<usize>();
+    segments
+        .checked_mul(per_segment)
+        .and_then(|bytes| {
+            columns
+                .checked_mul(per_column)
+                .and_then(|columns| bytes.checked_add(columns))
+        })
+        .and_then(|bytes| u64::try_from(bytes).ok())
+        .ok_or_else(|| generation_error("generation reference capacity overflow"))
+}
+
+fn serialize_generation_footer(
+    footer: &Footer,
+    native: &VortexSession,
+    offset: u64,
+    max_bytes: u64,
+) -> Result<Vec<ByteBuffer>> {
+    let buffers = footer
+        .clone()
+        .into_serializer()
+        .with_layout_context(
+            LayoutContext::default().with_allowed_ids(
+                native
+                    .enabled_component_ids(ComponentKind::Layout)
+                    .into_iter()
+                    .collect(),
+            ),
+        )
+        .with_offset(offset)
+        .serialize()
+        .map_err(generation_error)?;
+    let bytes = buffers.iter().try_fold(0_u64, |bytes, buffer| {
+        bytes
+            .checked_add(buffer.len() as u64)
+            .ok_or_else(|| generation_error("footer byte overflow"))
+    })?;
+    if bytes > max_bytes {
+        return Err(generation_error(
+            "native footer exceeded admitted metadata bytes",
+        ));
+    }
+    Ok(buffers)
+}
+
 struct MemorySegment {
     spec: SegmentSpec,
     buffer: ByteBuffer,
+    requests: Arc<AtomicU64>,
+    returned_bytes: Arc<AtomicU64>,
 }
 
 struct MemorySegmentBuilder {
     allocator: HostAllocatorRef,
     max_bytes: u64,
+    max_segments: usize,
     segments: Mutex<Vec<MemorySegment>>,
 }
 
@@ -543,8 +889,10 @@ impl SegmentSink for MemorySegmentBuilder {
                 .segments
                 .lock()
                 .map_err(|_| vortex_err!("memory segment builder poisoned"))?;
-            if !segments.is_empty() {
-                return Err(vortex_err!("flat memory generation permits one segment"));
+            if segments.len() >= self.max_segments {
+                return Err(vortex_err!(
+                    "memory generation segment count bound exceeded"
+                ));
             }
             let length = buffers.iter().try_fold(0_usize, |bytes, buffer| {
                 bytes
@@ -554,7 +902,10 @@ impl SegmentSink for MemorySegmentBuilder {
             let alignment = buffers
                 .first()
                 .map_or(vortex::buffer::Alignment::none(), ByteBuffer::alignment);
-            let offset = (MAGIC_BYTES.len() as u64)
+            let previous_end = segments.last().map_or(MAGIC_BYTES.len() as u64, |segment| {
+                segment.spec.offset + u64::from(segment.spec.length)
+            });
+            let offset = previous_end
                 .checked_add(*alignment as u64 - 1)
                 .map(|offset| offset / *alignment as u64 * *alignment as u64)
                 .ok_or_else(|| vortex_err!("memory segment offset overflow"))?;
@@ -578,11 +929,17 @@ impl SegmentSink for MemorySegmentBuilder {
                 output.as_mut_slice()[cursor..cursor + buffer.len()].copy_from_slice(&buffer);
                 cursor += buffer.len();
             }
+            let id = SegmentId::from(
+                u32::try_from(segments.len())
+                    .map_err(|_| vortex_err!("memory segment id overflow"))?,
+            );
             segments.push(MemorySegment {
                 spec,
                 buffer: output.freeze(),
+                requests: Arc::new(AtomicU64::new(0)),
+                returned_bytes: Arc::new(AtomicU64::new(0)),
             });
-            Ok(SegmentId::from(0))
+            Ok(id)
         })
     }
 }
@@ -638,7 +995,7 @@ fn validate_publication_parent(
 
 struct MemorySegments {
     segments: Vec<MemorySegment>,
-    _metadata: MemoryLease,
+    _metadata: Arc<MemoryLease>,
     requests: AtomicU64,
     returned_bytes: AtomicU64,
 }
@@ -646,10 +1003,13 @@ struct MemorySegments {
 impl SegmentSource for MemorySegments {
     fn request(&self, id: SegmentId) -> SegmentFuture {
         self.requests.fetch_add(1, Ordering::Relaxed);
-        let buffer = self
-            .segments
-            .get(*id as usize)
-            .map(|segment| segment.buffer.clone());
+        let buffer = self.segments.get(*id as usize).map(|segment| {
+            segment.requests.fetch_add(1, Ordering::Relaxed);
+            segment
+                .returned_bytes
+                .fetch_add(segment.buffer.len() as u64, Ordering::Relaxed);
+            segment.buffer.clone()
+        });
         if let Some(buffer) = &buffer {
             self.returned_bytes
                 .fetch_add(buffer.len() as u64, Ordering::Relaxed);
@@ -661,6 +1021,108 @@ impl SegmentSource for MemorySegments {
         }
         .boxed()
     }
+}
+
+struct GenerationLayoutChildren {
+    children: Arc<Vec<LayoutRef>>,
+    metadata: Arc<MemoryLease>,
+}
+
+impl LayoutChildren for GenerationLayoutChildren {
+    fn to_arc(&self) -> Arc<dyn LayoutChildren> {
+        Arc::new(Self {
+            children: Arc::clone(&self.children),
+            metadata: Arc::clone(&self.metadata),
+        })
+    }
+    fn child(&self, index: usize, _dtype: &DType) -> VortexResult<LayoutRef> {
+        self.children
+            .get(index)
+            .cloned()
+            .ok_or_else(|| vortex_err!("unknown generation layout child"))
+    }
+    fn child_row_count(&self, index: usize) -> u64 {
+        self.children[index].row_count()
+    }
+    fn nchildren(&self) -> usize {
+        self.children.len()
+    }
+    fn child_is_indivisible(&self, _index: usize) -> bool {
+        true
+    }
+}
+
+fn check_cancelled(cancelled: Option<&AtomicBool>) -> Result<()> {
+    if cancelled.is_some_and(|cancelled| cancelled.load(Ordering::Acquire)) {
+        return Err(generation_error("construction cancelled"));
+    }
+    Ok(())
+}
+
+fn slice_generation_column(
+    array: &ArrayRef,
+    range: std::ops::Range<usize>,
+    allocator: &HostAllocatorRef,
+) -> Result<(ArrayRef, u64)> {
+    let slice = array.slice(range).map_err(generation_error)?;
+    let Some(varbin) = slice.as_opt::<VarBin>() else {
+        return Ok((slice, 0));
+    };
+    let offsets = varbin
+        .offsets()
+        .as_opt::<Primitive>()
+        .ok_or_else(|| generation_error("owned UTF8 intake requires native primitive offsets"))?;
+    if offsets.ptype() != PType::U64 {
+        return Err(generation_error("owned UTF8 intake requires u64 offsets"));
+    }
+    let offsets = offsets.as_slice::<u64>();
+    let first = offsets[0];
+    let last = *offsets.last().expect("validated UTF8 offsets");
+    if first == 0 && last == varbin.bytes().len() as u64 {
+        return Ok((slice, 0));
+    }
+    let bytes = offsets
+        .len()
+        .checked_mul(8)
+        .ok_or_else(|| generation_error("row-group offset capacity overflow"))?;
+    let mut normalized = allocator
+        .allocate(bytes, Alignment::new(8))
+        .map_err(generation_error)?;
+    for (destination, offset) in normalized
+        .as_mut_slice()
+        .as_chunks_mut::<8>()
+        .0
+        .iter_mut()
+        .zip(offsets)
+    {
+        destination.copy_from_slice(
+            &offset
+                .checked_sub(first)
+                .ok_or_else(|| generation_error("UTF8 offsets are not monotonic"))?
+                .to_ne_bytes(),
+        );
+    }
+    let payload = varbin.bytes().slice(
+        usize::try_from(first).map_err(generation_error)?
+            ..usize::try_from(last).map_err(generation_error)?,
+    );
+    let offsets = PrimitiveArray::new(
+        Buffer::<u64>::from_byte_buffer(normalized.freeze()),
+        Validity::NonNullable,
+    )
+    .into_array();
+    let compact = VarBinArray::try_new(
+        offsets,
+        payload,
+        slice.dtype().clone(),
+        slice.validity().map_err(generation_error)?,
+    )
+    .map_err(generation_error)?
+    .into_array();
+    slice
+        .statistics()
+        .with_iter(|stats| compact.statistics().inherit(stats));
+    Ok((compact, bytes as u64))
 }
 
 struct DigestWriter<'a> {

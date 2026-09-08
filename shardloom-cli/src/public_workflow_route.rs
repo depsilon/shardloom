@@ -3230,6 +3230,8 @@ fn append_local_primitive_result_summary_evidence_fields(
         return;
     };
     append_native_numeric_accessor_evidence_fields(fields, object);
+    append_encoded_numeric_reduction_evidence_fields(fields, object);
+    append_scan_segment_reuse_evidence_fields(fields, object);
     for key in [
         "aggregate_first_pass_scan_next_nanos",
         "aggregate_first_pass_reader_evidence_nanos",
@@ -3239,6 +3241,8 @@ fn append_local_primitive_result_summary_evidence_fields(
         "aggregate_first_pass_accessor_rows",
         "aggregate_result_finalization_nanos",
         "aggregate_timing_scope",
+        "aggregate_provider_background_workers",
+        "aggregate_provider_cpu_scope",
         "aggregate_workers_rows",
         "aggregate_workers_partial_entries",
         "aggregate_workers_submitted_chunks",
@@ -3284,6 +3288,11 @@ fn append_local_primitive_result_summary_evidence_fields(
         "aggregate_workers_partition_discarded_input_rows",
         "aggregate_workers_partition_discarded_attempt_nanos",
         "aggregate_workers_partition_source_replay_nanos",
+        "aggregate_workers_partition_entry_credit_claim_calls",
+        "aggregate_workers_partition_entry_credit_return_calls",
+        "aggregate_workers_compound_partition_strings",
+        "aggregate_workers_compound_partition_utf8_bytes_copied",
+        "aggregate_workers_compound_key_scope",
         "aggregate_workers_scope",
     ] {
         if let Some(value) = object.get(key) {
@@ -3746,6 +3755,106 @@ fn append_native_numeric_accessor_evidence_fields(
             push_field(
                 fields,
                 format!("local_primitive_aggregate_native_numeric_accessor_{key}"),
+                json_value_to_field_string(value),
+            );
+        }
+    }
+}
+
+fn append_encoded_numeric_reduction_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: &serde_json::Map<String, serde_json::Value>,
+) {
+    let Some(evidence) = summary
+        .get("aggregate_encoded_numeric_reduction")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return;
+    };
+    if let Some(work) = evidence.get("work").and_then(serde_json::Value::as_object) {
+        for key in [
+            "calls",
+            "constant_arrays",
+            "run_end_arrays",
+            "logical_rows",
+            "child_primitive_executions",
+            "child_rows",
+            "max_child_rows",
+            "weighted_value_visits",
+            "elapsed_nanos",
+            "structural_resolutions",
+        ] {
+            if let Some(value) = work.get(key) {
+                push_field(
+                    fields,
+                    format!("local_primitive_aggregate_encoded_numeric_reduction_{key}"),
+                    json_value_to_field_string(value),
+                );
+            }
+        }
+    }
+    if let Some(scope) = evidence.get("scope") {
+        push_field(
+            fields,
+            "local_primitive_aggregate_encoded_numeric_reduction_scope",
+            json_value_to_field_string(scope),
+        );
+    }
+}
+
+fn append_scan_segment_reuse_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: &serde_json::Map<String, serde_json::Value>,
+) {
+    let Some(work) = summary
+        .get("scan_segment_reuse")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return;
+    };
+    for key in [
+        "scope",
+        "hits",
+        "shared_requests",
+        "downstream_requests",
+        "completed_segments",
+        "completed_segment_bytes",
+        "completed_segment_bytes_scope",
+        "copied_bytes",
+        "copy_nanos",
+        "copy_timing_scope",
+        "evictions",
+        "pressure_bypasses",
+        "entry_bypasses",
+        "oversized_or_empty_bypasses",
+        "cancelled_requests",
+        "failed_requests",
+        "invalidations",
+        "peak_entries",
+        "closed",
+        "retained_entries",
+        "in_flight",
+        "table_reserved_bytes",
+        "retention_limit_bytes",
+        "retention_live_owned_bytes",
+        "retention_peak_owned_bytes",
+        "retention_denied_reservations",
+        "session_limit_bytes",
+        "session_live_owned_bytes",
+        "session_peak_owned_bytes",
+        "session_denied_reservations",
+        "memory_scope",
+        "uncached_replays",
+        "discarded_attempt_nanos",
+        "uncached_replay_nanos",
+        "provider_background_workers",
+        "admission_skipped",
+        "replay_scope",
+    ] {
+        if let Some(value) = work.get(key) {
+            push_field(
+                fields,
+                format!("local_primitive_scan_segment_reuse_{key}"),
                 json_value_to_field_string(value),
             );
         }
@@ -13242,6 +13351,87 @@ mod tests {
             append_local_primitive_result_summary_evidence_fields(&mut fields, Some(summary));
             assert!(fields.is_empty());
         }
+    }
+
+    #[test]
+    fn local_primitive_result_summary_lifts_encoded_numeric_work_without_precision_loss() {
+        let payload = serde_json::json!({
+            "aggregate_encoded_numeric_reduction": {
+                "work": {"calls": 2, "constant_arrays": 0, "run_end_arrays": 2,
+                    "logical_rows": 100_000_000, "child_primitive_executions": 4,
+                    "child_rows": 8, "max_child_rows": 2, "weighted_value_visits": 4,
+                    "elapsed_nanos": 9_007_199_254_740_993_u64, "unadmitted": 42},
+                "scope": "native run children; ordered sums; no expanded logical array"
+            }
+        });
+        for summary in [payload.to_string(), format!("aggregate values={payload}")] {
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+            assert_eq!(fields.len(), 10);
+            assert_eq!(
+                field(
+                    &fields,
+                    "local_primitive_aggregate_encoded_numeric_reduction_elapsed_nanos"
+                ),
+                "9007199254740993"
+            );
+            assert_eq!(
+                field(
+                    &fields,
+                    "local_primitive_aggregate_encoded_numeric_reduction_constant_arrays"
+                ),
+                "0"
+            );
+            assert_eq!(
+                field(
+                    &fields,
+                    "local_primitive_aggregate_encoded_numeric_reduction_child_rows"
+                ),
+                "8"
+            );
+        }
+    }
+
+    #[test]
+    fn local_primitive_result_summary_lifts_segment_reuse_scopes_and_live_owners() {
+        let payload = serde_json::json!({"scan_segment_reuse": {
+            "hits": 2, "closed": true, "retained_entries": 0,
+            "retention_live_owned_bytes": 97, "completed_segment_bytes": 9_007_199_254_740_993_u64,
+            "completed_segment_bytes_scope": "logical segments, not filesystem reads",
+            "memory_scope": "evicted result slices retain full allocation credit",
+            "unknown_future_counter": 123
+        }});
+        let mut fields = Vec::new();
+        append_local_primitive_result_summary_evidence_fields(
+            &mut fields,
+            Some(&payload.to_string()),
+        );
+        assert_eq!(fields.len(), 7);
+        assert_eq!(
+            field(&fields, "local_primitive_scan_segment_reuse_closed"),
+            "true"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "local_primitive_scan_segment_reuse_retained_entries"
+            ),
+            "0"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "local_primitive_scan_segment_reuse_retention_live_owned_bytes"
+            ),
+            "97"
+        );
+        assert_eq!(
+            field(
+                &fields,
+                "local_primitive_scan_segment_reuse_completed_segment_bytes"
+            ),
+            "9007199254740993"
+        );
     }
 
     #[test]

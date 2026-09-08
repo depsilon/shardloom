@@ -35,7 +35,10 @@ SUMMARY_COUNTER_PREFIXES = (
     "resident_", "local_primitive_aggregate_first_pass_", "local_primitive_aggregate_result_finalization_",
     "local_primitive_aggregate_fused_string_count_",
     "local_primitive_aggregate_workers_",
+    "local_primitive_aggregate_provider_",
     "local_primitive_aggregate_native_numeric_accessor_",
+    "local_primitive_aggregate_encoded_numeric_reduction_",
+    "local_primitive_scan_segment_reuse_",
     "local_primitive_native_sort_spill_", "local_primitive_sort_spill_", "local_primitive_resource_",
     "local_primitive_physical_policy_selected_", "local_primitive_memory_",
 )
@@ -109,6 +112,8 @@ def cases(rows: list[dict]) -> list[dict]:
     lengths = group_oracle(nonempty, ("cohort_code",), lambda members: {
         "n": len(members), "bytes_total": float(sum(len(row["category_text"].encode("utf-8")) for row in members))})
     unique = sorted(group_oracle(rows, ("unique_text",)), key=lambda row: row["unique_text"])[:12]
+    compound_topk = sorted(group_oracle(rows, ("cohort_code", "category_text")),
+                           key=lambda row: (-row["n"], row["cohort_code"], row["category_text"]))[:12]
     filtered = [row for row in rows if row["metric_units"] >= 5 and row["cohort_code"] < 2]
     filtered = sorted(filtered, key=lambda row: (-row["metric_units"], row["row_key"]))[3:15]
     tail = rows[-12:]
@@ -123,6 +128,7 @@ def cases(rows: list[dict]) -> list[dict]:
         case("skewed_string_count", "string_group", "SELECT category_text, COUNT(*) AS n FROM heldout GROUP BY category_text", group_oracle(rows, ("category_text",))),
         case("nullable_string_count", "string_group", "SELECT optional_text, COUNT(*) AS n FROM heldout GROUP BY optional_text", group_oracle(rows, ("optional_text",))),
         case("composite_group", "composite_group", "SELECT cohort_code, category_text, COUNT(*) AS n FROM heldout GROUP BY cohort_code, category_text", group_oracle(rows, ("cohort_code", "category_text"))),
+        case("compound_count_topk", "composite_group", "SELECT cohort_code, category_text, COUNT(*) AS n FROM heldout GROUP BY cohort_code, category_text ORDER BY n DESC LIMIT 12", compound_topk, True),
         case("nullable_group_distinct", "distinct", "SELECT cohort_code, COUNT(*) AS n, COUNT(DISTINCT optional_text) AS different FROM heldout GROUP BY cohort_code", distinct_groups),
         case("utf8_byte_length", "string_transform", "SELECT cohort_code, COUNT(*) AS n, SUM(length(category_text)) AS bytes_total FROM heldout WHERE category_text <> '' GROUP BY cohort_code", lengths),
         case("all_unique_group_topk", "string_group", "SELECT unique_text, COUNT(*) AS n FROM heldout GROUP BY unique_text ORDER BY n DESC, unique_text ASC LIMIT 12", unique, True),

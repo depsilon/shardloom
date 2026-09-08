@@ -93,6 +93,366 @@ fn generation(session: &ResidentVortexSession) -> MemoryFileGeneration {
         .unwrap()
 }
 
+#[test]
+#[allow(clippy::too_many_lines)] // Keep the addressable query and publication proof together.
+fn column_row_group_ranges_request_only_addressed_native_segments_and_publish_exactly() {
+    use super::MemoryFileGenerationLayout;
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 * 1024 * 1024, 1).unwrap();
+    let ids = (0..12_i64).collect::<Vec<_>>();
+    let strings = (0..12)
+        .map(|row| format!("row{row}:{}", "é".repeat(1024)))
+        .collect::<Vec<_>>();
+    let text = strings
+        .iter()
+        .enumerate()
+        .map(|(row, value)| {
+            if (4..8).contains(&row) {
+                None
+            } else {
+                Some(value.as_str())
+            }
+        })
+        .collect::<Vec<_>>();
+    let source = ResidentMemorySource::from_columns(
+        &session,
+        &[
+            MemoryColumn {
+                name: "exact_id",
+                values: MemoryColumnValues::Int64NonNullable(&ids),
+            },
+            MemoryColumn {
+                name: "renamed_text",
+                values: MemoryColumnValues::Utf8(&text),
+            },
+        ],
+        MemorySourceBounds::default(),
+    )
+    .unwrap();
+    let generation = source
+        .file_generation_with_layout(
+            MemoryFileGenerationBounds::default(),
+            MemoryFileGenerationLayout {
+                row_group_rows: 4,
+                max_segments: 6,
+            },
+            None,
+        )
+        .unwrap();
+    assert_eq!(generation.dtype(), source.dtype());
+    assert_eq!(generation.evidence().array_serializer_calls, 6);
+    assert_eq!(generation.evidence().row_groups, 3);
+    assert!(generation.evidence().row_group_offset_bytes_built > 0);
+    let before = generation.segment_evidence();
+    assert_eq!(before.len(), 6);
+    assert!(before.iter().all(|segment| segment.requests == 0));
+    // A UTF8 row-group does not serialize the unrelated whole-column backing.
+    assert!(
+        before
+            .iter()
+            .filter(|segment| segment.column_index == 1)
+            .all(|segment| segment.serialized_bytes < 12 * 1024)
+    );
+    let operation = generation
+        .prepare_projection_range(&["exact_id"], None, 4..8, 4, 64 * 1024)
+        .unwrap();
+    let arrays = operation.execute().unwrap();
+    let names = vec!["exact_id".to_string()];
+    let json = render_owned_json(&arrays, &names, session.memory(), 64 * 1024).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(json.value()).unwrap(),
+        json!([{"exact_id":4},{"exact_id":5},{"exact_id":6},{"exact_id":7}])
+    );
+    let after = generation.segment_evidence();
+    assert!(after[1].requests > 0);
+    assert!(
+        after
+            .iter()
+            .enumerate()
+            .all(|(id, segment)| id == 1 || segment.requests == 0)
+    );
+    drop(json);
+    drop(arrays);
+    drop(operation);
+    let operation = generation
+        .prepare_projection_range(
+            &["renamed_text", "exact_id"],
+            Some(gt_eq(get_item("exact_id", root()), lit(6_i64))),
+            4..8,
+            4,
+            64 * 1024,
+        )
+        .unwrap();
+    let arrays = operation.execute().unwrap();
+    let names = vec!["renamed_text".to_string(), "exact_id".to_string()];
+    let json = render_owned_json(&arrays, &names, session.memory(), 64 * 1024).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(json.value()).unwrap(),
+        json!([{"exact_id":6,"renamed_text":null},{"exact_id":7,"renamed_text":null}])
+    );
+    assert!(
+        generation
+            .segment_evidence()
+            .iter()
+            .enumerate()
+            .all(|(id, segment)| id == 1 || id == 4 || segment.requests == 0)
+    );
+    let publication = generation.publish(&fixture.target()).unwrap();
+    assert!(publication.durable);
+    assert_eq!(publication.array_serializer_calls, 0);
+    assert_eq!(generation.evidence().array_serializer_calls, 6);
+    assert_eq!(
+        publication.independent_readback_bytes,
+        publication.file_bytes_written
+    );
+    let reopened = session.prepare_file(fixture.target()).unwrap();
+    assert_eq!(reopened.dtype(), source.dtype());
+    let all = reopened
+        .prepare_projection(&["exact_id", "renamed_text"], 12, 128 * 1024)
+        .unwrap()
+        .execute()
+        .unwrap();
+    let names = vec!["exact_id".to_string(), "renamed_text".to_string()];
+    let all_json = render_owned_json(&all, &names, session.memory(), 128 * 1024).unwrap();
+    let expected = ids
+        .iter()
+        .enumerate()
+        .map(|(row, id)| json!({"exact_id":id,"renamed_text":text[row]}))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        serde_json::from_str::<Value>(all_json.value()).unwrap(),
+        json!(expected)
+    );
+    assert!(
+        generation
+            .prepare_projection_range(&["exact_id"], None, 12..13, 1, 4096)
+            .is_err()
+    );
+    let empty = generation
+        .prepare_projection_range(&["exact_id"], None, 5..5, 1, 4096)
+        .unwrap()
+        .execute()
+        .unwrap();
+    assert_eq!(empty.row_count(), 0);
+}
+
+#[test]
+fn generation_preserves_exact_long_text_stats_without_reusing_whole_column_bounds_on_slices() {
+    use crate::resident_memory_source::OwnedMemoryColumn;
+    use vortex::array::{
+        IntoArray as _, arrays::StructArray, buffer::BufferHandle, scalar::Scalar,
+        serde::SerializedArray, validity::Validity,
+    };
+    use vortex::expr::stats::{Precision, Stat, StatsProvider as _};
+    use vortex::layout::layouts::flat::Flat;
+    let session = ResidentVortexSession::new(2 * 1024 * 1024, 1).unwrap();
+    let minimum = format!("a{}", "λ".repeat(100));
+    let maximum = format!("z{}", "猫".repeat(100));
+    let bytes = format!("{minimum}{maximum}").into_bytes();
+    let column = OwnedMemoryColumn::utf8(
+        &session,
+        "long_text",
+        vec![0, minimum.len() as u64, bytes.len() as u64],
+        bytes,
+        None,
+    )
+    .unwrap();
+    let min_scalar = Scalar::from(minimum.as_str());
+    let max_scalar = Scalar::from(maximum.as_str());
+    column.array().statistics().set(
+        Stat::Min,
+        Precision::Exact(min_scalar.clone().into_value().unwrap()),
+    );
+    column.array().statistics().set(
+        Stat::Max,
+        Precision::Exact(max_scalar.clone().into_value().unwrap()),
+    );
+    column
+        .array()
+        .statistics()
+        .set(Stat::IsSorted, Precision::Exact(true.into()));
+    let (slice, _) =
+        super::slice_generation_column(column.array(), 1..2, &session.native_allocator()).unwrap();
+    assert!(slice.statistics().get(Stat::Min).as_exact().is_none());
+    assert!(slice.statistics().get(Stat::Max).as_exact().is_none());
+    assert_eq!(
+        slice.statistics().get(Stat::IsSorted),
+        Precision::Exact(Scalar::from(true))
+    );
+    let array = StructArray::try_new(
+        ["long_text"].into(),
+        vec![column.array().clone()],
+        2,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let generation = MemoryFileGeneration::build(
+        &session,
+        &array,
+        1024,
+        0,
+        MemoryFileGenerationBounds::default(),
+    )
+    .unwrap();
+    let evidence = generation.evidence();
+    assert_eq!(evidence.construction_footer_serializer_calls, 1);
+    assert!(evidence.construction_footer_bytes > 0);
+    let column_layout = generation
+        .0
+        .source
+        .file()
+        .footer()
+        .layout()
+        .children()
+        .unwrap()
+        .remove(0);
+    let leaf = column_layout.children().unwrap().remove(0);
+    let flat = leaf.as_opt::<Flat>().unwrap();
+    let buffer = BufferHandle::new_host(generation.0.segments.segments[0].buffer.clone());
+    let serialized = if let Some(tree) = flat.array_tree() {
+        SerializedArray::from_flatbuffer_and_segment(tree.clone(), buffer).unwrap()
+    } else {
+        SerializedArray::try_from(buffer).unwrap()
+    };
+    session
+        .with_native_session(|native, _| {
+            let restored = serialized
+                .decode(column.array().dtype(), 2, flat.array_ctx(), native)
+                .unwrap();
+            assert_eq!(
+                restored.statistics().get(Stat::Min),
+                Precision::Exact(min_scalar)
+            );
+            assert_eq!(
+                restored.statistics().get(Stat::Max),
+                Precision::Exact(max_scalar)
+            );
+            assert_eq!(
+                restored.statistics().get(Stat::IsSorted),
+                Precision::Exact(Scalar::from(true))
+            );
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[test]
+fn partial_generation_cancellation_releases_segments_and_preserves_owned_intake() {
+    use super::{GenerationBuildControl, MemoryFileGenerationLayout};
+    use crate::resident_memory_source::OwnedMemoryColumn;
+    use vortex::array::{IntoArray as _, arrays::StructArray, validity::Validity};
+    let session = ResidentVortexSession::new(2 * 1024 * 1024, 1).unwrap();
+    let memory = session.memory().clone();
+    let input = OwnedMemoryColumn::int64(&session, "key", (0..32_i64).collect(), None).unwrap();
+    let array = StructArray::try_new(
+        ["key"].into(),
+        vec![input.array().clone()],
+        32,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let before = memory.snapshot().reserved_bytes;
+    let cancelled = std::sync::atomic::AtomicBool::new(false);
+    let after_leaf = |completed| {
+        assert_eq!(completed, 1);
+        cancelled.store(true, Ordering::Release);
+    };
+    let result = MemoryFileGeneration::build_controlled(
+        &session,
+        &array,
+        256,
+        0,
+        MemoryFileGenerationBounds::default(),
+        MemoryFileGenerationLayout {
+            row_group_rows: 8,
+            max_segments: 4,
+        },
+        GenerationBuildControl {
+            cancelled: Some(&cancelled),
+            after_leaf: Some(&after_leaf),
+        },
+    );
+    assert!(
+        result
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("construction cancelled")
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, before);
+    assert!(
+        MemoryFileGeneration::build_with_layout(
+            &session,
+            &array,
+            256,
+            0,
+            MemoryFileGenerationBounds::default(),
+            MemoryFileGenerationLayout {
+                row_group_rows: 8,
+                max_segments: 4
+            },
+            Some(&cancelled)
+        )
+        .is_err()
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, before);
+    drop(array);
+    drop(input);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn generation_geometry_rejection_precedes_serialization_and_zero_rows_need_no_segments() {
+    use super::MemoryFileGenerationLayout;
+    let session = ResidentVortexSession::new(4 * 1024 * 1024, 1).unwrap();
+    let input = source(&session);
+    let before = session.snapshot().memory.reserved_bytes;
+    for layout in [
+        MemoryFileGenerationLayout {
+            row_group_rows: 0,
+            max_segments: 4,
+        },
+        MemoryFileGenerationLayout {
+            row_group_rows: 1,
+            max_segments: 15,
+        },
+        MemoryFileGenerationLayout {
+            row_group_rows: 1,
+            max_segments: 4097,
+        },
+    ] {
+        assert!(
+            input
+                .file_generation_with_layout(MemoryFileGenerationBounds::default(), layout, None)
+                .is_err()
+        );
+        assert_eq!(session.snapshot().memory.reserved_bytes, before);
+    }
+    let empty = ResidentMemorySource::from_owned_columns(
+        &session,
+        vec![
+            crate::resident_memory_source::OwnedMemoryColumn::int64(
+                &session,
+                "empty",
+                vec![],
+                None,
+            )
+            .unwrap(),
+        ],
+        MemorySourceBounds::default(),
+    )
+    .unwrap();
+    let generation = empty
+        .file_generation(MemoryFileGenerationBounds::default())
+        .unwrap();
+    assert!(generation.segment_evidence().is_empty());
+    assert_eq!(generation.evidence().array_serializer_calls, 0);
+    assert_eq!(generation.evidence().row_groups, 0);
+}
+
 // Independent decoded Rust values, including nullable values, extreme integers,
 // Unicode, escaping and signed zero. No second native query supplies the oracle.
 fn expected() -> Value {
@@ -129,7 +489,9 @@ fn real_native_file_queries_preserve_full_values_filter_nulls_and_ordered_limit(
     assert_eq!(generation.dtype(), input.dtype());
     assert_eq!(generation.row_count(), 4);
     let before = generation.evidence();
-    assert_eq!(before.array_serializer_calls, 1);
+    assert_eq!(before.array_serializer_calls, 4);
+    assert_eq!(before.columns, 4);
+    assert_eq!(before.row_groups, 1);
     assert_eq!(before.dictionary_build_calls, 0);
     assert_eq!(before.memory_file_constructions, 1);
     assert_eq!(before.source_file_opens, 0);
