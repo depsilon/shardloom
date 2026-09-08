@@ -3,6 +3,9 @@
 Status: source-grounded direct dependency proposal; isolated graph resolution,
 license inventory, compilation and local import tests pending. This document
 does not approve a package release or alter the production Python dependency graph.
+The unbuilt prototype and its standalone manifest remain on the local
+`codex/perf-remaining-work` checkpoint `be2a69f3`, outside the retained-runtime
+shipping batch. The paths below describe future validation of that checkpoint.
 
 | Item | Exact proposal | Role | Provider license |
 |---|---|---|---|

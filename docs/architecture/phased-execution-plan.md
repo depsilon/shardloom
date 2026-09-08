@@ -318,11 +318,30 @@ that does not validate the newer working batch or close its acceptance work.
 
 The maintainer's September 8
 [execution-aware native artifact topology item](execution-aware-native-artifact-topology-2026-09-08.md)
-refines the remaining PERF queue. After the current batch's correctness boundary,
-prioritize safe internal-region discovery and actual bounded Capillary execution
-inside one held native artifact. Isolate its topology experiment before new local
-reductions, local Top-K or execution-aware preparation. These are acceptance
+refines the remaining PERF queue. The later instruction to avoid spending more
+time without material benefit parks the measured topology experiment and its
+dependent local reductions, local Top-K and execution-aware preparation work.
+Safe internal-region discovery and bounded Capillary execution inside one held
+native artifact remain an architectural direction, without accepted performance
+evidence or default authorization to restart the experiment. These are acceptance
 stages under existing PERF items, not new canonical phases or a second scheduler.
+
+Topology checkpoint `a3c62434` is **revision required, not promoted**. Existing,
+Auto and Target1 each pass all 129 Full43 results, with best sums of
+91.866821957, 92.932750837 and 93.055419416 seconds. The 13 selected queries
+keep the same 1,170 original split jobs despite different group labels. The
+independent 4,096-row Existing/Auto matrix passes 760 acceptance records; the
+131,072-row matrix also passes all 760 after lossless archiving restored log
+headroom; initial guard stops remain recorded. The `9152a92b` bounded coalesced-job
+revision preserves original arrays and changes actual job quantum. It is also
+**parked, not promoted**: Existing/Auto/Fine each pass all 129 complete Full43
+results, but best sums are 91.286391/92.510021/92.596168 seconds. Auto's 585 jobs
+and Fine's 1,170 jobs produce no material selected-query win. Its implementation passes 3,266 native
+and 3,420 default tests, 54 harness tests, formatting and all three Clippy
+configurations. Fresh independent held-out matrices for this revision were
+skipped after the negative performance decision; older held-out matrices do not
+cover it. The [decision packet](../benchmarks/native-topology-coalesced-2026-09-08.md)
+records the measured scope and preserved staged work. No PERF or competitive gate closes.
 
 - [ ] `PERF-01` reconcile and instrument the public baseline.
   - V1 scope classification: `required_for_v1`.
@@ -2171,20 +2190,21 @@ Current autonomous execution order:
    ownership batch's correctness gates. Resolve the preserved ingest artifact's
    physical-byte difference with complete logical-value comparison before using
    its timing as accepted evidence. Keep existing frozen controls immutable.
-2. Execute topology stage 1 under PERF-03/07/10/12: reuse native split discovery
-   and Capillary dynamic admission, preserve original natural batch boundaries,
-   and deliver independent region streams to unchanged native consumers. Prove
-   actual work, bounded handoff and deterministic drain before timing it.
-3. Measure current/coarse, small, medium and large safe topologies on the same
-   immutable artifact with fixed worker/memory/build settings. Run full43 and
-   independent held-out correctness, classify operator response, and retain/revise/
-   drop topology before adding region-local operator logic.
-4. Follow retained topology with separate measured local-aggregation and exact
-   local-Top-K stages. Existing native partials and complete-key reducers remain
-   the implementation seams; floating reassociation and local grouped truncation
-   require explicit semantic proof, not merely stable worker ordering.
-5. Only after runtime retention, use measured topology/pruning/encoded costs to
-   adjust preparation/layout advice. Continue the remaining ingest curve,
+2. Park topology stage 1 under PERF-03/07/10/12. Both `a3c62434` grouping and
+   `9152a92b` actual coalesced jobs regress without material selected-query wins.
+   Preserve the frozen code and evidence; do not promote the experimental option
+   or repeat count sweeps and long held-out runs for this rejected revision.
+3. Keep the unwired local-scalar candidate and sort-source ownership prerequisite
+   staged outside the active source. No local-reduction, local-Top-K or writer
+   change earns acceptance from the scheduling packet. Resume this direction only
+   with a concrete reason to expect material work reduction and an explicitly
+   bounded acceptance experiment, rather than architectural appeal alone.
+4. If resumed, retain the separate correctness/resource/performance gates,
+   including fresh independent held-out matrices for the actual candidate.
+   Floating reassociation and local grouped truncation still require explicit
+   semantic proof; source ownership and truthful native evidence remain required.
+5. Execution-aware preparation remains deferred until runtime retention.
+   Continue the remaining ingest curve,
    compatibility lifecycle, prepared/binding and worker-to-spill acceptance at
    their shared dependency boundaries. Preserve numeric compression.
 6. Evaluate narrow compact-state/codec candidates and then conditional PERF-13

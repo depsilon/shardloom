@@ -1,6 +1,10 @@
 # Native Python binding experiment
 
-This is an isolated, unpublished PERF-02 experiment under RFC 0044. It uses the
+This records an isolated, unpublished PERF-02 experiment under RFC 0044. Its
+unbuilt prototype is preserved on the local `codex/perf-remaining-work` branch
+at `be2a69f3`; `experiments/python-native` is excluded from the retained-runtime
+shipping batch. Paths and reproduction steps below refer to that preserved
+checkpoint, not to a currently shipped Python extension. It uses the
 existing native resident session and prepared operators in `shardloom-vortex`.
 Its Cargo package is not a workspace member or selected by the released Python client.
 The additive adapter hooks are registered under the native local feature gate;

@@ -1,8 +1,31 @@
 # Execution-aware native artifact topology
 
-Status: maintainer-authorized implementation direction on September 8, 2026;
-source inventory is complete and the first runtime adapter is staged and reviewed.
-Runtime integration, correctness and performance acceptance remain pending. This refines the existing
+Status: **parked, not promoted**, following the maintainer's September 8 request
+to stop investing if the benefit is not material. Source inventory and bounded
+coalesced-job integration are implemented and reviewed on the experimental branch.
+That runtime, its CLI option and its benchmark harness changes remain on
+`codex/perf-remaining-work` at `be2a69f3`; they are excluded from the separate
+retained-runtime shipping branch. Counts below describe that experimental
+checkpoint, not the extracted shipping source.
+Validation passes 3,266 native CLI/Vortex tests, 3,420 default workspace tests,
+and 54 harness tests, plus formatting and default/native/minimal-native Clippy.
+Nine native manual benchmark or fixture-regeneration tests remain ignored. The
+focused public integration checks include exact floating results, nullable
+grouping, prepared source reuse, and partial/complete metadata pruning. The
+measured `a3c62434` grouping checkpoint requires revision and is not promoted:
+Existing/Auto/Target1 each pass all 129 Full43 results, but best sums are
+91.866821957/92.932750837/93.055419416 seconds. Auto and Target1 regress by
+1.1603% and 1.2938%. The independent 4,096-row Existing/Auto matrix passes all
+760 acceptance records, and the 131,072-row matrix also passes all 760 after
+lossless evidence archiving restored log headroom. Both initial guard stops
+remain recorded. The separately frozen `9152a92b` coalesced-job revision also
+passes all 129 Full43 results in each of Existing/Auto/Fine, but best sums are
+91.286390958/92.510021085/92.596168207 seconds: Auto regresses 1.34% and Fine
+1.43%. None of its 13 selected query lanes has a material measured gain. See
+[the coalesced-job decision packet](../benchmarks/native-topology-coalesced-2026-09-08.md).
+Fresh held-out matrices for this revision were not run after that rejection;
+the older held-out results do not validate the new revision. Further topology
+experiments and staged local-reduction/Top-K implementation are paused. This refines the existing
 PERF-03/04/05/07/09/10/12 items under RFC 0044, not a new phase-ID series or a
 second active queue. The canonical execution order remains in
 [the phased plan](phased-execution-plan.md). No competitive gate is closed.
@@ -53,8 +76,8 @@ runtime benefit that pays for their ingest, storage and validation costs.
 ## Source inventory and selected seams
 
 The inventory was checked against the active native adapter and the pinned
-Vortex 0.85 source. These findings describe current behavior; they do not certify
-the pending region adapter or claim that existing descriptor counters prove it.
+Vortex 0.85 source. The integrated adapter has separate actual completion proof;
+existing descriptor counters alone do not establish that it executed.
 
 | Existing mechanism | Current behavior and integration decision |
 |---|---|
@@ -72,11 +95,37 @@ the pending region adapter or claim that existing descriptor counters prove it.
 
 The first staged implementation exposed an ordered-output hazard: holding one
 worker for a whole coarse region parks later workers behind the frontier region.
-The staged adapter therefore uses bounded original-split steps on the
+The measured `a3c62434` adapter therefore uses bounded original-split steps on the
 existing queue, releasing workers between steps. Region count, admitted regions,
 outstanding split steps and CPU workers are distinct quantities. Coarse/fine
 benchmarks must determine whether region granularity changes useful work rather
 than merely changing a label on otherwise identical scheduling.
+
+In that measured adapter, requested counts coalesce original natural splits into
+groups. Even target one can execute several natural splits concurrently inside
+that group. This preserves original read and array boundaries, so the requested
+counts are grouping/admission levels, not automatically different physical read
+granularities. The fixed-artifact packet must report natural split geometry and
+actual queue windows separately; changing group counts alone cannot substantiate
+finer independent execution. Its public group cap is redundant with the split
+window. All 13 selected queries retain 1,170 original jobs and a 20-split window
+at actual P10; Auto's 382 groups and Target1's one group do not change that work.
+The other 22 requests explicitly retain their native route, while eight have no
+region report. Selected runs prove no metadata-pruned split; Q40/Q43's 1,159
+no-output tasks still executed. Local reduction and local Top-K remain false.
+
+The measured `9152a92b` candidate makes each region a bounded job over
+adjacent original splits, retaining every original array and its order. At
+P10/W20 it allows two originals per job and at most ten outstanding jobs,
+including the caller-held completion, within the same 20-output bound. Row
+quantum and natural boundaries may increase the realized job count above a
+requested coarse target. Auto realized 585 two-original jobs; Fine realized
+1,170 single-original jobs under the same P10 and 20-original outstanding bound.
+Both regress against Existing, so the branch option remains experimental and
+must not be promoted as a performance improvement. Preserve its frozen evidence
+without continuing the staged implementation by default. The earlier packet is
+`topology-a3c62434-grouping-analysis.json`; its classified report is
+[native topology grouping evidence](../benchmarks/native-topology-grouping-2026-09-08.md).
 
 Range pruning must validate mask length and require an all-false proof for every
 original split before declaring its containing region wholly pruned. Zoned
@@ -133,8 +182,10 @@ restart on an alternate engine or discard partially completed work.
 
 Use the existing immutable 99,997,497-row workload. Compare current/coarsest,
 small, medium and large safe native topologies. Counts near 1/4/8/16/32/64/128
-are useful experimental levels only when representable through admitted native
-boundaries. They are neither a default nor an excuse for artificial byte splits.
+are useful experimental levels only when they produce distinct admitted job or
+read geometry. Do not run additional numeric labels on the rejected grouping
+model merely to populate that list. They are neither a default nor an excuse
+for artificial byte splits.
 Hold artifact contents, schema, query semantics, worker configuration, memory,
 build flags and benchmark runner constant. Record realized counts when requested
 granularity cannot map exactly to physical boundaries.
