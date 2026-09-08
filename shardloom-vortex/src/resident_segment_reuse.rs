@@ -205,6 +205,7 @@ impl SegmentReuseSnapshot {
             "discarded_attempt_nanos": self.discarded_attempt_nanos,
             "uncached_replay_nanos": self.uncached_replay_nanos,
             "provider_background_workers": self.provider_background_workers,
+            "provider_background_workers_scope": "completed_native_scan_and_wrapper_owned_drivers;excludes_inner_drivers_in_failed_outer_cache_attempts;not_total_threads_or_CPU_time",
             "replay_scope": "at_most_once_on_explicit_typed_owned_allocation_denial;callback_state_and_cache_dropped;same_prepared_generation;pending_native_IO_owners_remain_charged;not_an_OS_read_drain",
             "hits": c.hits, "shared_requests": c.shared_requests,
             "downstream_requests": c.downstream_requests, "completed_segments": c.completed_segments,

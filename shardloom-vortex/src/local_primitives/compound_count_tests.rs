@@ -16,6 +16,10 @@ use vortex::array::{
     validity::Validity,
 };
 
+#[cfg(all(feature = "vortex-write", unix))]
+#[path = "compound_admission_driver_tests.rs"]
+mod admission_drivers;
+
 fn worker() -> ChunkWorkerContext {
     ChunkWorkerContext::Inline(CancellationToken::default())
 }
@@ -801,6 +805,16 @@ fn compound_public_native_query_filter_exact_values_and_typed_source_replay() {
         assert_eq!(payload["values"], expected);
         if fault.is_some() {
             assert_eq!(payload["aggregate_workers_partition_source_replays"], 1);
+            assert_eq!(
+                payload["aggregate_provider_background_workers"],
+                super::bounded_local_vortex_worker_count(report.resource_envelope.max_parallelism)
+            );
+            assert!(
+                payload["aggregate_provider_cpu_scope"]
+                    .as_str()
+                    .unwrap()
+                    .contains("aggregate_workers_cancelled_and_joined;temporary_provider_drivers_during_native_replay;no_concurrent_aggregate_worker_pool")
+            );
         } else {
             assert_eq!(
                 payload["group_output_strategy"],

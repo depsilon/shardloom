@@ -39,7 +39,7 @@ use crate::owned_buffers::ReservedHostAllocator;
 
 #[path = "resident_worker_group.rs"]
 mod worker_group;
-use worker_group::ResidentWorkerGroup;
+pub(crate) use worker_group::ResidentWorkerGroup;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_segment_reuse.rs"]
@@ -384,7 +384,12 @@ impl PreparedVortexSource {
     /// The returned snapshot follows cache close; result-owned slices may still
     /// retain payload credit until their last owner drops. No query answers or
     /// layout readers survive in the cache for a subsequent prepared execution.
-    #[cfg(all(test, feature = "vortex-local-primitives", unix))]
+    #[cfg(all(
+        test,
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        unix
+    ))]
     pub(crate) fn with_native_execution_cached<T>(
         &self,
         policy: segment_reuse::SegmentReusePolicy,
@@ -395,7 +400,12 @@ impl PreparedVortexSource {
         })
     }
 
-    #[cfg(all(test, feature = "vortex-local-primitives", unix))]
+    #[cfg(all(
+        test,
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        unix
+    ))]
     pub(crate) fn with_native_execution_cached_retry<T>(
         &self,
         policy: segment_reuse::SegmentReusePolicy,

@@ -1,8 +1,10 @@
 # Exact numeric and UTF8 COUNT workers
 
-Status: implemented, with performance acceptance pending, under RFC 0044 and the maintainer's request
-to complete the remaining PERF suggestions. This is one PERF-04/05 family, not
-completion of either phase. No performance result is claimed before validation.
+Status: retained under RFC 0044, with scoped public and independent correctness
+evidence in the [continuation checkpoint](../benchmarks/perf-native-continuation-2026-09-06.md).
+This is one PERF-04/05 family, not completion of either phase. The September 8
+worker-admission repair below has separate correctness checks; existing measured
+timings remain pinned to their original source commit.
 
 The native aggregate path admits two identity grouping columns, one non-null
 integer of any supported physical width and one non-null UTF8 column, COUNT(*),
@@ -53,6 +55,21 @@ availability snapshot, complete prior work drains and the untouched current chun
 returns to the existing exact native route. A provider error after admission is
 never classified from an unrelated reservation-counter change.
 
+CPU ownership follows actual worker admission as well as shape/schema planning.
+When a caller-only session's real worker allocation declines, joined provider
+drivers start on that same runtime before the scan. No input has yet contributed,
+so this path neither reopens nor replays the source. Successful worker admission
+does not create a second provider pool. If a later typed source-allocation denial
+requires the existing replay, aggregate jobs are cancelled and joined before
+temporary provider drivers start for the same-file replay.
+
+The driver count is carried as typed execution evidence into an enclosing segment
+reuse report. Its scope is the completed scan and wrapper-owned drivers; inner
+drivers from a failed outer cache attempt are excluded, and it is not a total
+thread or CPU-time count. Actual reservation-denial and cache-wrapper tests at
+1/2/4 lanes verify complete ordered results, one source open, advancing execution
+counters, matching driver evidence and released owned credit.
+
 The claim covers explicitly reserved adapter/operator capacity. Upstream native
 allocations that bypass HostAllocator, allocator metadata and total RSS remain
 outside that enforcement claim. Existing output-state accounting is reported
@@ -71,5 +88,6 @@ reconciliation, final selection, caller handoff/recount, observed capacity and
 copied string bytes. Retention requires paired public Q17 and independent
 compound-key measurements; timing or memory regressions must remain explicit.
 
-Root owns all compilation, tests and benchmarks in the shared target. This note
-records approved implementation scope, not completed acceptance evidence.
+Root owns all compilation, tests and benchmarks in the shared target. The linked
+checkpoint records the retained workload's measurements and limitations; this
+contract does not extend those claims to the later admission repair or all inputs.

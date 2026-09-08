@@ -66,6 +66,15 @@ impl CountWorkers {
         session: &VortexSession,
         memory: &LiveMemoryPool,
     ) -> Result<Option<Self>> {
+        #[cfg(test)]
+        let _admission_pressure = ADMISSION_TEST_PRESSURE
+            .with(std::cell::Cell::take)
+            .then(|| {
+                let snapshot = memory.snapshot();
+                memory
+                    .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)
+                    .expect("one-shot pressure reserves only currently available query credit")
+            });
         if let Some(workers) = super::compound_count_workers::CompoundWorkers::admit(
             states, dtype, columns, policy, session, memory,
         )? {
@@ -926,6 +935,9 @@ pub(super) enum SourceScanTestFault {
 #[cfg(test)]
 thread_local! {
     pub(super) static SOURCE_SCAN_TEST_FAULT: std::cell::Cell<Option<SourceScanTestFault>> = const { std::cell::Cell::new(None) };
+    // Scoped to the calling test thread and consumed once. The real admission
+    // reservation fails while this lease is held; it refunds before any scan.
+    pub(super) static ADMISSION_TEST_PRESSURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn install_weighted_string(

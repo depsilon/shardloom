@@ -8,6 +8,9 @@ mod aggregate_chunk_jobs;
 #[path = "local_primitives/aggregate_count_workers.rs"]
 mod aggregate_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/aggregate_scan_runtime.rs"]
+mod aggregate_scan_runtime;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_timing.rs"]
 mod aggregate_timing;
 #[cfg(feature = "vortex-local-primitives")]
@@ -13555,6 +13558,22 @@ struct LocalVortexAggregateScan {
     scan: LocalVortexScan,
     result_summary: String,
     state_budget: VortexLocalPrimitiveStateBudgetReport,
+    // Temporary drivers introduced inside this scan, excluding wrapper-owned
+    // drivers. Kept typed so outer execution evidence need not parse our JSON.
+    restored_provider_background_workers: usize,
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+impl LocalVortexAggregateScan {
+    fn annotate_segment_reuse(
+        &mut self,
+        mut evidence: crate::resident_session::segment_reuse::SegmentReuseSnapshot,
+    ) -> Result<()> {
+        evidence.provider_background_workers = evidence
+            .provider_background_workers
+            .max(self.restored_provider_background_workers);
+        evidence.annotate(&mut self.result_summary)
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -19453,7 +19472,7 @@ fn read_local_vortex_simple_aggregate_scan(
                     )
                 },
             )?;
-            evidence.annotate(&mut result.result_summary)?;
+            result.annotate_segment_reuse(evidence)?;
             return Ok(result);
         }
         if restore_provider_drivers {
@@ -19521,7 +19540,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
     policy: VortexLocalPrimitiveExecutionPolicy,
     file: &vortex::file::VortexFile,
     session: &vortex::session::VortexSession,
-    runtime: &impl vortex::io::runtime::BlockingRuntime,
+    runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
 ) -> Result<LocalVortexAggregateScan> {
@@ -19668,6 +19687,18 @@ fn read_prepared_vortex_simple_aggregate_scan(
     } else {
         None
     };
+    // The earlier shape/schema check chooses CPU ownership, but actual worker
+    // admission can still decline under memory pressure. Restore progress on
+    // this SAME runtime before scanning; no input has been processed or replayed.
+    // `worker_memory` is supplied only by a caller-only aggregate session.
+    let (provider_drivers, provider_background_workers) =
+        if worker_memory.is_some() && count_workers.is_none() {
+            let (drivers, count) =
+                runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
+            (Some(drivers), count)
+        } else {
+            (None, 0)
+        };
     let mut aggregate_timing = aggregate_timing::AggregateFirstPassTiming::default();
 
     let mut pre_limit_result_row_count = 0usize;
@@ -19739,9 +19770,14 @@ fn read_prepared_vortex_simple_aggregate_scan(
                     drop(encoded_kernel_inputs);
                     let discarded_nanos = attempt_started.elapsed().as_nanos();
                     let replay_started = Instant::now();
+                    let (_replay_drivers, replay_provider_workers) =
+                        runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
                     let mut replayed = read_prepared_vortex_simple_aggregate_scan(
                         source_uri, request, policy, file, session, runtime, None, None,
                     )?;
+                    replayed.restored_provider_background_workers = replayed
+                        .restored_provider_background_workers
+                        .max(replay_provider_workers);
                     let mut summary: serde_json::Value =
                         serde_json::from_str(&replayed.result_summary)
                             .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
@@ -19754,6 +19790,11 @@ fn read_prepared_vortex_simple_aggregate_scan(
                         "aggregate_workers_partition_source_replays".into(),
                         1.into(),
                     );
+                    object.insert(
+                        "aggregate_provider_background_workers".into(),
+                        replay_provider_workers.into(),
+                    );
+                    object.insert("aggregate_provider_cpu_scope".into(), "same_prepared_source;aggregate_workers_cancelled_and_joined;temporary_provider_drivers_during_native_replay;no_concurrent_aggregate_worker_pool".into());
                     object.insert(
                         "aggregate_workers_partition_discarded_input_rows".into(),
                         pre_limit_result_row_count.into(),
@@ -20459,6 +20500,13 @@ fn read_prepared_vortex_simple_aggregate_scan(
     if let Some(workers) = count_workers.as_ref() {
         workers.annotate_summary(&mut result_summary)?;
     }
+    if provider_drivers.is_some() {
+        let mut summary: serde_json::Value = serde_json::from_str(&result_summary)
+            .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
+        summary["aggregate_provider_background_workers"] = provider_background_workers.into();
+        summary["aggregate_provider_cpu_scope"] = "same_prepared_source;actual_aggregate_worker_admission_declined_before_scan;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay".into();
+        result_summary = summary.to_string();
+    }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
@@ -20496,6 +20544,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         },
         result_summary: result_summary.clone(),
         state_budget: state_budget.clone(),
+        restored_provider_background_workers: provider_background_workers,
     })
 }
 
@@ -21251,6 +21300,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         },
         result_summary,
         state_budget,
+        restored_provider_background_workers: 0,
     })
 }
 
@@ -62770,6 +62820,16 @@ mod tests {
             serde_json::json!([{"renamed_key":"tea","n":4}, {"renamed_key":"東京","n":3}])
         );
         assert_eq!(summary["aggregate_workers_partition_source_replays"], 1);
+        assert_eq!(
+            summary["aggregate_provider_background_workers"],
+            bounded_local_vortex_worker_count(report.resource_envelope.max_parallelism)
+        );
+        assert!(
+            summary["aggregate_provider_cpu_scope"]
+                .as_str()
+                .unwrap()
+                .contains("aggregate_workers_cancelled_and_joined;temporary_provider_drivers_during_native_replay;no_concurrent_aggregate_worker_pool")
+        );
         assert!(
             summary["aggregate_workers_partition_discarded_input_rows"]
                 .as_u64()
