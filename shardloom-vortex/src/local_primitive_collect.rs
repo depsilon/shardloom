@@ -165,6 +165,15 @@ pub fn prepare_rows_in_session(
 }
 
 impl PreparedVortexCollect {
+    /// Validate file admission against the generation held by this projection.
+    /// This does not collect rows or open another provider.
+    ///
+    /// # Errors
+    /// Returns the source's metadata mismatch or generation validation error.
+    pub fn validate_file_metadata(&self, expected: &std::fs::Metadata) -> Result<()> {
+        self.source.validate_file_metadata(expected)
+    }
+
     /// Execute the prepared projection/filter into owned native arrays without
     /// row rendering. The complete bounded result may outlive this handle.
     ///
@@ -187,12 +196,21 @@ impl PreparedVortexCollect {
     /// Rejects mutation, unsupported JSON types, and complete output bounds.
     pub fn execute(&self) -> Result<CollectedVortexRows> {
         let result = self.execute_arrays()?;
-        let values_json = render_owned_json(
-            &result,
-            &self.projected_columns,
-            self.session.memory(),
-            MAX_JSON_BYTES,
-        )?;
+        self.complete_json(result)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn execute_with_after_scan(
+        &self,
+        after_scan: impl FnOnce(),
+    ) -> Result<CollectedVortexRows> {
+        let result = self.execute_arrays()?;
+        after_scan();
+        self.complete_json(result)
+    }
+
+    fn complete_json(&self, result: OwnedVortexResultBatch) -> Result<CollectedVortexRows> {
+        let values_json = result.render_admitted_json(&self.projected_columns, MAX_JSON_BYTES)?;
         self.source.validate_generation()?;
         let native_io_certificate = certificate(&self.request, result.row_count(), self.filtered)?;
         let rows = result.row_count();

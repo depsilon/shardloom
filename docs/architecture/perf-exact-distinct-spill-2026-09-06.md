@@ -69,19 +69,26 @@ renamed/reordered columns, global winners, ties and large offsets. Tests must
 force many runs and compaction, denied overlapping disk/footer memory, corrupt
 bytes/schema/order/weights, cancellation, held-source generation change, and
 complete owned cleanup/refund after errors and successful final-result release.
-The six private native-run tests pass. The public query and measurements remain
-pending; private tests alone cannot
+The six private native-run tests passed before public integration. The lazy-store,
+generic-runtime and public query changes still await the next serial validation;
+measurements remain pending. Private tests alone cannot
 close the entire PERF-06 aggregate/distinct/join queue.
+
 # Public integration checkpoint
 
 The next integration adds an optional `spill` object to the existing public
 `--vortex-aggregate` JSON payload and the equivalent Rust aggregate request. Its
 fields are `workspace`, `quota_bytes` and `memory_bytes`. Absence preserves the
 current execution path. Parsing is side-effect-free and rejects malformed or
-unknown policy fields. The policy admits only the already-tested nonnullable
+unknown policy fields. `VortexAggregateSpillPolicy` is a reusable policy name;
+runtime and certificate admission currently cover only the already-tested nonnullable
 integer identity group / integer identity COUNT DISTINCT family, with descending
 distinct count ordering, explicit bounded result size and checked offset. Group
 names, integer widths and dictionary domains remain arbitrary.
+An optional second ordering term is admitted only when it names the integer group
+ascending: this is exactly the native comparator's existing tie rule. The shared
+worker preflight/runtime predicate also governs the public spill certificate;
+descending or unrelated secondary terms remain outside this family.
 
 Execution rejects unsupported request/schema, unavailable native write support,
 incompatible materialization policy and an operator envelope exceeding the query
@@ -89,7 +96,9 @@ budget before temporary data effects. The declared operator envelope is reserved
 from the shared query pool before creating its finite child accounting pool. The
 entire parent lease survives through the owned final result; this intentionally
 conservative lifetime is not reported as just the small final selection size.
-Source arrays and their native numeric execution retain the configured query
+The first public family feeds one bounded complete-pair accumulator directly;
+it does not run a partition worker pool beside a second spill state. Source
+arrays and their native numeric execution retain the configured query
 context and query budget. Bounded run I/O reuses the same runtime and provider
 registry with the child allocator. This is one runtime and one run registry,
 with no independent uncharged operator budget.
@@ -101,13 +110,18 @@ before counting. Once runs exist, every contribution follows the validated
 complete-pair merge and final global group selection. All attempt-owned files
 must be removed before either successful result return or same-source retry.
 The final retained source-generation validation remains outside the accumulator;
-failure destroys the provisional result and cannot return a certificate.
+the execution closure returns the provisional native result owner alongside its
+bounded JSON report so the full reservation survives that validation. Failure
+destroys both and cannot return a certificate. After successful validation the
+native owner is released; JSON output allocation remains a separate sink scope.
 
 Public reporting matches the exact policy, namespace, quota, memory reservations,
 actual run counts and cleanup status. The certificate exception is specific to
 this operator family; it is not a generic write allowance. Numeric sort retains
 its existing diagnostic text. New exact-distinct errors name the actual operator
-and preserve native source/corruption/cancellation causes.
+and add namespace context without reclassifying native source/corruption/cancellation
+errors. Existing shared-store cause text may retain legacy sort wording inside
+that explicit exact-distinct context; numeric-sort diagnostics stay unchanged.
 
 Following this family, the next coherent reusable-store slice is exact weighted
 string and numeric+string COUNT runs. Those runs must persist complete native UTF8

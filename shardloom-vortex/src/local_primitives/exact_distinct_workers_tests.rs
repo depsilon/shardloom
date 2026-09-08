@@ -48,6 +48,69 @@ fn chunk(groups: &[i16], values: &[u64]) -> ArrayRef {
     .into_array()
 }
 
+#[test]
+fn exact_distinct_order_admission_matches_native_integer_ties_and_rejects_other_terms() {
+    use crate::VortexQueryPrimitiveRequest;
+    use shardloom_core::DatasetUri;
+    let columns = vec!["cohort_alias".into(), "member_alias".into()];
+    let chunk = chunk(&[-7, 2, -7, 2], &[u64::MAX, 1, u64::MAX - 1, 2]);
+    let session = VortexSession::default();
+    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    for (secondary, admitted) in [
+        (None, true),
+        (
+            Some(VortexAggregateOrderExpr::new("cohort_alias", false)),
+            true,
+        ),
+        (
+            Some(VortexAggregateOrderExpr::new("cohort_alias", true)),
+            false,
+        ),
+        (
+            Some(VortexAggregateOrderExpr::new("uniques_alias", false)),
+            false,
+        ),
+    ] {
+        let mut aggregate = request();
+        if let Some(secondary) = secondary {
+            aggregate.order_by.push(secondary);
+        }
+        let query = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new("/absent/admission-only.vortex").unwrap(),
+            aggregate.clone(),
+        )
+        .with_source_order_limit(2);
+        assert_eq!(super::request_may_be_admitted(&query), admitted);
+        assert_eq!(
+            super::request_schema_may_be_admitted(&query, chunk.dtype()),
+            admitted
+        );
+        let states = GroupedAggregateStates::new_with_resource_envelope(
+            &aggregate,
+            Some(2),
+            &columns,
+            false,
+            false,
+            policy.resource_envelope(),
+        )
+        .unwrap();
+        let memory = LiveMemoryPool::new(4 << 20).unwrap();
+        let workers = ExactDistinctWorkers::admit(
+            &states,
+            chunk.dtype(),
+            &columns,
+            policy,
+            &session,
+            &memory,
+        )
+        .unwrap();
+        assert_eq!(workers.is_some(), admitted);
+        drop(workers);
+        drop(states);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
 fn output(
     workers: &mut ExactDistinctWorkers,
     states: &GroupedAggregateStates<'_>,

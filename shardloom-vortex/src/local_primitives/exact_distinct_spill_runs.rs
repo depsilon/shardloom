@@ -6,9 +6,7 @@ use super::super::super::{
     query_run_store::{QueryRunBlock, QueryRunReader},
     vortex_error,
 };
-use super::{
-    LocalVortexRuntime, NativeQueryRun, Pair, Policy, QueryRunStore, failed, reserved_vec,
-};
+use super::{NativeQueryRun, Pair, Policy, QueryRunStore, failed, reserved_vec};
 use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
 use std::{collections::BinaryHeap, sync::Arc};
@@ -19,6 +17,7 @@ use vortex::{
         dtype::{DType, PType},
         validity::Validity,
     },
+    io::runtime::BlockingRuntime,
     session::VortexSession,
 };
 
@@ -174,7 +173,7 @@ struct RunReader {
 impl RunReader {
     fn next(
         &mut self,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         ctx: &mut ExecutionCtx,
     ) -> Result<Option<Record>> {
         if self.remaining == 0 {
@@ -235,25 +234,25 @@ impl Ord for Head {
     }
 }
 
-pub(super) struct RunMerge<'runtime> {
+pub(super) struct RunMerge<'runtime, R: BlockingRuntime> {
     readers: Vec<RunReader>,
     heads: BinaryHeap<Head>,
     // Keep the fixed merge/head reservation alive independently of whether any
     // run reader still owns a block or the merge has an empty input stream.
     _work: Arc<MemoryLease>,
     policy: Policy,
-    runtime: &'runtime LocalVortexRuntime,
+    runtime: &'runtime R,
     ctx: ExecutionCtx,
     failed: bool,
 }
-impl<'runtime> RunMerge<'runtime> {
+impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
     pub(super) fn new<'run>(
         inputs: impl Iterator<Item = &'run NativeQueryRun>,
         store: &QueryRunStore,
         work: Arc<MemoryLease>,
         policy: Policy,
         signature: u8,
-        runtime: &'runtime LocalVortexRuntime,
+        runtime: &'runtime R,
         session: &VortexSession,
     ) -> Result<Self> {
         policy.check()?;
@@ -301,7 +300,7 @@ impl<'runtime> RunMerge<'runtime> {
         Ok(())
     }
 }
-impl Iterator for RunMerge<'_> {
+impl<R: BlockingRuntime> Iterator for RunMerge<'_, R> {
     type Item = Result<Record>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.failed {

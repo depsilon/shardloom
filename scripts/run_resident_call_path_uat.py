@@ -55,6 +55,17 @@ def cases(rows: list[dict]) -> list[dict]:
          "predicate": "gte:cohort_key:24", "expected": sum(row["cohort_key"] >= 24 for row in rows)},
         {"name": "empty_filtered_count", "primitive": "count_where",
          "predicate": "gte:cohort_key:99", "expected": 0},
+        {"name": "scalar_integer_aggregate", "primitive": "aggregate", "public_surface": "sql",
+         "sql": "SELECT COUNT(*) AS rows_alias, COUNT(DISTINCT exact_identifier) AS unique_alias, SUM(cohort_key) AS total_alias FROM measurements",
+         "expected": [{"rows_alias": len(rows), "unique_alias": len({row["exact_identifier"] for row in rows}),
+                       "total_alias": float(sum(row["cohort_key"] for row in rows))}]},
+        {"name": "filtered_integer_aggregate", "primitive": "aggregate", "public_surface": "sql",
+         "sql": "SELECT COUNT(*) AS rows_alias, COUNT(DISTINCT exact_identifier) AS unique_alias, SUM(cohort_key) AS total_alias FROM measurements WHERE cohort_key >= 24",
+         "expected": [{"rows_alias": 8, "unique_alias": 8,
+                       "total_alias": float(sum(row["cohort_key"] for row in rows if row["cohort_key"] >= 24))}]},
+        {"name": "grouped_exact_distinct_aggregate", "primitive": "aggregate", "public_surface": "sql",
+         "sql": "SELECT cohort_key, COUNT(DISTINCT exact_identifier) AS unique_alias FROM measurements GROUP BY cohort_key ORDER BY unique_alias DESC, cohort_key ASC LIMIT 5 OFFSET 3",
+         "expected": [{"cohort_key": row["cohort_key"], "unique_alias": 1} for row in rows[3:8]]},
     ]
 
 
@@ -66,14 +77,21 @@ def request_options(source: Path, case: dict) -> dict:
         options["vortex_columns"] = case["columns"]
     if "predicate" in case:
         options["vortex_predicate"] = case["predicate"]
+    if "sql" in case:
+        options.pop("vortex_primitive")
+        options["sql_statement"] = case["sql"]
     return options
 
 
 def command_args(source: Path, case: dict) -> list[str]:
-    args = ["run", "dataframe", "--input", str(source), "--input-format", "vortex",
+    args = ["run", case.get("public_surface", "dataframe"), "--input", str(source), "--input-format", "vortex",
             "--request", "collect", "--execution-policy", "native_vortex", "--bounded", "true",
-            "--materialization-policy", "bounded", "--vortex-primitive", case["primitive"],
+            "--materialization-policy", "bounded",
             "--memory-gb", "1", "--max-parallelism", "2", "--format", "json"]
+    if "sql" in case:
+        args.extend(["--sql", case["sql"]])
+    else:
+        args.extend(["--vortex-primitive", case["primitive"]])
     if "columns" in case:
         args.extend(["--vortex-columns", ",".join(case["columns"])])
     if "predicate" in case:
@@ -202,6 +220,21 @@ def validate_candidate_count_where(fields: dict, expected: int) -> None:
         raise ValueError("prepared filtered count lacks actual count, generation, or native certificate evidence")
 
 
+def validate_candidate_aggregate(fields: dict, surface: str, sample: int) -> None:
+    reused = surface != "fresh_cli_process" and sample > 0
+    required = {
+        "local_primitive_native_io_certificate_emitted": "true",
+        "local_primitive_native_io_certified": "true",
+        "local_primitive_execution_certificate_emitted": "false",
+        "local_primitive_no_query_answer_cache": "true",
+        "resident_aggregate_handle_retained": "true",
+        "resident_aggregate_lowering_reused": str(reused).lower(),
+        "resident_source_generation_validation": "before_and_after_native_scan_including_metadata_pruned_result",
+    }
+    if any(str(fields.get(key)) != value for key, value in required.items()):
+        raise ValueError("prepared aggregate lacks fresh execution, native proof, or retained lowering evidence")
+
+
 def execute(args) -> Path:
     if os.name != "posix":
         raise ValueError("this local process-group/selector harness requires a POSIX host")
@@ -296,7 +329,7 @@ def execute(args) -> Path:
                                 record["seconds"] = seconds
                             else:
                                 started = time.perf_counter()
-                                envelope = transports[name].public_workflow_run("dataframe", **options).envelope.raw
+                                envelope = transports[name].public_workflow_run(case.get("public_surface", "dataframe"), **options).envelope.raw
                                 record["seconds"] = time.perf_counter() - started
                                 client = transports[name]
                                 if client._worker_disabled or client._worker_process is None or client._worker_process.poll() is not None:
@@ -311,6 +344,8 @@ def execute(args) -> Path:
                                 validate_candidate_reuse(fields, surface, sample)
                                 if case["primitive"] == "count_where":
                                     validate_candidate_count_where(fields, case["expected"])
+                                elif case["primitive"] == "aggregate":
+                                    validate_candidate_aggregate(fields, surface, sample)
                             record["passed"] = True
                             guard()
                 for name in binaries:

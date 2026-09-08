@@ -14,7 +14,7 @@
 //! Private-directory ownership is cooperative cleanup, not a filesystem CAS
 //! against hostile same-user replacement between an identity check and unlink.
 
-use super::{LocalVortexRuntime, Result, ShardLoomError, native_flat_layout, vortex_error};
+use super::{Result, ShardLoomError, native_flat_layout, vortex_error};
 use sha2::{Digest, Sha256};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 #[cfg(feature = "vortex-write")]
@@ -31,7 +31,7 @@ use std::{
 use vortex::{
     array::{ArrayRef, dtype::DType},
     file::{OpenOptionsSessionExt as _, WriteOptionsSessionExt as _},
-    io::runtime::BlockingRuntime as _,
+    io::runtime::BlockingRuntime,
     layout::scan::split_by::SplitBy,
     session::VortexSession,
 };
@@ -86,13 +86,40 @@ impl RunSourceGeneration {
 enum RunNamespace {
     NumericSort,
     ExactIntegerDistinct,
+    #[cfg(all(feature = "vortex-write", unix))]
+    WeightedUtf8Count,
 }
 
 impl RunNamespace {
+    fn context(self, error: ShardLoomError) -> ShardLoomError {
+        if matches!(self, Self::NumericSort) {
+            return error;
+        }
+        // Keep the existing error category/cause, including source failures.
+        // Context is never used to classify or retry an operation.
+        let operator = match self {
+            Self::NumericSort => unreachable!("numeric errors returned above"),
+            Self::ExactIntegerDistinct => "native exact integer COUNT DISTINCT spill run store",
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::WeightedUtf8Count => "native weighted complete-key COUNT spill run store",
+        };
+        let prefix = |message| format!("{operator}: {message}");
+        match error {
+            ShardLoomError::InvalidOperation(message) => {
+                ShardLoomError::InvalidOperation(prefix(message))
+            }
+            ShardLoomError::NotImplemented(message) => {
+                ShardLoomError::NotImplemented(prefix(message))
+            }
+            ShardLoomError::Message(message) => ShardLoomError::Message(prefix(message)),
+        }
+    }
     const fn prefix(self) -> &'static str {
         match self {
             Self::NumericSort => "shardloom-query-sort-",
             Self::ExactIntegerDistinct => "shardloom-query-integer-distinct-",
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::WeightedUtf8Count => "shardloom-query-weighted-count-",
         }
     }
 
@@ -100,6 +127,8 @@ impl RunNamespace {
         match self {
             Self::NumericSort => "shardloom.native_numeric_sort_workspace.v1",
             Self::ExactIntegerDistinct => "shardloom.native_integer_distinct_workspace.v1",
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::WeightedUtf8Count => "shardloom.native_weighted_count_workspace.v1",
         }
     }
 }
@@ -115,6 +144,20 @@ pub(super) struct QueryRunStorePolicy {
 }
 
 impl QueryRunStorePolicy {
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn weighted_utf8_count(
+        workspace: PathBuf,
+        quota_bytes: u64,
+        cancellation: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            workspace,
+            quota_bytes,
+            cancellation,
+            namespace: RunNamespace::WeightedUtf8Count,
+        }
+    }
+
     pub(super) fn numeric_sort(policy: &crate::VortexSortSpillPolicy) -> Self {
         Self {
             workspace: policy.workspace.clone(),
@@ -124,7 +167,7 @@ impl QueryRunStorePolicy {
         }
     }
 
-    #[allow(dead_code)] // Private adapter is authored separately; extraction tests exercise namespace isolation first.
+    #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     pub(super) fn exact_integer_distinct(
         workspace: PathBuf,
         quota_bytes: u64,
@@ -140,7 +183,9 @@ impl QueryRunStorePolicy {
 
     fn check_cancelled(&self) -> Result<()> {
         if self.cancellation.load(Ordering::Acquire) {
-            Err(spill_error("native sort execution cancelled"))
+            Err(self
+                .namespace
+                .context(spill_error("native sort execution cancelled")))
         } else {
             Ok(())
         }
@@ -207,6 +252,15 @@ fn path_reservation(path: &PathBuf, copies: u64) -> Result<u64> {
 
 impl QueryRunStore {
     pub(super) fn new(
+        policy: QueryRunStorePolicy,
+        memory: LiveMemoryPool,
+        scratch: MemoryLease,
+    ) -> Result<Self> {
+        let namespace = policy.namespace;
+        Self::new_inner(policy, memory, scratch).map_err(|error| namespace.context(error))
+    }
+
+    fn new_inner(
         policy: QueryRunStorePolicy,
         memory: LiveMemoryPool,
         scratch: MemoryLease,
@@ -298,7 +352,7 @@ impl QueryRunStore {
         &mut self,
         spec: &QueryRunSpec,
         blocks: impl Iterator<Item = Result<ArrayRef>>,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
         work: &Arc<MemoryLease>,
     ) -> Result<NativeQueryRun> {
@@ -312,7 +366,7 @@ impl QueryRunStore {
         if result.is_err() {
             self.failed = true;
         }
-        result
+        result.map_err(|error| self.policy.namespace.context(error))
     }
 
     #[allow(clippy::too_many_lines)] // Keep file creation, accounting and publication in one error scope.
@@ -320,7 +374,7 @@ impl QueryRunStore {
         &mut self,
         spec: &QueryRunSpec,
         blocks: impl Iterator<Item = Result<ArrayRef>>,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
         work: &Arc<MemoryLease>,
     ) -> Result<NativeQueryRun> {
@@ -407,7 +461,7 @@ impl QueryRunStore {
         spec: &QueryRunSpec,
         max_chunks: usize,
         mut blocks: impl Iterator<Item = Result<ArrayRef>>,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
         writer: &mut QuotaWriter,
     ) -> Result<()> {
@@ -461,7 +515,19 @@ impl QueryRunStore {
         &self,
         run: &NativeQueryRun,
         dtype: &DType,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
+        session: &VortexSession,
+        work: Arc<MemoryLease>,
+    ) -> Result<QueryRunReader> {
+        self.open_inner(run, dtype, runtime, session, work)
+            .map_err(|error| self.policy.namespace.context(error))
+    }
+
+    fn open_inner(
+        &self,
+        run: &NativeQueryRun,
+        dtype: &DType,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
         work: Arc<MemoryLease>,
     ) -> Result<QueryRunReader> {
@@ -481,6 +547,7 @@ impl QueryRunStore {
             work,
             Arc::clone(&self.policy.cancellation),
             path_credit,
+            self.policy.namespace,
         )
     }
 
@@ -494,6 +561,10 @@ impl QueryRunStore {
     }
 
     pub(super) fn remove(&mut self, run: &NativeQueryRun) -> Result<()> {
+        self.remove_inner(run)
+            .map_err(|error| self.policy.namespace.context(error))
+    }
+    fn remove_inner(&mut self, run: &NativeQueryRun) -> Result<()> {
         self.check_active()?;
         self.check_owned(run)?;
         validate_run_bytes(run)?;
@@ -544,6 +615,10 @@ impl QueryRunStore {
     }
 
     pub(super) fn cleanup(&mut self) -> Result<()> {
+        self.cleanup_inner()
+            .map_err(|error| self.policy.namespace.context(error))
+    }
+    fn cleanup_inner(&mut self) -> Result<()> {
         let marker = self.directory.join(OWNERSHIP_MARKER);
         if let Some(identity) = self.marker_identity
             && file_identity(&marker)? != identity
@@ -649,16 +724,19 @@ pub(super) struct QueryRunReader {
     work: Arc<MemoryLease>,
     cancellation: Arc<AtomicBool>,
     path_credit: Arc<MemoryLease>,
+    namespace: RunNamespace,
 }
 impl QueryRunReader {
+    #[allow(clippy::too_many_arguments)] // All native reader owners are admitted by one store.
     fn open(
         run: &NativeQueryRun,
         dtype: &DType,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
         work: Arc<MemoryLease>,
         cancellation: Arc<AtomicBool>,
         path_credit: Arc<MemoryLease>,
+        namespace: RunNamespace,
     ) -> Result<Self> {
         use vortex::array::memory::MemorySessionExt as _;
         let source = validate_run_bytes(run)?;
@@ -683,13 +761,18 @@ impl QueryRunReader {
             work,
             cancellation,
             path_credit,
+            namespace,
         })
     }
 
     pub(super) fn validate(&self) -> Result<()> {
-        self.source.validate()?;
+        self.source
+            .validate()
+            .map_err(|error| self.namespace.context(error))?;
         if self.cancellation.load(Ordering::Acquire) {
-            return Err(spill_error("native sort execution cancelled"));
+            return Err(self
+                .namespace
+                .context(spill_error("native sort execution cancelled")));
         }
         Ok(())
     }
@@ -701,7 +784,15 @@ impl QueryRunReader {
 
     pub(super) fn next_block(
         &mut self,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
+    ) -> Result<Option<QueryRunBlock>> {
+        self.next_block_inner(runtime)
+            .map_err(|error| self.namespace.context(error))
+    }
+
+    fn next_block_inner(
+        &mut self,
+        runtime: &impl BlockingRuntime,
     ) -> Result<Option<QueryRunBlock>> {
         self.validate()?;
         let start = self.next_block_offset;
@@ -800,6 +891,12 @@ pub(super) fn bounded_marker_bytes(reader: impl Read) -> Result<Vec<u8>> {
 #[cfg(feature = "vortex-write")]
 #[allow(clippy::too_many_lines)] // Validate all owned entries before starting destructive recovery.
 pub(super) fn recover(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
+    recover_inner(policy, directory).map_err(|error| policy.namespace.context(error))
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_lines)] // Validate all owned entries before destructive recovery.
+fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
     let root = fs::canonicalize(&policy.workspace).map_err(io_error)?;
     let metadata = fs::symlink_metadata(directory).map_err(io_error)?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {

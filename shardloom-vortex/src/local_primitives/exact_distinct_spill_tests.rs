@@ -1,6 +1,6 @@
 use super::super::super::{
-    VortexLocalPrimitiveExecutionPolicy, aggregate_chunk_jobs::ChunkWorkerContext,
-    local_vortex_runtime,
+    LocalVortexRuntime, VortexLocalPrimitiveExecutionPolicy,
+    aggregate_chunk_jobs::ChunkWorkerContext, local_vortex_runtime,
 };
 use super::*;
 use shardloom_exec::compute_pool::CancellationToken;
@@ -17,7 +17,7 @@ use vortex::{
         arrays::{DictArray, PrimitiveArray},
         validity::Validity,
     },
-    io::{runtime::BlockingRuntime as _, session::RuntimeSessionExt as _},
+    io::session::RuntimeSessionExt as _,
 };
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -258,7 +258,7 @@ fn exact_distinct_spill_quota_cancel_and_invalid_weight_cleanup_are_terminal() {
                 1 => {
                     let mut merge = RunMerge::new(
                         spill.runs.iter().map(|run| &run.native),
-                        &spill.store,
+                        spill.store.as_ref().unwrap(),
                         Arc::clone(&spill.work),
                         spill.policy.clone(),
                         0,
@@ -341,8 +341,11 @@ fn exact_distinct_spill_checksum_and_valid_checksum_semantic_corruption_rejected
                     weight: 1,
                 }],
             };
+            spill.ensure_store().unwrap();
             let native = spill
                 .store
+                .as_mut()
+                .unwrap()
                 .write_arrays(
                     &spec(u64::try_from(rows.len()).unwrap()).unwrap(),
                     [Ok(runs::array(&rows))].into_iter(),
@@ -408,7 +411,7 @@ fn exact_distinct_spill_compaction_charges_live_inputs_and_failed_output_togethe
             result.unwrap();
         }
     }
-    assert!(spill.store.snapshot().peak_disk_bytes <= quota);
+    assert!(spill.store.as_ref().unwrap().snapshot().peak_disk_bytes <= quota);
     assert!(spill.finish(&runtime, &session).is_err());
     workspace.assert_empty();
     assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -438,6 +441,8 @@ fn exact_distinct_spill_empty_result_block_ownership_and_geometry_reservations()
     spill.flush(&runtime, &session).unwrap();
     let mut reader = spill
         .store
+        .as_ref()
+        .unwrap()
         .open(
             &spill.runs[0].native,
             &run_dtype(),

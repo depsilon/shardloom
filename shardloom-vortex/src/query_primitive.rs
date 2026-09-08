@@ -939,6 +939,129 @@ pub struct VortexSimpleAggregateRequest {
     pub order_by: Vec<VortexAggregateOrderExpr>,
     pub having: Vec<VortexAggregateHavingExpr>,
     pub offset: usize,
+    pub spill: Option<VortexAggregateSpillPolicy>,
+}
+
+/// Explicit temporary-workspace policy for an admitted native aggregate family.
+/// Construction has no filesystem effects. Each runtime family must separately
+/// validate its exact schema, expression, ordering and memory contract.
+#[derive(Debug, Clone)]
+pub struct VortexAggregateSpillPolicy {
+    pub workspace: std::path::PathBuf,
+    pub quota_bytes: u64,
+    pub memory_bytes: u64,
+    pub(crate) cancellation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl PartialEq for VortexAggregateSpillPolicy {
+    fn eq(&self, other: &Self) -> bool {
+        self.workspace == other.workspace
+            && self.quota_bytes == other.quota_bytes
+            && self.memory_bytes == other.memory_bytes
+            && std::sync::Arc::ptr_eq(&self.cancellation, &other.cancellation)
+    }
+}
+impl Eq for VortexAggregateSpillPolicy {}
+
+impl VortexAggregateSpillPolicy {
+    /// # Errors
+    /// Rejects nonabsolute paths, less than 32 KiB quota or 2 MiB operator memory.
+    /// Execution still requires an existing real caller-owned workspace.
+    pub fn new(
+        workspace: impl Into<std::path::PathBuf>,
+        quota_bytes: u64,
+        memory_bytes: u64,
+    ) -> Result<Self> {
+        let workspace = workspace.into();
+        if !workspace.is_absolute() || quota_bytes < 32 * 1024 || memory_bytes < 2 * 1024 * 1024 {
+            return Err(ShardLoomError::InvalidOperation("native aggregate spill requires an absolute workspace, at least 32 KiB byte quota, and at least 2 MiB operator memory; no fallback execution was attempted".to_string()));
+        }
+        Ok(Self {
+            workspace,
+            quota_bytes,
+            memory_bytes,
+            cancellation: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        })
+    }
+
+    /// Cancel this operation and its clones at the next native checkpoint.
+    pub fn cancel(&self) {
+        self.cancellation
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
+
+    /// Remove an abandoned exact-integer DISTINCT run directory. This is owned
+    /// cleanup, not query resume or admission for another aggregate family.
+    /// # Errors
+    /// Rejects unknown, replaced or foreign namespace files and preserves them.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write"))]
+    pub fn cleanup_abandoned(&self, directory: &std::path::Path) -> Result<()> {
+        crate::local_primitives::recover_aggregate_spill(self, directory)
+    }
+
+    /// Remove an abandoned weighted UTF8 COUNT run directory. This is owned
+    /// cleanup for that namespace only, not query resume or broader admission.
+    /// # Errors
+    /// Rejects unknown, replaced or foreign namespace files and preserves them.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub fn cleanup_abandoned_weighted_count(&self, directory: &std::path::Path) -> Result<()> {
+        crate::local_primitives::recover_weighted_count_spill(self, directory)
+    }
+}
+
+/// Verified temporary-run evidence for the admitted aggregate family.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexAggregateSpillReport {
+    pub family: String,
+    pub workspace: std::path::PathBuf,
+    pub quota_bytes: u64,
+    pub memory_bytes: u64,
+    pub peak_reserved_bytes: u64,
+    pub peak_disk_bytes: u64,
+    pub runs_written: u64,
+    pub runs_validated: u64,
+    pub merge_passes: u64,
+    pub source_rows: u64,
+    pub complete_pairs: u64,
+    pub groups: usize,
+    pub buffer_capacity_pairs: usize,
+    pub run_block_rows: usize,
+    pub merge_fan_in: usize,
+    pub owned_cleanup_completed: bool,
+}
+
+/// Verified temporary native-run evidence for complete-key weighted COUNT.
+/// Record and UTF8 byte counts are distinct from integer DISTINCT pair counts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexWeightedCountSpillReport {
+    pub family: String,
+    pub key_order: String,
+    pub workspace: std::path::PathBuf,
+    pub quota_bytes: u64,
+    pub memory_bytes: u64,
+    pub peak_reserved_bytes: u64,
+    pub peak_disk_bytes: u64,
+    pub runs_written: u64,
+    pub runs_validated: u64,
+    pub merge_passes: u64,
+    pub source_rows: u64,
+    pub source_records: u64,
+    pub initial_run_records: u64,
+    pub native_records_written: u64,
+    pub native_bytes_written: u64,
+    pub groups: u64,
+    pub buffer_capacity_records: usize,
+    pub buffer_capacity_text_bytes: usize,
+    pub min_run_block_rows: usize,
+    pub max_run_block_rows: usize,
+    pub max_run_key_bytes: usize,
+    pub max_admitted_key_bytes: usize,
+    pub merge_fan_in: usize,
+    pub source_text_bytes_copied: u64,
+    pub encoded_text_bytes_copied: u64,
+    pub merge_head_text_bytes_copied: u64,
+    pub selection_text_bytes_copied: u64,
+    pub owned_cleanup_completed: bool,
 }
 impl VortexSimpleAggregateRequest {
     #[must_use]
@@ -950,6 +1073,7 @@ impl VortexSimpleAggregateRequest {
             order_by: Vec::new(),
             having: Vec::new(),
             offset: 0,
+            spill: None,
         }
     }
 
@@ -962,12 +1086,19 @@ impl VortexSimpleAggregateRequest {
             order_by: Vec::new(),
             having: Vec::new(),
             offset: 0,
+            spill: None,
         }
     }
 
     #[must_use]
     pub fn with_order_by(mut self, order_by: Vec<VortexAggregateOrderExpr>) -> Self {
         self.order_by = order_by;
+        self
+    }
+
+    #[must_use]
+    pub fn with_spill(mut self, spill: VortexAggregateSpillPolicy) -> Self {
+        self.spill = Some(spill);
         self
     }
 

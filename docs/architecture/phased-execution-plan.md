@@ -306,13 +306,23 @@ checks. Numeric compression stays retained. Exact distinct, compact state,
 ordinary column-layout promotion, ingest scaling, broader spill and the rest of
 the continuation ledger remain open; no whole PERF or competitive gate is closed.
 
-The next implementation checkpoint adds exact integer-distinct workers, prepared
-filtered-count scans, a shared native query-run store and explicit ingest CPU
-ceilings. Its private column-layout, compact-state, scheduling, numeric-consumer
-and text-codec experiments have correctness coverage; default workspace tests
-(3,406) and the combined native CLI/Vortex tests (3,137) pass. Fresh timings,
-public aggregate spill, binding/export prototype validation and the remaining
-ledger work are still required. These tests establish no additional speedup.
+The `48182c5a` checkpoint adds exact integer-distinct workers, prepared filtered
+count, native run-store and explicit ingest CPU ceilings. Its complete full43
+best sum is 91.662289 seconds versus `75fc09a0` at 98.831499 seconds, with 21
+query bests improving and 22 regressing. Q9 improves while its peak RSS rises
+from about 1.04 to 4.27 GB. Both independent held-out matrices pass all 1,520
+checks, but two new tie-order cases used the older typed route. The continuation
+ledger owns those scope limits and subsequent unvalidated changes. PRs #1435
+and #1436 merged on September 8 after all 40 checks passed for each exact head;
+that does not validate the newer working batch or close its acceptance work.
+
+The maintainer's September 8
+[execution-aware native artifact topology item](execution-aware-native-artifact-topology-2026-09-08.md)
+refines the remaining PERF queue. After the current batch's correctness boundary,
+prioritize safe internal-region discovery and actual bounded Capillary execution
+inside one held native artifact. Isolate its topology experiment before new local
+reductions, local Top-K or execution-aware preparation. These are acceptance
+stages under existing PERF items, not new canonical phases or a second scheduler.
 
 - [ ] `PERF-01` reconcile and instrument the public baseline.
   - V1 scope classification: `required_for_v1`.
@@ -362,6 +372,13 @@ ledger work are still required. These tests establish no additional speedup.
   - Execution checklist:
     - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work
       and prove I/O progress within the CPU ceiling.
+    - [ ] Inventory executable source-split/layout and Capillary/ComputePool seams;
+      distinguish actual kernel scheduling from descriptor-only accounting.
+    - [ ] Discover safe generation-bound native regions, coalesce actual natural
+      boundaries independently of worker count, and execute them through bounded
+      dynamic Capillary admission with ordered streaming handoff and complete drain.
+    - [ ] Prove source coverage, skew progress, original native batch boundaries,
+      cancellation and memory/CPU ownership at coarse and fine topology levels.
     - [ ] Verify queue bytes, state growth denial, cancellation and worker reuse
       under mixed load, with explicit exclusions for unobserved provider owners.
   - ShardLoom technique review: capillary units and PulseWeave must control observed
@@ -379,6 +396,9 @@ ledger work are still required. These tests establish no additional speedup.
     pressure behavior remain open; the completed packet owns detailed measurements.
   - Execution checklist:
     - [ ] Migrate Q10/Q14/Q17/Q19/Q33/Q34/Q35-style production families to shared workers.
+    - [ ] After topology-only retention, push admitted mergeable native states
+      into regions and measure compact-state reduction against unchanged consumers;
+      preserve floating evaluation boundaries, complete keys and exact NULL semantics.
     - [ ] Extend independently reduced logical partitions beyond the completed
       non-null UTF8 COUNT(*) scope without local-top-K loss.
     - [ ] Verify integer overflow, ties, skew, and floating semantics at 1/2/4/8/12 workers.
@@ -472,6 +492,9 @@ ledger work are still required. These tests establish no additional speedup.
     that layout as a general benchmark win or infer bounded RSS from completion.
   - Execution checklist:
     - [ ] Measure per-column bytes and encode/decode CPU for admitted Vortex profiles.
+    - [ ] After independent-region runtime evidence, cost native preparation
+      jointly for storage, ingest, schedulable topology, pruning, encoded work
+      and bounded merge; preserve the current writer until its lifecycle gate passes.
     - [ ] Share array ownership and compression resources with the engine governor.
     - [ ] Bound ordered completed blocks and expose backpressure/head-of-line waits.
     - [ ] Validate single-file integrity/atomicity and ship/drop on lifecycle benefit.
@@ -483,6 +506,11 @@ ledger work are still required. These tests establish no additional speedup.
   - Source: supplied plan; incorporates typed kernel registry below; depends on PERF-04/PERF-07.
   - Execution checklist:
     - [ ] Carry physical encoding, ordering, selection, ownership, and memory contracts.
+    - [ ] Prune admitted regions from trustworthy native metadata before payload
+      work, preserving conservative decisions and explicit metadata-I/O scope.
+    - [ ] After topology and local-reduction evidence, implement exact region-local
+      ordered candidates with offset/limit, multi-key/NULL ordering, ties and absolute
+      source-row identity; merge bounded candidates before projected payload access.
     - [ ] Fuse admitted filter/project/aggregate kernels at plan or batch boundaries.
     - [ ] Cost native canonicalization, aggregation, distinct, join, sort, and windows.
     - [ ] Verify renamed schemas, non-ClickBench compositions, and byte-work reductions.
@@ -524,6 +552,12 @@ ledger work are still required. These tests establish no additional speedup.
     relational/resource matrix or changing historical C7 results.
   - Execution checklist:
     - [ ] Pin eligible ClickBench scoring/cohort and separate cached product sessions.
+    - [ ] Compare current/coarse and safe small/medium/large native topologies on
+      the immutable 100M-row artifact with identical workers, memory, build and runner;
+      retain all 129 complete results/timings, best sum, hot total and observed memory.
+    - [ ] Classify topology response by scan/reduction, filter, grouped, ordered
+      bounded and high-cardinality/global-state shapes; report realized regions,
+      actual pruning/encoded/materialized work and remaining global coordination.
     - [ ] Add held-out ingest, aggregate, relational, ownership, and serving cases.
     - [ ] Exercise supported ordinary and benchmark resource envelopes, recording
       actual host resources and observed RSS rather than requiring a fixed 4 GiB target.
@@ -2133,25 +2167,39 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-1. Do not start implementation from the rejected 2026-09-02 writer-tuning diff. If implementation is
-   resumed, first retain/drop or remove that experimental patch using the `360s` UAT evidence.
-2. Start with the `CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1` H/VH packets in this order:
-   decoupled ordered pre-writer pipeline, dictionary-lifted derived-column construction, single
-   resource governor, then retained layout/codec portfolio admission. The `271s` replacement-ingest
-   run is the protected local reference until a fresh UAT improves or explicitly supersedes it.
-3. Do not retry the rejected hot-loop string identity/reclaimable arena packet. Revisit that packet
-   only through a lower-overhead dictionary-id lifetime design that moves reclamation out of the
-   eviction path; otherwise proceed to the next measured Q34/Q35/Q17 heavy-hitter packet with the
-   memory caveat visible in evidence.
-4. Then proceed through metadata summaries, scheduler state-family routing, specialized kernels, and
-   columnar result packets in the order that maximizes shared reuse: Q34/Q35 shared string
-   heavy-hitter, Q29 transformed dictionary-domain aggregate, Q23 encoded predicate/selected-row
-   path, Q17 packed numeric-plus-UTF8 top-K, Q33 packed-pair duplicate promotion, Q10 exact distinct,
-   and Q19 tri-key grouped aggregate unless fresh targeted evidence changes the dependency order.
-5. After each retained implementation batch, run targeted UAT for the touched rows first and reserve
-   replacement-ingest plus full 43-query UAT for the cohesive batch boundary.
-6. Keep all runtime work attached to shared ShardLoom/Vortex-native execution surfaces, with
-   external engines restricted to baseline/oracle evidence only.
+1. Complete the current prepared-aggregate, native spill, compatibility export and
+   ownership batch's correctness gates. Resolve the preserved ingest artifact's
+   physical-byte difference with complete logical-value comparison before using
+   its timing as accepted evidence. Keep existing frozen controls immutable.
+2. Execute topology stage 1 under PERF-03/07/10/12: reuse native split discovery
+   and Capillary dynamic admission, preserve original natural batch boundaries,
+   and deliver independent region streams to unchanged native consumers. Prove
+   actual work, bounded handoff and deterministic drain before timing it.
+3. Measure current/coarse, small, medium and large safe topologies on the same
+   immutable artifact with fixed worker/memory/build settings. Run full43 and
+   independent held-out correctness, classify operator response, and retain/revise/
+   drop topology before adding region-local operator logic.
+4. Follow retained topology with separate measured local-aggregation and exact
+   local-Top-K stages. Existing native partials and complete-key reducers remain
+   the implementation seams; floating reassociation and local grouped truncation
+   require explicit semantic proof, not merely stable worker ordering.
+5. Only after runtime retention, use measured topology/pruning/encoded costs to
+   adjust preparation/layout advice. Continue the remaining ingest curve,
+   compatibility lifecycle, prepared/binding and worker-to-spill acceptance at
+   their shared dependency boundaries. Preserve numeric compression.
+6. Evaluate narrow compact-state/codec candidates and then conditional PERF-13
+   PGO against representative training and independent untrained evaluation.
+   Existing universal compact/owner/zoning regressions remain rejected; historical
+   271s/360s writer records are not fresh controls and their rejected patches must
+   not be restarted as default work.
+7. At each cohesive implementation boundary, freeze source/binaries, complete the
+   required gates and review, update evidence/remaining work, and prepare the next
+   PR. Large builds and UAT remain serial under storage/process guards. No package
+   publication or release is authorized by this execution order.
+8. Keep all work on shared ShardLoom/Vortex-native surfaces, with one logical
+   artifact, no answer cache, no alternate scheduler/engine, and external engines
+   restricted to baseline/oracle evidence. All CG-1 through CG-23 remain visible
+   in the competitive track; scoped PERF results do not imply gate completion.
 
 Validator ownership note: `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains named here as the active
 global-review runtime-gap owner required by `scripts/check_runtime_gap_family_burn_down.py`. It is a

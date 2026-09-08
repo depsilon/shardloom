@@ -69,6 +69,69 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn prepared_file_metadata_admission_checks_the_held_provider_without_execution() {
+    let fixture = Fixture::new();
+    let expected = std::fs::metadata(fixture.input()).unwrap();
+    let other = fixture.0.join("other.vortex");
+    std::fs::copy(fixture.input(), &other).unwrap();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let source = session.prepare_file(&other).unwrap();
+    assert!(source.validate_file_metadata(&expected).is_err());
+    let actual = std::fs::metadata(&other).unwrap();
+    for _ in 0..3 {
+        source.validate_file_metadata(&actual).unwrap();
+        source
+            .prepare_count()
+            .validate_file_metadata(&actual)
+            .unwrap();
+        assert_eq!(session.snapshot().prepared_source_opens, 1);
+        assert_eq!(session.snapshot().completed_executions, 0);
+    }
+    assert!(
+        source
+            .validate_file_metadata(&std::fs::metadata(&fixture.0).unwrap())
+            .is_err()
+    );
+    let memory_source = session.prepare_immutable_file(source.file().clone());
+    assert!(
+        memory_source
+            .validate_file_metadata(&actual)
+            .unwrap_err()
+            .to_string()
+            .contains("in-memory source")
+    );
+    std::fs::rename(fixture.input(), &other).unwrap();
+    assert!(source.validate_file_metadata(&actual).is_err());
+    assert_eq!(session.snapshot().completed_executions, 0);
+}
+
+#[test]
+fn prepared_file_metadata_admission_rejects_actual_provider_after_symlink_aba() {
+    let fixture = Fixture::new();
+    let expected = std::fs::metadata(fixture.input()).unwrap();
+    let second = fixture.0.join("second.vortex");
+    std::fs::copy(fixture.input(), &second).unwrap();
+    let link = fixture.0.join("selected.vortex");
+    std::os::unix::fs::symlink(&second, &link).unwrap();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let source = session.prepare_file(&link).unwrap();
+    std::fs::remove_file(&link).unwrap();
+    std::os::unix::fs::symlink(fixture.input(), &link).unwrap();
+    assert_eq!(
+        FileGeneration::read(&std::fs::metadata(&link).unwrap()).unwrap(),
+        FileGeneration::read(&expected).unwrap()
+    );
+    let failure = source.validate_file_metadata(&expected).unwrap_err();
+    assert!(
+        failure
+            .to_string()
+            .contains("does not match the admitted file generation")
+    );
+    assert_eq!(session.snapshot().prepared_source_opens, 1);
+    assert_eq!(session.snapshot().completed_executions, 0);
+}
+
+#[test]
 fn prepared_calls_reuse_reader_and_workers_without_caching_answers() {
     let fixture = Fixture::new();
     let session = ResidentVortexSession::new(8 * 1024 * 1024, 2).unwrap();

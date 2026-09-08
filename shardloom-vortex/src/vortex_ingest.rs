@@ -12333,6 +12333,11 @@ fn columnar_column_families(
     source: &FlatLocalColumnarSource,
     source_shape: &FlatColumnarSourceShape,
 ) -> Result<Vec<(String, String)>> {
+    // No payload exists from which to infer a family. The buffered reader
+    // retains canonical Arrow schema hints even when logical hints are absent.
+    if source.batches.is_empty() {
+        return columnar_column_families_from_schema(source_shape);
+    }
     source_shape
         .projected_columns
         .iter()
@@ -17716,6 +17721,52 @@ mod tests {
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_empty_buffered_columnar_preserves_canonical_scalar_schema_hints() {
+        use arrow_schema::DataType;
+        use vortex::array::dtype::{DType, Nullability, PType};
+
+        let cases = [
+            (DataType::Boolean, DType::Bool(Nullability::NonNullable)),
+            (
+                DataType::Int64,
+                DType::Primitive(PType::I64, Nullability::NonNullable),
+            ),
+            (
+                DataType::UInt64,
+                DType::Primitive(PType::U64, Nullability::NonNullable),
+            ),
+            (
+                DataType::Float64,
+                DType::Primitive(PType::F64, Nullability::NonNullable),
+            ),
+            (DataType::Utf8, DType::Utf8(Nullability::NonNullable)),
+            (DataType::Binary, DType::Binary(Nullability::NonNullable)),
+        ];
+        let columns = (0..cases.len())
+            .map(|index| format!("field_{index}"))
+            .collect::<Vec<_>>();
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: cases.iter().map(|(dtype, _)| Some(dtype.clone())).collect(),
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: Vec::new(),
+            row_count: 0,
+        };
+        let shape = validate_flat_columnar_source_shape(&source).unwrap();
+        let built = flat_columnar_source_to_vortex_struct(&source, &shape).unwrap();
+        let DType::Struct(fields, Nullability::NonNullable) = built.array.dtype() else {
+            panic!("empty columnar source must retain its native struct");
+        };
+        assert_eq!(built.array.len(), 0);
+        for (actual, (_, expected)) in fields.fields().zip(cases) {
+            assert_eq!(actual, expected);
+        }
     }
 
     #[cfg(feature = "universal-format-io")]

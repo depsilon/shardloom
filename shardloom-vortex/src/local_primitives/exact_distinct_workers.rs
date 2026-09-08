@@ -70,25 +70,54 @@ pub(in super::super) struct ExactDistinctWorkers {
 }
 
 pub(in super::super) struct ExactDistinctResult {
-    groups: Arc<FinalGroupCounts>,
+    groups: FinalDistinctStorage,
+}
+enum FinalDistinctStorage {
+    Memory(Arc<FinalGroupCounts>),
+    #[cfg(feature = "vortex-write")]
+    Spill(Arc<super::spill_accumulator::OwnedSpillResult>),
 }
 impl ExactDistinctResult {
+    #[cfg(feature = "vortex-write")]
+    pub(in super::super) fn from_spill(
+        result: Arc<super::spill_accumulator::OwnedSpillResult>,
+    ) -> Self {
+        Self {
+            groups: FinalDistinctStorage::Spill(result),
+        }
+    }
     /// All contributions met before global selection. Visit the best bounded
     /// prefix in native comparator order; rendering applies offset and limit.
     pub(in super::super) fn visit(
         &self,
         visit: impl FnMut(AggregateIntegerKeyPart, u64) -> Result<()>,
     ) -> Result<()> {
-        self.groups.visit(visit)
+        match &self.groups {
+            FinalDistinctStorage::Memory(groups) => groups.visit(visit),
+            #[cfg(feature = "vortex-write")]
+            FinalDistinctStorage::Spill(result) => result.result.visit(0, visit),
+        }
     }
     pub(in super::super) fn group_count(&self) -> usize {
-        self.groups.group_count
+        match &self.groups {
+            FinalDistinctStorage::Memory(groups) => groups.group_count,
+            #[cfg(feature = "vortex-write")]
+            FinalDistinctStorage::Spill(result) => result.result.evidence.groups,
+        }
     }
     pub(in super::super) fn retained_count(&self) -> usize {
-        self.groups.retained_count()
+        match &self.groups {
+            FinalDistinctStorage::Memory(groups) => groups.retained_count(),
+            #[cfg(feature = "vortex-write")]
+            FinalDistinctStorage::Spill(result) => result.result.retained_count(),
+        }
     }
     pub(in super::super) fn reserved_bytes(&self) -> u64 {
-        self.groups.reserved_bytes()
+        match &self.groups {
+            FinalDistinctStorage::Memory(groups) => groups.reserved_bytes(),
+            #[cfg(feature = "vortex-write")]
+            FinalDistinctStorage::Spill(result) => result.reserved_bytes(),
+        }
     }
 
     pub(in super::super) fn result_summary(
@@ -154,6 +183,26 @@ impl ExactDistinctResult {
             "order_by": states.request.order_by.iter().map(crate::VortexAggregateOrderExpr::summary).collect::<Vec<_>>().join(","),
             "values": rows,
         });
+        #[cfg(feature = "vortex-write")]
+        let payload = {
+            let mut payload = payload;
+            if let FinalDistinctStorage::Spill(result) = &self.groups {
+                payload["aggregate_update_strategy"] = "complete_integer_pair_native_runs".into();
+                payload["distinct_state_strategy"] =
+                    "complete_native_pair_runs_dedup_then_complete_group_count".into();
+                payload["group_state_mode"] = "native_runs_removed_after_complete_EOF_merge".into();
+                payload["exact_distinct_final_reservation_scope"] = "full_declared_operator_envelope_retained_through_native_result;selected_storage_is_subset;source_provider_and_JSON_output_excluded".into();
+                payload["exact_distinct_selected_reserved_bytes"] =
+                    result.selected_reserved_bytes().into();
+                payload["spill_state"] = if result.result.evidence.runs_written == 0 {
+                    "admitted_no_spill_needed"
+                } else {
+                    "native_runs_cleaned"
+                }
+                .into();
+            }
+            payload
+        };
         Ok((row_count, payload.to_string()))
     }
 }
@@ -429,7 +478,7 @@ impl ExactDistinctWorkers {
                 }
                 Completed::Groups(groups) => {
                     self.result = groups.as_ref().map(|groups| ExactDistinctResult {
-                        groups: Arc::clone(groups),
+                        groups: FinalDistinctStorage::Memory(Arc::clone(groups)),
                     });
                 }
             }
@@ -712,7 +761,7 @@ fn roles(states: &GroupedAggregateStates<'_>, dtype: &DType, columns: &[String])
         || measure.function != SimpleAggregateFunction::CountDistinct
         || !matches!(measure.value_transform, AggregateValueTransform::Identity)
         || measure.argument_offset.is_some()
-        || !matches!(states.request.order_by.as_slice(), [order] if order.descending && order.column == measure.alias)
+        || !order_admitted(&states.request.order_by, &measure.alias, &group.name)
     {
         return None;
     }
@@ -725,6 +774,21 @@ fn roles(states: &GroupedAggregateStates<'_>, dtype: &DType, columns: &[String])
         group: group.column_index,
         value,
     })
+}
+
+/// The native final comparator is count descending, then the complete integer
+/// group key ascending. An explicit identical tie term changes no ordering.
+fn order_admitted(order: &[crate::VortexAggregateOrderExpr], count: &str, group: &str) -> bool {
+    match order {
+        [primary] => primary.descending && primary.column == count,
+        [primary, secondary] => {
+            primary.descending
+                && primary.column == count
+                && !secondary.descending
+                && secondary.column == group
+        }
+        _ => false,
+    }
 }
 
 pub(in super::super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
@@ -754,7 +818,11 @@ pub(in super::super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRe
         && measure.column_index.is_some()
         && matches!(measure.value_transform, AggregateValueTransform::Identity)
         && measure.argument_offset.is_none()
-        && matches!(aggregate.order_by.as_slice(), [order] if order.descending && order.column == measure.alias)
+        && order_admitted(
+            &aggregate.order_by,
+            &measure.alias,
+            aggregate.group_by[0].as_str(),
+        )
 }
 
 pub(in super::super) fn request_schema_may_be_admitted(

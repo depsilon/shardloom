@@ -93,6 +93,23 @@ pub fn prepare_count_where_in_session(
 }
 
 impl PreparedVortexCountWhere {
+    /// Validate file admission against the generation held by the native scan.
+    /// This does not evaluate the predicate or open another provider.
+    ///
+    /// # Errors
+    /// Returns the source's metadata mismatch or generation validation error.
+    pub fn validate_file_metadata(&self, expected: &std::fs::Metadata) -> Result<()> {
+        self.source.validate_file_metadata(expected)
+    }
+
+    /// Logical rows in the retained source generation; no scan is performed.
+    /// This supports admission before execution and does not validate a later
+    /// pathname mutation. Every execution still performs generation validation.
+    #[must_use]
+    pub fn source_row_count(&self) -> u64 {
+        self.source.file().row_count()
+    }
+
     /// Execute the entire count and construct its native I/O certificate.
     /// Source generation validation includes metadata-pruned results. The
     /// ordinary scan's predicate projection, residual evaluation and evidence

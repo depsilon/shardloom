@@ -514,6 +514,14 @@ fn injected_provider_error(ctx: &ExecutionCtx) -> vortex::error::VortexResult<()
 #[path = "exact_distinct_pairs_tests.rs"]
 mod tests;
 
-#[cfg(all(test, feature = "vortex-write"))]
+#[cfg(feature = "vortex-write")]
 #[path = "exact_distinct_spill.rs"]
 mod spill;
+
+#[cfg(feature = "vortex-write")]
+#[path = "exact_distinct_spill_accumulator.rs"]
+pub(super) mod spill_accumulator;
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[path = "exact_distinct_spill_query.rs"]
+pub(super) mod spill_query;

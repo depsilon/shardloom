@@ -469,6 +469,61 @@ fn owned_staging_rejects_new_destination_and_preserves_replaced_temporary() {
 }
 
 #[test]
+fn native_source_alias_export_filters_source_fields_before_projection_and_limit() {
+    let fixture = Fixture::new();
+    let source = fixture.source(257);
+    for threshold in [0, 1000] {
+        let mut request = VortexQueryPrimitiveRequest::structured_project_rows(
+            DatasetUri::new(source.display().to_string()).unwrap(),
+            VortexStructuredProjectionRequest::new(vec![
+                crate::VortexStructuredProjectionColumn::new(
+                    "renamed_port".into(),
+                    VortexStructuredProjectionExpr::SourceColumn(
+                        ColumnRef::new("destination").unwrap(),
+                    ),
+                ),
+                crate::VortexStructuredProjectionColumn::new(
+                    "position".into(),
+                    VortexStructuredProjectionExpr::SourceColumn(
+                        ColumnRef::new("shipment_sequence").unwrap(),
+                    ),
+                ),
+            ]),
+        )
+        .with_source_order_limit(17);
+        // priority is a source-only field, absent from the projected aliases.
+        request.predicate = Some(PredicateExpr::Compare {
+            column: ColumnRef::new("priority").unwrap(),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(threshold),
+        });
+        let output = fixture.0.join(format!("source-filter-{threshold}.vortex"));
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output,
+            VortexLocalPrimitiveRowExportFormat::Vortex,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+        assert!(report.evidence.native_array_sink.is_some());
+        let expected = (0..257_usize)
+            .filter(|index| i64::try_from(index % 97).unwrap() - 48 >= threshold)
+            .take(17)
+            .map(|index| {
+                serde_json::json!({
+                    "renamed_port":(!index.is_multiple_of(7)).then(|| format!("港-{index}")),
+                    "position":index,
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(read_complete(&output).1, expected);
+        assert_eq!(report.rows_written, u64::try_from(expected.len()).unwrap());
+        assert!(!temporary_output_path(&output).unwrap().exists());
+    }
+}
+
+#[test]
 fn native_sink_declines_complex_structured_expressions_without_effects() {
     let fixture = Fixture::new();
     let source = fixture.source(3);
@@ -496,4 +551,21 @@ fn native_sink_declines_complex_structured_expressions_without_effects() {
         .is_none()
     );
     assert!(!output.exists());
+    request.predicate = Some(PredicateExpr::AlwaysTrue);
+    let error = try_execute(
+        &request,
+        &source,
+        &output,
+        false,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .err()
+    .unwrap();
+    assert!(
+        error
+            .to_string()
+            .contains("filtered expression output requires source-column projections")
+    );
+    assert!(!output.exists());
+    assert!(!temporary_output_path(&output).unwrap().exists());
 }

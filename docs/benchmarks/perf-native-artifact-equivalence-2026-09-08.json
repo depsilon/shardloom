@@ -1,0 +1,128 @@
+{
+  "schema": "shardloom.local_complete_artifact_comparison.v1",
+  "command": [
+    "/Users/dylan/LocalData/shardloom/perf-all-20260906/binaries/compare-native-artifacts-20260908",
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/perf-current-c71a558e.vortex",
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/scaling-20260908T083440299333Z-candidate-p1-r1.vortex",
+    "--batch-rows",
+    "8192",
+    "--right-batch-rows",
+    "8192",
+    "--parallelism-per-source",
+    "2"
+  ],
+  "binary_sha256": "8673cd00615129265475404ad4b0e26b7c1850801effb95ac6a8f9f68bc21d25",
+  "binary_generation": [
+    16777232,
+    88042848,
+    49469920,
+    1788858942908869442,
+    1788859082328124630
+  ],
+  "matrix": "/Users/dylan/LocalData/shardloom/perf-all-20260906/ingest-scaling-20260908T083440299333Z/matrix.json",
+  "sample": "candidate-p1-r1",
+  "left_generation": [
+    16777232,
+    87315296,
+    18643482956,
+    1788657393091822305,
+    1788657393091977014
+  ],
+  "right_generation": [
+    16777232,
+    87976655,
+    18644193828,
+    1788856790519947966,
+    1788856790520472422
+  ],
+  "left_prior_full_sha256": "93acc7b9bbabed1f6e15a91aeacda45637bd5d6c5fed26e9b2052bf9b77e84f2",
+  "right_prior_full_sha256": "679d3343ef64572a61987291f0012bccbf3677e88a84482687576576a8eab758",
+  "hash_scope": "prior full held-file SHA receipts re-admitted by unchanged current generation; comparison executable hashed before run",
+  "storage_before": {
+    "workspace_bytes": 92651761664,
+    "log_bytes": 200622080,
+    "free_bytes": 227829964800,
+    "reserved_candidate_bytes": 1048576
+  },
+  "output": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/native_artifact_comparison_20260908T091802419850Z",
+  "process": {
+    "returncode": 0,
+    "seconds": 213.51391554099973,
+    "guard_failures": [],
+    "supervised_wall_seconds": 213.5472304169998,
+    "native_peak_rss_bytes": 675856384,
+    "user_cpu_seconds": 194.079674,
+    "system_cpu_seconds": 6.014433
+  },
+  "storage_after": {
+    "workspace_bytes": 92651778048,
+    "log_bytes": 200638464,
+    "free_bytes": 227800367104,
+    "reserved_candidate_bytes": 1048576
+  },
+  "complete_value_equality": true,
+  "comparison": {
+    "boundary": "explicit_native_canonicalization_and_Arrow_conversion_for_artifact_validation_only;not_query_execution_or_external_engine_fallback;native_layout_statistics_and_user_metadata_not_compared;no_output_artifact_write;no_content_hash",
+    "compared_columns": 112,
+    "compared_rows": 99997497,
+    "compared_values": 11199719664,
+    "comparison_scope": "all_rows_all_columns_in_order;exact_native_dtype_names_order_and_nullability;Arrow_ArrayData_logical_equality;valid_primitive_bits_exact;null_payload_padding_dictionary_codes_and_chunk_boundaries_ignored;no_f64_integer_conversion;no_row_dictionaries;no_sampling_or_aggregate_surrogate",
+    "complete_value_equality": true,
+    "equal_spans": 1367184,
+    "generation_scope": "held_file_descriptors;pre_post_descriptor_and_path_generation_validation_around_complete_comparison;caller_frozen_artifacts_required;not_an_atomic_filesystem_snapshot",
+    "left": {
+      "bytes": 18643482956,
+      "changed_nanoseconds": 91977014,
+      "changed_seconds": 1788657393,
+      "device": 16777232,
+      "inode": 87315296,
+      "modified_nanoseconds": 91822305,
+      "modified_seconds": 1788657393,
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/perf-current-c71a558e.vortex"
+    },
+    "left_completed_executions": 1,
+    "left_native_batches": 1367184,
+    "left_peak_native_split_tasks": 2,
+    "left_prepared_source_opens": 1,
+    "left_provider_background_workers": 1,
+    "memory": {
+      "arrow_batch_bytes": 16777216,
+      "arrow_final_reserved_bytes": 0,
+      "arrow_peak_reserved_bytes": 268435456,
+      "arrow_work_limit_bytes": 268435456,
+      "left_batch_rows": 8192,
+      "left_final_reserved_bytes": 0,
+      "left_peak_reserved_bytes": 60252848,
+      "max_value_bytes": 8388608,
+      "native_limit_bytes_per_source": 536870912,
+      "parallelism_per_source": 2,
+      "peak_arrow_batch_bytes": 5923739,
+      "right_batch_rows": 8192,
+      "right_final_reserved_bytes": 0,
+      "right_peak_reserved_bytes": 30422556,
+      "scope": "two_reserved_native_source_allocators;one_column_and_one_Arrow_batch_per_source;bounded_row_windows_and_split_metadata;Arrow_conversion_pre_admission_and_postcheck;excludes_upstream_allocations_bypassing_host_allocator_file_footer_layout_caches_and_process_RSS",
+      "window_rows": 8388608
+    },
+    "native_scan_scheduler": "owned_RepeatedScan_futures_on_existing_source_runtime;bounded_ordered_polling;no_host_core_multiplier_or_extra_CPU_pool;split_futures_drop_synchronously_on_error;peak_counts_admitted_splits_not_completed_buffered_results_or_blocking_IO;all_split_tasks_drained_before_equality_report",
+    "native_schema_equal": true,
+    "native_split_tasks_after_drain": 0,
+    "native_task_concurrency_per_source": 2,
+    "right": {
+      "bytes": 18644193828,
+      "changed_nanoseconds": 520472422,
+      "changed_seconds": 1788856790,
+      "device": 16777232,
+      "inode": 87976655,
+      "modified_nanoseconds": 519947966,
+      "modified_seconds": 1788856790,
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/scaling-20260908T083440299333Z-candidate-p1-r1.vortex"
+    },
+    "right_completed_executions": 1,
+    "right_native_batches": 1367184,
+    "right_peak_native_split_tasks": 2,
+    "right_prepared_source_opens": 1,
+    "right_provider_background_workers": 1,
+    "source_generations_validated": true
+  },
+  "completed_utc": "2026-09-08T09:21:36.926338+00:00"
+}

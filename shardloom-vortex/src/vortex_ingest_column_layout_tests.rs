@@ -1,5 +1,8 @@
 use super::column_layout::{StreamFooterLayout, stream_options};
 use super::*;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "vortex_ingest_column_layout_bench.rs"]
+mod benchmark;
 use vortex::{
     array::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,

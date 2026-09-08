@@ -157,8 +157,14 @@ fn exact_distinct_public_native_values_global_order_and_pressure_handoff() {
         for entries in [2, 1000] {
             let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
             policy.resource_envelope.group_state_soft_item_budget = entries;
-            let report =
-                execute_vortex_local_primitive_with_policy(&fixture.query(), policy).unwrap();
+            let mut query = fixture.query();
+            query
+                .simple_aggregate
+                .as_mut()
+                .unwrap()
+                .order_by
+                .push(crate::VortexAggregateOrderExpr::new("cohort_alias", false));
+            let report = execute_vortex_local_primitive_with_policy(&query, policy).unwrap();
             assert!(!report.fallback_execution_allowed);
             let result = payload(&report);
             assert_eq!(result["values"], fixture.expected());

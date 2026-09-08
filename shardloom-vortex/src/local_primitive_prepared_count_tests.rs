@@ -54,6 +54,9 @@ fn prepared_count_reexecutes_complete_predicate_with_one_open_and_real_certifica
             &session,
         )
         .unwrap();
+        assert_eq!(prepared.source_row_count(), 5);
+        assert_eq!(session.snapshot().prepared_source_opens, 1);
+        assert_eq!(session.snapshot().completed_executions, 0);
         for execution in 1..=4 {
             let result = prepared.execute().unwrap();
             // Checked fixture values are exactly 1..=5, independent of native filtering.
@@ -82,6 +85,54 @@ fn prepared_count_reexecutes_complete_predicate_with_one_open_and_real_certifica
         drop(prepared);
         assert_eq!(session.snapshot().memory.reserved_bytes, 0);
     }
+}
+
+#[test]
+fn prepared_unprunable_empty_count_reports_provider_work_and_certifies_zero() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let request = VortexQueryPrimitiveRequest::count_where(
+        DatasetUri::new(fixture.path().display().to_string()).unwrap(),
+        PredicateExpr::Compare {
+            column: ColumnRef::new("metric").unwrap(),
+            op: ComparisonOp::Eq,
+            value: StatValue::UInt64(17),
+        },
+    );
+    let prepared = prepare_count_where_in_session(
+        &request,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        &session,
+    )
+    .unwrap();
+    for execution in 1..=3 {
+        let result = prepared.execute().unwrap();
+        // The fixture has metrics 10,20,30,40,50; 17 is inside its bounds.
+        assert_eq!(result.count, 0);
+        assert_eq!(result.report.arrays_read_count, 0);
+        assert!(!result.report.embedded_layout.metadata_pruned_entire_input);
+        assert!(result.report.upstream_scan_called);
+        assert!(
+            result.report.data_read
+                && result.report.data_decoded
+                && result.report.data_materialized
+        );
+        assert!(!result.report.row_read && !result.report.arrow_converted);
+        assert!(result.report.materialization_boundary_reported);
+        assert!(
+            result
+                .report
+                .result_summary
+                .as_ref()
+                .unwrap()
+                .contains("not_observed_bytes")
+        );
+        assert!(result.native_io_certificate.is_certified());
+        assert_eq!(result.runtime.prepared_source_opens, 1);
+        assert_eq!(result.runtime.completed_executions, execution);
+    }
+    drop(prepared);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
 }
 
 #[test]

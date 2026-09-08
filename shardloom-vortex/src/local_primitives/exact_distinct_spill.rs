@@ -1,9 +1,9 @@
-//! Explicit-workspace, exact integer-pair runs. Private adapter checkpoint;
-//! production admission remains separate until store/operator validation.
+//! Exact integer-pair runs behind explicit aggregate workspace admission.
+//! Small inputs finish in memory; a required flush creates the owned run store.
 
 use super::super::{
-    AggregateIntegerKeyPart, AggregateSingleNumericKey, LocalVortexRuntime,
-    SingleNumericAggregateOrderCandidate, compare_single_numeric_candidates,
+    AggregateIntegerKeyPart, AggregateSingleNumericKey, SingleNumericAggregateOrderCandidate,
+    compare_single_numeric_candidates,
     query_run_store::{NativeQueryRun, QueryRunSpec, QueryRunStore, QueryRunStorePolicy},
 };
 use super::Pair;
@@ -17,7 +17,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use vortex::session::VortexSession;
+use vortex::{io::runtime::BlockingRuntime, session::VortexSession};
 
 #[path = "exact_distinct_spill_runs.rs"]
 mod runs;
@@ -68,7 +68,8 @@ struct Run {
 pub(super) struct ExactDistinctSpill {
     policy: Policy,
     memory: LiveMemoryPool,
-    store: QueryRunStore,
+    store: Option<QueryRunStore>,
+    scratch: Option<MemoryLease>,
     runs: Vec<Run>,
     buffer: Vec<Record>,
     _buffer_lease: MemoryLease,
@@ -127,19 +128,11 @@ impl ExactDistinctSpill {
         }
         let buffer = reserved_vec(capacity)?;
         let runs = reserved_vec(MAX_RUNS)?;
-        let store = QueryRunStore::new(
-            QueryRunStorePolicy::exact_integer_distinct(
-                policy.workspace.clone(),
-                policy.quota_bytes,
-                Arc::clone(&policy.cancellation),
-            ),
-            memory.clone(),
-            scratch,
-        )?;
         Ok(Self {
             policy,
             memory,
-            store,
+            store: None,
+            scratch: Some(scratch),
             runs,
             buffer,
             _buffer_lease: buffer_lease,
@@ -165,13 +158,32 @@ impl ExactDistinctSpill {
         Ok(())
     }
 
+    fn ensure_store(&mut self) -> Result<()> {
+        if self.store.is_none() {
+            let scratch = self
+                .scratch
+                .take()
+                .ok_or_else(|| failed("workspace scratch is absent"))?;
+            self.store = Some(QueryRunStore::new(
+                QueryRunStorePolicy::exact_integer_distinct(
+                    self.policy.workspace.clone(),
+                    self.policy.quota_bytes,
+                    Arc::clone(&self.policy.cancellation),
+                ),
+                self.memory.clone(),
+                scratch,
+            )?);
+        }
+        Ok(())
+    }
+
     /// Transfer every positive weighted pair once. The caller may release the
     /// old partition epoch only after all its contributions were accepted.
     pub(super) fn push(
         &mut self,
         pair: Pair,
         weight: u64,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
         let result = self.push_inner(pair, weight, runtime, session);
@@ -185,7 +197,7 @@ impl ExactDistinctSpill {
         &mut self,
         pair: Pair,
         weight: u64,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
         self.check()?;
@@ -205,7 +217,19 @@ impl ExactDistinctSpill {
         Ok(())
     }
 
-    fn flush(&mut self, runtime: &LocalVortexRuntime, session: &VortexSession) -> Result<()> {
+    fn flush(&mut self, runtime: &impl BlockingRuntime, session: &VortexSession) -> Result<()> {
+        let result = self.flush_inner(runtime, session);
+        if result.is_err() {
+            self.failed = true;
+        }
+        result
+    }
+
+    fn flush_inner(
+        &mut self,
+        runtime: &impl BlockingRuntime,
+        session: &VortexSession,
+    ) -> Result<()> {
         self.check()?;
         if self.buffer.is_empty() {
             return Ok(());
@@ -232,7 +256,8 @@ impl ExactDistinctSpill {
         if self.runs.len() == MAX_RUNS {
             return Err(failed("bounded run registry exhausted"));
         }
-        let native = self.store.write_arrays(
+        self.ensure_store()?;
+        let native = self.store.as_mut().expect("admitted store").write_arrays(
             &spec(rows)?,
             self.buffer
                 .chunks(BLOCK_ROWS)
@@ -248,7 +273,7 @@ impl ExactDistinctSpill {
 
     fn compact_levels(
         &mut self,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
         loop {
@@ -264,7 +289,7 @@ impl ExactDistinctSpill {
     fn compact_level(
         &mut self,
         level: u8,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
         self.check()?;
@@ -286,24 +311,31 @@ impl ExactDistinctSpill {
             .ok_or_else(|| failed("compaction row count overflowed"))?;
         let mut merge = RunMerge::new(
             inputs.iter().map(|run| &run.native),
-            &self.store,
+            self.store.as_ref().expect("runs have a store"),
             Arc::clone(&self.work),
             self.policy.clone(),
             self.signature,
             runtime,
             session,
         )?;
-        let native = self.store.write_arrays(
-            &spec(rows)?,
-            blocks(&mut merge),
-            runtime,
-            session,
-            &self.work,
-        )?;
+        let native = self
+            .store
+            .as_mut()
+            .expect("runs have a store")
+            .write_arrays(
+                &spec(rows)?,
+                blocks(&mut merge),
+                runtime,
+                session,
+                &self.work,
+            )?;
         merge.validate()?;
         drop(merge);
         for run in &inputs {
-            self.store.remove(&run.native)?;
+            self.store
+                .as_mut()
+                .expect("runs have a store")
+                .remove(&run.native)?;
         }
         drop(inputs);
         self.runs.push(Run {
@@ -320,7 +352,7 @@ impl ExactDistinctSpill {
 
     fn compact_for_final(
         &mut self,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
         while self.runs.len() > FAN_IN {
@@ -339,80 +371,113 @@ impl ExactDistinctSpill {
 
     pub(super) fn finish(
         mut self,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<SpilledDistinctResult> {
         self.check()?;
+        if self.runs.is_empty() {
+            self.buffer.sort_unstable_by_key(Record::key);
+            select_records(
+                self.buffer.iter().copied().map(Ok),
+                &self.policy,
+                &mut self.selected,
+                self.retained,
+                &mut self.evidence,
+            )?;
+            self.evidence.peak_reserved_bytes = self.memory.snapshot().peak_reserved_bytes;
+            return Ok(SpilledDistinctResult {
+                selected: self.selected.into_sorted_vec(),
+                evidence: self.evidence,
+                lease: self.selection_lease,
+            });
+        }
         self.flush(runtime, session)?;
         self.compact_for_final(runtime, session)?;
         let mut merge = RunMerge::new(
             self.runs.iter().map(|run| &run.native),
-            &self.store,
+            self.store.as_ref().expect("runs have a store"),
             Arc::clone(&self.work),
             self.policy.clone(),
             self.signature,
             runtime,
             session,
         )?;
-        let mut previous = None;
-        let mut group: Option<(AggregateIntegerKeyPart, u64)> = None;
-        let mut source_rows = 0_u64;
-        for record in &mut merge {
-            let record = record?;
-            source_rows = source_rows
-                .checked_add(record.weight)
-                .ok_or_else(|| failed("merged source weight overflowed"))?;
-            if previous == Some(record.pair) {
-                continue;
-            }
-            self.evidence.complete_pairs = self
-                .evidence
-                .complete_pairs
-                .checked_add(1)
-                .ok_or_else(|| failed("complete pair count overflowed"))?;
-            previous = Some(record.pair);
-            if let Some((key, count)) = group.as_mut() {
-                if key.bits == record.pair.group_bits {
-                    *count = count
-                        .checked_add(1)
-                        .ok_or_else(|| failed("distinct group count overflowed"))?;
-                    continue;
-                }
-                select_group(&mut self.selected, self.retained, *key, *count);
-                self.evidence.groups = self
-                    .evidence
-                    .groups
-                    .checked_add(1)
-                    .ok_or_else(|| failed("group count overflowed"))?;
-            }
-            group = Some((record.pair.group(), 1));
-        }
+        select_records(
+            &mut merge,
+            &self.policy,
+            &mut self.selected,
+            self.retained,
+            &mut self.evidence,
+        )?;
         merge.validate()?;
         drop(merge);
-        if let Some((key, count)) = group {
-            select_group(&mut self.selected, self.retained, key, count);
-            self.evidence.groups = self
-                .evidence
-                .groups
-                .checked_add(1)
-                .ok_or_else(|| failed("group count overflowed"))?;
-        }
-        if source_rows != self.evidence.rows {
-            return Err(failed("complete merge source weights differ"));
-        }
         self.policy.check()?;
-        let store = self.store.snapshot();
+        let store = self.store.as_ref().expect("runs have a store").snapshot();
         self.evidence.runs_written = store.runs_written;
         self.evidence.runs_validated = store.runs_validated;
         self.evidence.peak_disk_bytes = store.peak_disk_bytes;
         self.evidence.peak_reserved_bytes = self.memory.snapshot().peak_reserved_bytes;
-        self.store.cleanup()?;
+        self.store.as_mut().expect("runs have a store").cleanup()?;
         Ok(SpilledDistinctResult {
             selected: self.selected.into_sorted_vec(),
             evidence: self.evidence,
-            _lease: self.selection_lease,
+            lease: self.selection_lease,
         })
     }
+}
+
+fn select_records(
+    records: impl Iterator<Item = Result<Record>>,
+    policy: &Policy,
+    selected: &mut BinaryHeap<RankedGroup>,
+    retained: usize,
+    evidence: &mut Evidence,
+) -> Result<()> {
+    let mut previous = None;
+    let mut group: Option<(AggregateIntegerKeyPart, u64)> = None;
+    let mut source_rows = 0_u64;
+    for (ordinal, record) in records.enumerate() {
+        if ordinal.is_multiple_of(4096) {
+            policy.check()?;
+        }
+        let record = record?;
+        source_rows = source_rows
+            .checked_add(record.weight)
+            .ok_or_else(|| failed("merged source weight overflowed"))?;
+        if previous == Some(record.pair) {
+            continue;
+        }
+        evidence.complete_pairs = evidence
+            .complete_pairs
+            .checked_add(1)
+            .ok_or_else(|| failed("complete pair count overflowed"))?;
+        previous = Some(record.pair);
+        if let Some((key, count)) = group.as_mut() {
+            if key.bits == record.pair.group_bits {
+                *count = count
+                    .checked_add(1)
+                    .ok_or_else(|| failed("distinct group count overflowed"))?;
+                continue;
+            }
+            select_group(selected, retained, *key, *count);
+            evidence.groups = evidence
+                .groups
+                .checked_add(1)
+                .ok_or_else(|| failed("group count overflowed"))?;
+        }
+        group = Some((record.pair.group(), 1));
+    }
+    if let Some((key, count)) = group {
+        select_group(selected, retained, key, count);
+        evidence.groups = evidence
+            .groups
+            .checked_add(1)
+            .ok_or_else(|| failed("group count overflowed"))?;
+    }
+    if source_rows != evidence.rows {
+        return Err(failed("complete merge source weights differ"));
+    }
+    policy.check()
 }
 
 #[derive(Clone, Copy)]
@@ -460,9 +525,15 @@ fn select_group(
 pub(super) struct SpilledDistinctResult {
     selected: Vec<RankedGroup>,
     pub evidence: Evidence,
-    _lease: MemoryLease,
+    lease: MemoryLease,
 }
 impl SpilledDistinctResult {
+    pub(super) fn retained_count(&self) -> usize {
+        self.selected.len()
+    }
+    pub(super) fn reserved_bytes(&self) -> u64 {
+        self.lease.bytes()
+    }
     pub(super) fn visit(
         &self,
         offset: usize,

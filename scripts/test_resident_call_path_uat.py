@@ -8,7 +8,7 @@ import unittest
 
 from run_resident_call_path_uat import (
     Worker, cases, command_args, fixture_rows, paired_order, percentiles,
-    request_options, validate, validate_candidate_count_where, validate_candidate_reuse, validate_preparation,
+    request_options, validate, validate_candidate_aggregate, validate_candidate_count_where, validate_candidate_reuse, validate_preparation,
 )
 
 
@@ -41,7 +41,13 @@ class ResidentCallPathTests(unittest.TestCase):
             command = command_args(source, case)
             options = request_options(source, case)
             self.assertEqual(command[command.index("--input") + 1], options["input_uri"])
-            self.assertEqual(command[command.index("--vortex-primitive") + 1], options["vortex_primitive"])
+            if "sql" in case:
+                self.assertEqual(command[1], "sql")
+                self.assertEqual(command[command.index("--sql") + 1], options["sql_statement"])
+                self.assertNotIn("--vortex-primitive", command)
+                self.assertNotIn("vortex_primitive", options)
+            else:
+                self.assertEqual(command[command.index("--vortex-primitive") + 1], options["vortex_primitive"])
             if "columns" in case:
                 self.assertEqual(command[command.index("--vortex-columns") + 1], ",".join(options["vortex_columns"]))
             if "predicate" in case:
@@ -104,6 +110,29 @@ class ResidentCallPathTests(unittest.TestCase):
                            ("local_primitive_native_io_certified", "false")):
             with self.assertRaises(ValueError):
                 validate_candidate_count_where({**fields, key: value}, 8)
+
+    def test_aggregate_complete_expectations_and_fresh_execution_evidence(self):
+        aggregates = {case["name"]: case for case in cases(fixture_rows()) if case["primitive"] == "aggregate"}
+        self.assertEqual(aggregates["scalar_integer_aggregate"]["expected"],
+                         [{"rows_alias": 32, "unique_alias": 32, "total_alias": 496.0}])
+        self.assertEqual(aggregates["filtered_integer_aggregate"]["expected"],
+                         [{"rows_alias": 8, "unique_alias": 8, "total_alias": 220.0}])
+        self.assertEqual(aggregates["grouped_exact_distinct_aggregate"]["expected"],
+                         [{"cohort_key": i, "unique_alias": 1} for i in range(3, 8)])
+        fields = {"local_primitive_native_io_certificate_emitted": "true",
+                  "local_primitive_native_io_certified": "true",
+                  "local_primitive_execution_certificate_emitted": "false",
+                  "local_primitive_no_query_answer_cache": "true",
+                  "resident_aggregate_handle_retained": "true",
+                  "resident_aggregate_lowering_reused": "true",
+                  "resident_source_generation_validation": "before_and_after_native_scan_including_metadata_pruned_result"}
+        validate_candidate_aggregate(fields, "persistent_worker", 2)
+        validate_candidate_aggregate({**fields, "resident_aggregate_lowering_reused": "false"}, "fresh_cli_process", 2)
+        for key in fields:
+            missing = dict(fields)
+            del missing[key]
+            with self.assertRaises(ValueError):
+                validate_candidate_aggregate(missing, "persistent_worker", 2)
 
     @unittest.skipUnless(os.name == "posix", "native process group fixture")
     def test_worker_retains_exact_raw_response_and_times_out_without_leaking_child(self):

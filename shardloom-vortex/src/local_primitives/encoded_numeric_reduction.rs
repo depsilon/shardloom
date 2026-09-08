@@ -131,6 +131,26 @@ fn structural_wrapper(array: &ArrayRef) -> bool {
     false
 }
 
+/// Resolve only native field/selection wrappers rooted in a nonnullable Struct.
+/// This preserves the actual child encoding and never asks an arbitrary scalar
+/// expression to canonicalize a value domain merely to inspect its encoding.
+pub(super) fn resolve_structural_projection(
+    array: &ArrayRef,
+    ctx: &mut ExecutionCtx,
+) -> Result<ArrayRef> {
+    if !structural_wrapper(array) {
+        return Ok(array.clone());
+    }
+    let resolved = array
+        .clone()
+        .execute_until::<PhysicalLeaf>(ctx)
+        .map_err(vortex_error)?;
+    if resolved.dtype() != array.dtype() || resolved.len() != array.len() {
+        return Err(failed("native structural resolution changed shape"));
+    }
+    Ok(resolved)
+}
+
 fn sliced_leaf(array: &ArrayRef) -> Option<(ArrayRef, usize)> {
     let mut leaf = array.clone();
     let mut offset = 0_usize;
@@ -313,13 +333,7 @@ fn admitted_arrays(
             chunk.clone()
         };
         if structural_wrapper(&array) {
-            let dtype = array.dtype().clone();
-            array = array
-                .execute_until::<PhysicalLeaf>(ctx)
-                .map_err(vortex_error)?;
-            if array.dtype() != &dtype {
-                return Err(failed("native structural resolution changed dtype"));
-            }
+            array = resolve_structural_projection(&array, ctx)?;
             add(structural_resolutions, 1)?;
         }
         if array.len() != chunk.len() || !EncodedColumn::admitted(&array) {

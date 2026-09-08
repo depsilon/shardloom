@@ -4705,7 +4705,22 @@ fn flat_output_column_array(
             )));
         }
         (None, false, Some(kind)) => kind,
-        (None, false, None) => "utf8",
+        // A filter/limit can leave only NULLs (or no rows) from a typed source.
+        // Preserve its declared scalar family instead of inventing UTF8 from
+        // the absence of a non-null value. Complex and decimal hints have their
+        // own schema admission above.
+        (None, false, None) => match column_dtype {
+            Some(
+                dtype @ (LogicalDType::Boolean
+                | LogicalDType::Int64
+                | LogicalDType::UInt64
+                | LogicalDType::Float64
+                | LogicalDType::Utf8
+                | LogicalDType::Date32
+                | LogicalDType::TimestampMicros),
+            ) => dtype.as_str(),
+            _ => "utf8",
+        },
     };
     match kind {
         "boolean" => Ok(parquet_bool_column(column, &values, nullable, context)?),
@@ -8100,6 +8115,41 @@ mod tests {
         );
         assert!(batch.column(0).is_null(0));
         assert!(batch.column(1).is_null(0));
+    }
+
+    #[test]
+    fn declared_scalar_sink_types_survive_all_null_and_empty_selection() {
+        for (dtype, arrow_dtype) in [
+            (LogicalDType::Boolean, DataType::Boolean),
+            (LogicalDType::Int64, DataType::Int64),
+            (LogicalDType::UInt64, DataType::UInt64),
+            (LogicalDType::Float64, DataType::Float64),
+            (LogicalDType::Utf8, DataType::Utf8),
+            (LogicalDType::Binary, DataType::Binary),
+            (LogicalDType::Date32, DataType::Date32),
+            (
+                LogicalDType::TimestampMicros,
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+            ),
+        ] {
+            for rows in [
+                Vec::new(),
+                vec![vec![("value".to_owned(), ScalarValue::Null)]],
+            ] {
+                let batch = flat_rows_to_record_batch_with_dtypes(
+                    &["value".to_owned()],
+                    &[Some(dtype.clone())],
+                    &[None],
+                    &rows,
+                    "typed null selection",
+                )
+                .expect("known scalar types do not require a non-null example");
+                assert_eq!(batch.schema().field(0).data_type(), &arrow_dtype);
+                assert_eq!(batch.column(0).data_type(), &arrow_dtype);
+                assert_eq!(batch.num_rows(), rows.len());
+                assert_eq!(batch.column(0).null_count(), rows.len());
+            }
+        }
     }
 
     #[test]

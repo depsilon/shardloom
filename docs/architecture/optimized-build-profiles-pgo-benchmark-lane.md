@@ -39,6 +39,13 @@ The checked-in helper `scripts/build_shardloom_pgo.py` documents the PGO workflo
 with `--run`. Without a `SHARDLOOM_PGO_PROFILE` merged profile artifact, `release-pgo` rows remain
 `pgo_status=report_only_missing_profile_use_artifact` and cannot be used as PGO performance proof.
 
+The 2026-09-06 helper correction keeps the default print-only and makes local execution
+fresh-directory-owned, bounded and fail-fast. It resolves the exact Cargo executable, trains it
+with the independent-value fixture in a **training** role, and freezes matched uninstrumented,
+instrumented and profile-use binaries. This is tooling implementation, not completed PGO
+measurement. See [the executable experiment contract](perf-guarded-pgo-experiment-2026-09-06.md)
+for commands, the native `llvm-profdata` compatibility gate, and independent evaluation requirements.
+
 ## Goals
 
 - Add explicit optimized build-profile planning without changing default release behavior.

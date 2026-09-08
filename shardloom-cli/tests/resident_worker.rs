@@ -8,6 +8,9 @@ use std::{
 
 use serde_json::{Value, json};
 
+#[path = "support/resident_aggregate.rs"]
+mod aggregate;
+
 struct Worker {
     child: Child,
     output: BufReader<ChildStdout>,
