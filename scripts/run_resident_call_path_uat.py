@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as dt
+import gzip
 import hashlib
 import json
 import math
@@ -200,6 +201,30 @@ def validate_preparation(envelope: dict) -> None:
                 raise ValueError("unsafe fixture preparation evidence")
 
 
+def archive_stdout(path: Path) -> dict:
+    """Retain exact newly generated output, verifying gzip before unlinking it."""
+    digest = file_sha256(path)
+    original_bytes = path.stat().st_size
+    archive = path.with_suffix(path.suffix + ".gz")
+    with archive.open("xb") as destination:
+        with gzip.GzipFile(filename="", fileobj=destination, mode="wb", mtime=0) as compressed:
+            with path.open("rb") as source:
+                while chunk := source.read(MIB):
+                    compressed.write(chunk)
+    actual_digest = hashlib.sha256()
+    actual_bytes = 0
+    with gzip.open(archive, "rb") as source:
+        while chunk := source.read(MIB):
+            actual_digest.update(chunk)
+            actual_bytes += len(chunk)
+    if actual_bytes != original_bytes or actual_digest.hexdigest() != digest or file_sha256(path) != digest:
+        raise ValueError("lossless stdout archive verification failed; original output retained")
+    path.unlink()
+    return {"envelope": archive.name, "stdout_raw_sha256": digest,
+            "stdout_raw_bytes": original_bytes, "stdout_gzip_bytes": archive.stat().st_size,
+            "stdout_encoding": "gzip_lossless_verified"}
+
+
 def validate_candidate_reuse(fields: dict, surface: str, sample: int) -> None:
     expected_executions = 1 if surface == "fresh_cli_process" else sample + 1
     if (str(fields.get("resident_source_opens")) != "1"
@@ -244,10 +269,16 @@ def execute(args) -> Path:
     python_root = args.python_source.resolve(strict=True)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output = root / "logs" / f"resident_call_paths_{stamp}"
+    rows = fixture_rows()
+    selected_cases = cases(rows)
+    summary_reserve_bytes = (2 * (args.samples + 1) * len(selected_cases) * len(SURFACES) * 4 * 1024) + 2 * MIB
+    if summary_reserve_bytes >= 256 * MIB:
+        raise ValueError("requested matrix cannot reserve its bounded summary within the existing log quota")
 
     def guard():
         check_budgets(root, output / "fixture.vortex", output, min_free_bytes=GIB,
-                      reserve_bytes=0, max_workspace_bytes=100 * GIB, max_log_bytes=256 * MIB)
+                      reserve_bytes=0, max_workspace_bytes=100 * GIB,
+                      max_log_bytes=256 * MIB - summary_reserve_bytes)
 
     guard()
     root.mkdir(parents=True, exist_ok=True)
@@ -255,6 +286,7 @@ def execute(args) -> Path:
     summary = {"schema_version": "shardloom.resident_public_call_paths.v1", "status": "running",
                "claim_gate_status": "not_claim_grade", "scope": __doc__.strip(),
                "surfaces": SURFACES, "samples_per_case": args.samples,
+               "summary_reserved_bytes": summary_reserve_bytes,
                "warmups_per_case": 1, "ordering": "alternating sequential baseline/candidate pairs",
                "cache_policy": "OS page cache uncontrolled; one source artifact; no query-answer reuse",
                "python_source": str(python_root), "python_source_sha256": python_source_hash(python_root / "shardloom"),
@@ -266,7 +298,6 @@ def execute(args) -> Path:
     lock.mkdir()  # Shared with replacement ingest/full43; never remove someone else's lock.
     try:
         output.mkdir(parents=True)
-        rows = fixture_rows()
         raw_source = output / "fixture.jsonl"
         raw_source.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
         source = output / "fixture.vortex"
@@ -279,6 +310,7 @@ def execute(args) -> Path:
             raise ValueError("fixture native preparation failed")
         prepared_envelope = strict_json((output / "prepare.stdout.json").read_text())
         validate_preparation(prepared_envelope)
+        summary["fixture_prepare_output"] = archive_stdout(output / "prepare.stdout.json")
         identity = generation(source)
         source_hash = file_sha256(source)
         summary["fixture"] = {"rows": len(rows), "source": str(source), "sha256": source_hash,
@@ -288,7 +320,7 @@ def execute(args) -> Path:
         sys.path.insert(0, str(python_root))
         from shardloom import ShardLoomClient
         for surface in SURFACES:
-            for case in cases(rows):
+            for case in selected_cases:
                 command = command_args(source, case)
                 options = request_options(source, case)
                 with contextlib.ExitStack() as stack:
@@ -336,16 +368,19 @@ def execute(args) -> Path:
                                     raise ValueError("Python client did not retain the requested worker transport")
                                 envelope_path.write_text(json.dumps(dict(envelope), ensure_ascii=False) + "\n")
                                 record["capture"] = "typed_envelope_reserialized"
-                            record["result_sha256"] = validate(envelope, case["expected"])
-                            fields = {field["key"]: field["value"] for field in envelope.get("fields", [])}
-                            record["resident_source_opens"] = fields.get("resident_source_opens")
-                            record["resident_completed_executions"] = fields.get("resident_completed_executions")
-                            if name == "candidate":
-                                validate_candidate_reuse(fields, surface, sample)
-                                if case["primitive"] == "count_where":
-                                    validate_candidate_count_where(fields, case["expected"])
-                                elif case["primitive"] == "aggregate":
-                                    validate_candidate_aggregate(fields, surface, sample)
+                            try:
+                                record["result_sha256"] = validate(envelope, case["expected"])
+                                fields = {field["key"]: field["value"] for field in envelope.get("fields", [])}
+                                record["resident_source_opens"] = fields.get("resident_source_opens")
+                                record["resident_completed_executions"] = fields.get("resident_completed_executions")
+                                if name == "candidate":
+                                    validate_candidate_reuse(fields, surface, sample)
+                                    if case["primitive"] == "count_where":
+                                        validate_candidate_count_where(fields, case["expected"])
+                                    elif case["primitive"] == "aggregate":
+                                        validate_candidate_aggregate(fields, surface, sample)
+                            finally:
+                                record.update(archive_stdout(envelope_path))
                             record["passed"] = True
                             guard()
                 for name in binaries:
@@ -368,7 +403,10 @@ def execute(args) -> Path:
     finally:
         try:
             if output.is_dir():
-                (output / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n")
+                payload = (json.dumps(summary, indent=2, ensure_ascii=False) + "\n").encode()
+                if len(payload) > summary_reserve_bytes:
+                    raise ValueError("readable summary exceeded its reserved bound; raw operation evidence retained")
+                (output / "summary.json").write_bytes(payload)
         finally:
             lock.rmdir()
     return output / "summary.json"

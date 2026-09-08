@@ -1,11 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
+import gzip
+import hashlib
 import json
 import os
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
+import run_resident_call_path_uat as resident
 from run_resident_call_path_uat import (
     Worker, cases, command_args, fixture_rows, paired_order, percentiles,
     request_options, validate, validate_candidate_aggregate, validate_candidate_count_where, validate_candidate_reuse, validate_preparation,
@@ -21,6 +26,109 @@ def envelope(value):
 
 
 class ResidentCallPathTests(unittest.TestCase):
+    def test_completed_outputs_are_archived_after_validation_outside_each_surface_timing(self):
+        rows = fixture_rows()
+        clock = [0.0]
+        validated, captured = [], {}
+
+        def response(completed):
+            value = envelope(rows)
+            value["fields"].extend([
+                {"key": "resident_source_opens", "value": "1"},
+                {"key": "resident_completed_executions", "value": str(completed)},
+            ])
+            return value
+
+        class Transport:
+            def __init__(self, *args, **kwargs):
+                self.completed = 0
+                self.start_seconds = 0.01
+                self._worker_disabled = False
+                self._worker_process = SimpleNamespace(poll=lambda: None)
+
+            def request(self, *args):
+                self.completed += 1
+                clock[0] += 0.125
+                value = response(self.completed)
+                return value, 0.125, (json.dumps(value) + "\n").encode()
+
+            def public_workflow_run(self, *args, **kwargs):
+                return SimpleNamespace(envelope=SimpleNamespace(raw=self.request()[0]))
+
+            def close(self):
+                pass
+
+        def run(command, stdout, stderr, timeout, guard):
+            guard()
+            if command[1] == "prepare":
+                Path(command[command.index("--output") + 1]).write_bytes(b"fixture")
+            stdout.write_text(json.dumps(response(1)) + "\n")
+            return {"seconds": 0.125, "returncode": 0, "guard_failures": []}
+
+        def checked_validate(value, expected):
+            result = validate(value, expected)
+            validated.append(result)
+            return result
+
+        real_archive = resident.archive_stdout
+
+        def archive(path):
+            if path.name != "prepare.stdout.json":
+                self.assertEqual(len(validated), len(captured) + 1)
+                captured[path.name] = path.read_bytes()
+            result = real_archive(path)
+            clock[0] += 10.0  # Archival work must never enter a call's latency.
+            return result
+
+        def guard(root, target, output, **limits):
+            reserve = 12 * 4 * 1024 + 2 * resident.MIB
+            self.assertEqual(limits["max_log_bytes"], 256 * resident.MIB - reserve)
+            self.assertEqual(list(output.glob("*.stdout.json")), [])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / "fake-binary"
+            binary.write_bytes(b"immutable")
+            args = SimpleNamespace(uat_root=root, baseline_binary=binary, candidate_binary=binary,
+                                   python_source=root, samples=1, timeout=10)
+            with mock.patch.object(resident, "check_budgets", side_effect=guard), \
+                    mock.patch.object(resident, "run_command", side_effect=run), \
+                    mock.patch.object(resident, "Worker", Transport), \
+                    mock.patch.object(resident, "cases", return_value=[cases(rows)[1]]), \
+                    mock.patch.object(resident, "validate", side_effect=checked_validate), \
+                    mock.patch.object(resident, "archive_stdout", side_effect=archive), \
+                    mock.patch.object(resident.time, "perf_counter", side_effect=lambda: clock[0]), \
+                    mock.patch.object(sys, "path", list(sys.path)), \
+                    mock.patch.dict(sys.modules, {"shardloom": SimpleNamespace(ShardLoomClient=Transport)}):
+                summary_path = resident.execute(args)
+            summary = json.loads(summary_path.read_text())
+            self.assertEqual(summary["status"], "passed")
+            self.assertEqual(len(summary["records"]), 12)
+            self.assertLessEqual(summary_path.stat().st_size, summary["summary_reserved_bytes"])
+            self.assertTrue(summary["fixture_prepare_output"]["envelope"].endswith(".json.gz"))
+            self.assertFalse((root / ".ingest-uat.lock").exists())
+            for record in summary["records"]:
+                self.assertTrue(record["passed"])
+                self.assertEqual(record["seconds"], 0.125)
+                self.assertEqual(record["stdout_encoding"], "gzip_lossless_verified")
+                archive_path = summary_path.parent / record["envelope"]
+                raw = captured[record["envelope"].removesuffix(".gz")]
+                with gzip.open(archive_path, "rb") as source:
+                    self.assertEqual(source.read(), raw)
+                self.assertEqual(record["stdout_raw_sha256"], hashlib.sha256(raw).hexdigest())
+                self.assertEqual(record["stdout_raw_bytes"], len(raw))
+                self.assertEqual(record["stdout_gzip_bytes"], archive_path.stat().st_size)
+
+    def test_archive_verification_failure_keeps_original_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "response.stdout.json"
+            raw = b'{"complete":"original evidence"}\n'
+            path.write_bytes(raw)
+            with mock.patch.object(resident, "file_sha256", side_effect=[hashlib.sha256(raw).hexdigest(), "changed"]):
+                with self.assertRaisesRegex(ValueError, "original output retained"):
+                    resident.archive_stdout(path)
+            self.assertEqual(path.read_bytes(), raw)
+
     def test_held_out_fixture_covers_null_utf8_exact_integer_and_empty_selection(self):
         rows = fixture_rows()
         self.assertEqual(rows, fixture_rows())
