@@ -2187,9 +2187,12 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 Current autonomous execution order:
 
 1. Complete the current prepared-aggregate, native spill, compatibility export and
-   ownership batch's correctness gates. Resolve the preserved ingest artifact's
-   physical-byte difference with complete logical-value comparison before using
-   its timing as accepted evidence. Keep existing frozen controls immutable.
+   ownership batch's final-head acceptance for PR #1437. Distinguish the passed
+   extraction checkpoint and earlier measured binaries from the source-grant/PGO
+   corrections requiring final proof. The preserved
+   ingest artifact's complete logical-value comparison has passed; keep its
+   physical-byte difference and unequal old CPU grants explicit. Keep frozen
+   controls immutable and do not infer a gain from an older slower Full43 run.
 2. Park topology stage 1 under PERF-03/07/10/12. Both `a3c62434` grouping and
    `9152a92b` actual coalesced jobs regress without material selected-query wins.
    Preserve the frozen code and evidence; do not promote the experimental option
@@ -2204,9 +2207,16 @@ Current autonomous execution order:
    Floating reassociation and local grouped truncation still require explicit
    semantic proof; source ownership and truthful native evidence remain required.
 5. Execution-aware preparation remains deferred until runtime retention.
-   Continue the remaining ingest curve,
-   compatibility lifecycle, prepared/binding and worker-to-spill acceptance at
-   their shared dependency boundaries. Preserve numeric compression.
+   After PR #1437 merges and required public acceptance completes, the next
+   bounded ingest packet compares control `75fc09a0` P2 with the final accepted
+   frozen candidate P4: four predicted constructed owners per arm, requiring runtime confirmation.
+   Different public requests and prefetch depths remain explicit. Wider curves
+   and additional repetitions are conditional on informative evidence. Keep
+   native Python binding parked; defer helper representation changes because
+   deleting the observed 7.441 seconds from 187.600824-second serial ingest offers
+   only an optimistic 3.97% saving, below the >=10% retention gate. Helper and
+   broader ingest phases remain open. Preserve numeric compression, the retained
+   bounded compatibility-export decision, and pending worker-to-spill acceptance.
 6. Evaluate narrow compact-state/codec candidates and then conditional PERF-13
    PGO against representative training and independent untrained evaluation.
    Existing universal compact/owner/zoning regressions remain rejected; historical

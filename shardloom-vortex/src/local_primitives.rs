@@ -13,6 +13,9 @@ mod aggregate_empty_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_aggregate_lowering.rs"]
 mod aggregate_lowering;
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_aggregate_resource_tests.rs"]
+mod aggregate_resource_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_scan_runtime.rs"]
 mod aggregate_scan_runtime;
@@ -19913,6 +19916,16 @@ fn read_local_vortex_simple_aggregate_scan(
             )?
         };
         let prepared = resident.prepare_file(path)?;
+        // Ordinary scans use the same held-source CPU ceiling as prepared
+        // aggregates, including when the requested grant exceeds host capacity.
+        let (_, source_parallelism) = prepared.resource_limits();
+        let mut policy = policy;
+        policy.max_parallelism = source_parallelism;
+        policy.resource_envelope.max_parallelism = source_parallelism;
+        policy.resource_envelope.scan_concurrency_per_worker = policy
+            .resource_envelope
+            .scan_concurrency_per_worker
+            .min(source_parallelism);
         let restore_provider_drivers = external_cpu_pool
             && aggregate_count_workers::restore_provider_drivers(request, prepared.dtype());
         let worker_memory =
@@ -19978,6 +19991,7 @@ fn read_local_vortex_simple_aggregate_scan(
             summary["aggregate_provider_cpu_scope"] =
                 "same_prepared_source;worker_schema_not_admitted;temporary_provider_drivers;no_concurrent_aggregate_worker_pool".into();
             result.result_summary = summary.to_string();
+            result.restored_provider_background_workers = drivers;
             return Ok(result);
         }
         prepared.with_native_execution(|file, session, runtime| {

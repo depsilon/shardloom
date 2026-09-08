@@ -99,7 +99,7 @@ fn certified(result: &ExecutedVortexAggregate, execution: u64) {
         "no_query_answer_cache=true",
         "independent_oracle_not_run",
     ] {
-        assert!(proof.contains(required), "{proof}");
+        assert!(proof.contains(required), "missing proof marker: {required}");
     }
 }
 

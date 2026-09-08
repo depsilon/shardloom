@@ -27,7 +27,7 @@ class PgoTests(unittest.TestCase):
         self.args = pgo.parse_args(["--repo-root", str(self.repo), "--run-dir", str(self.root / "pgo")])
 
     def test_print_only_does_not_probe_toolchain_create_dirs_or_spawn(self):
-        with patch.dict(os.environ, {}, clear=True), patch.object(subprocess, "Popen", side_effect=AssertionError("spawned")), contextlib.redirect_stdout(io.StringIO()) as out:
+        with patch.dict(os.environ, {}, clear=True), patch.object(pgo.shutil, "which", side_effect=AssertionError("tool lookup")), patch.object(subprocess, "Popen", side_effect=AssertionError("spawned")), contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertEqual(pgo.main(["--repo-root", str(self.repo), "--run-dir", str(self.root / "plan")]), 0)
         report = json.loads(out.getvalue())
         self.assertEqual(report["status"], "print_only")
@@ -35,6 +35,85 @@ class PgoTests(unittest.TestCase):
         self.assertIn("--target", report["build_command_template"])
         self.assertEqual(report["profile_pattern"], "shardloom-%m.profraw")
         self.assertFalse((self.root / "plan").exists())
+
+    def profdata_runner(self):
+        plan = pgo.make_plan(self.args, {})
+        path = self.root / "path"
+        path.mkdir()
+        with patch.dict(os.environ, {"PATH": str(path), "RUSTUP_TOOLCHAIN": "selected-test-toolchain"}, clear=True):
+            runner = pgo.Runner(self.args, plan)
+        selected = self.root / "selected sysroot"
+        host = "aarch64-apple-darwin"
+        stdout = self.root / "sysroot.stdout"
+        stdout.write_text(str(selected) + "\n")
+        calls = []
+        def step(name, command, env=None, timeout=None):
+            calls.append((name, command, dict(runner.env)))
+            return stdout
+        runner.step = step
+        return runner, selected, path, host, calls
+
+    @staticmethod
+    def profdata_file(directory, executable=True):
+        directory.mkdir(parents=True, exist_ok=True)
+        tool = directory / ("llvm-profdata.exe" if os.name == "nt" else "llvm-profdata")
+        tool.write_bytes(b"test fixture; never executed")
+        tool.chmod(0o755 if executable else 0o644)
+        return tool
+
+    def test_profdata_prefers_selected_sysroot_component_over_path(self):
+        runner, selected, path, host, calls = self.profdata_runner()
+        component = self.profdata_file(selected / "lib/rustlib" / host / "bin")
+        self.profdata_file(path)
+        self.assertEqual(pgo.resolve_profdata(runner, "/selected/rustc", host), str(component))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][:2], ("rustc-sysroot", ["/selected/rustc", "--print", "sysroot"]))
+        self.assertEqual(calls[0][2]["RUSTUP_TOOLCHAIN"], "selected-test-toolchain")
+
+    def test_profdata_finds_selected_component_without_global_path_tool(self):
+        runner, selected, _, host, _ = self.profdata_runner()
+        component = self.profdata_file(selected / "lib/rustlib" / host / "bin")
+        self.assertEqual(pgo.resolve_profdata(runner, "rustc", host), str(component))
+
+    def test_profdata_explicit_override_skips_component_and_does_not_substitute_missing_tool(self):
+        runner, selected, path, host, calls = self.profdata_runner()
+        self.profdata_file(selected / "lib/rustlib" / host / "bin")
+        self.profdata_file(path)
+        explicit = self.profdata_file(self.root / "explicit")
+        for configured in (str(explicit), str(self.root / "missing-profdata")):
+            with self.subTest(configured=configured):
+                runner.args.llvm_profdata = configured
+                self.assertEqual(pgo.resolve_profdata(runner, "rustc", host), configured)
+        self.assertEqual(calls, [])
+
+    def test_profdata_uses_path_when_selected_component_is_absent(self):
+        runner, selected, path, host, _ = self.profdata_runner()
+        # A tool in another target's component directory is not the host tool.
+        self.profdata_file(selected / "lib/rustlib/other-host/bin")
+        expected = self.profdata_file(path)
+        self.assertEqual(pgo.resolve_profdata(runner, "rustc", host), str(expected))
+
+    @unittest.skipUnless(os.name == "posix", "POSIX execute permission")
+    def test_profdata_skips_nonexecutable_component(self):
+        runner, selected, path, host, _ = self.profdata_runner()
+        self.profdata_file(selected / "lib/rustlib" / host / "bin", executable=False)
+        expected = self.profdata_file(path)
+        self.assertEqual(pgo.resolve_profdata(runner, "rustc", host), str(expected))
+
+    def test_profdata_missing_tools_names_selected_toolchain_and_explicit_remedy(self):
+        runner, selected, _, host, _ = self.profdata_runner()
+        with self.assertRaisesRegex(ValueError, "install llvm-tools-preview.*selected-test-toolchain.*--llvm-profdata") as failure:
+            pgo.resolve_profdata(runner, "rustc", host)
+        self.assertIn(str(selected / "lib/rustlib" / host / "bin"), str(failure.exception))
+
+    def test_profdata_rejects_invalid_sysroot_without_resolving_cwd(self):
+        runner, _, path, host, _ = self.profdata_runner()
+        self.profdata_file(path)
+        for invalid in ("", "relative/sysroot"):
+            with self.subTest(sysroot=invalid):
+                (self.root / "sysroot.stdout").write_text(invalid + "\n")
+                with self.assertRaisesRegex(ValueError, "absolute sysroot"):
+                    pgo.resolve_profdata(runner, "rustc", host)
 
     def test_rejects_existing_or_checkout_destination_preserves_sentinel(self):
         output = self.root / "pgo"

@@ -42,7 +42,7 @@ def parse_args(argv=None):
     p.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
     p.add_argument("--run-dir", type=Path, help="Fresh, non-existing local directory; never reused or removed")
     p.add_argument("--target", help="Native host triple; otherwise resolved from rustc -vV during --run")
-    p.add_argument("--llvm-profdata", default=shutil.which("llvm-profdata") or "llvm-profdata")
+    p.add_argument("--llvm-profdata", help="Explicit tool override; otherwise use the selected Rust toolchain's llvm-tools component, then PATH during --run")
     p.add_argument("--features", default="release-user-surfaces")
     p.add_argument("--training-command", help="Shell-free argv string with standalone {instrumented_binary} token")
     p.add_argument("--rustflag", action="append", default=[])
@@ -239,6 +239,30 @@ def executable_from_messages(path, target_dir):
     return binary
 
 
+def resolve_profdata(runner, rustc, host):
+    search_path = runner.env.get("PATH", os.defpath)
+    if runner.args.llvm_profdata is not None:
+        # An explicit override is authoritative, including an invalid one: never
+        # silently substitute a different tool when its version probe fails.
+        return shutil.which(runner.args.llvm_profdata, path=search_path) or runner.args.llvm_profdata
+    # llvm-tools-preview is not on PATH or in the toolchain's top-level bin.
+    # Ask the same rustc under Runner's RUSTUP_TOOLCHAIN, rather than assuming
+    # rustup's default toolchain, RUSTUP_HOME or `rustup which llvm-profdata`.
+    # https://doc.rust-lang.org/rustc/profile-guided-optimization.html
+    sysroot = Path(runner.step("rustc-sysroot", [rustc, "--print", "sysroot"]).read_text().strip())
+    if not sysroot.is_absolute():
+        raise ValueError("selected rustc did not report an absolute sysroot")
+    tool = "llvm-profdata.exe" if os.name == "nt" else "llvm-profdata"
+    component = sysroot / "lib" / "rustlib" / host / "bin" / tool
+    resolved = shutil.which(str(component), path=search_path) or shutil.which("llvm-profdata", path=search_path)
+    if resolved:
+        return resolved
+    raise ValueError(
+        f"llvm-profdata not found at {component} or on PATH; install llvm-tools-preview "
+        f"for RUSTUP_TOOLCHAIN={runner.env['RUSTUP_TOOLCHAIN']} or set --llvm-profdata"
+    )
+
+
 def run_smoke(runner, rustc, profdata, target):
     smoke = runner.output / "smoke"
     profiles = smoke / "profiles"
@@ -333,15 +357,16 @@ def execute(args, report):
     report["status"] = "running"
     try:
         rustc = shutil.which("rustc") or "rustc"
-        profdata = shutil.which(args.llvm_profdata) or args.llvm_profdata
         versions = runner.step("rustc-version", [rustc, "-vV"]).read_text()
-        report["rustc_version"], report["profdata_path"] = versions, profdata
-        report["profdata_version"] = runner.step("profdata-version", [profdata, "--version"]).read_text()
+        report["rustc_version"] = versions
         host = next(line.removeprefix("host: ") for line in versions.splitlines() if line.startswith("host: "))
         target = args.target or host
         if target != host:
             raise ValueError("this executable local experiment requires the rustc host target")
         report["target"], report["toolchain"] = target, runner.env["RUSTUP_TOOLCHAIN"]
+        profdata = resolve_profdata(runner, rustc, host)
+        report["profdata_path"] = profdata
+        report["profdata_version"] = runner.step("profdata-version", [profdata, "--version"]).read_text()
         run_smoke(runner, rustc, profdata, target)
         if args.smoke_only:
             report["status"] = "smoke_passed_no_workspace_build"

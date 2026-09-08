@@ -27,6 +27,11 @@ unbuilt isolated Python prototype stay on the preserved experimental branch.
 Historical evidence and rejection decisions remain documented here; they do
 not imply those experimental implementations are part of the shipping batch.
 
+PR #1437 acceptance distinguishes extraction checks, the measured `e739edeb`
+binary and final shipping-head evidence. The ordinary aggregate source-grant
+restoration and PGO lookup fix require their own checks; earlier Full43 results
+must not be relabeled as final.
+
 Each item below requires source-grounded provider admission, implementation or
 a concrete feasibility experiment, correctness tests, and a measured retain/drop
 decision. A proposal, extra counter, or passing compilation alone does not close
@@ -83,7 +88,7 @@ for this revision were not run after the negative performance decision. See
 | PERF-03/08/09 | Ingest worker scaling and bounded cohort overlap | **Implemented and tested at `48182c5a`:** shared source/conversion/provider CPU grants and explicit one-worker ceilings. Two of eight initial observations are complete: control requested-one/public-ceiling-two 95.837785 seconds, candidate true-one 187.600824 seconds, with peak RSS 3.05/1.97 GB. These are not equal CPU grants. Candidate bytes differ, but [all 11.2 billion logical values match](../benchmarks/perf-native-artifact-equivalence-2026-09-08.md); only that verified generated artifact was retired. Requested 2/4/8, informative repeats and any justified overlap/controller tuning remain; topology is now parked |
 | PERF-03/09/10 | Joint codec/consumer selection and task-level controllers | **Experimental, not promoted:** 27 real files and 10,800 complete native queries with publication and reuse-1/10/100 clocks. Dictionary improves categorical reuse-100 lifecycle 18–28% at 4.23–5.83x artifact bytes; unique Dictionary is slower/larger and FSST has no sustained lifecycle gain. Default Zstd and numeric compression remain. Conditional categorical selection requires production-scale lifecycle evidence; a task-level codec/CPU/memory controller remains unimplemented |
 | PERF-02 | Prepared aggregates and retained public execution | **Measured at `48182c5a`:** 1,116 complete resident public calls; filtered-count worker p50 0.683 to 0.483 ms, native prepared filtered-count p50 38.75 microseconds over 10,000 actual executions. **Integrated, validation pending:** retained integer COUNT/COUNT DISTINCT/SUM lowering and source, fresh per-execution state, native certificates, optional CLI-worker reuse, and a single-open ordinary route when retention admission fails. Aggregate and expanded nine-case public-call-path measurements remain; SUM keeps its existing floating accumulation semantics |
-| PERF-02/07 | Native Python binding decision | **Isolated prototype, validation pending:** safe PyO3 adapter for retained metadata count, actual filtered count, bounded native-array projection and explicit JSON conversion; held-provider/file-size admission and ABA race tests are authored. Root Python packaging and worker transport are unchanged. Resolve the isolated dependency/license graph, build/load the exact-interpreter extension and Rust control, run ownership/invalidation tests and 372 complete acceptance records, then make a measured integration decision. ABI/platform packaging is a separate later boundary |
+| PERF-02/07 | Native Python binding decision | **Parked, excluded from shipping and not scheduled:** the unbuilt isolated PyO3 prototype and its authored admission/ownership tests remain on the preserved experimental branch. Root Python packaging and worker transport are unchanged. Resume only with new measured justification under the material-benefit constraint; dependency/license, exact-interpreter build, 372-record acceptance and ABI/platform packaging work remain uncompleted |
 | PERF-03 | Remaining CPU/I/O/codec and retained-memory admission | **Partially integrated:** existing shared worker/scan grants, parent/child spill reservations and source/result ownership. The active provider-driver admission/evidence correction needs batch validation. Global provider/codec allocation coverage, progress/cancel behavior and coordinated remaining operators remain open; owned-byte accounting is not a process-RSS bound |
 | PERF-06 | Native exact-distinct and weighted COUNT spill | **Correctness checkpoint passed:** explicit public exact-distinct and weighted UTF8/optional-integer COUNT routes, separate typed evidence/certificates, same-source/runtime ownership, quota overlap, namespace-specific cleanup, and aggregate row-count/empty-source certificate fixes. Production-size resource/performance acceptance remains. Weighted runs use actual per-run key/block geometry while retaining worst-case admission. Both public routes feed a bounded serial source accumulator; drained worker-prefix/untouched-suffix transfer is test-only. Production pressure handoff and general join spill remain unimplemented |
 | PERF-07/10 | Native-array compatibility export and broader physical results | **Measured, retained for the admitted bounded profile at `e739edeb`:** [32 release pairs and four prepared series](../benchmarks/retained-native-export-2026-09-08.md), all 96 complete output checks passing; 65,536-row complete-artifact medians improve 3.528x IPC / 3.523x Parquet. At 4,096 rows IPC improves 11.82% and Parquet regresses 1.45%; raw legacy API is faster there because it omits sync/checksum/reopen. Source-generation guarantees differ; no broader public-scale or RSS win is claimed. Prepared series retain one source open and release owned bytes after drop. Broader materializing/multi-source result composition and production-scale acceptance remain open |
@@ -99,11 +104,14 @@ or engine-superiority claim follows from this plan.
 
 Two earlier attachment obligations remain explicit within these open rows:
 
-- **PERF-03/08/09/10:** measure the complete large-text source, derived-helper,
-  writer and consumer lifecycle. The codec portfolio did not exercise helper
-  generation or compare direct primitive lengths with per-row length-dictionary
-  lookup. A codec-only result does not close this intake/helper work. Preserve
-  complete readback/checksum validation while optimizing the actual work.
+- **PERF-03/08/09/10:** helper representation work is deferred. The measured
+  serial P1 ingest contains 7.441 seconds of helper work within 187.600824 seconds
+  total: even deleting that measured stage entirely offers an optimistic 3.97%
+  saving, below the >=10% retention gate. The old 110-second helper bottleneck is
+  obsolete. This observation does not bound every downstream effect or other
+  worker setting, and does not complete the helper/lifecycle phase. Preserve
+  complete readback and checksum proof; resume implementation only with new
+  evidence of material complete-lifecycle benefit.
 - **PERF-02/03/07:** measure file-backed small-query latency during long work in
   the same resident session, then decide whether a bounded concurrency change is
   justified. Existing mixed in-memory intake/JSON measurements include queue
@@ -133,18 +141,21 @@ it is not a competing execution queue or a claim that remaining work is complete
    predicates and values; prepared aggregate/session reuse; source identity and
    provider-driver accounting. Freeze a clean revision before attributing new
    measurements to it. Passing `48182c5a` checks do not validate these later edits.
-2. Finish the matched ingest curve, repeat informative worker settings, and use
-   actual stage/CPU/memory evidence to select any bounded cohort overlap or
-   ordered-writer/controller change. Preserve complete artifact identity and
-   storage guards. Run the column-layout lifecycle packet; the bounded
-   compatibility-export packet is retained with its measured small-case costs.
-   Promote a layout only after justified fixed-codec/fixed-CPU production-scale
-   ingest-plus-query acceptance.
-3. Build and validate the isolated native Python experiment, then run its 372
-   complete records and the expanded prepared-aggregate public latency matrix.
-   Decide native binding integration from actual native return, explicit sink,
-   complete Python return, preparation and ownership evidence. Remaining prepared
-   operator and multi-source result families still require scoped native designs.
+2. After PR #1437 merges and required public acceptance completes, run the bounded
+   control `75fc09a0` P2 versus the final accepted frozen candidate P4 ingest packet. Both predict
+   caller1/source1/conversion1/provider1; confirm all four constructed owners from
+   actual evidence. Public requests and prefetch depths differ, so this is not
+   equal-public-setting or scheduler-only attribution. Validate and retire only
+   each owned output before the next arm. Repeat informative pairs and extend
+   worker settings only if the first packet exposes a concrete question. Preserve
+   source generation, complete values, compression and existing storage guards.
+   The bounded compatibility-export packet remains retained with its measured
+   small-case costs; broader layout promotion still needs justified lifecycle proof.
+3. Complete the required prepared-aggregate public acceptance. Keep the isolated
+   native Python experiment parked and excluded from shipping; no build or
+   372-record experiment is scheduled without new measured justification.
+   Remaining prepared-operator and multi-source result families stay open and
+   require scoped native designs and material benefit before implementation.
 4. Connect production worker pressure to exact native runs only through a drained
    committed prefix and untouched suffix, with no double counting or stale-source
    mixing; validate memory exhaustion, cancellation and complete global order.
