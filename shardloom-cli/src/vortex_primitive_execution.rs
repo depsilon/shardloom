@@ -60,6 +60,9 @@ use shardloom_vortex::{
 
 use crate::cli_output::{emit, emit_error};
 
+#[path = "vortex_aggregate_spill_policy.rs"]
+mod aggregate_spill_policy;
+
 const VORTEX_PRIMITIVE_SCAN_PUSHDOWN_SCHEMA_VERSION: &str =
     "shardloom.vortex_primitive.scan_pushdown_contract.v1";
 
@@ -3334,11 +3337,12 @@ fn parse_simple_aggregate_primitive_request(
         .transpose()?
         .flatten()
         .unwrap_or_default();
-    let aggregate = VortexSimpleAggregateRequest::grouped(group_by, measures)
+    let mut aggregate = VortexSimpleAggregateRequest::grouped(group_by, measures)
         .with_group_expressions(group_expressions)
         .with_order_by(order_by)
         .with_having(having)
         .with_offset(offset);
+    aggregate.spill = aggregate_spill_policy::parse(value.get("spill"))?;
     Ok(shardloom_vortex::VortexQueryPrimitiveRequest::simple_aggregate(uri, aggregate))
 }
 

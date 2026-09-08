@@ -7,12 +7,27 @@ mod aggregate_chunk_jobs;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_count_workers.rs"]
 mod aggregate_count_workers;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitive_aggregate_empty_tests.rs"]
+mod aggregate_empty_tests;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_aggregate_lowering.rs"]
+mod aggregate_lowering;
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_aggregate_resource_tests.rs"]
+mod aggregate_resource_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_scan_runtime.rs"]
 mod aggregate_scan_runtime;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_timing.rs"]
 mod aggregate_timing;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/bounded_numeric_reduction_experiment.rs"]
+mod bounded_numeric_reduction_experiment;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/compact_string_state.rs"]
+mod compact_string_state;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/compound_count_partial.rs"]
 mod compound_count_partial;
@@ -28,6 +43,9 @@ mod compound_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/encoded_numeric_reduction.rs"]
 mod encoded_numeric_reduction;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/exact_distinct_pairs.rs"]
+mod exact_distinct_pairs;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/lazy_layout_metadata_tests.rs"]
 mod lazy_layout_metadata_tests;
@@ -40,11 +58,46 @@ mod native_numeric_accessor;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_owner.rs"]
 mod native_numeric_owner;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_aggregate.rs"]
+pub mod prepared_aggregate;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_count.rs"]
+pub mod prepared_count;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_scan.rs"]
+mod prepared_scan;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/string_count_entry_credits.rs"]
 mod string_count_entry_credits;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitives/weighted_count_spill.rs"]
+mod weighted_count_spill;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitives/weighted_count_spill_accumulator.rs"]
+mod weighted_count_spill_accumulator;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitives/weighted_count_spill_admission.rs"]
+mod weighted_count_spill_admission;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitives/weighted_count_spill_certificate.rs"]
+mod weighted_count_spill_certificate;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitives/weighted_count_spill_intake.rs"]
+mod weighted_count_spill_intake;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitives/weighted_count_spill_query.rs"]
+mod weighted_count_spill_query;
 #[cfg(feature = "vortex-local-primitives")]
 use native_numeric_owner::NativeNumericOwner;
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+#[path = "local_primitive_columnar_compat_sink.rs"]
+mod columnar_compat_sink;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitive_native_sink.rs"]
 pub(crate) mod native_sink;
@@ -53,6 +106,9 @@ pub(crate) mod native_sink;
 mod numeric_count_partial;
 #[cfg(feature = "vortex-local-primitives")]
 use native_numeric_accessor::{AggregateAccessorBatch, NativeNumericAccessorWork};
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_query_run_store.rs"]
+mod query_run_store;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_sort_spill.rs"]
 pub(crate) mod sort_spill;
@@ -191,6 +247,8 @@ pub struct VortexLocalPrimitiveStateBudgetReport {
     pub spill_supported: bool,
     pub spill_io_performed: bool,
     pub native_sort_spill: Option<crate::VortexSortSpillReport>,
+    pub native_aggregate_spill: Option<crate::VortexAggregateSpillReport>,
+    pub native_weighted_count_spill: Option<crate::VortexWeightedCountSpillReport>,
     pub fail_closed_if_spill_required: bool,
     pub diagnostic_code: String,
     pub next_action: String,
@@ -216,6 +274,8 @@ impl VortexLocalPrimitiveStateBudgetReport {
             spill_supported: false,
             spill_io_performed: false,
             native_sort_spill: None,
+            native_aggregate_spill: None,
+            native_weighted_count_spill: None,
             fail_closed_if_spill_required: false,
             diagnostic_code: "none".to_string(),
             next_action: "none".to_string(),
@@ -258,6 +318,8 @@ impl VortexLocalPrimitiveStateBudgetReport {
             spill_supported: false,
             spill_io_performed: false,
             native_sort_spill: None,
+            native_aggregate_spill: None,
+            native_weighted_count_spill: None,
             fail_closed_if_spill_required: true,
             diagnostic_code: diagnostic_code.to_string(),
             next_action: next_action.to_string(),
@@ -2265,6 +2327,23 @@ pub struct VortexNativeArraySinkEvidence {
     pub dtype_and_row_count_validated: bool,
     pub output_sha256: String,
     pub metadata_fidelity: &'static str,
+    /// Present when native arrays cross an explicit Arrow compatibility sink.
+    pub compatibility: Option<VortexColumnarCompatibilitySinkEvidence>,
+}
+
+/// Actual adapter counters and explicitly scoped compatibility work admission.
+/// The expansion bound is not a copied-byte count; sampled Parquet state is not
+/// a complete provider allocation or process-RSS high-water measurement.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VortexColumnarCompatibilitySinkEvidence {
+    pub native_batches: u64,
+    pub native_logical_bytes: u64,
+    pub arrow_batches: u64,
+    pub admitted_arrow_expansion_bytes: u64,
+    pub max_arrow_batch_bytes: u64,
+    pub max_observed_parquet_in_progress_bytes: u64,
+    pub writer_reserved_bytes: u64,
+    pub output_bytes: u64,
 }
 
 fn disabled_row_export_evidence() -> VortexLocalPrimitiveRowExportEvidence {
@@ -2784,7 +2863,7 @@ fn local_primitive_native_io_path_id(report: &VortexLocalPrimitiveExecutionRepor
     }
 }
 
-fn local_primitive_native_io_safe(
+fn local_primitive_spill_admission_matches(
     request: &VortexQueryPrimitiveRequest,
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> bool {
@@ -2813,7 +2892,44 @@ fn local_primitive_native_io_safe(
         }
         _ => false,
     };
-    let common_safe = spill_admission_matches
+    let aggregate_spill_admission_matches = match (
+        request
+            .simple_aggregate
+            .as_ref()
+            .and_then(|aggregate| aggregate.spill.as_ref()),
+        report.state_budget.native_aggregate_spill.as_ref(),
+        report.state_budget.native_weighted_count_spill.as_ref(),
+    ) {
+        (None, None, None) => true,
+        (Some(policy), Some(evidence), None) => {
+            request.kind == VortexQueryPrimitiveKind::SimpleAggregate
+                && exact_aggregate_spill_request_shape_admitted(request)
+                && policy.workspace == evidence.workspace
+                && policy.quota_bytes == evidence.quota_bytes
+                && policy.memory_bytes == evidence.memory_bytes
+                && local_primitive_verified_exact_distinct_spill(report)
+        }
+        (Some(policy), None, Some(evidence)) => {
+            #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+            {
+                weighted_count_spill_certificate::request_matches(request, report, policy, evidence)
+            }
+            #[cfg(not(all(feature = "vortex-local-primitives", feature = "vortex-write", unix)))]
+            {
+                let _ = (policy, evidence);
+                false
+            }
+        }
+        _ => false,
+    };
+    spill_admission_matches && aggregate_spill_admission_matches
+}
+
+fn local_primitive_native_io_safe(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    let common_safe = local_primitive_spill_admission_matches(request, report)
         && request.kind == report.primitive_kind
         && request.diagnostics.iter().all(|diagnostic| {
             !matches!(
@@ -2852,10 +2968,68 @@ fn local_primitive_native_io_safe(
             && report.filter_pushdown_applied
             && report.upstream_filter_expression_used;
     }
+    // Footer row count zero and a completed native scan prove that fresh
+    // aggregate state received no input. Scalar finalization may emit one row
+    // (or none after HAVING/offset); grouped finalization must emit none.
+    if local_primitive_empty_aggregate_source_scan(report)
+        && request.simple_aggregate.as_ref().is_some_and(|aggregate| {
+            aggregate.spill.is_none()
+                && report.rows_projected.is_some_and(|rows| {
+                    rows <= u64::from(
+                        aggregate.group_by.is_empty() && aggregate.group_expressions.is_empty(),
+                    )
+                })
+        })
+    {
+        return true;
+    }
+    // An admitted grouped spill query may scan a known-empty native source
+    // without receiving an array or opening a temporary run. That is a valid
+    // empty result, not missing evidence that source data was read.
+    if local_primitive_verified_aggregate_spill(report)
+        && report.rows_scanned == 0
+        && report.rows_selected == Some(0)
+        && report.rows_projected == Some(0)
+    {
+        return report.upstream_scan_called
+            && report.streaming_scan_used
+            && report.arrays_read_count == 0
+            && !report.data_read
+            && !report.data_decoded
+            && !report.data_materialized
+            && !report.row_read
+            && !report.full_stream_collected
+            && !report.write_io
+            && !report.spill_io_performed;
+    }
     if !local_primitive_pushdown_evidence_is_sufficient(report) {
         return false;
     }
     report.upstream_scan_called && report.data_read && report.streaming_scan_used
+}
+
+fn local_primitive_empty_aggregate_source_scan(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    report.primitive_kind == VortexQueryPrimitiveKind::SimpleAggregate
+        && report.mode == VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        && report.embedded_layout.metadata_persisted_in_artifact
+        && report.embedded_layout.footer_row_count == 0
+        && report.rows_scanned == 0
+        && report.rows_selected == Some(0)
+        && report.upstream_scan_called
+        && report.streaming_scan_used
+        && report.arrays_read_count == 0
+        && report.reader_splits.is_empty()
+        && report.max_chunk_rows == 0
+        && !report.data_read
+        && !report.data_decoded
+        && !report.data_materialized
+        && !report.row_read
+        && !report.arrow_converted
+        && !report.full_stream_collected
+        && !report.write_io
+        && !report.spill_io_performed
 }
 
 fn local_primitive_pushdown_evidence_is_sufficient(
@@ -3147,8 +3321,24 @@ fn local_primitive_pushdown_guarantee(
 fn local_primitive_pushdown_proof_basis(
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> &'static str {
+    if local_primitive_empty_aggregate_source_scan(report) {
+        return "Vortex footer declares zero source rows and the completed native scan yielded no arrays; ShardLoom finalized fresh empty aggregate state without reading, decoding or materializing source values";
+    }
     if report.embedded_layout.metadata_pruned_entire_input {
         return "ShardLoom consulted embedded Vortex footer statistics through VortexFile::can_prune and proved the filter cannot match before opening a scan stream";
+    }
+    if matches!(
+        report.primitive_kind,
+        VortexQueryPrimitiveKind::CountWhere | VortexQueryPrimitiveKind::SimpleAggregate
+    ) && report.rows_scanned > 0
+        && report.arrays_read_count == 0
+        && report.upstream_scan_called
+        && report.filter_pushdown_applied
+        && report.data_read
+        && !report.row_read
+        && !report.arrow_converted
+    {
+        return "native provider filter completed over an unpruned nonempty source and returned no arrays; scan read/decode/materialization flags are conservative, not observed byte counters; no scalar rows or Arrow conversion were produced";
     }
     match report.primitive_kind {
         VortexQueryPrimitiveKind::CountAll => {
@@ -3572,6 +3762,23 @@ fn local_primitive_row_count(report: &VortexLocalPrimitiveExecutionReport) -> Op
             report.rows_selected
         }
         VortexQueryPrimitiveKind::ProjectColumns => report.rows_projected,
+        VortexQueryPrimitiveKind::SimpleAggregate => {
+            // Selection counts rows admitted to aggregation; projection counts
+            // the finalized groups/scalar output. They need not be equal.
+            match (report.rows_selected, report.rows_projected) {
+                (Some(input), Some(output))
+                    if report.source_order_limit_input_rows == Some(input)
+                        && report.source_order_limit_rows_output == Some(output)
+                        && input <= report.rows_scanned
+                        && report
+                            .source_order_limit_requested
+                            .is_none_or(|limit| output <= limit) =>
+                {
+                    Some(output)
+                }
+                _ => None,
+            }
+        }
         VortexQueryPrimitiveKind::FilterAndProject
         | VortexQueryPrimitiveKind::DistinctRows
         | VortexQueryPrimitiveKind::DropDuplicateRows
@@ -3583,15 +3790,9 @@ fn local_primitive_row_count(report: &VortexLocalPrimitiveExecutionReport) -> Op
         | VortexQueryPrimitiveKind::ExplodeRows
         | VortexQueryPrimitiveKind::PivotRows
         | VortexQueryPrimitiveKind::RollingWindowRows
-        | VortexQueryPrimitiveKind::SimpleAggregate
         | VortexQueryPrimitiveKind::SortRows => {
             match (report.rows_selected, report.rows_projected) {
                 (Some(selected), Some(projected)) if selected == projected => Some(selected),
-                (Some(selected), Some(1))
-                    if report.primitive_kind == VortexQueryPrimitiveKind::SimpleAggregate =>
-                {
-                    Some(selected)
-                }
                 _ => None,
             }
         }
@@ -3672,8 +3873,11 @@ fn local_primitive_unsafe_effect_detected(report: &VortexLocalPrimitiveExecution
         || report.object_store_io
         || ((report.write_io
             || report.spill_io_performed
-            || report.state_budget.native_sort_spill.is_some())
-            && !local_primitive_verified_sort_spill(report))
+            || report.state_budget.native_sort_spill.is_some()
+            || report.state_budget.native_aggregate_spill.is_some()
+            || report.state_budget.native_weighted_count_spill.is_some())
+            && !local_primitive_verified_sort_spill(report)
+            && !local_primitive_verified_aggregate_spill(report))
         || report.external_effects_executed
         || report.fallback_execution_allowed
 }
@@ -3698,6 +3902,131 @@ fn local_primitive_verified_sort_spill(report: &VortexLocalPrimitiveExecutionRep
                     && spill.runs_written == spill.runs_validated
                     && spill.max_open_runs <= 9
             })
+}
+
+fn local_primitive_verified_exact_distinct_spill(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    report.primitive_kind == VortexQueryPrimitiveKind::SimpleAggregate
+        && report.state_budget.native_sort_spill.is_none()
+        && report.state_budget.native_weighted_count_spill.is_none()
+        && report.state_budget.spill_supported
+        && report
+            .state_budget
+            .native_aggregate_spill
+            .as_ref()
+            .is_some_and(|spill| {
+                let wrote = spill.runs_written != 0;
+                spill.family == "exact_integer_grouped_count_distinct"
+                    && spill.workspace.is_absolute()
+                    && spill.owned_cleanup_completed
+                    && spill.memory_bytes >= 2 * 1024 * 1024
+                    && spill.quota_bytes >= 32 * 1024
+                    && spill.peak_reserved_bytes <= spill.memory_bytes
+                    && spill.peak_disk_bytes <= spill.quota_bytes
+                    && spill.runs_written == spill.runs_validated
+                    && spill.run_block_rows == 1024
+                    && spill.merge_fan_in == 4
+                    && spill.buffer_capacity_pairs > 0
+                    && spill.buffer_capacity_pairs <= 65_536
+                    && spill.complete_pairs <= spill.source_rows
+                    && spill.groups as u64 <= spill.complete_pairs
+                    && report.rows_selected == Some(spill.source_rows)
+                    && report.write_io == wrote
+                    && report.spill_io_performed == wrote
+                    && report.state_budget.spill_io_performed == wrote
+                    && (wrote || (spill.peak_disk_bytes == 0 && spill.merge_passes == 0))
+            })
+}
+
+fn local_primitive_verified_aggregate_spill(report: &VortexLocalPrimitiveExecutionReport) -> bool {
+    if local_primitive_verified_exact_distinct_spill(report) {
+        return true;
+    }
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    {
+        weighted_count_spill_certificate::verified(report)
+    }
+    #[cfg(not(all(feature = "vortex-local-primitives", feature = "vortex-write", unix)))]
+    {
+        false
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_spill_request_shape_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    if exact_aggregate_spill_request_shape_admitted(request) {
+        return true;
+    }
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    {
+        weighted_count_spill_admission::request_admitted(request)
+    }
+    #[cfg(not(all(feature = "vortex-local-primitives", feature = "vortex-write", unix)))]
+    {
+        false
+    }
+}
+
+fn exact_aggregate_spill_request_shape_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    #[cfg(feature = "vortex-local-primitives")]
+    {
+        if !exact_distinct_pairs::workers::request_may_be_admitted(request) {
+            return false;
+        }
+        let (Some(source), Some(aggregate), Some(limit)) = (
+            &request.source_uri,
+            &request.simple_aggregate,
+            request.source_order_limit,
+        ) else {
+            return false;
+        };
+        if limit == 0 {
+            return false;
+        }
+        let mut canonical =
+            VortexQueryPrimitiveRequest::simple_aggregate(source.clone(), aggregate.clone())
+                .with_source_order_limit(limit);
+        canonical.predicate.clone_from(&request.predicate);
+        // Reject unrelated payloads rather than silently ignoring an effect or
+        // projection while accepting this explicit temporary-write policy.
+        request == &canonical
+    }
+    #[cfg(not(feature = "vortex-local-primitives"))]
+    {
+        let _ = request;
+        false
+    }
+}
+
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write"))]
+pub(crate) fn recover_aggregate_spill(
+    policy: &crate::VortexAggregateSpillPolicy,
+    directory: &std::path::Path,
+) -> Result<()> {
+    query_run_store::recover(
+        &query_run_store::QueryRunStorePolicy::exact_integer_distinct(
+            policy.workspace.clone(),
+            policy.quota_bytes,
+            std::sync::Arc::clone(&policy.cancellation),
+        ),
+        directory,
+    )
+}
+
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+pub(crate) fn recover_weighted_count_spill(
+    policy: &crate::VortexAggregateSpillPolicy,
+    directory: &std::path::Path,
+) -> Result<()> {
+    query_run_store::recover(
+        &query_run_store::QueryRunStorePolicy::weighted_utf8_count(
+            policy.workspace.clone(),
+            policy.quota_bytes,
+            std::sync::Arc::clone(&policy.cancellation),
+        ),
+        directory,
+    )
 }
 
 fn local_primitive_correctness_passed(
@@ -3743,6 +4072,49 @@ pub fn execute_vortex_local_primitive_with_policy(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
+    if let Some(spill) = request
+        .simple_aggregate
+        .as_ref()
+        .and_then(|aggregate| aggregate.spill.as_ref())
+    {
+        if spill
+            .cancellation
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "native aggregate spill execution cancelled; no fallback execution was attempted"
+                    .into(),
+            ));
+        }
+        if !spill.workspace.is_absolute()
+            || spill.quota_bytes < 32 * 1024
+            || spill.memory_bytes < 2 * 1024 * 1024
+        {
+            return Err(ShardLoomError::InvalidOperation("native aggregate spill requires an absolute workspace, at least 32 KiB quota and 2 MiB operator memory; no fallback execution was attempted".into()));
+        }
+        if request.kind != VortexQueryPrimitiveKind::SimpleAggregate
+            || !cfg!(all(
+                feature = "vortex-local-primitives",
+                feature = "vortex-write",
+                unix
+            ))
+        {
+            return Err(ShardLoomError::InvalidOperation("native aggregate spill requires SimpleAggregate, Unix source identity, vortex-local-primitives and vortex-write; no fallback execution was attempted".into()));
+        }
+        #[cfg(feature = "vortex-local-primitives")]
+        if !aggregate_spill_request_shape_admitted(request)
+            || request.source_order_limit == Some(0)
+            || request
+                .simple_aggregate
+                .as_ref()
+                .and_then(|aggregate| aggregate.spill.as_ref())
+                .is_some_and(|spill| {
+                    spill.memory_bytes > policy.resource_envelope.memory_budget_bytes
+                })
+        {
+            return Err(ShardLoomError::InvalidOperation("native aggregate spill admits only bounded identity integer grouped COUNT DISTINCT or UTF8/optional-integer grouped COUNT(*) ordered by descending count, within the query memory budget; no fallback execution was attempted".into()));
+        }
+    }
     if request
         .sort_rows
         .as_ref()
@@ -3790,6 +4162,13 @@ pub fn execute_vortex_local_partitioned_primitive_with_policy(
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
     if request
+        .simple_aggregate
+        .as_ref()
+        .is_some_and(|aggregate| aggregate.spill.is_some())
+    {
+        return Err(ShardLoomError::InvalidOperation("native aggregate spill is not admitted for partitioned sources; no fallback execution was attempted".into()));
+    }
+    if request
         .sort_rows
         .as_ref()
         .is_some_and(|sort| sort.spill.is_some())
@@ -3831,6 +4210,13 @@ pub fn execute_vortex_local_primitive_row_export_with_policy(
     allow_overwrite: bool,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
+    if request
+        .simple_aggregate
+        .as_ref()
+        .is_some_and(|aggregate| aggregate.spill.is_some())
+    {
+        return Err(ShardLoomError::InvalidOperation("native aggregate spill currently returns bounded query rows; combined row-file export is not admitted; no fallback execution was attempted".into()));
+    }
     if request
         .sort_rows
         .as_ref()
@@ -3975,6 +4361,20 @@ fn execute_vortex_local_primitive_row_export_enabled(
         return Ok(report.with_physical_policy(physical_policy));
     }
     if output_format.is_structured_projection_export() {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+        if request.structured_projection.is_some()
+            && let Some(prepared) = columnar_compat_sink::prepare(
+                request,
+                &path,
+                output_format,
+                policy,
+                columnar_compat_sink::CompatibilityLimits::default(),
+            )?
+        {
+            return prepared
+                .write(output_path, allow_overwrite)
+                .map(|completed| completed.report.with_physical_policy(physical_policy));
+        }
         return execute_vortex_local_structured_binary_row_export_enabled(
             request,
             &path,
@@ -13558,8 +13958,8 @@ struct LocalVortexAggregateScan {
     scan: LocalVortexScan,
     result_summary: String,
     state_budget: VortexLocalPrimitiveStateBudgetReport,
-    // Temporary drivers introduced inside this scan, excluding wrapper-owned
-    // drivers. Kept typed so outer execution evidence need not parse our JSON.
+    // Temporary drivers used by the completed scan or its immediate wrapper.
+    // Kept typed so outer execution evidence need not parse our JSON.
     restored_provider_background_workers: usize,
 }
 
@@ -13584,6 +13984,7 @@ struct LocalVortexRowsScan {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone)]
 struct LocalVortexScanPlan {
     filter: Option<vortex::array::expr::Expression>,
     residual_predicate: Option<PredicateExpr>,
@@ -13628,6 +14029,31 @@ impl LocalVortexScan {
 
     fn data_read(&self) -> bool {
         self.streaming_scan_used() && self.arrays_read_count > 0
+    }
+
+    // The provider may evaluate an entire filter and suppress every output
+    // array. No returned arrays therefore does not prove that no work occurred.
+    fn empty_provider_filter_work(&self, predicate: Option<&PredicateExpr>) -> Result<bool> {
+        let may_have_read = self.source_row_count > 0
+            && self.arrays_read_count == 0
+            && self.filter_pushdown_applied
+            && self.streaming_scan_used();
+        if !may_have_read {
+            return Ok(false);
+        }
+        // An admitted constant-false rewrite reads no source values even when
+        // the provider does not report that rewrite as metadata pruning. Use
+        // the same semantic rewriter as scan lowering, with no derived fields.
+        let rewritten = predicate
+            .map(|predicate| {
+                rewrite_predicate_for_embedded_derived_columns(
+                    predicate,
+                    &std::collections::BTreeSet::new(),
+                    &mut Vec::new(),
+                )
+            })
+            .transpose()?;
+        Ok(!matches!(rewritten, Some(PredicateExpr::AlwaysFalse)))
     }
 
     fn upstream_scan_called(&self) -> bool {
@@ -13973,7 +14399,18 @@ fn local_vortex_path(
     Ok(Some(path))
 }
 
-#[cfg(feature = "vortex-local-primitives")]
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+fn read_local_vortex_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    primitive_kind: VortexQueryPrimitiveKind,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
+) -> Result<LocalVortexScan> {
+    prepared_scan::read(source_uri, path, primitive_kind, policy, configure)
+}
+
+#[cfg(all(feature = "vortex-local-primitives", not(unix)))]
 #[allow(clippy::too_many_lines)]
 fn read_local_vortex_scan(
     source_uri: &DatasetUri,
@@ -15777,11 +16214,20 @@ fn count_where_report(
     predicate: &PredicateExpr,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
     let rows_selected = usize_to_u64(scan.result_row_count)?;
-    let result_summary = count_where_result_summary_json(
+    let mut result_summary = count_where_result_summary_json(
         rows_selected,
         predicate,
         &scan.embedded_derived_column_rewrites,
     )?;
+    let empty_provider_filter_work = scan.empty_provider_filter_work(Some(predicate))?;
+    if empty_provider_filter_work {
+        let mut summary: serde_json::Value = serde_json::from_str(&result_summary)
+            .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
+        summary["scan_work_scope"] = serde_json::json!(
+            "nonempty_unpruned_provider_filter_with_no_returned_arrays;conservative_read_decode_materialization_flags;not_observed_bytes;no_scalar_rows_or_Arrow_conversion"
+        );
+        result_summary = summary.to_string();
+    }
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
@@ -15818,9 +16264,9 @@ fn count_where_report(
         state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         embedded_layout: scan.embedded_layout.clone(),
         evidence_collector: scan.evidence_collector(),
-        data_read: scan.data_read(),
-        data_decoded: scan.residual_predicate_materialized(),
-        data_materialized: scan.residual_predicate_materialized(),
+        data_read: scan.data_read() || empty_provider_filter_work,
+        data_decoded: scan.residual_predicate_materialized() || empty_provider_filter_work,
+        data_materialized: scan.residual_predicate_materialized() || empty_provider_filter_work,
         upstream_scan_called: scan.upstream_scan_called(),
         row_read: scan.row_read(),
         arrow_converted: false,
@@ -15829,7 +16275,8 @@ fn count_where_report(
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: scan.residual_materialization_boundary_reported(),
+        materialization_boundary_reported: scan.residual_materialization_boundary_reported()
+            || empty_provider_filter_work,
         diagnostics: Vec::new(),
     })
 }
@@ -17201,16 +17648,24 @@ fn simple_aggregate_report(
         .as_ref()
         .map_or_else(|| "none".to_string(), VortexSimpleAggregateRequest::summary);
     let result_summary = aggregate.result_summary.clone();
+    let empty_provider_filter_work = scan.empty_provider_filter_work(request.predicate.as_ref())?;
+    let data_work = scan.data_read() || empty_provider_filter_work;
+    let scan_scope = if empty_provider_filter_work {
+        " scan_side_effect_scope=provider_filter_may_read_decode_materialize_not_observed_bytes"
+    } else {
+        ""
+    };
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
         result_summary: Some(format!(
-            "simple_aggregate input_rows={} output_rows={} projected_columns={} measures={} values={}",
+            "simple_aggregate input_rows={} output_rows={} projected_columns={} measures={}{} values={}",
             input_rows,
             rows,
             scan.projected_columns.join(","),
             aggregate_summary,
+            scan_scope,
             result_summary
         )),
         rows_scanned: scan.source_row_count,
@@ -17240,18 +17695,18 @@ fn simple_aggregate_report(
         state_budget: aggregate.state_budget.clone(),
         embedded_layout: scan.embedded_layout.clone(),
         evidence_collector: scan.evidence_collector(),
-        data_read: scan.data_read(),
-        data_decoded: scan.data_read(),
-        data_materialized: scan.data_read(),
+        data_read: data_work,
+        data_decoded: data_work,
+        data_materialized: data_work,
         upstream_scan_called: scan.upstream_scan_called(),
         row_read: scan.data_read(),
         arrow_converted: false,
         object_store_io: false,
-        write_io: false,
-        spill_io_performed: false,
+        write_io: aggregate.state_budget.spill_io_performed,
+        spill_io_performed: aggregate.state_budget.spill_io_performed,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: scan.data_read(),
+        materialization_boundary_reported: data_work,
         diagnostics: Vec::new(),
     })
 }
@@ -19409,6 +19864,45 @@ fn read_local_vortex_simple_aggregate_scan(
 ) -> Result<LocalVortexAggregateScan> {
     #[cfg(unix)]
     {
+        #[cfg(feature = "vortex-write")]
+        if required_simple_aggregate(request)?.spill.is_some() {
+            let resident = crate::resident_session::ResidentVortexSession::new(
+                policy.resource_envelope.memory_budget_bytes,
+                policy.resource_envelope.max_parallelism,
+            )?;
+            let prepared = resident.prepare_file(path)?;
+            if weighted_count_spill_admission::request_admitted(request) {
+                let (result, owner) =
+                    prepared.with_native_execution(|file, session, runtime| {
+                        weighted_count_spill_query::execute(
+                            source_uri,
+                            request,
+                            policy,
+                            file,
+                            session,
+                            runtime,
+                            resident.memory(),
+                        )
+                    })?;
+                drop(owner);
+                return Ok(result);
+            }
+            let (result, owner) = prepared.with_native_execution(|file, session, runtime| {
+                exact_distinct_pairs::spill_query::execute(
+                    source_uri,
+                    request,
+                    policy,
+                    file,
+                    session,
+                    runtime,
+                    resident.memory(),
+                )
+            })?;
+            // Source validation has completed while the full operator reservation
+            // and finalized native counts were still retained. JSON is a separate sink.
+            drop(owner);
+            return Ok(result);
+        }
         let external_cpu_pool = aggregate_count_workers::request_may_be_admitted(request);
         let resident = if external_cpu_pool {
             crate::resident_session::ResidentVortexSession::for_external_cpu_pool(
@@ -19422,9 +19916,18 @@ fn read_local_vortex_simple_aggregate_scan(
             )?
         };
         let prepared = resident.prepare_file(path)?;
+        // Ordinary scans use the same held-source CPU ceiling as prepared
+        // aggregates, including when the requested grant exceeds host capacity.
+        let (_, source_parallelism) = prepared.resource_limits();
+        let mut policy = policy;
+        policy.max_parallelism = source_parallelism;
+        policy.resource_envelope.max_parallelism = source_parallelism;
+        policy.resource_envelope.scan_concurrency_per_worker = policy
+            .resource_envelope
+            .scan_concurrency_per_worker
+            .min(source_parallelism);
         let restore_provider_drivers = external_cpu_pool
-            && required_simple_aggregate(request)?.group_by.len() == 2
-            && !compound_count_workers::request_schema_may_be_admitted(request, prepared.dtype());
+            && aggregate_count_workers::restore_provider_drivers(request, prepared.dtype());
         let worker_memory =
             (external_cpu_pool && !restore_provider_drivers).then(|| resident.memory());
         let reuse = if prepared.has_segment_reuse_field_root()
@@ -19486,8 +19989,9 @@ fn read_local_vortex_simple_aggregate_scan(
                 .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
             summary["aggregate_provider_background_workers"] = drivers.into();
             summary["aggregate_provider_cpu_scope"] =
-                "same_prepared_source;two_key_worker_schema_not_admitted;temporary_provider_drivers;no_concurrent_aggregate_worker_pool".into();
+                "same_prepared_source;worker_schema_not_admitted;temporary_provider_drivers;no_concurrent_aggregate_worker_pool".into();
             result.result_summary = summary.to_string();
+            result.restored_provider_background_workers = drivers;
             return Ok(result);
         }
         prepared.with_native_execution(|file, session, runtime| {
@@ -19542,36 +20046,44 @@ fn read_prepared_vortex_simple_aggregate_scan(
     session: &vortex::session::VortexSession,
     runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
-    mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
+    uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
 ) -> Result<LocalVortexAggregateScan> {
     let attempt_started = Instant::now();
-    let aggregate = required_simple_aggregate(request)?;
+    let lowering = aggregate_lowering::AggregateLowering::new(request, file.dtype())?;
+    read_lowered_vortex_simple_aggregate_scan(
+        source_uri,
+        request,
+        policy,
+        file,
+        session,
+        runtime,
+        worker_memory,
+        uncached_retry,
+        &lowering,
+        attempt_started,
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+fn read_lowered_vortex_simple_aggregate_scan(
+    source_uri: &DatasetUri,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: &vortex::file::VortexFile,
+    session: &vortex::session::VortexSession,
+    runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
+    worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
+    lowering: &aggregate_lowering::AggregateLowering,
+    attempt_started: Instant,
+) -> Result<LocalVortexAggregateScan> {
     let source_row_count = file.row_count();
-    let aggregate_plan = rewrite_simple_aggregate_for_embedded_derived_columns(
-        file.dtype(),
-        aggregate,
-        request.predicate.as_ref(),
-    )?;
+    let aggregate_plan = &lowering.rewrite;
     let aggregate = &aggregate_plan.aggregate;
-    let mut projected_columns = aggregate.projected_columns();
-    let (pushdown_predicate, residual_predicate) = aggregate_plan
-        .predicate
-        .as_ref()
-        .map_or((None, None), |predicate| {
-            split_predicate_for_vortex_pushdown(predicate, request.kind)
-        });
-    if let Some(predicate) = residual_predicate.as_ref() {
-        append_predicate_columns(predicate, &mut projected_columns);
-    }
-    let projection = ProjectionRequest::columns(projected_columns);
-    let mut plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
-    if let Some(predicate) = pushdown_predicate.as_ref() {
-        plan.filter = Some(predicate_to_vortex_expr(
-            predicate,
-            file.dtype(),
-            request.kind,
-        )?);
-    }
+    let pushdown_predicate = &lowering.pushdown;
+    let residual_predicate = &lowering.residual;
+    let plan = &lowering.plan;
     let declared_columns = if plan.projected_columns.is_empty() {
         Vec::new()
     } else {
@@ -19711,11 +20223,11 @@ fn read_prepared_vortex_simple_aggregate_scan(
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = file.scan().map_err(vortex_error)?;
-        if let Some(filter) = plan.filter {
-            scan = scan.with_filter(bind_vortex_scan_expr(file, &filter)?);
+        if let Some(filter) = plan.filter.as_ref() {
+            scan = scan.with_filter(bind_vortex_scan_expr(file, filter)?);
         }
-        if let Some(projection) = plan.projection {
-            scan = scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
+        if let Some(projection) = plan.projection.as_ref() {
+            scan = scan.with_projection(bind_vortex_scan_expr(file, projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         let mut scan = scan.into_array_iter(runtime).map_err(vortex_error)?;
@@ -19772,8 +20284,17 @@ fn read_prepared_vortex_simple_aggregate_scan(
                     let replay_started = Instant::now();
                     let (_replay_drivers, replay_provider_workers) =
                         runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
-                    let mut replayed = read_prepared_vortex_simple_aggregate_scan(
-                        source_uri, request, policy, file, session, runtime, None, None,
+                    let mut replayed = read_lowered_vortex_simple_aggregate_scan(
+                        source_uri,
+                        request,
+                        policy,
+                        file,
+                        session,
+                        runtime,
+                        None,
+                        None,
+                        lowering,
+                        replay_started,
                     )?;
                     replayed.restored_provider_background_workers = replayed
                         .restored_provider_background_workers
@@ -20494,7 +21015,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
     };
     aggregate_timing.finalization_nanos = finalization_started.elapsed().as_nanos();
     numeric_accessor_work.annotate(&mut result_summary)?;
-    annotate_simple_aggregate_rewrite_summary(&mut result_summary, &aggregate_plan)?;
+    annotate_simple_aggregate_rewrite_summary(&mut result_summary, aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     aggregate_timing.annotate_summary(&mut result_summary)?;
     if let Some(workers) = count_workers.as_ref() {
@@ -24571,6 +25092,9 @@ struct GroupedAggregateStates<'a> {
     state_template: SimpleAggregateStates,
     compact_measure_specs: Option<Vec<CompactAggregateMeasureSpec>>,
     groups: rustc_hash::FxHashMap<AggregateGroupKey, GroupedAggregateState>,
+    // These are completed COUNT DISTINCT values, never disguised COUNT states
+    // or synthetic distinct sets. Their owner retains the final selection lease.
+    finalized_distinct_counts: Option<exact_distinct_pairs::workers::ExactDistinctResult>,
     single_numeric_count_groups: Option<rustc_hash::FxHashMap<AggregateSingleNumericKey, u64>>,
     numeric_pair_compact_groups:
         Option<rustc_hash::FxHashMap<AggregateNumericPairKey, NumericPairCompactMeasures>>,
@@ -27496,6 +28020,7 @@ impl<'a> GroupedAggregateStates<'a> {
             state_template,
             compact_measure_specs,
             groups: rustc_hash::FxHashMap::default(),
+            finalized_distinct_counts: None,
             single_numeric_count_groups: None,
             numeric_pair_compact_groups: None,
             numeric_pair_late_measure_enabled,
@@ -33228,6 +33753,9 @@ impl<'a> GroupedAggregateStates<'a> {
 
     #[allow(clippy::too_many_lines)]
     fn result_row_count_and_summary(&self, limit: Option<usize>) -> Result<(usize, String)> {
+        if let Some(finalized) = &self.finalized_distinct_counts {
+            return finalized.result_summary(self, limit);
+        }
         let group_by = self
             .group_columns
             .iter()
@@ -35774,7 +36302,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn aggregate_update_strategy(&self) -> &'static str {
-        if self.single_numeric_count_direct_updates {
+        if self.finalized_distinct_counts.is_some() {
+            "complete_integer_pair_partition_distinct"
+        } else if self.single_numeric_count_direct_updates {
             "single_numeric_count_direct_group_update"
         } else if self.source_order_numeric_utf8_dictionary_direct_updates {
             "source_order_numeric_utf8_dictionary_code_count_star_group_update"
@@ -35906,7 +36436,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn compact_group_state_strategy(&self) -> &'static str {
-        if self.single_numeric_count_direct_updates {
+        if self.finalized_distinct_counts.is_some() {
+            "finalized_exact_distinct_counts"
+        } else if self.single_numeric_count_direct_updates {
             "single_numeric_compact_count_star_group_state"
         } else if self.source_order_numeric_utf8_dictionary_direct_updates {
             "source_order_numeric_utf8_dictionary_code_compact_count_star_group_state"
@@ -36148,6 +36680,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn group_count(&self) -> usize {
+        if let Some(finalized) = &self.finalized_distinct_counts {
+            return finalized.group_count();
+        }
         if let Some(groups) = self.complete_key_partition_group_count {
             return groups;
         }
@@ -36369,6 +36904,11 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn estimated_group_key_storage_bytes(&self) -> usize {
+        if let Some(finalized) = &self.finalized_distinct_counts {
+            return finalized
+                .retained_count()
+                .saturating_mul(size_of::<AggregateSingleNumericKey>());
+        }
         if let Some(groups) = self.single_numeric_count_groups.as_ref() {
             return groups
                 .len()
@@ -36826,6 +37366,9 @@ impl<'a> GroupedAggregateStates<'a> {
             !request.order_by.is_empty() || result_row_count < self.group_count();
         let has_offset = request.offset > 0;
         let mut state_family = "grouped_aggregate_state".to_string();
+        if self.finalized_distinct_counts.is_some() {
+            state_family.push_str("+complete_pair_partition+finalized_distinct_counts");
+        }
         if has_count_distinct {
             state_family.push_str("+count_distinct");
         }
@@ -36956,7 +37499,14 @@ impl<'a> GroupedAggregateStates<'a> {
             "group_state_rows",
         ];
         if has_count_distinct {
-            capillary_work_units.push("count_distinct_set");
+            if self.finalized_distinct_counts.is_some() {
+                capillary_work_units.push("complete_integer_pair_partition_reconciliation");
+                capillary_work_units.push("complete_distinct_eof_group_reduction");
+                capillary_work_units.push("owned_bounded_final_distinct_count_selection");
+                pulseweave_pressure_signals.push("complete_pair_identity_proof");
+            } else {
+                capillary_work_units.push("count_distinct_set");
+            }
             pulseweave_pressure_signals.push("distinct_value_cardinality");
         }
         if has_grouped_topk {

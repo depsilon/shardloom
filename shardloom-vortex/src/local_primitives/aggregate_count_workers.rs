@@ -55,6 +55,7 @@ enum Partial {
 pub(super) enum CountWorkers {
     Single(SingleCountWorkers),
     Compound(super::compound_count_workers::CompoundWorkers),
+    ExactDistinct(super::exact_distinct_pairs::workers::ExactDistinctWorkers),
 }
 
 impl CountWorkers {
@@ -75,6 +76,11 @@ impl CountWorkers {
                     .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)
                     .expect("one-shot pressure reserves only currently available query credit")
             });
+        if let Some(workers) = super::exact_distinct_pairs::workers::ExactDistinctWorkers::admit(
+            states, dtype, columns, policy, session, memory,
+        )? {
+            return Ok(Some(Self::ExactDistinct(workers)));
+        }
         if let Some(workers) = super::compound_count_workers::CompoundWorkers::admit(
             states, dtype, columns, policy, session, memory,
         )? {
@@ -87,6 +93,7 @@ impl CountWorkers {
         match self {
             Self::Single(workers) => workers.before_next(states),
             Self::Compound(workers) => workers.before_next(states),
+            Self::ExactDistinct(workers) => workers.before_next(states),
         }
     }
     pub(super) fn submit(
@@ -97,30 +104,39 @@ impl CountWorkers {
         match self {
             Self::Single(workers) => workers.submit(chunk, states),
             Self::Compound(workers) => workers.submit(chunk, states),
+            Self::ExactDistinct(workers) => workers.submit(chunk, states),
         }
     }
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         match self {
             Self::Single(workers) => workers.finish(states),
             Self::Compound(workers) => workers.finish(states),
+            Self::ExactDistinct(workers) => {
+                workers.finish(states)?;
+                states.finalized_distinct_counts = workers.take_exact_result();
+                Ok(())
+            }
         }
     }
     pub(super) fn annotate_summary(&self, summary: &mut String) -> Result<()> {
         match self {
             Self::Single(workers) => workers.annotate_summary(summary),
             Self::Compound(workers) => workers.annotate_summary(summary),
+            Self::ExactDistinct(workers) => workers.annotate_summary(summary),
         }
     }
     pub(super) fn has_active_partitions(&self) -> bool {
         match self {
             Self::Single(workers) => workers.has_active_partitions(),
             Self::Compound(workers) => workers.has_active_partitions(),
+            Self::ExactDistinct(workers) => workers.has_active_partitions(),
         }
     }
     pub(super) fn cancel_for_source_replay(&self) {
         match self {
             Self::Single(workers) => workers.cancel_for_source_replay(),
             Self::Compound(workers) => workers.cancel_for_source_replay(),
+            Self::ExactDistinct(workers) => workers.cancel_for_source_replay(),
         }
     }
     #[cfg(test)]
@@ -129,31 +145,37 @@ impl CountWorkers {
         memory: &LiveMemoryPool,
         chunks: usize,
     ) -> Option<vortex::error::VortexResult<ArrayRef>> {
-        match self {
-            Self::Single(workers) => workers.inject_scan_fault_for_test(memory, chunks),
-            Self::Compound(workers) if chunks != 0 && workers.has_committed_groups() => {
-                use vortex::array::memory::HostAllocator as _;
-                let fault = SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::take)?;
-                let snapshot = memory.snapshot();
-                let len = usize::try_from(snapshot.limit_bytes - snapshot.reserved_bytes).ok()?;
-                let denied = crate::owned_buffers::ReservedHostAllocator::new(memory.clone())
-                    .allocate(len, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)
-                    .expect_err("native allocator denial includes alignment capacity");
-                Some(Err(match fault {
-                    SourceScanTestFault::OwnedDenial => denied,
-                    SourceScanTestFault::CorruptionWithConcurrentDenial => {
-                        vortex::error::vortex_err!(InvalidArgument: "injected source corruption")
-                    }
-                }))
-            }
-            Self::Compound(_) => None,
+        use vortex::array::memory::HostAllocator as _;
+
+        let committed = match self {
+            Self::Single(workers) => return workers.inject_scan_fault_for_test(memory, chunks),
+            Self::Compound(workers) => workers.has_committed_groups(),
+            Self::ExactDistinct(workers) => workers.has_committed_groups(),
+        };
+        if chunks == 0 || !committed {
+            return None;
         }
+        let fault = SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::take)?;
+        let snapshot = memory.snapshot();
+        let len = usize::try_from(snapshot.limit_bytes - snapshot.reserved_bytes).ok()?;
+        let denied = crate::owned_buffers::ReservedHostAllocator::new(memory.clone())
+            .allocate(len, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)
+            .expect_err("native allocator denial includes alignment capacity");
+        Some(Err(match fault {
+            SourceScanTestFault::OwnedDenial => denied,
+            SourceScanTestFault::CorruptionWithConcurrentDenial => {
+                vortex::error::vortex_err!(InvalidArgument: "injected source corruption")
+            }
+        }))
     }
 }
 
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
 pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    if super::exact_distinct_pairs::workers::request_may_be_admitted(request) {
+        return true;
+    }
     let Ok(aggregate) = super::required_simple_aggregate(request) else {
         return false;
     };
@@ -166,6 +188,21 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
         && super::aggregate_group_expressions_are_reconstructable_constants(aggregate)
         && super::SimpleAggregateStates::new(aggregate, &columns)
             .is_ok_and(|states| states.is_count_star_only())
+}
+
+/// Multi-role shapes must restore provider CPU drivers when their original
+/// source schema or residual predicate cannot use the owned worker family.
+pub(super) fn restore_provider_drivers(
+    request: &VortexQueryPrimitiveRequest,
+    dtype: &DType,
+) -> bool {
+    if super::exact_distinct_pairs::workers::request_may_be_admitted(request) {
+        return !super::exact_distinct_pairs::workers::request_schema_may_be_admitted(
+            request, dtype,
+        );
+    }
+    super::required_simple_aggregate(request).is_ok_and(|aggregate| aggregate.group_by.len() == 2)
+        && !super::compound_count_workers::request_schema_may_be_admitted(request, dtype)
 }
 
 pub(super) struct SingleCountWorkers {
@@ -935,8 +972,8 @@ pub(super) enum SourceScanTestFault {
 #[cfg(test)]
 thread_local! {
     pub(super) static SOURCE_SCAN_TEST_FAULT: std::cell::Cell<Option<SourceScanTestFault>> = const { std::cell::Cell::new(None) };
-    // Scoped to the calling test thread and consumed once. The real admission
-    // reservation fails while this lease is held; it refunds before any scan.
+    // Scoped to the calling test thread and consumed once. The actual worker
+    // reservation fails; the pressure lease refunds before the native scan.
     pub(super) static ADMISSION_TEST_PRESSURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 

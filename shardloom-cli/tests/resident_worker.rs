@@ -8,6 +8,9 @@ use std::{
 
 use serde_json::{Value, json};
 
+#[path = "support/resident_aggregate.rs"]
+mod aggregate;
+
 struct Worker {
     child: Child,
     output: BufReader<ChildStdout>,
@@ -84,6 +87,29 @@ impl Worker {
             workers,
         ])
     }
+
+    fn count_where(&mut self, path: &Path, predicate: &str, workers: &str) -> Value {
+        self.request(&[
+            "run",
+            "dataframe",
+            "--input",
+            path.to_str().unwrap(),
+            "--input-format",
+            "vortex",
+            "--request",
+            "collect",
+            "--bounded",
+            "true",
+            "--vortex-primitive",
+            "count_where",
+            "--vortex-predicate",
+            predicate,
+            "--memory-gb",
+            "1",
+            "--max-parallelism",
+            workers,
+        ])
+    }
 }
 
 impl Drop for Worker {
@@ -119,6 +145,100 @@ fn assert_completed(result: &Value, executions: &str) {
         "false"
     );
     assert_eq!(field(result, "output_row_count"), "5");
+}
+
+fn assert_filtered_count(result: &Value, count: &str, executions: &str) {
+    assert_eq!(result["status"], "success", "{result}");
+    for (name, value) in [
+        ("count", count),
+        ("resident_source_opens", "1"),
+        ("resident_completed_executions", executions),
+        ("filtered_count_local_execution_count", count),
+        ("local_primitive_report_present", "true"),
+        ("local_primitive_native_io_certificate_emitted", "true"),
+        ("local_primitive_native_io_certified", "true"),
+        ("local_primitive_execution_certificate_emitted", "false"),
+        ("local_primitive_no_query_answer_cache", "true"),
+        ("public_workflow_fallback_attempted", "false"),
+        ("public_workflow_external_engine_invoked", "false"),
+    ] {
+        assert_eq!(field(result, name), value, "{name}: {result}");
+    }
+}
+
+#[test]
+fn worker_preserves_one_lane_for_real_filtered_execution_and_rebinds_two() {
+    let path = fixture();
+    let mut worker = Worker::new();
+    for (workers, completed) in [("1", "1"), ("1", "2"), ("2", "1"), ("1", "1")] {
+        let result = worker.count_where(&path, "gt:value:2", workers);
+        assert_filtered_count(&result, "3", completed);
+        assert_eq!(field(&result, "data_read"), "true");
+        assert_eq!(field(&result, "public_workflow_max_parallelism"), workers);
+        assert_eq!(
+            field(&result, "local_primitive_max_parallelism_requested"),
+            workers
+        );
+        assert_eq!(
+            field(&result, "public_workflow_dynamic_parallelism_floor_applied"),
+            "false"
+        );
+        assert_eq!(
+            field(&result, "resident_provider_background_workers"),
+            if workers == "1" { "0" } else { "1" }
+        );
+    }
+}
+
+#[test]
+fn worker_reuses_filtered_counts_and_clears_changed_or_failed_operations() {
+    let path = fixture();
+    let mut worker = Worker::new();
+    for completed in ["1", "2", "3"] {
+        let result = worker.count_where(&path, "gt:value:2", "2");
+        assert_filtered_count(&result, "3", completed);
+        assert_eq!(field(&result, "data_read"), "true");
+    }
+    let pruned = worker.count_where(&path, "gt:value:99", "2");
+    assert_filtered_count(&pruned, "0", "1");
+    assert_eq!(field(&pruned, "data_read"), "false");
+    assert_filtered_count(&worker.count_where(&path, "gt:value:99", "2"), "0", "2");
+    assert_filtered_count(&worker.count_where(&path, "gt:value:99", "1"), "0", "1");
+    assert_eq!(worker.raw_request("{invalid")["status"], "error");
+    assert_filtered_count(&worker.count_where(&path, "gt:value:99", "1"), "0", "1");
+    assert_eq!(
+        worker.count_where(&path, "gt:missing:2", "1")["status"],
+        "error"
+    );
+    assert_filtered_count(&worker.count_where(&path, "gt:value:99", "1"), "0", "1");
+    assert_completed(&worker.collect(&path, "metric", "2"), "1");
+    assert_filtered_count(&worker.count_where(&path, "gt:value:2", "2"), "3", "1");
+}
+
+#[test]
+fn worker_invalidates_metadata_pruned_filtered_count_before_returning_zero() {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "shardloom-worker-filtered-count-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir(&root).unwrap();
+    let source = root.join("input.vortex");
+    std::fs::copy(fixture(), &source).unwrap();
+    let mut worker = Worker::new();
+    assert_filtered_count(&worker.count_where(&source, "gt:value:99", "2"), "0", "1");
+    let replacement = root.join("replacement.vortex");
+    std::fs::copy(fixture(), &replacement).unwrap();
+    std::fs::rename(replacement, &source).unwrap();
+    let invalidated = worker.count_where(&source, "gt:value:99", "2");
+    assert_eq!(invalidated["status"], "error", "{invalidated}");
+    assert!(invalidated.to_string().contains("prepared source changed"));
+    assert_filtered_count(&worker.count_where(&source, "gt:value:99", "2"), "0", "1");
+    drop(worker);
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

@@ -6,6 +6,24 @@ use std::process::Command;
     feature = "vortex-write",
     feature = "universal-format-io"
 ))]
+#[path = "support/public_aggregate_spill.rs"]
+mod aggregate_spill;
+
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
+#[path = "support/public_weighted_count_spill.rs"]
+mod weighted_count_spill;
+
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
 #[test]
 #[allow(clippy::too_many_lines)]
 fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values() {
@@ -90,6 +108,8 @@ fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values()
                 projection,
                 "--vortex-columns",
                 "destination,shipment_sequence",
+                "--vortex-predicate",
+                "gte:priority:0",
             ]);
         } else {
             args.extend(["--vortex-columns", "destination,shipment_sequence"]);
@@ -116,11 +136,26 @@ fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values()
                 "native_vortex_array_sink_dtype_and_row_count_validated",
                 "true",
             ),
+            ("arrow_converted", "false"),
+            ("row_read", "false"),
+            (
+                "decode_materialization_boundary",
+                "native_scan_arrays_to_native_flat_writer;no_adapter_scalar_or_arrow_conversion;provider_decode_may_occur",
+            ),
+            (
+                "native_vortex_result_export_target_commit_modes",
+                "primary:vortex:atomic_create_if_absent_hard_link_same_directory",
+            ),
+            (
+                "native_vortex_result_export_fanout_atomicity_contract",
+                "single_target_atomic_create_if_absent_hard_link_same_directory",
+            ),
             ("public_workflow_fallback_attempted", "false"),
             ("public_workflow_external_engine_invoked", "false"),
         ] {
             assert!(stdout.contains(&field(key, value)), "{key}: {stdout}");
         }
+        assert!(!stdout.contains("native_vortex_columnar_compatibility_sink_arrow_batches"));
         // Decode every persisted value through the existing explicit JSONL boundary,
         // then compare to a Rust reference that never uses the native predicate.
         let decoded = root.join(format!("{primitive}.jsonl"));
@@ -148,11 +183,345 @@ fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values()
             "destination"
         };
         let expected = (0..ROWS)
-            .filter(|index| primitive != "filter_project" || index % 97 >= 48)
+            .filter(|index| primitive == "project" || index % 97 >= 48)
             .take(LIMIT)
             .map(|index| serde_json::json!({name:(!index.is_multiple_of(7)).then(|| format!("港-{index}")),"shipment_sequence":index}))
             .collect::<Vec<_>>();
         assert_eq!(actual, expected, "{primitive}");
+    }
+}
+
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
+mod columnar_compatibility {
+    use super::{field, run_facade, unique_vortex_binding_dir};
+    use arrow_array::{Array as _, Int64Array, RecordBatch, StringArray, UInt64Array};
+    use arrow_schema::{DataType, Field, Schema, SchemaRef};
+    use serde_json::{Value, json};
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        sync::Arc,
+    };
+
+    const ROWS: usize = 4097;
+    const PROJECTION: &str = r#"{"structured_columns":[{"name":"note","source":"text_value"},{"name":"id","source":"exact_identifier"},{"name":"position","source":"row_ordinal"}]}"#;
+    struct Fixture(PathBuf);
+    impl Fixture {
+        fn new() -> Self {
+            let root = unique_vortex_binding_dir("columnar-compatibility");
+            fs::create_dir(&root).unwrap();
+            let fixture = Self(root);
+            let schema = Arc::new(Schema::new(vec![
+                Field::new("row_ordinal", DataType::UInt64, false),
+                Field::new("exact_identifier", DataType::Int64, false),
+                Field::new("text_value", DataType::Utf8, true),
+            ]));
+            let batch = RecordBatch::try_new(
+                Arc::clone(&schema),
+                vec![
+                    Arc::new(UInt64Array::from_iter_values(
+                        (0..ROWS).map(|row| u64::try_from(row).unwrap()),
+                    )),
+                    Arc::new(Int64Array::from_iter_values((0..ROWS).map(identifier))),
+                    Arc::new(StringArray::from((0..ROWS).map(label).collect::<Vec<_>>())),
+                ],
+            )
+            .unwrap();
+            let ipc = fixture.0.join("source.arrow");
+            let mut writer =
+                arrow_ipc::writer::FileWriter::try_new(fs::File::create(&ipc).unwrap(), &schema)
+                    .unwrap();
+            writer.write(&batch).unwrap();
+            writer.finish().unwrap();
+            drop(writer);
+            let columnar =
+                shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, ROWS).unwrap();
+            shardloom_vortex::write_flat_columnar_vortex_prepared_state(
+                shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
+                    fixture.source(),
+                    columnar,
+                ),
+            )
+            .unwrap();
+            fixture
+        }
+        fn source(&self) -> PathBuf {
+            self.0.join("source.vortex")
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+    fn identifier(row: usize) -> i64 {
+        match row {
+            0 => i64::MIN,
+            1 => i64::MAX,
+            _ => (1_i64 << 60) + i64::try_from(row).unwrap(),
+        }
+    }
+    fn label(row: usize) -> Option<String> {
+        (!row.is_multiple_of(7)).then(|| {
+            if row.is_multiple_of(13) {
+                String::new()
+            } else {
+                format!("港-東京-λ-{row}-literal%_\\")
+            }
+        })
+    }
+    fn oracle(row: usize) -> Value {
+        json!({"note":label(row), "id":identifier(row), "position":row})
+    }
+    fn schema() -> SchemaRef {
+        Arc::new(Schema::new(vec![
+            Field::new("note", DataType::Utf8, true),
+            Field::new("id", DataType::Int64, false),
+            Field::new("position", DataType::UInt64, false),
+        ]))
+    }
+    fn read(path: &Path, format: &str) -> Vec<Value> {
+        let (actual_schema, batches) = if format == "arrow-ipc" {
+            let reader =
+                arrow_ipc::reader::FileReader::try_new(fs::File::open(path).unwrap(), None)
+                    .unwrap();
+            (
+                reader.schema(),
+                reader.collect::<Result<Vec<_>, _>>().unwrap(),
+            )
+        } else {
+            let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(
+                fs::File::open(path).unwrap(),
+            )
+            .unwrap();
+            (
+                Arc::clone(builder.schema()),
+                builder
+                    .build()
+                    .unwrap()
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap(),
+            )
+        };
+        assert_eq!(actual_schema, schema());
+        let mut rows = Vec::new();
+        for batch in batches {
+            let note = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap();
+            let id = batch
+                .column(1)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap();
+            let position = batch
+                .column(2)
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap();
+            for row in 0..batch.num_rows() {
+                assert!(!id.is_null(row) && !position.is_null(row));
+                rows.push(json!({"note":(!note.is_null(row)).then(|| note.value(row)),
+                    "id":id.value(row), "position":position.value(row)}));
+            }
+        }
+        rows
+    }
+    fn number(envelope: &Value, name: &str) -> u64 {
+        let key = format!("native_vortex_columnar_compatibility_sink_{name}");
+        envelope["result"]["fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|field| field["key"] == key)
+            .unwrap_or_else(|| panic!("missing {key}: {envelope}"))["value"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap()
+    }
+    fn export(
+        source: &Path,
+        output: &Path,
+        format: &str,
+        predicate: Option<&str>,
+        limit: Option<&str>,
+    ) -> String {
+        let request = if format == "arrow-ipc" {
+            "write_arrow_ipc"
+        } else {
+            "write_parquet"
+        };
+        let mut args = vec![
+            "run",
+            "dataframe",
+            "--input",
+            source.to_str().unwrap(),
+            "--input-format",
+            "vortex",
+            "--request",
+            request,
+            "--output",
+            output.to_str().unwrap(),
+            "--bounded",
+            "true",
+            "--execution-policy",
+            "native_vortex",
+            "--vortex-primitive",
+            "expression_project",
+            "--vortex-expression-projection",
+            PROJECTION,
+            "--vortex-columns",
+            "text_value,exact_identifier,row_ordinal",
+            "--max-parallelism",
+            "1",
+            "--format",
+            "json",
+        ];
+        if let Some(predicate) = predicate {
+            args.extend(["--vortex-predicate", predicate]);
+        }
+        if let Some(limit) = limit {
+            args.extend(["--vortex-source-order-limit", limit]);
+        }
+        let (ok, stdout) = run_facade(&args);
+        assert!(ok, "{format}: {stdout}");
+        assert_eq!(
+            serde_json::from_str::<Value>(&stdout).unwrap()["status"],
+            "success"
+        );
+        stdout
+    }
+    fn assert_boundary(stdout: &str, format: &str, scanned: bool, converted: bool) {
+        for (key, value) in [
+            (
+                "native_vortex_result_export_kind",
+                "owned_native_array_stream",
+            ),
+            (
+                "decode_materialization_boundary",
+                "native_scan_arrays_to_explicit_arrow_compatibility_writer;no_scalar_row_bridge;provider_decode_or_copy_may_occur",
+            ),
+            ("row_read", "false"),
+            ("data_read", if scanned { "true" } else { "false" }),
+            ("data_decoded", if scanned { "true" } else { "false" }),
+            ("data_materialized", if scanned { "true" } else { "false" }),
+            (
+                "upstream_vortex_scan_called",
+                if scanned { "true" } else { "false" },
+            ),
+            ("arrow_converted", if converted { "true" } else { "false" }),
+            ("native_vortex_array_sink_adapter_payload_bytes_copied", "0"),
+            ("native_vortex_array_sink_scalar_values_materialized", "0"),
+            (
+                "native_vortex_array_sink_source_generation_validated",
+                "true",
+            ),
+            (
+                "native_vortex_array_sink_dtype_and_row_count_validated",
+                "true",
+            ),
+            ("public_workflow_fallback_attempted", "false"),
+            ("public_workflow_external_engine_invoked", "false"),
+            (
+                "native_vortex_result_export_fanout_atomicity_contract",
+                "single_target_atomic_create_if_absent_hard_link_same_directory",
+            ),
+        ] {
+            assert!(stdout.contains(&field(key, value)), "{key}: {stdout}");
+        }
+        let contract = if format == "arrow-ipc" {
+            "native_vortex_arrays_to_arrow_ipc_compatibility_sink"
+        } else {
+            "native_vortex_arrays_to_parquet_compatibility_sink"
+        };
+        assert!(stdout.contains(&field("typed_sink_contract", contract)));
+        assert!(stdout.contains(&field(
+            "native_vortex_result_export_target_commit_modes",
+            &format!("primary:{format}:atomic_create_if_absent_hard_link_same_directory")
+        )));
+        assert!(stdout.contains("read_decode_materialize_flags_conservative_scan_scope"));
+        assert!(!stdout.contains("native_scan_arrays_to_native_flat_writer"));
+    }
+    #[test]
+    fn public_columnar_compatibility_reopens_complete_nullable_values_and_filter_limits() {
+        let fixture = Fixture::new();
+        for format in ["arrow-ipc", "parquet"] {
+            for (name, predicate, limit, start, count) in [
+                ("complete", None, None, 0, ROWS),
+                ("filtered", Some("gte:row_ordinal:3"), Some("2051"), 3, 2051),
+            ] {
+                let output = fixture.0.join(format!("{name}.{format}"));
+                let stdout = export(&fixture.source(), &output, format, predicate, limit);
+                assert_boundary(&stdout, format, true, true);
+                assert_eq!(
+                    read(&output, format),
+                    (start..start + count).map(oracle).collect::<Vec<_>>()
+                );
+                let envelope = serde_json::from_str::<Value>(&stdout).unwrap();
+                assert!(number(&envelope, "arrow_batches") > 0);
+                assert_eq!(
+                    number(&envelope, "arrow_batches"),
+                    number(&envelope, "native_batches")
+                );
+                assert!(number(&envelope, "native_logical_bytes") > 0);
+                assert!(number(&envelope, "admitted_arrow_expansion_bytes") > 0);
+                assert!(number(&envelope, "max_arrow_batch_bytes") > 0);
+                assert!(number(&envelope, "writer_reserved_bytes") > 0);
+                assert_eq!(
+                    number(&envelope, "output_bytes"),
+                    fs::metadata(&output).unwrap().len()
+                );
+                if format == "parquet" {
+                    assert!(number(&envelope, "max_observed_parquet_in_progress_bytes") > 0);
+                } else {
+                    assert_eq!(
+                        number(&envelope, "max_observed_parquet_in_progress_bytes"),
+                        0
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn public_columnar_compatibility_distinguishes_pruned_and_unprunable_empty_scans() {
+        let fixture = Fixture::new();
+        for format in ["arrow-ipc", "parquet"] {
+            for (name, predicate, scanned) in [
+                ("pruned", "gte:row_ordinal:10000", false),
+                // Seventeen is absent but lies between the exact signed extrema.
+                ("unprunable", "eq:exact_identifier:17", true),
+            ] {
+                let output = fixture.0.join(format!("{name}.{format}"));
+                let stdout = export(&fixture.source(), &output, format, Some(predicate), None);
+                assert_boundary(&stdout, format, scanned, false);
+                assert!(read(&output, format).is_empty());
+                let envelope = serde_json::from_str::<Value>(&stdout).unwrap();
+                for name in [
+                    "native_batches",
+                    "arrow_batches",
+                    "native_logical_bytes",
+                    "admitted_arrow_expansion_bytes",
+                    "max_arrow_batch_bytes",
+                    "max_observed_parquet_in_progress_bytes",
+                ] {
+                    assert_eq!(number(&envelope, name), 0, "{name}");
+                }
+                assert_eq!(
+                    number(&envelope, "output_bytes"),
+                    fs::metadata(output).unwrap().len()
+                );
+                assert!(number(&envelope, "writer_reserved_bytes") > 0);
+                assert!(stdout.contains(&field("native_vortex_result_export_rows_written", "0")));
+            }
+        }
     }
 }
 
@@ -378,10 +747,43 @@ fn unique_vortex_binding_dir(name: &str) -> std::path::PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
+    unique_vortex_binding_dir_at(name, nanos)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn unique_vortex_binding_dir_at(name: &str, nanos: u128) -> std::path::PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    // Clock precision does not guarantee different readings in parallel tests.
+    static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+    let sequence = NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
-        "shardloom-public-{name}-{}-{nanos}",
+        "shardloom-public-{name}-{}-{nanos}-{sequence}",
         std::process::id()
     ))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn vortex_binding_directories_are_unique_for_parallel_calls_in_one_clock_tick() {
+    let paths = std::thread::scope(|scope| {
+        let workers = (0..8)
+            .map(|_| {
+                scope.spawn(|| {
+                    (0..32)
+                        .map(|_| unique_vortex_binding_dir_at("same-clock-tick", 42))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect::<Vec<_>>();
+        workers
+            .into_iter()
+            .flat_map(|worker| worker.join().unwrap())
+            .collect::<Vec<_>>()
+    });
+    let count = paths.len();
+    let unique = paths.into_iter().collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(count, 256);
+    assert_eq!(unique.len(), count);
 }
 
 #[cfg(feature = "vortex-local-primitives")]

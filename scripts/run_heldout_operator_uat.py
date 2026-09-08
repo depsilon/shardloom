@@ -6,6 +6,8 @@ The deterministic renamed-schema fixture checks operator semantics at requested
 worker settings. Fresh-process timings include startup and complete output, but
 exclude fixture preparation and Python validation. This bounded workload does
 not establish production throughput, worker utilization, join coverage, or rank.
+JSONL remains the default fixture input. Optional Parquet uses PyArrow only to
+write an explicit fixture schema before native preparation and query timing.
 """
 
 from __future__ import annotations
@@ -13,7 +15,6 @@ from __future__ import annotations
 import argparse
 from collections import defaultdict
 import datetime as dt
-import gzip
 import hashlib
 import json
 import math
@@ -26,9 +27,10 @@ import sys
 
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from run_clickbench_query_uat import extract_result, file_sha256, run_command, run_profiled_command, strict_json
-from run_resident_call_path_uat import generation, paired_order, percentiles, validate_preparation
+from run_resident_call_path_uat import archive_stdout, generation, paired_order, percentiles, validate_preparation
 
 WORKERS = (1, 2, 4, 8, 12)
+DISTINCT_WORKER_CASES = frozenset(("exact_integer_distinct_topk", "repeated_integer_distinct_topk"))
 HARNESS_FILES = ("run_heldout_operator_uat.py", "run_resident_call_path_uat.py",
                  "run_clickbench_query_uat.py", "timed_native_command.py", "local_uat_storage.py")
 SUMMARY_COUNTER_PREFIXES = (
@@ -38,6 +40,7 @@ SUMMARY_COUNTER_PREFIXES = (
     "local_primitive_aggregate_provider_",
     "local_primitive_aggregate_native_numeric_accessor_",
     "local_primitive_aggregate_encoded_numeric_reduction_",
+    "local_primitive_exact_distinct_",
     "local_primitive_scan_segment_reuse_",
     "local_primitive_native_sort_spill_", "local_primitive_sort_spill_", "local_primitive_resource_",
     "local_primitive_physical_policy_selected_", "local_primitive_memory_",
@@ -72,6 +75,41 @@ def fixture_rows(count: int) -> list[dict]:
     rows[0]["exact_identifier"] = -(2**63)
     rows[-1]["exact_identifier"] = 2**63 - 1
     return rows
+
+
+def fixture_input_writer(fixture_format: str):
+    """Resolve optional fixture dependencies before creating any run output."""
+    if fixture_format == "jsonl":
+        def write_jsonl(rows, path):
+            with path.open("x", encoding="utf-8") as stream:
+                for row in rows:
+                    stream.write(canonical(row) + "\n")
+        return write_jsonl, {"format": "jsonl"}
+    if fixture_format != "parquet":
+        raise ValueError("fixture format must be jsonl or parquet")
+    try:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+    except ImportError as error:
+        raise ValueError("--fixture-format parquet requires optional PyArrow in the harness Python environment; install pyarrow or use --fixture-format jsonl") from error
+    schema = pa.schema([
+        pa.field("row_key", pa.int64(), nullable=False),
+        pa.field("cohort_code", pa.int64(), nullable=False),
+        pa.field("category_text", pa.string(), nullable=False),
+        pa.field("optional_text", pa.string(), nullable=True),
+        pa.field("metric_units", pa.int64(), nullable=False),
+        pa.field("optional_units", pa.int64(), nullable=True),
+        pa.field("unique_text", pa.string(), nullable=False),
+        pa.field("exact_identifier", pa.int64(), nullable=False),
+    ])
+
+    def write_parquet(rows, path):
+        table = pa.Table.from_pylist(rows, schema=schema)
+        with path.open("xb") as destination:
+            pq.write_table(table, destination)
+
+    return write_parquet, {"format": "parquet", "writer": "PyArrow", "writer_version": pa.__version__,
+                           "nullable_fields": [field.name for field in schema if field.nullable]}
 
 
 def projected(rows: list[dict], columns: tuple[str, ...]) -> list[dict]:
@@ -114,6 +152,10 @@ def cases(rows: list[dict]) -> list[dict]:
     unique = sorted(group_oracle(rows, ("unique_text",)), key=lambda row: row["unique_text"])[:12]
     compound_topk = sorted(group_oracle(rows, ("cohort_code", "category_text")),
                            key=lambda row: (-row["n"], row["cohort_code"], row["category_text"]))[:12]
+    def integer_distinct_topk(column):
+        counts = group_oracle(rows, ("cohort_code",), lambda members: {
+            "different": len({row[column] for row in members})})
+        return sorted(counts, key=lambda row: (-row["different"], row["cohort_code"]))[2:5]
     filtered = [row for row in rows if row["metric_units"] >= 5 and row["cohort_code"] < 2]
     filtered = sorted(filtered, key=lambda row: (-row["metric_units"], row["row_key"]))[3:15]
     tail = rows[-12:]
@@ -130,6 +172,8 @@ def cases(rows: list[dict]) -> list[dict]:
         case("composite_group", "composite_group", "SELECT cohort_code, category_text, COUNT(*) AS n FROM heldout GROUP BY cohort_code, category_text", group_oracle(rows, ("cohort_code", "category_text"))),
         case("compound_count_topk", "composite_group", "SELECT cohort_code, category_text, COUNT(*) AS n FROM heldout GROUP BY cohort_code, category_text ORDER BY n DESC LIMIT 12", compound_topk, True),
         case("nullable_group_distinct", "distinct", "SELECT cohort_code, COUNT(*) AS n, COUNT(DISTINCT optional_text) AS different FROM heldout GROUP BY cohort_code", distinct_groups),
+        case("exact_integer_distinct_topk", "distinct", "SELECT cohort_code, COUNT(DISTINCT exact_identifier) AS different FROM heldout GROUP BY cohort_code ORDER BY different DESC, cohort_code ASC LIMIT 3 OFFSET 2", integer_distinct_topk("exact_identifier"), True),
+        case("repeated_integer_distinct_topk", "distinct", "SELECT cohort_code, COUNT(DISTINCT metric_units) AS different FROM heldout GROUP BY cohort_code ORDER BY different DESC, cohort_code ASC LIMIT 3 OFFSET 2", integer_distinct_topk("metric_units"), True),
         case("utf8_byte_length", "string_transform", "SELECT cohort_code, COUNT(*) AS n, SUM(length(category_text)) AS bytes_total FROM heldout WHERE category_text <> '' GROUP BY cohort_code", lengths),
         case("all_unique_group_topk", "string_group", "SELECT unique_text, COUNT(*) AS n FROM heldout GROUP BY unique_text ORDER BY n DESC, unique_text ASC LIMIT 12", unique, True),
         case("filtered_sort_offset", "relational_sort", "SELECT row_key, metric_units, optional_text, exact_identifier FROM heldout WHERE metric_units >= 5 AND cohort_code < 2 ORDER BY metric_units DESC, row_key ASC LIMIT 12 OFFSET 3", projected(filtered, ("row_key", "metric_units", "optional_text", "exact_identifier")), True),
@@ -179,6 +223,40 @@ def validate_no_fallback(envelope: dict) -> None:
             raise ValueError("diagnostic lacks structured no-fallback evidence")
 
 
+def validate_distinct_workers(fields: dict, requested_workers: int, rows: int) -> None:
+    """Require the admitted complete-pair path, including drained native work."""
+    if fields.get("local_primitive_aggregate_update_strategy") != "complete_integer_pair_partition_distinct":
+        raise ValueError("candidate did not use the required complete integer distinct worker strategy")
+
+    def counter(name):
+        key = "local_primitive_aggregate_workers_" + name
+        value = fields.get(key)
+        if type(value) is int and value >= 0:
+            return value
+        if type(value) is str and value.isascii() and value.isdecimal():
+            return int(value)
+        raise ValueError(f"missing or invalid required distinct worker counter: {key}")
+
+    if counter("rows") != rows or counter("exact_distinct_committed_rows") != rows:
+        raise ValueError("distinct workers did not commit every fixture row")
+    submitted = counter("submitted_chunks")
+    if submitted <= 0 or counter("completed_chunks") != submitted or counter("outstanding_chunks") != 0:
+        raise ValueError("distinct worker chunks were not submitted and completely drained")
+    if counter("provider_background_workers") != 0:
+        raise ValueError("distinct worker path retained background provider workers")
+    limit = counter("shared_live_limit_bytes")
+    if not 0 < limit <= GIB or counter("shared_live_peak_bytes") > limit:
+        raise ValueError("distinct worker reservation exceeds its shared limit or requested one-GiB memory budget")
+    ceiling, threads = counter("cpu_ceiling"), counter("compute_threads")
+    if not 1 <= ceiling <= requested_workers or threads >= ceiling:
+        raise ValueError("distinct workers exceed the admitted caller-plus-compute CPU ceiling")
+    if ceiling == 1:
+        if threads != 0 or counter("inline_busy_elapsed_nanos") <= 0:
+            raise ValueError("single-lane distinct acceptance requires actual inline work")
+    elif threads <= 0 or counter("worker_busy_elapsed_nanos") <= 0:
+        raise ValueError("parallel distinct acceptance requires actual compute-thread work")
+
+
 def validate_diagnostic(envelope: dict, case: dict, returncode: int) -> list[str]:
     if returncode <= 0 or envelope.get("status") not in ("error", "blocked"):
         raise ValueError("expected a normal nonzero exit with an explicit error envelope")
@@ -206,30 +284,6 @@ def command_args(source: Path, case: dict, workers: int) -> list[str]:
     return ["run", "sql", "--input", str(source), "--input-format", "vortex", "--sql", case["sql"],
             "--request", "collect", "--execution-policy", "native_vortex", "--bounded", "true",
             "--memory-gb", "1", "--max-parallelism", str(workers), "--format", "json"]
-
-
-def archive_stdout(path: Path) -> dict:
-    """Retain exact newly generated output, verifying gzip before unlinking it."""
-    digest = file_sha256(path)
-    original_bytes = path.stat().st_size
-    archive = path.with_suffix(path.suffix + ".gz")
-    with archive.open("xb") as destination:
-        with gzip.GzipFile(filename="", fileobj=destination, mode="wb", mtime=0) as compressed:
-            with path.open("rb") as source:
-                while chunk := source.read(MIB):
-                    compressed.write(chunk)
-    actual_digest = hashlib.sha256()
-    actual_bytes = 0
-    with gzip.open(archive, "rb") as source:
-        while chunk := source.read(MIB):
-            actual_digest.update(chunk)
-            actual_bytes += len(chunk)
-    if actual_bytes != original_bytes or actual_digest.hexdigest() != digest or file_sha256(path) != digest:
-        raise ValueError("lossless stdout archive verification failed; original output retained")
-    path.unlink()
-    return {"envelope": archive.name, "stdout_raw_sha256": digest,
-            "stdout_raw_bytes": original_bytes, "stdout_gzip_bytes": archive.stat().st_size,
-            "stdout_encoding": "gzip_lossless_verified"}
 
 
 def concise_execution_fields(envelope: dict) -> dict:
@@ -278,6 +332,10 @@ def execute(args) -> Path:
     selected = all_cases if not args.cases else [case for case in all_cases if case["name"] in args.cases]
     if not selected or (args.cases and set(args.cases) != {case["name"] for case in selected}):
         raise ValueError("unknown or empty selected cases")
+    required_worker_cases = sorted(DISTINCT_WORKER_CASES.intersection(case["name"] for case in selected)) if args.require_distinct_workers else []
+    if args.require_distinct_workers and not required_worker_cases:
+        raise ValueError("--require-distinct-workers needs at least one selected integer distinct Top-K case")
+    write_fixture, fixture_input = fixture_input_writer(args.fixture_format)
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
     binaries = {name: getattr(args, f"{name}_binary").resolve(strict=True) for name in ("baseline", "candidate")}
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -305,6 +363,7 @@ def execute(args) -> Path:
                "rss_boundary": "per-native-child peak RSS; not allocator-reserved bytes",
                "cache_policy": "OS page cache uncontrolled; one immutable native artifact; fresh process for every query",
                "worker_scope": "requested worker ceilings; observed counters retained separately; no utilization or scaling claim",
+               "required_candidate_distinct_worker_cases": required_worker_cases,
                "execution_evidence": "selected bounded counters in summary; complete original envelope in verified gzip",
                "summary_reserved_bytes": summary_reserve_bytes,
                "ordering": "sequential alternating baseline/candidate pairs; one warmup per case and worker setting",
@@ -317,12 +376,10 @@ def execute(args) -> Path:
     lock.mkdir()
     try:
         output.mkdir(parents=True)
-        raw_source = output / "fixture.jsonl"
-        with raw_source.open("x") as stream:
-            for row in rows:
-                stream.write(canonical(row) + "\n")
+        raw_source = output / f"fixture.{args.fixture_format}"
+        write_fixture(rows, raw_source)
         prepare = [str(binaries["candidate"]), "prepare", "dataframe", "--input", str(raw_source),
-                   "--input-format", "jsonl", "--output", str(source), "--memory-gb", "1",
+                   "--input-format", args.fixture_format, "--output", str(source), "--memory-gb", "1",
                    "--max-parallelism", "2", "--format", "json"]
         summary["fixture_prepare_command"] = prepare
         preparation = run_command(prepare, output / "prepare.stdout.json", output / "prepare.stderr.txt", args.timeout, guard)
@@ -333,7 +390,7 @@ def execute(args) -> Path:
         identity, source_hash = generation(source), file_sha256(source)
         summary["fixture"] = {"rows": len(rows), "bytes": source.stat().st_size, "source": str(source),
                               "sha256": source_hash, "generation": identity, "input_sha256": file_sha256(raw_source),
-                              "preparation": preparation}
+                              "input": fixture_input, "preparation": preparation}
         for count in args.workers:
             for case in selected:
                 failed_variants = set()
@@ -369,6 +426,8 @@ def execute(args) -> Path:
                                 if not math.isfinite(record["seconds"]) or record["seconds"] <= 0:
                                     raise ValueError("native timing must be finite and positive")
                                 record["execution_fields"] = concise_execution_fields(envelope)
+                                if name == "candidate" and case["name"] in required_worker_cases:
+                                    validate_distinct_workers(record["execution_fields"], count, len(rows))
                                 record["passed"] = True
                             except (ValueError, KeyError, TypeError) as error:
                                 record["error"] = str(error)
@@ -410,9 +469,13 @@ def main() -> int:
     parser.add_argument("--candidate-binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--rows", type=int, default=4096)
+    parser.add_argument("--fixture-format", choices=("jsonl", "parquet"), default="jsonl",
+                        help="fixture input for public native preparation; parquet requires optional PyArrow and preserves explicit field nullability")
     parser.add_argument("--samples", type=int, default=3)
     parser.add_argument("--workers", type=lambda text: [int(value) for value in text.split(",")], default=list(WORKERS))
     parser.add_argument("--cases", type=lambda text: text.split(","))
+    parser.add_argument("--require-distinct-workers", action="store_true",
+                        help="require actual candidate complete-integer distinct workers for selected exact/repeated integer Top-K cases; leaves other cases and baseline admission unchanged")
     parser.add_argument("--timeout", type=float, default=60)
     args = parser.parse_args()
     if not 1 <= args.samples <= 100 or not 64 <= args.rows <= 131072:

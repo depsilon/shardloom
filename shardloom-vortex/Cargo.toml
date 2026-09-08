@@ -93,3 +93,7 @@ required-features = ["vortex-local-primitives", "vortex-write"]
 [[example]]
 name = "clickbench_q20_reference"
 required-features = ["universal-format-io"]
+
+[[example]]
+name = "compare_native_artifacts"
+required-features = ["vortex-local-primitives", "universal-format-io"]

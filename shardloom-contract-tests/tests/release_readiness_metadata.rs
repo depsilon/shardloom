@@ -247,9 +247,11 @@ fn optimized_build_profiles_preserve_portable_release_boundary() {
         );
     }
 
-    let pgo_script = read_repo_file("scripts/build_shardloom_pgo.py");
+    let pgo_entrypoint = read_repo_file("scripts/build_shardloom_pgo.py");
+    assert!(pgo_entrypoint.contains("from pgo_local_experiment import main"));
+    let pgo_script = read_repo_file("scripts/pgo_local_experiment.py");
     for required in [
-        "shardloom.pgo_build_helper.v1",
+        "shardloom.pgo_build_helper.v2",
         "profile-generate",
         "llvm-profdata",
         "-Cprofile-use",

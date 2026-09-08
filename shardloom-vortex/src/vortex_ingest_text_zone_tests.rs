@@ -70,7 +70,9 @@ fn verify_fixture(root: &Path, workers: usize, all_null: bool) {
     .unwrap();
     let expected = arrow_record_batch_to_vortex_array(batch).unwrap();
     let context = LocalVortexWriteContext::open();
-    context.worker_pool.set_workers(workers - 1);
+    let _drivers =
+        crate::resident_worker_group::ResidentWorkerGroup::new(&context.runtime, workers - 1)
+            .unwrap();
     let timing = VortexWriterStageTiming::default();
     let strategy = zoned_source_text_vortex_write_strategy(
         8,
@@ -231,7 +233,9 @@ fn text_filter_pruning_skips_unprojected_disjoint_and_null_only_payloads_with_co
     let input = arrow_record_batch_to_vortex_array(batch).unwrap();
     for workers in [1, 3] {
         let context = LocalVortexWriteContext::open();
-        context.worker_pool.set_workers(workers - 1);
+        let _drivers =
+            crate::resident_worker_group::ResidentWorkerGroup::new(&context.runtime, workers - 1)
+                .unwrap();
         let timing = VortexWriterStageTiming::default();
         let strategy = zoned_source_text_vortex_write_strategy(
             8,

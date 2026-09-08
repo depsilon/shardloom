@@ -32,13 +32,38 @@ Cancellation drops the active child future and all retained partial layouts;
 already-issued physical writes remain subject to the enclosing owned sink's
 abort/cleanup contract. The wrapper never publishes a partial footer.
 
-The eventual candidate-only switchpoint is
-`LocalVortexWriteContext::stream_write_options_for_decision`: replace the existing
-`BoundedIngestLayout` wrapper with this alternative around the *same*
-`strategy_for_decision` result and the same shared pool. Do not stack both wrappers
-or change compression, row batching, source validation, sink publication, or
-checksumming at the same time. Existing per-batch column work is bounded by the
-admitted schema; the wrapper adds no per-column tasks or global stream fanout.
+The private candidate switchpoint is
+`LocalVortexWriteContext::stream_write_options_for_decision`, implemented by
+`vortex_ingest_column_layout::stream_options`. Its
+`DEFAULT_STREAM_FOOTER_LAYOUT` remains `RetainedRows`. A separately frozen
+benchmark candidate may change that one private constant to `ColumnAddressable`;
+there is no new public option or environment-dependent dispatch. Tests explicitly
+select each variant. CPU lane changes can therefore be measured and frozen as a
+separate control before changing the footer layout.
+
+Selection requires the existing shared native ingest pool and statically admitted
+scalar/nonnullable Struct schema. Missing shared memory, nested/extension fields,
+nullable roots or excess columns retain the current writer before consuming any
+batch; the private evidence explains that choice. This selection does not expand
+the retained writer's schema support: pinned default file statistics do not admit
+nullable top-level structs. The executable retained-route test uses a nonnullable
+nested root with nullable scalar children, while candidate admission tests reject
+nullable roots before writing. An admitted candidate replaces
+the `BoundedIngestLayout` wrapper around the *same* `strategy_for_decision` result
+and the same shared pool. It never stacks both wrappers. Malformed physical input
+or incompatible child output after candidate selection fails explicitly; it does
+not restart or switch strategies mid-write. Compression, row batching, source
+validation, sink publication and checksumming remain unchanged. Existing
+per-batch column work is bounded by the admitted schema; the wrapper adds no
+per-column tasks or global stream fanout.
+
+Successful candidate writes append their actual nonempty group/child invocation/
+transposed-reference counts and peak owned reference bytes to the existing
+`writer_layout_strategy_applied` field. These bytes cover footer vectors and
+associated metadata, not arbitrary provider scratch or process RSS. The default
+writer's evidence remains unchanged. Coalescing remains within each source batch;
+footer transposition does not claim larger physical segments or cross-batch codec
+coalescing.
 
 Acceptance pairs both wrappers against identical encoded batches, proves every
 physical segment specification and payload byte is unchanged, then reopens the
@@ -52,3 +77,67 @@ required. Later measurements must include open/bind/tree work, actual completed
 reads, complete queries, write/sync/hash/reopen time, artifact size and all source
 identities. This design alone establishes no performance improvement or phase
 closure.
+
+The promotion packet adds pairs using the real `strategy_for_decision` default,
+fast-load numeric, balanced and selected source-text compositions, beyond the
+original Flat-child tests. Each variant constructs fresh native arrays with
+renamed columns, exact identifiers above 2^60, nullable narrow integers, nullable
+UTF8 and changed dictionary code domains across three 1,033-row batches. It
+compares all physical segment specifications and payload bytes, every preserved
+scalar subtree including codec/zoned metadata, complete independently calculated
+values and native default file statistics. Real files are synced, fully read for
+SHA-256 and reopened. The small fixture forces these existing compositions; it
+does not establish ordinary large-source advisor admission or performance.
+Fixture input construction and the independent reader use their existing test
+allocation scope; this pair does not claim they are covered by the candidate's
+layout-reference lease.
+
+The new seam and composition pairs pass the root-owned native Cargo gate.
+Retention still requires matched write/sync/full-hash/reopen
+and full query measurements with identical source identities, codec policy,
+row-group geometry and CPU allocation. The private selector is not a decision to
+promote the alternative writer.
+
+The ignored `column_footer_release_lifecycle_and_repeated_native_consumers`
+experiment adds one warmup and seven alternating writer pairs for fast-load
+numeric and source-text compositions. Both variants use two CPU lanes (one
+joined provider driver plus the caller), the same codec decision, fresh input
+arrays and either three or sixteen 1,033-row groups. This bounds observer records
+and isolates footer hierarchy from source batching. It is a small private-writer
+experiment; the later public 100-million-row ingest/query comparison remains a
+separate retention gate.
+
+Session, source-array and strategy preparation are excluded identically and
+reported separately. Direct spans cover native write/finish, sync, full SHA-256
+readback, footer reopen, writer-summary release and joined driver shutdown; an
+inclusive writer lifecycle covers the sequence. Complete schema and every scalar
+value are checked independently outside that interval. Both variants then run
+complete native identifier projection and filter-only text comparison consumers
+against one held generation with the same native layout-reader cache. Each call
+returns complete typed identifier arrays; canonicalization is inside query time,
+and independent exact value checks and result drops have separate spans. There
+is no adapter segment cache or answer cache in this writer comparison.
+
+The consumer record retains all 100 chronological calls and reports checkpoints
+at one, ten and 100 uses. The lifecycle checkpoint is explicitly a sum of direct
+write/open/query/result-drop intervals, not a continuous elapsed measurement:
+oracle checks and evidence construction between calls are excluded. Final reader
+close/drain/join is separate because the one/ten-use checkpoints are prefixes of
+the actual 100-use sequence. The bounded read observer reports completed exact
+filesystem calls/bytes for opening and every consumer, including coalescing gaps,
+and must drain without failures or rejections. These are OS-visible reads, not
+device reads or a controlled cold-cache result. Input/oracle allocations and
+provider allocations outside the existing host allocator remain excluded from
+owned-byte counters; no process-RSS ceiling is claimed.
+
+Replay only under the repository's serial benchmark/local-artifact guards:
+
+```bash
+CARGO_TARGET_DIR=/Users/dylan/.cache/shardloom/cargo-target cargo test -p shardloom-vortex --release --features release-user-surfaces --lib vortex_ingest::column_layout_tests::benchmark::column_footer_release_lifecycle_and_repeated_native_consumers -- --ignored --exact --nocapture --test-threads=1
+```
+
+Pin source revision and test-binary SHA outside the measured process. The emitted
+`COLUMN_FOOTER_LIFECYCLE` records include pair order, warmup status, actual feature,
+provider version, source geometry, codec decision, artifact SHA/bytes, all timings
+and read counters. The new experiment is authored and unrun; it does not alter
+the ordinary default or establish a retention decision.

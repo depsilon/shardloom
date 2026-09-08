@@ -111,7 +111,15 @@ type PublicWorkflowRoutePlanResult<T> = Result<T, Box<PublicWorkflowRoutePlan>>;
 #[path = "public_resident_count.rs"]
 mod resident_count;
 
-/// Caller-owned prepared execution. Only the latest file count or collection is retained;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "public_resident_count_where.rs"]
+mod resident_count_where;
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "public_resident_aggregate.rs"]
+mod resident_aggregate;
+
+/// Caller-owned prepared execution. Only the latest count, collection or aggregate is retained;
 /// results are never cached and every execution validates its source generation.
 #[derive(Default)]
 pub(crate) struct PublicExecutionSession {
@@ -119,6 +127,10 @@ pub(crate) struct PublicExecutionSession {
     collect: Option<PreparedPublicCollect>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     count: Option<PreparedPublicCount>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    count_where: Option<PreparedPublicCountWhere>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    aggregate: Option<resident_aggregate::PreparedPublicAggregate>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     memory: Option<(
         u64,
@@ -138,6 +150,12 @@ struct PreparedPublicCount {
     request: PublicWorkflowRouteRequest,
     operation: shardloom_vortex::resident_session::PreparedVortexCount,
     session: shardloom_vortex::resident_session::ResidentVortexSession,
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+struct PreparedPublicCountWhere {
+    request: PublicWorkflowRouteRequest,
+    operation: shardloom_vortex::local_primitives::prepared_count::PreparedVortexCountWhere,
 }
 
 impl PublicExecutionSession {
@@ -192,6 +210,14 @@ pub(crate) fn handle_public_workflow_run(
         .is_some_and(|entry| entry.request != request)
         || execution_session
             .count
+            .as_ref()
+            .is_some_and(|entry| entry.request != request)
+        || execution_session
+            .count_where
+            .as_ref()
+            .is_some_and(|entry| entry.request != request)
+        || execution_session
+            .aggregate
             .as_ref()
             .is_some_and(|entry| entry.request != request)
         || (execution_session.memory.is_some() && plan.route_id != "generated_rows_memory_collect")
@@ -388,6 +414,7 @@ fn native_vortex_primitive_row_export_execution(
     let primitive_arg = native_vortex_primitive_arg_for_request(request, primitive)?;
     let mut primitive_request =
         vortex_primitive_execution::parse_vortex_primitive_request(uri, &primitive_arg)?;
+    attach_native_expression_source_predicate(request, &mut primitive_request)?;
     if let Some(limit) = request.vortex_source_order_limit.as_deref() {
         primitive_request = primitive_request
             .with_source_order_limit(positive_usize_arg("source-order limit", limit)?);
@@ -940,6 +967,44 @@ fn native_vortex_primitive_arg_for_request(
     }
 }
 
+// Expression-project's compact payload contains projection expressions only.
+// Preserve the separate public source predicate before projection and LIMIT.
+fn attach_native_expression_source_predicate(
+    request: &PublicWorkflowRouteRequest,
+    primitive_request: &mut shardloom_vortex::VortexQueryPrimitiveRequest,
+) -> Result<(), ShardLoomError> {
+    if primitive_request.kind != shardloom_vortex::VortexQueryPrimitiveKind::ExpressionProjectRows {
+        return Ok(());
+    }
+    let Some(predicate) = request.vortex_predicate.as_deref() else {
+        return Ok(());
+    };
+    let source_only = primitive_request
+        .expression_projection
+        .as_ref()
+        .is_none_or(shardloom_vortex::VortexExpressionProjectionRequest::is_empty)
+        && primitive_request
+            .structured_projection
+            .as_ref()
+            .is_some_and(|projection| {
+                !projection.is_empty()
+                    && projection.columns.iter().all(|column| {
+                        matches!(
+                            column.expr,
+                            shardloom_vortex::VortexStructuredProjectionExpr::SourceColumn(_)
+                        )
+                    })
+            });
+    if !source_only {
+        return Err(ShardLoomError::InvalidOperation(
+            "filtered expression_project currently requires a structured projection of source columns; constructed expressions and rewrites are not admitted with --vortex-predicate; no fallback execution was attempted".to_string(),
+        ));
+    }
+    primitive_request.predicate =
+        Some(vortex_primitive_execution::parse_tiny_predicate(predicate)?);
+    Ok(())
+}
+
 fn json_payload_with_columns(
     payload: &str,
     columns: Option<&str>,
@@ -1005,13 +1070,21 @@ fn append_native_vortex_primitive_row_export_fields(
     push_field(
         fields,
         "typed_sink_contract",
-        native_vortex_primitive_row_export_typed_sink_contract(report.output_format),
+        if report.evidence.native_array_sink.is_some() && report.output_format == "arrow-ipc" {
+            "native_vortex_arrays_to_arrow_ipc_compatibility_sink"
+        } else if report.evidence.native_array_sink.is_some() && report.output_format == "parquet" {
+            "native_vortex_arrays_to_parquet_compatibility_sink"
+        } else {
+            native_vortex_primitive_row_export_typed_sink_contract(report.output_format)
+        },
     );
     push_field(
         fields,
         "decode_materialization_boundary",
-        if report.evidence.native_array_sink.is_some() {
+        if report.evidence.native_array_sink.is_some() && report.output_format == "vortex" {
             "native_scan_arrays_to_native_flat_writer;no_adapter_scalar_or_arrow_conversion;provider_decode_may_occur"
+        } else if report.evidence.native_array_sink.is_some() {
+            "native_scan_arrays_to_explicit_arrow_compatibility_writer;no_scalar_row_bridge;provider_decode_or_copy_may_occur"
         } else {
             "native_vortex_scan_pushdown_then_selected_column_decode_at_compatibility_sink"
         },
@@ -1129,12 +1202,52 @@ fn append_native_array_sink_fields(
     push_field(
         fields,
         "native_vortex_array_sink_memory_scope",
-        "session_host_allocator_buffers_and_reserved_layout_metadata;excludes_provider_bypass_allocations_and_process_rss",
+        if evidence.compatibility.is_some() {
+            "session_host_allocator_buffers_and_reserved_arrow_writer_envelopes;excludes_provider_bypass_allocations_and_process_rss"
+        } else {
+            "session_host_allocator_buffers_and_reserved_layout_metadata;excludes_provider_bypass_allocations_and_process_rss"
+        },
     );
     push_field(
         fields,
         "native_vortex_array_sink_byte_work_scope",
         "logical_array_bytes_may_share_buffers;zero_adapter_copies_does_not_assert_zero_provider_decode_or_copy",
+    );
+    if let Some(compatibility) = &evidence.compatibility {
+        append_columnar_compatibility_sink_fields(fields, compatibility);
+    }
+}
+
+fn append_columnar_compatibility_sink_fields(
+    fields: &mut Vec<(String, String)>,
+    evidence: &shardloom_vortex::VortexColumnarCompatibilitySinkEvidence,
+) {
+    for (name, value) in [
+        ("native_batches", evidence.native_batches),
+        ("native_logical_bytes", evidence.native_logical_bytes),
+        ("arrow_batches", evidence.arrow_batches),
+        (
+            "admitted_arrow_expansion_bytes",
+            evidence.admitted_arrow_expansion_bytes,
+        ),
+        ("max_arrow_batch_bytes", evidence.max_arrow_batch_bytes),
+        (
+            "max_observed_parquet_in_progress_bytes",
+            evidence.max_observed_parquet_in_progress_bytes,
+        ),
+        ("writer_reserved_bytes", evidence.writer_reserved_bytes),
+        ("output_bytes", evidence.output_bytes),
+    ] {
+        push_field(
+            fields,
+            format!("native_vortex_columnar_compatibility_sink_{name}"),
+            value.to_string(),
+        );
+    }
+    push_field(
+        fields,
+        "native_vortex_columnar_compatibility_sink_work_scope",
+        "read_decode_materialize_flags_conservative_scan_scope;arrow_batches_observed;expansion_admission_is_not_copy_bytes;parquet_state_sample_excludes_transients;no_process_rss_bound",
     );
 }
 
@@ -1403,6 +1516,121 @@ fn append_local_primitive_state_budget_fields(
         "local_primitive_state_budget_next_action",
         &state_budget.next_action,
     );
+    if let Some(spill) = &state_budget.native_aggregate_spill {
+        append_native_aggregate_spill_fields(fields, spill);
+    }
+    if let Some(spill) = &state_budget.native_weighted_count_spill {
+        append_native_weighted_count_spill_fields(fields, spill);
+    }
+}
+
+fn append_native_weighted_count_spill_fields(
+    fields: &mut Vec<(String, String)>,
+    spill: &shardloom_vortex::VortexWeightedCountSpillReport,
+) {
+    let prefix = "local_primitive_native_weighted_count_spill_";
+    push_field(fields, format!("{prefix}family"), &spill.family);
+    push_field(fields, format!("{prefix}key_order"), &spill.key_order);
+    push_field(
+        fields,
+        format!("{prefix}workspace"),
+        spill.workspace.display().to_string(),
+    );
+    for (name, value) in [
+        ("quota_bytes", spill.quota_bytes),
+        ("memory_bytes", spill.memory_bytes),
+        ("peak_reserved_bytes", spill.peak_reserved_bytes),
+        ("peak_disk_bytes", spill.peak_disk_bytes),
+        ("runs_written", spill.runs_written),
+        ("runs_validated", spill.runs_validated),
+        ("merge_passes", spill.merge_passes),
+        ("source_rows", spill.source_rows),
+        ("source_records", spill.source_records),
+        ("initial_run_records", spill.initial_run_records),
+        ("native_records_written", spill.native_records_written),
+        ("native_bytes_written", spill.native_bytes_written),
+        ("groups", spill.groups),
+        ("source_text_bytes_copied", spill.source_text_bytes_copied),
+        ("encoded_text_bytes_copied", spill.encoded_text_bytes_copied),
+        (
+            "merge_head_text_bytes_copied",
+            spill.merge_head_text_bytes_copied,
+        ),
+        (
+            "selection_text_bytes_copied",
+            spill.selection_text_bytes_copied,
+        ),
+    ] {
+        push_field(fields, format!("{prefix}{name}"), value.to_string());
+    }
+    for (name, value) in [
+        ("buffer_capacity_records", spill.buffer_capacity_records),
+        (
+            "buffer_capacity_text_bytes",
+            spill.buffer_capacity_text_bytes,
+        ),
+        ("min_run_block_rows", spill.min_run_block_rows),
+        ("max_run_block_rows", spill.max_run_block_rows),
+        ("max_run_key_bytes", spill.max_run_key_bytes),
+        ("max_admitted_key_bytes", spill.max_admitted_key_bytes),
+        ("merge_fan_in", spill.merge_fan_in),
+    ] {
+        push_field(fields, format!("{prefix}{name}"), value.to_string());
+    }
+    push_bool_field(
+        fields,
+        format!("{prefix}owned_cleanup_completed"),
+        spill.owned_cleanup_completed,
+    );
+    push_field(
+        fields,
+        format!("{prefix}scope"),
+        "explicit_weighted_complete_key_count_policy;query_pool_parent_envelope_through_source_validation;bounded_records_utf8_arena_run_metadata_merge_and_eof_selection;actual_per_run_geometry;lazy_owned_workspace;source_provider_JSON_and_RSS_separate",
+    );
+}
+
+fn append_native_aggregate_spill_fields(
+    fields: &mut Vec<(String, String)>,
+    spill: &shardloom_vortex::VortexAggregateSpillReport,
+) {
+    let prefix = "local_primitive_native_aggregate_spill_";
+    push_field(fields, format!("{prefix}family"), &spill.family);
+    push_field(
+        fields,
+        format!("{prefix}workspace"),
+        spill.workspace.display().to_string(),
+    );
+    for (name, value) in [
+        ("quota_bytes", spill.quota_bytes),
+        ("memory_bytes", spill.memory_bytes),
+        ("peak_reserved_bytes", spill.peak_reserved_bytes),
+        ("peak_disk_bytes", spill.peak_disk_bytes),
+        ("runs_written", spill.runs_written),
+        ("runs_validated", spill.runs_validated),
+        ("merge_passes", spill.merge_passes),
+        ("source_rows", spill.source_rows),
+        ("complete_pairs", spill.complete_pairs),
+    ] {
+        push_field(fields, format!("{prefix}{name}"), value.to_string());
+    }
+    for (name, value) in [
+        ("groups", spill.groups),
+        ("buffer_capacity_pairs", spill.buffer_capacity_pairs),
+        ("run_block_rows", spill.run_block_rows),
+        ("merge_fan_in", spill.merge_fan_in),
+    ] {
+        push_field(fields, format!("{prefix}{name}"), value.to_string());
+    }
+    push_bool_field(
+        fields,
+        format!("{prefix}owned_cleanup_completed"),
+        spill.owned_cleanup_completed,
+    );
+    push_field(
+        fields,
+        format!("{prefix}scope"),
+        "explicit_exact_integer_distinct_policy;query_pool_parent_envelope_retained_through_result;child_pool_owned_buffer_runs_merge_and_selected_state;workspace_created_only_when_buffer_flush_requires_it;provider_transients_and_process_rss_not_bounded",
+    );
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1443,6 +1671,10 @@ fn append_local_primitive_memory_admission_fields(
         "local_primitive_memory_admission_measurement_basis",
         if state_budget.native_sort_spill.is_some() {
             "post_execution_descriptor_check_of_measured_sort_spill_peak;runtime_scope_owned_candidates_merge_batches_run_metadata_checksum_scratch"
+        } else if state_budget.native_aggregate_spill.is_some()
+            || state_budget.native_weighted_count_spill.is_some()
+        {
+            "post_execution_descriptor_check_of_measured_aggregate_spill_peak;runtime_query_pool_parent_envelope_and_child_pool_owned_state_reported_separately"
         } else {
             "post_execution_descriptor_check_not_runtime_allocation_enforcement"
         },
@@ -1606,6 +1838,12 @@ fn local_primitive_memory_reservation_request_bytes(
     state_budget: &shardloom_vortex::VortexLocalPrimitiveStateBudgetReport,
 ) -> u64 {
     if let Some(spill) = &state_budget.native_sort_spill {
+        return spill.peak_reserved_bytes;
+    }
+    if let Some(spill) = &state_budget.native_aggregate_spill {
+        return spill.peak_reserved_bytes;
+    }
+    if let Some(spill) = &state_budget.native_weighted_count_spill {
         return spill.peak_reserved_bytes;
     }
     if !state_budget.state_budget_required {
@@ -1948,7 +2186,13 @@ fn append_native_vortex_primitive_row_export_target_commit_fields(
     push_field(
         fields,
         "native_vortex_result_export_target_commit_modes",
-        row_export_target_evidence_field(targets, |_| "atomic_rename_same_directory"),
+        row_export_target_report_evidence_field(targets, reports, |report| {
+            if !multi_target && report.evidence.native_array_sink.is_some() {
+                "atomic_create_if_absent_hard_link_same_directory"
+            } else {
+                "atomic_rename_same_directory"
+            }
+        }),
     );
     push_field(
         fields,
@@ -2002,6 +2246,11 @@ fn append_native_vortex_primitive_row_export_target_commit_fields(
         "native_vortex_result_export_fanout_atomicity_contract",
         if targets.len() > 1 {
             "all_targets_staged_before_final_commit_with_same_directory_atomic_rename_and_best_effort_rollback"
+        } else if reports
+            .first()
+            .is_some_and(|report| report.evidence.native_array_sink.is_some())
+        {
+            "single_target_atomic_create_if_absent_hard_link_same_directory"
         } else {
             "single_target_same_directory_atomic_rename"
         },
@@ -2019,24 +2268,6 @@ fn append_native_vortex_primitive_row_export_target_commit_fields(
             "cleanup_or_rollback_attempted_before_error"
         },
     );
-}
-
-fn row_export_target_evidence_field(
-    targets: &[NativeVortexPrimitiveRowExportTarget],
-    value: impl Fn(&NativeVortexPrimitiveRowExportTarget) -> &'static str,
-) -> String {
-    targets
-        .iter()
-        .map(|target| {
-            format!(
-                "{}:{}:{}",
-                target.role,
-                target.format.as_str(),
-                value(target)
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(",")
 }
 
 fn row_export_target_report_evidence_field(
@@ -2060,7 +2291,7 @@ fn row_export_target_report_evidence_field(
 
 fn native_vortex_row_export_fidelity_status(output_format: &str) -> &'static str {
     match output_format {
-        "vortex" => "native_vortex_layout_preserved",
+        "vortex" => "native_vortex_logical_types_preserved_physical_fidelity_reported",
         "parquet" | "arrow-ipc" | "avro" => "typed_compatibility_binary_export",
         "jsonl" | "csv" => "compatibility_text_row_export_type_metadata_not_preserved",
         _ => "unknown_output_format",
@@ -2378,6 +2609,24 @@ fn native_vortex_manifest_input_binding(
     })
 }
 
+fn native_vortex_primitive_materializes(primitive: PublicVortexPrimitive) -> bool {
+    matches!(
+        primitive,
+        PublicVortexPrimitive::Distinct
+            | PublicVortexPrimitive::DropDuplicates
+            | PublicVortexPrimitive::DuplicateMask
+            | PublicVortexPrimitive::Tail
+            | PublicVortexPrimitive::Sample
+            | PublicVortexPrimitive::ExpressionProject
+            | PublicVortexPrimitive::Melt
+            | PublicVortexPrimitive::Explode
+            | PublicVortexPrimitive::Pivot
+            | PublicVortexPrimitive::RollingWindow
+            | PublicVortexPrimitive::Aggregate
+            | PublicVortexPrimitive::SortRows
+    )
+}
+
 fn execute_native_vortex_primitive_run_with_extra(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -2396,21 +2645,12 @@ fn execute_native_vortex_primitive_run_with_extra(
         );
         return emit_blocked_facade("run", format, request, &blocked);
     };
-    if matches!(
-        primitive,
-        PublicVortexPrimitive::Distinct
-            | PublicVortexPrimitive::DropDuplicates
-            | PublicVortexPrimitive::DuplicateMask
-            | PublicVortexPrimitive::Tail
-            | PublicVortexPrimitive::Sample
-            | PublicVortexPrimitive::ExpressionProject
-            | PublicVortexPrimitive::Melt
-            | PublicVortexPrimitive::Explode
-            | PublicVortexPrimitive::Pivot
-            | PublicVortexPrimitive::RollingWindow
-            | PublicVortexPrimitive::Aggregate
-            | PublicVortexPrimitive::SortRows
-    ) {
+    if native_vortex_primitive_materializes(primitive) {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if primitive == PublicVortexPrimitive::Aggregate && request.requested_output == "collect" {
+            return resident_aggregate::run(request, plan, format, extra_fields, execution_session);
+        }
+        execution_session.clear();
         return execute_native_vortex_materializing_primitive_run_with_extra(
             request,
             plan,
@@ -2445,6 +2685,17 @@ fn execute_native_vortex_primitive_run_with_extra(
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     if request.requested_output == "collect" && primitive == PublicVortexPrimitive::Count {
         return resident_count::execute_native_vortex_resident_count(
+            request,
+            plan,
+            format,
+            extra_fields,
+            &binding,
+            execution_session,
+        );
+    }
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if request.requested_output == "collect" && primitive == PublicVortexPrimitive::CountWhere {
+        return resident_count_where::run(
             request,
             plan,
             format,
@@ -2887,6 +3138,7 @@ fn native_vortex_bound_request_and_arg(
     let primitive_arg = native_vortex_primitive_arg_for_request(request, primitive)?;
     let mut primitive_request =
         vortex_primitive_execution::parse_vortex_primitive_request(uri, &primitive_arg)?;
+    attach_native_expression_source_predicate(request, &mut primitive_request)?;
     if let Some(limit) = request.vortex_source_order_limit.as_ref() {
         primitive_request = primitive_request
             .with_source_order_limit(positive_usize_arg("source-order limit", limit)?);
@@ -2956,7 +3208,9 @@ fn public_workflow_effective_max_parallelism(
         Some(value) => positive_usize_arg("max_parallelism", value)?,
         None => default_public_local_runtime_max_parallelism(),
     };
-    Ok(requested.max(MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM))
+    // The default remains at least two. An explicit positive maximum is a
+    // ceiling, including a single caller-driven native execution lane.
+    Ok(requested)
 }
 
 fn public_workflow_effective_resource_envelope(
@@ -2969,7 +3223,9 @@ fn public_workflow_effective_resource_envelope(
 }
 
 fn public_workflow_dynamic_parallelism_floor_applied(request: &PublicWorkflowRouteRequest) -> bool {
-    public_workflow_requested_max_parallelism(request) < MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
+    request.max_parallelism.is_none()
+        && public_workflow_requested_max_parallelism(request)
+            < MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
 }
 
 fn native_vortex_materializing_execution_certificate(
@@ -3293,6 +3549,18 @@ fn append_local_primitive_result_summary_evidence_fields(
         "aggregate_workers_compound_partition_strings",
         "aggregate_workers_compound_partition_utf8_bytes_copied",
         "aggregate_workers_compound_key_scope",
+        "aggregate_workers_distinct_group_reduction_jobs",
+        "aggregate_workers_exact_distinct_complete_pairs",
+        "aggregate_workers_exact_distinct_committed_rows",
+        "aggregate_workers_exact_distinct_partition_comparisons",
+        "aggregate_workers_exact_distinct_partition_lock_wait_nanos",
+        "aggregate_workers_exact_distinct_partition_reconcile_nanos",
+        "aggregate_workers_exact_distinct_group_reduce_nanos",
+        "aggregate_workers_exact_distinct_entry_credit_claims",
+        "aggregate_workers_exact_distinct_entry_credit_returns",
+        "aggregate_workers_exact_distinct_scope",
+        "exact_distinct_final_reserved_bytes",
+        "exact_distinct_final_reservation_scope",
         "aggregate_workers_scope",
     ] {
         if let Some(value) = object.get(key) {
@@ -11083,9 +11351,8 @@ fn add_route_native_vortex_resource_fields(
 }
 
 fn public_workflow_effective_max_parallelism_label(request: &PublicWorkflowRouteRequest) -> String {
-    public_workflow_requested_max_parallelism(request)
-        .max(MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM)
-        .to_string()
+    public_workflow_effective_max_parallelism(request)
+        .map_or_else(|_| "invalid".to_owned(), |value| value.to_string())
 }
 
 fn push_native_vortex_contract_fields(
@@ -13216,6 +13483,44 @@ fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)
 #[cfg(test)]
 mod tests {
     #[test]
+    fn exact_distinct_summary_preserves_counts_and_reservation_scope() {
+        let payload = serde_json::json!({
+            "aggregate_workers_distinct_group_reduction_jobs": 1,
+            "aggregate_workers_exact_distinct_complete_pairs": 19,
+            "aggregate_workers_exact_distinct_committed_rows": 101,
+            "aggregate_workers_exact_distinct_partition_comparisons": 73,
+            "aggregate_workers_exact_distinct_partition_lock_wait_nanos": 21,
+            "aggregate_workers_exact_distinct_partition_reconcile_nanos": 90,
+            "aggregate_workers_exact_distinct_group_reduce_nanos": 17,
+            "aggregate_workers_exact_distinct_entry_credit_claims": 3,
+            "aggregate_workers_exact_distinct_entry_credit_returns": 3,
+            "aggregate_workers_exact_distinct_scope": "complete pair reduction; not local top-k",
+            "exact_distinct_final_reserved_bytes": 4096,
+            "exact_distinct_final_reservation_scope": "retained complete groups"
+        });
+        let mut fields = Vec::new();
+        super::append_local_primitive_result_summary_evidence_fields(
+            &mut fields,
+            Some(&payload.to_string()),
+        );
+        for (key, value) in payload.as_object().unwrap() {
+            assert!(
+                fields.contains(&(
+                    format!("local_primitive_{key}"),
+                    value
+                        .as_str()
+                        .map_or_else(|| value.to_string(), str::to_owned)
+                ))
+            );
+        }
+        assert!(
+            !fields
+                .iter()
+                .any(|(key, _)| key == "local_primitive_aggregate_workers_rows")
+        );
+    }
+
+    #[test]
     fn aggregate_worker_observations_survive_public_summary_without_invented_counters() {
         let summary = serde_json::json!({
             "aggregate_workers_rows": 101,
@@ -14762,7 +15067,7 @@ mod tests {
     }
 
     #[test]
-    fn route_planner_applies_public_runtime_parallelism_floor_with_evidence() {
+    fn route_planner_preserves_explicit_runtime_parallelism_ceiling_with_evidence() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "dataframe",
@@ -14798,19 +15103,40 @@ mod tests {
 
         assert_eq!(plan.status, CommandStatus::Success);
         assert_eq!(field(&fields, "requested_max_parallelism"), "1");
-        assert_eq!(field(&fields, "max_parallelism"), "2");
-        assert_eq!(field(&fields, "dynamic_parallelism_floor_applied"), "true");
+        assert_eq!(field(&fields, "max_parallelism"), "1");
+        assert_eq!(field(&fields, "dynamic_parallelism_floor_applied"), "false");
         assert_eq!(
             field(&attachments, "public_workflow_requested_max_parallelism"),
             "1"
         );
-        assert_eq!(field(&attachments, "public_workflow_max_parallelism"), "2");
+        assert_eq!(field(&attachments, "public_workflow_max_parallelism"), "1");
         assert_eq!(
             field(
                 &attachments,
                 "public_workflow_dynamic_parallelism_floor_applied"
             ),
-            "true"
+            "false"
+        );
+        assert_eq!(
+            public_workflow_effective_resource_envelope(&request)
+                .unwrap()
+                .1,
+            1
+        );
+        let mut invalid = request.clone();
+        invalid.max_parallelism = Some("0".into());
+        assert!(public_workflow_effective_resource_envelope(&invalid).is_err());
+        assert_eq!(
+            public_workflow_effective_max_parallelism_label(&invalid),
+            "invalid"
+        );
+        let mut automatic = request;
+        automatic.max_parallelism = None;
+        assert!(
+            public_workflow_effective_resource_envelope(&automatic)
+                .unwrap()
+                .1
+                >= MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
         );
     }
 
@@ -15520,6 +15846,87 @@ mod tests {
         assert!(primitive_arg.starts_with("explode:"));
         assert!(primitive_arg.contains(r#""column":"items""#));
         assert!(primitive_arg.contains(r#""columns":"id,items""#));
+    }
+
+    #[test]
+    fn native_source_expression_predicate_survives_export_and_collect_normalization() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "target/input.vortex",
+                "--input-format",
+                "vortex",
+                "--request",
+                "write_vortex",
+                "--output",
+                "target/output.vortex",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+                "--vortex-primitive",
+                "expression_project",
+                "--vortex-expression-projection",
+                r#"{"structured_columns":[{"name":"renamed","source":"source_value"}]}"#,
+                "--vortex-predicate",
+                "gte:filter_only:3",
+                "--vortex-source-order-limit",
+                "2",
+            ]
+            .into_iter()
+            .map(str::to_owned),
+        )
+        .unwrap();
+        let binding = NativeVortexInputBinding::single("target/input.vortex".to_owned());
+        let exported = native_vortex_primitive_row_export_execution(
+            &request,
+            "target/input.vortex".to_owned(),
+            PublicVortexPrimitive::ExpressionProject,
+        )
+        .unwrap()
+        .primitive_request;
+        let (collected, _, _) = native_vortex_bound_request_and_arg(
+            &request,
+            PublicVortexPrimitive::ExpressionProject,
+            &binding,
+        )
+        .unwrap();
+        for parsed in [exported, collected] {
+            assert_eq!(
+                parsed.predicate,
+                Some(
+                    vortex_primitive_execution::parse_tiny_predicate("gte:filter_only:3").unwrap()
+                )
+            );
+            assert_eq!(parsed.source_order_limit, Some(2));
+            assert_eq!(
+                parsed.structured_projection.unwrap().output_columns(),
+                ["renamed"]
+            );
+        }
+        let mut constructed = request.clone();
+        constructed.vortex_expression_projection =
+            Some(r#"{"structured_columns":[{"name":"constructed","array":[1]}]}"#.to_owned());
+        assert!(
+            native_vortex_primitive_row_export_execution(
+                &constructed,
+                "target/input.vortex".to_owned(),
+                PublicVortexPrimitive::ExpressionProject,
+            )
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("constructed expressions and rewrites are not admitted")
+        );
+        assert!(
+            native_vortex_bound_request_and_arg(
+                &constructed,
+                PublicVortexPrimitive::ExpressionProject,
+                &binding,
+            )
+            .is_err()
+        );
     }
 
     #[test]

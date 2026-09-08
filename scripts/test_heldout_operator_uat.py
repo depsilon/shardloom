@@ -2,14 +2,19 @@
 import copy
 import gzip
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
+import sys
+from types import SimpleNamespace
 import unittest
 import tempfile
+from unittest import mock
 
+import run_heldout_operator_uat as heldout
 from run_heldout_operator_uat import (
     WORKERS, archive_stdout, cases, command_args, comparisons, concise_execution_fields, exact_equal, fixture_rows,
-    group_oracle, scalar_oracle, validate_diagnostic, validate_values,
+    fixture_input_writer, group_oracle, scalar_oracle, validate_diagnostic, validate_distinct_workers, validate_values,
 )
 
 
@@ -21,6 +26,92 @@ def envelope(value):
 
 
 class HeldoutOperatorTests(unittest.TestCase):
+    def test_jsonl_fixture_needs_no_pyarrow_and_preserves_generated_rows(self):
+        rows = fixture_rows(64)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.jsonl"
+            with mock.patch.dict(sys.modules, {"pyarrow": None, "pyarrow.parquet": None}):
+                writer, metadata = fixture_input_writer("jsonl")
+                writer(rows, path)
+            self.assertEqual(metadata, {"format": "jsonl"})
+            self.assertEqual([json.loads(line) for line in path.read_text().splitlines()], rows)
+            with self.assertRaises(FileExistsError):
+                writer(rows, path)
+
+    def test_missing_optional_parquet_dependency_fails_before_creating_run_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "uat"
+            args = SimpleNamespace(rows=64, cases=None, require_distinct_workers=False,
+                                   fixture_format="parquet", uat_root=root)
+            with mock.patch.dict(sys.modules, {"pyarrow": None, "pyarrow.parquet": None}):
+                with self.assertRaisesRegex(ValueError, "requires optional PyArrow"):
+                    heldout.execute(args)
+            self.assertFalse(root.exists())
+
+    @unittest.skipUnless(importlib.util.find_spec("pyarrow"), "optional PyArrow fixture environment")
+    def test_parquet_fixture_has_explicit_nullability_and_complete_exact_values(self):
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        rows = fixture_rows(64)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.parquet"
+            writer, metadata = fixture_input_writer("parquet")
+            writer(rows, path)
+            actual = pq.read_table(path)
+            self.assertEqual(actual.to_pylist(), rows)
+            self.assertEqual(len(actual.schema), 8)
+            self.assertEqual({field.name for field in actual.schema if field.nullable},
+                             {"optional_text", "optional_units"})
+            for field in actual.schema:
+                expected = pa.string() if field.name in {"category_text", "optional_text", "unique_text"} else pa.int64()
+                self.assertEqual(field.type, expected)
+            self.assertEqual(metadata["writer_version"], pa.__version__)
+            self.assertEqual(cases(actual.to_pylist()), cases(rows))
+            previous = path.read_bytes()
+            with self.assertRaises(FileExistsError):
+                writer(rows, path)
+            self.assertEqual(path.read_bytes(), previous)
+
+    def test_required_distinct_workers_prove_complete_drained_work_and_resource_bounds(self):
+        prefix = "local_primitive_aggregate_workers_"
+        counters = {"rows": 64, "exact_distinct_committed_rows": 64, "submitted_chunks": 2,
+                    "completed_chunks": 2, "outstanding_chunks": 0, "provider_background_workers": 0,
+                    "shared_live_peak_bytes": 128, "shared_live_limit_bytes": 1024,
+                    "cpu_ceiling": 4, "compute_threads": 3, "worker_busy_elapsed_nanos": 50,
+                    "inline_busy_elapsed_nanos": 0}
+        fields = {prefix + key: str(value) for key, value in counters.items()}
+        fields["local_primitive_aggregate_update_strategy"] = "complete_integer_pair_partition_distinct"
+        validate_distinct_workers(fields, 4, 64)
+        inline = {**fields, prefix + "cpu_ceiling": "1", prefix + "compute_threads": "0",
+                  prefix + "worker_busy_elapsed_nanos": "0", prefix + "inline_busy_elapsed_nanos": "50"}
+        validate_distinct_workers(inline, 1, 64)
+        validate_distinct_workers(inline, 4, 64)  # Admission may grant fewer lanes than requested.
+        for key in fields:
+            if key == prefix + "inline_busy_elapsed_nanos":
+                continue
+            with self.subTest(missing=key), self.assertRaises(ValueError):
+                validate_distinct_workers({name: value for name, value in fields.items() if name != key}, 4, 64)
+        for key, value in (("rows", "63"), ("exact_distinct_committed_rows", "63"),
+                           ("submitted_chunks", "0"), ("completed_chunks", "1"),
+                           ("outstanding_chunks", "1"), ("provider_background_workers", "1"),
+                           ("shared_live_limit_bytes", "0"), ("shared_live_limit_bytes", str(2 * heldout.GIB)),
+                           ("shared_live_peak_bytes", "1025"),
+                           ("cpu_ceiling", "5"), ("compute_threads", "4"), ("compute_threads", "0"),
+                           ("worker_busy_elapsed_nanos", "0"), ("rows", True), ("rows", 64.0),
+                           ("rows", "-1"), ("rows", "64.0")):
+            with self.subTest(counter=key, value=value), self.assertRaises(ValueError):
+                validate_distinct_workers({**fields, prefix + key: value}, 4, 64)
+        for key, value in (("compute_threads", "1"), ("inline_busy_elapsed_nanos", "0")):
+            with self.subTest(inline=key), self.assertRaises(ValueError):
+                validate_distinct_workers({**inline, prefix + key: value}, 1, 64)
+        with self.assertRaises(ValueError):
+            validate_distinct_workers({**fields, "local_primitive_aggregate_update_strategy": "typed"}, 4, 64)
+
+    def test_worker_requirement_rejects_a_case_selection_without_worker_acceptance(self):
+        args = SimpleNamespace(rows=64, cases=["nullable_numeric_scalar"], require_distinct_workers=True)
+        with self.assertRaisesRegex(ValueError, "at least one selected integer distinct"):
+            heldout.execute(args)
+
     def test_summary_keeps_bounded_counters_without_repeating_full_envelope(self):
         source = {"fields": [
             {"key": "local_primitive_aggregate_first_pass_accessor_nanos", "value": "452"},
@@ -118,7 +209,7 @@ class HeldoutOperatorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fixture_rows(size)
         matrix = cases(rows)
-        self.assertEqual(len({case["name"] for case in matrix}), 17)
+        self.assertEqual(len({case["name"] for case in matrix}), 19)
         self.assertEqual({case["family"] for case in matrix}, {
             "scalar", "distinct", "numeric_group", "string_group", "composite_group",
             "string_transform", "relational_sort", "relational_collect", "overflow_diagnostic"})
@@ -126,6 +217,20 @@ class HeldoutOperatorTests(unittest.TestCase):
             command = command_args(Path("/tmp/fixture.vortex"), matrix[0], worker)
             self.assertEqual(command[command.index("--max-parallelism") + 1], str(worker))
             self.assertEqual(command[command.index("--execution-policy") + 1], "native_vortex")
+
+    def test_integer_distinct_oracle_keeps_exact_ids_global_ties_and_offsets(self):
+        matrix = {case["name"]: case for case in cases(fixture_rows(133))}
+        expected = [{"cohort_code": key, "different": 19} for key in (-1, 0, 1)]
+        for name in ("exact_integer_distinct_topk", "repeated_integer_distinct_topk"):
+            self.assertEqual(matrix[name]["expected"], expected)
+            self.assertEqual(matrix[name]["comparison"], "ordered_exact_typed_values")
+        rows = fixture_rows(133)
+        # All identifiers remain distinct as integers; binary64 rounds many
+        # together. This mutation must change the independently computed result.
+        for row in rows:
+            row["exact_identifier"] = float(row["exact_identifier"])
+        rounded = {case["name"]: case for case in cases(rows)}
+        self.assertNotEqual(rounded["exact_integer_distinct_topk"]["expected"], expected)
 
     def test_full_values_preserve_type_precision_multiplicity_order_and_no_fallback(self):
         case = {"expected": [{"n": 2, "key": None}, {"n": 1, "key": 2**63 - 1}],

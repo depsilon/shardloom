@@ -73,6 +73,24 @@ mod arrow_ownership;
 pub(crate) mod bounded_ingest_layout;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_column_layout.rs"]
+mod column_layout;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_column_layout_tests.rs"]
+mod column_layout_tests;
+
+#[cfg(all(
+    test,
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    feature = "vortex-local-primitives",
+    unix
+))]
+#[path = "vortex_ingest_text_codec_portfolio.rs"]
+mod text_codec_portfolio;
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Clone)]
 struct NativeIngestMemory {
     pool: LiveMemoryPool,
@@ -6157,6 +6175,8 @@ pub struct VortexLayoutWriteAdvisorReport {
 #[cfg(feature = "vortex-write")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct VortexWriterPhysicalDesignSourceInput {
+    #[cfg(feature = "universal-format-io")]
+    cpu_lanes: Option<crate::ingest_cpu_lanes::IngestCpuLanes>,
     source_kind: &'static str,
     source_stage_plan: String,
     derived_metadata_stage_plan: String,
@@ -6177,6 +6197,8 @@ impl VortexWriterPhysicalDesignSourceInput {
     fn scalar(row_count: u64) -> Self {
         let source_unit_count_hint = Some(usize::from(row_count > 0));
         Self {
+            #[cfg(feature = "universal-format-io")]
+            cpu_lanes: None,
             source_kind: "materialized_scalar_rows",
             source_stage_plan: "validated_flat_scalar_rows_already_materialized".to_string(),
             derived_metadata_stage_plan: "not_requested_for_scalar_row_writer".to_string(),
@@ -6195,6 +6217,8 @@ impl VortexWriterPhysicalDesignSourceInput {
 
     fn buffered_columnar(record_batch_count: usize) -> Self {
         Self {
+            #[cfg(feature = "universal-format-io")]
+            cpu_lanes: None,
             source_kind: "buffered_arrow_record_batch_source_state",
             source_stage_plan: "validated_buffered_arrow_record_batches".to_string(),
             derived_metadata_stage_plan: "completed_before_vortex_writer".to_string(),
@@ -6212,8 +6236,21 @@ impl VortexWriterPhysicalDesignSourceInput {
     }
 
     #[cfg(feature = "universal-format-io")]
-    fn streaming_columnar(source: &FlatLocalColumnarStreamSource) -> Self {
-        Self {
+    fn streaming_columnar(source: &FlatLocalColumnarStreamSource) -> Result<Self> {
+        let source_workers = match source.ingest_executor_status.as_str() {
+            "bounded_capillary_prefetch_active" => 1,
+            "bounded_capillary_row_group_parallel_active"
+            | "bounded_capillary_row_group_parallel_writer_budgeted" => {
+                source.ingest_executor_applied_parallelism
+            }
+            _ => 0,
+        };
+        let cpu_lanes = crate::ingest_cpu_lanes::IngestCpuLanes::with_admitted_source(
+            source.ingest_executor_requested_parallelism.max(1),
+            source_workers,
+        )?;
+        Ok(Self {
+            cpu_lanes: Some(cpu_lanes),
             source_kind: "streaming_arrow_record_batch_source_state",
             source_stage_plan: "bounded_streaming_source_reader_feeds_vortex_array_iterator"
                 .to_string(),
@@ -6230,12 +6267,14 @@ impl VortexWriterPhysicalDesignSourceInput {
                 .ingest_executor_requested_parallelism,
             source_ingest_executor_applied_parallelism: source.ingest_executor_applied_parallelism,
             source_ingest_executor_unit_count_hint: source.ingest_executor_unit_count_hint,
-        }
+        })
     }
 
     #[cfg(test)]
     fn writer_only() -> Self {
         Self {
+            #[cfg(feature = "universal-format-io")]
+            cpu_lanes: None,
             source_kind: "writer_only_runtime_decision",
             source_stage_plan: "not_attached_to_source_state".to_string(),
             derived_metadata_stage_plan: "not_attached_to_source_state".to_string(),
@@ -6320,6 +6359,9 @@ impl VortexWriterPhysicalDesignPlan {
     ) -> Self {
         let array_build_prefetch_window = planned_array_build_prefetch_window(&source);
         let array_build_worker_count = planned_array_build_worker_count(&source);
+        let (writer_runtime_requested_parallelism, writer_runtime_applied_parallelism) =
+            planned_writer_runtime_parallelism(&source, 1);
+        let writer_runtime_background_workers = writer_runtime_applied_parallelism - 1;
         let array_build_stage_plan = planned_array_build_stage(
             &source,
             array_build_prefetch_window,
@@ -6334,7 +6376,7 @@ impl VortexWriterPhysicalDesignPlan {
             &source,
             array_build_prefetch_window,
             array_build_worker_count,
-            0,
+            writer_runtime_background_workers,
         );
         let writer_backpressure_policy =
             planned_writer_backpressure_policy(&source, array_build_prefetch_window);
@@ -6392,10 +6434,10 @@ impl VortexWriterPhysicalDesignPlan {
             writer_compression_concurrency:
                 VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY,
             writer_stats_concurrency: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY,
-            writer_runtime_kind: "vortex_current_thread_runtime".to_string(),
-            writer_runtime_requested_parallelism: 1,
-            writer_runtime_applied_parallelism: 1,
-            writer_runtime_background_workers: 0,
+            writer_runtime_kind: writer_runtime_kind(writer_runtime_background_workers).to_string(),
+            writer_runtime_requested_parallelism,
+            writer_runtime_applied_parallelism,
+            writer_runtime_background_workers,
             writer_queue_topology,
             writer_backpressure_policy,
             writer_profile_selection_reason: "upstream_vortex_default_writer_profile".to_string(),
@@ -6434,16 +6476,14 @@ impl VortexWriterPhysicalDesignPlan {
         let writer_compression_concurrency =
             admitted_layout_writer_compression_concurrency(advisor);
         let writer_stats_concurrency = admitted_layout_writer_stats_concurrency(advisor);
-        let writer_runtime_requested_parallelism =
-            admitted_layout_writer_runtime_requested_parallelism(advisor);
-        let writer_runtime_applied_parallelism = writer_runtime_requested_parallelism.max(1);
+        let (writer_runtime_requested_parallelism, writer_runtime_applied_parallelism) =
+            planned_writer_runtime_parallelism(
+                &source,
+                admitted_layout_writer_runtime_requested_parallelism(advisor),
+            );
         let writer_runtime_background_workers =
             writer_runtime_applied_parallelism.saturating_sub(1);
-        let writer_runtime_kind = if writer_runtime_background_workers > 0 {
-            "vortex_current_thread_worker_pool"
-        } else {
-            "vortex_current_thread_runtime"
-        };
+        let writer_runtime_kind = writer_runtime_kind(writer_runtime_background_workers);
         let writer_profile_selection_reason =
             admitted_layout_writer_profile_selection_reason(advisor);
         let writer_profile_regression_guard =
@@ -6855,9 +6895,12 @@ impl VortexLayoutWriteRuntimeDecision {
             writer_compression_concurrency:
                 VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY,
             writer_stats_concurrency: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY,
-            writer_runtime_requested_parallelism: 1,
-            writer_runtime_applied_parallelism: 1,
-            writer_runtime_background_workers: 0,
+            writer_runtime_requested_parallelism: writer_physical_design
+                .writer_runtime_requested_parallelism,
+            writer_runtime_applied_parallelism: writer_physical_design
+                .writer_runtime_applied_parallelism,
+            writer_runtime_background_workers: writer_physical_design
+                .writer_runtime_background_workers,
             writer_profile_selection_reason: "not_requested".to_string(),
             writer_profile_regression_guard: "not_applicable".to_string(),
             writer_physical_design,
@@ -6939,26 +6982,55 @@ fn option_usize_evidence(value: Option<usize>) -> String {
 
 #[cfg(feature = "vortex-write")]
 fn planned_array_build_prefetch_window(source: &VortexWriterPhysicalDesignSourceInput) -> usize {
-    if source.source_kind != "streaming_arrow_record_batch_source_state" {
-        return 0;
-    }
     #[cfg(feature = "universal-format-io")]
     {
-        return vortex_array_prefetch_window(source.source_ingest_executor_requested_parallelism);
+        return source
+            .cpu_lanes
+            .map_or(0, crate::ingest_cpu_lanes::IngestCpuLanes::prefetch_slots);
     }
     #[allow(unreachable_code)]
-    0
+    {
+        let _ = source;
+        0
+    }
 }
 
 #[cfg(feature = "vortex-write")]
 fn planned_array_build_worker_count(source: &VortexWriterPhysicalDesignSourceInput) -> usize {
-    if source.source_kind != "streaming_arrow_record_batch_source_state" {
-        return 0;
+    #[cfg(feature = "universal-format-io")]
+    {
+        return source.cpu_lanes.map_or(
+            0,
+            crate::ingest_cpu_lanes::IngestCpuLanes::conversion_workers,
+        );
     }
-    source
-        .source_ingest_executor_applied_parallelism
-        .max(1)
-        .min(source.source_ingest_executor_requested_parallelism.max(1))
+    #[allow(unreachable_code)]
+    {
+        let _ = source;
+        0
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn planned_writer_runtime_parallelism(
+    source: &VortexWriterPhysicalDesignSourceInput,
+    requested: usize,
+) -> (usize, usize) {
+    #[cfg(feature = "universal-format-io")]
+    if let Some(lanes) = source.cpu_lanes {
+        return (lanes.requested(), 1 + lanes.provider_drivers());
+    }
+    let _ = source;
+    (requested.max(1), requested.max(1))
+}
+
+#[cfg(feature = "vortex-write")]
+fn writer_runtime_kind(background_workers: usize) -> &'static str {
+    if background_workers > 0 {
+        "vortex_current_thread_worker_pool"
+    } else {
+        "vortex_current_thread_runtime"
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7018,13 +7090,25 @@ fn planned_writer_queue_topology(
     array_build_worker_count: usize,
     writer_background_workers: usize,
 ) -> String {
-    format!(
+    let topology = format!(
         "source_executor_applied_parallelism={};array_prefetch_window={};array_build_workers={};writer_background_workers={};delivery=ordered_array_stream",
         source.source_ingest_executor_applied_parallelism,
         prefetch_window,
         array_build_worker_count,
         writer_background_workers
-    )
+    );
+    #[cfg(feature = "universal-format-io")]
+    if let Some(lanes) = source.cpu_lanes {
+        return format!(
+            "{topology};ingest_cpu_requested={};ingest_cpu_configured={};ingest_cpu_caller=1;ingest_cpu_source_drivers={};ingest_cpu_conversion_drivers={};ingest_cpu_provider_drivers={};ingest_cpu_scope=shardloom_owned_drivers_excludes_blocking_io_and_source_library_internal_threads;driver_lifetime=joined_before_artifact_call_returns;lane_reassignment=none",
+            lanes.requested(),
+            lanes.configured_cpu_lanes(),
+            lanes.source_workers(),
+            lanes.conversion_workers(),
+            lanes.provider_drivers()
+        );
+    }
+    topology
 }
 
 #[cfg(feature = "vortex-write")]
@@ -10126,7 +10210,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
 
     let embedded_derived_build_micros = Arc::clone(&request.source.embedded_derived_build_micros);
     let writer_physical_design_source =
-        VortexWriterPhysicalDesignSourceInput::streaming_columnar(&request.source);
+        VortexWriterPhysicalDesignSourceInput::streaming_columnar(&request.source)?;
     let mut reader = request.source.reader;
     let array_build_start = Instant::now();
     let stream_timing = VortexStreamingIngestTiming::with_derived_metadata_build_micros(
@@ -10683,6 +10767,15 @@ impl StreamingColumnarVortexArrayIterator {
         prefetch_memory_bytes: u64,
         native_memory: Option<NativeIngestMemory>,
     ) -> Result<Self> {
+        if (vortex_array_prefetch_window == 0 && vortex_array_worker_count != 0)
+            || (vortex_array_prefetch_window > 0
+                && (!(1..=vortex_array_prefetch_window).contains(&vortex_array_worker_count)
+                    || vortex_array_prefetch_window > VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW))
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "native ingest conversion workers must match the admitted bounded queue; no fallback execution was attempted".to_string(),
+            ));
+        }
         let (reader, prefetch) = if vortex_array_prefetch_window > 0 {
             let window = vortex_array_prefetch_window;
             let task_bytes = prefetch_memory_bytes / u64::try_from(window).unwrap_or(u64::MAX);
@@ -10711,7 +10804,7 @@ impl StreamingColumnarVortexArrayIterator {
             });
             let mut prefetch = StreamingColumnarVortexPrefetch {
                 pool: ComputePool::new(
-                    vortex_array_worker_count.max(1).min(window),
+                    vortex_array_worker_count,
                     window,
                     prefetch_memory_bytes,
                     memory,
@@ -10742,13 +10835,6 @@ impl StreamingColumnarVortexArrayIterator {
             native_memory,
         })
     }
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn vortex_array_prefetch_window(requested_parallelism: usize) -> usize {
-    requested_parallelism
-        .saturating_sub(1)
-        .min(VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW)
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -11308,6 +11394,10 @@ fn record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_stage_tests.rs"]
 mod stage_tests;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_cpu_lane_tests.rs"]
+mod cpu_lane_tests;
 
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
 #[path = "vortex_ingest_text_zone_tests.rs"]
@@ -12243,6 +12333,11 @@ fn columnar_column_families(
     source: &FlatLocalColumnarSource,
     source_shape: &FlatColumnarSourceShape,
 ) -> Result<Vec<(String, String)>> {
+    // No payload exists from which to infer a family. The buffered reader
+    // retains canonical Arrow schema hints even when logical hints are absent.
+    if source.batches.is_empty() {
+        return columnar_column_families_from_schema(source_shape);
+    }
     source_shape
         .projected_columns
         .iter()
@@ -13215,7 +13310,6 @@ struct LocalVortexWriteResult {
 #[cfg(feature = "vortex-write")]
 struct LocalVortexWriteContext {
     runtime: vortex::io::runtime::current::CurrentThreadRuntime,
-    worker_pool: vortex::io::runtime::current::CurrentThreadWorkerPool,
     session: vortex::session::VortexSession,
     open_micros: u128,
     writes_started: Cell<u64>,
@@ -13241,11 +13335,9 @@ impl LocalVortexWriteContext {
 
         let open_start = Instant::now();
         let runtime = CurrentThreadRuntime::new();
-        let worker_pool = runtime.new_pool();
         let session = VortexSession::default().with_handle(runtime.handle());
         Self {
             runtime,
-            worker_pool,
             session,
             open_micros: open_start.elapsed().as_micros(),
             writes_started: Cell::new(0),
@@ -13265,7 +13357,10 @@ impl LocalVortexWriteContext {
     fn apply_runtime_policy(
         &self,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
-    ) -> LocalVortexWriterRuntimePolicy {
+    ) -> Result<(
+        LocalVortexWriterRuntimePolicy,
+        crate::resident_worker_group::ResidentWorkerGroup,
+    )> {
         let requested_parallelism = layout_write_decision
             .writer_runtime_requested_parallelism
             .max(1);
@@ -13273,17 +13368,19 @@ impl LocalVortexWriteContext {
             .writer_runtime_applied_parallelism
             .max(1);
         let background_workers = applied_parallelism.saturating_sub(1);
-        self.worker_pool.set_workers(background_workers);
-        LocalVortexWriterRuntimePolicy {
-            kind: if background_workers > 0 {
-                "vortex_current_thread_worker_pool"
-            } else {
-                "vortex_current_thread_runtime"
+        let drivers = crate::resident_worker_group::ResidentWorkerGroup::new(&self.runtime, background_workers)
+            .map_err(|error| ShardLoomError::InvalidOperation(format!(
+                "failed to start owned native ingest CPU drivers: {error}; all started drivers joined; no fallback execution was attempted"
+            )))?;
+        Ok((
+            LocalVortexWriterRuntimePolicy {
+                kind: writer_runtime_kind(background_workers),
+                requested_parallelism,
+                applied_parallelism,
+                background_workers,
             },
-            requested_parallelism,
-            applied_parallelism,
-            background_workers,
-        }
+            drivers,
+        ))
     }
 
     fn write_array(
@@ -13310,7 +13407,7 @@ impl LocalVortexWriteContext {
         let writer_compression_concurrency =
             vortex_writer_compression_concurrency(layout_write_decision);
         let writer_stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
-        let writer_runtime_policy = self.apply_runtime_policy(layout_write_decision);
+        let (writer_runtime_policy, _drivers) = self.apply_runtime_policy(layout_write_decision)?;
         let writer_profile_selection_reason =
             vortex_writer_profile_selection_reason(layout_write_decision).to_string();
         let writer_profile_regression_guard =
@@ -13412,7 +13509,7 @@ impl LocalVortexWriteContext {
         let writer_compression_concurrency =
             vortex_writer_compression_concurrency(layout_write_decision);
         let writer_stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
-        let writer_runtime_policy = self.apply_runtime_policy(layout_write_decision);
+        let (writer_runtime_policy, _drivers) = self.apply_runtime_policy(layout_write_decision)?;
         let writer_profile_selection_reason =
             vortex_writer_profile_selection_reason(layout_write_decision).to_string();
         let writer_profile_regression_guard =
@@ -13423,10 +13520,11 @@ impl LocalVortexWriteContext {
             writer_coalescing_policy_status =
                 "native_within_source_batch_only;cross_batch_coalescing_disabled".to_string();
         }
-        let write_options = self.stream_write_options_for_decision(
+        let (write_options, footer_layout_evidence) = self.stream_write_options_for_decision(
             layout_write_decision,
             &writer_stage_timing,
             native_memory,
+            iter.dtype(),
         )?;
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
@@ -13455,6 +13553,7 @@ impl LocalVortexWriteContext {
                     Ok(())
                 },
             )?;
+        footer_layout_evidence.append_to(&mut writer_layout_strategy_applied);
         let bytes_written = workspace_write_report.bytes_written;
         let write_micros = write_start.elapsed().as_micros();
         let workspace_stage_micros = write_micros.saturating_sub(vortex_segment_write_micros);
@@ -13499,25 +13598,19 @@ impl LocalVortexWriteContext {
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_stage_timing: &VortexWriterStageTiming,
         native_memory: Option<&NativeIngestMemory>,
-    ) -> Result<vortex::file::VortexWriteOptions> {
-        use vortex::file::WriteOptionsSessionExt as _;
-        let Some(memory) = native_memory else {
-            return Ok(self.write_options_for_decision(layout_write_decision, writer_stage_timing));
-        };
-        // Source row/batch counts are hints, not allocation or admission bounds.
-        // Charge root references only as actual nonempty source batches arrive.
-        let references = memory.pool.reserve(0)?;
-        Ok(memory.session.write_options().with_strategy(Arc::new(
-            bounded_ingest_layout::BoundedIngestLayout::new(
-                self.strategy_for_decision(
-                    layout_write_decision,
-                    writer_stage_timing,
-                    &memory.session,
-                ),
-                0,
-                references,
-            ),
-        )))
+        dtype: &vortex::array::dtype::DType,
+    ) -> Result<(
+        vortex::file::VortexWriteOptions,
+        column_layout::StreamLayoutEvidence,
+    )> {
+        column_layout::stream_options(
+            self,
+            layout_write_decision,
+            writer_stage_timing,
+            native_memory,
+            dtype,
+            column_layout::DEFAULT_STREAM_FOOTER_LAYOUT,
+        )
     }
 
     fn write_options_for_decision(
@@ -16750,13 +16843,17 @@ mod tests {
     #[cfg(feature = "universal-format-io")]
     #[test]
     fn streaming_vortex_array_prefetch_window_is_bounded_by_parallelism() {
-        assert_eq!(vortex_array_prefetch_window(0), 0);
-        assert_eq!(vortex_array_prefetch_window(1), 0);
-        assert_eq!(vortex_array_prefetch_window(2), 1);
-        assert_eq!(vortex_array_prefetch_window(4), 3);
+        use crate::ingest_cpu_lanes::IngestCpuLanes;
+        for (requested, expected) in [(0, 0), (1, 0), (2, 0), (4, 3), (16, 4)] {
+            let lanes = IngestCpuLanes::pipeline(requested, 8);
+            assert_eq!(lanes.prefetch_slots(), expected);
+            assert!(lanes.prefetch_slots() <= VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW);
+            assert_eq!(lanes.configured_cpu_lanes(), requested.max(1));
+        }
         assert_eq!(
-            vortex_array_prefetch_window(16),
-            VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW
+            IngestCpuLanes::pipeline(2, 0).prefetch_slots(),
+            1,
+            "a synchronous source leaves one conversion lane"
         );
     }
 
@@ -17624,6 +17721,52 @@ mod tests {
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_empty_buffered_columnar_preserves_canonical_scalar_schema_hints() {
+        use arrow_schema::DataType;
+        use vortex::array::dtype::{DType, Nullability, PType};
+
+        let cases = [
+            (DataType::Boolean, DType::Bool(Nullability::NonNullable)),
+            (
+                DataType::Int64,
+                DType::Primitive(PType::I64, Nullability::NonNullable),
+            ),
+            (
+                DataType::UInt64,
+                DType::Primitive(PType::U64, Nullability::NonNullable),
+            ),
+            (
+                DataType::Float64,
+                DType::Primitive(PType::F64, Nullability::NonNullable),
+            ),
+            (DataType::Utf8, DType::Utf8(Nullability::NonNullable)),
+            (DataType::Binary, DType::Binary(Nullability::NonNullable)),
+        ];
+        let columns = (0..cases.len())
+            .map(|index| format!("field_{index}"))
+            .collect::<Vec<_>>();
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: cases.iter().map(|(dtype, _)| Some(dtype.clone())).collect(),
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: Vec::new(),
+            row_count: 0,
+        };
+        let shape = validate_flat_columnar_source_shape(&source).unwrap();
+        let built = flat_columnar_source_to_vortex_struct(&source, &shape).unwrap();
+        let DType::Struct(fields, Nullability::NonNullable) = built.array.dtype() else {
+            panic!("empty columnar source must retain its native struct");
+        };
+        assert_eq!(built.array.len(), 0);
+        for (actual, (_, expected)) in fields.fields().zip(cases) {
+            assert_eq!(actual, expected);
+        }
     }
 
     #[cfg(feature = "universal-format-io")]
@@ -19901,7 +20044,7 @@ mod tests {
         }
     }
 
-    fn layout_advisor_input(
+    pub(super) fn layout_advisor_input(
         strategy_admitted: bool,
         unsupported_diagnostic_code: &str,
     ) -> VortexLayoutWriteAdvisorInput {

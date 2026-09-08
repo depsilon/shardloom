@@ -64,11 +64,11 @@ fn assert_ingest_array_build(stdout: &str, streaming: bool) {
             ("vortex_array_build_provider_kind", "vortex_array_kernel"),
             (
                 "vortex_array_build_provider_surface",
-                "ArrayRef::from_arrow(RecordBatch);capillary_vortex_array_prefetch_window;streaming ArrayIterator",
+                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
             ),
             (
                 "vortex_array_build_strategy",
-                "capillary_vortex_array_prefetch_window_from_arrow_record_batch_stream",
+                "vortex_from_arrow_record_batch_stream",
             ),
             (
                 "vortex_array_build_input_layout",
@@ -98,6 +98,29 @@ fn assert_ingest_array_build(stdout: &str, streaming: bool) {
             stdout.contains(&field(key, value)),
             "{key} must equal {value}"
         );
+    }
+    if streaming {
+        // These default two-lane fixtures retain one source reader and one
+        // caller that converts and drives the writer, without extra CPU pools.
+        for (key, value) in [
+            ("vortex_writer_runtime_requested_parallelism", "2"),
+            ("vortex_writer_runtime_applied_parallelism", "1"),
+            ("vortex_writer_runtime_background_workers", "0"),
+            (
+                "vortex_writer_physical_design_source_executor_applied_parallelism",
+                "1",
+            ),
+            (
+                "vortex_writer_physical_design_array_build_worker_count",
+                "0",
+            ),
+            ("vortex_array_build_prefetch_window", "0"),
+        ] {
+            assert!(
+                stdout.contains(&field(key, value)),
+                "{key} must equal {value}"
+            );
+        }
     }
 }
 

@@ -16,11 +16,11 @@ pub(super) trait AggregateScanRuntime: BlockingRuntime {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl AggregateScanRuntime for vortex::io::runtime::current::CurrentThreadRuntime {
-    type ProviderDrivers = crate::resident_session::ResidentWorkerGroup;
+    type ProviderDrivers = crate::resident_worker_group::ResidentWorkerGroup;
 
     fn provider_drivers(&self, requested: usize) -> Result<(Self::ProviderDrivers, usize)> {
         let count = bounded_local_vortex_worker_count(requested);
-        let guard = crate::resident_session::ResidentWorkerGroup::new(self, count)
+        let guard = crate::resident_worker_group::ResidentWorkerGroup::new(self, count)
             .map_err(super::vortex_error)?;
         Ok((guard, count))
     }

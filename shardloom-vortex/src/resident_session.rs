@@ -37,9 +37,11 @@ use vortex::{
 
 use crate::owned_buffers::ReservedHostAllocator;
 
-#[path = "resident_worker_group.rs"]
-mod worker_group;
-pub(crate) use worker_group::ResidentWorkerGroup;
+use crate::resident_worker_group::ResidentWorkerGroup;
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "resident_result_json.rs"]
+mod result_json;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_segment_reuse.rs"]
@@ -279,6 +281,39 @@ impl PreparedSourceOwner {
 pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 
 impl PreparedVortexSource {
+    /// Match prior file admission to the generation held by this native reader,
+    /// then validate both its descriptor and current path. This performs no
+    /// payload read, provider open, or query execution.
+    ///
+    /// # Errors
+    /// Rejects nonregular or mismatched metadata, changed source generations,
+    /// in-memory sources, and poisoned session admission.
+    pub fn validate_file_metadata(&self, expected: &Metadata) -> Result<()> {
+        let _gate = self
+            .0
+            .runtime
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        let identity = self.0.identity.as_ref().ok_or_else(|| {
+            resident_error("file metadata admission is not available for an in-memory source")
+        })?;
+        if !expected.is_file() || FileGeneration::read(expected)? != identity.generation {
+            return Err(resident_error(
+                "prepared source does not match the admitted file generation",
+            ));
+        }
+        identity.validate()
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn resource_limits(&self) -> (u64, usize) {
+        (
+            self.0.runtime.memory.snapshot().limit_bytes,
+            self.0.runtime.parallelism,
+        )
+    }
+
     pub(crate) fn validate_generation(&self) -> Result<()> {
         self.0.validate()
     }
@@ -582,6 +617,15 @@ impl PreparedVortexSource {
 pub struct PreparedVortexCount(PreparedVortexSource);
 
 impl PreparedVortexCount {
+    /// Validate file admission against this count's actual retained source.
+    /// No count is executed and no provider is opened.
+    ///
+    /// # Errors
+    /// Returns the source's metadata mismatch or generation validation error.
+    pub fn validate_file_metadata(&self, expected: &Metadata) -> Result<()> {
+        self.0.validate_file_metadata(expected)
+    }
+
     /// Execute a native footer count with generation checks, without parsing SQL,
     /// opening another reader, creating workers, or formatting evidence strings.
     ///
@@ -776,6 +820,54 @@ pub(crate) struct SourceIdentity {
 }
 
 impl SourceIdentity {
+    /// Verify bytes from the same held descriptor used by native positional
+    /// reads. Generation checks surround hashing; no pathname is reopened.
+    #[cfg(unix)]
+    pub(crate) fn verify_contents(
+        &self,
+        expected_identity: (u64, u64),
+        expected_bytes: u64,
+        expected_digest: &[u8; 32],
+        scratch: &mut [u8],
+    ) -> Result<()> {
+        use sha2::{Digest as _, Sha256};
+        use std::os::unix::fs::FileExt as _;
+        self.validate()?;
+        if (self.generation.device, self.generation.inode) != expected_identity
+            || self.generation.len != expected_bytes
+            || scratch.is_empty()
+        {
+            return Err(resident_error(
+                "owned native file identity or byte length changed",
+            ));
+        }
+        let mut digest = Sha256::new();
+        let mut offset = 0_u64;
+        while offset < expected_bytes {
+            let capacity = usize::try_from((expected_bytes - offset).min(scratch.len() as u64))
+                .map_err(native_error)?;
+            let count = self
+                .file
+                .read_at(&mut scratch[..capacity], offset)
+                .map_err(native_error)?;
+            if count == 0 {
+                return Err(resident_error(
+                    "owned native file ended before its declared byte length",
+                ));
+            }
+            digest.update(&scratch[..count]);
+            offset = offset.checked_add(count as u64).ok_or_else(|| {
+                resident_error("owned native file verification offset overflowed")
+            })?;
+        }
+        self.validate()?;
+        let actual: [u8; 32] = digest.finalize().into();
+        if &actual != expected_digest {
+            return Err(resident_error("owned native file checksum changed"));
+        }
+        Ok(())
+    }
+
     pub(crate) fn reader(
         self: &Arc<Self>,
         allocator: HostAllocatorRef,

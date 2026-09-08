@@ -34,17 +34,17 @@ use vortex::{
 const SCAN_ROWS: usize = 8192;
 const METADATA_BYTES_PER_CHUNK: u64 = 8192;
 
-struct NativeSinkPlan {
-    session: ResidentVortexSession,
-    source: PreparedVortexSource,
+pub(super) struct NativeSinkPlan {
+    pub(super) session: ResidentVortexSession,
+    pub(super) source: PreparedVortexSource,
     source_path: PathBuf,
-    projection: Option<BoundExpression>,
-    filter: Option<BoundExpression>,
-    dtype: DType,
-    columns: Vec<String>,
-    row_count: u64,
-    limit: Option<u64>,
-    metadata_pruned: bool,
+    pub(super) projection: Option<BoundExpression>,
+    pub(super) filter: Option<BoundExpression>,
+    pub(super) dtype: DType,
+    pub(super) columns: Vec<String>,
+    pub(super) row_count: u64,
+    pub(super) limit: Option<u64>,
+    pub(super) metadata_pruned: bool,
 }
 
 pub(super) fn try_execute(
@@ -61,7 +61,7 @@ pub(super) fn try_execute(
         .map(Some)
 }
 
-fn prepare(
+pub(super) fn prepare(
     request: &VortexQueryPrimitiveRequest,
     source_path: &Path,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -87,6 +87,13 @@ fn prepare(
                     })
             });
     if !simple && !source_projection {
+        if request.kind == VortexQueryPrimitiveKind::ExpressionProjectRows
+            && request.predicate.is_some()
+        {
+            return Err(sink_error(
+                "filtered expression output requires source-column projections; constructed expressions and rewrites are not admitted",
+            ));
+        }
         return Ok(None);
     }
     if request.diagnostics.iter().any(|diagnostic| {
@@ -107,6 +114,11 @@ fn prepare(
     let source = session.prepare_file(source_path)?;
     let scan_plan = row_export_scan_plan(request, source.dtype())?;
     if scan_plan.residual_predicate.is_some() {
+        if source_projection {
+            return Err(sink_error(
+                "source-column expression output requires a native source predicate; residual predicates are not admitted",
+            ));
+        }
         return Ok(None);
     }
     let (projection, columns) = if source_projection {
@@ -379,6 +391,7 @@ impl NativeSinkPlan {
             dtype_and_row_count_validated: true,
             output_sha256: checksum,
             metadata_fidelity: "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;source_layout_user_metadata_not_copied;file_statistics_not_recomputed",
+            compatibility: None,
         });
         Ok(VortexLocalPrimitiveRowExportReport {
             status: VortexLocalPrimitiveExecutionStatus::Executed,
