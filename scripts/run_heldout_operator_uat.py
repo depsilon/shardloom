@@ -35,6 +35,7 @@ SUMMARY_COUNTER_PREFIXES = (
     "resident_", "local_primitive_aggregate_first_pass_", "local_primitive_aggregate_result_finalization_",
     "local_primitive_aggregate_fused_string_count_",
     "local_primitive_aggregate_workers_",
+    "local_primitive_aggregate_native_numeric_accessor_",
     "local_primitive_native_sort_spill_", "local_primitive_sort_spill_", "local_primitive_resource_",
     "local_primitive_physical_policy_selected_", "local_primitive_memory_",
 )

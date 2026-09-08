@@ -283,6 +283,17 @@ Implementation status and proof gaps are recorded in
 `performance-overhaul-implementation-2026-09-05.md`. None of the thirteen whole
 PERF packets is complete merely because its shared runtime foundation exists.
 
+After PR #1433 merged, the maintainer requested the next performance iteration.
+The [numeric and aggregation continuation](perf-numeric-aggregation-2026-09-06.md)
+retains borrowed original-width numeric consumers, typed integer grouping loops,
+exact block entry admission and local comparison counters under PERF-03/04/05/10/12.
+Its corrected full43 total is 121.367s versus a repeated corrected-source control
+of 127.799s; all 129 complete results match. The evidence preserves the rejected
+first candidate, individual regressions, mixed short-call metrics and provider
+allocator gaps. Broader compound parallelism, segment residency, query-oriented
+layouts and ingest overlap remain separate open work; this continuation does not
+mark whole PERF packets or competitive gates complete.
+
 - [ ] `PERF-01` reconcile and instrument the public baseline.
   - V1 scope classification: `required_for_v1`.
   - Source: supplied performance overhaul section 10, RFC 0044; accepted.

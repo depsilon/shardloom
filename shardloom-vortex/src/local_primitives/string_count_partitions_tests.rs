@@ -54,6 +54,20 @@ fn reduce(
     partitions.reduce(partial, worker, &mut lease)
 }
 
+fn admission(partitions: &StringCountPartitions, requested: usize) -> EntryAdmission<'_> {
+    let Claim::Block(block) = partitions
+        .entry_credits
+        .claim(requested, || Ok(true))
+        .unwrap()
+    else {
+        panic!("test credit block unavailable");
+    };
+    EntryAdmission {
+        block: Some(block),
+        exhausted: false,
+    }
+}
+
 #[test]
 fn complete_keys_find_winner_outside_every_chunk_topk_at_all_worker_counts() {
     for workers in [1, 2, 4, 8, 12] {
@@ -149,34 +163,50 @@ fn full_hash_collisions_compare_bytes_and_count_overflow_preserves_previous_valu
         .unwrap()
         .unwrap();
     let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let mut admission = admission(&partitions, 16);
+    let mut comparisons = 0;
     let mut partition = partitions.partitions[0].lock().unwrap();
     for (value, count) in [("alpha", 3), ("beta", 7), ("alpha", 11), ("max", u64::MAX)] {
-        assert!(
+        assert_eq!(
             partition
-                .update(value.as_bytes(), 0, count, &partitions, &worker)
-                .unwrap()
+                .update(
+                    (value.as_bytes(), 0, count),
+                    &memory,
+                    &worker,
+                    &mut admission,
+                    &mut comparisons
+                )
+                .unwrap(),
+            Update::Applied
         );
     }
     assert!(
         partition
-            .update(b"max", 0, 1, &partitions, &worker)
+            .update(
+                (b"max", 0, 1),
+                &memory,
+                &worker,
+                &mut admission,
+                &mut comparisons
+            )
             .unwrap_err()
             .to_string()
             .contains("overflow")
     );
-    let index = partition
-        .find(b"alpha", 0, &partitions.equality_comparisons)
-        .unwrap();
+    assert_eq!(comparisons, 7);
+    let index = partition.find(b"alpha", 0, &mut comparisons).unwrap();
     assert_eq!(partition.slots[index].count, 14);
-    let index = partition
-        .find(b"beta", 0, &partitions.equality_comparisons)
-        .unwrap();
+    let index = partition.find(b"beta", 0, &mut comparisons).unwrap();
     assert_eq!(partition.slots[index].count, 7);
-    let index = partition
-        .find(b"max", 0, &partitions.equality_comparisons)
-        .unwrap();
+    let index = partition.find(b"max", 0, &mut comparisons).unwrap();
     assert_eq!(partition.slots[index].count, u64::MAX);
+    assert_eq!(comparisons, 13);
     drop(partition);
+    drop(admission);
+    assert_eq!(partitions.group_count(), 3);
+    let credits = partitions.entry_credits.evidence().unwrap();
+    assert_eq!(credits.refunded_entries, 13);
+    assert_eq!(credits.reserved, 0);
     drop(partitions);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
@@ -212,6 +242,11 @@ fn entry_pressure_handoff_contains_every_weight_exactly_once_after_partial_progr
             Ok(())
         })
         .unwrap();
+    assert_eq!(
+        partitions.group_count(),
+        1,
+        "replay preserves committed evidence"
+    );
     for receipt in [first, second] {
         if let Some(partial) = receipt.deferred {
             partial
@@ -268,24 +303,50 @@ fn byte_pressure_keeps_committed_table_and_cancellation_releases_owned_storage()
         .unwrap()
         .unwrap();
     let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let mut admission = admission(&partitions, 4);
+    let mut comparisons = 0;
     let mut partition = partitions.partitions[0].lock().unwrap();
-    assert!(
+    assert_eq!(
         partition
-            .update(b"short", 0, 3, &partitions, &worker)
-            .unwrap()
+            .update(
+                (b"short", 0, 3),
+                &memory,
+                &worker,
+                &mut admission,
+                &mut comparisons
+            )
+            .unwrap(),
+        Update::Applied
     );
     let snapshot = memory.snapshot();
     let blocker = memory
         .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)
         .unwrap();
-    assert!(
-        !partition
-            .update(&[b'x'; 512], 0, 2, &partitions, &worker)
-            .unwrap()
+    assert_eq!(
+        partition
+            .update(
+                (&[b'x'; 512], 0, 2),
+                &memory,
+                &worker,
+                &mut admission,
+                &mut comparisons
+            )
+            .unwrap(),
+        Update::Pressure
     );
     assert_eq!(partition.groups, 1);
     assert_eq!(partition.slots[0].count, 3);
     drop((blocker, partition));
+    drop(admission);
+    assert_eq!(partitions.group_count(), 1);
+    assert_eq!(
+        partitions
+            .entry_credits
+            .evidence()
+            .unwrap()
+            .refunded_entries,
+        3
+    );
     let input = partial(&strings(&["not a URL"]), &memory);
     let token = CancellationToken::default();
     token.cancel();
@@ -298,6 +359,311 @@ fn byte_pressure_keeps_committed_table_and_cancellation_releases_owned_storage()
         )
         .is_err()
     );
+    drop(partitions);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn waiting_reducer_unlocks_partition_and_rechecks_after_refund_or_exhaustion() {
+    for insert_while_waiting in [false, true] {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let partitions = StringCountPartitions::try_new(&memory, 1, 1)
+            .unwrap()
+            .unwrap();
+        let input = partial(&strings(&["shared"]), &memory);
+        let (_, hash, _) = input.entry(0).unwrap();
+        let index = string_count_partial::partition_index::<PARTITIONS>(hash);
+        let mut held = admission(&partitions, 1);
+        std::thread::scope(|scope| {
+            let waiting = scope.spawn(|| {
+                reduce(
+                    &partitions,
+                    input,
+                    &ChunkWorkerContext::Inline(CancellationToken::default()),
+                    &memory,
+                )
+            });
+            partitions.entry_credits.wait_until_blocked();
+            let available = partitions.partitions[index].try_lock();
+            let lock_was_released = available.is_ok();
+            if let Ok(mut partition) = available
+                && insert_while_waiting
+            {
+                assert_eq!(
+                    partition
+                        .update(
+                            (b"shared", hash, 7),
+                            &memory,
+                            &ChunkWorkerContext::Inline(CancellationToken::default()),
+                            &mut held,
+                            &mut 0,
+                        )
+                        .unwrap(),
+                    Update::Applied
+                );
+            }
+            drop(held);
+            let receipt = waiting.join().unwrap().unwrap();
+            assert!(lock_was_released, "credit wait held the partition mutex");
+            assert!(receipt.deferred.is_none());
+        });
+        assert!(!partitions.pressure_requested());
+        assert_eq!(partitions.group_count(), 1);
+        assert_eq!(
+            selected(&partitions),
+            BTreeMap::from([("shared".into(), if insert_while_waiting { 8 } else { 1 }),])
+        );
+        partitions.release_storage().unwrap();
+        assert_eq!(partitions.group_count(), 1);
+        let evidence = partitions.evidence().unwrap();
+        assert_eq!(evidence.groups, 1);
+        assert_eq!(evidence.entry_credit_reserved_entries, 0);
+        assert!(evidence.entry_credit_wait_calls > 0);
+        drop(partitions);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn waiting_reducer_cancels_or_defers_the_complete_suffix_on_pressure() {
+    for cancel in [false, true] {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let partitions = StringCountPartitions::try_new(&memory, 1, 1)
+            .unwrap()
+            .unwrap();
+        let input = partial(&strings(&["shared", "shared"]), &memory);
+        let held = admission(&partitions, 1);
+        let token = CancellationToken::default();
+        let worker = ChunkWorkerContext::Inline(token.clone());
+        std::thread::scope(|scope| {
+            let waiting = scope.spawn(|| reduce(&partitions, input, &worker, &memory));
+            partitions.entry_credits.wait_until_blocked();
+            if cancel {
+                token.cancel();
+                partitions.entry_credits.wake();
+            } else {
+                partitions.request_pressure();
+            }
+            let result = waiting.join().unwrap();
+            if cancel {
+                assert!(result.is_err());
+            } else {
+                let receipt = result.unwrap();
+                let mut rows = BTreeMap::new();
+                receipt
+                    .deferred
+                    .as_ref()
+                    .unwrap()
+                    .for_each_count(|key, count| {
+                        rows.insert(key.to_owned(), count);
+                        Ok(())
+                    })
+                    .unwrap();
+                assert_eq!(rows, BTreeMap::from([("shared".into(), 2)]));
+            }
+        });
+        drop(held);
+        assert_eq!(partitions.group_count(), 0);
+        assert_eq!(partitions.committed_rows.load(Ordering::Acquire), 0);
+        assert_eq!(
+            partitions.evidence().unwrap().entry_credit_reserved_entries,
+            0
+        );
+        drop(partitions);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn concurrent_block_limits_replay_all_weights_and_keep_counts_after_release() {
+    for workers in [1, 4] {
+        for limit in [0, 1, 1023, 1024, 1025] {
+            let memory = LiveMemoryPool::new(16 << 20).unwrap();
+            let partitions = StringCountPartitions::try_new(&memory, limit, 1)
+                .unwrap()
+                .unwrap();
+            let mut jobs = AggregateChunkJobs::new(workers, 4, 16 << 20, memory.clone()).unwrap();
+            let mut oracle = BTreeMap::<String, u64>::new();
+            for (start, end) in [(0, 400), (200, 600), (400, 800), (600, 1100)] {
+                let rows = (start..end)
+                    .map(|key| format!("key-{key}"))
+                    .collect::<Vec<_>>();
+                for key in &rows {
+                    *oracle.entry(key.clone()).or_default() += 1;
+                }
+                let array = strings(&rows.iter().map(String::as_str).collect::<Vec<_>>());
+                let owned = Arc::clone(&partitions);
+                jobs.submit(
+                    string_count_partial::partial_bytes(&array).unwrap()
+                        + StringCountPartial::deferred_metadata_bytes(),
+                    move |worker, lease| {
+                        let partial = string_count_partial::count_string_chunk(
+                            &array,
+                            vortex::array::legacy_session().create_execution_ctx(),
+                            worker,
+                            lease,
+                        )?;
+                        owned.reduce(partial, worker, lease)
+                    },
+                )
+                .unwrap();
+            }
+            let mut receipts = Vec::new();
+            while let Some(result) = jobs.join_next().unwrap() {
+                result
+                    .consume(|receipt| {
+                        if let Some(partial) = &receipt.deferred {
+                            receipts.push(Arc::clone(partial));
+                        }
+                        Ok(())
+                    })
+                    .unwrap();
+            }
+            assert!(partitions.pressure_requested());
+            assert_eq!(partitions.group_count(), limit);
+            let mut actual = BTreeMap::<String, u64>::new();
+            partitions
+                .replay_and_release(|key, count| {
+                    *actual.entry(key.to_owned()).or_default() += count;
+                    Ok(())
+                })
+                .unwrap();
+            for partial in receipts {
+                partial
+                    .for_each_count(|key, count| {
+                        *actual.entry(key.to_owned()).or_default() += count;
+                        Ok(())
+                    })
+                    .unwrap();
+            }
+            assert_eq!(actual, oracle);
+            let evidence = partitions.evidence().unwrap();
+            assert_eq!(evidence.groups, limit);
+            assert_eq!(evidence.entry_credit_reserved_entries, 0);
+            assert_eq!(
+                evidence.entry_credit_claim_calls,
+                evidence.entry_credit_return_calls
+            );
+            assert_eq!(
+                evidence.entry_credit_granted_entries - evidence.entry_credit_refunded_entries,
+                limit as u64
+            );
+            if limit >= 1023 {
+                assert!(evidence.entry_credit_claim_calls < limit as u64 / 2);
+            }
+            drop(jobs);
+            drop(partitions);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
+fn collision_comparisons_publish_per_job_without_per_key_shared_updates() {
+    for workers in [1, 2, 4, 8, 12] {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let partitions = StringCountPartitions::try_new(&memory, 3, 3)
+            .unwrap()
+            .unwrap();
+        let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+        let mut held = admission(&partitions, 3);
+        {
+            let mut partition = partitions.partitions[0].lock().unwrap();
+            for key in ["alpha", "beta", "gamma"] {
+                assert_eq!(
+                    partition
+                        .update((key.as_bytes(), 0, 1), &memory, &worker, &mut held, &mut 0)
+                        .unwrap(),
+                    Update::Applied
+                );
+            }
+        }
+        drop(held);
+        let mut jobs = AggregateChunkJobs::new(workers, 4, 1 << 20, memory.clone()).unwrap();
+        for _ in 0..4 {
+            let owned = Arc::clone(&partitions);
+            jobs.submit(0, move |worker, _lease| {
+                let mut progress = ReconcileProgress::default();
+                let mut admission = EntryAdmission::default();
+                let mut partition = owned.partitions[0].lock().unwrap();
+                for _ in 0..400 {
+                    for key in ["alpha", "beta", "gamma"] {
+                        assert_eq!(
+                            partition.update(
+                                (key.as_bytes(), 0, 1),
+                                &owned.memory,
+                                worker,
+                                &mut admission,
+                                &mut progress.comparisons
+                            )?,
+                            Update::Applied
+                        );
+                    }
+                }
+                drop(partition);
+                owned.publish_comparisons(&mut progress)
+            })
+            .unwrap();
+        }
+        while let Some(result) = jobs.join_next().unwrap() {
+            result.consume(|()| Ok(())).unwrap();
+        }
+        assert_eq!(
+            selected(&partitions),
+            BTreeMap::from([
+                ("alpha".into(), 1601),
+                ("beta".into(), 1601),
+                ("gamma".into(), 1601),
+            ])
+        );
+        let evidence = partitions.evidence().unwrap();
+        assert_eq!(evidence.equality_comparisons, 4 * 400 * (1 + 2 + 3));
+        assert_eq!(evidence.comparison_publish_calls, 4);
+        assert_eq!(evidence.entry_credit_claim_calls, 1);
+        assert_eq!(evidence.groups, 3);
+        drop(jobs);
+        drop(partitions);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn reduce_error_publishes_actual_comparisons_without_changing_existing_count() {
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let partitions = StringCountPartitions::try_new(&memory, 1, 1)
+        .unwrap()
+        .unwrap();
+    let input = partial(&strings(&["full"]), &memory);
+    let (_, hash, _) = input.entry(0).unwrap();
+    let index = string_count_partial::partition_index::<PARTITIONS>(hash);
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let mut held = admission(&partitions, 1);
+    assert_eq!(
+        partitions.partitions[index]
+            .lock()
+            .unwrap()
+            .update(
+                (b"full", hash, u64::MAX),
+                &memory,
+                &worker,
+                &mut held,
+                &mut 0,
+            )
+            .unwrap(),
+        Update::Applied
+    );
+    drop(held);
+    let error = reduce(&partitions, input, &worker, &memory).err().unwrap();
+    assert!(error.to_string().contains("overflow"));
+    assert_eq!(
+        selected(&partitions),
+        BTreeMap::from([("full".into(), u64::MAX)])
+    );
+    let evidence = partitions.evidence().unwrap();
+    assert_eq!(evidence.equality_comparisons, 1);
+    assert_eq!(evidence.comparison_publish_calls, 1);
+    assert_eq!(evidence.groups, 1);
+    assert_eq!(evidence.entry_credit_reserved_entries, 0);
     drop(partitions);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

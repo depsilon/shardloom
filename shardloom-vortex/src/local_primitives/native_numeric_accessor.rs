@@ -1,21 +1,28 @@
 //! Native per-array decoding into the existing typed aggregate kernels.
 //!
 //! This is an explicit materialization boundary after direct/Dict admission,
-//! not encoded execution. Temporary native buffers and copied typed values are
-//! scoped to one source array. Provider allocation/RSS is not a claimed bound.
+//! not encoded execution. Native primitive owners and validity are retained for
+//! one source array without an adapter numeric payload copy or width expansion.
+//! Provider decode/validity allocations and RSS are not a claimed bound.
+//! Aggregate first passes and refinements supply their configured query context.
+//! Standalone residual-expression compatibility entrypoints retain their existing
+//! default-session context; this module does not introduce a global query context.
+//! Pinned Filter/FoR/BitPacked kernels can allocate `BufferMut`/`PrimitiveBuilder`
+//! storage outside `HostAllocator`; using the configured context does not make
+//! those provider allocations budget-owned. Even `builder_with_capacity_in` ignores
+//! its allocator in this pinned release. Adapter copy and pool ownership claims
+//! stay scoped; imported reserved native buffers retain their existing credits.
 
 use std::{collections::BTreeSet, ops::Deref, time::Instant};
 
 use shardloom_core::{Result, ShardLoomError};
 use vortex::array::{
-    ArrayRef, VortexSessionExecute as _,
+    ArrayRef, ExecutionCtx,
     arrays::PrimitiveArray,
     dtype::{DType, PType},
 };
 
-use super::{
-    AggregateDirectColumnAccessor, primitive_aggregate_column_accessor_from_primitive, vortex_error,
-};
+use super::{AggregateDirectColumnAccessor, NativeNumericOwner, vortex_error};
 
 #[derive(Clone, Default)]
 pub(super) struct NativeNumericAccessorWork {
@@ -76,7 +83,7 @@ impl NativeNumericAccessorWork {
             "decode_and_typed_copy_nanos": u64::try_from(self.elapsed_nanos).unwrap_or(u64::MAX),
             "max_source_array_rows": self.max_array_rows,
             "columns": self.columns,
-            "scope": "retained_aggregate_attempt;one_source_array_native_primitive_execution_then_typed_values_copy;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;null_mask_work_additional;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound",
+            "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
         }));
         if self.observed() {
             let mut materialized_columns = self.columns.clone();
@@ -130,35 +137,34 @@ impl Deref for AggregateAccessorBatch {
 pub(super) fn decode(
     column: &str,
     array: &ArrayRef,
+    ctx: &mut ExecutionCtx,
 ) -> Result<Option<(AggregateDirectColumnAccessor, NativeNumericAccessorWork)>> {
     if !matches!(array.dtype(), DType::Primitive(ptype, _) if *ptype != PType::F16) {
         return Ok(None);
     }
+    #[cfg(test)]
+    observe_test_query_context(ctx)?;
     let started = Instant::now();
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let primitive = array
         .clone()
-        .execute::<PrimitiveArray>(&mut ctx)
+        .execute::<PrimitiveArray>(ctx)
         .map_err(vortex_error)?;
     if primitive.len() != array.len() || primitive.dtype() != array.dtype() {
         return Err(failed("native execution changed dtype or row count"));
     }
     let canonical_logical_bytes = primitive.nbytes();
-    let accessor = primitive_aggregate_column_accessor_from_primitive(&primitive)
-        .ok_or_else(|| failed("native primitive validity or typed slice was unsupported"))?;
+    let accessor =
+        AggregateDirectColumnAccessor::NativeNumeric(NativeNumericOwner::new(primitive, ctx)?);
     if accessor.len() != array.len() {
         return Err(failed("typed accessor changed row count"));
     }
     let rows = u64::try_from(array.len()).map_err(|_| failed("row count overflow"))?;
-    let typed_value_bytes_copied = rows
-        .checked_mul(8)
-        .ok_or_else(|| failed("typed byte count overflow"))?;
     let work = NativeNumericAccessorWork {
         calls: 1,
         rows,
         source_logical_bytes: array.nbytes(),
         canonical_logical_bytes,
-        typed_value_bytes_copied,
+        typed_value_bytes_copied: 0,
         elapsed_nanos: started.elapsed().as_nanos(),
         max_array_rows: rows,
         columns: BTreeSet::from([column.to_owned()]),
@@ -166,10 +172,50 @@ pub(super) fn decode(
     Ok(Some((accessor, work)))
 }
 
-fn failed(message: &str) -> ShardLoomError {
+pub(super) fn failed(message: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native numeric aggregate accessor {message}; no fallback execution was attempted"
     ))
+}
+
+// A session-local test effect proves the production query supplied its exact
+// configured context, independently of the provider's partial allocator coverage.
+// This code is absent from production, has no shared/global state, and does not
+// replace or emulate a codec. Malformed native codec error propagation and the
+// pinned builder allocator gap are exercised separately.
+#[cfg(test)]
+#[derive(Debug)]
+struct QueryContextProbe {
+    allocator: vortex::array::memory::HostAllocatorRef,
+    calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+#[cfg(test)]
+impl vortex::session::SessionVar for QueryContextProbe {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+#[cfg(test)]
+impl vortex::session::VortexSessionVar for QueryContextProbe {}
+
+#[cfg(test)]
+fn observe_test_query_context(ctx: &ExecutionCtx) -> Result<()> {
+    use vortex::session::SessionExt as _;
+    if let Some(probe) = ctx.session().get_opt::<QueryContextProbe>() {
+        if !std::sync::Arc::ptr_eq(&ctx.allocator(), &probe.allocator) {
+            return Err(failed("test configured allocator identity mismatch"));
+        }
+        probe
+            .calls
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        return Err(failed("test injected query-context failure"));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
