@@ -44,6 +44,9 @@ for the required public struct field and platform scope. These checks are not an
 atomic filesystem snapshot or a new durability guarantee.
 
 Metadata proof rejects approximate, unknown or internally inconsistent facts.
+The metadata report adapter does not fill missing exact column row counts from
+unmarked summary counts, and it reports no total when any segment's selection
+is unknown. Explicit exact column counts still permit complete all/none proofs.
 Native file pruning is existing production behavior; the new fixtures verify
 complete results with and without physical statistics instead of claiming a new
 pruning mechanism. Registry reports now distinguish selected contracts from
@@ -67,6 +70,7 @@ test matches multiple filters and must not be added together.
 | Native file pruning differential fixture | 1 passed | `plan-exhaustion-pruning-focused.log` |
 | Core library, including conservative statistics proof | 687 passed | `plan-exhaustion-core-focused.log` |
 | Query primitive contracts | 13 passed | `plan-exhaustion-query-contracts.log` |
+| Encoded predicate report exactness and complete totals | 13 passed | `plan-exhaustion-predicate-evidence-focused-r3.log` |
 | Registry selection reporting | 12 passed | `plan-exhaustion-registry-focused.log` |
 | Weighted COUNT workers and native spill | 25 passed | `plan-exhaustion-count-spill-focused-r4.log` |
 

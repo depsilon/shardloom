@@ -75,6 +75,10 @@ name = "resident_latency"
 required-features = ["vortex-local-primitives"]
 
 [[example]]
+name = "owned_aggregate_cost"
+required-features = ["vortex-local-primitives", "vortex-write"]
+
+[[example]]
 name = "physical_encoding_inventory"
 required-features = ["vortex-file-io"]
 
