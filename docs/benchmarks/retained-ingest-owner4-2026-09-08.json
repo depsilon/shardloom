@@ -1,0 +1,393 @@
+{
+  "schema": "shardloom.local_ingest_owner4_evidence.v1",
+  "status": "complete",
+  "created_utc": "2026-09-08T19:55:28.654526+00:00",
+  "completed_utc": "2026-09-08T20:53:01.374867+00:00",
+  "matrix": {
+    "path": "ingest-owner4-final-20260908/matrix.json",
+    "sha256": "98b2a7e680ec3275a6a653d912232801b86b849655ded843c2d95171a048359e"
+  },
+  "claim_boundary": "one sequential control/candidate pair; uncontrolled OS page cache; equal constructed owners, not equal public settings, continuously active CPUs, or a process-wide thread ceiling; no stable speedup, causal attribution, scaling curve, or ingest-plus-query performance claim",
+  "native_timing_boundary": "native process creation through complete output and process exit; guard polling and independent post-run checksum/value verification excluded; user/system CPU work overlaps wall time; RSS is the native-child OS high-water mark, not a reservation limit",
+  "merge": {
+    "pr_number": 1437,
+    "url": "https://github.com/depsilon/shardloom/pull/1437",
+    "merge_commit": "d51429e3702e5201646142a3d7252bbd72485c85",
+    "head": "5d2bf2b1fd7c1aa5c2a90d98c35af8095e51c783",
+    "merged_at": "2026-09-08T19:54:42Z",
+    "gate": {
+      "path": "pr1437-merged-native-acceptance-gate.json",
+      "sha256": "9c59aa4cdb4e44b47010ed1a709bd6c5cf0b4baf28e6e1495dadb415fb57a3d7"
+    },
+    "acceptance_ready": true
+  },
+  "native_source": {
+    "candidate": "572bd52c46307a7853c37fb6ca08b6a11d1b9b69",
+    "candidate_tree": "67d8061a7c84a0412a4acd89cc0161a7c5c465aa",
+    "control": "75fc09a0ac7afd8fdc6cf17ac68671faa7aa5867",
+    "merge_equivalence": "572bd52c..d51429e3 changes only four held-out/resident harness and harness-test scripts; no native runtime or ingest source differences; frozen 572bd52c binary executed after merge, no d51429e3 rebuild",
+    "build_command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "shardloom-cli",
+      "--bin",
+      "shardloom",
+      "--features",
+      "release-user-surfaces"
+    ],
+    "build_environment_overrides": {},
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: aarch64-apple-darwin\nrelease: 1.98.0\nLLVM version: 22.1.8\n",
+    "freeze_receipt": {
+      "path": "retained-572bd52c-binary.json",
+      "sha256": "25473b71d95514a1372a3a163f2a3410dd84a71bd578eb72c1eebf22f051375c"
+    }
+  },
+  "input": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "generation": [
+      16777232,
+      84833233,
+      14779976446,
+      1788461344802364826,
+      1788612069108841600
+    ],
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f"
+  },
+  "protected_reference": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/perf-current-c71a558e.vortex",
+    "generation": [
+      16777232,
+      87315296,
+      18643482956,
+      1788657393091822305,
+      1788657393091977014
+    ],
+    "sha256": "93acc7b9bbabed1f6e15a91aeacda45637bd5d6c5fed26e9b2052bf9b77e84f2"
+  },
+  "rows": 99997497,
+  "columns": 112,
+  "binary_identities": {
+    "control": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/binaries/candidate-75fc09a0",
+      "sha256": "e17690b5f9a1f84b692f90f4a7593f6be8c062346830205754685a8291f62392"
+    },
+    "candidate": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/binaries/candidate-572bd52c",
+      "sha256": "9251e10babcfc235b984fd256bc67a123b0b4126b13b375b253b55558a8eef9e"
+    }
+  },
+  "harness_assets": [
+    {
+      "path": "run_retained_ingest_owner4.py",
+      "path_base": "receipt_path_base",
+      "sha256": "7e635c344f4110e33a8f7a7529668c18e5eece2bbf9ff81ab74d762874b33dde"
+    },
+    {
+      "path": "scripts/run_clickbench_ingest_uat.sh",
+      "path_base": "harness_source_root",
+      "sha256": "49170c45b7c7ef0fa5925e651e97304f4aabb3e34b56e4bf7e44ddc13f1a164b"
+    },
+    {
+      "path": "scripts/local_uat_storage.py",
+      "path_base": "harness_source_root",
+      "sha256": "374f0c6623ff1e24cf64c78a5e9218fe36528e57386b15a4c3838e1aa6c3d647"
+    },
+    {
+      "path": "scripts/run_clickbench_query_uat.py",
+      "path_base": "harness_source_root",
+      "sha256": "c76f7497e12487051d705c30c9dd0eded27120a1892119566e14790b8ef5caa3"
+    },
+    {
+      "path": "scripts/timed_native_command.py",
+      "path_base": "harness_source_root",
+      "sha256": "fea579eda52f92638226869f24ea0dce2ee962df074a7885318af0351ca9e8f1"
+    }
+  ],
+  "storage_before": {
+    "workspace_bytes": 74487238656,
+    "log_bytes": 261046272,
+    "free_bytes": 229100314624,
+    "reserved_candidate_bytes": 25769803776
+  },
+  "storage_policy": {
+    "max_workspace_gib": 100,
+    "max_log_mib": 256,
+    "min_free_gib": 12,
+    "candidate_reservation_gib": 24,
+    "generated_artifacts_in_flight": 1,
+    "guard_relaxation": false
+  },
+  "samples": [
+    {
+      "label": "control",
+      "repetition": 1,
+      "workers_requested": 2,
+      "command": [
+        "bash",
+        "/Users/dylan/LocalData/shardloom/perf-retained-572bd52c-evidence/scripts/run_clickbench_ingest_uat.sh",
+        "--binary",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/binaries/candidate-75fc09a0",
+        "--uat-root",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat",
+        "--source",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "--input-format",
+        "parquet",
+        "--target",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/ingest-owner4-final-20260908-control-p2-r1.vortex",
+        "--memory-gb",
+        "24",
+        "--max-parallelism",
+        "2",
+        "--max-artifact-gb",
+        "24",
+        "--min-free-gib",
+        "12",
+        "--max-workspace-gib",
+        "100",
+        "--max-log-mib",
+        "256",
+        "--max-runtime-seconds",
+        "1800",
+        "--stable-artifact-min-gb",
+        "16"
+      ],
+      "native_timing": {
+        "seconds": 99.446032042,
+        "returncode": 0,
+        "peak_rss_bytes": 3314712576,
+        "user_cpu_seconds": 195.302454,
+        "system_cpu_seconds": 12.90655
+      },
+      "constructed_owners": {
+        "caller": 1,
+        "source": 1,
+        "conversion": 1,
+        "provider": 1,
+        "total_constructed_owners": 4,
+        "prefetch_slots": 1
+      },
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/ingest-owner4-final-20260908-control-p2-r1.vortex",
+        "bytes": 18643482956,
+        "sha256": "93acc7b9bbabed1f6e15a91aeacda45637bd5d6c5fed26e9b2052bf9b77e84f2",
+        "generation": [
+          16777232,
+          88413954,
+          18643482956,
+          1788897434106610394,
+          1788897434106777561
+        ]
+      },
+      "shared_native_final_reserved_bytes": 0,
+      "validation": {
+        "path": "ingest-owner4-final-20260908/control-p2-r1.validation.json",
+        "sha256": "e5ada047059923ec333e330e8d01fb9691aabb970490095abf48561f5b1bb01e",
+        "kind": "complete_sha256_equality",
+        "complete_value_equality": true
+      },
+      "retirement": {
+        "path": "ingest-owner4-final-20260908/control-p2-r1.retirement.json",
+        "sha256": "fdee6a4f65d40a4d21f8dadc667598d250d416196daca335657e10deb4ac3710",
+        "state": "retired",
+        "scope": "exact_runner_owned_single_link_output_only",
+        "validation_sha256": "e5ada047059923ec333e330e8d01fb9691aabb970490095abf48561f5b1bb01e",
+        "retired_utc": "2026-09-08T19:58:17.037325+00:00"
+      },
+      "ownership_basis": "exact_75fc09a0_constructor_plus_observed_reader_and_worker_fields"
+    },
+    {
+      "label": "candidate",
+      "repetition": 1,
+      "workers_requested": 4,
+      "command": [
+        "bash",
+        "/Users/dylan/LocalData/shardloom/perf-retained-572bd52c-evidence/scripts/run_clickbench_ingest_uat.sh",
+        "--binary",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/binaries/candidate-572bd52c",
+        "--uat-root",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat",
+        "--source",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "--input-format",
+        "parquet",
+        "--target",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/ingest-owner4-final-20260908-candidate-p4-r1.vortex",
+        "--memory-gb",
+        "24",
+        "--max-parallelism",
+        "4",
+        "--max-artifact-gb",
+        "24",
+        "--min-free-gib",
+        "12",
+        "--max-workspace-gib",
+        "100",
+        "--max-log-mib",
+        "256",
+        "--max-runtime-seconds",
+        "1800",
+        "--stable-artifact-min-gb",
+        "16"
+      ],
+      "native_timing": {
+        "seconds": 95.447305458,
+        "returncode": 0,
+        "peak_rss_bytes": 2811117568,
+        "user_cpu_seconds": 199.473686,
+        "system_cpu_seconds": 11.064397
+      },
+      "constructed_owners": {
+        "caller": 1,
+        "source": 1,
+        "conversion": 1,
+        "provider": 1,
+        "total_constructed_owners": 4,
+        "prefetch_slots": 3
+      },
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/ingest-owner4-final-20260908-candidate-p4-r1.vortex",
+        "bytes": 18591586804,
+        "sha256": "7181c2e578659910da176ff6c0dcfe7ce563405337f3ae88cd44e7932d92a266",
+        "generation": [
+          16777232,
+          88414106,
+          18591586804,
+          1788897593906982777,
+          1788897593907740319
+        ]
+      },
+      "shared_native_final_reserved_bytes": 0,
+      "validation": {
+        "path": "ingest-owner4-final-20260908/candidate-p4-r1.validation.json",
+        "sha256": "c58221888e485e0e0822a76df4d056d5f97dd62ce02c820294911a67822e295d",
+        "kind": "complete_native_comparison",
+        "complete_value_equality": true
+      },
+      "retirement": {
+        "path": "ingest-owner4-final-20260908/candidate-p4-r1.retirement.json",
+        "sha256": "8d717efba68f88fba6cf098e575bcde43400dde460bd4ef26949a40842c6f366",
+        "state": "retired",
+        "scope": "exact_runner_owned_single_link_output_only",
+        "validation_sha256": "c58221888e485e0e0822a76df4d056d5f97dd62ce02c820294911a67822e295d",
+        "retired_utc": "2026-09-08T20:53:01.374231+00:00"
+      }
+    }
+  ],
+  "candidate_comparison": {
+    "command": [
+      "/Users/dylan/LocalData/shardloom/perf-all-20260906/binaries/compare-native-artifacts-20260908",
+      "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/perf-current-c71a558e.vortex",
+      "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/ingest-owner4-final-20260908-candidate-p4-r1.vortex",
+      "--batch-rows",
+      "8192",
+      "--right-batch-rows",
+      "8192",
+      "--parallelism-per-source",
+      "2"
+    ],
+    "comparator": {
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/binaries/compare-native-artifacts-20260908",
+      "sha256": "8673cd00615129265475404ad4b0e26b7c1850801effb95ac6a8f9f68bc21d25"
+    },
+    "raw_output": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest-owner4-final-20260908-candidate-p4-r1-comparison/comparison.stdout.json",
+      "sha256": "d0b47b189d038631a14720754c60c7d42a1e234541f728940582398017fbd1a3"
+    },
+    "process": {
+      "returncode": 0,
+      "seconds": 221.5661810419988,
+      "guard_failures": [],
+      "supervised_wall_seconds": 221.59274749999895,
+      "native_peak_rss_bytes": 717553664,
+      "user_cpu_seconds": 199.466097,
+      "system_cpu_seconds": 6.785246
+    },
+    "report": {
+      "boundary": "explicit_native_canonicalization_and_Arrow_conversion_for_artifact_validation_only;not_query_execution_or_external_engine_fallback;native_layout_statistics_and_user_metadata_not_compared;no_output_artifact_write;no_content_hash",
+      "compared_columns": 112,
+      "compared_rows": 99997497,
+      "compared_values": 11199719664,
+      "comparison_scope": "all_rows_all_columns_in_order;exact_native_dtype_names_order_and_nullability;Arrow_ArrayData_logical_equality;valid_primitive_bits_exact;null_payload_padding_dictionary_codes_and_chunk_boundaries_ignored;no_f64_integer_conversion;no_row_dictionaries;no_sampling_or_aggregate_surrogate",
+      "complete_value_equality": true,
+      "equal_spans": 1367184,
+      "generation_scope": "held_file_descriptors;pre_post_descriptor_and_path_generation_validation_around_complete_comparison;caller_frozen_artifacts_required;not_an_atomic_filesystem_snapshot",
+      "left": {
+        "bytes": 18643482956,
+        "changed_nanoseconds": 91977014,
+        "changed_seconds": 1788657393,
+        "device": 16777232,
+        "inode": 87315296,
+        "modified_nanoseconds": 91822305,
+        "modified_seconds": 1788657393,
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/perf-current-c71a558e.vortex"
+      },
+      "left_completed_executions": 1,
+      "left_native_batches": 1367184,
+      "left_peak_native_split_tasks": 2,
+      "left_prepared_source_opens": 1,
+      "left_provider_background_workers": 1,
+      "memory": {
+        "arrow_batch_bytes": 16777216,
+        "arrow_final_reserved_bytes": 0,
+        "arrow_peak_reserved_bytes": 268435456,
+        "arrow_work_limit_bytes": 268435456,
+        "left_batch_rows": 8192,
+        "left_final_reserved_bytes": 0,
+        "left_peak_reserved_bytes": 60252848,
+        "max_value_bytes": 8388608,
+        "native_limit_bytes_per_source": 536870912,
+        "parallelism_per_source": 2,
+        "peak_arrow_batch_bytes": 5923739,
+        "right_batch_rows": 8192,
+        "right_final_reserved_bytes": 0,
+        "right_peak_reserved_bytes": 30399792,
+        "scope": "two_reserved_native_source_allocators;one_column_and_one_Arrow_batch_per_source;bounded_row_windows_and_split_metadata;Arrow_conversion_pre_admission_and_postcheck;excludes_upstream_allocations_bypassing_host_allocator_file_footer_layout_caches_and_process_RSS",
+        "window_rows": 8388608
+      },
+      "native_scan_scheduler": "owned_RepeatedScan_futures_on_existing_source_runtime;bounded_ordered_polling;no_host_core_multiplier_or_extra_CPU_pool;split_futures_drop_synchronously_on_error;peak_counts_admitted_splits_not_completed_buffered_results_or_blocking_IO;all_split_tasks_drained_before_equality_report",
+      "native_schema_equal": true,
+      "native_split_tasks_after_drain": 0,
+      "native_task_concurrency_per_source": 2,
+      "right": {
+        "bytes": 18591586804,
+        "changed_nanoseconds": 907740319,
+        "changed_seconds": 1788897593,
+        "device": 16777232,
+        "inode": 88414106,
+        "modified_nanoseconds": 906982777,
+        "modified_seconds": 1788897593,
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/ingest-owner4-final-20260908-candidate-p4-r1.vortex"
+      },
+      "right_completed_executions": 1,
+      "right_native_batches": 1367184,
+      "right_peak_native_split_tasks": 2,
+      "right_prepared_source_opens": 1,
+      "right_provider_background_workers": 1,
+      "source_generations_validated": true
+    }
+  },
+  "observed_pair_differences": {
+    "native_seconds_saved": 3.9987265839999964,
+    "native_seconds_reduction_percent": 4.021001644702304,
+    "peak_rss_reduction_percent": 15.192720226973911,
+    "artifact_bytes_reduction_percent": 0.2783608198236309,
+    "scope": "single-pair differences only; requests, prefetch depths and other implementation changes differ"
+  },
+  "full43_boundary": {
+    "summary": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260908T191423419110Z/summary.json",
+      "sha256": "be4214c7818c2ef0b735ad4b587d6e71e62608a2f5ce32802461cb71784b8907"
+    },
+    "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/perf-current-c71a558e.vortex",
+    "source_sha256": "93acc7b9bbabed1f6e15a91aeacda45637bd5d6c5fed26e9b2052bf9b77e84f2",
+    "scope": "Full43 used the protected older native artifact, not the newly ingested candidate physical layout; this pair does not establish query-performance acceptance on changed physical bytes"
+  },
+  "recovery_scope": "Compact view derived from complete September 8 receipts; small receipt/helper hashes checked on September 12; no new benchmark, source/artifact rehash, or generated artifact recreated during recovery.",
+  "receipt_path_base": "/Users/dylan/LocalData/shardloom/perf-all-20260906",
+  "harness_source_root": "/Users/dylan/LocalData/shardloom/perf-retained-572bd52c-evidence"
+}

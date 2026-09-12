@@ -27,10 +27,29 @@ unbuilt isolated Python prototype stay on the preserved experimental branch.
 Historical evidence and rejection decisions remain documented here; they do
 not imply those experimental implementations are part of the shipping batch.
 
-PR #1437 acceptance distinguishes extraction checks, the measured `e739edeb`
-binary and final shipping-head evidence. The ordinary aggregate source-grant
-restoration and PGO lookup fix require their own checks; earlier Full43 results
-must not be relabeled as final.
+PR #1437 merged as `d51429e3702e5201646142a3d7252bbd72485c85` on September 8
+at 19:54:42 UTC after all 40 checks passed on exact head
+`5d2bf2b1fd7c1aa5c2a90d98c35af8095e51c783`. The accepted native runtime is
+`572bd52c`, including the ordinary aggregate source-grant restoration and PGO
+lookup fix; `5d2bf2b1` changes only the acceptance harness. Its
+[acceptance packet](../benchmarks/retained-runtime-acceptance-2026-09-08.md)
+records 129/129 Full43 checks, 380 plus 80 JSONL semantic checks, 80 required
+integer-distinct worker checks on a Parquet-prepared fixture, and 1,674 complete
+resident public-call checks. The nullable JSONL fixtures do not prove those
+worker paths. Full43 best-sum is 91.215296 seconds versus fresh Existing-policy
+`9152a92b` at 88.661862 seconds, 2.88% higher in an uncontrolled sequential
+comparison; no overall throughput win is established. Earlier extraction and
+`e739edeb` measurements retain their original identities. Scoped acceptance and
+merge are complete; no additional broader PERF or competitive gate is closed.
+
+The post-merge [four-owner ingest packet](../benchmarks/retained-ingest-owner4-2026-09-08.md)
+completed after the September 8 interruption and was recovered September 12.
+Candidate `572bd52c` took 95.447305 seconds versus the fresh 99.446032-second
+control; both had four confirmed constructed owners. Candidate output is
+18.591587 GB, all logical values match, and both generated outputs were verified
+and retired. This supersedes the pending matched-owner obligation, not broader
+scaling or new-layout query acceptance. The maintainer's September 12 priorities
+are now the [ingest implementation/test sequence](ingest-performance-implementation-2026-09-12.md).
 
 Each item below requires source-grounded provider admission, implementation or
 a concrete feasibility experiment, correctness tests, and a measured retain/drop
@@ -79,22 +98,22 @@ for this revision were not run after the negative performance decision. See
 |---|---|---|
 | PERF-03/04/05/07/09/10/12 | Execution-aware native artifact topology | **Parked, not promoted:** `a3c62434` grouping and `9152a92b` actual coalesced jobs both regress without material selected-query wins. The latter compares 585 two-original jobs with 1,170 single-original jobs under the same worker/original-output limits; native read and array boundaries remain unchanged. All three `9152a92b` Full43 packets pass 129 complete-result checks, but fresh independent held-out matrices were skipped after rejection. Preserve the frozen experiment and unwired local-scalar/sort-ownership candidates. Further topology, local reduction, local Top-K and execution-aware preparation work is paused under the maintainer's effort constraint |
 | PERF-04/05 | Compound numeric/text COUNT | **Measured, retained:** exact complete-key workers and existing in-memory pressure/replay behavior; Q15/Q17 gains and complete public/independent held-out acceptance are recorded for `75fc09a0`. This does not implement worker-to-disk spill handoff. Broader aggregate worker families remain open |
-| PERF-04/05/06 | Exact grouped distinct and broader aggregate parallelism | **Measured:** `48182c5a` passes all 129 full43 results; Q9 best improves 8.412124 to 1.116068 seconds versus `75fc09a0`, with peak process RSS about 1.04 to 4.27 GB. The 19-case matrix passes 1,520 checks, but the two explicit integer-tie-order cases used the older typed route. **Integrated, validation pending:** matching count-descending/group-ascending worker admission and subsequent provider-driver corrections. Repeat actual worker-path held-out and resource acceptance on the final candidate |
-| PERF-03/04/05 | Compact aggregate state, string slabs and partition ownership scheduling | **Experimental, not promoted:** 63 compact-state and 84 owner-scheduling pairs complete at `48182c5a`. Compact 16 KiB slabs improve high-cardinality time about 18% and owned state about 24%, but repeated values are slower and use about 14.4x owned state; skew trades speed for memory. Eight owner lanes beat matching dynamic scheduling but lose to fewer lanes. Narrow high-cardinality public-query evaluation remains; universal replacement is rejected by this packet |
+| PERF-04/05/06 | Exact grouped distinct and broader aggregate parallelism | **Measured and merged, scoped:** `48182c5a` records the Q9 gain and RSS tradeoff. Final `572bd52c` passes 80 required-worker checks for exact/repeated integer-distinct TopK at requested 1/2/4/8/12, including matching count-descending/group-ascending admission and provider-driver corrections. Its separate 380 plus 80 JSONL checks establish semantics only. Broader aggregate families, resource envelopes and production worker-to-spill transfer remain open |
+| PERF-03/04/05 | Compact aggregate state, string slabs and partition ownership scheduling | **Experimental, not promoted; further work deferred:** 63 compact-state and 84 owner-scheduling pairs complete at `48182c5a`. The 16 KiB high-cardinality reducer comparison improves 18.1%, only about 1.35 ms (7.485 to 6.132 ms), with about 24% less admitted state; repeated values are 27.3% slower with 14.44x state. These exclude complete public-query lifecycle costs. Eight owner lanes beat matching dynamic scheduling but lose to fewer lanes. Universal replacement remains rejected; resume a narrow candidate only after profiling demonstrates a dominant public cost and plausible material lifecycle benefit |
 | PERF-03/07/10 | Scan-local compressed segment reuse and consumer fusion | **Measured, retained narrow gate:** completed-read savings for separately addressable fields, with small local latency cost; the full43 Chunked-root artifact does not admit this cache gate. **Measured:** actual prepared filtered-count scans reuse one source without caching answers. Broader filter/project/aggregate fusion and complete allocation/lifecycle acceptance remain |
 | PERF-10 | Constant/run/FoR/bit-packed numeric computation | **Measured, retained:** weighted constant/run consumers for admitted encoded inputs; dense fused additive-only RunEnd keeps the faster typed route after measured regressions. **Experimental, not promoted:** bounded native FoR/BitPacked feasibility and 21 release pairs; 8K/32K gains are below 1% on one fixture and 1K regresses. The bounded experiment does not establish a public-query throughput win |
 | PERF-08/09 | Column-addressable logical file layout over bounded physical writes | **Experimental:** native writer seam and correctness coverage exist at `48182c5a`. **Integrated, validation pending:** paired complete writer lifecycle and repeated native-consumer benchmark. Ordinary writer/default layout is unchanged. Run bounded lifecycle evidence, then any justified production-size fixed-codec/fixed-CPU ingest-plus-query comparison before promotion |
 | PERF-07/11 | Multi-segment memory generations and owned-buffer intake | **Measured, scoped:** native column/row-group generations and owned intake preserve ownership, values and durable reopen. Owned intake avoids its payload-copy step, while explicit segment assembly still copies data; selective leaf requests and direct/generation clocks are retained. Broader ingest-to-result lifecycle, pressure/cancellation and multi-source result acceptance remain |
-| PERF-03/08/09 | Ingest worker scaling and bounded cohort overlap | **Implemented and tested at `48182c5a`:** shared source/conversion/provider CPU grants and explicit one-worker ceilings. Two of eight initial observations are complete: control requested-one/public-ceiling-two 95.837785 seconds, candidate true-one 187.600824 seconds, with peak RSS 3.05/1.97 GB. These are not equal CPU grants. Candidate bytes differ, but [all 11.2 billion logical values match](../benchmarks/perf-native-artifact-equivalence-2026-09-08.md); only that verified generated artifact was retired. Requested 2/4/8, informative repeats and any justified overlap/controller tuning remain; topology is now parked |
-| PERF-03/09/10 | Joint codec/consumer selection and task-level controllers | **Experimental, not promoted:** 27 real files and 10,800 complete native queries with publication and reuse-1/10/100 clocks. Dictionary improves categorical reuse-100 lifecycle 18–28% at 4.23–5.83x artifact bytes; unique Dictionary is slower/larger and FSST has no sustained lifecycle gain. Default Zstd and numeric compression remain. Conditional categorical selection requires production-scale lifecycle evidence; a task-level codec/CPU/memory controller remains unimplemented |
-| PERF-02 | Prepared aggregates and retained public execution | **Measured at `48182c5a`:** 1,116 complete resident public calls; filtered-count worker p50 0.683 to 0.483 ms, native prepared filtered-count p50 38.75 microseconds over 10,000 actual executions. **Integrated, validation pending:** retained integer COUNT/COUNT DISTINCT/SUM lowering and source, fresh per-execution state, native certificates, optional CLI-worker reuse, and a single-open ordinary route when retention admission fails. Aggregate and expanded nine-case public-call-path measurements remain; SUM keeps its existing floating accumulation semantics |
+| PERF-03/08/09 | Ingest worker scaling and bounded cohort overlap | **Matched constructed-owner packet complete:** control `75fc09a0` P2 took 99.446032 seconds; candidate `572bd52c` P4 took 95.447305 seconds, with four confirmed owners each. Values match and both owned outputs were retired. Public requests and prefetch differ; one pair is not a stable or causal speedup claim. September 12 CPU-stage balance and bounded-overlap implementation/testing are queued behind measured bottleneck attribution; see the linked sequence. Earlier unequal-owner observations retain their historical scope |
+| PERF-03/09/10 | Joint codec/consumer selection and task-level controllers | **Experimental, not promoted; further work deferred:** 27 files and 10,800 complete native queries on 4,096-row fixtures. Dictionary improves categorical reuse-100 lifecycle 18–28% at 4.23–5.83x artifact bytes; unique Dictionary is slower/larger and FSST has no sustained lifecycle gain. This tiny, high-reuse evidence does not establish a dominant public cost or production-scale benefit. Default Zstd and numeric compression remain. Resume conditional selection only with that evidence; a task-level codec/CPU/memory controller remains unimplemented |
+| PERF-02 | Prepared aggregates and retained public execution | **Measured and merged, scoped:** final `572bd52c` passes the expanded 1,674-check resident matrix across nine cases and three public call surfaces, including retained integer COUNT/COUNT DISTINCT/SUM, source reuse, fresh execution state, native certificates and ordinary-route handling. This supersedes the pending nine-case acceptance obligation; the prior log-budget failure is archived and supplies no timing claim. Historical `48182c5a` filtered-count measurements remain separately attributed. Broader prepared families and multi-source results remain open; SUM keeps its existing floating accumulation semantics |
 | PERF-02/07 | Native Python binding decision | **Parked, excluded from shipping and not scheduled:** the unbuilt isolated PyO3 prototype and its authored admission/ownership tests remain on the preserved experimental branch. Root Python packaging and worker transport are unchanged. Resume only with new measured justification under the material-benefit constraint; dependency/license, exact-interpreter build, 372-record acceptance and ABI/platform packaging work remain uncompleted |
-| PERF-03 | Remaining CPU/I/O/codec and retained-memory admission | **Partially integrated:** existing shared worker/scan grants, parent/child spill reservations and source/result ownership. The active provider-driver admission/evidence correction needs batch validation. Global provider/codec allocation coverage, progress/cancel behavior and coordinated remaining operators remain open; owned-byte accounting is not a process-RSS bound |
+| PERF-03 | Remaining CPU/I/O/codec and retained-memory admission | **Partially integrated:** existing shared worker/scan grants, parent/child spill reservations and source/result ownership. The held-source grant and provider-driver evidence corrections pass broad and scoped final `572bd52c` acceptance and are merged. Global provider/codec allocation coverage, progress/cancel behavior and coordinated remaining operators remain open; owned-byte accounting is not a process-RSS bound |
 | PERF-06 | Native exact-distinct and weighted COUNT spill | **Correctness checkpoint passed:** explicit public exact-distinct and weighted UTF8/optional-integer COUNT routes, separate typed evidence/certificates, same-source/runtime ownership, quota overlap, namespace-specific cleanup, and aggregate row-count/empty-source certificate fixes. Production-size resource/performance acceptance remains. Weighted runs use actual per-run key/block geometry while retaining worst-case admission. Both public routes feed a bounded serial source accumulator; drained worker-prefix/untouched-suffix transfer is test-only. Production pressure handoff and general join spill remain unimplemented |
 | PERF-07/10 | Native-array compatibility export and broader physical results | **Measured, retained for the admitted bounded profile at `e739edeb`:** [32 release pairs and four prepared series](../benchmarks/retained-native-export-2026-09-08.md), all 96 complete output checks passing; 65,536-row complete-artifact medians improve 3.528x IPC / 3.523x Parquet. At 4,096 rows IPC improves 11.82% and Parquet regresses 1.45%; raw legacy API is faster there because it omits sync/checksum/reopen. Source-generation guarantees differ; no broader public-scale or RSS win is claimed. Prepared series retain one source open and release owned bytes after drop. Broader materializing/multi-source result composition and production-scale acceptance remain open |
-| PERF-11/12 | Bulk-load envelopes and broader held-out acceptance | **Measured:** both 4,096- and 131,072-row `48182c5a` matrices complete with 760 checks each at requested 1/2/4/8/12 workers. Aggregate median sums are roughly 1.0% and 0.8% higher, not a broad held-out throughput gain. Final-candidate exact worker-path, spill, export, prepared/binding, ingest and resource/latency distributions remain required |
-| PERF-01/08/12 | Final baseline, timing attribution and lifecycle scorecards | **Measured at `48182c5a`:** full43 best sum 91.662289 seconds versus `75fc09a0` 98.831499 seconds (7.25% lower); geometric mean 4.81% lower, with 21 query bests improving and 22 regressing. All 129 complete retained-reference results pass. The guard-interrupted attempt is preserved and excluded. A clean final integrated candidate still needs same-commit ingest, full43, independent held-out/public-surface and lifecycle evidence with regressions and RSS visible |
-| PERF-13 | Profile-guided optimization feasibility | **Integrated orchestration, executable smoke and 14 helper tests passed:** guarded fresh profile ownership, matched build flags and instrument/train/merge/use stages; September 8 tiny native exact-result smoke confirms the installed compiler/profdata pair can work. The earlier helper-test failure log is retained. Full matched workspace control/instrumented/profile-use builds, representative training, independent untrained evaluation, build/code-size cost and portable correctness remain. No PGO performance benefit is measured |
+| PERF-11/12 | Bulk-load envelopes and broader held-out acceptance | **Measured, scoped:** final `572bd52c` passes 380 plus 80 JSONL semantic checks, 80 required-worker Parquet checks and 1,674 resident public-call checks. Earlier `48182c5a` 760-check matrices at each row count retain their own timing limits. Broader spill, binding, ingest and resource/latency distributions remain open; these packets establish no broad held-out throughput gain |
+| PERF-01/08/12 | Final baseline, timing attribution and lifecycle scorecards | **Final runtime measured and merged:** `572bd52c` passes 129/129 Full43 comparisons with 91.215296-second best-sum versus fresh Existing `9152a92b` at 88.661862 seconds (+2.88%, uncontrolled sequential comparison). No overall throughput win is established. Semantic, required-worker, resident and matched-owner ingest packets are complete. Full43 used the protected reference rather than the new ingest output; new-artifact query and broader lifecycle/resource scorecards remain open |
+| PERF-13 | Profile-guided optimization feasibility | **Toolchain feasibility only; further experiments deferred:** guarded orchestration, helper tests and a tiny native exact-result instrument/merge/use smoke pass; the selected-tool lookup correction is tested and merged. No full-workspace instrumented/profile-use build or PGO performance benefit is measured. Require a demonstrated dominant public instruction/dispatch cost before representative training and independent untrained evaluation; build/code-size cost and portable correctness remain open |
 
 The ledger remains open while any implementation, evaluation or declared
 acceptance remains. A rejected optimization must retain its evidence and explain
@@ -136,40 +155,38 @@ The canonical phased plan parks further topology investment. The list below
 preserves outstanding acceptance obligations from the earlier continuation;
 it is not a competing execution queue or a claim that remaining work is complete.
 
-1. Validate the entire integrated source batch: default/native/minimal feature
-   builds and tests; exact/weighted spill certificates and cleanup; export
-   predicates and values; prepared aggregate/session reuse; source identity and
-   provider-driver accounting. Freeze a clean revision before attributing new
-   measurements to it. Passing `48182c5a` checks do not validate these later edits.
-2. After PR #1437 merges and required public acceptance completes, run the bounded
-   control `75fc09a0` P2 versus the final accepted frozen candidate P4 ingest packet. Both predict
-   caller1/source1/conversion1/provider1; confirm all four constructed owners from
-   actual evidence. Public requests and prefetch depths differ, so this is not
-   equal-public-setting or scheduler-only attribution. Validate and retire only
-   each owned output before the next arm. Repeat informative pairs and extend
-   worker settings only if the first packet exposes a concrete question. Preserve
-   source generation, complete values, compression and existing storage guards.
-   The bounded compatibility-export packet remains retained with its measured
-   small-case costs; broader layout promotion still needs justified lifecycle proof.
-3. Complete the required prepared-aggregate public acceptance. Keep the isolated
-   native Python experiment parked and excluded from shipping; no build or
+1. Execute the September 12 [ingest implementation/test sequence](ingest-performance-implementation-2026-09-12.md)
+   using the completed matched-owner packet as evidence. Profile one bounded
+   representative workload to identify stage imbalance before implementing new
+   CPU allocation or writer-batch overlap; remove repeated representation work
+   only when actual copy/conversion/encode cost justifies it. Preserve source
+   generation, complete values, numeric compression and the existing guards.
+   Future candidate outputs must pass metadata and first/repeated query checks
+   before retirement; the existing old-artifact Full43 does not supply that proof.
+   The bounded compatibility-export decision remains retained with its measured
+   small-case costs. Wider experiments require a concrete material opportunity.
+2. Preserve the completed 1,674-check prepared-aggregate public acceptance and
+   keep the isolated native Python experiment parked and excluded from shipping; no build or
    372-record experiment is scheduled without new measured justification.
    Remaining prepared-operator and multi-source result families stay open and
    require scoped native designs and material benefit before implementation.
-4. Connect production worker pressure to exact native runs only through a drained
+3. Production worker pressure remains an open requirement, not an automatic next
+   experiment: connect it to exact native runs only through a drained
    committed prefix and untouched suffix, with no double counting or stale-source
    mixing; validate memory exhaustion, cancellation and complete global order.
    Existing public serial accumulators and test-only transfer seams do not close
    that task. General join spill needs its own schema, state, probe/merge,
    correctness and recovery contract, beyond the two admitted aggregate families.
-5. Evaluate the remaining narrow high-cardinality compact-state and categorical
-   high-reuse codec candidates on actual public queries and full lifecycle costs.
-   Keep the measured universal replacements rejected. Extend fused physical
-   consumers and common resource admission where the evidence identifies useful
-   work; avoid adding a controller merely because its counters exist.
-6. After structural changes stabilize, run matched full-workspace PGO training
-   and independent untrained evaluation, including build and artifact costs.
-   Finish the same-commit ingest/full43/held-out/public-surface scorecard and
+4. Defer narrow compact-state and categorical high-reuse codec experiments.
+   The bounded compact gain is about 1.35 ms in a reducer comparison, with
+   repeated-input regressions; codec benefits come from tiny high-reuse fixtures.
+   Preserve the experiment packet and rejected universal replacements. Require
+   profiling of a dominant public cost and plausible material complete-lifecycle
+   benefit before another experiment or controller implementation.
+5. Defer full-workspace PGO experiments under the same value gate. Its successful
+   toolchain smoke proves neither workspace feasibility nor speedup. If resumed,
+   retain representative training, independent untrained evaluation, and build
+   and artifact costs. Preserve the completed ingest disposition and
    document retained, rejected and still unsupported scopes at the next PR
    checkpoint. Do not convert these scoped packets into whole-PERF or CG closure.
 
@@ -194,6 +211,16 @@ The local receipt root is
   numeric, compact-state, owner-scheduling and codec lifecycle retain/drop
   evidence. The analyzer links raw checksums and records scope asymmetries;
   whole-process peaks are not assigned to individual experimental variants.
+  The later bounded-value review defers the analyzer's suggested narrow followups;
+  it does not change or promote the frozen experiment.
+- `retained-runtime-reviewfix1.json`, `retained-572bd52c-binary.json` and
+  `retained-runtime-harnessfix-final-python.json`: final runtime/binary and
+  harness identities and serial checks. The linked acceptance document records
+  the complete Full43, semantic, required-worker and resident packets and merge.
+- `ingest-owner4-final-20260908`: completed guarded control-P2/candidate-P4
+  packet, with complete verification and both owned artifacts retired. Its
+  [published JSON view](../benchmarks/retained-ingest-owner4-2026-09-08.json)
+  preserves the measurements and proof identities.
 - `pgo-toolchain-smoke-20260908/report.json`: successful tiny native
   instrument/merge/use compatibility, explicitly no workspace build or speedup.
 
