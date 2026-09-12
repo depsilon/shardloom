@@ -28,6 +28,16 @@ fn write(
     session: &VortexSession,
     runtime: &CurrentThreadRuntime,
 ) -> vortex::file::VortexFile {
+    let bytes = write_bytes(array, strategy, session, runtime);
+    session.open_options().open_buffer(bytes).unwrap()
+}
+
+fn write_bytes(
+    array: &ArrayRef,
+    strategy: Arc<dyn LayoutStrategy>,
+    session: &VortexSession,
+    runtime: &CurrentThreadRuntime,
+) -> Vec<u8> {
     let mut bytes = Vec::new();
     session
         .write_options()
@@ -35,7 +45,183 @@ fn write(
         .blocking(runtime)
         .write(&mut bytes, array.to_array_iterator())
         .unwrap();
-    session.open_options().open_buffer(bytes).unwrap()
+    bytes
+}
+
+fn original_probe(allowed: &HashSet<ArrayId>) -> Arc<dyn CompressorPlugin> {
+    let compressor = BtrBlocksCompressorBuilder::default()
+        .retain_allowed_encodings(allowed)
+        .build();
+    Arc::new(move |chunk: &ArrayRef, ctx: &mut ExecutionCtx| compressor.compress(chunk, ctx))
+}
+
+fn primitive_probe_inputs() -> Vec<ArrayRef> {
+    vec![
+        PrimitiveArray::new(vec![73_i64; 4096], Validity::NonNullable).into_array(),
+        PrimitiveArray::from_option_iter((0..4096).map(|row| match row % 4 {
+            0 => Some(i64::MIN),
+            1 => None,
+            2 => Some(i64::MAX),
+            _ => Some(9_007_199_254_740_993),
+        }))
+        .into_array(),
+        PrimitiveArray::from_option_iter((0..4096).map(|row| match row % 4 {
+            0 => Some(u64::MAX),
+            1 => None,
+            2 => Some(0),
+            _ => Some(9_007_199_254_740_993),
+        }))
+        .into_array(),
+        PrimitiveArray::from_option_iter((0..4096).map(|row| match row % 6 {
+            0 => Some(f64::MIN),
+            1 => None,
+            2 => Some(f64::MAX),
+            3 => Some(-0.0),
+            4 => Some(0.0),
+            _ => Some(0.125),
+        }))
+        .into_array(),
+        PrimitiveArray::from_option_iter([None::<i64>; 128]).into_array(),
+        PrimitiveArray::new(Vec::<u64>::new(), Validity::NonNullable).into_array(),
+        PrimitiveArray::new((0_i64..4096).collect::<Vec<_>>(), Validity::NonNullable).into_array(),
+    ]
+}
+
+#[test]
+fn omitted_primitive_probe_preserves_dictionary_decisions_and_existing_encoded_routes() {
+    let session = VortexSession::default();
+    let timings = IngestStageTimings::default();
+    let allowed = HashSet::new();
+    let original = original_probe(&allowed);
+    let candidate = measured_probe(&allowed, timings.clone());
+    let mut ctx = session.create_execution_ctx();
+    for input in primitive_probe_inputs() {
+        let expected = original.compress_chunk(&input, &mut ctx).unwrap();
+        let actual = candidate.compress_chunk(&input, &mut ctx).unwrap();
+        assert!(!expected.is::<Dict>());
+        assert_eq!(expected.is::<Dict>(), actual.is::<Dict>());
+        assert!(ArrayRef::ptr_eq(&input, &actual));
+    }
+    let fields = timings
+        .snapshot()
+        .evidence_fields()
+        .into_iter()
+        .collect::<BTreeMap<_, _>>();
+    assert_eq!(fields["vortex_ingest_numeric_probe_calls"], "0");
+
+    // An admitted dictionary must still be discovered. An existing dictionary
+    // with Dict excluded must still use the provider's original root decision.
+    let dictionary_allowed = HashSet::from([Dict.id()]);
+    let input = PrimitiveArray::new(
+        (0..4096)
+            .map(|row| if row % 2 == 0 { i64::MIN } else { i64::MAX })
+            .collect::<Vec<_>>(),
+        Validity::NonNullable,
+    )
+    .into_array();
+    let dictionary = measured_probe(&dictionary_allowed, timings.clone())
+        .compress_chunk(&input, &mut ctx)
+        .unwrap();
+    assert!(dictionary.is::<Dict>());
+    let expected = original.compress_chunk(&dictionary, &mut ctx).unwrap();
+    let actual = candidate.compress_chunk(&dictionary, &mut ctx).unwrap();
+    assert_eq!(expected.is::<Dict>(), actual.is::<Dict>());
+    assert_eq!(expected.encoding_id(), actual.encoding_id());
+    let fields = timings
+        .snapshot()
+        .evidence_fields()
+        .into_iter()
+        .collect::<BTreeMap<_, _>>();
+    assert_eq!(fields["vortex_ingest_numeric_probe_calls"], "2");
+
+    let text = VarBinArray::from_iter_nonnull(
+        std::iter::repeat_n("λ unchanged", 128),
+        DType::Utf8(vortex::array::dtype::Nullability::NonNullable),
+    )
+    .into_array();
+    let actual = candidate.compress_chunk(&text, &mut ctx).unwrap();
+    assert!(actual.is::<Constant>());
+}
+
+#[test]
+fn omitted_primitive_probe_keeps_persisted_bytes_statistics_and_complete_values() {
+    use vortex::layout::layouts::{
+        chunked::writer::ChunkedLayoutStrategy,
+        repartition::{RepartitionStrategy, RepartitionWriterOptions},
+        zoned::writer::{ZonedLayoutOptions, ZonedStrategy},
+    };
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let allowed = HashSet::new();
+    let strategy = |probe| {
+        let flat: Arc<dyn LayoutStrategy> = Arc::new(FlatLayoutStrategy::default());
+        let fallback = RepartitionStrategy::new(
+            NumericDataStrategy::new(
+                ChunkedLayoutStrategy::new(Arc::clone(&flat)),
+                IngestStageTimings::default(),
+                &session,
+            ),
+            RepartitionWriterOptions {
+                block_size_minimum: 0,
+                block_len_multiple: 256,
+                block_size_target: Some(2048),
+                canonicalize: true,
+            },
+        );
+        let dict = DictStrategy::new(
+            Arc::clone(&flat),
+            Arc::clone(&flat),
+            fallback,
+            DictLayoutOptions::default(),
+            probe,
+        );
+        let zoned = ZonedStrategy::new(
+            dict,
+            flat,
+            ZonedLayoutOptions {
+                block_size: std::num::NonZeroUsize::new(128).unwrap(),
+                concurrency: std::num::NonZeroUsize::new(1).unwrap(),
+                ..Default::default()
+            },
+        );
+        Arc::new(RepartitionStrategy::new(
+            zoned,
+            RepartitionWriterOptions {
+                block_size_minimum: 0,
+                block_len_multiple: 128,
+                block_size_target: None,
+                canonicalize: false,
+            },
+        )) as Arc<dyn LayoutStrategy>
+    };
+    // Independent arrays prevent a probe-populated statistics cache in one arm
+    // from making the other arm pass accidentally.
+    for (old_input, new_input) in primitive_probe_inputs()
+        .into_iter()
+        .zip(primitive_probe_inputs())
+    {
+        let expected = write_bytes(
+            &old_input,
+            strategy(original_probe(&allowed)),
+            &session,
+            &runtime,
+        );
+        let actual = write_bytes(
+            &new_input,
+            strategy(measured_probe(&allowed, IngestStageTimings::default())),
+            &session,
+            &runtime,
+        );
+        assert_eq!(
+            actual,
+            expected,
+            "{:?}, {} rows",
+            new_input.dtype(),
+            new_input.len()
+        );
+        let file = session.open_options().open_buffer(actual).unwrap();
+        round_trip(&new_input, &file, &runtime);
+    }
 }
 
 fn round_trip(array: &ArrayRef, file: &vortex::file::VortexFile, runtime: &CurrentThreadRuntime) {
@@ -95,12 +281,7 @@ fn pinned_dictionary_probe_discards_a_non_dict_result_but_storage_adapter_retain
             flat,
             fallback,
             DictLayoutOptions::default(),
-            measured_probe(
-                BtrBlocksCompressorBuilder::default()
-                    .retain_allowed_encodings(&probe_encodings.iter().copied().collect())
-                    .build(),
-                IngestStageTimings::default(),
-            ),
+            original_probe(&probe_encodings.iter().copied().collect()),
         );
         let file = write(&array, Arc::new(strategy), &session, &runtime);
         round_trip(&array, &file, &runtime);
@@ -294,12 +475,7 @@ fn fast_load_table_persists_numeric_encoding_after_coalescing_and_attributes_rea
             .unwrap()
             >= (rows * 2) as u64
     );
-    assert!(
-        fields["vortex_ingest_numeric_probe_calls"]
-            .parse::<u64>()
-            .unwrap()
-            > 0
-    );
+    assert_eq!(fields["vortex_ingest_numeric_probe_calls"], "0");
     assert_eq!(fields["vortex_ingest_text_zstd_calls"], "0");
     for limits in [
         PhysicalEncodingInspectionLimits {

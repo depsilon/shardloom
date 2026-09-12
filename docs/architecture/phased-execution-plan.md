@@ -283,6 +283,24 @@ Implementation status and proof gaps are recorded in
 `performance-overhaul-implementation-2026-09-05.md`. None of the thirteen whole
 PERF packets is complete merely because its shared runtime foundation exists.
 
+The maintainer's September 12 instruction resumes all actionable items in this
+phased plan, including the five older production epics below the PERF sequence.
+The [current reconciliation](performance-plan-exhaustion-2026-09-12.md) maps every
+remaining checklist row to retained code, a measured rejection, a concrete
+implementation/acceptance task or a real prerequisite. It is the execution
+checklist for this continuation; it does not create new phases, close competitive
+gates, restart rejected experiments or replace the maintained 95.447305-second
+ingest baseline. Candidate-only numeric probe removal, source-generation and
+pressure protection, prepared aggregate families, worker-to-spill handoff and
+owned aggregate results are the current coherent implementation units.
+The subsequent maintainer instruction retains the faster numeric probe path
+despite modest/variable gains and adds artifact-size reduction under PERF-09 and
+the existing writer codec-portfolio item. The
+[storage exploration](native-storage-reduction-2026-09-12.md) measures physical
+bytes, ingest, native query behavior and memory together. It does not replace
+the maintained ingest control or restart rejected topology/codec experiments
+unchanged.
+
 After PR #1433 merged, the maintainer requested the next performance iteration.
 The [numeric and aggregation continuation](perf-numeric-aggregation-2026-09-06.md)
 retains borrowed original-width numeric consumers, typed integer grouping loops,

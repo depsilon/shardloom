@@ -24,8 +24,76 @@ pub struct ExecutedVortexAggregate {
     pub runtime: ResidentSessionSnapshot,
 }
 
+/// Complete typed payload and the same native execution certificate as reports.
+pub struct ExecutedOwnedVortexAggregate {
+    pub execution: ExecutedVortexAggregate,
+    pub result: crate::resident_session::OwnedVortexResultBatch,
+    #[cfg(feature = "vortex-write")]
+    request: VortexQueryPrimitiveRequest,
+    #[cfg(feature = "vortex-write")]
+    policy: VortexLocalPrimitiveExecutionPolicy,
+}
+
+#[cfg(feature = "vortex-write")]
+impl ExecutedOwnedVortexAggregate {
+    /// Persist complete owned columns through the existing native/compatibility
+    /// sink. This consumes the result and performs no further query execution.
+    /// # Errors
+    /// Rejects unsupported formats, pressure, existing targets or sink validation
+    /// failures. Publication uses the sink's atomic create-if-absent contract.
+    pub fn write(
+        self,
+        path: &std::path::Path,
+        format: super::VortexLocalPrimitiveRowExportFormat,
+        allow_overwrite: bool,
+    ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+        let plan = super::native_sink::NativeSinkPlan::completed(self.result)?;
+        let mut report = match format {
+            super::VortexLocalPrimitiveRowExportFormat::Vortex => {
+                plan.write(&self.request, path, allow_overwrite, self.policy)?
+            }
+            #[cfg(feature = "universal-format-io")]
+            super::VortexLocalPrimitiveRowExportFormat::ArrowIpc
+            | super::VortexLocalPrimitiveRowExportFormat::Parquet => {
+                super::columnar_compat_sink::prepare_plan(
+                    &self.request,
+                    plan,
+                    format,
+                    self.policy,
+                    super::columnar_compat_sink::CompatibilityLimits::default(),
+                )?
+                .ok_or_else(|| failed("completed result exceeds compatibility sink admission"))?
+                .write(path, allow_overwrite)?
+                .report
+            }
+            _ => {
+                return Err(failed(
+                    "owned aggregate sink requires enabled Vortex, Arrow IPC or Parquet output",
+                ));
+            }
+        };
+        let execution = self.execution.report;
+        report.rows_scanned = execution.rows_scanned;
+        report.arrays_read_count = execution.arrays_read_count;
+        report.max_chunk_rows = execution.max_chunk_rows;
+        report.state_budget = execution.state_budget;
+        report.physical_policy = execution.physical_policy;
+        report.source_order_limit_requested = execution.source_order_limit_requested;
+        report.evidence.upstream_scan_called = execution.upstream_scan_called;
+        report.evidence.side_effects.data_read |= execution.data_read;
+        report.evidence.side_effects.data_decoded |= execution.data_decoded;
+        report.evidence.side_effects.data_materialized |= execution.data_materialized;
+        report.evidence.pushdown = super::VortexLocalPrimitiveRowExportPushdownEvidence {
+            filter_pushdown_applied: execution.filter_pushdown_applied,
+            projection_pushdown_applied: execution.projection_pushdown_applied,
+            source_order_limit_applied: execution.source_order_limit_applied,
+        };
+        Ok(report)
+    }
+}
+
 /// Immutable lowering plus one generation-bound file and caller-owned session.
-/// SUM retains the engine's existing ordered floating-point accumulation policy.
+/// SUM/AVG retain the engine's existing ordered floating-point accumulation policy.
 pub struct PreparedVortexAggregate {
     request: VortexQueryPrimitiveRequest,
     source: PreparedVortexSource,
@@ -100,11 +168,14 @@ fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
             SimpleAggregateFunction::Count
                 | SimpleAggregateFunction::CountDistinct
                 | SimpleAggregateFunction::Sum
+                | SimpleAggregateFunction::Avg
+                | SimpleAggregateFunction::Min
+                | SimpleAggregateFunction::Max
         ) || measure.value_transform.is_some()
             || measure.argument_offset.is_some()
         {
             return Err(failed(
-                "only existing identity COUNT, COUNT DISTINCT and SUM measures are admitted",
+                "only existing identity COUNT, COUNT DISTINCT, SUM, AVG, MIN and MAX measures are admitted",
             ));
         }
     }
@@ -350,6 +421,13 @@ impl PreparedVortexAggregate {
     }
 
     fn read(&self) -> Result<LocalVortexAggregateScan> {
+        self.read_with_output(None)
+    }
+
+    fn read_with_output(
+        &self,
+        mut output: Option<&mut super::aggregate_owned::OwnedAggregateFinalizer>,
+    ) -> Result<LocalVortexAggregateScan> {
         let uri = self
             .request
             .source_uri
@@ -377,6 +455,7 @@ impl PreparedVortexAggregate {
                             Some(&mut retry),
                             &self.lowering,
                             std::time::Instant::now(),
+                            output.as_deref_mut(),
                         )
                     },
                 )?;
@@ -401,6 +480,7 @@ impl PreparedVortexAggregate {
                             None,
                             &self.lowering,
                             std::time::Instant::now(),
+                            output.as_deref_mut(),
                         )
                     })?;
             let mut summary: serde_json::Value = serde_json::from_str(&scan.result_summary)
@@ -424,6 +504,7 @@ impl PreparedVortexAggregate {
                 None,
                 &self.lowering,
                 std::time::Instant::now(),
+                output.as_deref_mut(),
             )
         })
     }
@@ -449,7 +530,37 @@ impl PreparedVortexAggregate {
 
     fn execute_native(&self) -> Result<ExecutedVortexAggregate> {
         let scan = self.read()?;
-        let report = simple_aggregate_report(&self.request, &scan)?
+        self.certify(&scan)
+    }
+
+    /// Execute fresh exact integer grouped COUNT DISTINCT into owned columns.
+    /// Preserves original integer width, complete count-descending/key-ascending
+    /// ordering and offset/limit; no result rows are rendered before a sink.
+    /// # Errors
+    /// Rejects unsupported or nullable shapes before execution, source changes,
+    /// pressure, and offset plus limit above 65536. No query is retried to render rows.
+    pub fn execute_owned(&self) -> Result<ExecutedOwnedVortexAggregate> {
+        let mut output = super::aggregate_owned::OwnedAggregateFinalizer::new(
+            &self.request,
+            self.source.dtype(),
+            &self.session,
+        )?;
+        let scan = self.read_with_output(Some(&mut output))?;
+        let execution = self.certify(&scan)?;
+        let (array, ownership) = output.into_array()?;
+        let result = self.session.own_completed_array(array, ownership)?;
+        Ok(ExecutedOwnedVortexAggregate {
+            execution,
+            result,
+            #[cfg(feature = "vortex-write")]
+            request: self.request.clone(),
+            #[cfg(feature = "vortex-write")]
+            policy: self.policy,
+        })
+    }
+
+    fn certify(&self, scan: &LocalVortexAggregateScan) -> Result<ExecutedVortexAggregate> {
+        let report = simple_aggregate_report(&self.request, scan)?
             .with_physical_policy(self.physical_policy.clone());
         let mut runtime = self.session.snapshot();
         runtime.provider_background_workers = runtime
@@ -478,3 +589,7 @@ fn failed(reason: &str) -> ShardLoomError {
 #[cfg(test)]
 #[path = "local_primitive_prepared_aggregate_tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "local_primitive_aggregate_owned_tests.rs"]
+mod owned_tests;

@@ -7,9 +7,10 @@
 use std::{collections::BTreeSet, sync::Arc, time::Instant};
 
 use futures::future::BoxFuture;
+use vortex::utils::aliases::hash_set::HashSet;
 use vortex::{
     array::{
-        ArrayRef, ExecutionCtx, VTable as _,
+        ArrayId, ArrayRef, ExecutionCtx, VTable as _,
         arrays::{Dict, Primitive},
         dtype::DType,
     },
@@ -139,10 +140,23 @@ impl CompressorPlugin for NumericCompressor {
 }
 
 pub(super) fn measured_probe(
-    compressor: BtrBlocksCompressor,
+    allowed_encodings: &HashSet<ArrayId>,
     timings: IngestStageTimings,
 ) -> Arc<dyn CompressorPlugin> {
+    let dictionary_admitted = allowed_encodings.contains(&Dict.id());
+    let compressor = BtrBlocksCompressorBuilder::default()
+        .retain_allowed_encodings(allowed_encodings)
+        .build();
     Arc::new(move |chunk: &ArrayRef, ctx: &mut ExecutionCtx| {
+        // DictStrategy uses only the root Dict decision and discards every
+        // other compressed result. With Dict excluded, probing a canonical
+        // primitive cannot change that decision, but still canonicalizes,
+        // compacts and gathers constant-detection statistics upstream. Leave
+        // encoded inputs on the provider route: they may have a Dict root or
+        // require execution before the decision can be made safely.
+        if !dictionary_admitted && chunk.is::<Primitive>() {
+            return Ok(chunk.clone());
+        }
         let start = Instant::now();
         let result = compressor.compress(chunk, ctx);
         if matches!(chunk.dtype(), DType::Primitive(..)) {

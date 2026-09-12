@@ -27,8 +27,11 @@ until a candidate shows a credible material improvement.
 Prioritize complete fresh-data workflow cost: ingest, publication and
 first/repeated queries. A hypothetical 20% reduction of the recorded candidate
 ingest would save about 19.09 seconds; this is a sizing calculation, not a
-forecast. Preserve retained numeric compression and roughly the current 18.6 GB
-representation. Do not fund faster ingestion by silently inflating the artifact,
+forecast. Preserve retained numeric compression; the current 18.6 GB artifact is
+the size reference. The maintainer's subsequent
+[storage-reduction request](native-storage-reduction-2026-09-12.md) explicitly
+allows smaller, fully verified representations and retains the faster numeric
+probe path despite variable gains. Do not fund faster ingestion by silently inflating the artifact,
 removing statistics, weakening verification or deferring work until the first query.
 Ordinary streaming publication currently flushes, validates and renames, without
 file/parent-directory synchronization. Its measured process completion must not

@@ -151,15 +151,16 @@ The batch evidence emits:
 This is bounded in-process work shaping for native Vortex scans. It is not permission to invoke a
 single-thread external engine, a runtime scheduler from another query engine, or a hidden cache.
 
-## Hot-Lane Native Kernel Dispatch
+## Hot-Lane Native Kernel Selection Evidence
 
 `CLICKBENCH-DOMAIN-TRANSFER-1` adds
 `hot_lane_native_kernel_dispatch_schema_version=shardloom.traditional_analytics.hot_lane_native_kernel_dispatch.v1`
-to the prepared/native batch row. The dispatch matrix binds accepted hot ClickBench-style lanes to
-existing ShardLoom-native source-state/runtime families and records whether each lane was requested
-in the current batch.
+to the prepared/native batch row. These legacy `dispatch` field names are retained for compatibility.
+The report selects registry descriptors from declared scenario contracts and records whether each
+lane was requested in the current batch. Selection does not observe or establish runtime kernel
+invocation, the actual input encoding, or a decoded-reference comparison.
 
-Current accepted lanes:
+Current candidate contracts:
 
 - `string_predicate_count`: selective predicate state using bitpacked/integer predicate evidence and
   selected metric aggregation.
@@ -172,18 +173,25 @@ Current accepted lanes:
 
 The batch evidence emits:
 
-- `hot_lane_native_kernel_dispatch_status`
+- `hot_lane_native_kernel_dispatch_status=registry_selection_only_execution_not_observed` when
+  at least one contract is selected (`not_applicable_no_accepted_hot_lane_requested` otherwise)
 - `hot_lane_native_kernel_dispatch_candidate_count=5`
-- `hot_lane_native_kernel_dispatch_executed_count`
+- `hot_lane_native_kernel_dispatch_selected_count`
+- `hot_lane_native_kernel_dispatch_executed_count=0`
 - `hot_lane_native_kernel_dispatch_matrix`
 - `hot_lane_native_kernel_dispatch_digest`
 - `hot_lane_native_kernel_dispatch_provider_scope`
 - `hot_lane_native_kernel_dispatch_decoded_reference_status`
+- `hot_lane_native_kernel_dispatch_claim_boundary`
 - `hot_lane_native_kernel_dispatch_fallback_attempted=false`
 - `hot_lane_native_kernel_dispatch_external_engine_invoked=false`
 
-The dispatch evidence is original ShardLoom routing over local runtime state. It does not copy
-ClickBench competitor implementations, query plans, or engine code.
+Selected matrix rows use `selected_contract_only` and `runtime_execution=not_observed`.
+`provider_scope=registry_descriptor_selection_from_declared_scenario_contracts` and
+`decoded_reference_status=fixture_reference_prerequisite_declared_not_observed_by_registry_selection`
+describe this report's evidence boundary. The selected count must not be interpreted as an executed
+count. Actual executor evidence and complete-result checks remain necessary to establish native
+execution; this report does not close that runtime bridge or the CG-5/CG-6 claim gates.
 
 ## Query-Serving Layout Policy
 

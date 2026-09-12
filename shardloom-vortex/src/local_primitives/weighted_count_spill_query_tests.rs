@@ -32,6 +32,15 @@ struct Fixture {
 }
 impl Fixture {
     fn new(count: usize, width: usize, dictionary: bool, nullable: bool) -> Self {
+        Self::with_unique_keys(count, width, dictionary, nullable, false)
+    }
+    fn with_unique_keys(
+        count: usize,
+        width: usize,
+        dictionary: bool,
+        nullable: bool,
+        unique: bool,
+    ) -> Self {
         let directory = std::env::temp_dir().join(format!(
             "shardloom-weighted-public-{}-{}",
             std::process::id(),
@@ -53,7 +62,7 @@ impl Fixture {
                 let name = if late {
                     "winner00".to_owned()
                 } else {
-                    format!("k{:07}", row % 1021)
+                    format!("k{:07}", if unique { row } else { row % 1021 })
                 };
                 (
                     group,
@@ -277,12 +286,30 @@ fn public_weighted_count_spill_native_domains_both_group_orders_filter_global_va
             .as_ref()
             .unwrap();
         assert!(report.state_budget.native_aggregate_spill.is_none());
-        assert!(evidence.runs_written >= 4 && evidence.merge_passes > 0);
+        if groups.len() == 1 {
+            assert_eq!(evidence.runs_written, 0);
+            assert_eq!(
+                output["weighted_count_spill"]["fitted_partition_selection"],
+                true
+            );
+            assert!(
+                output["weighted_count_spill"]["worker_jobs_completed"]
+                    .as_u64()
+                    .unwrap()
+                    > 0
+            );
+            assert_eq!(evidence.min_run_block_rows, 0);
+            assert_eq!(evidence.max_run_key_bytes, 0);
+            assert!(!report.write_io && !report.spill_io_performed);
+        } else {
+            assert!(evidence.runs_written >= 4 && evidence.merge_passes > 0);
+            assert!(evidence.min_run_block_rows > 1 && evidence.max_run_key_bytes == 128);
+            assert!(report.write_io && report.spill_io_performed);
+        }
         assert_eq!(evidence.runs_written, evidence.runs_validated);
-        assert!(evidence.min_run_block_rows > 1 && evidence.max_run_key_bytes == 128);
         assert!(evidence.peak_reserved_bytes <= evidence.memory_bytes);
         assert!(evidence.peak_disk_bytes <= evidence.quota_bytes);
-        assert!(report.write_io && report.spill_io_performed && evidence.owned_cleanup_completed);
+        assert!(evidence.owned_cleanup_completed);
         assert!(!report.arrow_converted && !report.fallback_execution_allowed);
         assert!(
             local_primitive_native_io_certificate(&request, &report)
@@ -307,7 +334,9 @@ fn public_weighted_count_spill_native_domains_both_group_orders_filter_global_va
             match field {
                 "family" => spill.family = "generic_join".into(),
                 "source" => spill.source_rows += 1,
-                "geometry" => spill.min_run_block_rows = 0,
+                "geometry" => {
+                    spill.min_run_block_rows = if evidence.runs_written == 0 { 1 } else { 0 }
+                }
                 _ => spill.owned_cleanup_completed = false,
             }
             assert!(!local_primitive_native_io_safe(&request, &forged));
@@ -367,6 +396,39 @@ fn public_weighted_count_spill_empty_small_and_unprunable_zero_are_lazy_exact_an
             assert!(local_primitive_native_io_safe(&empty, &report));
             fixture.empty();
         }
+    }
+}
+
+#[test]
+fn public_weighted_count_workers_force_exact_spill_with_global_ties_and_offset() {
+    let fixture = Fixture::with_unique_keys(16_384, 128, true, false, true);
+    let request = fixture.query(&["label_renamed"], 1, 7);
+    for parallelism in [1, 2, 4] {
+        let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+        policy.resource_envelope.group_state_soft_item_budget = 1;
+        let report = execute_vortex_local_primitive_with_policy(&request, policy).unwrap();
+        let output = summary(&report);
+        assert_eq!(
+            output["values"],
+            fixture.expected(&["label_renamed"], 1, 7, 0)
+        );
+        let work = &output["weighted_count_spill"];
+        assert_eq!(work["drained_epochs"], 1);
+        assert!(work["worker_jobs_completed"].as_u64().unwrap() > 0);
+        assert!(work["committed_weight"].as_u64().unwrap() > 0);
+        assert!(work["deferred_weight"].as_u64().unwrap() > 0);
+        assert_eq!(work["source_weight"], 16_384);
+        assert_eq!(work["fitted_partition_selection"], false);
+        let spill = report
+            .state_budget
+            .native_weighted_count_spill
+            .as_ref()
+            .unwrap();
+        assert!(spill.runs_written > 0);
+        assert_eq!(spill.runs_written, spill.runs_validated);
+        assert!(spill.peak_reserved_bytes <= spill.memory_bytes);
+        assert!(local_primitive_native_io_safe(&request, &report));
+        fixture.empty();
     }
 }
 
@@ -433,7 +495,7 @@ fn public_weighted_count_spill_rejects_unsupported_before_source_open_and_nullab
 
 #[test]
 fn public_weighted_count_spill_quota_cancel_long_keys_and_source_generation_cleanup() {
-    let fixture = Fixture::new(16_384, 128, true, false);
+    let fixture = Fixture::with_unique_keys(16_384, 128, true, false, true);
     let mut request = fixture.query(&["label_renamed"], 0, 7);
     request
         .simple_aggregate
@@ -443,13 +505,9 @@ fn public_weighted_count_spill_quota_cancel_long_keys_and_source_generation_clea
         .as_mut()
         .unwrap()
         .quota_bytes = 32 * 1024 + 1;
-    assert!(
-        execute_vortex_local_primitive_with_policy(
-            &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded()
-        )
-        .is_err()
-    );
+    let mut pressure = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    pressure.resource_envelope.group_state_soft_item_budget = 1;
+    assert!(execute_vortex_local_primitive_with_policy(&request, pressure).is_err());
     fixture.empty();
     let request = fixture.query(&["label_renamed"], 0, 7);
     request
@@ -483,7 +541,7 @@ fn public_weighted_count_spill_quota_cancel_long_keys_and_source_generation_clea
     );
     long.empty();
     let request = fixture.query(&["label_renamed"], 0, 7);
-    let resident = ResidentVortexSession::new(32 << 20, 1).unwrap();
+    let resident = ResidentVortexSession::for_external_cpu_pool(32 << 20, 1).unwrap();
     let prepared = resident.prepare_file(fixture.path()).unwrap();
     let memory = resident.memory().clone();
     let path = fixture.path();

@@ -1,6 +1,66 @@
 use super::*;
 use std::sync::{Barrier, mpsc};
 
+#[cfg(all(feature = "vortex-write", unix))]
+#[test]
+fn shared_cancellation_interrupts_owned_worker_join_and_retirement_keeps_success_live() {
+    use std::sync::atomic::AtomicBool;
+    let memory = LiveMemoryPool::new(128).unwrap();
+    let flag = Arc::new(AtomicBool::new(false));
+    let mut jobs = AggregateChunkJobs::<()>::with_cancellation(
+        2,
+        2,
+        128,
+        memory.clone(),
+        CancellationToken::from_shared_flag(Arc::clone(&flag)),
+    )
+    .unwrap();
+    let (started, entered) = mpsc::channel();
+    jobs.submit(16, move |worker, _| {
+        started.send(()).unwrap();
+        loop {
+            worker.check_cancelled()?;
+            std::thread::yield_now();
+        }
+    })
+    .unwrap();
+    let cancel = Arc::clone(&flag);
+    let canceller = std::thread::spawn(move || {
+        let reached = entered.recv_timeout(std::time::Duration::from_secs(5));
+        cancel.store(true, Ordering::Release);
+        reached.unwrap();
+    });
+    assert!(jobs.join_next().is_err());
+    canceller.join().unwrap();
+    drop(jobs);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let successful = Arc::new(AtomicBool::new(false));
+    let mut jobs = AggregateChunkJobs::<u64>::with_cancellation(
+        2,
+        2,
+        128,
+        memory.clone(),
+        CancellationToken::from_shared_flag(Arc::clone(&successful)),
+    )
+    .unwrap();
+    jobs.submit(16, |_, _| Ok(7)).unwrap();
+    assert!(jobs.retire().is_err());
+    jobs.join_next()
+        .unwrap()
+        .unwrap()
+        .consume(|value| {
+            assert_eq!(*value, 7);
+            Ok(())
+        })
+        .unwrap();
+    jobs.retire().unwrap();
+    assert!(jobs.pool_snapshot().is_none());
+    drop(jobs);
+    assert!(!successful.load(Ordering::Acquire));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 #[test]
 fn initial_reservation_denial_never_runs_or_advances_job_and_remains_retryable() {
     for parallelism in [1, 2] {

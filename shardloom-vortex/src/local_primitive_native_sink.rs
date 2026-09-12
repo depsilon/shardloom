@@ -36,8 +36,8 @@ const METADATA_BYTES_PER_CHUNK: u64 = 8192;
 
 pub(super) struct NativeSinkPlan {
     pub(super) session: ResidentVortexSession,
-    pub(super) source: PreparedVortexSource,
-    source_path: PathBuf,
+    pub(super) source: NativeSinkInput,
+    source_path: Option<PathBuf>,
     pub(super) projection: Option<BoundExpression>,
     pub(super) filter: Option<BoundExpression>,
     pub(super) dtype: DType,
@@ -45,6 +45,44 @@ pub(super) struct NativeSinkPlan {
     pub(super) row_count: u64,
     pub(super) limit: Option<u64>,
     pub(super) metadata_pruned: bool,
+}
+
+pub(super) enum NativeSinkInput {
+    Source(PreparedVortexSource),
+    Completed(crate::resident_session::OwnedVortexResultBatch),
+}
+
+impl NativeSinkInput {
+    pub(super) fn validate_generation(&self) -> Result<()> {
+        match self {
+            Self::Source(source) => source.validate_generation(),
+            // Complete owned output was exposed only after final source
+            // validation. Its lifetime no longer depends on a source file.
+            Self::Completed(_) => Ok(()),
+        }
+    }
+
+    pub(super) fn is_source(&self) -> bool {
+        matches!(self, Self::Source(_))
+    }
+
+    pub(super) fn with_native_execution<T>(
+        &self,
+        execute: impl FnOnce(
+            Option<&vortex::file::VortexFile>,
+            &vortex::session::VortexSession,
+            &vortex::io::runtime::current::CurrentThreadRuntime,
+        ) -> Result<T>,
+    ) -> Result<T> {
+        match self {
+            Self::Source(source) => source.with_native_execution(|file, session, runtime| {
+                execute(Some(file), session, runtime)
+            }),
+            Self::Completed(result) => result
+                .retained_session()
+                .with_native_session(|session, runtime| execute(None, session, runtime)),
+        }
+    }
 }
 
 pub(super) fn try_execute(
@@ -152,8 +190,8 @@ pub(super) fn prepare(
     let row_count = source.file().row_count();
     Ok(Some(NativeSinkPlan {
         session,
-        source,
-        source_path: fs::canonicalize(source_path).map_err(vortex_error)?,
+        source: NativeSinkInput::Source(source),
+        source_path: Some(fs::canonicalize(source_path).map_err(vortex_error)?),
         projection,
         filter,
         dtype,
@@ -193,10 +231,79 @@ fn prepare_source_projection(
 }
 
 impl NativeSinkPlan {
+    pub(super) fn completed(
+        result: crate::resident_session::OwnedVortexResultBatch,
+    ) -> Result<Self> {
+        let first = result
+            .arrays()
+            .first()
+            .ok_or_else(|| sink_error("completed result has no typed arrays"))?;
+        let dtype = first.dtype().clone();
+        let fields = dtype
+            .as_struct_fields_opt()
+            .ok_or_else(|| sink_error("completed result requires a struct dtype"))?;
+        let columns = fields.names().iter().map(|name| name.to_string()).collect();
+        if result.arrays().iter().any(|array| array.dtype() != &dtype) {
+            return Err(sink_error("completed result arrays disagree on dtype"));
+        }
+        Ok(Self {
+            session: result.retained_session(),
+            row_count: result.row_count(),
+            source: NativeSinkInput::Completed(result),
+            source_path: None,
+            projection: None,
+            filter: None,
+            dtype,
+            columns,
+            limit: None,
+            metadata_pruned: false,
+        })
+    }
+
+    pub(super) fn arrays<'a>(
+        &'a self,
+        file: Option<&'a vortex::file::VortexFile>,
+        runtime: &'a vortex::io::runtime::current::CurrentThreadRuntime,
+        batch_rows: usize,
+    ) -> Result<Box<dyn Iterator<Item = Result<vortex::array::ArrayRef>> + 'a>> {
+        if let NativeSinkInput::Completed(result) = &self.source {
+            return Ok(Box::new(result.arrays().iter().flat_map(move |array| {
+                (0..array.len()).step_by(batch_rows).map(move |start| {
+                    array
+                        .slice(start..array.len().min(start + batch_rows))
+                        .map_err(vortex_error)
+                })
+            })));
+        }
+        let file = file.ok_or_else(|| sink_error("native source file is absent"))?;
+        let mut scan = file
+            .scan()
+            .map_err(vortex_error)?
+            .with_ordered(true)
+            .with_split_by(SplitBy::RowCount(batch_rows))
+            .with_concurrency(1);
+        if let Some(projection) = self.projection.clone() {
+            scan = scan.with_projection(projection);
+        }
+        if let Some(filter) = self.filter.clone() {
+            scan = scan.with_filter(filter);
+        }
+        if self.filter.is_none()
+            && let Some(limit) = self.limit
+        {
+            scan = scan.with_limit(limit);
+        }
+        Ok(Box::new(
+            scan.into_array_iter(runtime)
+                .map_err(vortex_error)?
+                .map(|array| array.map_err(vortex_error)),
+        ))
+    }
+
     // Keep reservation, staged generation validation, publication, and evidence
     // in one operation so their lifetime and commit ordering remain visible.
     #[allow(clippy::too_many_lines)]
-    fn write(
+    pub(super) fn write(
         self,
         request: &VortexQueryPrimitiveRequest,
         output_path: &Path,
@@ -204,14 +311,20 @@ impl NativeSinkPlan {
         policy: VortexLocalPrimitiveExecutionPolicy,
     ) -> Result<VortexLocalPrimitiveRowExportReport> {
         self.source.validate_generation()?;
-        if fs::canonicalize(output_path).is_ok_and(|path| path == self.source_path)
-            || identity(output_path).is_ok_and(|output| {
-                identity(&self.source_path).is_ok_and(|source| source == output)
-            })
-        {
+        if self.source_path.as_ref().is_some_and(|source_path| {
+            fs::canonicalize(output_path).is_ok_and(|path| path == *source_path)
+                || identity(output_path)
+                    .is_ok_and(|output| identity(source_path).is_ok_and(|source| source == output))
+        }) {
             return Err(sink_error("source and output must be different files"));
         }
-        let max_chunks = if self.metadata_pruned {
+        let max_chunks = if let NativeSinkInput::Completed(result) = &self.source {
+            result.arrays().iter().try_fold(0_usize, |chunks, array| {
+                chunks
+                    .checked_add(array.len().div_ceil(SCAN_ROWS))
+                    .ok_or_else(|| sink_error("completed chunk count overflow"))
+            })?
+        } else if self.metadata_pruned {
             0
         } else {
             let chunks = if self.filter.is_none() {
@@ -256,25 +369,8 @@ impl NativeSinkPlan {
                     .blocking(runtime)
                     .writer(&mut output.file, self.dtype.clone());
                 if !self.metadata_pruned && self.row_count > 0 {
-                    let mut scan = file
-                        .scan()
-                        .map_err(vortex_error)?
-                        .with_ordered(true)
-                        .with_split_by(SplitBy::RowCount(SCAN_ROWS))
-                        .with_concurrency(1);
-                    if let Some(projection) = self.projection.clone() {
-                        scan = scan.with_projection(projection);
-                    }
-                    if let Some(filter) = self.filter.clone() {
-                        scan = scan.with_filter(filter);
-                    }
-                    if self.filter.is_none()
-                        && let Some(limit) = self.limit
-                    {
-                        scan = scan.with_limit(limit);
-                    }
-                    for array in scan.into_array_iter(runtime).map_err(vortex_error)? {
-                        let array = array.map_err(vortex_error)?;
+                    for array in self.arrays(file, runtime, SCAN_ROWS)? {
+                        let array = array?;
                         arrays_read += 1;
                         max_rows = max_rows.max(array.len());
                         if array.len() > SCAN_ROWS {
@@ -365,8 +461,9 @@ impl NativeSinkPlan {
             projection_pushdown_applied: projection_applied,
             source_order_limit_applied: self.limit.is_some(),
         };
-        evidence.upstream_scan_called = !self.metadata_pruned && self.row_count > 0;
-        evidence.side_effects.data_read = arrays_read > 0;
+        evidence.upstream_scan_called =
+            self.source.is_source() && !self.metadata_pruned && self.row_count > 0;
+        evidence.side_effects.data_read = self.source.is_source() && arrays_read > 0;
         // Filter kernels and the native serializer may canonicalize encodings.
         // Zero adapter scalarization is not a claim that all provider work avoids
         // decoding or allocating; conservatively expose that native boundary.

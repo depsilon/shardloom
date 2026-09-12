@@ -152,6 +152,20 @@ impl ExactDistinctResult {
             Ok(())
         })?;
         let row_count = rows.len();
+        self.summary(states, row_count, Some(rows))
+    }
+
+    pub(in super::super) fn summary(
+        &self,
+        states: &GroupedAggregateStates<'_>,
+        row_count: usize,
+        rows: Option<Vec<serde_json::Value>>,
+    ) -> Result<(usize, String)> {
+        let group = states
+            .group_columns
+            .first()
+            .ok_or_else(|| failed("final distinct group is absent"))?;
+        let scalar_output = rows.is_some();
         let payload = serde_json::json!({
             "rows": row_count, "group_by": group.name, "functions": states.state_template.functions_summary(),
             "aggregate_key_encoding_mode": "typed_complete_integer_pair_keys",
@@ -175,13 +189,14 @@ impl ExactDistinctResult {
             "group_key_storage": "owned_native_integer_pair_bits", "group_key_comparison_strategy": "typed_value_comparator",
             "source_order_key_retention": "ordered_route_source_order_keys_elided",
             "topk_retention_after_update": self.retained_count(), "evicted_or_spilled_group_count": 0,
-            "materialized_group_value_count": row_count, "decoded_string_count": 0,
+            "materialized_group_value_count": if scalar_output { row_count } else { 0 }, "decoded_string_count": 0,
             "estimated_group_key_storage_bytes": states.estimated_group_key_storage_bytes(),
             "estimated_group_string_storage_bytes": 0,
             "uniqueness_proof_status": "complete_group_value_pairs_all_contributions_before_group_count_and_selection",
             "spill_state": "not_spilled", "offset": states.request.offset,
             "order_by": states.request.order_by.iter().map(crate::VortexAggregateOrderExpr::summary).collect::<Vec<_>>().join(","),
             "values": rows,
+            "aggregate_result_boundary": if scalar_output { "JSON_rows" } else { "owned_native_integer_columns;no_JSON_or_StatValue_output_rows" },
         });
         #[cfg(feature = "vortex-write")]
         let payload = {

@@ -14097,7 +14097,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             let (dispatch_status, registry_kernel_id, registry_status, registry_physical_status) =
                 match admission {
                     Ok(Some(admission)) if admission.is_admitted() => (
-                        "dispatched_to_shardloom_native_hot_lane".to_string(),
+                        "selected_contract_only".to_string(),
                         admission
                             .selected_kernel_id
                             .unwrap_or_else(|| "none".to_string()),
@@ -14132,7 +14132,7 @@ impl TraditionalAnalyticsVortexBatchReport {
                     ),
                 };
             format!(
-                "{lane}:scenario={}:family={source_state_family}:kernel={kernel_id}:profile={specialization_profile}:status={dispatch_status}:registry_kernel={registry_kernel_id}:registry_status={registry_status}:registry_physical_status={registry_physical_status}:decoded_reference=focused_fixture_reference_compared",
+                "{lane}:scenario={}:family={source_state_family}:kernel={kernel_id}:profile={specialization_profile}:status={dispatch_status}:registry_kernel={registry_kernel_id}:registry_status={registry_status}:registry_physical_status={registry_physical_status}:decoded_reference=declared_fixture_prerequisite_not_observed_here:runtime_execution=not_observed",
                 traditional_scenario_slug(scenario),
             )
         };
@@ -14203,15 +14203,18 @@ impl TraditionalAnalyticsVortexBatchReport {
                 VortexQueryPrimitiveKind::SortRows,
             ),
         ];
-        let executed_count = rows
+        // This method assembles evidence after scenarios ran. Scenario presence
+        // and registry admission do not observe a selected kernel invocation,
+        // its actual physical encoding, or an independent reference comparison.
+        let selected_count = rows
             .iter()
-            .filter(|row| row.contains("status=dispatched_to_shardloom_native_hot_lane"))
+            .filter(|row| row.contains("status=selected_contract_only"))
             .count();
         let matrix = rows.join(";");
         let digest = route_evidence_digest(&[
             HOT_LANE_NATIVE_KERNEL_DISPATCH_SCHEMA_VERSION,
             &matrix,
-            &executed_count.to_string(),
+            &selected_count.to_string(),
         ]);
         vec![
             (
@@ -14220,8 +14223,8 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
             (
                 "hot_lane_native_kernel_dispatch_status".to_string(),
-                if executed_count > 0 {
-                    "accepted_hot_lanes_bound_to_shardloom_native_dispatch"
+                if selected_count > 0 {
+                    "registry_selection_only_execution_not_observed"
                 } else {
                     "not_applicable_no_accepted_hot_lane_requested"
                 }
@@ -14233,7 +14236,11 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
             (
                 "hot_lane_native_kernel_dispatch_executed_count".to_string(),
-                executed_count.to_string(),
+                "0".to_string(),
+            ),
+            (
+                "hot_lane_native_kernel_dispatch_selected_count".to_string(),
+                selected_count.to_string(),
             ),
             (
                 "hot_lane_native_kernel_dispatch_matrix".to_string(),
@@ -14245,12 +14252,12 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
             (
                 "hot_lane_native_kernel_dispatch_provider_scope".to_string(),
-                "shardloom_vortex_prepared_source_state_and_reader_generated_kernel_inputs"
+                "registry_descriptor_selection_from_declared_scenario_contracts"
                     .to_string(),
             ),
             (
                 "hot_lane_native_kernel_dispatch_decoded_reference_status".to_string(),
-                "focused_fixture_reference_compared_no_external_runtime_fallback".to_string(),
+                "fixture_reference_prerequisite_declared_not_observed_by_registry_selection".to_string(),
             ),
             (
                 "hot_lane_native_kernel_dispatch_fallback_attempted".to_string(),
@@ -14262,7 +14269,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
             (
                 "hot_lane_native_kernel_dispatch_claim_boundary".to_string(),
-                "dispatch evidence covers accepted local hot lanes only; encoded-native and public benchmark claims remain blocked until decoded reference, Native I/O certificate, and CG-5/CG-6 evidence are complete"
+                "report-only registry selection does not establish kernel invocation, actual input encoding, or decoded-reference comparison; execution evidence belongs to the native executor and public claims remain subject to CG-5/CG-6"
                     .to_string(),
             ),
         ]
@@ -50418,7 +50425,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "hot_lane_native_kernel_dispatch_status",
-            "accepted_hot_lanes_bound_to_shardloom_native_dispatch",
+            "registry_selection_only_execution_not_observed",
         );
         assert_field_eq(
             &fields,
@@ -50428,6 +50435,11 @@ mod tests {
         assert_field_eq(
             &fields,
             "hot_lane_native_kernel_dispatch_executed_count",
+            "0",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_selected_count",
             "3",
         );
         assert_field_contains(
@@ -50458,7 +50470,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "hot_lane_native_kernel_dispatch_decoded_reference_status",
-            "focused_fixture_reference_compared_no_external_runtime_fallback",
+            "fixture_reference_prerequisite_declared_not_observed_by_registry_selection",
         );
         assert_field_eq(
             &fields,
@@ -50836,7 +50848,7 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
-    fn prepared_native_vortex_batch_dispatches_all_accepted_hot_lanes() {
+    fn prepared_native_vortex_batch_selects_contracts_without_certifying_kernel_dispatch() {
         let root = traditional_analytics_test_root("prepared-native-all-hot-lanes");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
         let import_report = run_traditional_analytics_benchmark(
@@ -50872,7 +50884,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "hot_lane_native_kernel_dispatch_status",
-            "accepted_hot_lanes_bound_to_shardloom_native_dispatch",
+            "registry_selection_only_execution_not_observed",
         );
         assert_field_eq(
             &fields,
@@ -50882,7 +50894,17 @@ mod tests {
         assert_field_eq(
             &fields,
             "hot_lane_native_kernel_dispatch_executed_count",
+            "0",
+        );
+        assert_field_eq(
+            &fields,
+            "hot_lane_native_kernel_dispatch_selected_count",
             "5",
+        );
+        assert_field_contains(
+            &fields,
+            "hot_lane_native_kernel_dispatch_matrix",
+            "runtime_execution=not_observed",
         );
         for lane in [
             "string_predicate_count",

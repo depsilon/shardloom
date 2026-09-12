@@ -23,8 +23,9 @@ fn summary() -> VortexMetadataSummaryReport {
 fn stats_segment(
     row_count: u64,
     column: &str,
-    stats: SegmentStats,
+    mut stats: SegmentStats,
 ) -> VortexSegmentMetadataSummary {
+    stats.exactness = shardloom_core::StatisticsExactness::Exact;
     let mut segment = VortexSegmentMetadataSummary::unknown().with_row_count(row_count);
     segment.add_column(
         VortexColumnMetadataSummary::new(ColumnRef::new(column).expect("column"))
@@ -32,6 +33,46 @@ fn stats_segment(
             .with_statistics_available(true),
     );
     segment
+}
+
+#[test]
+fn untrusted_statistics_cannot_publish_zero_count_or_false_filter() {
+    for exactness in [
+        shardloom_core::StatisticsExactness::Approximate,
+        shardloom_core::StatisticsExactness::Unknown,
+    ] {
+        let mut facts = SegmentStats::with_row_count(2);
+        facts.null_count = Some(0);
+        facts.min_value = Some(StatValue::Int64(1));
+        facts.max_value = Some(StatValue::Int64(5));
+        let mut segment = stats_segment(2, "x", facts);
+        segment.columns[0].stats.exactness = exactness;
+        let mut metadata = summary();
+        metadata.summary.segments.push(segment);
+        for predicate in [
+            PredicateExpr::IsNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::Gt,
+                value: StatValue::Int64(6),
+            },
+        ] {
+            for request in [
+                VortexQueryPrimitiveRequest::count_where(uri(), predicate.clone()),
+                VortexQueryPrimitiveRequest::filter(uri(), predicate.clone()),
+            ] {
+                let result = evaluate_vortex_query_primitive(request, &metadata).unwrap();
+                assert_eq!(
+                    result.status,
+                    VortexQueryPrimitiveStatus::NeedsEncodedPredicate
+                );
+                assert_eq!(result.value, VortexQueryPrimitiveValue::Unknown);
+                assert_result_no_effects(&result);
+            }
+        }
+    }
 }
 
 fn assert_no_effects(report: &shardloom_vortex::VortexLocalExecutionReport) {
@@ -180,6 +221,7 @@ fn count_where_metadata_true_sums_matching_segment_rows() {
 fn count_where_metadata_true_without_segment_rows_blocks_without_fallback() {
     let mut metadata = summary();
     let mut stats = SegmentStats::unknown();
+    stats.exactness = shardloom_core::StatisticsExactness::Exact;
     stats.null_count = Some(0);
     let mut segment = VortexSegmentMetadataSummary::unknown();
     segment.add_column(

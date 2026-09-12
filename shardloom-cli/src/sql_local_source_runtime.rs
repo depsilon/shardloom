@@ -7603,6 +7603,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         ingest_executor_requested_parallelism: 1,
         ingest_executor_applied_parallelism: 1,
         ingest_executor_unit_count_hint: None,
+        source_identities: Vec::new(),
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
         reader: Box::new(batch_reader),
@@ -7824,6 +7825,7 @@ fn try_run_inferred_text_vortex_prepare(
         ingest_executor_requested_parallelism: 1,
         ingest_executor_applied_parallelism: 1,
         ingest_executor_unit_count_hint: None,
+        source_identities: Vec::new(),
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
         reader: Box::new(batch_reader),
@@ -8610,6 +8612,7 @@ fn stream_columnar_vortex_ingest_partition_source(
         ingest_executor_requested_parallelism: _,
         ingest_executor_applied_parallelism: _,
         embedded_derived_build_micros,
+        mut source_identities,
         reader,
     } = first_source;
     let schema = reader.schema();
@@ -8651,6 +8654,7 @@ fn stream_columnar_vortex_ingest_partition_source(
             source.source_stream_unit_count_hint,
             "partition source stream unit count",
         )?;
+        source_identities.extend(source.source_identities);
         readers.push_back(source.reader);
     }
     if let Some(row_count_hint) = combined_row_count_hint
@@ -8687,6 +8691,7 @@ fn stream_columnar_vortex_ingest_partition_source(
             .or(combined_record_batch_count_hint)
             .or(Some(readers.len())),
         embedded_derived_build_micros,
+        source_identities,
         reader: Box::new(PartitionedColumnarStreamReader {
             schema,
             readers,
@@ -45198,6 +45203,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
             ),
             reader: Box::new(TestRecordBatchReader {
@@ -45330,6 +45336,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
             ),
             reader: Box::new(TestRecordBatchReader {
@@ -45494,6 +45501,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
             ),
             reader: Box::new(TestRecordBatchReader {
@@ -45608,6 +45616,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
             ),
             reader: Box::new(TestRecordBatchReader {

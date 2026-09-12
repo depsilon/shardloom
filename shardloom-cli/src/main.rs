@@ -6520,7 +6520,8 @@ mod tests {
         );
     }
 
-    fn vortex_count_where_filter_summary(stats: SegmentStats) -> VortexMetadataSummaryReport {
+    fn vortex_count_where_filter_summary(mut stats: SegmentStats) -> VortexMetadataSummaryReport {
+        stats.exactness = shardloom_core::StatisticsExactness::Exact;
         let mut segment =
             shardloom_vortex::VortexSegmentMetadataSummary::unknown().with_row_count(5);
         segment.add_column(

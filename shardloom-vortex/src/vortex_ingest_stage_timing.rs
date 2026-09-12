@@ -41,7 +41,7 @@ impl VortexIngestStageReport {
             ("vortex_ingest_stage_byte_scope".into(), "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured".into()),
             ("vortex_ingest_stage_coverage".into(), "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec".into()),
             ("vortex_ingest_numeric_codec_scope".into(), "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused".into()),
-            ("vortex_ingest_dictionary_probe_scope".into(), "baseline_legacy_array_session_empty_edition_whitelist_preserved;built_in_canonical_or_constant_decisions_only;not_full_dictionary_or_text_scheme_selection".into()),
+            ("vortex_ingest_dictionary_probe_scope".into(), "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection".into()),
             ("vortex_ingest_legacy_encode_write_scope".into(), "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io".into()),
             ("vortex_ingest_legacy_encode_write_semantics".into(), "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable".into()),
             ("vortex_ingest_legacy_stream_conversion_scope".into(), "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation".into()),

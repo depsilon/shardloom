@@ -2818,8 +2818,9 @@ mod tests {
     }
     fn seg_with_stats(
         row_count: Option<u64>,
-        stats: SegmentStats,
+        mut stats: SegmentStats,
     ) -> crate::VortexSegmentMetadataSummary {
+        stats.exactness = shardloom_core::StatisticsExactness::Exact;
         let mut s = crate::VortexSegmentMetadataSummary::unknown();
         s.row_count = row_count;
         let mut c = crate::VortexColumnMetadataSummary::new(ColumnRef::new("x").expect("column"));

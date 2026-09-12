@@ -212,6 +212,8 @@ impl SortOrder {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatisticsExactness {
     Exact,
+    /// Advice-only estimates. No direction-certified lower/upper-bound contract
+    /// is represented by this variant, so it cannot exclude matching rows.
     Approximate,
     Unknown,
 }
@@ -879,6 +881,24 @@ pub fn prove_predicate_from_stats(
             reason: "always false predicate".to_string(),
         },
         PredicateExpr::And(predicates) => prove_conjunction_from_stats(predicates, stats),
+        PredicateExpr::IsNull { .. }
+        | PredicateExpr::IsNotNull { .. }
+        | PredicateExpr::Compare { .. }
+            if stats.exactness != StatisticsExactness::Exact =>
+        {
+            PredicateProof::Unknown {
+                reason: "predicate proof requires exact statistics; approximate or unknown facts are advice-only".to_string(),
+            }
+        }
+        PredicateExpr::IsNull { .. }
+        | PredicateExpr::IsNotNull { .. }
+        | PredicateExpr::Compare { .. }
+            if matches!((stats.row_count, stats.null_count), (Some(rows), Some(nulls)) if nulls > rows) =>
+        {
+            PredicateProof::Unknown {
+                reason: "inconsistent null count exceeds segment row count".to_string(),
+            }
+        }
         PredicateExpr::IsNull { .. } => match (stats.row_count, stats.null_count) {
             (Some(0), _) => PredicateProof::AlwaysFalse {
                 reason: "segment row_count == 0".to_string(),
@@ -913,7 +933,7 @@ pub fn prove_predicate_from_stats(
                 "string contains predicates require encoded-value or materialized row evaluation"
                     .to_string(),
         },
-        PredicateExpr::InList { values, .. } if values.is_empty() => PredicateProof::AlwaysFalse {
+        PredicateExpr::InList { values, negated: false, .. } if values.is_empty() => PredicateProof::AlwaysFalse {
             reason: "empty IN list cannot match".to_string(),
         },
         PredicateExpr::InList { .. } => PredicateProof::MayMatch {
@@ -1032,6 +1052,20 @@ pub fn evaluate_predicate_on_encoded_segment(
     let proof = prove_predicate_from_stats(predicate, &segment.stats);
     match &proof {
         PredicateProof::AlwaysTrue { reason } => {
+            if segment.stats.exactness != StatisticsExactness::Exact {
+                return EncodedPredicateEvaluationReport::blocked(
+                    segment,
+                    predicate,
+                    proof.clone(),
+                    EncodedPredicateEvaluationStatus::MissingSegmentMetadata,
+                    EncodedEvalCapability::PartialDecodeRequired {
+                        reason:
+                            "exact row_count metadata is required to emit a full selection vector"
+                                .to_string(),
+                    },
+                    None,
+                );
+            }
             let Some(row_count) = segment.stats.row_count else {
                 return EncodedPredicateEvaluationReport::blocked(
                     segment,
@@ -1577,6 +1611,11 @@ fn prove_comparison_from_stats(
             reason: "min/max statistics unavailable".to_string(),
         };
     };
+    if !matches!(cmp_stat_values(min, max), Some(order) if order <= 0) {
+        return PredicateProof::Unknown {
+            reason: "min/max statistics are inverted or incomparable".to_string(),
+        };
+    }
     let max_ord = cmp_stat_values(max, value);
     let min_ord = cmp_stat_values(min, value);
     match op {
@@ -2029,7 +2068,10 @@ mod tests {
         assert!(empty_error.contains("empty selection-vector set"));
     }
 
-    fn segment_with_stats(column: &str, stats: SegmentStats) -> EncodedSegment {
+    fn segment_with_stats(column: &str, mut stats: SegmentStats) -> EncodedSegment {
+        // This fixture supplies known facts; untrusted-stat tests below use the
+        // proof function directly or explicitly replace this declaration.
+        stats.exactness = StatisticsExactness::Exact;
         EncodedSegment::new(
             SegmentId::new("segment-1").unwrap(),
             ColumnRef::new(column).unwrap(),
@@ -2493,6 +2535,7 @@ mod tests {
     #[test]
     fn prove_predicate_from_stats_recognizes_constant_eq_true() {
         let mut stats = SegmentStats::with_row_count(2);
+        stats.exactness = StatisticsExactness::Exact;
         stats.null_count = Some(0);
         stats.min_value = Some(StatValue::Int64(7));
         stats.max_value = Some(StatValue::Int64(7));
@@ -2507,6 +2550,125 @@ mod tests {
         );
 
         assert!(matches!(proof, PredicateProof::AlwaysTrue { .. }));
+    }
+
+    #[test]
+    fn approximate_and_unknown_statistics_never_prove_row_absence_or_full_selection() {
+        let column = ColumnRef::new("x").unwrap();
+        for exactness in [
+            StatisticsExactness::Approximate,
+            StatisticsExactness::Unknown,
+        ] {
+            for null_count in [0, 2] {
+                let mut stats = SegmentStats::with_row_count(2);
+                stats.exactness = exactness;
+                stats.null_count = Some(null_count);
+                stats.min_value = Some(StatValue::Int64(1));
+                stats.max_value = Some(StatValue::Int64(5));
+                for predicate in [
+                    PredicateExpr::IsNull {
+                        column: column.clone(),
+                    },
+                    PredicateExpr::IsNotNull {
+                        column: column.clone(),
+                    },
+                    PredicateExpr::Compare {
+                        column: column.clone(),
+                        op: ComparisonOp::Gt,
+                        value: StatValue::Int64(6),
+                    },
+                    PredicateExpr::Compare {
+                        column: column.clone(),
+                        op: ComparisonOp::Lt,
+                        value: StatValue::Int64(1),
+                    },
+                ] {
+                    assert!(matches!(
+                        prove_predicate_from_stats(&predicate, &stats),
+                        PredicateProof::Unknown { .. }
+                    ));
+                    assert!(matches!(
+                        prove_predicate_from_stats(
+                            &PredicateExpr::And(vec![PredicateExpr::AlwaysTrue, predicate]),
+                            &stats
+                        ),
+                        PredicateProof::Unknown { .. }
+                    ));
+                }
+                // Logical constants can still avoid work without trusting any
+                // statistic, including when they follow an unknown conjunct.
+                assert!(matches!(
+                    prove_predicate_from_stats(&PredicateExpr::AlwaysFalse, &stats),
+                    PredicateProof::AlwaysFalse { .. }
+                ));
+                let mut segment = segment_with_stats("x", stats);
+                segment.stats.exactness = exactness;
+                let report =
+                    evaluate_predicate_on_encoded_segment(&PredicateExpr::AlwaysTrue, &segment);
+                assert_eq!(report.selection_vector, None);
+                assert_eq!(
+                    report.status,
+                    EncodedPredicateEvaluationStatus::MissingSegmentMetadata
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn exact_but_inconsistent_statistics_remain_inconclusive() {
+        let column = ColumnRef::new("x").unwrap();
+        let predicate = PredicateExpr::Compare {
+            column: column.clone(),
+            op: ComparisonOp::Eq,
+            value: StatValue::Int64(7),
+        };
+        for (min, max) in [
+            (StatValue::Int64(9), StatValue::Int64(5)),
+            (StatValue::Int64(9), StatValue::Utf8("z".into())),
+            (StatValue::Float64(f64::NAN), StatValue::Float64(5.0)),
+        ] {
+            let mut stats = SegmentStats::with_row_count(2);
+            stats.exactness = StatisticsExactness::Exact;
+            stats.min_value = Some(min);
+            stats.max_value = Some(max);
+            assert!(matches!(
+                prove_predicate_from_stats(&predicate, &stats),
+                PredicateProof::Unknown { .. }
+            ));
+        }
+        let mut stats = SegmentStats::with_row_count(0);
+        stats.exactness = StatisticsExactness::Exact;
+        stats.null_count = Some(1);
+        for predicate in [predicate, PredicateExpr::IsNull { column }] {
+            assert!(matches!(
+                prove_predicate_from_stats(&predicate, &stats),
+                PredicateProof::Unknown { .. }
+            ));
+        }
+    }
+
+    #[test]
+    fn empty_negated_in_list_cannot_prune_non_null_rows() {
+        let column = ColumnRef::new("x").unwrap();
+        let predicate = PredicateExpr::InList {
+            column,
+            values: Vec::new(),
+            negated: true,
+        };
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(1));
+        assert!(matches!(
+            prove_predicate_from_stats(&predicate, &segment.stats),
+            PredicateProof::MayMatch { .. }
+        ));
+        let result = evaluate_predicate_on_encoded_values(
+            &predicate,
+            &segment,
+            &EncodedValueBatch::Constant {
+                value: Some(StatValue::Int64(9)),
+                row_count: 1,
+            },
+        );
+        assert_eq!(result.selected_count, Some(1));
     }
     #[test]
     fn materialization_policy_requires_materialization() {

@@ -138,13 +138,21 @@ pub(super) fn resolve_structural_projection(
     array: &ArrayRef,
     ctx: &mut ExecutionCtx,
 ) -> Result<ArrayRef> {
+    resolve_structural_projection_with_provider_error(array, ctx, &mut vortex_error)
+}
+
+pub(super) fn resolve_structural_projection_with_provider_error(
+    array: &ArrayRef,
+    ctx: &mut ExecutionCtx,
+    provider_error: &mut impl FnMut(vortex::error::VortexError) -> ShardLoomError,
+) -> Result<ArrayRef> {
     if !structural_wrapper(array) {
         return Ok(array.clone());
     }
     let resolved = array
         .clone()
         .execute_until::<PhysicalLeaf>(ctx)
-        .map_err(vortex_error)?;
+        .map_err(provider_error)?;
     if resolved.dtype() != array.dtype() || resolved.len() != array.len() {
         return Err(failed("native structural resolution changed shape"));
     }

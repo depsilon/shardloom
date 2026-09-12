@@ -35,7 +35,6 @@ use vortex::{
         validity::Validity,
     },
     arrow::ArrowSessionExt as _,
-    layout::scan::split_by::SplitBy,
 };
 
 #[derive(Clone)]
@@ -149,6 +148,24 @@ pub(super) fn prepare(
     let Some(plan) = native_sink::prepare(request, path, policy)? else {
         return Ok(None);
     };
+    prepare_plan(request, plan, format, policy, limits)
+}
+
+pub(super) fn prepare_plan(
+    request: &VortexQueryPrimitiveRequest,
+    plan: native_sink::NativeSinkPlan,
+    format: VortexLocalPrimitiveRowExportFormat,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    limits: CompatibilityLimits,
+) -> Result<Option<PreparedCompatibilityExport>> {
+    limits.check()?;
+    if !matches!(
+        format,
+        VortexLocalPrimitiveRowExportFormat::ArrowIpc
+            | VortexLocalPrimitiveRowExportFormat::Parquet
+    ) {
+        return Ok(None);
+    }
     if plan.row_count > limits.source_rows
         || plan.limit.is_some_and(|limit| limit > limits.output_rows)
     {
@@ -418,21 +435,9 @@ impl PreparedCompatibilityExport {
                 let mut ctx = session.create_execution_ctx();
                 let target = Field::new("", DataType::Struct(self.schema.fields().clone()), false);
                 if !self.plan.metadata_pruned && self.plan.row_count > 0 {
-                    let mut scan = file
-                        .scan()
-                        .map_err(vortex_error)?
-                        .with_ordered(true)
-                        .with_concurrency(1)
-                        .with_split_by(SplitBy::RowCount(self.limits.batch_rows));
-                    if let Some(projection) = self.plan.projection.clone() {
-                        scan = scan.with_projection(projection);
-                    }
-                    if let Some(filter) = self.plan.filter.clone() {
-                        scan = scan.with_filter(filter);
-                    }
-                    for next in scan.into_array_iter(runtime).map_err(vortex_error)? {
+                    for next in self.plan.arrays(file, runtime, self.limits.batch_rows)? {
                         self.limits.check()?;
-                        let array = next.map_err(vortex_error)?;
+                        let array = next?;
                         arrays = arrays
                             .checked_add(1)
                             .ok_or_else(|| error("scan counter overflow"))?;
@@ -550,7 +555,8 @@ impl PreparedCompatibilityExport {
             projection_pushdown_applied: self.plan.projection.is_some(),
             source_order_limit_applied: self.plan.limit.is_some(),
         };
-        let scan_called = !self.plan.metadata_pruned && self.plan.row_count > 0;
+        let scan_called =
+            self.plan.source.is_source() && !self.plan.metadata_pruned && self.plan.row_count > 0;
         evidence.upstream_scan_called = scan_called;
         // Vortex drops all-false filter tasks before they yield an array. Zero
         // returned arrays therefore does not prove zero I/O or decoding. These

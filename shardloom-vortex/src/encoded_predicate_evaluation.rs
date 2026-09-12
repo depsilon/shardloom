@@ -547,7 +547,8 @@ mod tests {
         }
     }
 
-    fn segment(stats: SegmentStats) -> VortexSegmentMetadataSummary {
+    fn segment(mut stats: SegmentStats) -> VortexSegmentMetadataSummary {
+        stats.exactness = shardloom_core::StatisticsExactness::Exact;
         let mut segment = VortexSegmentMetadataSummary::unknown().with_row_count(5);
         segment.add_column(
             VortexColumnMetadataSummary::new(ColumnRef::new("x").expect("column"))
