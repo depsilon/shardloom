@@ -19,6 +19,22 @@ not replace the baseline. Do not rerun/change that control until a candidate
 first shows credible material improvement. Preserve all failed samples and the
 existing artifact/log/source/process guards.
 
+## Implementation progress after the inventory
+
+The [native completion packet](../benchmarks/native-completion-boundaries-2026-09-12.md)
+tracks the current implementation and focused evidence for single-key UTF8 COUNT
+worker-to-spill handoff, prepared integer MIN/MAX/AVG, owned bounded integer
+grouped DISTINCT output, Unix Parquet generation checks, pipeline pressure,
+file-backed serving and conservative statistics proof. Combined feature and
+public acceptance remain in progress. The tables below retain their original
+inventory scope; they are not evidence that these changes were already present
+at `a8775c4f`, nor do the scoped implementations close every entry in their epics.
+
+Typed string/NULL constant group outputs and a measured native text storage
+candidate are the next active implementations. The
+[storage exploration](native-storage-reduction-2026-09-12.md) preserves existing
+derived helpers and statistics and requires complete validation of changed bytes.
+
 ## Work that can proceed now
 
 1. **Connect aggregate workers to exact native spill under pressure.** The

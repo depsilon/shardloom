@@ -2,6 +2,7 @@ use super::*;
 use crate::{VortexAggregateOrderExpr, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest};
 use shardloom_core::{ColumnRef, DatasetUri};
 use std::{
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
@@ -76,6 +77,53 @@ impl Fixture {
             .unwrap();
         path
     }
+
+    fn physical_pair_batches(&self, pairs: &[(i64, u64)]) -> PathBuf {
+        let path = self.0.join("source.vortex");
+        let runtime = super::super::local_vortex_runtime(
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        );
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let arrays = pairs
+            .chunks(4)
+            .map(|batch| {
+                StructArray::new(
+                    [KEY, VALUE].into(),
+                    vec![
+                        PrimitiveArray::new(
+                            batch.iter().map(|pair| pair.0).collect::<Vec<_>>(),
+                            Validity::NonNullable,
+                        )
+                        .into_array(),
+                        PrimitiveArray::new(
+                            batch.iter().map(|pair| pair.1).collect::<Vec<_>>(),
+                            Validity::NonNullable,
+                        )
+                        .into_array(),
+                    ],
+                    batch.len(),
+                    Validity::NonNullable,
+                )
+                .into_array()
+            })
+            .collect::<Vec<_>>();
+        let mut file = fs::File::create(&path).unwrap();
+        let mut writer = session
+            .write_options()
+            .with_strategy(
+                super::super::native_flat_layout::SequentialNativeFlatLayout::strategy(
+                    arrays.len(),
+                ),
+            )
+            .with_file_statistics(Vec::new())
+            .blocking(&runtime)
+            .writer(&mut file, arrays[0].dtype().clone());
+        for array in arrays {
+            writer.push(array).unwrap();
+        }
+        assert_eq!(writer.finish().unwrap().row_count(), pairs.len() as u64);
+        path
+    }
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -142,7 +190,8 @@ fn expected() -> serde_json::Value {
 }
 
 #[test]
-fn owned_distinct_preserves_complete_order_offsets_and_fresh_execution_under_pressure_handoff() {
+fn owned_distinct_preserves_complete_order_offsets_and_fresh_execution_under_worker_admission_pressure()
+ {
     let fixture = Fixture::new();
     let path = standard(&fixture);
     for workers in [1, 2, 4] {
@@ -190,6 +239,86 @@ fn owned_distinct_preserves_complete_order_offsets_and_fresh_execution_under_pre
                     Some(DType::Primitive(PType::I64, Nullability::NonNullable))
                 );
             }
+        }
+    }
+}
+
+#[test]
+fn owned_distinct_finalizes_committed_pairs_and_later_source_rows_after_mid_scan_handoff() {
+    let fixture = Fixture::new();
+    // The first physical batch exceeds the two-pair credit limit, committing
+    // a prefix before deferring the remaining identities. More batches than the
+    // worker window remain, including duplicate pairs and late winning groups.
+    let mut pairs = Vec::new();
+    for _ in 0..24 {
+        pairs.extend([
+            (i64::MAX, u64::MAX),
+            (i64::MIN, 0),
+            (i64::MAX, u64::MAX - 1),
+            (i64::MIN, 0),
+        ]);
+    }
+    for value in 0..24 {
+        pairs.extend([(0, value), (i64::MAX, u64::MAX), (i64::MIN, 1), (7, value)]);
+    }
+    let path = fixture.physical_pair_batches(&pairs);
+    let mut oracle = BTreeMap::<i64, BTreeSet<u64>>::new();
+    for &(key, value) in &pairs {
+        oracle.entry(key).or_default().insert(value);
+    }
+    let mut oracle = oracle
+        .into_iter()
+        .map(|(key, values)| (key, values.len()))
+        .collect::<Vec<_>>();
+    oracle.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(&right.0)));
+    assert_eq!(oracle, vec![(0, 24), (7, 24), (i64::MIN, 2), (i64::MAX, 2)]);
+    for workers in [1, 2, 4] {
+        for (offset, limit) in [(0, 10), (1, 2), (3, 4), (8, 2)] {
+            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap();
+            policy.resource_envelope.group_state_soft_item_budget = 2;
+            let prepared = prepare_aggregate(&request(&path, offset, limit), policy).unwrap();
+            let memory = prepared.session.memory().clone();
+            let completed = prepared.execute_owned().unwrap();
+            let report = &completed.execution.report;
+            let (_, summary) = report
+                .result_summary
+                .as_ref()
+                .unwrap()
+                .rsplit_once(" values=")
+                .unwrap();
+            let work: serde_json::Value = serde_json::from_str(summary).unwrap();
+            let committed = work["aggregate_workers_exact_distinct_committed_rows"]
+                .as_u64()
+                .unwrap();
+            let worker_rows = work["aggregate_workers_rows"].as_u64().unwrap();
+            assert_eq!(work["aggregate_workers_partition_native_handoffs"], 1);
+            assert!(committed > 0 && committed < worker_rows);
+            assert!(
+                worker_rows < report.rows_scanned,
+                "later source rows must execute after worker handoff"
+            );
+            assert_eq!(report.rows_scanned, pairs.len() as u64);
+            assert_eq!(work["aggregate_workers_outstanding_chunks"], 0);
+            assert_eq!(work["aggregate_workers_provider_background_workers"], 0);
+            assert_eq!(work["aggregate_workers_partition_retry_jobs"], 0);
+            assert!(work["aggregate_workers_partition_source_replays"].is_null());
+            assert_eq!(work["materialized_group_value_count"], 0);
+            assert!(work["values"].is_null());
+            assert!(completed.execution.native_io_certificate.is_certified());
+            assert!(!report.fallback_execution_allowed);
+            assert_eq!(prepared.snapshot().prepared_source_opens, 1);
+            assert_eq!(prepared.snapshot().completed_executions, 1);
+            let expected = oracle
+                .iter()
+                .skip(offset)
+                .take(limit)
+                .map(|(key, count)| serde_json::json!({KEY: key, COUNT: count}))
+                .collect::<Vec<_>>();
+            assert_eq!(rendered(&completed.result), serde_json::json!(expected));
+            drop(prepared);
+            assert_eq!(rendered(&completed.result), serde_json::json!(expected));
+            drop(completed);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
         }
     }
 }

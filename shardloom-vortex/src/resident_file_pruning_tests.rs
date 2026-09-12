@@ -33,6 +33,8 @@ struct Fixture {
 }
 
 impl Fixture {
+    // Keep the independent values and their physical representations together.
+    #[allow(clippy::too_many_lines)]
     fn new(profile: &str, dictionary: bool) -> Self {
         let directory = std::env::temp_dir().join(format!(
             "shardloom-file-pruning-{}-{}",
@@ -200,13 +202,14 @@ impl Predicate {
 
     fn matches(self, number: Option<i64>, text: Option<&str>) -> bool {
         match self {
-            Self::BelowIntegerMinimum | Self::AboveIntegerMaximum => false,
             Self::EqualIntegerMaximum => number == Some(i64::MAX),
             Self::NumericRange => number.is_some_and(|value| (0..=42).contains(&value)),
             Self::IsNull => text.is_none(),
             Self::IsNotNull => text.is_some(),
             Self::EqualEmpty => text == Some(""),
-            Self::EqualAbsentHigh
+            Self::BelowIntegerMinimum
+            | Self::AboveIntegerMaximum
+            | Self::EqualAbsentHigh
             | Self::EqualAbsentWithinRange
             | Self::ContainsAbsent
             | Self::ByteLengthAbsent => false,

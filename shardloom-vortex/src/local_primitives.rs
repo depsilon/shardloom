@@ -6240,6 +6240,8 @@ fn execute_vortex_local_pivot_row_export_enabled(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+// Keep admitted routing and the existing text publication lifecycle together.
+#[allow(clippy::too_many_lines)]
 fn execute_vortex_local_simple_aggregate_row_export_enabled(
     request: &VortexQueryPrimitiveRequest,
     output_path: &std::path::Path,
@@ -21029,7 +21031,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
-        let (result_row_count, result_summary) = if let Some(output) = owned_output.as_deref_mut() {
+        let (result_row_count, result_summary) = if let Some(output) = owned_output {
             output.finish(&states)?
         } else {
             states.result_row_count_and_summary(result_limit)?

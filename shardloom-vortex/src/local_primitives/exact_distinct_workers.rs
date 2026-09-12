@@ -152,14 +152,14 @@ impl ExactDistinctResult {
             Ok(())
         })?;
         let row_count = rows.len();
-        self.summary(states, row_count, Some(rows))
+        self.summary(states, row_count, Some(&rows))
     }
 
     pub(in super::super) fn summary(
         &self,
         states: &GroupedAggregateStates<'_>,
         row_count: usize,
-        rows: Option<Vec<serde_json::Value>>,
+        rows: Option<&[serde_json::Value]>,
     ) -> Result<(usize, String)> {
         let group = states
             .group_columns

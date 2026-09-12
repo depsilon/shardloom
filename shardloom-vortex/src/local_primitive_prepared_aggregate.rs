@@ -504,7 +504,7 @@ impl PreparedVortexAggregate {
                 None,
                 &self.lowering,
                 std::time::Instant::now(),
-                output.as_deref_mut(),
+                output,
             )
         })
     }

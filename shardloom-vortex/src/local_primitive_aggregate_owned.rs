@@ -253,7 +253,7 @@ impl OwnedAggregateFinalizer {
             rows,
             Validity::NonNullable,
         )
-        .map(|array| array.into_array())
+        .map(vortex::array::IntoArray::into_array)
         .map_err(vortex_error)
     }
 

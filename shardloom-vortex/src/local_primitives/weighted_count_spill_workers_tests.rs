@@ -132,7 +132,7 @@ fn weighted_count_workers_pressure_transfers_committed_prefix_and_untouched_suff
         // A drained native dictionary partial must preserve its domain counts
         // when later plain source values contribute to the same final merge.
         let values = ["same", "東京", "late", ""];
-        let codes: Vec<u8> = (0..96).map(|row| (row % 4) as u8).collect();
+        let codes: Vec<u8> = (0_u8..96).map(|row| row % 4).collect();
         let source = chunk(
             DictArray::try_new(
                 PrimitiveArray::new(codes.clone(), Validity::NonNullable).into_array(),

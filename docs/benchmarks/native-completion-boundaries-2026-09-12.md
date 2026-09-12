@@ -61,7 +61,7 @@ test matches multiple filters and must not be added together.
 | Streaming lifecycle, pressure and generation | 21 passed | `plan-exhaustion-streaming-focused.log` |
 | Prepared aggregate native acceptance | 15 passed | `plan-exhaustion-prepared-focused.log` |
 | Public resident aggregate worker | 6 passed | `plan-exhaustion-resident-worker-focused.log` |
-| Owned aggregate columns | 8 passed | `plan-exhaustion-owned-focused.log` |
+| Owned aggregate columns, including committed worker handoff | 9 passed | `plan-exhaustion-owned-focused-r2.log` |
 | Existing native and compatibility sinks | 40 passed, 1 pre-existing ignored | `plan-exhaustion-sinks-focused.log` |
 | File-backed shared-session serving | 3 passed | `plan-exhaustion-serving-focused.log` |
 | Native file pruning differential fixture | 1 passed | `plan-exhaustion-pruning-focused.log` |
@@ -73,9 +73,10 @@ test matches multiple filters and must not be added together.
 The serving fixture proves serialized progress, cooperative cancellation between
 reads, pressure recovery and ownership release. It does not establish FIFO
 fairness, preemptive queued/blocked-I/O cancellation, or ingest-plus-short-query
-latency distributions. The initial owned-output pressure fixture exercises
-worker admission rejection; a separate partially committed handoff test is being
-added. Neither fixture is a throughput benchmark or a process RSS ceiling.
+latency distributions. Owned-output pressure checks separately cover admission
+rejection and a real partially committed worker handoff, with complete independent
+values at multiple worker counts and offsets. These fixtures are not throughput
+benchmarks or process RSS ceilings.
 
 Failed compile, lint and fixture attempts remain in their original logs. The
 combined validation checks rebuild local crate artifacts after the shared-cache

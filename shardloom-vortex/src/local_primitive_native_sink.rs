@@ -242,7 +242,7 @@ impl NativeSinkPlan {
         let fields = dtype
             .as_struct_fields_opt()
             .ok_or_else(|| sink_error("completed result requires a struct dtype"))?;
-        let columns = fields.names().iter().map(|name| name.to_string()).collect();
+        let columns = fields.names().iter().map(ToString::to_string).collect();
         if result.arrays().iter().any(|array| array.dtype() != &dtype) {
             return Err(sink_error("completed result arrays disagree on dtype"));
         }

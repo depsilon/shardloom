@@ -1,5 +1,5 @@
 //! Explicit-spill adapter for the retained all-key string partials, partitions
-//! and AggregateChunkJobs. It owns no additional scheduler or partition format.
+//! and `AggregateChunkJobs`. It owns no additional scheduler or partition format.
 //! Source and spill continue on the same caller-driven native runtime.
 
 use super::super::{

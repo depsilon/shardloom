@@ -17,6 +17,7 @@ use vortex::{
 };
 
 #[test]
+#[allow(clippy::too_many_lines)] // Complete fixture, independent oracle and worker matrix.
 fn prepared_extrema_and_average_preserve_nullable_integer_values_and_fresh_state() {
     let fixture = Fixture::new();
     let runtime = SingleThreadRuntime::default();

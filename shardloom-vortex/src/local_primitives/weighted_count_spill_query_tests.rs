@@ -334,9 +334,7 @@ fn public_weighted_count_spill_native_domains_both_group_orders_filter_global_va
             match field {
                 "family" => spill.family = "generic_join".into(),
                 "source" => spill.source_rows += 1,
-                "geometry" => {
-                    spill.min_run_block_rows = if evidence.runs_written == 0 { 1 } else { 0 }
-                }
+                "geometry" => spill.min_run_block_rows = usize::from(evidence.runs_written == 0),
                 _ => spill.owned_cleanup_completed = false,
             }
             assert!(!local_primitive_native_io_safe(&request, &forged));
