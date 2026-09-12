@@ -348,7 +348,7 @@ fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
         snapshot.provider_background_workers,
         initial.provider_background_workers
     );
-    assert!(1 + snapshot.provider_background_workers <= workers);
+    assert!(snapshot.provider_background_workers < workers);
     assert!(snapshot.memory.peak_reserved_bytes <= snapshot.memory.limit_bytes);
     // An interrupted scan must leave the public full-result path reusable.
     let result = source
