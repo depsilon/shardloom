@@ -275,6 +275,18 @@ after its complete workload improves under the control ledger's rules. Choose
 subsequent work from measured dominant costs and a bounded retain/drop decision;
 do not automatically resume the paused capability inventory.
 
+The finite extraction is now validated at `4730003f`: 19 new focused tests,
+required workspace/native checks, 48 paired exact results, 96 renamed-fixture
+results and 129/129 Full43 results pass. Matched Q14 medians fall from
+8.815227 to 2.215635 seconds; all predeclared paired feasibility gates pass,
+with Q34 variation retained in the report. Full43 is 102.005509 seconds, so
+the historical 91.215296-second timing control is unchanged. Retain the shared
+operator on the focused branch and keep broad feature work paused. The
+[focused acceptance packet](../benchmarks/focused-utf8-distinct-2026-09-12.md)
+records the evidence, limitations and measured dominant costs for selecting
+another bounded experiment. This closes that experiment, not the remaining
+PERF or CG capability gates.
+
 Local large-artifact prerequisite: follow
 `docs/architecture/local-development-storage.md` before further PERF runs.
 Build outputs and the resident ClickBench source were relocated outside synced

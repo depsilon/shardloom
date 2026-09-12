@@ -88,10 +88,18 @@ plus release-user-surfaces all-target and minimal-native Clippy. Filters overlap
 these counts are not a distinct test total. The source anchor is `0a4c282f`
 with formatter-only Rust diff SHA256
 `1620fa952c9eeebcde2f9d8b6efffc7bb602d09c9ebbfea01b51fda16f01ea53`.
-Required workspace checks and matched performance remain pending.
+The clean frozen runtime `4730003f` also passes the required workspace checks:
+3,417 default tests and 3,278 native-feature checks, with nine existing manual
+benchmarks/fixtures ignored. The matched screen passes all 48 exact results and
+the renamed screen all 96 values/worker checks. Q14's matched medians are
+8.815227/2.215635 seconds. Full43 passes 129/129 at 102.005509 seconds, so the
+historical 91.215296-second whole-workload timing control is not advanced.
+See the [focused acceptance packet](../benchmarks/focused-utf8-distinct-2026-09-12.md)
+for source/binary identities, thresholds, raw variation and retain boundaries.
 
 Focused filters: `utf8_integer_distinct`, `compound_`, `exact_distinct_`,
 `aggregate_chunk_jobs`, existing prepared/source-retry and sink controls.
 Matched Q11/Q14/Q17/Q23/Q34/Q35, the unchanged 96-call renamed generic screen,
-then Full43 govern performance retention. The source-only port advances no
-accepted control and makes no competitive claim.
+then Full43 govern performance retention. These gates are complete for this
+focused experiment. The operator is retained on its focused branch; no overall
+timing-control advancement or competitive claim follows from the scoped gain.
