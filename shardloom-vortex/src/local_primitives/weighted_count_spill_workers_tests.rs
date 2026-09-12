@@ -183,7 +183,7 @@ fn weighted_count_workers_pressure_transfers_committed_prefix_and_untouched_suff
 #[test]
 fn weighted_count_workers_preserve_projected_dictionary_domains_and_actual_evidence() {
     use vortex::array::arrays::Dict;
-    use vortex::expr::{get_item, root};
+    use vortex::array::scalar_fn::fns::get_item::GetItem;
 
     let projected = |first: &str, second: &str, codes: Vec<u8>| {
         let mut values = vec![first.to_owned(), second.to_owned()];
@@ -196,8 +196,9 @@ fn weighted_count_workers_preserve_projected_dictionary_domains_and_actual_evide
             .unwrap()
             .into_array(),
         );
-        let expression = get_item("tag", root()).bind(inner.dtype()).unwrap();
-        let field = inner.apply_bound(&expression).unwrap();
+        // Construct the same native projection node the scan may return, without
+        // `apply_bound` eagerly simplifying a directly available Struct child.
+        let field = GetItem::try_new(inner, "tag").unwrap().into_array();
         assert!(
             !field.is::<Dict>(),
             "fixture must exercise the projected wrapper"
