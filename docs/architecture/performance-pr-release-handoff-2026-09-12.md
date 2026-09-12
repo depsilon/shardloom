@@ -2,6 +2,12 @@
 
 # Performance PR and release handoff
 
+Latest instruction: validation is resumed. Complete full UAT of the combined
+source before opening the performance PR, then prepare the `0.2.4` version bump.
+The source-incorporation record below captures the earlier testing pause;
+its pending checks now form the active acceptance queue. Nothing has been
+pushed, merged, tagged or published as part of this handoff.
+
 Status: selected source incorporation complete and independently source-reviewed.
 The maintainer has paused testing, builds and benchmarks while the previously
 measured enhancements are assembled for review. The combined PR has not been

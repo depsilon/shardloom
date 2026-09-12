@@ -244,6 +244,14 @@ the ledger.
 
 ## Planned
 
+Latest maintainer instruction, September 12: **full UAT first, then the
+performance PR, then the `0.2.4` version bump.** This resumes validation of the
+combined source and supersedes the testing pause below. Run focused and required
+workspace/native checks, then guarded full-size ingest, complete output parity,
+Full43 and the affected heldout/result-ownership acceptance. Fix failures before
+opening the performance PR. Preserve the accepted controls and storage guards;
+earlier component receipts are not combined-source acceptance.
+
 Latest maintainer handoff, September 12: **pause testing and consolidate the
 measured improvements for a PR, followed by a version-bump train.** The PR branch
 starts from current `main` (`5e8af695`), which already includes the retained

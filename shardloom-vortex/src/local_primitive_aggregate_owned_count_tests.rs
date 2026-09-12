@@ -118,8 +118,13 @@ fn owned_count_complete_file_workers_admission_pressure_ties_offsets_and_fresh_s
                     assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
                 }
                 let ordinary = prepared.execute().unwrap();
-                let (_, payload) = ordinary.report.result_summary.as_ref().unwrap()
-                    .rsplit_once(" values=").unwrap();
+                let (_, payload) = ordinary
+                    .report
+                    .result_summary
+                    .as_ref()
+                    .unwrap()
+                    .rsplit_once(" values=")
+                    .unwrap();
                 let payload: serde_json::Value = serde_json::from_str(payload).unwrap();
                 assert_eq!(payload["values"], count_oracle(keys, offset, limit));
                 drop(ordinary);
@@ -420,15 +425,23 @@ fn owned_count_and_distinct_decline_nullable_parent_before_native_allocation() {
     let dtype = DType::struct_(
         [
             (KEY, DType::Primitive(PType::I64, Nullability::NonNullable)),
-            (VALUE, DType::Primitive(PType::U64, Nullability::NonNullable)),
+            (
+                VALUE,
+                DType::Primitive(PType::U64, Nullability::NonNullable),
+            ),
         ],
         Nullability::Nullable,
     );
     for query in [count_request(path, 0, 3, false), request(path, 0, 3)] {
-        let result = runtime::aggregate_owned::OwnedAggregateFinalizer::new(
-            &query, &dtype, &session,
+        let result =
+            runtime::aggregate_owned::OwnedAggregateFinalizer::new(&query, &dtype, &session);
+        assert!(
+            result
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("nonnullable Struct")
         );
-        assert!(result.err().unwrap().to_string().contains("nonnullable Struct"));
         assert_eq!(session.memory().snapshot().reserved_bytes, 0);
         assert_eq!(session.snapshot().prepared_source_opens, 0);
         assert_eq!(session.snapshot().completed_executions, 0);
@@ -495,8 +508,8 @@ fn owned_count_native_sink_preserves_all_values_after_source_drop_and_existing_d
 #[cfg(feature = "universal-format-io")]
 #[test]
 fn owned_count_compatibility_sinks_keep_complete_values_after_source_drop() {
-    use runtime::VortexLocalPrimitiveRowExportFormat as Format;
     use arrow_array::{Array as _, Int64Array, UInt64Array};
+    use runtime::VortexLocalPrimitiveRowExportFormat as Format;
     let keys = [i64::MIN, 0, i64::MAX, 0, i64::MIN, i64::MAX, 0];
     for (format, offset, limit) in [
         (Format::ArrowIpc, 0, 10),
@@ -511,7 +524,8 @@ fn owned_count_compatibility_sinks_keep_complete_values_after_source_drop() {
         let prepared = prepare_aggregate(
             &count_request(&path, offset, limit, false),
             VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let result = prepared.execute_owned().unwrap();
         let session = prepared.session.clone();
         drop(prepared);
@@ -519,26 +533,43 @@ fn owned_count_compatibility_sinks_keep_complete_values_after_source_drop() {
         let target = fixture.0.join(format.as_str());
         let report = result.write(&target, format, false).unwrap();
         let expected = count_oracle(keys, offset, limit);
-        assert_eq!(report.rows_written, expected.as_array().unwrap().len() as u64);
+        assert_eq!(
+            report.rows_written,
+            expected.as_array().unwrap().len() as u64
+        );
         assert_eq!(report.projected_columns, vec![KEY, COUNT]);
         assert_eq!(session.snapshot().completed_executions, 1);
         assert_eq!(session.snapshot().memory.reserved_bytes, 0);
         let batches = if format == Format::ArrowIpc {
             arrow_ipc::reader::FileReader::try_new(fs::File::open(&target).unwrap(), None)
-                .unwrap().collect::<std::result::Result<Vec<_>, _>>().unwrap()
+                .unwrap()
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .unwrap()
         } else {
             parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(
                 fs::File::open(&target).unwrap(),
-            ).unwrap().build().unwrap()
-                .collect::<std::result::Result<Vec<_>, _>>().unwrap()
+            )
+            .unwrap()
+            .build()
+            .unwrap()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap()
         };
         let mut rows = Vec::new();
         for batch in batches {
             assert_eq!(batch.num_columns(), 2);
             assert_eq!(batch.schema().field(0).name(), KEY);
             assert_eq!(batch.schema().field(1).name(), COUNT);
-            let keys = batch.column(0).as_any().downcast_ref::<Int64Array>().unwrap();
-            let counts = batch.column(1).as_any().downcast_ref::<UInt64Array>().unwrap();
+            let keys = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap();
+            let counts = batch
+                .column(1)
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap();
             assert_eq!(keys.null_count(), 0);
             assert_eq!(counts.null_count(), 0);
             for row in 0..batch.num_rows() {

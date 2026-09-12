@@ -789,7 +789,11 @@ fn owned_utf8_count_compatibility_sinks_keep_native_schema_and_all_values() {
             let fixture = Fixture::new();
             let path = text_source(
                 &fixture,
-                vec![strings(if empty { &[] } else { &["東京", "", "é", "東京", "é", "東京"] })],
+                vec![strings(if empty {
+                    &[]
+                } else {
+                    &["東京", "", "é", "東京", "é", "東京"]
+                })],
             );
             let query = text_request(&path, 0, 3, false);
             let prepared =
@@ -833,7 +837,14 @@ fn owned_utf8_count_compatibility_sinks_keep_native_schema_and_all_values() {
                 labels.extend(arrow_text(batch.column(0).as_ref()));
             }
             assert_eq!(counts, if empty { vec![] } else { vec![3, 2, 1] });
-            assert_eq!(labels, if empty { vec![] } else { vec!["東京", "é", ""] });
+            assert_eq!(
+                labels,
+                if empty {
+                    vec![]
+                } else {
+                    vec!["東京", "é", ""]
+                }
+            );
             assert_eq!(session.snapshot().memory.reserved_bytes, 0);
         }
     }

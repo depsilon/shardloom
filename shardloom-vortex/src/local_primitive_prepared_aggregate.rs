@@ -271,8 +271,8 @@ pub fn prepare_aggregate_for_optional_reuse(
     validate_policy(policy)?;
     let session = aggregate_session(request, policy)?;
     let operation = prepare_candidate_in_session(request, policy, &session)?;
-    let retained =
-        retained_fields(request, &operation.source).is_ok() && operation.lowering.residual.is_none();
+    let retained = retained_fields(request, &operation.source).is_ok()
+        && operation.lowering.residual.is_none();
     Ok(Some(if retained {
         PreparedAggregateDisposition::Reusable(operation)
     } else {

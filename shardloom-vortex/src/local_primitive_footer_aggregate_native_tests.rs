@@ -371,7 +371,8 @@ fn footer_aggregate_native_aliases_having_and_text_exports_share_scalar_contract
             ComparisonOp::Gt,
             if reject { "20" } else { "0" },
         )];
-        request.projection = shardloom_plan::ProjectionRequest::columns(aggregate.projected_columns());
+        request.projection =
+            shardloom_plan::ProjectionRequest::columns(aggregate.projected_columns());
         let expected = if reject {
             json!({})
         } else {
