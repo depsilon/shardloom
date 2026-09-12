@@ -1,9 +1,14 @@
 # Canonical numeric dictionary-probe elimination
 
-Status: retain the faster numeric path per the maintainer's instruction; final
-combined runtime validation is pending. The maintained native ingest baseline
-remains **95.447305458 seconds** at `572bd52c`. No fresh control was run for this
-screen. This packet does not yet promote the combined continuation runtime.
+Current policy: the [control progression ledger](../architecture/performance-control-progression-2026-09-12.md)
+advances controls as faster retained versions complete validation. The status and
+comparison labels below describe this historical screen, not a permanent control.
+
+Status: retained numeric path; its two completed ingest observations are the
+reference for subsequent candidates. The previous control was
+**95.447305458 seconds** at `572bd52c`. No fresh control was run for this screen.
+Combined runtime public-workload acceptance remains pending; these observations
+do not supply a timing for that later binary.
 
 ## Changed work
 
@@ -30,14 +35,14 @@ zero. The original probe-discard test still uses the original provider.
 
 | Measurement | Complete process | Peak process RSS | Artifact bytes |
 |---|---:|---:|---:|
-| Maintained baseline | 95.447305458 s | 2,811,117,568 | 18,591,586,804 |
+| Previous control | 95.447305458 s | 2,811,117,568 | 18,591,586,804 |
 | Numeric probe candidate, first run | 90.303309291 s | 2,647,261,184 | 18,591,586,804 |
 | Numeric probe candidate, second run | 93.945037458 s | 2,610,839,552 | 18,591,586,804 |
 
-The first candidate is 5.39% below the maintained recorded baseline. It is one
+The first candidate is 5.39% below the previous recorded control. It is one
 observation across different dates, with uncontrolled OS cache, not a paired
-distribution or a new control. The second candidate is 1.57% below the maintained
-baseline; both outputs have identical SHA-256 values. These observations do not
+distribution. The second candidate is 1.57% below that previous control;
+both outputs have identical SHA-256 values. These observations do not
 establish a stable 5.39% gain. First-run native CPU work is 185.304972 user seconds
 plus 13.084545 system seconds; the second uses 194.935316 plus 13.011764 seconds. It
 overlaps wall time and must not be added to it. Numeric probe calls and work

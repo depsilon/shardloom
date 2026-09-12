@@ -1,5 +1,45 @@
 # Owned aggregate representation screen
 
+## September 12 measured result
+
+The ordinary release build at `2ad143da` passed all 184 complete-result checks
+on the 262,144-row, 32,768-group fixture. Each case used three warmups per arm and
+20 balanced alternating measurement pairs. Values were compared with the
+independent standard-library set/count oracle outside the measured intervals.
+
+| Workers | Output rows | JSON median | Owned median | JSON p95 | Owned p95 |
+|---|---:|---:|---:|---:|---:|
+| 1 | 32 | 14.102 ms | 14.018 ms | 14.533 ms | 14.442 ms |
+| 4 | 32 | 9.183 ms | 9.064 ms | 9.920 ms | 10.083 ms |
+| 1 | 32,768 | 47.983 ms | 16.430 ms | 49.968 ms | 16.864 ms |
+| 4 | 32,768 | 44.124 ms | 11.671 ms | 46.207 ms | 12.666 ms |
+
+Large outputs took 65.76% and 73.55% less median time (2.92x and 3.78x speedups).
+Small-output differences were about 0.6% and 1.3%, with slightly worse four-worker
+p95; no material small-output gain is claimed. This measures query execution,
+report/certificate/result construction and result destruction through the two
+public prepared API routes. It excludes validation, preparation, transport and
+file persistence. It is not a Full43 or whole-product speedup.
+
+For 32,768 groups, the JSON route rendered 32,768 result rows and about 1.508 MB
+of report text. The owned route rendered zero JSON result rows, retained 524,288
+native payload bytes and emitted about 6.6 KB of report text. These are distinct
+representation sizes, not total allocations or unique retained process memory.
+Shared query/result reservations returned to zero after every sample.
+
+The full supervised screen took 4.659 seconds and observed 143,409,152 bytes peak
+process RSS, including its fixture, oracle and validation. This is neither an
+arm-specific memory comparison nor an enforced RSS ceiling. Raw samples, fixture
+identity, native execution evidence and commands are retained in
+`/Users/dylan/LocalData/shardloom/perf-all-20260906/owned-result-cost-20260912/receipt.json`.
+The frozen screen executable SHA-256 is
+`b7b360dcc086201e54fb11c73d41081511dd20b6ee7ba76db8829d0cafc3eb08`;
+its build receipt is `plan-exhaustion-2ad143da-build.json` in the same evidence
+root. The native column route is retained for this admitted family; broader
+aggregate types still need their own implementation and complete validation.
+
+## Reproduction and interpretation
+
 `owned_aggregate_cost` measures fresh prepared grouped integer `COUNT DISTINCT`
 through the existing public `execute()` and `execute_owned()` methods. The first
 returns JSON report rows; the second returns typed native columns. It does not
@@ -26,10 +66,13 @@ from the source tree being measured:
 
 ```sh
 cargo metadata --offline --no-deps --format-version 1
-cargo build --offline --release -p shardloom-vortex --example owned_aggregate_cost --features vortex-local-primitives,vortex-write
+cargo build --release -p shardloom-cli -p shardloom-vortex --features release-user-surfaces --bin shardloom --example owned_aggregate_cost
 ```
 
-Then run the resolved `release/examples/owned_aggregate_cost` binary, supplying
+This is the measured ordinary release feature profile, with no RUSTFLAGS or PGO.
+The example's minimal `vortex-local-primitives,vortex-write` feature gate is a
+supported compile/smoke profile, not the feature configuration of the recorded
+screen. Then run the resolved `release/examples/owned_aggregate_cost` binary, supplying
 the actual revision and build configuration. These values are explicitly labelled
 as caller-supplied metadata in the receipt. Keep the binary hash, host profile,
 Rust version, exact build command, source revision and working-tree diff with
@@ -37,11 +80,12 @@ the raw receipt; the example does not infer a clean checkout or claim to measure
 host resource ownership.
 
 ```sh
-RESOLVED_BINARY --workspace /Users/dylan/LocalData/shardloom/perf-all-20260906 --source-revision ACTUAL_HEX_COMMIT --build-label 'release; vortex-local-primitives,vortex-write; exact local build configuration' > /Users/dylan/LocalData/shardloom/perf-all-20260906/owned-aggregate-cost-UNIQUE.json
+RESOLVED_BINARY --workspace /Users/dylan/LocalData/shardloom/perf-all-20260906 --source-revision ACTUAL_HEX_COMMIT --build-label 'ordinary release; release-user-surfaces; no PGO or RUSTFLAGS' > /Users/dylan/LocalData/shardloom/perf-all-20260906/owned-aggregate-cost-UNIQUE.json
 ```
 
 Replace `RESOLVED_BINARY`, `ACTUAL_HEX_COMMIT` and `UNIQUE` with the resolved
-values. Use a new receipt path. No timing result is checked into this note.
+values. Use a new receipt path. The measured September 12 result above retains
+its own frozen binary and guarded-run receipt; a reproduction is a separate run.
 
 Each of four cases uses a fresh prepared source/session: requested P1/P4 crossed
 with LIMIT 32/32,768, offset zero and a 1 GiB session envelope. Each arm receives

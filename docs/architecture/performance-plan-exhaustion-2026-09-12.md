@@ -12,11 +12,15 @@ the whole program complete or replace the canonical
 [phased plan](phased-execution-plan.md). No new phase IDs or competitive-gate
 closures are introduced; CG-1 through CG-23 retain their existing status.
 
-The maintained ingest baseline is **95.447305458 seconds**, native `572bd52c`.
-The 118.604707-second allocation candidate was dropped. The extra
-104.044137-second unchanged-control observation is historical evidence and does
-not replace the baseline. Do not rerun/change that control until a candidate
-first shows credible material improvement. Preserve all failed samples and the
+Recorded ingest and query controls advance as faster retained versions complete
+validation; see the [control ledger](performance-control-progression-2026-09-12.md).
+Previous accepted native `572bd52c` ingested in **95.447305458 seconds**. The
+retained numeric implementation `6bc73e8d` records **90.303309291 and
+93.945037458 seconds**, with identical artifact bytes; final combined `2ad143da`
+acceptance is in progress. The rejected 118.604707-second allocation and extra
+104.044137-second unchanged-runtime observation remain historical evidence.
+Do not needlessly rerun unchanged controls or relabel an isolated candidate's
+measurement as combined-version acceptance. Preserve every sample and the
 existing artifact/log/source/process guards.
 
 ## Implementation progress after the inventory
@@ -25,8 +29,9 @@ The [native completion packet](../benchmarks/native-completion-boundaries-2026-0
 tracks the current implementation and focused evidence for single-key UTF8 COUNT
 worker-to-spill handoff, prepared integer MIN/MAX/AVG, owned bounded integer
 grouped DISTINCT output, Unix Parquet generation checks, pipeline pressure,
-file-backed serving and conservative statistics proof. Combined feature and
-public acceptance remain in progress. The tables below retain their original
+file-backed serving and conservative statistics proof. The combined local feature
+matrix is complete at the checkpoint below; final public/Full43 acceptance
+remains in progress. The tables below retain their original
 inventory scope; they are not evidence that these changes were already present
 at `a8775c4f`, nor do the scoped implementations close every entry in their epics.
 
@@ -34,6 +39,25 @@ Typed string/NULL constant group outputs and a measured native text storage
 candidate are the next active implementations. The
 [storage exploration](native-storage-reduction-2026-09-12.md) preserves existing
 derived helpers and statistics and requires complete validation of changed bytes.
+
+## Combined validation checkpoint
+
+The frozen runtime `2ad143dae444d3027fb07f11e5b605e991e79b61` passes all
+seven stages in
+`/Users/dylan/LocalData/shardloom/perf-all-20260906/retained-runtime-plan-exhaustion-r4.json`:
+formatter check, 54 Python harness tests, release-user-surfaces Clippy and tests,
+default-workspace Clippy and tests, and minimal-native Clippy. Every stage records
+exit zero and an empty runtime diff. The native `shardloom-vortex` library run
+reports **1,757 passed, zero failed and nine ignored**; the packet separately
+retains the CLI, integration and other target results rather than treating this
+library count as the entire matrix.
+
+Additional write-only and universal-format-only Clippy checks completed with exit
+zero. Their logs are `plan-exhaustion-write-only-clippy.log` and
+`plan-exhaustion-universal-only-clippy.log` under the same evidence directory.
+These local checks and the separately measured owned-result screen do not supply
+a combined full-size ingest or Full43 score. Those public workload acceptance
+records remain pending under the current control ledger.
 
 ## Work that can proceed now
 
@@ -179,7 +203,7 @@ remain open where their rows still require implementation or acceptance.
 
 | Checklist entry | Reconciliation and next action |
 |---|---|
-| 1. September 12 attribution/allocation screen | Complete measured drop. Preserve 95.447305 baseline and 118.604707 rejected candidate, all receipts and retained tests. |
+| 1. September 12 attribution/allocation screen | Complete measured drop. Preserve the historical 95.447305 control and 118.604707 rejected candidate, all receipts and retained tests. Subsequent controls advance through the current ledger. |
 | 2. Safe repeated representation removal | Open source investigation, not permission to delete required work. Compare same-generation representations and ownership at existing conversion/persistence seams; implement only demonstrable redundant work. |
 | 3. Normalization/metadata/codec/write/finalization attribution | Existing counters and owner sample supply bounded attribution. Completion includes ordinary publication but not fsync durability. Add missing attribution only for a concrete next candidate; do not rerun the entire profile by default. |
 | 4. Duplicate representation/traversal inventory | Identity projection rebuild and discarded fingerprint work are already removed. Input copy, probe, canonicalization and final encoding have different contracts. Inventory a specific remaining repeated traversal and its consumer lifetime before changing it. |
@@ -224,7 +248,7 @@ remain open where their rows still require implementation or acceptance.
 | 3. Operator response classification | Existing topology packets identify actual unchanged/coalesced jobs and lack of material selected-query benefit. Preserve those results and global-work limits. Deeper encoded/pruning attribution is conditional on a new retained implementation. |
 | 4. Held-out ingest/aggregate/relational/ownership/serving | Open acceptance: nullable and spilled aggregates, source mutation/publication, file-backed fairness, computed result ownership, then admitted join/windows. Existing 380+80 semantics, 80 required-worker and 1,674 resident checks supersede stale partial-matrix wording only within their scopes. |
 | 5. Ordinary/benchmark resource envelopes | Open real memory-pressure and serving completion; use truthful owner counts, queue/state/run peaks and RSS. Keep the existing workspace/log guards and do not resurrect the removed fixed process target. |
-| 6. Paired uncertainty, complete values, nonbenchmark gains | Scoped retained export and query families already have evidence; extend it to a credible new candidate. Screen ingest against 95.447305 first and run fresh controls only after credible improvement. Correctness/resource capability can be implemented and validated before a speedup exists. |
+| 6. Paired uncertainty, complete values, nonbenchmark gains | Scoped retained export and query families already have evidence; extend it to a credible new candidate. Screen against the latest retained version's applicable evidence, advance controls at completed validated gains, and rerun unchanged controls only for a useful comparison. Correctness/resource capability can be implemented and validated before a speedup exists. |
 
 ### PERF-13 — PGO
 
@@ -256,7 +280,7 @@ without treating all its unchecked rows as new tuning opportunities.
 | Fresh-artifact queries/metadata | Current retained bytes pass all 129 complete results; SHA identity links complete native values/schema and physical metadata. Independent statistic correctness remains open; add conservative-pruning differential tests rather than regenerating the same 18.6 GB artifact. |
 | Serving fairness | Open bounded file-backed small-query stream during long work. Measure separately from exclusive ingest, with the same shared grants and explicit source ownership. |
 | Held-out shapes | Open extension beyond the retained renamed nullable/precision-sensitive fixtures: numeric/text-heavy, low/high cardinality, skew and source-mutation cases. Use existing source/runtime paths. |
-| Five measurement/retain-drop steps | Active rules: predeclare candidate and stop gate; focused/broad appropriate checks; reuse baseline until credible improvement; complete changed-output proof before retirement; preserve source/build/receipt identities and limitations. These rules recur per coherent change; they are not five unperformed benchmark runs. |
+| Five measurement/retain-drop steps | Active rules: predeclare candidate and stop gate; focused/broad appropriate checks; advance controls as faster retained versions complete validation without needless unchanged-control reruns; complete changed-output proof before retirement; preserve source/build/receipt identities and limitations. These rules recur per coherent change; they are not five unperformed benchmark runs. |
 
 ## Remaining production epics in the phased plan
 
@@ -271,8 +295,11 @@ admit ordinary types, encodings and operator semantics.
 ### CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1
 
 The older 271/301-second baselines and 38.1 GB representation are historical.
-Current writer decisions must preserve the retained 95.447305-second baseline
-and 18,591,586,804-byte representation. The retained source, conversion and
+Current writer decisions use the latest retained version and scoped measurements
+in the [control ledger](performance-control-progression-2026-09-12.md).
+The 18,591,586,804-byte representation remains a verified reference; the explicit
+storage-reduction work may improve it after complete lifecycle validation.
+The retained source, conversion and
 provider workers, bounded subtrees and measured numeric compression supersede
 the old premise that the writer has only policy constants. They do not prove
 every requested stage shares complete transient-memory accounting.
@@ -285,7 +312,7 @@ every requested stage shares complete transient-memory accounting.
 | L879. Layout/codec portfolio admission | Numeric compression has a retained lifecycle packet. The proposed automatic sample-write selector is still open implementation: reuse existing profile/advisor inputs, evaluate isolated bounded candidate writes, make selection deterministic and clean rejected candidates. Start only with distinct source-grounded candidate profiles; a report wrapper or topology-count sweep does not satisfy it. Whole-artifact ramp and changed-output query proof remain required before publication/retention. |
 | L935. Source-to-commit bounded pipeline | Partially retained by current source/conversion/provider pipeline and single-artifact staging. Complete source mutation/publication-race and transient ownership acceptance under PERF-08/09; ordinary rename publication does not promise file/directory fsync durability. This is the same pipeline work as L729, not a duplicate implementation. |
 | L938. Parallel CPU pre-writer work and clocks | Real source/conversion/provider owners and work clocks are retained. September 12 owner sampling establishes occupancy, not exclusive stage CPU time. Integrate attribution for a specific changed stage only; the negative codec-owner transfer does not justify tuning by requested parallelism or relabeling owner counts as utilization. |
-| L941. Writer retain/drop gate | Retained guarded runner, explicit candidate screen and evidence discipline now implement this rule. Use 95.447305 seconds and the current artifact, preserve failed receipts, and require credible candidate improvement before another control. No new benchmark is needed to close the stale 271-second wording. |
+| L941. Writer retain/drop gate | Retained guarded runner, explicit candidate screen and evidence discipline now implement this rule. Use the current control ledger, preserve all receipts, and advance applicable controls when faster retained versions complete validation. Rerun an unchanged control only for a useful comparison. No new benchmark is needed to close the stale 271-second wording. |
 | L943. Remove September 2 rejected tuning | Completed cleanup; the rejected 360-second patch is not the retained runtime. Its removal does not require a new writer experiment. |
 | L945. Planner matrix | Existing advisor, small/large source, dictionary, row-count and resource tests cover portions of this matrix. Open a single table-driven acceptance review across small, numeric, wide text, dictionary-heavy, missing-row-count and constrained-memory profiles; add missing combinations and assert real chosen plan/admission, not merely report presence. |
 | L948. Stage/resource/artifact harness fields | Existing records contain actual owner allocation, bounded queue/work spans, artifact size and fallback facts. Open precise transient-memory and stage-progress observation for the uncovered cases above. Do not expand every historical field into continuous telemetry or claim the stack sample measures stage CPU utilization. |

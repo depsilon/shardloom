@@ -146,8 +146,9 @@ best sum versus 119.887782 seconds, all 129 complete reference results and all
 1,360 independent held-out checks. Eighteen query bests still regress; small
 held-out timings are effectively unchanged or slightly higher. Intermediate
 arithmetic regressions, raw samples, cache tradeoffs and provider allocation
-exclusions remain visible. Later implementation continues against this frozen
-control; the score does not close the remaining ledger.
+exclusions remain visible. This frozen comparison remains historical evidence;
+later implementation uses the [current control ledger](performance-control-progression-2026-09-12.md).
+The score does not close the remaining ledger.
 
 ## Next coherent completion points
 
@@ -157,10 +158,11 @@ it is not a competing execution queue or a claim that remaining work is complete
 
 1. Preserve completed September 12 attribution, the rejected allocation and
    retained pipeline tests in the [ingest sequence](ingest-performance-implementation-2026-09-12.md).
-   The 118.604707-second candidate failed the maintained 95.447305-second baseline;
+   The 118.604707-second candidate failed the then-current 95.447305-second baseline;
    the extra unchanged-control observation of 104.044137 seconds does not replace
-   it. Do not rerun/change controls until a candidate first shows credible
-   material improvement against retained evidence. Writer-batch overlap needs
+   that recorded sample. Advance ingest/query controls as faster retained versions
+   complete validation under the [control ledger](performance-control-progression-2026-09-12.md),
+   without needless unchanged-control reruns. Writer-batch overlap needs
    measured recoverable subtree-tail work; repeated representation removal needs
    proven duplication and compatible ownership. Neither follows automatically
    from the failed allocation. Preserve source generation, numeric compression

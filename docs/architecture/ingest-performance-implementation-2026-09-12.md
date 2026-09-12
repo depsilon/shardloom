@@ -18,11 +18,14 @@ merged as `d51429e3`, ingested 99,997,497 rows in 95.447305 seconds, producing
 All 11,199,719,664 logical values match; the physical bytes differ. This single
 pair establishes neither a stable 4.02% speedup nor a cause for that difference.
 The 91.215296-second Full43 figure is a query-suite result, not ingest time.
-The retained 95.447305-second native ingest is the maintained baseline. The
-September 12 extra 104.044137-second observation from the identical control
-binary does not replace it. Per the maintainer's clarification, first screen
-future candidates against existing evidence; do not change or rerun a control
-until a candidate shows a credible material improvement.
+The 95.447305-second native ingest is the previous accepted control. The latest
+retained numeric implementation records 90.303309 and 93.945037 seconds with
+identical artifact bytes; combined `2ad143da` acceptance remains in progress.
+The [control ledger](performance-control-progression-2026-09-12.md) records the
+revision and profile scope. Advance ingest and query controls as faster versions
+complete validation; reuse existing evidence without needless unchanged-control
+runs. The extra 104.044137-second observation remains historical, not a
+replacement for either a completed sample or a version's acceptance.
 
 Prioritize complete fresh-data workflow cost: ingest, publication and
 first/repeated queries. A hypothetical 20% reduction of the recorded candidate
@@ -82,7 +85,7 @@ boundary; native Vortex remains the durable and execution representation.
   Record requested, granted and constructed owners separately, along with real
   activity/progress; a requested P value is not proof of core utilization.
   The unprofiled P4 candidate (1/1/0/2 owners) took 118.604707 seconds, already
-  slower than the maintained 95.447305-second baseline. An unnecessary fresh
+  slower than the then-current 95.447305-second baseline. An unnecessary fresh
   control (1/1/1/1) took 104.044137 seconds, with identical physical output.
   Preserve that observation without promoting it to baseline. The runtime
   change is removed and wider allocation tuning stops; neither comparison is
@@ -159,15 +162,19 @@ or a paired query-performance improvement.
 
 ## Measurement and retain/drop gate
 
-1. Reuse the completed four-owner packet; do not repeat it to obtain a preferred
-   number. Identify one limiting stage and predeclare the expected benefit,
+1. Reuse the latest applicable completed control records in the
+   [ledger](performance-control-progression-2026-09-12.md); preserve older
+   four-owner packets without repeating them to obtain a preferred number.
+   Identify one limiting stage and predeclare the expected benefit,
    acceptable memory/storage tradeoffs and stop condition before implementation.
 2. Validate the candidate through existing focused ownership, EOF, native-value
    and publication tests, then required formatter, Clippy and broad native/default
    checks when runtime behavior changes. Keep all native measurements serial.
-3. Screen against the retained 95.447305-second baseline first. Do not rerun or
-   change a control until a candidate demonstrates credible material improvement.
-   Only then use matched-owner alternating repeated runs for a performance claim; freeze
+3. Screen against the latest retained version's recorded evidence, with pending
+   combined-version acceptance explicit. Advance the applicable ingest/query
+   controls when a faster version completes validation. Use matched-owner
+   alternating repeated runs when needed to establish a performance claim;
+   do not needlessly rerun an unchanged control. Freeze
    source/binaries and record all samples, real CPU work, peak RSS, reservations,
    output bytes, failures and cache policy. Retain a change only with material
    complete-workflow benefit and no unaccepted correctness, memory, storage,

@@ -6,13 +6,17 @@ codec-portfolio item, not a new engine, scheduler or canonical phase.
 
 The maintainer explicitly requests retention of the faster canonical numeric
 probe path. Its two candidate-only full ingests are 90.303309 and 93.945037
-seconds versus the maintained 95.447305-second baseline; all three outputs have
+seconds versus the previous accepted 95.447305-second control; all three outputs have
 the same 18,591,586,804-byte physical representation. Do not reject the small
 native change merely because its measured benefit varies. Normal correctness,
 resource and final-tree validation still apply.
 
-Storage reduction is a separate experiment. The protected source/reference and
-the 95.447305-second control remain fixed. A changed representation cannot borrow
+Storage reduction is a separate experiment. Freeze source/reference identities
+and comparison settings within each experiment, then advance controls as faster
+retained versions complete validation. The
+[control ledger](performance-control-progression-2026-09-12.md) separates the
+retained numeric observations, pending combined acceptance and query artifact
+profiles. A changed representation cannot borrow
 the old file-SHA proof: it must pass complete native value/schema/order comparison,
 required physical statistics checks and native query acceptance before retirement
 or promotion. No public field, derived metadata or query may be removed to reduce
@@ -46,7 +50,8 @@ bytes. One logical native artifact and explicit no-fallback execution remain.
   not be discarded solely because ingest time is unchanged.
 
 Start with physical evidence and bounded feasibility. Preserve failed samples;
-do not regenerate the maintained control merely to populate a fresh table.
+do not regenerate an unchanged control merely to populate a fresh table. Promote
+completed, validated faster ingest/query versions under the control ledger.
 Continue independent phased implementation while screening storage candidates.
 
 ## Initial physical evidence
