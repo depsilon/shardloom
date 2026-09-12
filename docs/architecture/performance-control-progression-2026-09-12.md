@@ -37,19 +37,20 @@ checkpoint; this ledger governs subsequent work.
 | --- | --- | --- |
 | Previous accepted native runtime `572bd52c`, merged native code `d51429e3` | 95.447305458 s | 18,591,586,804 bytes; complete native values compared; [matched-owner packet](../benchmarks/retained-ingest-owner4-2026-09-08.md). Preserve as the previous control. |
 | Latest retained numeric ingest implementation `6bc73e8de6bfe713ff6926d90374272291d40451` | 90.303309291 s and 93.945037458 s | Two completed isolated candidate observations, identical native artifact bytes to `572bd52c`; six focused tests; [numeric probe packet](../benchmarks/ingest-numeric-probe-2026-09-12.md). Carry both samples as the retained ingest revision's recorded reference. |
-| Combined continuation `2ad143da` | No completed full-size ingest measurement recorded here | Includes retained numeric work and subsequent runtime changes. Final combined acceptance is in progress; neither numeric observation is a measurement of this binary. |
+| Combined continuation `2ad143da` | No completed full-size ingest measurement recorded here | Includes retained numeric work and subsequent runtime changes. Local, public and protected-artifact query acceptance is complete below; neither numeric observation is an ingest measurement of this binary. |
 | Storage candidate and scoped owned-result improvement | Full-workload promotion pending | The owned-result screen below is complete; bounded fixture results do not establish a new ingest or Full43 control. |
 
 The numeric measurements are both below the previous recorded ingest, but vary
 across runs and uncontrolled host/cache state. They do not establish a stable
 5.39% gain or a 90.303309-second distribution. The maintainer retained this
 implementation; the 95.447305-second observation remains history rather than a
-permanent screen target. Complete the combined version's outstanding acceptance
-and link its exact records before describing it as a completed combined control.
+permanent screen target. The combined version has no full-size ingest timing;
+do not attribute the isolated numeric measurements to that binary.
 
-These ingest records use the immutable 99,997,497-row, 112-column Parquet input,
-SHA-256 `a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f`,
-P4 and a 24 GiB request. The numeric and previous accepted outputs share SHA-256
+These ingest records use the immutable 99,997,497-row, 105-column Parquet input;
+the native artifact stores 112 columns including seven derived helpers. Input
+SHA-256 is `a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f`.
+Runs request P4 and 24 GiB. The numeric and previous accepted outputs share SHA-256
 `7181c2e578659910da176ff6c0dcfe7ce563405337f3ae88cd44e7932d92a266`.
 The ordinary release-user-surfaces build uses no PGO; exact binary, toolchain,
 CPU-owner, reservation and observed RSS evidence remains in the linked packets.
@@ -61,7 +62,7 @@ Neither overwrites a previous sample or promotes a slower allocation.
 
 ## Query ledger by artifact profile
 
-The latest completed retained Full43 runtime recorded here is `572bd52c`,
+The protected-artifact Full43 timing control remains `572bd52c`,
 release-user-surfaces binary SHA-256
 `9251e10babcfc235b984fd256bc67a123b0b4126b13b375b253b55558a8eef9e`.
 Both profiles request P12 and 24 GiB on arm64 macOS; every query uses a fresh
@@ -73,6 +74,7 @@ of stable throughput improvement.
 | --- | ---: | ---: | ---: | ---: |
 | Protected 18,643,482,956-byte artifact, `full43_20260908T191423419110Z`; [retained runtime](../benchmarks/retained-runtime-acceptance-2026-09-08.md) | 91.215296 s | 91.292520 s | 278.782517 s | 129/129 |
 | Fresh 18,591,586,804-byte artifact, `full43_20260912T113159011731Z`; [fresh-artifact acceptance](../benchmarks/ingest-stage-balance-2026-09-12.md#newly-written-artifact-complete-values-and-full43) | 102.485398 s | 103.076700 s | 313.564493 s | 129/129 |
+| Combined `2ad143da`, protected artifact, `full43_20260912T144726665618Z`; completed correctness acceptance, no timing-control promotion | 96.692273 s | 96.825921 s | 293.417033 s | 129/129 |
 
 The protected artifact SHA-256 is
 `93acc7b9bbabed1f6e15a91aeacda45637bd5d6c5fed26e9b2052bf9b77e84f2`;
@@ -81,7 +83,23 @@ the fresh artifact has the numeric ingest output identity above. SQL SHA-256 is
 Best-of-three sums each query's fastest sample; hot total sums each query's
 fastest of runs two and three. Keep these profiles separate when choosing the
 next comparison: different artifact bytes and dates prevent substituting one
-score for the other. No `6bc73e8d` or `2ad143da` Full43 run is claimed here.
+score for the other. No `6bc73e8d` Full43 run is claimed here. The completed
+`2ad143da` protected-artifact best sum is 6.00% higher than the September 8
+control, so it does not advance that control. The new run retains the same
+source generation, SQL, resource request and frozen harness, with an uncontrolled
+historical host/cache comparison.
+
+The bounded Q34/35/36 diagnosis completed 24/24 exact checks in
+`count_lane_diagnostic_20260912T153933990362Z/summary.json` under UAT `logs/`.
+Baseline-to-candidate measured medians were 4.316019→4.117707 s for Q34,
+3.761960→4.002883 s for Q35 and 6.787560→6.760126 s for Q36. Pair ratios were
+mixed; the historical 16–40% slowdowns did not recur consistently. Q35's 6.40%
+higher median remains visible. The original 22-call attempt is preserved; only
+the final two calls resumed after a recorded wall-clock interruption
+and verified log packing. This small interrupted comparison does not establish
+stable global nonregression or a new Full43 control. See the
+[completion packet](../benchmarks/native-completion-boundaries-2026-09-12.md)
+for public acceptance and archive provenance.
 
 Once a faster completed version passes the corresponding profile's acceptance,
 advance that query control and retain these rows as history. Changed-output

@@ -1,5 +1,15 @@
 # PR #1437 retained-runtime acceptance
 
+September 12 continuation: frozen `2ad143da` now passes 129/129 protected-artifact
+Full43 comparisons, 2,232 resident public calls, 380 independent held-out checks
+and 80 selected required-worker checks. Its Full43 totals are 96.692272626 s
+best, 96.825921333 s hot and 293.417033461 s across all runs; the protected query
+timing control remains `572bd52c`. See the
+[completed continuation packet](native-completion-boundaries-2026-09-12.md#completed-frozen-runtime-acceptance)
+for resident improvements, the mixed 24-call COUNT-lane diagnosis, interrupted
+attempts and lossless archive provenance. The original PR #1437 checkpoint below
+retains its historical source, measurements and remaining-work scope.
+
 Status: frozen runtime `572bd52c` passes Full43, scoped held-out acceptance and
 the complete resident matrix. PR #1437 merged as
 `d51429e3702e5201646142a3d7252bbd72485c85` on 2026-09-08 after all 40 checks

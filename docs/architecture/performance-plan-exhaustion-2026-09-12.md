@@ -16,8 +16,10 @@ Recorded ingest and query controls advance as faster retained versions complete
 validation; see the [control ledger](performance-control-progression-2026-09-12.md).
 Previous accepted native `572bd52c` ingested in **95.447305458 seconds**. The
 retained numeric implementation `6bc73e8d` records **90.303309291 and
-93.945037458 seconds**, with identical artifact bytes; final combined `2ad143da`
-acceptance is in progress. The rejected 118.604707-second allocation and extra
+93.945037458 seconds**, with identical artifact bytes. Combined `2ad143da`
+local/public/held-out and protected-artifact query acceptance is complete;
+those ingest observations are not measurements of the combined binary.
+The rejected 118.604707-second allocation and extra
 104.044137-second unchanged-runtime observation remain historical evidence.
 Do not needlessly rerun unchanged controls or relabel an isolated candidate's
 measurement as combined-version acceptance. Preserve every sample and the
@@ -30,8 +32,8 @@ tracks the current implementation and focused evidence for single-key UTF8 COUNT
 worker-to-spill handoff, prepared integer MIN/MAX/AVG, owned bounded integer
 grouped DISTINCT output, Unix Parquet generation checks, pipeline pressure,
 file-backed serving and conservative statistics proof. The combined local feature
-matrix is complete at the checkpoint below; final public/Full43 acceptance
-remains in progress. The tables below retain their original
+matrix and public/Full43 correctness acceptance are complete at the checkpoint
+below; the protected Full43 timing control does not advance. The tables below retain their original
 inventory scope; they are not evidence that these changes were already present
 at `a8775c4f`, nor do the scoped implementations close every entry in their epics.
 
@@ -55,9 +57,23 @@ library count as the entire matrix.
 Additional write-only and universal-format-only Clippy checks completed with exit
 zero. Their logs are `plan-exhaustion-write-only-clippy.log` and
 `plan-exhaustion-universal-only-clippy.log` under the same evidence directory.
-These local checks and the separately measured owned-result screen do not supply
-a combined full-size ingest or Full43 score. Those public workload acceptance
-records remain pending under the current control ledger.
+The subsequent frozen binary completes 129/129 Full43 comparisons at
+96.692272626 s best sum, 96.825921333 s hot total and 293.417033461 s across all
+executions on the protected artifact. Public resident acceptance passes
+2,232/2,232 calls; the independent held-out matrix passes 380/380 and the separate
+required-worker Parquet packet passes 80/80. New prepared MIN/MAX/AVG cases show
+28–29% lower persistent-worker p50 and 22–23% lower Python-client p50 on their
+32-row fixture; fresh-process calls are slightly slower. Complete scope,
+percentiles and packet identities are in the
+[completion packet](../benchmarks/native-completion-boundaries-2026-09-12.md#completed-frozen-runtime-acceptance).
+
+The combined candidate's higher Full43 score does not promote a query control. A 24-call
+paired Q34/35/36 diagnosis has mixed ratios and does not consistently reproduce
+the historical 16–40% slowdowns; Q35 retains a 6.40% higher paired median.
+Its first 22 calls and the final two resumed calls, separated by a recorded
+wall-clock interruption, are preserved. This is not proof of stable global
+nonregression. These checks supply no combined full-size ingest measurement and
+do not close the broader inventory below.
 
 ## Work that can proceed now
 
