@@ -554,7 +554,8 @@ fn prove_conjunction_from_segment_stats(
 mod tests {
     use super::*;
     use shardloom_core::{ColumnRef, ComparisonOp, SegmentStats, StatValue};
-    fn seg(stats: SegmentStats) -> crate::VortexSegmentMetadataSummary {
+    fn seg(mut stats: SegmentStats) -> crate::VortexSegmentMetadataSummary {
+        stats.exactness = shardloom_core::StatisticsExactness::Exact;
         let mut s = crate::VortexSegmentMetadataSummary::unknown();
         let mut c = crate::VortexColumnMetadataSummary::new(ColumnRef::new("x").unwrap());
         c.stats = stats;

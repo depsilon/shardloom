@@ -4,13 +4,12 @@
 //! It does not cache query answers or imply resident support for other operators.
 
 use std::{
-    fs::{File, Metadata},
-    path::{Path, PathBuf},
+    fs::Metadata,
+    path::Path,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicU64, Ordering},
     },
-    time::SystemTime,
 };
 
 use futures::{FutureExt as _, future::BoxFuture};
@@ -38,6 +37,8 @@ use vortex::{
 use crate::owned_buffers::ReservedHostAllocator;
 
 use crate::resident_worker_group::ResidentWorkerGroup;
+use crate::source_identity::FileGeneration;
+pub(crate) use crate::source_identity::SourceIdentity;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_result_json.rs"]
@@ -95,6 +96,33 @@ pub struct ResidentSessionSnapshot {
 impl ResidentVortexSession {
     pub(crate) fn memory(&self) -> &LiveMemoryPool {
         &self.0.memory
+    }
+
+    /// Package an array already completed inside this session's admitted source
+    /// execution. Its producer reserved metadata before allocation and attached
+    /// payload credits through our allocator. This does not execute or lock.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn own_completed_array(
+        &self,
+        array: ArrayRef,
+        ownership: shardloom_exec::live_memory::MemoryLease,
+    ) -> Result<OwnedVortexResultBatch> {
+        let rows = u64::try_from(array.len()).map_err(native_error)?;
+        let logical_buffer_bytes = array.nbytes();
+        if rows > 65_536
+            || logical_buffer_bytes > 8 * 1024 * 1024
+            || ownership.bytes() < std::mem::size_of::<ArrayRef>() as u64
+        {
+            return Err(resident_error(
+                "completed aggregate exceeds output ownership admission",
+            ));
+        }
+        Ok(OwnedVortexResultBatch {
+            arrays: Budgeted::new(vec![array], ownership),
+            runtime: Arc::clone(&self.0),
+            rows,
+            logical_buffer_bytes,
+        })
     }
 
     #[cfg(all(feature = "vortex-write", unix))]
@@ -665,6 +693,10 @@ pub struct OwnedVortexResultBatch {
 }
 
 impl OwnedVortexResultBatch {
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn retained_session(&self) -> ResidentVortexSession {
+        ResidentVortexSession(Arc::clone(&self.runtime))
+    }
     pub(crate) fn create_execution_ctx(&self) -> vortex::array::ExecutionCtx {
         self.runtime.session.create_execution_ctx()
     }
@@ -782,43 +814,6 @@ impl PreparedVortexProjection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct FileGeneration {
-    len: u64,
-    modified: SystemTime,
-    device: u64,
-    inode: u64,
-    changed: (i64, i64),
-}
-
-impl FileGeneration {
-    #[cfg(unix)]
-    fn read(metadata: &Metadata) -> Result<Self> {
-        use std::os::unix::fs::MetadataExt as _;
-        Ok(Self {
-            len: metadata.len(),
-            modified: metadata.modified().map_err(native_error)?,
-            device: metadata.dev(),
-            inode: metadata.ino(),
-            changed: (metadata.ctime(), metadata.ctime_nsec()),
-        })
-    }
-
-    #[cfg(not(unix))]
-    fn read(_: &Metadata) -> Result<Self> {
-        Err(resident_error(
-            "resident file generation identity is not supported on this platform",
-        ))
-    }
-}
-
-pub(crate) struct SourceIdentity {
-    path: PathBuf,
-    file: File,
-    generation: FileGeneration,
-    invalidated: AtomicBool,
-}
-
 impl SourceIdentity {
     /// Verify bytes from the same held descriptor used by native positional
     /// reads. Generation checks surround hashing; no pathname is reopened.
@@ -880,47 +875,6 @@ impl SourceIdentity {
             handle,
             concurrency,
         })
-    }
-
-    /// Capture a generation for another native path that must reopen the source.
-    /// Validation checks both the retained handle and the current source path.
-    pub(crate) fn capture(path: &Path) -> Result<Self> {
-        let path = std::path::absolute(path).map_err(native_error)?;
-        let file = File::open(&path).map_err(native_error)?;
-        let metadata = file.metadata().map_err(native_error)?;
-        if !metadata.is_file() {
-            return Err(resident_error("source must be a regular file"));
-        }
-        let identity = Self {
-            path,
-            file,
-            generation: FileGeneration::read(&metadata)?,
-            invalidated: AtomicBool::new(false),
-        };
-        identity.validate()?;
-        Ok(identity)
-    }
-
-    pub(crate) fn validate(&self) -> Result<()> {
-        if self.invalidated.load(Ordering::Acquire) {
-            return Err(resident_error(
-                "prepared source generation invalidated; prepare the source again",
-            ));
-        }
-        let result = (|| {
-            let path = FileGeneration::read(&std::fs::metadata(&self.path).map_err(native_error)?)?;
-            let handle = FileGeneration::read(&self.file.metadata().map_err(native_error)?)?;
-            if path != self.generation || handle != self.generation {
-                return Err(resident_error(
-                    "prepared source changed; prepare the source again",
-                ));
-            }
-            Ok(())
-        })();
-        if result.is_err() {
-            self.invalidated.store(true, Ordering::Release);
-        }
-        result
     }
 }
 
@@ -1007,3 +961,11 @@ pub(crate) mod read_observer;
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_session_tests.rs"]
 mod tests;
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "resident_file_serving_tests.rs"]
+mod file_serving_tests;
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "resident_file_pruning_tests.rs"]
+mod file_pruning_tests;

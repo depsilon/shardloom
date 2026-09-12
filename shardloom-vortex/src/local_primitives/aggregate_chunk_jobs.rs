@@ -100,6 +100,7 @@ pub(super) struct AggregateChunkJobs<T> {
     pool: Option<ComputePool>,
     memory: LiveMemoryPool,
     cancellation: CancellationToken,
+    cancel_on_drop: bool,
     failure: Arc<Mutex<Option<ShardLoomError>>>,
     window: Arc<Window>,
     window_limit: usize,
@@ -117,6 +118,22 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         window_limit: usize,
         queue_byte_limit: u64,
         memory: LiveMemoryPool,
+    ) -> Result<Self> {
+        Self::with_cancellation(
+            max_parallelism,
+            window_limit,
+            queue_byte_limit,
+            memory,
+            CancellationToken::default(),
+        )
+    }
+
+    pub(super) fn with_cancellation(
+        max_parallelism: usize,
+        window_limit: usize,
+        queue_byte_limit: u64,
+        memory: LiveMemoryPool,
+        cancellation: CancellationToken,
     ) -> Result<Self> {
         if max_parallelism == 0 || window_limit == 0 || queue_byte_limit == 0 {
             return Err(failed(
@@ -142,7 +159,8 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
             pending: VecDeque::new(),
             pool,
             memory,
-            cancellation: CancellationToken::default(),
+            cancellation,
+            cancel_on_drop: true,
             failure: Arc::new(Mutex::new(None)),
             window: Arc::new(Window::default()),
             window_limit,
@@ -197,6 +215,21 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
 
     pub(super) fn cancel(&self) {
         self.cancellation.cancel();
+    }
+
+    /// Join and release the CPU owners before another native stage takes their
+    /// grant. A successful drain must not cancel the shared operation flag.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn retire(&mut self) -> Result<()> {
+        if !self.pending.is_empty() || self.outstanding() != 0 {
+            return Err(failed(
+                "cannot retire jobs before every receipt is consumed",
+            ));
+        }
+        self.cancellation.check()?;
+        drop(self.pool.take());
+        self.cancel_on_drop = false;
+        Ok(())
     }
 
     pub(super) fn submit<F>(&mut self, initial_bytes: u64, job: F) -> Result<u64>
@@ -335,7 +368,9 @@ fn record_first_failure(failure: &Mutex<Option<ShardLoomError>>, error: &ShardLo
 
 impl<T> Drop for AggregateChunkJobs<T> {
     fn drop(&mut self) {
-        self.cancellation.cancel();
+        if self.cancel_on_drop {
+            self.cancellation.cancel();
+        }
         for (_, pending, _) in self.pending.drain(..) {
             if let Pending::Worker(task) = pending {
                 let _ = task.join();

@@ -227,6 +227,12 @@ class ResidentCallPathTests(unittest.TestCase):
                          [{"rows_alias": 8, "unique_alias": 8, "total_alias": 220.0}])
         self.assertEqual(aggregates["grouped_exact_distinct_aggregate"]["expected"],
                          [{"cohort_key": i, "unique_alias": 1} for i in range(3, 8)])
+        self.assertEqual(aggregates["integer_extrema_average"]["expected"],
+                         [{"lo": -(2**60 + 30), "hi": 2**60 + 31, "mean": 15.5}])
+        self.assertEqual(aggregates["filtered_integer_extrema_average"]["expected"],
+                         [{"lo": -(2**60 + 30), "hi": 2**60 + 31, "mean": 27.5}])
+        self.assertEqual(aggregates["empty_integer_extrema_average"]["expected"],
+                         [{"lo": None, "hi": None, "mean": None}])
         fields = {"local_primitive_native_io_certificate_emitted": "true",
                   "local_primitive_native_io_certified": "true",
                   "local_primitive_execution_certificate_emitted": "false",

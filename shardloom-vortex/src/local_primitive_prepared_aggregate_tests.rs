@@ -121,7 +121,8 @@ fn optional_preparation_is_nonexecuting_and_shape_declines_before_source_open() 
     let mut unsupported = request;
     unsupported.source_uri =
         Some(DatasetUri::new(fixture.0.join("absent.vortex").display().to_string()).unwrap());
-    unsupported.simple_aggregate.as_mut().unwrap().measures[0].function = "avg".into();
+    unsupported.simple_aggregate.as_mut().unwrap().measures[0].value_transform =
+        Some("unsupported".into());
     assert!(
         prepare_aggregate_for_optional_reuse(
             &unsupported,
@@ -464,7 +465,8 @@ fn prepared_aggregate_rejects_extra_payload_spill_and_wider_resource_grants() {
     projection.projection =
         shardloom_plan::ProjectionRequest::columns(vec![ColumnRef::new("value").unwrap()]);
     let mut unsupported = request.clone();
-    unsupported.simple_aggregate.as_mut().unwrap().measures[0].function = "avg".into();
+    unsupported.simple_aggregate.as_mut().unwrap().measures[0].value_transform =
+        Some("unsupported".into());
     let mut spill = request.clone();
     spill.simple_aggregate.as_mut().unwrap().spill = Some(
         VortexAggregateSpillPolicy::new(fixture.0.join("must-not-exist"), 1 << 20, 2 << 20)

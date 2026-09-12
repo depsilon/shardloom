@@ -170,10 +170,16 @@ impl VortexEncodedPredicateEvaluationReport {
             .iter()
             .filter(|report| report.selection_vector.is_some())
             .count();
-        let selected_rows_metadata_count = segment_reports
-            .iter()
-            .filter_map(|report| report.selected_count)
-            .try_fold(0_u64, u64::checked_add);
+        // A total is known only when every segment has a complete selection.
+        // Ignoring unknown segments would publish a partial total as exact.
+        let selected_rows_metadata_count = if diagnostics.is_empty() && !segment_reports.is_empty()
+        {
+            segment_reports.iter().try_fold(0_u64, |total, report| {
+                total.checked_add(report.selected_count?)
+            })
+        } else {
+            None
+        };
         let status = if unsupported_count > 0 {
             VortexEncodedPredicateEvaluationStatus::Unsupported
         } else if missing_metadata_count > 0
@@ -473,7 +479,9 @@ fn encoded_segment_for_predicate(
         .find(|candidate| candidate.column.as_ref() == Some(&column));
     let mut stats =
         column_summary.map_or_else(SegmentStats::unknown, |summary| summary.stats.clone());
-    if stats.row_count.is_none() {
+    // Summary cardinality has no exactness provenance. Keep it as unknown
+    // advice only when no column stats exist; never add it to exact stats.
+    if column_summary.is_none() {
         stats.row_count = segment.row_count;
     }
     let Some(column_summary) = column_summary else {
@@ -547,7 +555,8 @@ mod tests {
         }
     }
 
-    fn segment(stats: SegmentStats) -> VortexSegmentMetadataSummary {
+    fn segment(mut stats: SegmentStats) -> VortexSegmentMetadataSummary {
+        stats.exactness = shardloom_core::StatisticsExactness::Exact;
         let mut segment = VortexSegmentMetadataSummary::unknown().with_row_count(5);
         segment.add_column(
             VortexColumnMetadataSummary::new(ColumnRef::new("x").expect("column"))
@@ -614,7 +623,7 @@ mod tests {
     }
 
     #[test]
-    fn column_free_predicates_use_segment_row_count_without_column_metadata() {
+    fn column_free_predicates_do_not_promote_unknown_row_counts_to_exact_selections() {
         let always_true = evaluate_vortex_encoded_predicate_segments(
             &PredicateExpr::AlwaysTrue,
             &summary_with_segment(column_free_segment(5)),
@@ -622,12 +631,12 @@ mod tests {
 
         assert_eq!(
             always_true.status,
-            VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+            VortexEncodedPredicateEvaluationStatus::MissingMetadata
         );
         assert_eq!(always_true.segment_report_count, 1);
-        assert_eq!(always_true.selected_all_count, 1);
-        assert_eq!(always_true.selection_vectors_emitted, 1);
-        assert_eq!(always_true.selected_rows_metadata_count, Some(5));
+        assert_eq!(always_true.selected_all_count, 0);
+        assert_eq!(always_true.selection_vectors_emitted, 0);
+        assert_eq!(always_true.selected_rows_metadata_count, None);
         assert!(always_true.diagnostics.is_empty());
 
         let always_false = evaluate_vortex_encoded_predicate_segments(
@@ -644,6 +653,102 @@ mod tests {
         assert_eq!(always_false.selection_vectors_emitted, 1);
         assert_eq!(always_false.selected_rows_metadata_count, Some(0));
         assert!(always_false.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn incomplete_segment_selection_never_reports_a_partial_total_as_complete() {
+        let mut metadata = summary_with_segment(segment(SegmentStats::with_row_count(5)));
+        metadata.summary.add_segment(column_free_segment(9));
+        let report =
+            evaluate_vortex_encoded_predicate_segments(&PredicateExpr::AlwaysTrue, &metadata);
+        assert_eq!(
+            report.status,
+            VortexEncodedPredicateEvaluationStatus::MissingMetadata
+        );
+        assert_eq!(report.segment_report_count, 2);
+        assert_eq!(report.selected_all_count, 1);
+        assert_eq!(report.missing_metadata_count, 1);
+        assert_eq!(report.selected_rows_metadata_count, None);
+    }
+
+    #[test]
+    fn summary_row_count_cannot_complete_exact_null_statistics() {
+        let mut stats = SegmentStats::unknown();
+        stats.null_count = Some(5);
+        // The column facts are exact, but the column row count remains absent.
+        // Five NULLs could coexist with any number of non-NULL rows.
+        let metadata = summary_with_segment(segment(stats));
+        for predicate in [
+            PredicateExpr::IsNull {
+                column: ColumnRef::new("x").expect("column"),
+            },
+            PredicateExpr::IsNotNull {
+                column: ColumnRef::new("x").expect("column"),
+            },
+        ] {
+            let report = evaluate_vortex_encoded_predicate_segments(&predicate, &metadata);
+            assert_eq!(
+                report.status,
+                VortexEncodedPredicateEvaluationStatus::NeedsEncodedValues
+            );
+            assert_eq!(report.selection_vectors_emitted, 0);
+            assert_eq!(report.selected_rows_metadata_count, None);
+            assert_eq!(report.segment_reports[0].row_count, None);
+            assert!(report.diagnostics.is_empty());
+        }
+    }
+
+    #[test]
+    fn exact_column_row_counts_prove_complete_null_and_literal_selections() {
+        let mut metadata = summary_with_segment(segment(SegmentStats {
+            null_count: Some(5),
+            ..SegmentStats::with_row_count(5)
+        }));
+        // The helper's unmarked summary count remains five. Exact column
+        // cardinality must supply the second segment's eight rows.
+        metadata.summary.add_segment(segment(SegmentStats {
+            null_count: Some(8),
+            ..SegmentStats::with_row_count(8)
+        }));
+        for (predicate, all_selected) in [
+            (
+                PredicateExpr::IsNull {
+                    column: ColumnRef::new("x").expect("column"),
+                },
+                true,
+            ),
+            (
+                PredicateExpr::IsNotNull {
+                    column: ColumnRef::new("x").expect("column"),
+                },
+                false,
+            ),
+            (PredicateExpr::AlwaysTrue, true),
+            (PredicateExpr::AlwaysFalse, false),
+        ] {
+            let report = evaluate_vortex_encoded_predicate_segments(&predicate, &metadata);
+            assert_eq!(
+                report.status,
+                VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+            );
+            assert_eq!(report.selection_vectors_emitted, 2);
+            assert_eq!(
+                report.selected_rows_metadata_count,
+                Some(if all_selected { 13 } else { 0 })
+            );
+            for (segment_report, rows) in report.segment_reports.iter().zip([5, 8]) {
+                assert_eq!(segment_report.row_count, Some(rows));
+                assert_eq!(
+                    segment_report.selection_vector,
+                    Some(if all_selected {
+                        SelectionVector::all(rows)
+                    } else {
+                        SelectionVector::none()
+                    })
+                );
+            }
+            assert!(report.diagnostics.is_empty());
+        }
     }
 
     #[test]
@@ -850,7 +955,7 @@ mod tests {
         );
         assert_eq!(report.unsupported_count, 1);
         assert_eq!(report.selection_vectors_emitted, 0);
-        assert_eq!(report.selected_rows_metadata_count, Some(0));
+        assert_eq!(report.selected_rows_metadata_count, None);
         assert!(report.has_errors());
         assert!(report.is_side_effect_free());
         assert!(

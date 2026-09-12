@@ -485,7 +485,8 @@ mod tests {
         evaluate_vortex_encoded_predicate_segments,
     };
 
-    fn metadata_summary(stats: SegmentStats) -> VortexMetadataSummaryReport {
+    fn metadata_summary(mut stats: SegmentStats) -> VortexMetadataSummaryReport {
+        stats.exactness = shardloom_core::StatisticsExactness::Exact;
         let mut segment = VortexSegmentMetadataSummary::unknown().with_row_count(5);
         segment.add_column(
             VortexColumnMetadataSummary::new(ColumnRef::new("x").expect("column"))

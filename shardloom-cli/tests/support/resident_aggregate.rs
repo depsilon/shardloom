@@ -49,6 +49,53 @@ fn scalar() -> String {
     .to_string()
 }
 
+#[test]
+fn worker_reuses_integer_extrema_and_average_with_filters_order_and_empty_results() {
+    let path = fixture();
+    for workers in ["1", "2", "4"] {
+        let mut worker = Worker::new();
+        let scalar = json!({"measures":[
+            {"function":"min","column":"metric","alias":"lo"},
+            {"function":"max","column":"metric","alias":"hi"},
+            {"function":"avg","column":"metric","alias":"mean"}]})
+        .to_string();
+        for (predicate, expected) in [
+            (None, json!({"lo":10,"hi":50,"mean":30.0})),
+            (Some("gte:value:3"), json!({"lo":30,"hi":50,"mean":40.0})),
+            (
+                Some("gte:value:99"),
+                json!({"lo":null,"hi":null,"mean":null}),
+            ),
+        ] {
+            for execution in 1..=3 {
+                completed(
+                    &worker.aggregate(&path, &scalar, predicate, None, "1", workers),
+                    &expected,
+                    &execution.to_string(),
+                    execution == 1,
+                );
+            }
+        }
+        let grouped = json!({"group_by":["value"], "measures":[
+            {"function":"min","column":"metric","alias":"lo"},
+            {"function":"max","column":"metric","alias":"hi"},
+            {"function":"avg","column":"metric","alias":"mean"}],
+            "order_by":[{"column":"value","descending":true}], "offset":1})
+        .to_string();
+        for execution in 1..=3 {
+            completed(
+                &worker.aggregate(&path, &grouped, None, Some("2"), "1", workers),
+                &json!([
+                    {"value":4,"lo":40,"hi":40,"mean":40.0},
+                    {"value":3,"lo":30,"hi":30,"mean":30.0},
+                ]),
+                &execution.to_string(),
+                execution == 1,
+            );
+        }
+    }
+}
+
 fn values(result: &Value) -> Value {
     let summary = result["human_text"]
         .as_str()
@@ -194,11 +241,11 @@ fn worker_broader_native_aggregate_keeps_ordinary_execution_and_invalidates_reus
         true,
     );
     let avg =
-        json!({"measures":[{"function":"avg","column":"metric","alias":"mean_alias"}]}).to_string();
+        json!({"measures":[{"function":"avg","column":"metric","alias":"mean_alias","argument_offset":1}]}).to_string();
     for _ in 0..2 {
         let result = worker.aggregate(&path, &avg, None, None, "1", "2");
         assert_eq!(result["status"], "success", "{result}");
-        assert_eq!(values(&result), json!({"mean_alias":30.0}));
+        assert_eq!(values(&result), json!({"mean_alias":31.0}));
         assert!(
             !result["fields"]
                 .as_array()

@@ -1,6 +1,8 @@
 use super::*;
 use std::{
+    fs::File,
     io::{Seek as _, SeekFrom, Write as _},
+    path::PathBuf,
     sync::atomic::AtomicUsize,
 };
 use vortex::{

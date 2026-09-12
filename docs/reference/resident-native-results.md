@@ -143,6 +143,26 @@ The count route reports zero row reads, decoding, and row materialization. Its
 file I/O scope is source-generation checks plus the initial footer open. It does
 not fabricate a row-execution report or independent correctness certificate.
 
+### Shared-session serving scope
+
+File execution currently serializes admission within one session. A short
+metadata count submitted while a scan holds admission waits for that scan to
+finish or return an error. The
+[file-backed serving tests](../../shardloom-vortex/src/resident_file_serving_tests.rs)
+cover contended arrivals at P1/P4, complete ordered scan values, complete counts,
+cooperative scan cancellation after a native read returns, and recovery under
+retained-result memory pressure. The focused three-test run passed on September
+12; it does not establish full-workspace acceptance.
+
+The deliberately gated fixture records arrival-to-native-callback queue residence
+and completion latency. Queue residence includes source-generation admission;
+these are fixture diagnostics, not production latency percentiles. The tests
+establish completion of the submitted callers, not FIFO fairness, cancellation
+while waiting on admission, or interruption of blocked I/O. They do not run
+small-query traffic during ingest or change the scheduler. Native buffer credits
+and constructed worker counts retain their existing accounting scope; they do
+not measure total RSS or actual CPU utilization.
+
 ## Native Array Output
 
 With `vortex-write` enabled, admitted single-file projection, filter/projection,
@@ -199,6 +219,62 @@ coalescing and dictionary domains are therefore limited to each source batch;
 this physical policy can change output layout, size and throughput. The Rust
 option remains explicit, and omitting it preserves the existing ingest policy.
 Performance and memory claims require measurements of the selected policy.
+
+### Rust streaming-source migration: held file generations
+
+The September 12 source-generation change adds the required public field
+`FlatLocalColumnarStreamSource.source_identities`. This is a Rust source
+compatibility change for downstream callers constructing the struct directly;
+existing struct literals must be updated. For a manually constructed in-memory
+source, or a custom source that does not carry a file-generation guard, add this
+field to the existing literal:
+
+```rust
+source_identities: Vec::new(),
+```
+
+This is a field fragment, not a complete construction example. An empty vector
+does not certify source immutability. When wrapping an adapter-produced source,
+preserve its identities along with its reader; a combined source must retain
+every contributing identity through final writer validation.
+
+For local Parquet intake, prefer
+`shardloom_vortex::stream_flat_parquet_columnar_source(path, max_rows)` or
+`stream_flat_parquet_columnar_source_with_parallelism(path, max_rows, parallelism)`
+over manually assembling the struct. With `universal-format-io`, these
+[adapter constructors](../../shardloom-vortex/src/universal_format_io.rs)
+automatically capture a held identity on Unix. The optional
+`stream_flat_parquet_columnar_source_with_batch_budget` variant lives in
+`shardloom_vortex::universal_format_io`; `max_rows` bounds the complete
+source, rather than truncating its result. Writing the stream additionally
+requires `vortex-write`.
+
+The guard compares the held descriptor and current path's device, inode, length,
+modification time and change time. Parquet opens, source pulls and EOF are checked;
+the streaming writer checks again after writing and before publication, including
+empty streams. A detected change invalidates that identity and fails the request
+without fallback. Recreate the source with an adapter constructor after resolving
+the mutation. Existing conversion/provider errors remain the primary failure when
+the reader itself fails.
+
+These are generation checks, not an atomic filesystem snapshot or a content hash.
+Keep the source immutable throughout intake; a source change after the final
+check is not atomically excluded by output publication. Automatic compatibility
+intake protection currently covers Unix Parquet, including identities carried by
+the partition adapter. Arrow IPC, text and other adapters do not acquire this
+guard. Non-Unix Parquet retains the existing input route and reports
+`source_generation_guard=unavailable_non_unix`.
+
+The
+[streaming pressure and mutation tests](../../shardloom-vortex/src/vortex_ingest_pipeline_pressure_tests.rs)
+exercise replacement, truncation and same-size mutation with restored modification
+time before pull and after EOF, including empty sources, native output validation,
+destination preservation and credit release. Their seven cases passed within the
+focused 21-test streaming run on September 12. This evidence does not establish
+blocked-codec cancellation, crash durability, or protection for other formats.
+Ordinary streaming publication flushes, validates and renames; it does not add
+file or parent-directory fsync. Broader checks and remaining acceptance stay in
+the [implementation plan](../architecture/ingest-performance-implementation-2026-09-12.md).
 
 ## Validation Surfaces
 

@@ -67,6 +67,19 @@ def cases(rows: list[dict]) -> list[dict]:
         {"name": "grouped_exact_distinct_aggregate", "primitive": "aggregate", "public_surface": "sql",
          "sql": "SELECT cohort_key, COUNT(DISTINCT exact_identifier) AS unique_alias FROM measurements GROUP BY cohort_key ORDER BY unique_alias DESC, cohort_key ASC LIMIT 5 OFFSET 3",
          "expected": [{"cohort_key": row["cohort_key"], "unique_alias": 1} for row in rows[3:8]]},
+        {"name": "integer_extrema_average", "primitive": "aggregate", "public_surface": "sql",
+         "sql": "SELECT MIN(exact_identifier) AS lo, MAX(exact_identifier) AS hi, AVG(cohort_key) AS mean FROM measurements",
+         "expected": [{"lo": min(row["exact_identifier"] for row in rows),
+                       "hi": max(row["exact_identifier"] for row in rows),
+                       "mean": sum(row["cohort_key"] for row in rows) / len(rows)}]},
+        {"name": "filtered_integer_extrema_average", "primitive": "aggregate", "public_surface": "sql",
+         "sql": "SELECT MIN(exact_identifier) AS lo, MAX(exact_identifier) AS hi, AVG(cohort_key) AS mean FROM measurements WHERE cohort_key >= 24",
+         "expected": [{"lo": min(row["exact_identifier"] for row in rows[24:]),
+                       "hi": max(row["exact_identifier"] for row in rows[24:]),
+                       "mean": 27.5}]},
+        {"name": "empty_integer_extrema_average", "primitive": "aggregate", "public_surface": "sql",
+         "sql": "SELECT MIN(exact_identifier) AS lo, MAX(exact_identifier) AS hi, AVG(cohort_key) AS mean FROM measurements WHERE cohort_key >= 99",
+         "expected": [{"lo": None, "hi": None, "mean": None}]},
     ]
 
 

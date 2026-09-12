@@ -564,6 +564,88 @@ impl WeightedCountSpill {
         Ok(())
     }
 
+    /// Complete-key partitions have consumed the entire source and proved their
+    /// disjoint row/group totals. Each partition now offers its exact final K.
+    /// No run buffer is populated and no workspace/store is opened on this path.
+    pub(super) fn finish_fitted(
+        mut self,
+        source_rows: u64,
+        groups: u64,
+        visit: impl FnOnce(&mut dyn FnMut(&str, u64) -> Result<()>) -> Result<()>,
+    ) -> Result<SpilledCountResult> {
+        self.check()?;
+        if self.order != KeyOrder::Text
+            || self.evidence.source_weight != 0
+            || !self.buffer.is_empty()
+            || !self.runs.is_empty()
+            || groups > source_rows
+            || (groups == 0) != (source_rows == 0)
+        {
+            return Err(failed(
+                "fitted partition finalization changed its complete-source contract",
+            ));
+        }
+        let mut candidates = 0_u64;
+        let mut candidate_weight = 0_u64;
+        visit(&mut |text, weight| {
+            self.policy.check()?;
+            if weight == 0 || text.len() > self.policy.max_key_bytes {
+                return Err(failed("fitted partition key/weight exceeded admission"));
+            }
+            candidates = candidates
+                .checked_add(1)
+                .ok_or_else(|| failed("fitted candidate count overflowed"))?;
+            candidate_weight = candidate_weight
+                .checked_add(weight)
+                .ok_or_else(|| failed("fitted candidate weight overflowed"))?;
+            if candidates > groups || candidate_weight > source_rows {
+                return Err(failed("fitted candidates exceed complete partition totals"));
+            }
+            let candidate = Ranked {
+                row: Row {
+                    number: 0,
+                    text: copy_text(text.as_bytes())?,
+                    weight,
+                },
+                order: self.order,
+            };
+            self.evidence.selection_text_bytes_copied = self
+                .evidence
+                .selection_text_bytes_copied
+                .checked_add(as_u64(text.len())?)
+                .ok_or_else(|| failed("fitted selection copy counter overflowed"))?;
+            if self.selected.len() < self.retained {
+                self.selected.push(candidate);
+            } else if self.selected.peek().is_some_and(|worst| candidate < *worst) {
+                *self.selected.peek_mut().expect("positive retained") = candidate;
+            }
+            Ok(())
+        })?;
+        if self.selected.len()
+            != self.retained.min(
+                usize::try_from(groups)
+                    .map_err(|_| failed("fitted group count exceeds address space"))?,
+            )
+        {
+            return Err(failed(
+                "fitted partition candidates omitted retained output",
+            ));
+        }
+        self.policy.check()?;
+        self.evidence.source_weight = source_rows;
+        // Every complete group was counted once in its owning partition. Only
+        // the final candidate union reaches the bounded heap above.
+        self.evidence.source_records = groups;
+        self.evidence.groups = groups;
+        self.evidence.peak_reserved_bytes = self.memory.snapshot().peak_reserved_bytes;
+        Ok(SpilledCountResult {
+            selected: self.selected.into_sorted_vec(),
+            order: self.order,
+            evidence: self.evidence,
+            lease: self.selection_lease,
+        })
+    }
+
     pub(super) fn finish(
         mut self,
         runtime: &impl BlockingRuntime,

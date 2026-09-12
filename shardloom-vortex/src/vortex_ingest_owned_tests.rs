@@ -75,6 +75,7 @@ fn source(batches: Vec<RecordBatch>, error: bool) -> FlatLocalColumnarStreamSour
         ingest_executor_requested_parallelism: 1,
         ingest_executor_applied_parallelism: 1,
         ingest_executor_unit_count_hint: Some(count),
+        source_identities: Vec::new(),
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
         reader: Box::new(RecordBatchIterator::new(batches, schema)),
@@ -606,6 +607,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             &decision,
             Some(4),
             Some(&memory),
+            &[],
         );
         let snapshot = memory.pool.snapshot();
         assert!(snapshot.peak_reserved_bytes > 0);

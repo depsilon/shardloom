@@ -63,7 +63,9 @@ use stage_timing::{IngestStageTimings, Stage};
 mod numeric_encoding;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use crate::universal_format_io::{FlatLocalColumnarSource, FlatLocalColumnarStreamSource};
+use crate::universal_format_io::{
+    FlatLocalColumnarSource, FlatLocalColumnarStreamSource, SourceIdentity,
+};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "ingest_arrow_ownership.rs"]
@@ -10212,6 +10214,10 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let embedded_derived_build_micros = Arc::clone(&request.source.embedded_derived_build_micros);
     let writer_physical_design_source =
         VortexWriterPhysicalDesignSourceInput::streaming_columnar(&request.source)?;
+    let source_identities = request.source.source_identities;
+    for identity in &source_identities {
+        identity.validate()?;
+    }
     let mut reader = request.source.reader;
     let array_build_start = Instant::now();
     let stream_timing = VortexStreamingIngestTiming::with_derived_metadata_build_micros(
@@ -10221,7 +10227,9 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let first_batch =
         match next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")? {
             Some(batch) => batch,
-            None if native_memory.is_some() => RecordBatch::new_empty(reader.schema()),
+            None if native_memory.is_some() || !source_identities.is_empty() => {
+                RecordBatch::new_empty(reader.schema())
+            }
             None => {
                 stream_timing.add_source_pull_elapsed(first_source_pull_start.elapsed());
                 let empty_source = FlatLocalColumnarSource {
@@ -10342,6 +10350,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
             .map(usize_to_u64)
             .transpose()?,
         array_iterator: stream_iter,
+        source_identities,
         native_memory,
         emitted_record_batch_count: batch_count,
         stream_timing,
@@ -10629,6 +10638,7 @@ where
     column_families: Vec<(String, String)>,
     row_count_hint: Option<u64>,
     array_iterator: I,
+    source_identities: Vec<Arc<SourceIdentity>>,
     native_memory: Option<NativeIngestMemory>,
     emitted_record_batch_count: Arc<AtomicUsize>,
     stream_timing: VortexStreamingIngestTiming,
@@ -11193,6 +11203,10 @@ mod prefetch_tests;
 #[path = "vortex_ingest_owned_tests.rs"]
 mod owned_ingest_tests;
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_pipeline_pressure_tests.rs"]
+mod pipeline_pressure_tests;
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn next_streaming_record_batch(
     reader: &mut dyn arrow_array::RecordBatchReader,
@@ -11593,6 +11607,7 @@ where
         &input.layout_write_decision,
         row_count_hint,
         input.native_memory.as_ref(),
+        &input.source_identities,
     )?;
     cleanup_legacy_prepared_olap_state_sidecars(&target_path)?;
     if let Some(expected_rows) = row_count_hint
@@ -13482,6 +13497,7 @@ impl LocalVortexWriteContext {
     }
 
     #[cfg(feature = "universal-format-io")]
+    #[allow(clippy::too_many_arguments)] // Keep resource and source-generation admission explicit.
     fn write_array_iterator<I>(
         &self,
         path: &Path,
@@ -13490,6 +13506,7 @@ impl LocalVortexWriteContext {
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         expected_rows: Option<u64>,
         native_memory: Option<&NativeIngestMemory>,
+        source_identities: &[Arc<SourceIdentity>],
     ) -> Result<LocalVortexWriteResult>
     where
         I: vortex::array::iter::ArrayIterator + Send + 'static,
@@ -13550,6 +13567,9 @@ impl LocalVortexWriteContext {
                             "streaming local vortex_ingest writer row count mismatch: wrote {}, expected {expected_rows}; staging cleanup attempted; no fallback execution was attempted",
                             summary.row_count()
                         )));
+                    }
+                    for identity in source_identities {
+                        identity.validate()?;
                     }
                     Ok(())
                 },
@@ -13829,7 +13849,6 @@ fn large_source_fast_load_table_strategy(
 ) -> vortex::layout::layouts::table::TableStrategy {
     use std::num::NonZeroUsize;
 
-    use vortex::compressor::BtrBlocksCompressorBuilder;
     use vortex::editions::EditionSessionExt as _;
     use vortex::layout::layouts::buffered::BufferedStrategy;
     use vortex::layout::layouts::chunked::writer::ChunkedLayoutStrategy;
@@ -13846,18 +13865,16 @@ fn large_source_fast_load_table_strategy(
         .expect("stats_concurrency is clamped to at least one");
     // Preserve the original probe decision policy. The legacy array-only session
     // has no editions in 0.85, so this set is empty and the probe only supplies
-    // built-in canonical/constant decisions. Enabling full text probing here
-    // would be a separate physical-design experiment.
+    // built-in canonical/constant decisions. The probe adapter can omit work
+    // for canonical primitives when Dict is excluded without changing its
+    // layout decision. Enabling full text probing here would be a separate
+    // physical-design experiment.
     let probe_encodings = vortex::array::legacy_session()
         .enabled_component_ids(vortex::editions::ComponentKind::Array)
         .into_iter()
         .collect();
-    let probe_compressor = numeric_encoding::measured_probe(
-        BtrBlocksCompressorBuilder::default()
-            .retain_allowed_encodings(&probe_encodings)
-            .build(),
-        writer_stage_timing.stages.clone(),
-    );
+    let probe_compressor =
+        numeric_encoding::measured_probe(&probe_encodings, writer_stage_timing.stages.clone());
     let allowed_encodings =
         writer_session.enabled_component_ids(vortex::editions::ComponentKind::Array);
     let flat_base: std::sync::Arc<dyn vortex::layout::LayoutStrategy> =
@@ -14167,6 +14184,7 @@ fn write_vortex_array_iterator<I>(
     layout_write_decision: &VortexLayoutWriteRuntimeDecision,
     expected_rows: Option<u64>,
     native_memory: Option<&NativeIngestMemory>,
+    source_identities: &[Arc<SourceIdentity>],
 ) -> Result<LocalVortexWriteResult>
 where
     I: vortex::array::iter::ArrayIterator + Send + 'static,
@@ -14180,6 +14198,7 @@ where
             layout_write_decision,
             expected_rows,
             native_memory,
+            source_identities,
         )
     })
 }
@@ -16758,6 +16777,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
+            source_identities: Vec::new(),
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
@@ -16933,6 +16953,7 @@ mod tests {
             ingest_executor_requested_parallelism: 2,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
+            source_identities: Vec::new(),
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
@@ -17233,6 +17254,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
@@ -17368,6 +17390,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(0),
+            source_identities: Vec::new(),
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
@@ -18501,6 +18524,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),

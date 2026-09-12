@@ -1,7 +1,6 @@
 //! One query-reserved weighted COUNT accumulator. No worker pool or additional
 //! runtime is created. A returned owner retains the full parent reservation.
 
-#[cfg(test)]
 use super::AggregateIntegerKeyPart;
 use super::{
     NativeNumericOwner, logical_field_from_native_array,
@@ -40,6 +39,10 @@ pub(super) struct SourceWork {
     pub drained_epochs: u64,
     pub committed_weight: u64,
     pub deferred_weight: u64,
+    pub worker_jobs: u64,
+    pub worker_peak_jobs: usize,
+    pub workers_created: usize,
+    pub fitted_partition_selection: bool,
 }
 pub(super) struct Accumulator {
     spill: WeightedCountSpill,
@@ -70,7 +73,6 @@ impl OwnedResult {
         self.result.reserved_bytes() + self.metadata.bytes()
     }
 }
-#[cfg(test)]
 type Visit<'a> = dyn FnMut(Option<AggregateIntegerKeyPart>, &str, u64) -> Result<()> + 'a;
 
 impl Accumulator {
@@ -145,12 +147,93 @@ impl Accumulator {
             Ok(())
         }
     }
+    pub(super) fn worker_memory(&self) -> &LiveMemoryPool {
+        &self.operator_memory
+    }
+    pub(super) fn worker_contract(&self) -> &Contract {
+        &self.contract
+    }
+    pub(super) fn worker_session(&self) -> &VortexSession {
+        &self.run_session
+    }
+    pub(super) fn record_workers(
+        &mut self,
+        jobs: u64,
+        peak: usize,
+        created: usize,
+        batches: u64,
+        dictionaries: u64,
+    ) -> Result<()> {
+        self.check()?;
+        self.work.worker_jobs = jobs;
+        self.work.worker_peak_jobs = peak;
+        self.work.workers_created = created;
+        self.work.source_batches = self
+            .work
+            .source_batches
+            .checked_add(batches)
+            .ok_or_else(|| failed("worker source batches overflowed"))?;
+        self.work.dictionary_batches = self
+            .work
+            .dictionary_batches
+            .checked_add(dictionaries)
+            .ok_or_else(|| failed("worker dictionary batches overflowed"))?;
+        Ok(())
+    }
     pub(super) fn push_source(
         &mut self,
         chunk: &ArrayRef,
         runtime: &impl BlockingRuntime,
     ) -> Result<()> {
         let result = self.push_source_inner(chunk, runtime);
+        if result.is_err() {
+            self.failed = true;
+        }
+        result
+    }
+    /// An admitted worker could not finish native canonicalization. No partial
+    /// from this immutable UTF8 leaf was committed; consume it once after the
+    /// drained epoch releases its partition/partial owners.
+    pub(super) fn push_untouched_text(
+        &mut self,
+        array: &ArrayRef,
+        runtime: &impl BlockingRuntime,
+    ) -> Result<()> {
+        let result = (|| {
+            self.check()?;
+            if self.contract.numeric_index.is_some()
+                || self.contract.dtypes.get(self.contract.text_index) != Some(array.dtype())
+            {
+                return Err(failed("untouched worker leaf changed its UTF8 contract"));
+            }
+            let text = TextInput::new(array, &mut self.source_ctx)?;
+            text.visit(None, |row, key, value| {
+                if row.is_multiple_of(4096) {
+                    cancelled(&self.cancellation)?;
+                }
+                self.spill.push(key, value, 1, runtime, &self.run_session)
+            })?;
+            self.source_rows = self
+                .source_rows
+                .checked_add(array.len() as u64)
+                .ok_or_else(|| failed("untouched worker rows overflowed"))?;
+            self.work.source_batches = self
+                .work
+                .source_batches
+                .checked_add(1)
+                .ok_or_else(|| failed("untouched worker batches overflowed"))?;
+            self.work.dictionary_batches = self
+                .work
+                .dictionary_batches
+                .checked_add(u64::from(text.dictionary()))
+                .ok_or_else(|| failed("untouched dictionary batches overflowed"))?;
+            self.work.utf8_native_value_bytes = self
+                .work
+                .utf8_native_value_bytes
+                .checked_add(text.native_value_bytes())
+                .ok_or_else(|| failed("untouched native UTF8 bytes overflowed"))?;
+            Ok(())
+        })();
         if result.is_err() {
             self.failed = true;
         }
@@ -243,7 +326,6 @@ impl Accumulator {
     /// must enumerate complete keys, never selected/top-K output. The exact
     /// combined weight is verified before source input can resume. Any visitor
     /// failure is terminal, even if earlier partitions released their credits.
-    #[cfg(test)]
     pub(super) fn transfer_drained_epoch(
         &mut self,
         expected_rows: u64,
@@ -257,7 +339,6 @@ impl Accumulator {
         }
         result
     }
-    #[cfg(test)]
     fn transfer_inner(
         &mut self,
         expected_rows: u64,
@@ -309,6 +390,33 @@ impl Accumulator {
             .checked_add(suffix)
             .ok_or_else(|| failed("deferred weight counter overflowed"))?;
         Ok(())
+    }
+    pub(super) fn finish_fitted(
+        mut self,
+        expected_rows: u64,
+        groups: u64,
+        visit: impl FnOnce(&mut dyn FnMut(&str, u64) -> Result<()>) -> Result<()>,
+    ) -> Result<OwnedResult> {
+        self.check()?;
+        if self.source_rows != 0 || self.contract.numeric_index.is_some() {
+            return Err(failed(
+                "fitted finalization requires one untouched UTF8 source epoch",
+            ));
+        }
+        let result = self.spill.finish_fitted(expected_rows, groups, visit)?;
+        self.work.fitted_partition_selection = true;
+        if self.operator_memory.snapshot().reserved_bytes > self.envelope.bytes() {
+            return Err(failed(
+                "fitted child credits exceed retained parent envelope",
+            ));
+        }
+        Ok(OwnedResult {
+            result,
+            contract: self.contract,
+            source_work: self.work,
+            metadata: self.metadata,
+            envelope: self.envelope,
+        })
     }
     pub(super) fn finish(self, runtime: &impl BlockingRuntime) -> Result<OwnedResult> {
         self.check()?;

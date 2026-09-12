@@ -45,6 +45,8 @@ use arrow_array::{
 use arrow_schema::{ArrowError, DataType, Field, Fields, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
 
+pub use crate::source_identity::SourceIdentity;
+
 const SCOPED_COMPAT_RECORD_BATCH_ROWS: usize = 8_192;
 pub const PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS: usize = 65_536;
 pub const PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS: usize = 262_144;
@@ -220,6 +222,10 @@ pub struct FlatLocalColumnarStreamSource {
     pub ingest_executor_unit_count_hint: Option<usize>,
     /// Microseconds spent building embedded derived metadata while streaming.
     pub embedded_derived_build_micros: Arc<AtomicU64>,
+    /// Held file generations to validate through final output publication.
+    /// In-memory sources leave this empty; partition adapters retain every
+    /// contributing identity. Unix Parquet adapters populate it automatically.
+    pub source_identities: Vec<Arc<SourceIdentity>>,
     /// Streaming Arrow batch reader consumed by the Vortex writer.
     pub reader: Box<dyn RecordBatchReader + Send>,
 }
@@ -228,6 +234,77 @@ struct CapillaryPrefetchRecordBatchReader {
     schema: SchemaRef,
     receiver: Option<Receiver<std::result::Result<RecordBatch, ArrowError>>>,
     worker: Option<JoinHandle<()>>,
+}
+
+struct GenerationCheckedRecordBatchReader {
+    inner: Box<dyn RecordBatchReader + Send>,
+    identity: Arc<SourceIdentity>,
+    finished: bool,
+}
+
+impl Iterator for GenerationCheckedRecordBatchReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+        let result = self.identity.validate().map_err(generation_arrow_error);
+        if let Err(error) = result {
+            self.finished = true;
+            return Some(Err(error));
+        }
+        let result = self.inner.next();
+        // Preserve a provider's primary failure; otherwise reject even EOF if
+        // the source changed while a read or queued handoff was in progress.
+        if !matches!(result, Some(Err(_)))
+            && let Err(error) = self.identity.validate()
+        {
+            self.finished = true;
+            return Some(Err(generation_arrow_error(error)));
+        }
+        self.finished = result.is_none() || matches!(result, Some(Err(_)));
+        result
+    }
+}
+
+impl RecordBatchReader for GenerationCheckedRecordBatchReader {
+    fn schema(&self) -> SchemaRef {
+        self.inner.schema()
+    }
+}
+
+fn generation_arrow_error(error: ShardLoomError) -> ArrowError {
+    ArrowError::ExternalError(Box::new(error))
+}
+
+fn generation_checked_parquet_source(
+    mut source: FlatLocalColumnarStreamSource,
+    identity: Option<Arc<SourceIdentity>>,
+) -> FlatLocalColumnarStreamSource {
+    if let Some(identity) = identity {
+        source.source_identities.push(Arc::clone(&identity));
+        source.reader = Box::new(GenerationCheckedRecordBatchReader {
+            inner: source.reader,
+            identity,
+            finished: false,
+        });
+        source.source_stream_policy.push_str(
+            ";source_generation_guard=held_descriptor_and_path_unix_identity_before_after_pull_and_before_publication",
+        );
+    } else {
+        source
+            .source_stream_policy
+            .push_str(";source_generation_guard=unavailable_non_unix");
+    }
+    source
+}
+
+fn open_parquet_generation_file(path: &Path, identity: Option<&SourceIdentity>) -> Result<File> {
+    identity.map_or_else(
+        || open_local_source_file(path, "Parquet"),
+        SourceIdentity::open_checked,
+    )
 }
 
 impl CapillaryPrefetchRecordBatchReader {
@@ -467,6 +544,7 @@ struct ParquetRowGroupParallelRecordBatchReader {
 impl ParquetRowGroupParallelRecordBatchReader {
     fn new(
         path: &Path,
+        source_identity: Option<Arc<SourceIdentity>>,
         schema: SchemaRef,
         tasks: Vec<ParquetRowGroupReadTask>,
         batch_size: usize,
@@ -478,6 +556,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
         Self::with_task_runner(schema, tasks, applied_parallelism, move |task, sender| {
             stream_parquet_row_group_batches(
                 &path,
+                source_identity.as_deref(),
                 task.row_groups,
                 batch_size,
                 &reader_metadata,
@@ -1089,12 +1168,14 @@ fn parquet_row_group_source_parallelism_budget(requested_max_parallelism: usize)
 
 fn stream_parquet_row_group_batches(
     path: &Path,
+    source_identity: Option<&SourceIdentity>,
     row_groups: Vec<usize>,
     batch_size: usize,
     reader_metadata: &parquet::arrow::arrow_reader::ArrowReaderMetadata,
     sender: &SyncSender<ParquetRowGroupReadResult>,
 ) -> std::result::Result<(), ArrowError> {
-    let file = File::open(path).map_err(ArrowError::from)?;
+    let file =
+        open_parquet_generation_file(path, source_identity).map_err(generation_arrow_error)?;
     let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(
         file,
         reader_metadata.clone(),
@@ -1254,6 +1335,7 @@ fn flat_columnar_stream_source_from_reader(
         ingest_executor_unit_count_hint: stream_plan
             .source_unit_count_hint
             .or(stream_plan.record_batch_count_hint),
+        source_identities: Vec::new(),
         embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
         reader,
     };
@@ -2706,6 +2788,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         source_dictionary_preservation_status,
         ingest_executor_unit_count_hint,
         embedded_derived_build_micros,
+        source_identities,
         reader,
         ..
     } = source;
@@ -2740,6 +2823,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint,
             embedded_derived_build_micros,
+            source_identities,
             reader,
         };
     }
@@ -2767,6 +2851,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         ingest_executor_applied_parallelism: applied_parallelism,
         ingest_executor_unit_count_hint: unit_hint,
         embedded_derived_build_micros,
+        source_identities,
         reader: Box::new(CapillaryPrefetchRecordBatchReader::new(
             reader,
             applied_parallelism,
@@ -2849,6 +2934,7 @@ pub fn stream_flat_text_rows_columnar_source(
                 ingest_executor_requested_parallelism: 1,
                 ingest_executor_applied_parallelism: 1,
                 ingest_executor_unit_count_hint: Some(0),
+                source_identities: Vec::new(),
                 embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
                 reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::new())),
             },
@@ -2878,6 +2964,7 @@ pub fn stream_flat_text_rows_columnar_source(
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(record_batch_count),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TextRowsRecordBatchReader::new(
                 schema, header, rows, batch_size, context,
@@ -2958,10 +3045,11 @@ fn parquet_reader_options_with_optional_schema_hint(
 
 fn parquet_stream_record_batch_reader(
     path: &Path,
+    source_identity: Option<&SourceIdentity>,
     reader_metadata: &parquet::arrow::arrow_reader::ArrowReaderMetadata,
     batch_size: usize,
 ) -> Result<Box<dyn RecordBatchReader + Send>> {
-    let file = open_local_source_file(path, "Parquet")?;
+    let file = open_parquet_generation_file(path, source_identity)?;
     let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(
         file,
         reader_metadata.clone(),
@@ -3019,7 +3107,13 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
                 .to_string(),
         ));
     }
-    let file = open_local_source_file(path, "Parquet")?;
+    #[cfg(unix)]
+    let source_identity = Some(Arc::new(SourceIdentity::capture(path)?));
+    // Preserve the existing compatibility-input route on platforms where the
+    // resident generation contract cannot yet establish strong file identity.
+    #[cfg(not(unix))]
+    let source_identity: Option<Arc<SourceIdentity>> = None;
+    let file = open_parquet_generation_file(path, source_identity.as_deref())?;
     let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new_with_options(
         file,
         parquet_metadata_first_reader_options(),
@@ -3046,6 +3140,9 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
         ))
     })?;
     let row_count_hint = row_group_metadata.total_hint;
+    if let Some(identity) = &source_identity {
+        identity.validate()?;
+    }
     validate_known_stream_row_count(path, "Parquet", row_count_hint, max_rows)?;
     let row_group_count = row_group_metadata.group_count;
     let mut stream_plan = FlatColumnarStreamSourcePlan::product_batches(
@@ -3094,6 +3191,7 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
             &stream_plan,
             Box::new(ParquetRowGroupParallelRecordBatchReader::new(
                 path,
+                source_identity.clone(),
                 Arc::clone(&schema_plan.stream_schema),
                 tasks,
                 stream_batch_size,
@@ -3119,15 +3217,18 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
         source.ingest_executor_requested_parallelism = requested_max_parallelism;
         source.ingest_executor_applied_parallelism = applied_parallelism;
         source.ingest_executor_unit_count_hint = Some(task_count);
-        return Ok(annotate_parquet_extent_plan_source(
-            source,
-            &extent_plan,
-            task_byte_ranges.as_deref(),
+        return Ok(generation_checked_parquet_source(
+            annotate_parquet_extent_plan_source(source, &extent_plan, task_byte_ranges.as_deref()),
+            source_identity,
         ));
     }
     let row_group_byte_ranges = extent_plan.row_group_byte_ranges();
-    let reader =
-        parquet_stream_record_batch_reader(path, &reader_metadata, stream_plan.stream_batch_size)?;
+    let reader = parquet_stream_record_batch_reader(
+        path,
+        source_identity.as_deref(),
+        &reader_metadata,
+        stream_plan.stream_batch_size,
+    )?;
     let source = flat_columnar_stream_source_from_reader(
         schema_plan.stream_schema.as_ref(),
         header.clone(),
@@ -3137,9 +3238,16 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
         &stream_plan,
         reader,
     );
-    Ok(with_capillary_prefetch_columnar_stream_source(
-        annotate_parquet_extent_plan_source(source, &extent_plan, row_group_byte_ranges.as_deref()),
-        requested_max_parallelism,
+    Ok(generation_checked_parquet_source(
+        with_capillary_prefetch_columnar_stream_source(
+            annotate_parquet_extent_plan_source(
+                source,
+                &extent_plan,
+                row_group_byte_ranges.as_deref(),
+            ),
+            requested_max_parallelism,
+        ),
+        source_identity,
     ))
 }
 
@@ -6224,6 +6332,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
@@ -6352,6 +6461,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
@@ -6450,6 +6560,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
@@ -6564,6 +6675,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
@@ -6722,6 +6834,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
@@ -6805,6 +6918,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
@@ -6860,6 +6974,7 @@ mod tests {
             ingest_executor_requested_parallelism: 2,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
@@ -7597,6 +7712,7 @@ mod tests {
             ingest_executor_requested_parallelism: 1,
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
+            source_identities: Vec::new(),
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };

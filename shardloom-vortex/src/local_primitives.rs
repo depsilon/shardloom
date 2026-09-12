@@ -61,6 +61,10 @@ mod native_numeric_owner;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
+
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_aggregate_owned.rs"]
+mod aggregate_owned;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_count.rs"]
 pub mod prepared_count;
@@ -6236,6 +6240,8 @@ fn execute_vortex_local_pivot_row_export_enabled(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+// Keep admitted routing and the existing text publication lifecycle together.
+#[allow(clippy::too_many_lines)]
 fn execute_vortex_local_simple_aggregate_row_export_enabled(
     request: &VortexQueryPrimitiveRequest,
     output_path: &std::path::Path,
@@ -6244,6 +6250,22 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
     use std::io::Write as _;
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    if matches!(
+        output_format,
+        VortexLocalPrimitiveRowExportFormat::Vortex
+            | VortexLocalPrimitiveRowExportFormat::ArrowIpc
+            | VortexLocalPrimitiveRowExportFormat::Parquet
+    ) {
+        #[cfg(not(feature = "universal-format-io"))]
+        if output_format != VortexLocalPrimitiveRowExportFormat::Vortex {
+            return Err(ShardLoomError::InvalidOperation("aggregate compatibility output requires universal-format-io; no fallback execution was attempted".into()));
+        }
+        return prepared_aggregate::prepare_aggregate(request, policy)?
+            .execute_owned()?
+            .write(output_path, output_format, allow_overwrite);
+    }
 
     let aggregate = required_simple_aggregate(request)?;
     let Some(uri) = request.source_uri.as_ref() else {
@@ -19866,11 +19888,29 @@ fn read_local_vortex_simple_aggregate_scan(
     {
         #[cfg(feature = "vortex-write")]
         if required_simple_aggregate(request)?.spill.is_some() {
-            let resident = crate::resident_session::ResidentVortexSession::new(
-                policy.resource_envelope.memory_budget_bytes,
-                policy.resource_envelope.max_parallelism,
-            )?;
+            let count_workers = weighted_count_spill_query::worker_request_admitted(request);
+            let resident = if count_workers {
+                crate::resident_session::ResidentVortexSession::for_external_cpu_pool(
+                    policy.resource_envelope.memory_budget_bytes,
+                    policy.resource_envelope.max_parallelism,
+                )?
+            } else {
+                crate::resident_session::ResidentVortexSession::new(
+                    policy.resource_envelope.memory_budget_bytes,
+                    policy.resource_envelope.max_parallelism,
+                )?
+            };
             let prepared = resident.prepare_file(path)?;
+            let mut policy = policy;
+            if count_workers {
+                let (_, parallelism) = prepared.resource_limits();
+                policy.max_parallelism = parallelism;
+                policy.resource_envelope.max_parallelism = parallelism;
+                policy.resource_envelope.scan_concurrency_per_worker = policy
+                    .resource_envelope
+                    .scan_concurrency_per_worker
+                    .min(parallelism);
+            }
             if weighted_count_spill_admission::request_admitted(request) {
                 let (result, owner) =
                     prepared.with_native_execution(|file, session, runtime| {
@@ -20061,6 +20101,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         uncached_retry,
         &lowering,
         attempt_started,
+        None,
     )
 }
 
@@ -20077,6 +20118,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
     lowering: &aggregate_lowering::AggregateLowering,
     attempt_started: Instant,
+    mut owned_output: Option<&mut aggregate_owned::OwnedAggregateFinalizer>,
 ) -> Result<LocalVortexAggregateScan> {
     let source_row_count = file.row_count();
     let aggregate_plan = &lowering.rewrite;
@@ -20295,6 +20337,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
                         None,
                         lowering,
                         replay_started,
+                        owned_output.as_deref_mut(),
                     )?;
                     replayed.restored_provider_background_workers = replayed
                         .restored_provider_background_workers
@@ -20988,8 +21031,11 @@ fn read_lowered_vortex_simple_aggregate_scan(
         .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
-        let (result_row_count, result_summary) =
-            states.result_row_count_and_summary(result_limit)?;
+        let (result_row_count, result_summary) = if let Some(output) = owned_output {
+            output.finish(&states)?
+        } else {
+            states.result_row_count_and_summary(result_limit)?
+        };
         (
             result_row_count,
             result_summary,

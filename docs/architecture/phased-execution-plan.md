@@ -283,6 +283,29 @@ Implementation status and proof gaps are recorded in
 `performance-overhaul-implementation-2026-09-05.md`. None of the thirteen whole
 PERF packets is complete merely because its shared runtime foundation exists.
 
+The maintainer's September 12 instruction resumes all actionable items in this
+phased plan, including the five older production epics below the PERF sequence.
+The [current reconciliation](performance-plan-exhaustion-2026-09-12.md) maps every
+remaining checklist row to retained code, a measured rejection, a concrete
+implementation/acceptance task or a real prerequisite. It is the execution
+checklist for this continuation; it does not create new phases, close competitive
+gates or restart rejected experiments. The
+[control ledger](performance-control-progression-2026-09-12.md) advances recorded
+ingest and query controls as faster retained versions complete validation;
+95.447305 seconds remains the previous accepted ingest observation. Numeric
+probe removal, source-generation and
+pressure protection, prepared aggregate families, worker-to-spill handoff and
+owned aggregate results are the current coherent implementation units.
+The subsequent maintainer instruction retains the faster numeric probe path
+despite modest/variable gains and adds artifact-size reduction under PERF-09 and
+the existing writer codec-portfolio item. The
+[storage exploration](native-storage-reduction-2026-09-12.md) measures physical
+bytes, ingest, native query behavior and memory together. Its completed validated
+gains can advance the applicable controls; it does not restart rejected
+topology/codec experiments unchanged. Retained numeric `6bc73e8d` records
+90.303309/93.945037-second ingests with identical bytes, while combined
+`2ad143da` acceptance remains in progress. Those are not new combined Full43 scores.
+
 After PR #1433 merged, the maintainer requested the next performance iteration.
 The [numeric and aggregation continuation](perf-numeric-aggregation-2026-09-06.md)
 retains borrowed original-width numeric consumers, typed integer grouping loops,
@@ -340,10 +363,11 @@ The September 12
 adds CPU-stage balance, bounded writer overlap and repeated-representation work
 to existing PERF-03/08/09/12. Bounded attribution and one matched-owner allocation
 screen are complete: moving conversion to the caller and adding a provider driver
-took 118.604707 seconds, failing against the maintained 95.447305-second baseline.
+took 118.604707 seconds, failing against the then-current 95.447305-second baseline.
 The extra unchanged-control observation of 104.044137 seconds does not replace
-that baseline. Per the maintainer's clarification, do not rerun/change controls
-until a candidate first demonstrates a credible material improvement.
+that historical sample. Per the maintainer's latest clarification, advance
+ingest/query controls as faster retained versions complete validation and avoid
+needless reruns of unchanged controls; preserve all earlier observations.
 The allocation is dropped; useful end-to-end lifecycle and codec-grant tests
 remain. The [packet](../benchmarks/ingest-stage-balance-2026-09-12.md) leaves
 writer-batch overlap and representation removal conditional on evidence of
@@ -954,8 +978,9 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
       `full43_after_clean_ingest_current_impl_20260903T112902Z` at `189.197s` best-of-3 query
       total.
   - Next outcome: ShardLoom has a production writer physical-design implementation that can be
-    retained only if it beats the `301s` local replacement-ingest baseline or provides an explicit
-    correctness/single-artifact tradeoff accepted by the maintainer.
+    retained only if it improves the latest applicable completed control in the
+    [control ledger](performance-control-progression-2026-09-12.md) or provides an explicit
+    lifecycle/correctness/single-artifact tradeoff accepted by the maintainer.
   - User-visible surface: `prepare dataframe`, SQL/Python/DataFrame prepare-once flows, ClickBench
     ingest UAT, public workflow preparation evidence, and benchmark docs.
   - Implementation scope: `shardloom-vortex/src/vortex_ingest.rs`,
@@ -2235,11 +2260,13 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 Current autonomous execution order:
 
 1. Preserve completed PR #1437, matched-owner ingest, September 12 attribution,
-   fresh-artifact Full43 and the dropped allocation screen. The maintained
-   native ingest baseline is 95.447305 seconds; the extra 104.044137-second
-   unchanged-control observation does not replace it. Screen any future candidate
-   against retained evidence first, and do not change/rerun controls until a
-   candidate demonstrates credible material improvement. Under PERF-03/08/09/12,
+   fresh-artifact Full43 and the dropped allocation screen. Use the
+   [control ledger](performance-control-progression-2026-09-12.md): previous
+   accepted ingest is 95.447305 seconds; retained numeric observations are
+   90.303309/93.945037 seconds, with combined acceptance still in progress.
+   Advance applicable ingest/query controls as faster versions complete
+   validation, preserve all historical samples and avoid needless unchanged-control
+   reruns. Keep artifact profiles and pending-version proof separate. Under PERF-03/08/09/12,
    writer overlap requires measured recoverable subtree-tail work; repeated
    representation removal requires demonstrated duplication and compatible
    ownership. Neither condition is established by the rejected allocation.

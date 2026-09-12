@@ -127,6 +127,11 @@ pub mod scheduler_bridge;
 pub mod selection_vector_filter_kernel;
 pub mod source_backed_benchmark_matrix;
 pub mod source_backed_encoded_execution;
+#[cfg(any(
+    feature = "universal-format-io",
+    all(feature = "vortex-local-primitives", not(target_arch = "wasm32"))
+))]
+mod source_identity;
 pub mod specialized_kernel_registry;
 pub mod staged_manifest;
 pub mod staged_output;

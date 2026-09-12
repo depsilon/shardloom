@@ -17,6 +17,150 @@ use vortex::{
 };
 
 #[test]
+#[allow(clippy::too_many_lines)] // Complete fixture, independent oracle and worker matrix.
+fn prepared_extrema_and_average_preserve_nullable_integer_values_and_fresh_state() {
+    let fixture = Fixture::new();
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let array = StructArray::try_new(
+        FieldNames::from(["cohort", "signed", "unsigned", "metric"]),
+        vec![
+            PrimitiveArray::from_option_iter([
+                Some(0_i64),
+                Some(0),
+                Some(0),
+                None,
+                None,
+                Some(1),
+                Some(1),
+            ])
+            .into_array(),
+            PrimitiveArray::from_option_iter([
+                Some(i64::MIN),
+                Some(i64::MAX),
+                None,
+                Some(9_007_199_254_740_993),
+                Some(9_007_199_254_740_992),
+                None,
+                None,
+            ])
+            .into_array(),
+            PrimitiveArray::from_option_iter([
+                Some(0_u64),
+                Some(u64::MAX),
+                None,
+                Some(9_007_199_254_740_993),
+                Some(9_007_199_254_740_992),
+                None,
+                None,
+            ])
+            .into_array(),
+            PrimitiveArray::from_option_iter([
+                Some(-6_i64),
+                Some(8),
+                None,
+                Some(3),
+                Some(5),
+                None,
+                None,
+            ])
+            .into_array(),
+        ],
+        7,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let mut output = std::fs::File::create(fixture.path()).unwrap();
+    let mut writer = session
+        .write_options()
+        .blocking(&runtime)
+        .writer(&mut output, array.dtype().clone());
+    writer.push(array).unwrap();
+    writer.finish().unwrap();
+    drop(output);
+    let measures = vec![
+        measure("min", Some("signed"), "lo"),
+        measure("max", Some("signed"), "hi"),
+        measure("min", Some("unsigned"), "ulo"),
+        measure("max", Some("unsigned"), "uhi"),
+        measure("avg", Some("metric"), "mean"),
+    ];
+    let empty_values = serde_json::json!({"lo":null,"hi":null,"ulo":null,"uhi":null,"mean":null});
+    for parallelism in [1, 2, 4, 8, 12] {
+        for grouped in [false, true] {
+            for pruned in [false, true] {
+                let mut aggregate = VortexSimpleAggregateRequest::new(measures.clone());
+                if grouped {
+                    aggregate.group_by = vec![ColumnRef::new("cohort").unwrap()];
+                    aggregate.order_by = vec![VortexAggregateOrderExpr::new("cohort", false)];
+                }
+                let mut request = fixture.request(aggregate);
+                if pruned {
+                    request.predicate = Some(PredicateExpr::Compare {
+                        column: ColumnRef::new("cohort").unwrap(),
+                        op: ComparisonOp::Gt,
+                        value: StatValue::Int64(5),
+                    });
+                }
+                let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+                let ordinary = crate::local_primitives::execute_vortex_local_primitive_with_policy(
+                    &request, policy,
+                )
+                .unwrap();
+                let prepared = prepare_aggregate(&request, policy).unwrap();
+                let owner = prepared.session.clone();
+                for execution in 1..=3 {
+                    let result = prepared.execute().unwrap();
+                    certified(&result, execution);
+                    let actual = payload(&result.report)["values"].clone();
+                    assert_eq!(actual, payload(&ordinary)["values"]);
+                    if grouped {
+                        if pruned {
+                            assert_eq!(actual, serde_json::json!([]));
+                        } else {
+                            let by_key = actual
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .map(|row| {
+                                    let mut values = row.as_object().unwrap().clone();
+                                    let key = values.remove("cohort").unwrap().to_string();
+                                    (key, serde_json::Value::Object(values))
+                                })
+                                .collect::<BTreeMap<_, _>>();
+                            assert_eq!(
+                                by_key,
+                                BTreeMap::from([
+                                    (
+                                        "0".into(),
+                                        serde_json::json!({"lo":i64::MIN,"hi":i64::MAX,"ulo":0,"uhi":u64::MAX,"mean":1.0})
+                                    ),
+                                    ("1".into(), empty_values.clone()),
+                                    (
+                                        "null".into(),
+                                        serde_json::json!({"lo":9_007_199_254_740_992_i64,"hi":9_007_199_254_740_993_i64,"ulo":9_007_199_254_740_992_u64,"uhi":9_007_199_254_740_993_u64,"mean":4.0})
+                                    ),
+                                ])
+                            );
+                        }
+                    } else if pruned {
+                        assert_eq!(actual, empty_values);
+                    } else {
+                        assert_eq!(
+                            actual,
+                            serde_json::json!({"lo":i64::MIN,"hi":i64::MAX,"ulo":0,"uhi":u64::MAX,"mean":2.5})
+                        );
+                    }
+                }
+                drop(prepared);
+                assert_eq!(owner.snapshot().memory.reserved_bytes, 0);
+            }
+        }
+    }
+}
+
+#[test]
 fn true_empty_prepared_aggregates_certify_complete_values_and_reexecute_without_reopening() {
     let fixture = Fixture::new();
     write_empty_source(&fixture);
@@ -25,13 +169,18 @@ fn true_empty_prepared_aggregates_certify_complete_values_and_reexecute_without_
         aggregate
             .measures
             .push(measure("count", Some("metric"), "present_alias"));
+        for function in ["min", "max", "avg"] {
+            aggregate
+                .measures
+                .push(measure(function, Some("metric"), function));
+        }
         if grouped {
             aggregate.group_by = vec![ColumnRef::new("value").unwrap()];
         }
         let expected = if grouped {
             serde_json::json!([])
         } else {
-            serde_json::json!({"rows_alias":0,"unique_alias":0,"total_alias":null,"present_alias":0})
+            serde_json::json!({"rows_alias":0,"unique_alias":0,"total_alias":null,"present_alias":0,"min":null,"max":null,"avg":null})
         };
         let request = fixture.request(aggregate);
         for parallelism in [1, 2] {

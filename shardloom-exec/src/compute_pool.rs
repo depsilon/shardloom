@@ -20,6 +20,13 @@ use crate::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 pub struct CancellationToken(Arc<AtomicBool>);
 
 impl CancellationToken {
+    /// Shares cancellation with an existing operation owner. Clones keep the
+    /// same flag alive; neither construction nor normal destruction cancels it.
+    #[must_use]
+    pub fn from_shared_flag(flag: Arc<AtomicBool>) -> Self {
+        Self(flag)
+    }
+
     pub fn cancel(&self) {
         self.0.store(true, Ordering::Release);
     }
@@ -354,6 +361,23 @@ fn pool_error(message: &str) -> ShardLoomError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancellation_token_shares_existing_flag_in_both_directions() {
+        let flag = Arc::new(AtomicBool::new(false));
+        let token = CancellationToken::from_shared_flag(Arc::clone(&flag));
+        let clone = token.clone();
+        drop(token);
+        assert!(!flag.load(Ordering::Acquire));
+        flag.store(true, Ordering::Release);
+        assert!(clone.check().is_err());
+        let other = Arc::new(AtomicBool::new(false));
+        let owner = CancellationToken::from_shared_flag(Arc::clone(&other));
+        owner.clone().cancel();
+        assert!(other.load(Ordering::Acquire));
+        drop(other);
+        assert!(owner.is_cancelled());
+    }
 
     #[test]
     fn persistent_workers_return_owned_results_and_release_credits() {

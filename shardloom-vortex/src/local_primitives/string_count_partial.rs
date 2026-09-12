@@ -612,9 +612,78 @@ fn slot_bytes(slots: usize) -> Result<u64> {
 #[allow(clippy::too_many_lines)]
 pub(super) fn count_string_chunk(
     array: &ArrayRef,
+    ctx: ExecutionCtx,
+    worker: &ChunkWorkerContext,
+    lease: &mut MemoryLease,
+) -> Result<StringCountPartial> {
+    count_with_provider_error(array, ctx, worker, lease, &mut super::vortex_error)
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) enum CountOutcome {
+    Counted(StringCountPartial),
+    OwnedAllocationDenied(ShardLoomError),
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) fn count_admitted(
+    array: &ArrayRef,
     mut ctx: ExecutionCtx,
     worker: &ChunkWorkerContext,
     lease: &mut MemoryLease,
+) -> Result<CountOutcome> {
+    let mut owned_denial = false;
+    let mut lease_denial = false;
+    let mut provider_error = |error| {
+        owned_denial = crate::owned_buffers::is_owned_reservation_denial(&error);
+        super::vortex_error(error)
+    };
+    let result = (|| {
+        worker.check_cancelled()?;
+        let initial_bytes = partial_bytes(array)?;
+        let started = Instant::now();
+        let resolved =
+            super::encoded_numeric_reduction::resolve_structural_projection_with_provider_error(
+                array,
+                &mut ctx,
+                &mut provider_error,
+            )?;
+        // A projected Dict can have more values than logical rows. Preserve all
+        // task metadata credits and atomically admit its real values-domain
+        // table before counting; a denied resize has committed no source rows.
+        let resolved_bytes = partial_bytes(&resolved)?;
+        if resolved_bytes > initial_bytes {
+            let bytes = lease
+                .bytes()
+                .checked_add(resolved_bytes - initial_bytes)
+                .ok_or_else(|| failed("resolved dictionary capacity overflowed"))?;
+            if let Err(error) = lease.resize(bytes) {
+                lease_denial = true;
+                return Err(error);
+            }
+        }
+        let structural_nanos = started.elapsed().as_nanos();
+        let mut partial =
+            count_with_provider_error(&resolved, ctx, worker, lease, &mut provider_error)?;
+        partial.work.canonicalization_nanos += structural_nanos;
+        Ok(partial)
+    })();
+    match result {
+        Ok(partial) => Ok(CountOutcome::Counted(partial)),
+        Err(error) if owned_denial || lease_denial => {
+            Ok(CountOutcome::OwnedAllocationDenied(error))
+        }
+        Err(error) => Err(error),
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn count_with_provider_error(
+    array: &ArrayRef,
+    mut ctx: ExecutionCtx,
+    worker: &ChunkWorkerContext,
+    lease: &mut MemoryLease,
+    provider_error: &mut impl FnMut(vortex::error::VortexError) -> ShardLoomError,
 ) -> Result<StringCountPartial> {
     worker.check_cancelled()?;
     if !matches!(array.dtype(), DType::Utf8(Nullability::NonNullable)) {
@@ -630,9 +699,9 @@ pub(super) fn count_string_chunk(
         let value_count = usize::from(!array.is_empty());
         let values = array
             .slice(0..value_count)
-            .map_err(super::vortex_error)?
+            .map_err(&mut *provider_error)?
             .execute::<VarBinViewArray>(&mut ctx)
-            .map_err(super::vortex_error)?;
+            .map_err(&mut *provider_error)?;
         validate_values(&values)?;
         if values.len() != value_count {
             return Err(failed(
@@ -676,12 +745,12 @@ pub(super) fn count_string_chunk(
             .values()
             .clone()
             .execute::<VarBinViewArray>(&mut ctx)
-            .map_err(super::vortex_error)?;
+            .map_err(&mut *provider_error)?;
         let codes = dictionary
             .codes()
             .clone()
             .execute::<PrimitiveArray>(&mut ctx)
-            .map_err(super::vortex_error)?;
+            .map_err(&mut *provider_error)?;
         validate_values(&values)?;
         if !matches!(
             vortex::array::arrays::primitive::PrimitiveArrayExt::validity(&codes),
@@ -764,7 +833,7 @@ pub(super) fn count_string_chunk(
     let values = array
         .clone()
         .execute::<VarBinViewArray>(&mut ctx)
-        .map_err(super::vortex_error)?;
+        .map_err(&mut *provider_error)?;
     validate_values(&values)?;
     if values.len() != array.len() {
         return Err(failed("canonical key length differs from chunk rows"));
