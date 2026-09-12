@@ -154,6 +154,19 @@ impl IngestCpuLanes {
         Self::CALLER_LANES + self.source_workers + self.conversion_workers + self.provider_drivers
     }
 
+    /// Plan an admitted parallel codec writer before conversion/provider owners
+    /// are constructed. In the profiled four-owner arrangement, run conversion
+    /// on the caller and reuse its owner for native codec work. Other grants
+    /// keep their current overlap until measured; source ownership never changes.
+    pub(crate) fn for_parallel_codec_writer(mut self) -> Self {
+        if self.source_workers == 1 && self.conversion_workers == 1 && self.provider_drivers == 1 {
+            self.conversion_workers = 0;
+            self.prefetch_slots = 0;
+            self.provider_drivers += 1;
+        }
+        self
+    }
+
     #[cfg(test)]
     pub(crate) const fn source_runs_on_caller(self) -> bool {
         self.source_workers == 0 && self.conversion_workers == 0
