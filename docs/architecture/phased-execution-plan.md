@@ -312,9 +312,30 @@ best sum is 91.662289 seconds versus `75fc09a0` at 98.831499 seconds, with 21
 query bests improving and 22 regressing. Q9 improves while its peak RSS rises
 from about 1.04 to 4.27 GB. Both independent held-out matrices pass all 1,520
 checks, but two new tie-order cases used the older typed route. The continuation
-ledger owns those scope limits and subsequent unvalidated changes. PRs #1435
-and #1436 merged on September 8 after all 40 checks passed for each exact head;
-that does not validate the newer working batch or close its acceptance work.
+ledger owns those scope limits and later revision-specific acceptance. PRs #1435
+and #1436 merged on September 8 after all 40 checks passed for each exact head.
+
+The retained-runtime batch subsequently merged in PR #1437 as
+`d51429e3702e5201646142a3d7252bbd72485c85` on September 8 at 19:54:42 UTC,
+after all 40 checks passed on exact head `5d2bf2b1fd7c1aa5c2a90d98c35af8095e51c783`.
+The accepted native runtime is `572bd52c`; its later head changes only acceptance
+harnesses. The [final acceptance packet](../benchmarks/retained-runtime-acceptance-2026-09-08.md)
+records 129 Full43 checks, 380 plus 80 JSONL semantic checks, 80 required
+integer-distinct worker checks on a Parquet-prepared fixture, and 1,674 resident
+public-call checks, all passing. Nullable JSONL schemas establish semantics only.
+Full43 best-sum is 91.215296 seconds versus fresh Existing `9152a92b` at
+88.661862 seconds (+2.88% in an uncontrolled sequential comparison), with no
+overall throughput win established. Scoped runtime acceptance and merge are
+complete; these scoped results close no additional PERF or CG gate. The
+[post-merge matched-owner ingest packet](../benchmarks/retained-ingest-owner4-2026-09-08.md)
+also completed on September 8: control 99.446032 seconds, candidate 95.447305
+seconds, four confirmed constructed owners each, complete values equal and both
+generated outputs verified and retired. The candidate's 18.591587 GB physical
+output differs from the protected Full43 input; query acceptance on that layout
+was not measured. The September 12
+[ingest implementation/test sequence](ingest-performance-implementation-2026-09-12.md)
+adds CPU-stage balance, bounded writer overlap and repeated-representation work
+to existing PERF-03/08/09/12, starting with bounded bottleneck attribution.
 
 The maintainer's September 8
 [execution-aware native artifact topology item](execution-aware-native-artifact-topology-2026-09-08.md)
@@ -365,6 +386,8 @@ records the measured scope and preserved staged work. No PERF or competitive gat
   - Implemented scope: resident Rust file/count/projection/filter handles,
     generation invalidation, retained provider runtime/reader, owned array
     results, bounded JSON collect and matching-handle reuse in the public worker.
+    PR #1437 adds retained integer COUNT/COUNT DISTINCT/SUM and completes the
+    scoped nine-case, three-surface 1,674-check resident acceptance on `572bd52c`.
     Python native binding and migration of the remaining operator families are
     still open.
   - Execution checklist:
@@ -480,6 +503,8 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     and publication checksums. Later physical-policy candidates require their
     own final-code ingest and first/repeated-query acceptance.
   - Execution checklist:
+    - [ ] Complete the September 12 CPU-stage/representation attribution and
+      matched-owner acceptance in `ingest-performance-implementation-2026-09-12.md`.
     - [ ] Attribute real normalization, metadata, codec, write, and finalization spans.
     - [ ] Inventory duplicated derived representations and traversal/conversion costs.
     - [ ] Remove measured duplication while preserving validation and source preflight.
@@ -510,6 +535,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     budgets. Their full43 passed all values but worsened geomean; do not promote
     that layout as a general benchmark win or infer bounded RSS from completion.
   - Execution checklist:
+    - [ ] If measured subtree idle time justifies it, implement bounded overlap
+      across writer batches with the September 12 EOF, cancellation, transient
+      memory, publication-race and newly written-artifact query tests.
     - [ ] Measure per-column bytes and encode/decode CPU for admitted Vortex profiles.
     - [ ] After independent-region runtime evidence, cost native preparation
       jointly for storage, ingest, schedulable topology, pruning, encoded work
@@ -587,6 +615,10 @@ records the measured scope and preserved staged work. No PERF or competitive gat
 - [ ] `PERF-13` evaluate profile-guided compilation only after measured bottlenecks.
   - V1 scope classification: `v1_candidate_pending_feasibility`.
   - Source: supplied plan; conditional candidate, not unconditional JIT/dependency intake.
+  - Feasibility scope: guarded orchestration, tested tool lookup and a tiny native
+    instrument/merge/use smoke pass. No full-workspace PGO build or performance
+    benefit is measured. Further experiments are deferred until profiling
+    demonstrates a dominant public instruction/dispatch cost.
   - Execution checklist:
     - [ ] Determine remaining instruction/dispatch cost after PERF-10.
     - [ ] Train PGO on representative and held-out workloads if justified.
@@ -2186,13 +2218,16 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-1. Complete the current prepared-aggregate, native spill, compatibility export and
-   ownership batch's final-head acceptance for PR #1437. Distinguish the passed
-   extraction checkpoint and earlier measured binaries from the source-grant/PGO
-   corrections requiring final proof. The preserved
-   ingest artifact's complete logical-value comparison has passed; keep its
-   physical-byte difference and unequal old CPU grants explicit. Keep frozen
-   controls immutable and do not infer a gain from an older slower Full43 run.
+1. Preserve the completed PR #1437 and matched-owner ingest evidence. Execute
+   the September 12 `ingest-performance-implementation-2026-09-12.md` sequence
+   under PERF-03/08/09/12: bounded CPU-stage attribution first, then a justified
+   allocation/overlap change, then measured repeated-representation removal.
+   Keep actual owner budgets, source, memory, codec/layout and build comparable.
+   Add EOF/cancellation, transient-memory/skew, source/publication-race,
+   new-artifact query and separate serving-fairness acceptance. Do not repeat
+   the completed single pair to seek a better number or assume its 4.02%
+   observation establishes a stable speedup. Freeze and validate each coherent
+   candidate; stop marginal experiments and preserve existing storage guards.
 2. Park topology stage 1 under PERF-03/07/10/12. Both `a3c62434` grouping and
    `9152a92b` actual coalesced jobs regress without material selected-query wins.
    Preserve the frozen code and evidence; do not promote the experimental option
@@ -2206,22 +2241,24 @@ Current autonomous execution order:
    including fresh independent held-out matrices for the actual candidate.
    Floating reassociation and local grouped truncation still require explicit
    semantic proof; source ownership and truthful native evidence remain required.
-5. Execution-aware preparation remains deferred until runtime retention.
-   After PR #1437 merges and required public acceptance completes, the next
-   bounded ingest packet compares control `75fc09a0` P2 with the final accepted
-   frozen candidate P4: four predicted constructed owners per arm, requiring runtime confirmation.
-   Different public requests and prefetch depths remain explicit. Wider curves
-   and additional repetitions are conditional on informative evidence. Keep
-   native Python binding parked; defer helper representation changes because
-   deleting the observed 7.441 seconds from 187.600824-second serial ingest offers
+5. Execution-aware preparation remains deferred until topology-runtime retention.
+   Keep native Python binding parked and excluded from shipping; defer helper
+   representation changes because deleting the observed 7.441 seconds from
+   187.600824-second serial ingest offers
    only an optimistic 3.97% saving, below the >=10% retention gate. Helper and
    broader ingest phases remain open. Preserve numeric compression, the retained
    bounded compatibility-export decision, and pending worker-to-spill acceptance.
-6. Evaluate narrow compact-state/codec candidates and then conditional PERF-13
-   PGO against representative training and independent untrained evaluation.
-   Existing universal compact/owner/zoning regressions remain rejected; historical
-   271s/360s writer records are not fresh controls and their rejected patches must
-   not be restarted as default work.
+6. Defer further narrow compact-state, codec and PERF-13 PGO experiments until
+   profiling demonstrates a dominant public cost and plausible material benefit
+   over the complete lifecycle. The frozen `release-experiments-48182c5a/analysis-48182c5a.json`
+   packet's 18.1% high-cardinality compact improvement saves only about 1.35 ms
+   in the reducer comparison (7.485 to 6.132 ms); repeated input is 27.3% slower
+   with 14.44x admitted state. Codec gains are limited to tiny high-reuse fixtures
+   with larger artifacts. PGO has a toolchain smoke only, with no workspace build
+   or measured performance gain. Preserve these scoped results and defer their
+   earlier suggested followups. Universal compact/owner/zoning replacements stay
+   rejected; historical 271s/360s writer records are not fresh controls, and their
+   rejected patches must not be restarted as default work.
 7. At each cohesive implementation boundary, freeze source/binaries, complete the
    required gates and review, update evidence/remaining work, and prepare the next
    PR. Large builds and UAT remain serial under storage/process guards. No package
