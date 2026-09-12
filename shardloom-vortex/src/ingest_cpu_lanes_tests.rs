@@ -90,26 +90,6 @@ fn synchronous_sources_and_conversion_keep_explicit_progress_owners() {
 }
 
 #[test]
-fn parallel_codec_plan_reuses_a_narrow_conversion_owner_without_changing_source_admission() {
-    for grant in [1, 2, 3, 4, 5, 8, usize::MAX] {
-        for source_capacity in [0, 1, 8] {
-            let baseline = IngestCpuLanes::pipeline(grant, source_capacity);
-            let codec = baseline.for_parallel_codec_writer();
-            assert_eq!(codec.configured_cpu_lanes(), grant);
-            assert_eq!(codec.requested(), baseline.requested());
-            assert_eq!(codec.source_workers(), baseline.source_workers());
-            if source_capacity > 0 && grant == 4 {
-                assert_eq!(codec.conversion_workers(), 0);
-                assert_eq!(codec.prefetch_slots(), 0);
-                assert_eq!(codec.provider_drivers(), baseline.provider_drivers() + 1);
-            } else {
-                assert_eq!(codec, baseline);
-            }
-        }
-    }
-}
-
-#[test]
 fn adjustment_requires_actual_joined_owners_not_just_an_empty_task_queue() {
     let old = IngestCpuLanes::allocate(8, 8, demand()).unwrap();
     let next = IngestCpuLanes::allocate(2, 8, demand()).unwrap();

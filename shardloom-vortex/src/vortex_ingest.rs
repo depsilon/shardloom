@@ -6477,16 +6477,6 @@ impl VortexWriterPhysicalDesignPlan {
         let writer_compression_concurrency =
             admitted_layout_writer_compression_concurrency(advisor);
         let writer_stats_concurrency = admitted_layout_writer_stats_concurrency(advisor);
-        #[cfg(feature = "universal-format-io")]
-        let source = {
-            let mut source = source;
-            if writer_compression_concurrency > 1 {
-                source.cpu_lanes = source
-                    .cpu_lanes
-                    .map(crate::ingest_cpu_lanes::IngestCpuLanes::for_parallel_codec_writer);
-            }
-            source
-        };
         let (writer_runtime_requested_parallelism, writer_runtime_applied_parallelism) =
             planned_writer_runtime_parallelism(
                 &source,

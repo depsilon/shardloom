@@ -481,8 +481,9 @@ fn assert_pipeline_complete_values(output: &Path) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd) {
-    let directory = path(&format!("pipeline-{grant}-{end:?}")).with_extension("dir");
+fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: bool) {
+    let directory =
+        path(&format!("pipeline-{grant}-{end:?}-codec-{parallel_codec}")).with_extension("dir");
     fs::create_dir(&directory).unwrap();
     let output = directory.join("out.vortex");
     let worker_output = output.clone();
@@ -507,7 +508,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd) {
             _ => Ok(batch(1).slice(0, 1)),
         };
         let mut input = source(vec![batch(0), batch(1)], false);
-        input.row_count_hint = None;
+        input.row_count_hint = Some(4);
         input.reader = Box::new(GatedPipelineReader {
             schema: batch(0).schema(),
             initial: VecDeque::from([Ok(batch(0)), Ok(RecordBatch::new_empty(batch(0).schema()))]),
@@ -520,8 +521,21 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd) {
             input, grant,
         );
         let shape = validate_flat_columnar_stream_source_shape(&input).unwrap();
+        let advisor = parallel_codec.then(|| {
+            // Select the existing large-source codec policy on this tiny
+            // fixture. The actual streaming writer still verifies four rows.
+            let mut advice = super::tests::layout_advisor_input(true, "none");
+            advice.source_format = "parquet".to_string();
+            advice.writer_provider_kind = "vortex_array_kernel".to_string();
+            advice.writer_provider_surface =
+                "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator;VortexSession::write_options().write(ArrayStream)".to_string();
+            advice.row_count = VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD;
+            advice.writer_parallelism_budget = grant;
+            advice.writer_compression_candidate_fields = vec!["renamed_text".to_string()];
+            evaluate_vortex_layout_write_advisor(advice)
+        });
         let decision = admit_layout_write_runtime_decision_for_source(
-            None,
+            advisor.as_ref(),
             "vortex_array_kernel",
             "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
             &worker_output,
@@ -529,6 +543,17 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd) {
             VortexWriterPhysicalDesignSourceInput::streaming_columnar(&input).unwrap(),
         )
         .unwrap();
+        if parallel_codec {
+            assert_eq!(grant, 4);
+            let design = &decision.writer_physical_design;
+            assert_eq!(input.ingest_executor_applied_parallelism, 1);
+            assert_eq!(design.array_build_worker_count, 1);
+            assert_eq!(design.array_build_prefetch_window, 3);
+            assert_eq!(design.writer_runtime_background_workers, 1);
+            assert_eq!(design.writer_compression_concurrency, 4);
+            assert!(!design.fallback_attempted);
+            assert!(!design.external_engine_invoked);
+        }
         let memory = NativeIngestMemory::new(32 << 20).unwrap();
         let timing = VortexStreamingIngestTiming::default();
         let first_batch = input.reader.next().unwrap().unwrap();
@@ -588,6 +613,12 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd) {
         assert_eq!(snapshot.reserved_bytes, 0);
         assert!(conversion_owner.is_none_or(|owner| owner.upgrade().is_none()));
         if end == PipelineEnd::Complete {
+            if parallel_codec {
+                let report = result.as_ref().unwrap();
+                assert_eq!(report.writer_runtime_background_workers, 1);
+                assert_eq!(report.writer_compression_concurrency, 4);
+                assert_eq!(report.writer_row_count, 4);
+            }
             assert_pipeline_complete_values(&worker_output);
         }
         finished
@@ -643,26 +674,32 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd) {
 
 #[test]
 fn streaming_pipeline_final_partial_and_empty_batches_wait_for_complete_publication() {
-    for grant in [1, 4] {
-        check_streaming_pipeline_end(grant, PipelineEnd::Complete);
+    for (grant, parallel_codec) in [(1, false), (4, false), (4, true)] {
+        check_streaming_pipeline_end(grant, PipelineEnd::Complete, parallel_codec);
     }
 }
 
 #[test]
 fn streaming_pipeline_primary_failures_join_sources_and_release_owned_memory() {
-    for grant in [1, 4] {
+    for (grant, parallel_codec) in [(1, false), (4, false), (4, true)] {
         for end in [PipelineEnd::SourceError, PipelineEnd::ConversionError] {
-            check_streaming_pipeline_end(grant, end);
+            check_streaming_pipeline_end(grant, end, parallel_codec);
         }
     }
 }
 
 #[test]
 fn streaming_pipeline_cancellation_drains_after_blocked_source_returns() {
-    check_streaming_pipeline_end(4, PipelineEnd::Cancel);
+    // Both retained P4 writer profiles have the existing conversion-prefetch
+    // owner and token. Neither token interrupts a blocking source I/O call.
+    for parallel_codec in [false, true] {
+        check_streaming_pipeline_end(4, PipelineEnd::Cancel, parallel_codec);
+    }
 }
 
 #[test]
 fn streaming_pipeline_concurrent_destination_is_preserved_and_staging_released() {
-    check_streaming_pipeline_end(4, PipelineEnd::DestinationAppeared);
+    for parallel_codec in [false, true] {
+        check_streaming_pipeline_end(4, PipelineEnd::DestinationAppeared, parallel_codec);
+    }
 }

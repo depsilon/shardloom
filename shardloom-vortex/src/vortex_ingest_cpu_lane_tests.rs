@@ -185,7 +185,7 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
 }
 
 #[test]
-fn parallel_codec_writer_preserves_complete_values_with_inline_conversion_at_narrow_grants() {
+fn parallel_codec_writer_preserves_complete_values_and_admitted_owners_across_grants() {
     let root = Directory::new();
     let (input, schema) = fixture(&root.0);
     for grant in [1, 2, 3, 4, 5, 8] {
@@ -211,10 +211,7 @@ fn parallel_codec_writer_preserves_complete_values_with_inline_conversion_at_nar
                 .shared_native_memory_budget_bytes(32 << 20),
         )
         .unwrap();
-        let mut lanes = crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(grant, 6);
-        if grant > 1 {
-            lanes = lanes.for_parallel_codec_writer();
-        }
+        let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(grant, 6);
         let design = &report.writer_physical_design;
         assert_eq!(design.array_build_worker_count, lanes.conversion_workers());
         assert_eq!(design.array_build_prefetch_window, lanes.prefetch_slots());

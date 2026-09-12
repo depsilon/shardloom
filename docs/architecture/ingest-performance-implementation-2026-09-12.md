@@ -1,7 +1,9 @@
 # Ingest performance: implementation and test sequence
 
-Status: accepted into the implementation/testing queue by the maintainer's
-September 12 request. This refines existing PERF-03/08/09/12 under
+Status: bounded attribution and the first fixed-allocation screen are complete;
+the allocation was slower and is dropped. Fresh-artifact Full43 passed. The
+[September 12 packet](../benchmarks/ingest-stage-balance-2026-09-12.md) records
+the measurements and retained pipeline tests. This refines existing PERF-03/08/09/12 under
 [RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md); it introduces
 no new phase IDs and closes no additional competitive gates. The
 [phased plan](phased-execution-plan.md) remains the source of execution order.
@@ -16,13 +18,22 @@ merged as `d51429e3`, ingested 99,997,497 rows in 95.447305 seconds, producing
 All 11,199,719,664 logical values match; the physical bytes differ. This single
 pair establishes neither a stable 4.02% speedup nor a cause for that difference.
 The 91.215296-second Full43 figure is a query-suite result, not ingest time.
+The retained 95.447305-second native ingest is the maintained baseline. The
+September 12 extra 104.044137-second observation from the identical control
+binary does not replace it. Per the maintainer's clarification, first screen
+future candidates against existing evidence; do not change or rerun a control
+until a candidate shows a credible material improvement.
 
-Prioritize complete fresh-data workflow cost: ingest, durable publication and
+Prioritize complete fresh-data workflow cost: ingest, publication and
 first/repeated queries. A hypothetical 20% reduction of the recorded candidate
 ingest would save about 19.09 seconds; this is a sizing calculation, not a
 forecast. Preserve retained numeric compression and roughly the current 18.6 GB
 representation. Do not fund faster ingestion by silently inflating the artifact,
 removing statistics, weakening verification or deferring work until the first query.
+Ordinary streaming publication currently flushes, validates and renames, without
+file/parent-directory synchronization. Its measured process completion must not
+be described as crash-durable fsync completion; the separate memory-generation
+publication route has a stronger synchronization contract.
 
 ## Existing mechanisms and provider decision
 
@@ -58,19 +69,26 @@ boundary; native Vortex remains the durable and execution representation.
 
 ### 1. CPU-stage balance — PERF-03/08/12
 
-- [ ] Profile one bounded representative native ingest before choosing a new
+- [x] Profile one bounded representative native ingest before choosing a new
   allocation. Separate source work, conversion/copy work, codec work, blocked
   handoff, writer starvation and durable finalization where existing evidence
   permits. Add only missing measurements needed to discriminate the bottleneck.
   Overlapping elapsed spans cannot be summed into CPU time or exclusive wall time.
-- [ ] Compare feasible stage allocations at the same actual admitted owner
+- [x] Compare one feasible stage allocation at the same actual admitted owner
   budget, memory envelope, source, codec/layout policy, compiler and runner.
   Record requested, granted and constructed owners separately, along with real
   activity/progress; a requested P value is not proof of core utilization.
-- [ ] Implement the allocation change in the shared native admission path only
+  The unprofiled P4 candidate (1/1/0/2 owners) took 118.604707 seconds, already
+  slower than the maintained 95.447305-second baseline. An unnecessary fresh
+  control (1/1/1/1) took 104.044137 seconds, with identical physical output.
+  Preserve that observation without promoting it to baseline. The runtime
+  change is removed and wider allocation tuning stops; neither comparison is
+  a stable regression estimate.
+- [x] Evaluate the allocation change in the shared native admission path only
   if the measured limiting stage supports a material end-to-end benefit. Start
   with explicit fixed allocations; live reassignment needs a real production
   drained-owner transition and must not be inferred from its test-only seam.
+  The profile supported the bounded trial, but its measured result did not support retention.
 - [ ] Extend existing CPU-lane and integration tests for P1, narrow grants,
   source-heavy/codec-heavy inputs, teardown and failure at each stage boundary.
   Keep caller plus source/conversion/provider ownership within the grant and
@@ -80,6 +98,9 @@ boundary; native Vortex remains the durable and execution representation.
 
 - [ ] Proceed only if measurements identify useful idle time between complete
   subtrees; do not mistake existing conversion prefetch for missing overlap.
+  Deferred after the screen: sampled provider waits are not localized to subtree
+  tails, and conversion handoff already waits only 0.000875 seconds. This evidence
+  does not justify adding another batch's live buffers and ordered segments.
 - [ ] Admit a small byte-budgeted window of native subtree futures using the
   existing Vortex sequencing/runtime. Charge original inputs, native copies,
   codec scratch that is covered by the allocator, completed out-of-order work
@@ -108,6 +129,20 @@ boundary; native Vortex remains the durable and execution representation.
   Helper-specific representation changes remain deferred unless new attribution
   supersedes the old 7.441/187.601-second observation with a material opportunity.
 
+The retained end-to-end pipeline tests cover an empty intermediate batch, final
+partial batch, delayed source EOF, source/conversion failures, cooperative
+prefetch cancellation after source I/O returns, concurrent destination creation,
+complete native values, staging cleanup and reservation release. Parallel-codec
+admission is checked across P1/2/3/4/5/8 on renamed, nullable Unicode and
+precision-sensitive integer data. This does not close the broader skew,
+source-mutation, codec-blocked cancellation or serving-fairness matrix below.
+
+Fresh-artifact Full43 now passes all 129 complete results on the retained
+18,591,586,804-byte representation. It is byte-identical to the earlier fully
+compared candidate, linking all native values/schema and physical metadata by
+SHA-256. This establishes metadata identity, not an independent statistic oracle
+or a paired query-performance improvement.
+
 ## Additional acceptance tests
 
 | Boundary | Required cases and evidence |
@@ -127,7 +162,9 @@ boundary; native Vortex remains the durable and execution representation.
 2. Validate the candidate through existing focused ownership, EOF, native-value
    and publication tests, then required formatter, Clippy and broad native/default
    checks when runtime behavior changes. Keep all native measurements serial.
-3. Use matched-owner alternating repeated runs for any performance claim; freeze
+3. Screen against the retained 95.447305-second baseline first. Do not rerun or
+   change a control until a candidate demonstrates credible material improvement.
+   Only then use matched-owner alternating repeated runs for a performance claim; freeze
    source/binaries and record all samples, real CPU work, peak RSS, reservations,
    output bytes, failures and cache policy. Retain a change only with material
    complete-workflow benefit and no unaccepted correctness, memory, storage,
