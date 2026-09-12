@@ -20,6 +20,9 @@ use vortex::array::{
 #[path = "compound_admission_driver_tests.rs"]
 mod admission_drivers;
 
+#[path = "utf8_integer_distinct_tests.rs"]
+mod utf8_distinct;
+
 fn worker() -> ChunkWorkerContext {
     ChunkWorkerContext::Inline(CancellationToken::default())
 }

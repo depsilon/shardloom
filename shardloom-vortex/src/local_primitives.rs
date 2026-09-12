@@ -41,6 +41,12 @@ mod compound_count_tests;
 #[path = "local_primitives/compound_count_workers.rs"]
 mod compound_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/compound_count_roles.rs"]
+mod compound_count_roles;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/utf8_distinct_output.rs"]
+mod utf8_distinct_output;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/encoded_numeric_reduction.rs"]
 mod encoded_numeric_reduction;
 #[cfg(feature = "vortex-local-primitives")]
@@ -36348,8 +36354,8 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn aggregate_update_strategy(&self) -> &'static str {
-        if self.finalized_distinct_counts.is_some() {
-            "complete_integer_pair_partition_distinct"
+        if let Some(finalized) = &self.finalized_distinct_counts {
+            if finalized.is_utf8() { "native_utf8_group_integer_complete_pair_distinct" } else { "complete_integer_pair_partition_distinct" }
         } else if self.single_numeric_count_direct_updates {
             "single_numeric_count_direct_group_update"
         } else if self.source_order_numeric_utf8_dictionary_direct_updates {
@@ -37012,6 +37018,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn estimated_group_string_storage_bytes(&self) -> usize {
+        if let Some(finalized) = &self.finalized_distinct_counts {
+            return finalized.text_bytes();
+        }
         if self.numeric_utf8_topk_exact_counts.is_some() {
             return self.string_interner.retained_bytes();
         }
@@ -37545,8 +37554,8 @@ impl<'a> GroupedAggregateStates<'a> {
             "group_state_rows",
         ];
         if has_count_distinct {
-            if self.finalized_distinct_counts.is_some() {
-                capillary_work_units.push("complete_integer_pair_partition_reconciliation");
+            if let Some(finalized) = &self.finalized_distinct_counts {
+                capillary_work_units.push(if finalized.is_utf8() { "complete_utf8_integer_pair_partition_reconciliation" } else { "complete_integer_pair_partition_reconciliation" });
                 capillary_work_units.push("complete_distinct_eof_group_reduction");
                 capillary_work_units.push("owned_bounded_final_distinct_count_selection");
                 pulseweave_pressure_signals.push("complete_pair_identity_proof");

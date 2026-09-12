@@ -199,7 +199,7 @@ pub(super) fn restore_provider_drivers(
     if super::exact_distinct_pairs::workers::request_may_be_admitted(request) {
         return !super::exact_distinct_pairs::workers::request_schema_may_be_admitted(
             request, dtype,
-        );
+        ) && !super::compound_count_workers::request_schema_may_be_admitted(request, dtype);
     }
     super::required_simple_aggregate(request).is_ok_and(|aggregate| aggregate.group_by.len() == 2)
         && !super::compound_count_workers::request_schema_may_be_admitted(request, dtype)

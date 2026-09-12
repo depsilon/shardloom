@@ -7,6 +7,9 @@ use super::{
     aggregate_chunk_jobs::{AggregateChunkJobs, SubmitOutcome},
     compound_count_partial::{self, CompoundPartial, CountOutcome, Key, failed},
     compound_count_partitions::{CompoundPartitions, Evidence, PARTITIONS, Receipt, Selection},
+    compound_count_partitions::distinct_output::DistinctSelection,
+    compound_count_roles::{self, Roles},
+    utf8_distinct_output,
 };
 use shardloom_core::Result;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
@@ -27,16 +30,18 @@ enum Completed {
     Retry([ArrayRef; 2]),
     Unpartitioned(CompoundPartial),
     Selected(Selection),
+    TextDistinctSelected(DistinctSelection),
 }
 pub(super) struct CompoundWorkers {
     jobs: AggregateChunkJobs<Completed>,
     partitions: Option<Arc<CompoundPartitions>>,
     deferred: Vec<Arc<CompoundPartial>>,
     retries: Vec<[ArrayRef; 2]>,
-    _handoff: MemoryLease,
     session: VortexSession,
     columns: [String; 2],
-    roles: NumericUtf8GroupRoles,
+    roles: Roles,
+    distinct_selection: Option<utf8_distinct_output::Selection>,
+    distinct_groups: usize,
     evidence: Option<Evidence>,
     rows: u64,
     partial_entries: u64,
@@ -52,8 +57,11 @@ pub(super) struct CompoundWorkers {
     handoffs: u64,
     peak_partial: u64,
     parallelism: usize,
+    worker_chunks: Vec<u64>,
+    inline_chunks: u64,
     #[cfg(test)]
     deny_next_initial_reservation: bool,
+    _handoff: MemoryLease,
 }
 
 impl CompoundWorkers {
@@ -65,7 +73,7 @@ impl CompoundWorkers {
         session: &VortexSession,
         memory: &LiveMemoryPool,
     ) -> Result<Option<Self>> {
-        let Some(roles) = roles(states, dtype, columns) else {
+        let Some(roles) = compound_count_roles::admit(states, dtype, columns) else {
             return Ok(None);
         };
         let Some(retained) = states
@@ -81,18 +89,22 @@ impl CompoundWorkers {
             .max_parallelism
             .min(std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get));
         let window = parallelism.saturating_mul(2).clamp(1, 24);
-        let Ok(handoff) = memory.reserve(
-            (window * (size_of::<Arc<CompoundPartial>>() + size_of::<[ArrayRef; 2]>())
-                + size_of::<Self>()) as u64,
-        ) else {
+        let names = [&columns[roles.numeric_column()], &columns[roles.text_column()]];
+        let owner_bytes = (window * (size_of::<Arc<CompoundPartial>>() + size_of::<[ArrayRef; 2]>())
+            + size_of::<Self>() + parallelism * size_of::<u64>()) as u64;
+        let bytes = names.iter().try_fold(owner_bytes, |bytes, name| {
+            bytes.checked_add(u64::try_from(name.len()).map_err(|_| failed("column name exceeds u64"))?)
+                .ok_or_else(|| failed("worker owner capacity overflowed"))
+        })?;
+        let Ok(handoff) = memory.reserve(bytes) else {
             return Ok(None);
         };
-        let Some(partitions) = CompoundPartitions::try_new(
-            memory,
-            policy.resource_envelope.group_state_soft_item_budget,
-            retained,
-            roles.numeric_group < roles.utf8_group,
-        )?
+        let entries = policy.resource_envelope.group_state_soft_item_budget;
+        let Some(partitions) = (if roles.utf8_distinct() {
+            CompoundPartitions::try_new_text_distinct(memory, entries, retained)
+        } else {
+            CompoundPartitions::try_new(memory, entries, retained, roles.numeric_first())
+        })?
         else {
             return Ok(None);
         };
@@ -107,6 +119,10 @@ impl CompoundWorkers {
         if deferred.capacity() > window || retries.capacity() > window {
             return Err(failed("deferred owner capacity exceeds reserved window"));
         }
+        let mut worker_chunks = Vec::new();
+        worker_chunks.try_reserve_exact(parallelism).map_err(|error| failed(&error.to_string()))?;
+        if worker_chunks.capacity() > parallelism { return Err(failed("worker evidence exceeds reserved capacity")); }
+        worker_chunks.resize(parallelism, 0);
         Ok(Some(Self {
             jobs: AggregateChunkJobs::new(
                 parallelism,
@@ -120,10 +136,12 @@ impl CompoundWorkers {
             _handoff: handoff,
             session: session.clone(),
             columns: [
-                columns[roles.numeric_column].clone(),
-                columns[roles.utf8_column].clone(),
+                owned_column_name(names[0])?,
+                owned_column_name(names[1])?,
             ],
             roles,
+            distinct_selection: None,
+            distinct_groups: 0,
             evidence: None,
             rows: 0,
             partial_entries: 0,
@@ -139,6 +157,8 @@ impl CompoundWorkers {
             handoffs: 0,
             peak_partial: 0,
             parallelism,
+            worker_chunks,
+            inline_chunks: 0,
             #[cfg(test)]
             deny_next_initial_reservation: false,
         }))
@@ -214,8 +234,10 @@ impl CompoundWorkers {
         );
         let session = self.session.clone();
         let memory = self.jobs.memory().clone();
-        states.numeric_utf8_topk_group_roles = Some(self.roles);
-        states.numeric_utf8_topk_heavy_hitter_enabled = true;
+        if let Some(roles) = self.roles.pair() {
+            states.numeric_utf8_topk_group_roles = Some(roles);
+            states.numeric_utf8_topk_heavy_hitter_enabled = true;
+        }
         // Simulate a competing owner between the availability snapshot and the
         // atomic reservation. The actual pool denial follows production code.
         #[cfg(test)]
@@ -260,10 +282,14 @@ impl CompoundWorkers {
         snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes)
     }
     fn record_numeric_work(
-        &self,
+        &mut self,
         states: &mut GroupedAggregateStates<'_>,
         work: &compound_count_partial::Work,
     ) -> Result<()> {
+        let chunks = if let Some(index) = work.worker_index {
+            self.worker_chunks.get_mut(index).ok_or_else(|| failed("actual worker exceeds CPU grant"))?
+        } else { &mut self.inline_chunks };
+        *chunks = chunks.checked_add(1).ok_or_else(|| failed("worker chunk evidence overflowed"))?;
         if work.numeric_required_execution {
             states.native_numeric_accessor_work.record_native_owner(
                 &self.columns[0],
@@ -357,6 +383,22 @@ impl CompoundWorkers {
                             install_exact(states, key, value, count)
                         })?;
                 }
+                Completed::TextDistinctSelected(selection) => {
+                    self.distinct_groups = self
+                        .distinct_groups
+                        .checked_add(selection.complete_groups)
+                        .ok_or_else(|| failed("complete UTF8 DISTINCT group total overflowed"))?;
+                    let output = self
+                        .distinct_selection
+                        .as_mut()
+                        .ok_or_else(|| failed("UTF8 DISTINCT global selection is absent"))?;
+                    self.partitions
+                        .as_ref()
+                        .ok_or_else(|| failed("UTF8 DISTINCT selection lost pair owners"))?
+                        .visit_text_distinct(selection, |text, count| {
+                            output.insert(text, count)
+                        })?;
+                }
             }
             Ok(())
         })?;
@@ -375,8 +417,17 @@ impl CompoundWorkers {
         };
         partitions.request_pressure();
         self.drain(states)?;
+        let Some(roles) = self.roles.pair() else {
+            if self.rows == 0 && self.retries.is_empty() {
+                partitions.release()?;
+                self.partitions = None;
+                return Ok(());
+            }
+            self.jobs.cancel();
+            return Err(failed("UTF8 DISTINCT committed state pressure requires an explicitly admitted exact handoff; workers drained and no untracked state copy was attempted"));
+        };
         states.numeric_utf8_topk_heavy_hitter_enabled = true;
-        states.numeric_utf8_topk_group_roles = Some(self.roles);
+        states.numeric_utf8_topk_group_roles = Some(roles);
         states.numeric_utf8_topk_heavy_hitter_sketch =
             Some(NumericUtf8TopKHeavyHitterSketch::new_with_exact_mirror(
                 states.numeric_utf8_topk_heavy_hitter_capacity(),
@@ -463,7 +514,10 @@ impl CompoundWorkers {
                 "compound completed partitions differ from source rows",
             ));
         }
-        states.numeric_utf8_topk_group_roles = Some(self.roles);
+        if self.roles.utf8_distinct() {
+            return self.finish_text_distinct(states, &partitions);
+        }
+        states.numeric_utf8_topk_group_roles = self.roles.pair();
         states.numeric_utf8_topk_heavy_hitter_enabled = true;
         states.numeric_utf8_topk_exact_counts = Some(rustc_hash::FxHashMap::default());
         for index in 0..PARTITIONS {
@@ -491,6 +545,58 @@ impl CompoundWorkers {
         self.partitions = None;
         Ok(())
     }
+    fn finish_text_distinct(
+        &mut self,
+        states: &mut GroupedAggregateStates<'_>,
+        partitions: &Arc<CompoundPartitions>,
+    ) -> Result<()> {
+        let retained = states
+            .request
+            .offset
+            .checked_add(states.result_limit.unwrap_or(0))
+            .ok_or_else(|| failed("UTF8 DISTINCT output window overflowed"))?;
+        let evidence = partitions.evidence()?;
+        let groups = usize::try_from(evidence.strings)
+            .map_err(|_| failed("UTF8 group count exceeds usize"))?;
+        self.distinct_selection = Some(utf8_distinct_output::Selection::new(
+            self.jobs.memory(),
+            retained.min(groups),
+        )?);
+        for index in 0..PARTITIONS {
+            if self.jobs.is_full() {
+                self.merge_next(states)?;
+            }
+            let partitions = Arc::clone(partitions);
+            self.jobs
+                .submit(size_of::<Completed>() as u64, move |worker, _lease| {
+                    partitions
+                        .select_text_distinct(index, worker)
+                        .map(Completed::TextDistinctSelected)
+                })?;
+            self.selection_jobs += 1;
+        }
+        self.drain(states)?;
+        if self.distinct_groups != groups {
+            return Err(failed(
+                "UTF8 DISTINCT EOF group count differs from complete domains",
+            ));
+        }
+        let selected = self
+            .distinct_selection
+            .take()
+            .ok_or_else(|| failed("UTF8 DISTINCT final selection is absent"))?
+            .finish();
+        states.finalized_distinct_counts = Some(
+            super::exact_distinct_pairs::workers::ExactDistinctResult::from_utf8(
+                selected,
+                self.distinct_groups,
+            ),
+        );
+        self.evidence = Some(partitions.evidence()?);
+        partitions.release()?;
+        self.partitions = None;
+        Ok(())
+    }
     // One flat evidence mapping keeps the runtime counters and their scope
     // together, independently of query execution.
     #[allow(clippy::too_many_lines)]
@@ -502,6 +608,9 @@ impl CompoundWorkers {
             .ok_or_else(|| failed("compound summary is not an object"))?;
         let memory = self.jobs.memory().snapshot();
         let pool = self.jobs.pool_snapshot();
+        object.insert("aggregate_workers_actual_count_worker_indices".into(), self.worker_chunks.iter().enumerate().filter_map(|(index, chunks)| (*chunks != 0).then_some(index)).collect::<Vec<_>>().into());
+        object.insert("aggregate_workers_count_chunks_by_worker".into(), self.worker_chunks.clone().into());
+        object.insert("aggregate_workers_inline_count_chunks".into(), self.inline_chunks.into());
         for (key, value) in [
             ("rows", u128::from(self.rows)),
             ("partial_entries", u128::from(self.partial_entries)),
@@ -595,12 +704,55 @@ impl CompoundWorkers {
         }
         object.insert("aggregate_workers_compound_key_scope".into(), "all_eight_integer_widths_native_owners;exact_signedness_numeric_bits_and_utf8_bytes;dictionary_codes_bound_to_retained_native_values;all_keys_in_each_partial;complete_key_partition_selection_only_after_eof;weighted_committed_prefix_and_unconsumed_suffix_once_on_pressure;no_local_topk".into());
         object.insert("aggregate_workers_scope".into(), "compound_native_count_and_partition_reconciliation_on_same_bounded_workers;sum_worker_elapsed_not_cpu_or_exclusive_wall;caller_merge_includes_pressure_replay;owned_capacity_includes_partial_tables_deferred_owners_partition_domains_group_tables_selection_and_old_plus_new_growth;provider_allocations_bypassing_host_allocator_legacy_handoff_output_maps_and_process_rss_excluded;retained_source_generation_validated_after_drain_and_refinement".into());
+        if self.roles.utf8_distinct() {
+            self.annotate_text_distinct(object);
+        }
         *summary = payload.to_string();
         Ok(())
     }
+    fn annotate_text_distinct(&self, object: &mut serde_json::Map<String, serde_json::Value>) {
+        if let Some(evidence) = &self.evidence {
+            object.insert("candidate_groups".into(), self.distinct_groups.into());
+            object.insert(
+                "aggregate_workers_partition_complete_groups".into(),
+                self.distinct_groups.into(),
+            );
+            object.insert(
+                "aggregate_workers_partition_complete_pairs".into(),
+                evidence.groups.into(),
+            );
+            object.insert(
+                "group_output_strategy".into(),
+                "complete_utf8_group_integer_distinct_partition_exact_topk".into(),
+            );
+            object.insert(
+                "aggregate_update_strategy".into(),
+                "native_utf8_group_integer_complete_pair_distinct".into(),
+            );
+            object.insert("uniqueness_proof_status".into(), "all_values_for_each_exact_utf8_group_meet_in_one_partition;count_one_per_complete_pair_after_eof".into());
+            object.insert(
+                "group_key_storage".into(),
+                "owned_complete_integer_value_pairs_and_group_hash_partitioned_utf8_domains".into(),
+            );
+        } else {
+            object.insert("aggregate_workers_scope".into(), "no_utf8_distinct_worker_contribution;initial_admission_only;no_worker_speed_or_whole_query_memory_claim".into());
+            return;
+        }
+        object.insert("aggregate_workers_utf8_bytes_hashed_scope".into(), "partial_pair_hashing_and_text_partition_arrangement;partition_domain_and_EOF_domain_lookup_hashes_excluded".into());
+        object.insert("aggregate_workers_compound_key_scope".into(), "nonnull_utf8_group_and_all_eight_integer_value_widths;exact_signedness_bits_and_utf8_equality;native_dictionary_codes_bound_to_values_owner;text_hash_partition_and_complete_pair_lookup;row_weights_are_not_distinct_counts;no_pre_EOF_partial_topk;partition_selection_after_complete_group_counts".into());
+        object.insert("aggregate_workers_scope".into(), "utf8_integer_distinct_on_existing_bounded_compound_jobs;actual_completed_worker_indices;owned_partial_pair_domain_eof_scratch_selection_metadata_and_replacement_overlap;post_commit_pressure_fails_after_drain;integer_spill_unchanged_utf8_spill_unadmitted;source_generation_validated_after_drain;provider_bypass_JSON_and_RSS_excluded".into());
+    }
 }
 
-fn roles(
+fn owned_column_name(name: &str) -> Result<String> {
+    let mut owned = String::new();
+    owned.try_reserve_exact(name.len()).map_err(|error| failed(&error.to_string()))?;
+    if owned.capacity() > name.len() { return Err(failed("column name exceeded reserved capacity")); }
+    owned.push_str(name);
+    Ok(owned)
+}
+
+pub(super) fn pair_roles(
     states: &GroupedAggregateStates<'_>,
     dtype: &DType,
     columns: &[String],
@@ -690,7 +842,7 @@ pub(super) fn request_schema_may_be_admitted(
     ) else {
         return false;
     };
-    roles(&states, dtype, &columns).is_some()
+    compound_count_roles::admit(&states, dtype, &columns).is_some()
 }
 fn intern(
     states: &mut GroupedAggregateStates<'_>,
