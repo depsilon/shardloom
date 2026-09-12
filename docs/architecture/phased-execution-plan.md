@@ -244,6 +244,37 @@ the ledger.
 
 ## Planned
 
+Latest maintainer priority, September 12: **focus on measured performance and
+pause broad phase completion.** This supersedes the earlier instruction to
+implement every remaining family. Open PERF and CG checklists remain open;
+preserved branches are not a reason to ship unmeasured capability expansion.
+
+The current PERF-10/04/05 experiment starts from accepted `2ad143da` and isolates
+the UTF8-grouped integer DISTINCT improvement. The broader `8ba36c76` passes
+129/129 Full43 values but records 117.633288 seconds, so it is not a new query
+control. Its matched Q14 medians are 7.644247 seconds for the control and
+1.562094 seconds for the candidate. Renamed duplicate-heavy, mostly-unique and
+skewed fixtures also improve. This evidence selects the shared operator for a
+scoped port; it does not establish the port's performance before measurement.
+
+Only necessary runtime/correctness dependencies enter this experiment. Pause
+new nullable COUNT, extra DISTINCT spill, owned measure/result families,
+join/window/API expansion, codec-portfolio and native-Python work. Their saved
+code is unmeasured or separately scoped, not a measured performance rejection.
+Previously rejected topology, allocation and prepared-minute variants remain
+dropped; smaller text output remains a slower storage tradeoff. Keep retained
+numeric ingest at its existing configuration, with historical observations of
+90.303309/93.945037 seconds and no new full ingest without a concrete ingest change.
+
+Validate the scoped port with focused complete-value/ownership/worker tests and
+matched Q11/Q14, Q17/Q23 and large string-group controls, then complete one acceptance
+batch if the targeted result warrants it. Q23 was 2.9–11.4% slower across three
+matched broad-branch pairs and remains an explicit regression check. Preserve
+all samples and exact/no-fallback/resource guards. Promote a query control only
+after its complete workload improves under the control ledger's rules. Choose
+subsequent work from measured dominant costs and a bounded retain/drop decision;
+do not automatically resume the paused capability inventory.
+
 Local large-artifact prerequisite: follow
 `docs/architecture/local-development-storage.md` before further PERF runs.
 Build outputs and the resident ClickBench source were relocated outside synced
@@ -2258,6 +2289,10 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     sink-parity evidence.
 
 Current autonomous execution order:
+
+The latest maintainer priority at the start of Planned governs this historical
+list. The narrow DISTINCT experiment takes precedence; broad capability
+completion is paused.
 
 1. Preserve completed PR #1437, matched-owner ingest, September 12 attribution,
    fresh-artifact Full43 and the dropped allocation screen. Use the

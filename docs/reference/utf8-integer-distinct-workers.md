@@ -82,7 +82,13 @@ collisions, all integer widths, global winners/ties/offsets, exact source and
 worker row totals, nullable/schema denial, initial/committed/EOF pressure,
 active cancellation, selected-string ownership and replacement failure.
 Ordinary native tests cover complete values and existing public dispositions.
-Root-owned native execution and required workspace checks are pending.
+Root's `phase-resume-focused-distinct-r1.json` passes formatter, all19 new tests,
+36 existing integer DISTINCT checks,28 compound checks and9 worker-job checks,
+plus release-user-surfaces all-target and minimal-native Clippy. Filters overlap;
+these counts are not a distinct test total. The source anchor is `0a4c282f`
+with formatter-only Rust diff SHA256
+`1620fa952c9eeebcde2f9d8b6efffc7bb602d09c9ebbfea01b51fda16f01ea53`.
+Required workspace checks and matched performance remain pending.
 
 Focused filters: `utf8_integer_distinct`, `compound_`, `exact_distinct_`,
 `aggregate_chunk_jobs`, existing prepared/source-retry and sink controls.

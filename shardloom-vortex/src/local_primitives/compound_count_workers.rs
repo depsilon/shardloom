@@ -6,8 +6,8 @@ use super::{
     NumericUtf8GroupRoles, NumericUtf8TopKHeavyHitterSketch, VortexLocalPrimitiveExecutionPolicy,
     aggregate_chunk_jobs::{AggregateChunkJobs, SubmitOutcome},
     compound_count_partial::{self, CompoundPartial, CountOutcome, Key, failed},
-    compound_count_partitions::{CompoundPartitions, Evidence, PARTITIONS, Receipt, Selection},
     compound_count_partitions::distinct_output::DistinctSelection,
+    compound_count_partitions::{CompoundPartitions, Evidence, PARTITIONS, Receipt, Selection},
     compound_count_roles::{self, Roles},
     utf8_distinct_output,
 };
@@ -89,11 +89,19 @@ impl CompoundWorkers {
             .max_parallelism
             .min(std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get));
         let window = parallelism.saturating_mul(2).clamp(1, 24);
-        let names = [&columns[roles.numeric_column()], &columns[roles.text_column()]];
-        let owner_bytes = (window * (size_of::<Arc<CompoundPartial>>() + size_of::<[ArrayRef; 2]>())
-            + size_of::<Self>() + parallelism * size_of::<u64>()) as u64;
+        let names = [
+            &columns[roles.numeric_column()],
+            &columns[roles.text_column()],
+        ];
+        let owner_bytes = (window
+            * (size_of::<Arc<CompoundPartial>>() + size_of::<[ArrayRef; 2]>())
+            + size_of::<Self>()
+            + parallelism * size_of::<u64>()) as u64;
         let bytes = names.iter().try_fold(owner_bytes, |bytes, name| {
-            bytes.checked_add(u64::try_from(name.len()).map_err(|_| failed("column name exceeds u64"))?)
+            bytes
+                .checked_add(
+                    u64::try_from(name.len()).map_err(|_| failed("column name exceeds u64"))?,
+                )
                 .ok_or_else(|| failed("worker owner capacity overflowed"))
         })?;
         let Ok(handoff) = memory.reserve(bytes) else {
@@ -120,8 +128,12 @@ impl CompoundWorkers {
             return Err(failed("deferred owner capacity exceeds reserved window"));
         }
         let mut worker_chunks = Vec::new();
-        worker_chunks.try_reserve_exact(parallelism).map_err(|error| failed(&error.to_string()))?;
-        if worker_chunks.capacity() > parallelism { return Err(failed("worker evidence exceeds reserved capacity")); }
+        worker_chunks
+            .try_reserve_exact(parallelism)
+            .map_err(|error| failed(&error.to_string()))?;
+        if worker_chunks.capacity() > parallelism {
+            return Err(failed("worker evidence exceeds reserved capacity"));
+        }
         worker_chunks.resize(parallelism, 0);
         Ok(Some(Self {
             jobs: AggregateChunkJobs::new(
@@ -135,10 +147,7 @@ impl CompoundWorkers {
             retries,
             _handoff: handoff,
             session: session.clone(),
-            columns: [
-                owned_column_name(names[0])?,
-                owned_column_name(names[1])?,
-            ],
+            columns: [owned_column_name(names[0])?, owned_column_name(names[1])?],
             roles,
             distinct_selection: None,
             distinct_groups: 0,
@@ -287,9 +296,15 @@ impl CompoundWorkers {
         work: &compound_count_partial::Work,
     ) -> Result<()> {
         let chunks = if let Some(index) = work.worker_index {
-            self.worker_chunks.get_mut(index).ok_or_else(|| failed("actual worker exceeds CPU grant"))?
-        } else { &mut self.inline_chunks };
-        *chunks = chunks.checked_add(1).ok_or_else(|| failed("worker chunk evidence overflowed"))?;
+            self.worker_chunks
+                .get_mut(index)
+                .ok_or_else(|| failed("actual worker exceeds CPU grant"))?
+        } else {
+            &mut self.inline_chunks
+        };
+        *chunks = chunks
+            .checked_add(1)
+            .ok_or_else(|| failed("worker chunk evidence overflowed"))?;
         if work.numeric_required_execution {
             states.native_numeric_accessor_work.record_native_owner(
                 &self.columns[0],
@@ -395,9 +410,7 @@ impl CompoundWorkers {
                     self.partitions
                         .as_ref()
                         .ok_or_else(|| failed("UTF8 DISTINCT selection lost pair owners"))?
-                        .visit_text_distinct(selection, |text, count| {
-                            output.insert(text, count)
-                        })?;
+                        .visit_text_distinct(selection, |text, count| output.insert(text, count))?;
                 }
             }
             Ok(())
@@ -424,7 +437,9 @@ impl CompoundWorkers {
                 return Ok(());
             }
             self.jobs.cancel();
-            return Err(failed("UTF8 DISTINCT committed state pressure requires an explicitly admitted exact handoff; workers drained and no untracked state copy was attempted"));
+            return Err(failed(
+                "UTF8 DISTINCT committed state pressure requires an explicitly admitted exact handoff; workers drained and no untracked state copy was attempted",
+            ));
         };
         states.numeric_utf8_topk_heavy_hitter_enabled = true;
         states.numeric_utf8_topk_group_roles = Some(roles);
@@ -608,9 +623,23 @@ impl CompoundWorkers {
             .ok_or_else(|| failed("compound summary is not an object"))?;
         let memory = self.jobs.memory().snapshot();
         let pool = self.jobs.pool_snapshot();
-        object.insert("aggregate_workers_actual_count_worker_indices".into(), self.worker_chunks.iter().enumerate().filter_map(|(index, chunks)| (*chunks != 0).then_some(index)).collect::<Vec<_>>().into());
-        object.insert("aggregate_workers_count_chunks_by_worker".into(), self.worker_chunks.clone().into());
-        object.insert("aggregate_workers_inline_count_chunks".into(), self.inline_chunks.into());
+        object.insert(
+            "aggregate_workers_actual_count_worker_indices".into(),
+            self.worker_chunks
+                .iter()
+                .enumerate()
+                .filter_map(|(index, chunks)| (*chunks != 0).then_some(index))
+                .collect::<Vec<_>>()
+                .into(),
+        );
+        object.insert(
+            "aggregate_workers_count_chunks_by_worker".into(),
+            self.worker_chunks.clone().into(),
+        );
+        object.insert(
+            "aggregate_workers_inline_count_chunks".into(),
+            self.inline_chunks.into(),
+        );
         for (key, value) in [
             ("rows", u128::from(self.rows)),
             ("partial_entries", u128::from(self.partial_entries)),
@@ -746,8 +775,12 @@ impl CompoundWorkers {
 
 fn owned_column_name(name: &str) -> Result<String> {
     let mut owned = String::new();
-    owned.try_reserve_exact(name.len()).map_err(|error| failed(&error.to_string()))?;
-    if owned.capacity() > name.len() { return Err(failed("column name exceeded reserved capacity")); }
+    owned
+        .try_reserve_exact(name.len())
+        .map_err(|error| failed(&error.to_string()))?;
+    if owned.capacity() > name.len() {
+        return Err(failed("column name exceeded reserved capacity"));
+    }
     owned.push_str(name);
     Ok(owned)
 }

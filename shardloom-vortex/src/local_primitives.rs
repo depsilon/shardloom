@@ -34,18 +34,15 @@ mod compound_count_partial;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/compound_count_partitions.rs"]
 mod compound_count_partitions;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/compound_count_roles.rs"]
+mod compound_count_roles;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/compound_count_tests.rs"]
 mod compound_count_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/compound_count_workers.rs"]
 mod compound_count_workers;
-#[cfg(feature = "vortex-local-primitives")]
-#[path = "local_primitives/compound_count_roles.rs"]
-mod compound_count_roles;
-#[cfg(feature = "vortex-local-primitives")]
-#[path = "local_primitives/utf8_distinct_output.rs"]
-mod utf8_distinct_output;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/encoded_numeric_reduction.rs"]
 mod encoded_numeric_reduction;
@@ -67,6 +64,9 @@ mod native_numeric_owner;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/utf8_distinct_output.rs"]
+mod utf8_distinct_output;
 
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_aggregate_owned.rs"]
@@ -36355,7 +36355,11 @@ impl<'a> GroupedAggregateStates<'a> {
 
     fn aggregate_update_strategy(&self) -> &'static str {
         if let Some(finalized) = &self.finalized_distinct_counts {
-            if finalized.is_utf8() { "native_utf8_group_integer_complete_pair_distinct" } else { "complete_integer_pair_partition_distinct" }
+            if finalized.is_utf8() {
+                "native_utf8_group_integer_complete_pair_distinct"
+            } else {
+                "complete_integer_pair_partition_distinct"
+            }
         } else if self.single_numeric_count_direct_updates {
             "single_numeric_count_direct_group_update"
         } else if self.source_order_numeric_utf8_dictionary_direct_updates {
@@ -37555,7 +37559,11 @@ impl<'a> GroupedAggregateStates<'a> {
         ];
         if has_count_distinct {
             if let Some(finalized) = &self.finalized_distinct_counts {
-                capillary_work_units.push(if finalized.is_utf8() { "complete_utf8_integer_pair_partition_reconciliation" } else { "complete_integer_pair_partition_reconciliation" });
+                capillary_work_units.push(if finalized.is_utf8() {
+                    "complete_utf8_integer_pair_partition_reconciliation"
+                } else {
+                    "complete_integer_pair_partition_reconciliation"
+                });
                 capillary_work_units.push("complete_distinct_eof_group_reduction");
                 capillary_work_units.push("owned_bounded_final_distinct_count_selection");
                 pulseweave_pressure_signals.push("complete_pair_identity_proof");

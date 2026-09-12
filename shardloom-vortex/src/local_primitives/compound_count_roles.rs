@@ -8,14 +8,42 @@ pub(super) enum Roles {
     Utf8Distinct { value: usize, group: usize },
 }
 impl Roles {
-    pub(super) fn numeric_column(self) -> usize { match self { Self::Pair(r) => r.numeric_column, Self::Utf8Distinct { value, .. } => value } }
-    pub(super) fn text_column(self) -> usize { match self { Self::Pair(r) => r.utf8_column, Self::Utf8Distinct { group, .. } => group } }
-    pub(super) fn numeric_first(self) -> bool { match self { Self::Pair(r) => r.numeric_group < r.utf8_group, Self::Utf8Distinct { .. } => false } }
-    pub(super) fn pair(self) -> Option<NumericUtf8GroupRoles> { match self { Self::Pair(r) => Some(r), Self::Utf8Distinct { .. } => None } }
-    pub(super) fn utf8_distinct(self) -> bool { matches!(self, Self::Utf8Distinct { .. }) }
+    pub(super) fn numeric_column(self) -> usize {
+        match self {
+            Self::Pair(r) => r.numeric_column,
+            Self::Utf8Distinct { value, .. } => value,
+        }
+    }
+    pub(super) fn text_column(self) -> usize {
+        match self {
+            Self::Pair(r) => r.utf8_column,
+            Self::Utf8Distinct { group, .. } => group,
+        }
+    }
+    pub(super) fn numeric_first(self) -> bool {
+        match self {
+            Self::Pair(r) => r.numeric_group < r.utf8_group,
+            Self::Utf8Distinct { .. } => false,
+        }
+    }
+    pub(super) fn pair(self) -> Option<NumericUtf8GroupRoles> {
+        match self {
+            Self::Pair(r) => Some(r),
+            Self::Utf8Distinct { .. } => None,
+        }
+    }
+    pub(super) fn utf8_distinct(self) -> bool {
+        matches!(self, Self::Utf8Distinct { .. })
+    }
 }
-pub(super) fn admit(states: &GroupedAggregateStates<'_>, dtype: &DType, columns: &[String]) -> Option<Roles> {
-    admit_utf8_distinct(states, dtype, columns).or_else(|| super::compound_count_workers::pair_roles(states, dtype, columns).map(Roles::Pair))
+pub(super) fn admit(
+    states: &GroupedAggregateStates<'_>,
+    dtype: &DType,
+    columns: &[String],
+) -> Option<Roles> {
+    admit_utf8_distinct(states, dtype, columns).or_else(|| {
+        super::compound_count_workers::pair_roles(states, dtype, columns).map(Roles::Pair)
+    })
 }
 
 fn admit_utf8_distinct(
