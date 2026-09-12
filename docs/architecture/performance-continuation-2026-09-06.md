@@ -155,14 +155,19 @@ The canonical phased plan parks further topology investment. The list below
 preserves outstanding acceptance obligations from the earlier continuation;
 it is not a competing execution queue or a claim that remaining work is complete.
 
-1. Execute the September 12 [ingest implementation/test sequence](ingest-performance-implementation-2026-09-12.md)
-   using the completed matched-owner packet as evidence. Profile one bounded
-   representative workload to identify stage imbalance before implementing new
-   CPU allocation or writer-batch overlap; remove repeated representation work
-   only when actual copy/conversion/encode cost justifies it. Preserve source
-   generation, complete values, numeric compression and the existing guards.
-   Future candidate outputs must pass metadata and first/repeated query checks
-   before retirement; the existing old-artifact Full43 does not supply that proof.
+1. Preserve completed September 12 attribution, the rejected allocation and
+   retained pipeline tests in the [ingest sequence](ingest-performance-implementation-2026-09-12.md).
+   The 118.604707-second candidate failed the maintained 95.447305-second baseline;
+   the extra unchanged-control observation of 104.044137 seconds does not replace
+   it. Do not rerun/change controls until a candidate first shows credible
+   material improvement against retained evidence. Writer-batch overlap needs
+   measured recoverable subtree-tail work; repeated representation removal needs
+   proven duplication and compatible ownership. Neither follows automatically
+   from the failed allocation. Preserve source generation, numeric compression
+   and the existing guards. Fresh-artifact Full43 now passes all 129 complete
+   results on output byte-identical to the fully compared retained candidate;
+   metadata identity is established, without an independent statistic oracle or
+   paired layout-performance claim. Future changed outputs need their own proof.
    The bounded compatibility-export decision remains retained with its measured
    small-case costs. Wider experiments require a concrete material opportunity.
 2. Preserve the completed 1,674-check prepared-aggregate public acceptance and

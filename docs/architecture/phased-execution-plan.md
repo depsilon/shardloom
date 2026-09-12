@@ -331,11 +331,23 @@ complete; these scoped results close no additional PERF or CG gate. The
 also completed on September 8: control 99.446032 seconds, candidate 95.447305
 seconds, four confirmed constructed owners each, complete values equal and both
 generated outputs verified and retired. The candidate's 18.591587 GB physical
-output differs from the protected Full43 input; query acceptance on that layout
-was not measured. The September 12
+output differs from the protected Full43 input. September 12 fresh-artifact
+Full43 subsequently passed all 129 complete results on byte-identical newly
+written output, with best/hot/all-run totals of 102.485398/103.076700/313.564493
+seconds. This is complete-result acceptance, without a paired timing control.
+The September 12
 [ingest implementation/test sequence](ingest-performance-implementation-2026-09-12.md)
 adds CPU-stage balance, bounded writer overlap and repeated-representation work
-to existing PERF-03/08/09/12, starting with bounded bottleneck attribution.
+to existing PERF-03/08/09/12. Bounded attribution and one matched-owner allocation
+screen are complete: moving conversion to the caller and adding a provider driver
+took 118.604707 seconds, failing against the maintained 95.447305-second baseline.
+The extra unchanged-control observation of 104.044137 seconds does not replace
+that baseline. Per the maintainer's clarification, do not rerun/change controls
+until a candidate first demonstrates a credible material improvement.
+The allocation is dropped; useful end-to-end lifecycle and codec-grant tests
+remain. The [packet](../benchmarks/ingest-stage-balance-2026-09-12.md) leaves
+writer-batch overlap and representation removal conditional on evidence of
+material recoverable work, rather than extending the failed allocation trial.
 
 The maintainer's September 8
 [execution-aware native artifact topology item](execution-aware-native-artifact-topology-2026-09-08.md)
@@ -503,8 +515,10 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     and publication checksums. Later physical-policy candidates require their
     own final-code ingest and first/repeated-query acceptance.
   - Execution checklist:
-    - [ ] Complete the September 12 CPU-stage/representation attribution and
-      matched-owner acceptance in `ingest-performance-implementation-2026-09-12.md`.
+    - [x] Complete bounded September 12 CPU-stage attribution and one matched-owner
+      allocation screen; drop the slower allocation and retain lifecycle tests.
+    - [ ] Establish safely removable repeated representation work before implementing
+      deduplication in `ingest-performance-implementation-2026-09-12.md`.
     - [ ] Attribute real normalization, metadata, codec, write, and finalization spans.
     - [ ] Inventory duplicated derived representations and traversal/conversion costs.
     - [ ] Remove measured duplication while preserving validation and source preflight.
@@ -538,6 +552,8 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     - [ ] If measured subtree idle time justifies it, implement bounded overlap
       across writer batches with the September 12 EOF, cancellation, transient
       memory, publication-race and newly written-artifact query tests.
+      The September 12 profile does not identify enough recoverable subtree-tail
+      time; allocation-screen failure alone does not authorize this expansion.
     - [ ] Measure per-column bytes and encode/decode CPU for admitted Vortex profiles.
     - [ ] After independent-region runtime evidence, cost native preparation
       jointly for storage, ingest, schedulable topology, pruning, encoded work
@@ -2218,16 +2234,19 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-1. Preserve the completed PR #1437 and matched-owner ingest evidence. Execute
-   the September 12 `ingest-performance-implementation-2026-09-12.md` sequence
-   under PERF-03/08/09/12: bounded CPU-stage attribution first, then a justified
-   allocation/overlap change, then measured repeated-representation removal.
-   Keep actual owner budgets, source, memory, codec/layout and build comparable.
-   Add EOF/cancellation, transient-memory/skew, source/publication-race,
-   new-artifact query and separate serving-fairness acceptance. Do not repeat
-   the completed single pair to seek a better number or assume its 4.02%
-   observation establishes a stable speedup. Freeze and validate each coherent
-   candidate; stop marginal experiments and preserve existing storage guards.
+1. Preserve completed PR #1437, matched-owner ingest, September 12 attribution,
+   fresh-artifact Full43 and the dropped allocation screen. The maintained
+   native ingest baseline is 95.447305 seconds; the extra 104.044137-second
+   unchanged-control observation does not replace it. Screen any future candidate
+   against retained evidence first, and do not change/rerun controls until a
+   candidate demonstrates credible material improvement. Under PERF-03/08/09/12,
+   writer overlap requires measured recoverable subtree-tail work; repeated
+   representation removal requires demonstrated duplication and compatible
+   ownership. Neither condition is established by the rejected allocation.
+   Preserve retained lifecycle tests and the remaining skew, source-race,
+   codec-blocked cancellation and serving-fairness matrix in
+   `ingest-performance-implementation-2026-09-12.md`. Stop marginal experiments,
+   keep owner/memory/codec/build settings comparable and preserve storage guards.
 2. Park topology stage 1 under PERF-03/07/10/12. Both `a3c62434` grouping and
    `9152a92b` actual coalesced jobs regress without material selected-query wins.
    Preserve the frozen code and evidence; do not promote the experimental option

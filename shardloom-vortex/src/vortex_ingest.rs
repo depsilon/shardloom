@@ -6215,6 +6215,7 @@ impl VortexWriterPhysicalDesignSourceInput {
         }
     }
 
+    #[cfg(feature = "universal-format-io")]
     fn buffered_columnar(record_batch_count: usize) -> Self {
         Self {
             #[cfg(feature = "universal-format-io")]

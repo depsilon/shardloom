@@ -116,9 +116,12 @@ single-link file after rechecking path, inode and generation. It never removes
 the original Parquet source, protected reference or unrelated output. Both
 retirement receipts are complete; both generated output paths are absent.
 
-The final Full43 packet continues to use the immutable protected native
+The September 8 final Full43 packet used the immutable protected native
 reference, not this newly ingested candidate layout. Therefore this pair does
 not establish an ingest-plus-query speedup or query-performance acceptance for
-the changed physical bytes. Broader PERF-03/08/09/12 and competitive gates remain
+the changed physical bytes. The later
+[September 12 packet](ingest-stage-balance-2026-09-12.md) closes complete-result
+query validation on newly written, byte-identical candidate output; it does not
+establish a paired layout-performance improvement. Broader PERF-03/08/09/12 and competitive gates remain
 open; native execution, complete-result correctness and explicit no-fallback
 boundaries are preserved.
