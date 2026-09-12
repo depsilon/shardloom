@@ -49,6 +49,11 @@ mod encoded_numeric_reduction;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/exact_distinct_pairs.rs"]
 mod exact_distinct_pairs;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_footer_aggregate.rs"]
+// Held-file proof construction is Unix-only; report validation remains shared.
+#[cfg_attr(not(unix), allow(dead_code))]
+mod footer_aggregate;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/lazy_layout_metadata_tests.rs"]
 mod lazy_layout_metadata_tests;
@@ -222,6 +227,7 @@ impl VortexLocalPrimitiveExecutionStatus {
 pub enum VortexLocalPrimitiveExecutionMode {
     FeatureDisabled,
     MetadataPreservingCount,
+    MetadataPreservingAggregate,
     VortexArrayPrimitive,
     VortexScanPushdown,
     Unsupported,
@@ -231,6 +237,7 @@ impl VortexLocalPrimitiveExecutionMode {
         match self {
             Self::FeatureDisabled => "feature_disabled",
             Self::MetadataPreservingCount => "metadata_preserving_count",
+            Self::MetadataPreservingAggregate => "metadata_preserving_aggregate",
             Self::VortexArrayPrimitive => "vortex_array_primitive",
             Self::VortexScanPushdown => "vortex_scan_pushdown",
             Self::Unsupported => "unsupported",
@@ -2542,6 +2549,10 @@ pub fn local_primitive_execution_certificate(
     input.provider_api_surface = Some(
         if report.embedded_layout.metadata_pruned_entire_input {
             "VortexFile::can_prune"
+        } else if report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate
+            && !report.upstream_scan_called
+        {
+            "VortexFile::file_stats;VortexFile::row_count;Precision::Exact"
         } else if report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingCount
             && !report.upstream_scan_called
         {
@@ -2954,6 +2965,16 @@ fn local_primitive_native_io_safe(
     if !common_safe {
         return false;
     }
+    if report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate {
+        #[cfg(feature = "vortex-local-primitives")]
+        {
+            return footer_aggregate::report_is_safe(request, report);
+        }
+        #[cfg(not(feature = "vortex-local-primitives"))]
+        {
+            return false;
+        }
+    }
     if request.kind == VortexQueryPrimitiveKind::CountAll
         && report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingCount
     {
@@ -3276,6 +3297,9 @@ fn local_primitive_optional_project_operation(
 fn local_primitive_pushdown_guarantee(
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> &'static str {
+    if report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate {
+        return "exact_scalar_aggregate_from_held_vortex_footer_without_source_payload_scan";
+    }
     match report.primitive_kind {
         VortexQueryPrimitiveKind::CountAll => "exact_array_length_count",
         VortexQueryPrimitiveKind::CountWhere => "exact_filtered_count_from_vortex_scan_pushdown",
@@ -3331,6 +3355,9 @@ fn local_primitive_pushdown_guarantee(
 fn local_primitive_pushdown_proof_basis(
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> &'static str {
+    if report.mode == VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate {
+        return "ShardLoom completed all admitted identity integer extrema/count measures from the held Vortex file's exact footer statistics, row count and nonnullable Struct schema before constructing a scan; fresh scalar state reused ordinary HAVING and output aliases; source rows covered differ from zero source rows visited; file preparation reads are outside this query-work claim";
+    }
     if local_primitive_empty_aggregate_source_scan(report) {
         return "Vortex footer declares zero source rows and the completed native scan yielded no arrays; ShardLoom finalized fresh empty aggregate state without reading, decoding or materializing source values";
     }
@@ -6302,6 +6329,19 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
         ));
     };
     let scan = read_local_vortex_simple_aggregate_scan(uri, &path, request, policy)?;
+    let mut export_evidence = executed_row_export_evidence(
+        false,
+        scan.scan.projection_pushdown_applied,
+        scan.scan.source_order_limit.is_some(),
+    );
+    if scan.metadata_completed {
+        export_evidence.upstream_scan_called = false;
+        export_evidence.pushdown.projection_pushdown_applied = false;
+        export_evidence.side_effects.data_read = false;
+        export_evidence.side_effects.data_decoded = false;
+        export_evidence.side_effects.row_read = false;
+        // Text export still materializes the final scalar result row.
+    }
     let output_columns = aggregate.output_columns();
     let result_rows = simple_aggregate_result_rows(&scan.result_summary, &output_columns)?;
     let temp_path = temporary_output_path(output_path)?;
@@ -6358,11 +6398,7 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
                 .map(usize_to_u64)
                 .transpose()?,
             state_budget: scan.state_budget.clone(),
-            evidence: executed_row_export_evidence(
-                false,
-                scan.scan.projection_pushdown_applied,
-                scan.scan.source_order_limit.is_some(),
-            ),
+            evidence: export_evidence.clone(),
             diagnostics: Vec::new(),
         })
     })();
@@ -13984,6 +14020,7 @@ impl ResidualPredicateMaterialization {
 #[cfg(feature = "vortex-local-primitives")]
 struct LocalVortexAggregateScan {
     scan: LocalVortexScan,
+    metadata_completed: bool,
     result_summary: String,
     state_budget: VortexLocalPrimitiveStateBudgetReport,
     // Temporary drivers used by the completed scan or its immediate wrapper.
@@ -17676,8 +17713,10 @@ fn simple_aggregate_report(
         .as_ref()
         .map_or_else(|| "none".to_string(), VortexSimpleAggregateRequest::summary);
     let result_summary = aggregate.result_summary.clone();
-    let empty_provider_filter_work = scan.empty_provider_filter_work(request.predicate.as_ref())?;
-    let data_work = scan.data_read() || empty_provider_filter_work;
+    let metadata_completed = aggregate.metadata_completed;
+    let empty_provider_filter_work =
+        !metadata_completed && scan.empty_provider_filter_work(request.predicate.as_ref())?;
+    let data_work = !metadata_completed && (scan.data_read() || empty_provider_filter_work);
     let scan_scope = if empty_provider_filter_work {
         " scan_side_effect_scope=provider_filter_may_read_decode_materialize_not_observed_bytes"
     } else {
@@ -17685,7 +17724,11 @@ fn simple_aggregate_report(
     };
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
-        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        mode: if metadata_completed {
+            VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate
+        } else {
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        },
         primitive_kind: request.kind,
         result_summary: Some(format!(
             "simple_aggregate input_rows={} output_rows={} projected_columns={} measures={}{} values={}",
@@ -17706,16 +17749,17 @@ fn simple_aggregate_report(
             scan.reader_generated_prepared_batch_report.clone(),
         ),
         max_chunk_rows: scan.max_chunk_rows,
-        streaming_scan_used: scan.streaming_scan_used(),
+        streaming_scan_used: !metadata_completed && scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
         physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
-        projection_pushdown_applied: scan.projection_pushdown_applied,
+        projection_pushdown_applied: !metadata_completed && scan.projection_pushdown_applied,
         upstream_filter_expression_used: scan.upstream_filter_expression_used(),
-        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        upstream_projection_expression_used: !metadata_completed
+            && scan.projection_pushdown_applied,
         source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(input_rows),
@@ -17726,8 +17770,8 @@ fn simple_aggregate_report(
         data_read: data_work,
         data_decoded: data_work,
         data_materialized: data_work,
-        upstream_scan_called: scan.upstream_scan_called(),
-        row_read: scan.data_read(),
+        upstream_scan_called: !metadata_completed && scan.upstream_scan_called(),
+        row_read: !metadata_completed && scan.data_read(),
         arrow_converted: false,
         object_store_io: false,
         write_io: aggregate.state_budget.spill_io_performed,
@@ -20201,6 +20245,20 @@ fn read_lowered_vortex_simple_aggregate_scan(
     } else {
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
     };
+    // Unix ordinary and prepared entry points validate the same held source
+    // descriptor around this complete execution. Other entry points keep their
+    // existing scan until they share that generation boundary.
+    #[cfg(unix)]
+    let metadata_completion = if plan.filter.is_none()
+        && residual_predicate.is_none()
+        && let Some(states) = scalar_states.as_mut()
+    {
+        footer_aggregate::complete(file, request, states)?
+    } else {
+        None
+    };
+    #[cfg(not(unix))]
+    let metadata_completion: Option<footer_aggregate::Completion> = None;
     let mut scalar_numeric_accessor_work = NativeNumericAccessorWork::default();
     let mut scalar_execution_ctx = native_numeric_execution_ctx(session);
     let mut grouped_states = if aggregate_has_grouping {
@@ -20252,7 +20310,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     // this SAME runtime before scanning; no input has been processed or replayed.
     // `worker_memory` is supplied only by a caller-only aggregate session.
     let (provider_drivers, provider_background_workers) =
-        if worker_memory.is_some() && count_workers.is_none() {
+        if worker_memory.is_some() && count_workers.is_none() && metadata_completion.is_none() {
             let (drivers, count) =
                 runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
             (Some(drivers), count)
@@ -20261,13 +20319,17 @@ fn read_lowered_vortex_simple_aggregate_scan(
         };
     let mut aggregate_timing = aggregate_timing::AggregateFirstPassTiming::default();
 
-    let mut pre_limit_result_row_count = 0usize;
+    let mut pre_limit_result_row_count = if metadata_completion.is_some() {
+        usize::try_from(source_row_count).map_err(vortex_error)?
+    } else {
+        0
+    };
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
     let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
-    if !embedded_layout.metadata_pruned_entire_input {
+    if !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none() {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = file.scan().map_err(vortex_error)?;
@@ -21066,6 +21128,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
         )
     };
     aggregate_timing.finalization_nanos = finalization_started.elapsed().as_nanos();
+    if let Some(completion) = &metadata_completion {
+        completion.annotate(&mut result_summary)?;
+    }
     numeric_accessor_work.annotate(&mut result_summary)?;
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
@@ -21091,6 +21156,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         )
     };
     Ok(LocalVortexAggregateScan {
+        metadata_completed: metadata_completion.is_some(),
         scan: LocalVortexScan {
             source_row_count,
             result_row_count,
@@ -21847,6 +21913,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         )
     };
     Ok(LocalVortexAggregateScan {
+        metadata_completed: false,
         scan: LocalVortexScan {
             source_row_count,
             result_row_count,

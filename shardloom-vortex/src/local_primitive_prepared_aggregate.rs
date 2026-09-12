@@ -107,7 +107,8 @@ pub struct PreparedVortexAggregate {
 }
 
 /// Preparation never executes a query. The retained case admits exactly the
-/// integer aggregate API; the other case transfers the opened source to one
+/// integer aggregate API or bounded nonnullable UTF8 COUNT(*); the other case
+/// transfers the opened source to one
 /// explicit ordinary execution without probing and reopening the same file.
 pub enum PreparedAggregateDisposition {
     Reusable(PreparedVortexAggregate),
@@ -192,11 +193,14 @@ fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
     Ok(())
 }
 
-fn integer_fields(
+fn retained_fields(
     request: &VortexQueryPrimitiveRequest,
     source: &PreparedVortexSource,
 ) -> Result<()> {
     let aggregate = required_simple_aggregate(request)?;
+    if super::aggregate_owned::utf8_count_admitted(request, source.dtype()) {
+        return Ok(());
+    }
     let fields = source
         .dtype()
         .as_struct_fields_opt()
@@ -217,7 +221,7 @@ fn integer_fields(
             ))
         ) {
             return Err(failed(
-                "group and measure fields must have existing integer types",
+                "requires existing integer group/measure fields or bounded nonnullable UTF8 COUNT(*)",
             ));
         }
     }
@@ -268,7 +272,7 @@ pub fn prepare_aggregate_for_optional_reuse(
     let session = aggregate_session(request, policy)?;
     let operation = prepare_candidate_in_session(request, policy, &session)?;
     let retained =
-        integer_fields(request, &operation.source).is_ok() && operation.lowering.residual.is_none();
+        retained_fields(request, &operation.source).is_ok() && operation.lowering.residual.is_none();
     Ok(Some(if retained {
         PreparedAggregateDisposition::Reusable(operation)
     } else {
@@ -305,7 +309,7 @@ pub fn prepare_aggregate_in_session(
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexAggregate> {
     let operation = prepare_candidate_in_session(request, policy, session)?;
-    integer_fields(request, &operation.source)?;
+    retained_fields(request, &operation.source)?;
     if operation.lowering.residual.is_some() {
         return Err(failed(
             "residual predicates are not admitted by this retained API",
@@ -533,8 +537,8 @@ impl PreparedVortexAggregate {
         self.certify(&scan)
     }
 
-    /// Execute fresh exact integer grouped COUNT DISTINCT into owned columns.
-    /// Preserves original integer width, complete count-descending/key-ascending
+    /// Execute fresh integer grouped COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*).
+    /// Preserves original integer width or exact UTF8 bytes, count-descending/key-ascending
     /// ordering and offset/limit; no result rows are rendered before a sink.
     /// # Errors
     /// Rejects unsupported or nullable shapes before execution, source changes,
@@ -589,6 +593,10 @@ fn failed(reason: &str) -> ShardLoomError {
 #[cfg(test)]
 #[path = "local_primitive_prepared_aggregate_tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "vortex-write", unix))]
+#[path = "local_primitive_footer_aggregate_native_tests.rs"]
+mod footer_native_tests;
 
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "local_primitive_aggregate_owned_tests.rs"]

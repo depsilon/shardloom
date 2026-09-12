@@ -244,12 +244,26 @@ the ledger.
 
 ## Planned
 
+Latest maintainer handoff, September 12: **pause testing and consolidate the
+measured improvements for a PR, followed by a version-bump train.** The PR branch
+starts from current `main` (`5e8af695`), which already includes the retained
+numeric ingest, owned integer DISTINCT, native source reuse and ownership/pressure
+work. Carry the focused UTF8-grouped integer DISTINCT change plus the separately
+accepted integer owned COUNT, UTF8 owned COUNT and scalar-footer aggregate
+improvements. Keep their existing tests and evidence; do not run new tests,
+builds or benchmarks during the requested pause. The newly combined source needs
+its own validation when testing resumes; earlier timings keep their original
+binary and workload scope. Other paused or rejected work stays outside this PR.
+The proposed next train is a compatible `0.2.4` technical preview after the PR;
+source versions and published-channel proofs remain `0.2.3` during preparation.
+See the [PR and release handoff](performance-pr-release-handoff-2026-09-12.md).
+
 Latest maintainer priority, September 12: **focus on measured performance and
 pause broad phase completion.** This supersedes the earlier instruction to
 implement every remaining family. Open PERF and CG checklists remain open;
 preserved branches are not a reason to ship unmeasured capability expansion.
 
-The current PERF-10/04/05 experiment starts from accepted `2ad143da` and isolates
+The completed PERF-10/04/05 experiment starts from accepted `2ad143da` and isolates
 the UTF8-grouped integer DISTINCT improvement. The broader `8ba36c76` passes
 129/129 Full43 values but records 117.633288 seconds, so it is not a new query
 control. Its matched Q14 medians are 7.644247 seconds for the control and
