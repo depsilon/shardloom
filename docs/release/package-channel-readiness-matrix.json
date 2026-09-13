@@ -147,13 +147,15 @@
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
       "prepared_local_artifact_refs": [
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.2.4-cp313-cp313-macosx_26_0_arm64.whl",
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.2.4.tar.gz"
+        "https://test-files.pythonhosted.org/packages/70/17/75b335937e937bdf0fa012e5eccde2716af050c03bfd289a8fbb998de5f7/shardloom-0.2.4-cp313-cp313-macosx_26_0_arm64.whl",
+        "https://test-files.pythonhosted.org/packages/d7/a4/d08e04addc66d069bec7c3f02e89822749b3139dee6a20b705c7dc163e00/shardloom-0.2.4-cp313-cp313-manylinux_2_39_x86_64.whl",
+        "https://test-files.pythonhosted.org/packages/72/e3/774e92948f24187d2e3c1d2deb3baed18c12d145df1b9fb0bd223088db4d/shardloom-0.2.4-cp313-cp313-win_amd64.whl",
+        "https://test-files.pythonhosted.org/packages/df/12/94796097deaf0a6cb7350cfc58f319f378c187a3f82cee48233d8bafb9e3/shardloom-0.2.4.tar.gz"
       ],
-      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
-      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
+      "prepared_local_checksum_ref": "docs/release/channel-proofs/testpypi-v0.2.4-checksums.sha256",
+      "prepared_local_provenance_ref": "docs/release/channel-proofs/testpypi-v0.2.4-provenance.json",
       "prepared_local_sbom_refs": [
-        "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json"
+        "docs/release/channel-proofs/testpypi-v0.2.4-sbom.cdx.json"
       ],
       "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
       "prepared_registry_install_smoke_proof_ref": "docs/release/channel-proofs/testpypi-v0.2.4-transcript.json",
@@ -163,10 +165,10 @@
       "uninstall_transcript_ref": "docs/release/channel-proofs/testpypi-v0.2.4-transcript.json",
       "clean_install_transcript_ref": "docs/release/channel-proofs/testpypi-v0.2.4-transcript.json",
       "smoke_transcript_ref": "docs/release/channel-proofs/testpypi-v0.2.4-transcript.json",
-      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.2.4/shardloom-python-artifacts.cdx.json",
+      "sbom_ref": "docs/release/channel-proofs/testpypi-v0.2.4-sbom.cdx.json",
       "authorization_ref": "docs/release/final-release-approval-post-release-verification.json",
-      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.2.4/checksums.sha256",
-      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.2.4/supply-chain-release-evidence.json",
+      "checksum_ref": "docs/release/channel-proofs/testpypi-v0.2.4-checksums.sha256",
+      "provenance_ref": "docs/release/channel-proofs/testpypi-v0.2.4-provenance.json",
       "registry_artifact_digest_binding_status": "passed",
       "registry_install_cache_disabled": true,
       "registry_install_cache_hit_detected": false,
@@ -210,13 +212,15 @@
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
       "prepared_local_artifact_refs": [
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.2.4-cp313-cp313-macosx_26_0_arm64.whl",
-        "target/release-provenance-dry-run/github-prerelease-assets/shardloom-0.2.4.tar.gz"
+        "https://files.pythonhosted.org/packages/00/f6/797924eeea14daaa6cfad81d63102ebb635e03bfc51ed65de046c321cf1e/shardloom-0.2.4-cp313-cp313-macosx_26_0_arm64.whl",
+        "https://files.pythonhosted.org/packages/1c/be/d884d78a3607750e6b08a2d3eb10a623bd635bb9153b2a5e8bc849e1c670/shardloom-0.2.4-cp313-cp313-manylinux_2_39_x86_64.whl",
+        "https://files.pythonhosted.org/packages/56/9a/87fdd0cd0066e2c7a55cc70f59abbb88802425da103635791e6450e4c084/shardloom-0.2.4-cp313-cp313-win_amd64.whl",
+        "https://files.pythonhosted.org/packages/f6/5a/c754c1806d9c5a09da3655d5d093d3b088726e0874130964f132a7512f0b/shardloom-0.2.4.tar.gz"
       ],
-      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
-      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
+      "prepared_local_checksum_ref": "docs/release/channel-proofs/pypi-v0.2.4-checksums.sha256",
+      "prepared_local_provenance_ref": "docs/release/channel-proofs/pypi-v0.2.4-provenance.json",
       "prepared_local_sbom_refs": [
-        "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json"
+        "docs/release/channel-proofs/pypi-v0.2.4-sbom.cdx.json"
       ],
       "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
       "prepared_registry_install_smoke_proof_ref": "docs/release/channel-proofs/pypi-v0.2.4-transcript.json",
@@ -227,10 +231,10 @@
       "uninstall_transcript_ref": "docs/release/channel-proofs/pypi-v0.2.4-transcript.json",
       "clean_install_transcript_ref": "docs/release/channel-proofs/pypi-v0.2.4-transcript.json",
       "smoke_transcript_ref": "docs/release/channel-proofs/pypi-v0.2.4-transcript.json",
-      "sbom_ref": "https://github.com/depsilon/shardloom/releases/download/v0.2.4/shardloom-python-artifacts.cdx.json",
+      "sbom_ref": "docs/release/channel-proofs/pypi-v0.2.4-sbom.cdx.json",
       "authorization_ref": "docs/release/final-release-approval-post-release-verification.json",
-      "checksum_ref": "https://github.com/depsilon/shardloom/releases/download/v0.2.4/checksums.sha256",
-      "provenance_ref": "https://github.com/depsilon/shardloom/releases/download/v0.2.4/supply-chain-release-evidence.json",
+      "checksum_ref": "docs/release/channel-proofs/pypi-v0.2.4-checksums.sha256",
+      "provenance_ref": "docs/release/channel-proofs/pypi-v0.2.4-provenance.json",
       "registry_artifact_digest_binding_status": "passed",
       "registry_install_cache_disabled": true,
       "registry_install_cache_hit_detected": false,

@@ -31,7 +31,9 @@ python scripts\check_package_channel_readiness.py --require-local-evidence
 ```
 
 That mode consumes the dependency audit report, local package smoke transcript, local
-SBOM/checksum/provenance dry-run evidence, and checked-in TestPyPI/PyPI registry proof transcripts.
+SBOM/checksum/provenance dry-run evidence, and checked-in TestPyPI/PyPI registry proof transcripts
+and artifact evidence. Each registry's evidence binds its own published distributions and build
+source; the separately built GitHub assets do not establish registry artifact provenance.
 Selected v0.2.4 rows are ready only when channel-specific install, uninstall, clean-install, smoke,
 SBOM/checksum/provenance, rollback, and authorization evidence is attached.
 
@@ -84,6 +86,21 @@ until the TestPyPI transcript exists and is referenced.
 | crates.io future | Future `shardloom-protocol` and `shardloom-client` crates only | not in v1 scope | `cargo add shardloom-protocol@<version> shardloom-client@<version>` | `cargo remove shardloom-protocol shardloom-client` | Extracted stable public crates, API/schema stability gate, `cargo publish --dry-run`, maintainer approval, no internal crate publication. | `blocked`: not included in the current release candidate; cargo metadata confirms current workspace crates remain unpublished, future public crates are not extracted, API/schema stability still blocks public crates, no `cargo publish --dry-run` applies, and maintainer approval is missing. |
 
 ## Evidence Required Before A Channel Can Become Ready
+
+TestPyPI and PyPI have separate v0.2.4 evidence bundles:
+
+| Channel | SBOM | Checksums | Provenance | Build source |
+| --- | --- | --- | --- | --- |
+| TestPyPI | [SBOM](channel-proofs/testpypi-v0.2.4-sbom.cdx.json) | [Checksums](channel-proofs/testpypi-v0.2.4-checksums.sha256) | [Provenance](channel-proofs/testpypi-v0.2.4-provenance.json) | `8759b16e3421153302c9034e5a00c9d80b61d3d9` |
+| PyPI | [SBOM](channel-proofs/pypi-v0.2.4-sbom.cdx.json) | [Checksums](channel-proofs/pypi-v0.2.4-checksums.sha256) | [Provenance](channel-proofs/pypi-v0.2.4-provenance.json) | `1f180c47419b420509ff59831e416db618ce5ce7` |
+
+Each bundle covers all four files in its registry inventory: three platform wheels and the
+source distribution. The matrix's legacy `prepared_local_artifact_refs` field now lists those
+exact registry URLs; its prepared SBOM/checksum/provenance fields point to the same channel
+bundle as the ready fields. These are unsigned post-publication observations matching downloaded
+workflow distributions to registry hashes. The bundle records an artifact/bundled-CLI inventory,
+source-input hashes and declared dependency counts, not a complete compiled-dependency inventory.
+Existing install/uninstall transcripts remain the runtime proof, limited to their tested platform.
 
 Every ready row must attach:
 
