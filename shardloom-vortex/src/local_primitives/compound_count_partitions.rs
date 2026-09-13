@@ -18,6 +18,8 @@ use std::{
 };
 
 pub(super) const PARTITIONS: usize = 64;
+#[path = "compound_distinct_partition_output.rs"]
+pub(super) mod distinct_output;
 #[derive(Clone, Copy, Default)]
 struct TextSlot {
     hash: u64,
@@ -72,6 +74,7 @@ pub(super) struct CompoundPartitions {
     credits: EntryCredits,
     pressure: AtomicBool,
     numeric_first: bool,
+    text_distinct: bool,
     retained: usize,
     pub rows: AtomicU64,
     strings: AtomicU64,
@@ -90,8 +93,29 @@ impl CompoundPartitions {
         retained: usize,
         numeric_first: bool,
     ) -> Result<Option<Arc<Self>>> {
+        Self::new_for(memory, entries, retained, numeric_first, false)
+    }
+    pub(super) fn try_new_text_distinct(
+        memory: &LiveMemoryPool,
+        entries: usize,
+        retained: usize,
+    ) -> Result<Option<Arc<Self>>> {
+        Self::new_for(memory, entries, retained, false, true)
+    }
+    fn new_for(
+        memory: &LiveMemoryPool,
+        entries: usize,
+        retained: usize,
+        numeric_first: bool,
+        text_distinct: bool,
+    ) -> Result<Option<Arc<Self>>> {
+        let selected_bytes = if text_distinct {
+            size_of::<(usize, u64)>()
+        } else {
+            size_of::<usize>()
+        };
         let Some(selection) = retained
-            .checked_mul(size_of::<usize>())
+            .checked_mul(selected_bytes)
             .and_then(|v| v.checked_mul(PARTITIONS))
             .and_then(|v| u64::try_from(v).ok())
         else {
@@ -129,6 +153,7 @@ impl CompoundPartitions {
             credits: EntryCredits::new(entries),
             pressure: AtomicBool::new(false),
             numeric_first,
+            text_distinct,
             retained,
             rows: AtomicU64::new(0),
             strings: AtomicU64::new(0),
@@ -173,7 +198,11 @@ impl CompoundPartitions {
         mut partial: CompoundPartial,
         worker: &ChunkWorkerContext,
     ) -> Result<Receipt> {
-        let ends = partial.arrange::<PARTITIONS>(worker)?;
+        let ends = if self.text_distinct {
+            partial.arrange_text::<PARTITIONS>(worker)?
+        } else {
+            partial.arrange::<PARTITIONS>(worker)?
+        };
         let work = partial.work.clone();
         let mut cursor = 0;
         let mut consumed = 0_u64;
@@ -385,6 +414,49 @@ impl CompoundPartitions {
             visit(group.key, partition.value(group)?, group.count)?;
         }
         Ok(())
+    }
+}
+
+fn retain_best<T: Copy>(
+    heap: &mut Vec<T>,
+    candidate: T,
+    capacity: usize,
+    worse: impl Fn(T, T) -> bool,
+) {
+    if capacity == 0 {
+        return;
+    }
+    if heap.len() < capacity {
+        heap.push(candidate);
+        let mut child = heap.len() - 1;
+        while child > 0 {
+            let parent = (child - 1) / 2;
+            if !worse(heap[child], heap[parent]) {
+                break;
+            }
+            heap.swap(child, parent);
+            child = parent;
+        }
+    } else if worse(heap[0], candidate) {
+        heap[0] = candidate;
+        let mut parent = 0;
+        loop {
+            let left = parent * 2 + 1;
+            if left >= heap.len() {
+                break;
+            }
+            let right = left + 1;
+            let child = if right < heap.len() && worse(heap[right], heap[left]) {
+                right
+            } else {
+                left
+            };
+            if !worse(heap[child], heap[parent]) {
+                break;
+            }
+            heap.swap(child, parent);
+            parent = child;
+        }
     }
 }
 

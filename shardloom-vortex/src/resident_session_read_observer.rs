@@ -218,6 +218,54 @@ pub(crate) struct ObservedFileReadAt {
     hooks: Arc<ReadHooks>,
 }
 
+#[cfg(feature = "vortex-write")]
+impl super::ResidentVortexSession {
+    /// Test the actual resident preparation boundary with one observed descriptor.
+    /// Footer-open work is included in the initial observation checkpoint.
+    pub(crate) fn prepare_observed_file(
+        &self,
+        path: &Path,
+        limits: ReadObservationLimits,
+    ) -> Result<(super::PreparedVortexSource, ObservedFileReadAt)> {
+        use vortex::{
+            array::memory::MemorySessionExt as _, file::OpenOptionsSessionExt as _,
+            io::runtime::BlockingRuntime as _,
+        };
+        let _gate = self
+            .0
+            .admission
+            .lock()
+            .map_err(|_| resident_error("session admission poisoned"))?;
+        let observer = ObservedFileReadAt::new(
+            path,
+            self.0.session.allocator(),
+            self.0.runtime.handle(),
+            limits,
+        )?;
+        let file = self
+            .0
+            .runtime
+            .block_on(
+                self.0
+                    .session
+                    .open_options()
+                    .with_layout_reader_cache()
+                    .open(Arc::new(observer.clone())),
+            )
+            .map_err(super::native_error)?;
+        observer.identity.validate()?;
+        self.0
+            .opens
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let source = super::PreparedVortexSource(Arc::new(super::PreparedSourceOwner {
+            file,
+            identity: Some(Arc::clone(&observer.identity)),
+            runtime: Arc::clone(&self.0),
+        }));
+        Ok((source, observer))
+    }
+}
+
 impl ObservedFileReadAt {
     pub(crate) fn new(
         path: &Path,

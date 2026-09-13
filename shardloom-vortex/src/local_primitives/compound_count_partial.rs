@@ -56,6 +56,7 @@ struct Slot {
 
 #[derive(Clone, Default)]
 pub(super) struct Work {
+    pub worker_index: Option<usize>,
     pub rows: u64,
     pub entries: u64,
     pub bytes_hashed: u64,
@@ -123,6 +124,57 @@ impl CompoundPartial {
                     worker.check_cancelled()?;
                 }
                 let target = partition::<N>(self.slots[next[index]].hash);
+                if target == index {
+                    next[index] += 1;
+                } else {
+                    self.slots.swap(next[index], next[target]);
+                    next[target] += 1;
+                }
+            }
+        }
+        Ok(ends)
+    }
+    pub(super) fn arrange_text<const N: usize>(
+        &mut self,
+        worker: &ChunkWorkerContext,
+    ) -> Result<[usize; N]> {
+        if !N.is_power_of_two() {
+            return Err(failed("partition count must be a power of two"));
+        }
+        let values = &self.values;
+        let mut partition_for = |slot: Slot| -> Result<usize> {
+            let hash = {
+                let bytes = values.bytes_at(slot.value);
+                self.work.bytes_hashed = self
+                    .work
+                    .bytes_hashed
+                    .checked_add(bytes.len() as u64)
+                    .ok_or_else(|| failed("text partition hash bytes overflowed"))?;
+                string_hash(bytes.as_slice())
+            };
+            Ok(partition::<N>(hash))
+        };
+        let mut sizes = [0_usize; N];
+        for (index, entry) in self.slots.iter().copied().enumerate() {
+            if index.is_multiple_of(4096) {
+                worker.check_cancelled()?;
+            }
+            sizes[partition_for(entry)?] += 1;
+        }
+        let mut next = [0_usize; N];
+        let mut ends = [0_usize; N];
+        let mut end = 0;
+        for index in 0..N {
+            next[index] = end;
+            end += sizes[index];
+            ends[index] = end;
+        }
+        for (index, end) in ends.iter().copied().enumerate() {
+            while next[index] < end {
+                if next[index] % 4096 == 0 {
+                    worker.check_cancelled()?;
+                }
+                let target = partition_for(self.slots[next[index]])?;
                 if target == index {
                     next[index] += 1;
                 } else {
@@ -323,6 +375,10 @@ fn count_with_provider_error(
     }
     let started = Instant::now();
     let mut work = Work {
+        worker_index: match worker {
+            ChunkWorkerContext::Pool(worker) => Some(worker.worker_index),
+            ChunkWorkerContext::Inline(_) => None,
+        },
         rows: text.len() as u64,
         canonicalization_nanos,
         numeric_execution_nanos,

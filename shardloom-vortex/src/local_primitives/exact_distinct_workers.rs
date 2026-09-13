@@ -74,10 +74,42 @@ pub(in super::super) struct ExactDistinctResult {
 }
 enum FinalDistinctStorage {
     Memory(Arc<FinalGroupCounts>),
+    Utf8 {
+        rows: super::super::utf8_distinct_output::Rows,
+        groups: usize,
+    },
     #[cfg(feature = "vortex-write")]
     Spill(Arc<super::spill_accumulator::OwnedSpillResult>),
 }
 impl ExactDistinctResult {
+    pub(in super::super) fn from_utf8(
+        rows: super::super::utf8_distinct_output::Rows,
+        groups: usize,
+    ) -> Self {
+        Self {
+            groups: FinalDistinctStorage::Utf8 { rows, groups },
+        }
+    }
+    pub(in super::super) fn is_utf8(&self) -> bool {
+        matches!(self.groups, FinalDistinctStorage::Utf8 { .. })
+    }
+    pub(in super::super) fn visit_utf8<'a>(
+        &'a self,
+        visit: impl FnMut(&'a str, u64) -> Result<()>,
+    ) -> Result<()> {
+        if let FinalDistinctStorage::Utf8 { rows, .. } = &self.groups {
+            rows.visit_utf8(visit)
+        } else {
+            Err(failed("UTF8 finalization received an integer key domain"))
+        }
+    }
+    pub(in super::super) fn text_bytes(&self) -> usize {
+        if let FinalDistinctStorage::Utf8 { rows, .. } = &self.groups {
+            rows.text_bytes()
+        } else {
+            0
+        }
+    }
     #[cfg(feature = "vortex-write")]
     pub(in super::super) fn from_spill(
         result: Arc<super::spill_accumulator::OwnedSpillResult>,
@@ -94,6 +126,9 @@ impl ExactDistinctResult {
     ) -> Result<()> {
         match &self.groups {
             FinalDistinctStorage::Memory(groups) => groups.visit(visit),
+            FinalDistinctStorage::Utf8 { .. } => {
+                Err(failed("integer finalization received a UTF8 key domain"))
+            }
             #[cfg(feature = "vortex-write")]
             FinalDistinctStorage::Spill(result) => result.result.visit(0, visit),
         }
@@ -101,6 +136,7 @@ impl ExactDistinctResult {
     pub(in super::super) fn group_count(&self) -> usize {
         match &self.groups {
             FinalDistinctStorage::Memory(groups) => groups.group_count,
+            FinalDistinctStorage::Utf8 { groups, .. } => *groups,
             #[cfg(feature = "vortex-write")]
             FinalDistinctStorage::Spill(result) => result.result.evidence.groups,
         }
@@ -108,6 +144,7 @@ impl ExactDistinctResult {
     pub(in super::super) fn retained_count(&self) -> usize {
         match &self.groups {
             FinalDistinctStorage::Memory(groups) => groups.retained_count(),
+            FinalDistinctStorage::Utf8 { rows, .. } => rows.len(),
             #[cfg(feature = "vortex-write")]
             FinalDistinctStorage::Spill(result) => result.result.retained_count(),
         }
@@ -115,6 +152,7 @@ impl ExactDistinctResult {
     pub(in super::super) fn reserved_bytes(&self) -> u64 {
         match &self.groups {
             FinalDistinctStorage::Memory(groups) => groups.reserved_bytes(),
+            FinalDistinctStorage::Utf8 { rows, .. } => rows.reserved_bytes(),
             #[cfg(feature = "vortex-write")]
             FinalDistinctStorage::Spill(result) => result.reserved_bytes(),
         }
@@ -138,19 +176,32 @@ impl ExactDistinctResult {
             .ok_or_else(|| failed("final distinct aggregate contract changed"))?;
         let mut rows = Vec::new();
         let mut ordinal = 0_usize;
-        self.visit(|key, count| {
-            if ordinal >= states.request.offset && rows.len() < limit {
-                let mut row = serde_json::Map::new();
-                row.insert(
-                    group.name.clone(),
-                    super::super::integer_key_json_value(key.bits, key.signed),
-                );
-                row.insert(measure.alias.clone(), count.into());
-                rows.push(serde_json::Value::Object(row));
-            }
-            ordinal += 1;
-            Ok(())
-        })?;
+        if self.is_utf8() {
+            self.visit_utf8(|key, count| {
+                if ordinal >= states.request.offset && rows.len() < limit {
+                    let mut row = serde_json::Map::new();
+                    row.insert(group.name.clone(), key.into());
+                    row.insert(measure.alias.clone(), count.into());
+                    rows.push(serde_json::Value::Object(row));
+                }
+                ordinal += 1;
+                Ok(())
+            })?;
+        } else {
+            self.visit(|key, count| {
+                if ordinal >= states.request.offset && rows.len() < limit {
+                    let mut row = serde_json::Map::new();
+                    row.insert(
+                        group.name.clone(),
+                        super::super::integer_key_json_value(key.bits, key.signed),
+                    );
+                    row.insert(measure.alias.clone(), count.into());
+                    rows.push(serde_json::Value::Object(row));
+                }
+                ordinal += 1;
+                Ok(())
+            })?;
+        }
         let row_count = rows.len();
         self.summary(states, row_count, Some(&rows))
     }
@@ -168,8 +219,8 @@ impl ExactDistinctResult {
         let scalar_output = rows.is_some();
         let payload = serde_json::json!({
             "rows": row_count, "group_by": group.name, "functions": states.state_template.functions_summary(),
-            "aggregate_key_encoding_mode": "typed_complete_integer_pair_keys",
-            "aggregate_update_strategy": "complete_integer_pair_partition_distinct",
+            "aggregate_key_encoding_mode": if self.is_utf8() { "typed_complete_utf8_integer_pair_keys" } else { "typed_complete_integer_pair_keys" },
+            "aggregate_update_strategy": if self.is_utf8() { "native_utf8_group_integer_complete_pair_distinct" } else { "complete_integer_pair_partition_distinct" },
             "expression_fusion_strategy": states.expression_fusion_strategy(),
             "expression_plan_fingerprint_status": states.expression_plan_fingerprint_status(),
             "aggregate_accessor_summary": states.aggregate_accessor_summary(),
@@ -183,20 +234,20 @@ impl ExactDistinctResult {
             "group_output_strategy": "bounded_heap_after_complete_distinct_group_reduction",
             "candidate_groups": self.group_count(), "retained_candidate_groups": self.retained_count(),
             "exact_distinct_final_reserved_bytes": self.reserved_bytes(),
-            "exact_distinct_final_reservation_scope": "retained_numeric_group_keys_counts_vector_and_owner_metadata;JSON_output_excluded",
+            "exact_distinct_final_reservation_scope": if self.is_utf8() { "retained_utf8_group_bytes_counts_vector_and_owner_metadata;JSON_output_excluded" } else { "retained_numeric_group_keys_counts_vector_and_owner_metadata;JSON_output_excluded" },
             "compact_group_state_strategy": "finalized_exact_distinct_counts",
             "group_state_mode": "complete_pair_state_released_after_EOF_group_reduction",
-            "group_key_storage": "owned_native_integer_pair_bits", "group_key_comparison_strategy": "typed_value_comparator",
+            "group_key_storage": if self.is_utf8() { "owned_exact_utf8_group_bytes_after_complete_integer_pairs" } else { "owned_native_integer_pair_bits" }, "group_key_comparison_strategy": "typed_value_comparator",
             "source_order_key_retention": "ordered_route_source_order_keys_elided",
             "topk_retention_after_update": self.retained_count(), "evicted_or_spilled_group_count": 0,
             "materialized_group_value_count": if scalar_output { row_count } else { 0 }, "decoded_string_count": 0,
             "estimated_group_key_storage_bytes": states.estimated_group_key_storage_bytes(),
-            "estimated_group_string_storage_bytes": 0,
+            "estimated_group_string_storage_bytes": self.text_bytes(),
             "uniqueness_proof_status": "complete_group_value_pairs_all_contributions_before_group_count_and_selection",
             "spill_state": "not_spilled", "offset": states.request.offset,
             "order_by": states.request.order_by.iter().map(crate::VortexAggregateOrderExpr::summary).collect::<Vec<_>>().join(","),
             "values": rows,
-            "aggregate_result_boundary": if scalar_output { "JSON_rows" } else { "owned_native_integer_columns;no_JSON_or_StatValue_output_rows" },
+            "aggregate_result_boundary": if scalar_output { "JSON_rows" } else if self.is_utf8() { "internal_complete_utf8_counts;public_owned_output_unadmitted" } else { "owned_native_integer_columns;no_JSON_or_StatValue_output_rows" },
         });
         #[cfg(feature = "vortex-write")]
         let payload = {
@@ -791,9 +842,13 @@ fn roles(states: &GroupedAggregateStates<'_>, dtype: &DType, columns: &[String])
     })
 }
 
-/// The native final comparator is count descending, then the complete integer
+/// The native final comparator is count descending, then the complete typed
 /// group key ascending. An explicit identical tie term changes no ordering.
-fn order_admitted(order: &[crate::VortexAggregateOrderExpr], count: &str, group: &str) -> bool {
+pub(in super::super) fn order_admitted(
+    order: &[crate::VortexAggregateOrderExpr],
+    count: &str,
+    group: &str,
+) -> bool {
     match order {
         [primary] => primary.descending && primary.column == count,
         [primary, secondary] => {

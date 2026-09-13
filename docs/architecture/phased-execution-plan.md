@@ -244,6 +244,73 @@ the ledger.
 
 ## Planned
 
+Latest maintainer instruction, September 12: **full UAT first, then the
+performance PR, then the `0.2.4` version bump.** Combined-source UAT at
+`4f2c7b97` now passes: required formatting/Clippy, 3,417 default tests,
+3,321 native tests (nine existing manual cases ignored), 1,310 accepted protocol
+executions including 20 expected overflow diagnostics, and complete fresh native
+artifact value/schema/footer parity. Fresh ingest is 95.923669 seconds;
+Full43 passes 129/129 exact results with a 91.825940-second per-query-minimum sum.
+The matched Q14/control feasibility gate passes; Q35's +4.06% paired median and
+sample variability remain explicit. The first log-limited Full43 attempt is
+preserved and excluded from the complete rerun. Resource limits and the
+historical timing control are unchanged. See the
+[combined acceptance report](../benchmarks/combined-performance-uat-2026-09-12.md).
+
+Open the cohesive performance PR from main `5e8af695`, preserving its inherited
+numeric ingest, owned integer DISTINCT, native reuse and ownership/pressure work.
+The four selected additions are UTF8-grouped integer DISTINCT, owned integer
+COUNT, prepared/owned UTF8 COUNT and scalar-footer completion. Other paused or
+rejected experiments remain outside this PR; broad phase completion stays paused.
+Then prepare a separate `0.2.4` technical-preview PR stacked on the performance
+PR's exact tip, without assuming a merge or publication. Source versions remain
+`0.2.3` in the performance PR; published-channel proofs stay at `0.2.3` until
+new channel-specific proof exists. Preserve the experimental Rust migration note.
+See the [PR and release handoff](performance-pr-release-handoff-2026-09-12.md).
+
+Latest maintainer priority, September 12: **focus on measured performance and
+pause broad phase completion.** This supersedes the earlier instruction to
+implement every remaining family. Open PERF and CG checklists remain open;
+preserved branches are not a reason to ship unmeasured capability expansion.
+
+The completed PERF-10/04/05 experiment starts from accepted `2ad143da` and isolates
+the UTF8-grouped integer DISTINCT improvement. The broader `8ba36c76` passes
+129/129 Full43 values but records 117.633288 seconds, so it is not a new query
+control. Its matched Q14 medians are 7.644247 seconds for the control and
+1.562094 seconds for the candidate. Renamed duplicate-heavy, mostly-unique and
+skewed fixtures also improve. This evidence selects the shared operator for a
+scoped port; it does not establish the port's performance before measurement.
+
+Only necessary runtime/correctness dependencies enter this experiment. Pause
+new nullable COUNT, extra DISTINCT spill, owned measure/result families,
+join/window/API expansion, codec-portfolio and native-Python work. Their saved
+code is unmeasured or separately scoped, not a measured performance rejection.
+Previously rejected topology, allocation and prepared-minute variants remain
+dropped; smaller text output remains a slower storage tradeoff. Keep retained
+numeric ingest at its existing configuration, with historical observations of
+90.303309/93.945037 seconds and no new full ingest without a concrete ingest change.
+
+Validate the scoped port with focused complete-value/ownership/worker tests and
+matched Q11/Q14, Q17/Q23 and large string-group controls, then complete one acceptance
+batch if the targeted result warrants it. Q23 was 2.9–11.4% slower across three
+matched broad-branch pairs and remains an explicit regression check. Preserve
+all samples and exact/no-fallback/resource guards. Promote a query control only
+after its complete workload improves under the control ledger's rules. Choose
+subsequent work from measured dominant costs and a bounded retain/drop decision;
+do not automatically resume the paused capability inventory.
+
+The finite extraction is now validated at `4730003f`: 19 new focused tests,
+required workspace/native checks, 48 paired exact results, 96 renamed-fixture
+results and 129/129 Full43 results pass. Matched Q14 medians fall from
+8.815227 to 2.215635 seconds; all predeclared paired feasibility gates pass,
+with Q34 variation retained in the report. Full43 is 102.005509 seconds, so
+the historical 91.215296-second timing control is unchanged. Retain the shared
+operator on the focused branch and keep broad feature work paused. The
+[focused acceptance packet](../benchmarks/focused-utf8-distinct-2026-09-12.md)
+records the evidence, limitations and measured dominant costs for selecting
+another bounded experiment. This closes that experiment, not the remaining
+PERF or CG capability gates.
+
 Local large-artifact prerequisite: follow
 `docs/architecture/local-development-storage.md` before further PERF runs.
 Build outputs and the resident ClickBench source were relocated outside synced
@@ -2258,6 +2325,10 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     sink-parity evidence.
 
 Current autonomous execution order:
+
+The latest maintainer priority at the start of Planned governs this historical
+list. The narrow DISTINCT experiment takes precedence; broad capability
+completion is paused.
 
 1. Preserve completed PR #1437, matched-owner ingest, September 12 attribution,
    fresh-artifact Full43 and the dropped allocation screen. Use the

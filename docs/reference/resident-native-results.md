@@ -6,6 +6,10 @@ Use a Unix build with `vortex-local-primitives` for the interfaces on this page.
 They execute through the pinned native Vortex provider. Unsupported requests fail
 explicitly; no external query engine participates.
 
+The prepared aggregate API also has bounded [owned COUNT results](owned-count-results.md)
+for integer and nonnullable UTF8 group keys. That reference separates the
+historically measured result paths from the assembled PR's pending validation.
+
 ## Typed Rust Memory Intake
 
 Keep a `ResidentVortexSession` and prepared operation across calls. Typed intake

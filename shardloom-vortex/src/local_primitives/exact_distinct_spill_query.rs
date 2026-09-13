@@ -235,6 +235,7 @@ pub(in super::super) fn execute(
     });
     Ok((
         LocalVortexAggregateScan {
+            metadata_completed: false,
             scan: LocalVortexScan {
                 source_row_count: file.row_count(),
                 result_row_count,

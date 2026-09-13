@@ -263,6 +263,7 @@ pub(super) fn execute(
     });
     Ok((
         LocalVortexAggregateScan {
+            metadata_completed: false,
             scan,
             result_summary: summary,
             state_budget,
