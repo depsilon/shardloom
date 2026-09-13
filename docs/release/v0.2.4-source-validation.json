@@ -1,0 +1,219 @@
+{
+  "schema_version": "shardloom.source_version_validation.v1",
+  "status": "passed",
+  "scope": "local_unpublished_source_version_validation;not_package_publication_or_performance_measurement",
+  "recorded_at_utc": "2026-09-13T00:42:01.570071+00:00",
+  "candidate_version": "0.2.4",
+  "tested_commit": "fbef962589a9bced0ef179ff2cb05cf1dca6434c",
+  "tested_tree": "4bcdc6511c5f1f8d2eea69998a312db8d9ed6adf",
+  "source_tree_clean_before_evidence_commit": true,
+  "stack_dependency": {
+    "pr": "https://github.com/depsilon/shardloom/pull/1443",
+    "branch": "codex/performance-pr-20260912",
+    "commit": "818596c4d4e3375991d2c71685d8aaa6c08f7712",
+    "is_exact_parent": true,
+    "merged": false
+  },
+  "changed_package_version_sources": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "18607930d9a55f3f91fa0244da82da540f98a3f26df8c0ffb67903bcf57a5898",
+      "bytes": 1610
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "c466f238141095ff13e3cc54290ac7120eb6de3f1b35f8ba317f84c01b6c2465",
+      "bytes": 99477
+    },
+    {
+      "path": "python/src/shardloom/_version.py",
+      "sha256": "9b94f588e8f05cd79e562477f3a34a5ea0795db4bb7d2221b6cce7f9fc34c917",
+      "bytes": 169
+    },
+    {
+      "path": "website-src/package.json",
+      "sha256": "7f8639208c251b1621e26f54962c20b323bcb22af7ea1db99640f2fe91368f43",
+      "bytes": 1096
+    },
+    {
+      "path": "website-src/package-lock.json",
+      "sha256": "05ab9a23d759d14a0be42bc33c10d7f591e54b7a357cba9c89ef941817042288",
+      "bytes": 301017
+    }
+  ],
+  "published_channel_version": "0.2.3",
+  "dependency_or_schema_changes": false,
+  "runtime_rust_source_changes": false,
+  "cargo_target_directory": "/Users/dylan/.cache/shardloom/cargo-target",
+  "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+  "cargo": "cargo 1.98.0 (797e8a9bc 2026-08-05)",
+  "rust_receipt": {
+    "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/phase-resume-broad-version-024-r1.json",
+    "sha256": "c1279cdf1bb810aefbeb0b8cfccbdd67b581878b0765053b0f8d381719d13c05",
+    "bytes": 22652
+  },
+  "rust_checks": [
+    {
+      "stage": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "returncode": 0,
+      "seconds": 2.3553196669963654,
+      "log": "/Users/dylan/LocalData/shardloom/perf-all-20260906/phase-resume-broad-version-024-r1-fmt.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "stage": "default-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "seconds": 23.945443542004796,
+      "log": "/Users/dylan/LocalData/shardloom/perf-all-20260906/phase-resume-broad-version-024-r1-default-clippy.log",
+      "log_sha256": "adadb446dc64081e50bfd388b60ccd6dc8661bd4bd1cd31293666f14613daf6d",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "stage": "default-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "returncode": 0,
+      "seconds": 158.63330116700672,
+      "log": "/Users/dylan/LocalData/shardloom/perf-all-20260906/phase-resume-broad-version-024-r1-default-tests.log",
+      "log_sha256": "5339aa0b7b94c4c63bc5660aea15c756ca14c39dc8f7730fd9266bdad04e4a56",
+      "tests": {
+        "passed": 3417,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "stage": "native-tests",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "returncode": 0,
+      "seconds": 251.61890437499096,
+      "log": "/Users/dylan/LocalData/shardloom/perf-all-20260906/phase-resume-broad-version-024-r1-native-tests.log",
+      "log_sha256": "26d85a65e0a00aefae44c628c8fcd689da63aa9442d6c482156b347bc024a355",
+      "tests": {
+        "passed": 3321,
+        "failed": 0,
+        "ignored": 9
+      }
+    }
+  ],
+  "python_and_static_receipt": {
+    "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/commands.json",
+    "sha256": "6049113d06638650892250e5954be2d70a4bbb17314810523fc99b8018de12ad",
+    "bytes": 4251
+  },
+  "python_and_static_checks": [
+    {
+      "name": "sync",
+      "command": "/opt/homebrew/opt/python@3.13/libexec/bin/python3 -B scripts/sync_workspace_package_versions.py --check",
+      "returncode": 0
+    },
+    {
+      "name": "versions",
+      "command": "/opt/homebrew/opt/python@3.13/libexec/bin/python3 -B scripts/check_workspace_version_sources.py --output /Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/workspace-version-source-report.json",
+      "returncode": 0
+    },
+    {
+      "name": "package",
+      "command": "/opt/homebrew/opt/python@3.13/libexec/bin/python3 -B scripts/check_package_channel_readiness.py --output /Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/package-channel-readiness-report.json",
+      "returncode": 0
+    },
+    {
+      "name": "governance",
+      "command": "/opt/homebrew/opt/python@3.13/libexec/bin/python3 -B scripts/check_contribution_governance.py --output /Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/contribution.json",
+      "returncode": 0
+    },
+    {
+      "name": "docs",
+      "command": "/opt/homebrew/opt/python@3.13/libexec/bin/python3 -B scripts/check_public_status_docs.py --output /Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/public-docs.json",
+      "returncode": 0
+    },
+    {
+      "name": "python-version-tests",
+      "command": "PYTHONPATH=python/src:python/tests /opt/homebrew/opt/python@3.13/libexec/bin/python3 -B -m unittest -v test_release_scripts.ReleaseScriptTests.test_workspace_version_source_contract_accepts_manifest_derived_versions test_release_scripts.ReleaseScriptTests.test_workspace_version_source_contract_blocks_duplicate_version_sources test_release_scripts.ReleaseScriptTests.test_write_ci_version_env_formats_reusable_shell_assignments test_cli_client.ShardLoomClientTests.test_package_exports_non_placeholder_version",
+      "returncode": 0
+    }
+  ],
+  "python_tests_passed": 4,
+  "static_reports": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/workspace-version-source-report.json",
+      "sha256": "7df57c42db6ef812ceaf43a0850a2c0da66e7fc08613361b0efdc0d661363304",
+      "bytes": 3912
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/package-channel-readiness-report.json",
+      "sha256": "a87a2847fccd9b8bef557e29e35f2aa2c28e965dfb43bf41db18769a5ccd5d9b",
+      "bytes": 16790
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/contribution.json",
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae",
+      "bytes": 2433
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/version-pr-0.2.4-validation-r1/public-docs.json",
+      "sha256": "2721ae6e65326fec1d1ec5e67a25d551996c5929dd1d8e75a884116161f75044",
+      "bytes": 210862
+    }
+  ],
+  "implementation_uat": {
+    "tested_commit": "4f2c7b97007864d0396b10bdc5dc2bbfef52df38",
+    "report": "docs/benchmarks/combined-performance-uat-2026-09-12.md",
+    "accepted_protocol_executions": 1310,
+    "expected_overflow_diagnostics": 20,
+    "fresh_artifact_parity": "all_11199719664_values_native_schema_and_560_loaded_statistic_slots",
+    "scope": "pre_bump_frozen_runtime;not_a_0.2.4_package_artifact"
+  },
+  "full_size_benchmark_repeated_for_version_only_change": false,
+  "package_publication_attempted": false,
+  "tag_created": false,
+  "github_release_created": false,
+  "remaining_release_proofs": [
+    "versioned_package_smoke_and_supply_chain_evidence",
+    "channel_specific_installation_and_publication_proofs"
+  ],
+  "remote_ci_status": "not_yet_dispatched_for_version_PR;existing_gates_unchanged"
+}
