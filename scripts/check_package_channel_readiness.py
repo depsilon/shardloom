@@ -10,11 +10,15 @@ the required evidence.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from release_channel_contract import (
+    PUBLISHED_REGISTRY_BUILD_IDENTITIES,
+    PUBLISHED_REGISTRY_DISTRIBUTIONS,
     SELECTED_PACKAGE_RELEASE_VERSION,
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
@@ -938,6 +942,162 @@ def python_registry_proof_summary(proof: dict[str, Any] | None) -> dict[str, Any
     }
 
 
+def validate_registry_supply_chain_evidence(
+    repo_root: Path,
+    matrix: dict[str, Any] | None,
+    proofs: dict[str, dict[str, Any] | None],
+) -> dict[str, Any]:
+    """Bind every ready registry channel to its own checked-in artifact evidence.
+
+    Registry uploads rebuild the distributions. A source-equivalent GitHub wheel's
+    checksum or SBOM cannot certify the bytes distributed by either registry.
+    This check is offline and does not assert signed build provenance.
+    """
+    blockers: list[str] = []
+    verified_channels: list[str] = []
+    for channel_id in ("testpypi", "pypi"):
+        row = find_channel(matrix, channel_id)
+        if not row or row.get("ready") is not True:
+            continue
+        start = len(blockers)
+        prefix = f"{channel_id}: "
+
+        def read_evidence(field: str) -> bytes | None:
+            ref = row.get(field)
+            if not isinstance(ref, str) or not ref:
+                blockers.append(prefix + f"missing registry {field}")
+                return None
+            path = Path(ref)
+            if path.is_absolute() or ":" in ref or ".." in path.parts:
+                blockers.append(prefix + f"registry {field} must be a checked-in relative path")
+                return None
+            try:
+                evidence_path = repo_root / path
+                if not evidence_path.resolve().is_relative_to(repo_root.resolve()):
+                    raise ValueError("evidence path escapes repository")
+                return evidence_path.read_bytes()
+            except (OSError, ValueError):
+                blockers.append(prefix + f"registry {field} is not readable: {ref}")
+                return None
+
+        def object_evidence(data: bytes | None, field: str) -> dict[str, Any]:
+            try:
+                value = json.loads(data) if data is not None else None
+            except (ValueError, UnicodeError):
+                value = None
+            if not isinstance(value, dict):
+                blockers.append(prefix + f"registry {field} must contain a JSON object")
+                return {}
+            return value
+
+        provenance = object_evidence(read_evidence("provenance_ref"), "provenance_ref")
+        sbom_bytes = read_evidence("sbom_ref")
+        sbom = object_evidence(sbom_bytes, "sbom_ref")
+        checksum_bytes = read_evidence("checksum_ref")
+        for field, expected in {
+            "schema_version": "shardloom.registry_release_evidence.v1",
+            "channel_id": channel_id,
+            "package_version": SELECTED_PACKAGE_RELEASE_VERSION,
+            "proof_status": "passed",
+            "provenance_status": "unsigned_post_publication_observation",
+        }.items():
+            if provenance.get(field) != expected:
+                blockers.append(prefix + f"registry provenance {field} must be {expected}")
+        if not re.fullmatch(r"[0-9a-f]{40}", str(provenance.get("source_commit", ""))):
+            blockers.append(prefix + "registry provenance requires the actual build source commit")
+        run_id = provenance.get("workflow_run_id")
+        if type(run_id) is not int or run_id <= 0 or provenance.get("workflow_url") != (
+            f"https://github.com/depsilon/shardloom/actions/runs/{run_id}"
+        ):
+            blockers.append(prefix + "registry provenance requires its publishing workflow run")
+        expected_identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES.get(
+            SELECTED_PACKAGE_RELEASE_VERSION, {}
+        ).get(channel_id)
+        if expected_identity is None:
+            blockers.append(prefix + "selected release has no approved registry build identity")
+        else:
+            for field, expected in expected_identity.items():
+                if provenance.get(field) != expected:
+                    blockers.append(prefix + f"registry provenance {field} must match the approved channel build")
+        for field, data in (("sbom_ref", sbom_bytes), ("checksum_ref", checksum_bytes)):
+            binding = provenance.get(field)
+            if not isinstance(binding, dict) or binding.get("path") != row.get(field) or (
+                data is not None and binding.get("sha256") != hashlib.sha256(data).hexdigest()
+            ):
+                blockers.append(prefix + f"registry provenance must bind {field} path and SHA256")
+
+        proof = proofs.get(channel_id) or {}
+        registry_rows = proof.get("registry_release_artifacts")
+        artifact_rows = provenance.get("artifact_refs")
+        expected_artifacts: dict[str, tuple[Any, Any, Any]] = {}
+        actual_artifacts: dict[str, tuple[Any, Any, Any]] = {}
+        for rows, destination, label, size_field in (
+            (registry_rows, expected_artifacts, "registry proof", "size"),
+            (artifact_rows, actual_artifacts, "registry provenance", "size_bytes"),
+        ):
+            if not isinstance(rows, list) or not rows:
+                blockers.append(prefix + f"{label} requires a complete artifact inventory")
+                continue
+            for artifact in rows:
+                if not isinstance(artifact, dict) or not isinstance(artifact.get("filename"), str):
+                    blockers.append(prefix + f"{label} contains an invalid artifact")
+                    continue
+                filename = artifact["filename"]
+                if filename in destination:
+                    blockers.append(prefix + f"{label} duplicates {filename}")
+                digest = artifact.get("sha256")
+                if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    blockers.append(prefix + f"{label} requires SHA256 for {filename}")
+                size = artifact.get(size_field)
+                url = artifact.get("url")
+                if type(size) is not int or size <= 0:
+                    blockers.append(prefix + f"{label} requires a positive byte size for {filename}")
+                if not isinstance(url, str) or not url.startswith("https://"):
+                    blockers.append(prefix + f"{label} requires an HTTPS URL for {filename}")
+                destination[filename] = (digest, size, url)
+        if actual_artifacts != expected_artifacts:
+            blockers.append(prefix + "registry provenance must match every registry artifact digest, size and URL")
+        approved_filenames = PUBLISHED_REGISTRY_DISTRIBUTIONS.get(SELECTED_PACKAGE_RELEASE_VERSION)
+        if not approved_filenames:
+            blockers.append(prefix + "selected release has no approved registry distribution inventory")
+        else:
+            if set(expected_artifacts) != set(approved_filenames) or set(actual_artifacts) != set(approved_filenames):
+                blockers.append(prefix + "registry proof and provenance must cover the exact approved distribution filenames")
+            for label, evidence in (("proof", proof), ("matrix", row)):
+                count = evidence.get("registry_release_artifact_count")
+                if type(count) is not int or count != len(approved_filenames):
+                    blockers.append(prefix + f"registry {label} artifact count must match the approved distribution inventory")
+        expected_hashes = {name: values[0] for name, values in expected_artifacts.items()}
+        checksums: dict[str, str] = {}
+        try:
+            for line in (checksum_bytes or b"").decode("utf-8").splitlines():
+                match = re.fullmatch(r"([0-9a-f]{64})  ([^/\\]+)", line)
+                if match is None or match[2] in checksums:
+                    raise ValueError("invalid or duplicate checksum row")
+                checksums[match[2]] = match[1]
+        except (ValueError, UnicodeError):
+            blockers.append(prefix + "registry checksum manifest is malformed")
+        if checksums != expected_hashes:
+            blockers.append(prefix + "registry checksum manifest must cover every registry artifact")
+        if sbom.get("bomFormat") != "CycloneDX" or sbom.get("specVersion") != "1.5":
+            blockers.append(prefix + "registry SBOM must be CycloneDX 1.5")
+        components = sbom.get("components")
+        components = components if isinstance(components, list) else []
+        for filename, digest in expected_hashes.items():
+            matches = [item for item in components if isinstance(item, dict)
+                       and item.get("type") == "file" and item.get("name") == filename]
+            hashes = matches[0].get("hashes") if len(matches) == 1 else None
+            if not isinstance(hashes, list) or {"alg": "SHA-256", "content": digest} not in hashes:
+                blockers.append(prefix + f"registry SBOM must bind artifact SHA256: {filename}")
+        if len(blockers) == start:
+            verified_channels.append(channel_id)
+    return {
+        "status": "passed" if not blockers else "blocked",
+        "verified_channels": verified_channels,
+        "blockers": blockers,
+    }
+
+
 def validate_python_registry_package_proofs(
     matrix: dict[str, Any] | None,
     *,
@@ -1258,6 +1418,9 @@ def main() -> int:
         testpypi_proof=testpypi_proof,
         pypi_proof=pypi_proof,
     )
+    registry_supply_chain_evidence = validate_registry_supply_chain_evidence(
+        repo_root, matrix, {"testpypi": testpypi_proof, "pypi": pypi_proof}
+    )
     local_gate_evidence = validate_local_gate_evidence(
         repo_root=repo_root,
         dependency_audit_report=dependency_audit,
@@ -1268,6 +1431,7 @@ def main() -> int:
     blockers = list(matrix_blockers)
     blockers.extend(package_identity_contract["blockers"])
     blockers.extend(python_registry_package_proofs["blockers"])
+    blockers.extend(registry_supply_chain_evidence["blockers"])
     if args.require_local_evidence:
         blockers.extend(local_gate_evidence["blockers"])
     if args.self_test:
@@ -1286,6 +1450,7 @@ def main() -> int:
         "package_identity_contract": package_identity_contract,
         "python_registry_package_proof_status": python_registry_package_proofs["status"],
         "python_registry_package_proofs": python_registry_package_proofs,
+        "registry_supply_chain_evidence": registry_supply_chain_evidence,
         "local_gate_evidence_required": args.require_local_evidence,
         "local_gate_evidence_status": local_gate_evidence["status"],
         "local_gate_evidence": local_gate_evidence,

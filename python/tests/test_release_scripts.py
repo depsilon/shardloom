@@ -32,6 +32,8 @@ from release_report_utils import (
     workspace_version_env,
 )
 from release_channel_contract import (
+    PUBLISHED_REGISTRY_BUILD_IDENTITIES,
+    PUBLISHED_REGISTRY_DISTRIBUTIONS,
     SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
     SELECTED_PACKAGE_RELEASE_TAG,
     SELECTED_PACKAGE_RELEASE_VERSION,
@@ -8016,6 +8018,156 @@ class ReleaseScriptTests(unittest.TestCase):
                 "installed_registry_artifact_sha256"
             ],
         }
+
+    def _registry_supply_chain_fixture(self, root: Path) -> tuple[dict, dict, dict]:
+        proof = self._python_registry_proof_fixture()
+        artifacts = [
+            {"filename": filename, "sha256": chr(ord("a") + index) * 64,
+             "size": 19000 + index, "url": f"https://example.invalid/{filename}"}
+            for index, filename in enumerate(PUBLISHED_REGISTRY_DISTRIBUTIONS[SELECTED_PACKAGE_RELEASE_VERSION])
+        ]
+        proof["registry_release_artifacts"] = artifacts
+        proof["registry_release_artifact_count"] = len(artifacts)
+        proof["installed_registry_artifact"] = artifacts[0]
+        for prefix in ("downloaded", "installed"):
+            proof[f"{prefix}_registry_artifact_filename"] = artifacts[0]["filename"]
+            proof[f"{prefix}_registry_artifact_sha256"] = artifacts[0]["sha256"]
+        row = self._python_registry_matrix_row_fixture(proof=proof)
+        row["registry_release_artifact_count"] = len(artifacts)
+        row.update({"sbom_ref": "sbom.json", "checksum_ref": "checksums.sha256",
+                    "provenance_ref": "provenance.json"})
+        sbom = {"bomFormat": "CycloneDX", "specVersion": "1.5", "components": [
+            {"type": "file", "name": item["filename"],
+             "hashes": [{"alg": "SHA-256", "content": item["sha256"]}]}
+            for item in artifacts
+        ]}
+        (root / row["sbom_ref"]).write_text(json.dumps(sbom))
+        (root / row["checksum_ref"]).write_text("".join(
+            f"{item['sha256']}  {item['filename']}\n" for item in artifacts
+        ))
+        identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES[SELECTED_PACKAGE_RELEASE_VERSION]["testpypi"]
+        provenance = {
+            "schema_version": "shardloom.registry_release_evidence.v1",
+            "channel_id": "testpypi", "package_version": SELECTED_PACKAGE_RELEASE_VERSION,
+            "proof_status": "passed", "provenance_status": "unsigned_post_publication_observation",
+            **identity,
+            "workflow_url": f"https://github.com/depsilon/shardloom/actions/runs/{identity['workflow_run_id']}",
+            "artifact_refs": [
+                {"filename": item["filename"], "sha256": item["sha256"],
+                 "size_bytes": item["size"], "url": item["url"]} for item in artifacts
+            ],
+        }
+        for field in ("sbom_ref", "checksum_ref"):
+            provenance[field] = {"path": row[field], "sha256": hashlib.sha256(
+                (root / row[field]).read_bytes()).hexdigest()}
+        (root / row["provenance_ref"]).write_text(json.dumps(provenance))
+        return {"channels": [row]}, {"testpypi": proof}, provenance
+
+    def test_registry_supply_chain_accepts_complete_channel_artifact_binding(self) -> None:
+        module = self._load_script_module("check_package_channel_readiness.py", "registry_supply_pass")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            matrix, proofs, _ = self._registry_supply_chain_fixture(root)
+            report = module.validate_registry_supply_chain_evidence(root, matrix, proofs)
+        self.assertEqual(report["blockers"], [])
+        self.assertEqual(report["verified_channels"], ["testpypi"])
+
+    def test_registry_supply_chain_rejects_wrong_or_incomplete_channel_evidence(self) -> None:
+        module = self._load_script_module("check_package_channel_readiness.py", "registry_supply_bad")
+        for mutation, expected in (
+            ("github_refs", "must be a checked-in relative path"),
+            ("other_channel", "channel_id must be testpypi"),
+            ("uninstalled_artifact_digest", "must match every registry artifact"),
+            ("missing_artifact", "must match every registry artifact"),
+            ("tampered_sbom", "must bind sbom_ref path and SHA256"),
+            ("incomplete_checksum", "must cover every registry artifact"),
+            ("wrong_sbom_digest", "SBOM must bind artifact SHA256"),
+            ("malformed_sbom_hashes", "SBOM must bind artifact SHA256"),
+            ("invalid_path", "is not readable"),
+            ("invalid_size", "requires a positive byte size"),
+            ("boolean_run_id", "requires its publishing workflow run"),
+            ("unrelated_source", "source_commit must match the approved channel build"),
+            ("unrelated_workflow", "workflow_run_id must match the approved channel build"),
+            ("consistent_omission", "must cover the exact approved distribution filenames"),
+            ("wrong_declared_count", "artifact count must match the approved distribution inventory"),
+        ):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                matrix, proofs, provenance = self._registry_supply_chain_fixture(root)
+                row = matrix["channels"][0]
+                if mutation == "github_refs":
+                    row["provenance_ref"] = "https://github.com/depsilon/shardloom/releases/download/v0.2.4/supply-chain-release-evidence.json"
+                elif mutation == "other_channel":
+                    provenance["channel_id"] = "pypi"
+                elif mutation == "uninstalled_artifact_digest":
+                    provenance["artifact_refs"][1]["sha256"] = "c" * 64
+                elif mutation == "missing_artifact":
+                    provenance["artifact_refs"].pop()
+                elif mutation == "invalid_path":
+                    row["sbom_ref"] = "invalid\x00.json"
+                elif mutation == "invalid_size":
+                    provenance["artifact_refs"][0]["size_bytes"] = True
+                    proofs["testpypi"]["registry_release_artifacts"][0]["size"] = True
+                elif mutation == "boolean_run_id":
+                    provenance["workflow_run_id"] = True
+                    provenance["workflow_url"] = "https://github.com/depsilon/shardloom/actions/runs/True"
+                elif mutation == "unrelated_source":
+                    provenance["source_commit"] = "f" * 40
+                elif mutation == "unrelated_workflow":
+                    provenance["workflow_run_id"] = 123
+                    provenance["workflow_url"] = "https://github.com/depsilon/shardloom/actions/runs/123"
+                elif mutation == "wrong_declared_count":
+                    proofs["testpypi"]["registry_release_artifact_count"] = 3
+                    row["registry_release_artifact_count"] = 3
+                elif mutation == "consistent_omission":
+                    omitted = provenance["artifact_refs"].pop(1)["filename"]
+                    proofs["testpypi"]["registry_release_artifacts"].pop(1)
+                    proofs["testpypi"]["registry_release_artifact_count"] = 3
+                    row["registry_release_artifact_count"] = 3
+                    sbom = json.loads((root / "sbom.json").read_text())
+                    sbom["components"] = [item for item in sbom["components"] if item["name"] != omitted]
+                    (root / "sbom.json").write_text(json.dumps(sbom))
+                    (root / "checksums.sha256").write_text("".join(
+                        f"{item['sha256']}  {item['filename']}\n" for item in provenance["artifact_refs"]
+                    ))
+                    for field in ("sbom_ref", "checksum_ref"):
+                        provenance[field]["sha256"] = hashlib.sha256((root / row[field]).read_bytes()).hexdigest()
+                elif mutation == "tampered_sbom":
+                    with (root / "sbom.json").open("a") as handle:
+                        handle.write("\n")
+                elif mutation == "incomplete_checksum":
+                    (root / "checksums.sha256").write_text("")
+                    provenance["checksum_ref"]["sha256"] = hashlib.sha256(b"").hexdigest()
+                elif mutation in {"wrong_sbom_digest", "malformed_sbom_hashes"}:
+                    sbom = json.loads((root / "sbom.json").read_text())
+                    if mutation == "wrong_sbom_digest":
+                        sbom["components"][1]["hashes"][0]["content"] = "c" * 64
+                    else:
+                        sbom["components"][1]["hashes"] = None
+                    (root / "sbom.json").write_text(json.dumps(sbom))
+                    provenance["sbom_ref"]["sha256"] = hashlib.sha256(
+                        (root / "sbom.json").read_bytes()).hexdigest()
+                (root / "provenance.json").write_text(json.dumps(provenance))
+                report = module.validate_registry_supply_chain_evidence(root, matrix, proofs)
+                self.assertEqual(report["status"], "blocked")
+                self.assertIn(expected, "; ".join(report["blockers"]))
+
+    def test_registry_supply_chain_evidence_required_only_for_ready_channels(self) -> None:
+        module = self._load_script_module("check_package_channel_readiness.py", "registry_supply_missing")
+        with tempfile.TemporaryDirectory() as temp:
+            matrix = {"channels": [{"channel_id": "testpypi", "ready": False}]}
+            self.assertEqual(module.validate_registry_supply_chain_evidence(
+                Path(temp), matrix, {})["status"], "passed")
+            matrix["channels"][0]["ready"] = True
+            self.assertEqual(module.validate_registry_supply_chain_evidence(
+                Path(temp), matrix, {})["status"], "blocked")
+            matrix, proofs, _ = self._registry_supply_chain_fixture(Path(temp))
+            module.PUBLISHED_REGISTRY_BUILD_IDENTITIES = {}
+            report = module.validate_registry_supply_chain_evidence(Path(temp), matrix, proofs)
+            self.assertIn("no approved registry build identity", "; ".join(report["blockers"]))
+            module.PUBLISHED_REGISTRY_DISTRIBUTIONS = {}
+            report = module.validate_registry_supply_chain_evidence(Path(temp), matrix, proofs)
+            self.assertIn("no approved registry distribution inventory", "; ".join(report["blockers"]))
 
     def test_python_registry_package_proof_commands_are_channel_specific(self) -> None:
         module = self._load_script_module(
