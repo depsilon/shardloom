@@ -2,11 +2,19 @@
 
 # Performance PR and release handoff
 
-Full UAT for the selected combined source `4f2c7b97007864d0396b10bdc5dc2bbfef52df38`
-passed before PR submission. The [acceptance report](../benchmarks/combined-performance-uat-2026-09-12.md)
-records the exact source/binary, commands, complete-value checks, timings and
-preserved failed attempt. Source versions remain `0.2.3`; the next requested
-step is the performance PR, followed by a separate stacked `0.2.4` version PR.
+The selected performance and `0.2.4` publication train is complete. Performance
+PR [#1443](https://github.com/depsilon/shardloom/pull/1443) merged at
+`2c9b84b76757bf1fd3e1a2e71c76d692ab7b7afb`; version PR
+[#1444](https://github.com/depsilon/shardloom/pull/1444) merged at
+`8759b16e3421153302c9034e5a00c9d80b61d3d9`. All four selected channels have
+passed proof recorded in [publication verification](../release/v0.2.4-publication-verification.md).
+
+Full UAT for `4f2c7b97007864d0396b10bdc5dc2bbfef52df38` passed before PR
+submission. The [acceptance report](../benchmarks/combined-performance-uat-2026-09-12.md)
+retains its pre-bump source/binary, commands, complete-value checks, timings and
+preserved failed attempt. Package source versions are now `0.2.4`; channel
+proofs separately bind the published artifacts. Neither publication nor the
+version bump reattributes those UAT measurements to a new binary.
 
 The branch `codex/performance-pr-20260912` starts at merged main
 `5e8af695c02459be4fe7c6d3c49d3459d72a103f`. Accepted numeric ingest,
@@ -66,24 +74,28 @@ measurements remain scoped to their original sources. The historical
 within one binary. Neither these results nor static catalog checks certify
 versioned packages, publication channels or production readiness.
 
-## PR and version order
+## Completed PR and publication sequence
 
-1. Open the cohesive performance PR with this completed implementation UAT.
-2. Create the `0.2.4` branch and PR directly from the opened performance PR's
-   exact tip. Record its dependency/base SHA and keep the direct diff limited
-   to the five mechanical version sources plus release notes/evidence.
-   This is a stacked PR; neither merge is assumed or authorized by preparation.
-3. Change root `[workspace.package].version`, then use
-   `scripts/sync_workspace_package_versions.py` for Cargo.lock, Python
-   `_version.py` and the website package files. Run version contracts, relevant
-   Python tests and required Rust checks on the versioned source.
-4. Retain the experimental Rust
+1. The performance PR merged only after the combined implementation UAT passed.
+   Its merge is `2c9b84b76757bf1fd3e1a2e71c76d692ab7b7afb`.
+2. The version PR began as a seven-file stack on the performance PR tip
+   `818596c4d4e3375991d2c71685d8aaa6c08f7712`: five mechanical version sources,
+   release notes and source-validation evidence. It was retargeted to main after
+   the performance merge and merged as `8759b16e3421153302c9034e5a00c9d80b61d3d9`.
+   The [source validation](../release/v0.2.4-source-validation.json) preserves
+   the exact tested version checkpoint and command results.
+3. The authorized selected-channel sequence completed: GitHub pre-release,
+   TestPyPI, PyPI and Homebrew, each with its own installation, smoke, uninstall
+   and artifact-identity proof. The [publication record](../release/v0.2.4-publication-verification.md)
+   owns exact tag, build, workflow and tested-platform facts. Registry builds
+   retain their own hashes; a shared version is not evidence of identical bytes.
+4. The experimental Rust
    `FlatLocalColumnarStreamSource::source_identities` struct-literal migration
-   in the `v0.2.4` notes. Internal Rust crates remain unpublished.
-5. Keep published-channel selectors, current installation guidance and `0.2.3`
-   proofs unchanged until corresponding new channel proofs exist. Publication,
-   if separately authorized, follows GitHub pre-release, TestPyPI, PyPI and
-   Homebrew verification.
+   remains in the [release notes](../release/v0.2.4-release-notes.md).
+   Internal Rust crates remain unpublished.
+5. Current install guidance and the selected-channel matrix follow the passed
+   `0.2.4` proofs. Historical `0.2.3` transcripts and source/UAT evidence remain
+   unchanged. Future channels and production gates are not promoted.
 
 The train does not close unfinished PERF/CG gates or claim production readiness,
 competitive superiority, general SQL/DataFrame completeness, distributed or

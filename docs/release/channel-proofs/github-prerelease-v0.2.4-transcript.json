@@ -252,6 +252,862 @@
   "external_engine_invoked": false,
   "fallback_attempted": false,
   "github_asset_mismatch": [],
+  "golden_workflow_supplemental_proof": {
+    "binary_sha256": "f232eb1850ff1b41f3b03c4b84483ce6a898d8e6a86d252c80ae0ef1a492c365",
+    "external_engine_invoked": false,
+    "fallback_attempted": false,
+    "golden_workflows": {
+      "ref": "target/golden-workflow-report.json",
+      "report": {
+        "binary_ref": "target/published-cli-golden-024-anutmco9/shardloom",
+        "blockers": [],
+        "build": {
+          "blockers": [],
+          "command": "skipped",
+          "status": "passed"
+        },
+        "claim_gate_status": "not_claim_grade",
+        "external_engine_invoked": false,
+        "fallback_attempted": false,
+        "feature_set": "release-user-surfaces",
+        "foundry_platform_claim_allowed": false,
+        "golden_workflow_validator_status": "passed",
+        "object_store_lakehouse_claim_allowed": false,
+        "package_publication_performed": false,
+        "performance_claim_allowed": false,
+        "production_claim_allowed": false,
+        "public_package_claim_allowed": false,
+        "public_release_claim_allowed": false,
+        "publication_attempted": false,
+        "run_dir": "target/golden-workflows/runs/20260913-040830-91002",
+        "run_id": "20260913-040830-91002",
+        "runtime_support_claim": "local_runtime_workflow_proof_only",
+        "schema_version": "shardloom.golden_workflow_validation_report.v1",
+        "secrets_required": false,
+        "stage_count": 9,
+        "status": "passed",
+        "support_matrix": {
+          "blockers": [],
+          "external_engine_invoked": false,
+          "fallback_attempted": false,
+          "matrix_refs": [
+            "docs/status/runs-today-support-matrix.json"
+          ],
+          "required_rows": [
+            "cli_generated_source_runtime",
+            "cli_local_source_runtime",
+            "cli_vortex_prepare",
+            "execution_native_vortex_scoped",
+            "execution_prepared_vortex",
+            "output_inline_jsonl_csv",
+            "output_vortex_local"
+          ],
+          "rows_verified": [
+            {
+              "matrix_ref": "docs/status/runs-today-support-matrix.json",
+              "row_id": "cli_local_source_runtime",
+              "support_state": "executable",
+              "surfaces": [
+                "local-source-runtime"
+              ]
+            },
+            {
+              "matrix_ref": "docs/status/runs-today-support-matrix.json",
+              "row_id": "cli_vortex_prepare",
+              "support_state": "feature_gated",
+              "surfaces": [
+                "vortex-prepare"
+              ]
+            },
+            {
+              "matrix_ref": "docs/status/runs-today-support-matrix.json",
+              "row_id": "cli_generated_source_runtime",
+              "support_state": "executable",
+              "surfaces": [
+                "generated-source-range",
+                "generated-source-sequence",
+                "generated-source-sql",
+                "generated-source-user-rows"
+              ]
+            },
+            {
+              "matrix_ref": "docs/status/runs-today-support-matrix.json",
+              "row_id": "output_inline_jsonl_csv",
+              "support_state": "executable",
+              "surfaces": [
+                "csv",
+                "inline_jsonl"
+              ]
+            },
+            {
+              "matrix_ref": "docs/status/runs-today-support-matrix.json",
+              "row_id": "output_vortex_local",
+              "support_state": "feature_gated",
+              "surfaces": [
+                "vortex"
+              ]
+            },
+            {
+              "matrix_ref": "docs/status/runs-today-support-matrix.json",
+              "row_id": "execution_prepared_vortex",
+              "support_state": "executable",
+              "surfaces": [
+                "prepared_vortex"
+              ]
+            },
+            {
+              "matrix_ref": "docs/status/runs-today-support-matrix.json",
+              "row_id": "execution_native_vortex_scoped",
+              "support_state": "executable",
+              "surfaces": [
+                "native_vortex"
+              ]
+            }
+          ],
+          "status": "passed"
+        },
+        "support_matrix_status": "passed",
+        "tag_created": false,
+        "unsupported_boundaries": [
+          "no production workflow claim",
+          "no object-store/lakehouse/Foundry production support",
+          "no package publication",
+          "no distributed runtime claim",
+          "no performance superiority claim",
+          "ad hoc ingested/generated Vortex replay has Native I/O evidence but fixture execution certificates remain limited to checked-in primitive fixtures"
+        ],
+        "workflow_count": 3,
+        "workflow_ids": [
+          "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+          "generated_source_to_local_vortex_output_replay_fidelity",
+          "prepared_native_vortex_count_filter_project_execution_certificates"
+        ],
+        "workflows": [
+          {
+            "artifact_refs": [
+              "target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex",
+              "target/golden-workflows/runs/20260913-040830-91002/python-wrapper-orders.vortex",
+              "target/golden-workflows/runs/20260913-040830-91002/local-query-output.jsonl",
+              "target/golden-workflows/runs/20260913-040830-91002/local-query-output.csv"
+            ],
+            "blockers": [],
+            "claim_boundary": "local runtime workflow proof; local CSV normalizes to Vortex, then scoped primitive execution and JSONL/CSV compatibility sinks run through native Vortex row export with explicit decode/materialization evidence",
+            "execution_route": "prepared_vortex_filter_project_and_native_vortex_row_export",
+            "output_route": "native_vortex_row_export_jsonl_csv",
+            "preparation_route": "vortex_ingest",
+            "row_counts": {
+              "output_rows": 2,
+              "prepared_query_rows_selected": 2,
+              "prepared_vortex_rows": 3,
+              "source_rows": 3
+            },
+            "source_route": "local_csv_input_adapter",
+            "stages": [
+              {
+                "argv": [
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+                  "vortex-prepare",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.csv",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex",
+                  "--allow-overwrite",
+                  "--format",
+                  "json"
+                ],
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/local_csv_vortex_ingest.json",
+                "blockers": [],
+                "command": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom vortex-prepare /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.csv /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex --allow-overwrite --format json",
+                "envelope_status": "success",
+                "kind": "cli",
+                "returncode": 0,
+                "selected_fields": {
+                  "certification_status": "production_admitted_local_workflow_certified",
+                  "claim_gate_status": "local_workflow_runtime_supported",
+                  "execution_mode": "prepared_vortex",
+                  "external_engine_invoked": "false",
+                  "fallback_attempted": "false",
+                  "ingress_route": "vortex_ingest",
+                  "input_row_count": "3",
+                  "prepared_state_created": "true",
+                  "prepared_state_digest": "fnv64:151ea1af4313f3e1",
+                  "prepared_state_id": "vortex-prepared-state-fnv64-151ea1af4313f3e1",
+                  "reopen_row_count": "3",
+                  "reopen_verification_status": "reopen_metadata_row_count_verified",
+                  "runtime_execution": "true",
+                  "schema_version": "shardloom.vortex_prepare.v1",
+                  "source_adapter_id": "local_csv_input_adapter",
+                  "source_format": "csv",
+                  "source_io_performed": "true",
+                  "target_vortex_path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex",
+                  "upstream_vortex_scan_called": "false",
+                  "upstream_vortex_write_called": "true",
+                  "vortex_artifact_digest": "sha256:fb2e93a5f7139430ee16fee6b85873f7c2ca4ef0c25c99e45b12893486b4724d",
+                  "vortex_capillary_preparation_activation_certification_depth": "ingest_certified",
+                  "vortex_capillary_preparation_activation_format_family": "csv",
+                  "vortex_capillary_preparation_activation_observed_columns": "3",
+                  "vortex_capillary_preparation_activation_observed_rows": "3",
+                  "vortex_capillary_preparation_activation_observed_split_count": "1",
+                  "vortex_capillary_preparation_activation_operation_class": "vortex_ingest_prepare_once",
+                  "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
+                  "vortex_capillary_preparation_activation_reason": "below_threshold_small_local_fixture",
+                  "vortex_capillary_preparation_activation_result": "skipped",
+                  "vortex_capillary_preparation_execution_certificate_status": "not_requested",
+                  "vortex_capillary_preparation_execution_window_count": "0",
+                  "vortex_capillary_preparation_execution_window_ids": "none",
+                  "vortex_capillary_preparation_native_io_certificate_status": "certified",
+                  "vortex_capillary_preparation_no_standalone_lane_status": "not_requested_below_threshold_no_standalone_lane",
+                  "vortex_capillary_preparation_prewrite_activation_reason": "below_threshold_small_local_fixture",
+                  "vortex_capillary_preparation_prewrite_activation_result": "skipped",
+                  "vortex_capillary_preparation_prewrite_array_build_gate_status": "not_applicable_scheduler_not_applied",
+                  "vortex_capillary_preparation_prewrite_execution_window_count": "0",
+                  "vortex_capillary_preparation_prewrite_execution_window_ids": "none",
+                  "vortex_capillary_preparation_prewrite_external_engine_invoked": "false",
+                  "vortex_capillary_preparation_prewrite_fallback_attempted": "false",
+                  "vortex_capillary_preparation_prewrite_reopen_gate_status": "not_applicable_scheduler_not_applied",
+                  "vortex_capillary_preparation_prewrite_scheduler_applied": "false",
+                  "vortex_capillary_preparation_prewrite_sink_evidence_gate_status": "not_applicable_scheduler_not_applied",
+                  "vortex_capillary_preparation_prewrite_source_report_status": "not_requested_below_threshold",
+                  "vortex_capillary_preparation_prewrite_status": "not_requested_below_threshold",
+                  "vortex_capillary_preparation_prewrite_write_gate_status": "not_applicable_scheduler_not_applied",
+                  "vortex_capillary_preparation_pulseweave_blocker": "below_threshold_small_local_fixture",
+                  "vortex_capillary_preparation_pulseweave_decision_digest": "none",
+                  "vortex_capillary_preparation_pulseweave_runtime_decision_applied": "false",
+                  "vortex_capillary_preparation_pulseweave_status": "not_requested",
+                  "vortex_capillary_preparation_read_chunk_byte_range_refs": "none",
+                  "vortex_capillary_preparation_scheduler_applied": "false",
+                  "vortex_capillary_preparation_status": "not_requested_below_threshold",
+                  "vortex_capillary_preparation_task_count": "0",
+                  "vortex_capillary_preparation_task_manifest_id": "none",
+                  "vortex_capillary_preparation_task_roles": "none",
+                  "vortex_capillary_preparation_vortex_segment_refs": "none",
+                  "vortex_copy_budget_buffer_reuse_status": "admitted_columnar_source_state_reuse_with_digest_and_row_count_proof",
+                  "vortex_copy_budget_no_standalone_lane_status": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
+                  "vortex_copy_budget_prepared_state_id": "vortex-prepared-state-fnv64-151ea1af4313f3e1",
+                  "vortex_copy_budget_source_state_id": "local-csv-fnv64-9211f66c69aae71a",
+                  "vortex_copy_budget_status": "admitted_scoped_buffer_reuse_with_unmeasured_segments",
+                  "vortex_copy_budget_unsafe_lifetime_shortcut_status": "blocked_no_unsafe_lifetime_shortcuts",
+                  "vortex_ingest_status": "prepared_state_created",
+                  "vortex_layout_write_advisor_blocker": "none",
+                  "vortex_layout_write_advisor_no_standalone_lane_status": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
+                  "vortex_layout_write_advisor_provider_admitted": "true",
+                  "vortex_layout_write_advisor_runtime_decision_applied": "true",
+                  "vortex_layout_write_advisor_selected_strategy": "single_vortex_artifact_embedded_olap_layout_statistics",
+                  "vortex_layout_write_advisor_source_state_id": "local-csv-fnv64-9211f66c69aae71a",
+                  "vortex_layout_write_advisor_status": "admitted_local_layout_write_strategy",
+                  "vortex_layout_write_advisor_strategy_admitted": "true",
+                  "vortex_preparation_spine_native_io_certificate_status": "certified_local_vortex_preparation_spine",
+                  "vortex_preparation_spine_no_standalone_lane_status": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
+                  "vortex_preparation_spine_source_split_count": "1",
+                  "vortex_preparation_spine_source_split_refs": "local-csv-fnv64-9211f66c69aae71a:split=1:bytes=0..47:rows=0..3",
+                  "vortex_preparation_spine_status": "admitted_local_preparation_spine",
+                  "vortex_preparation_spine_vortex_first_decision": "use_vortex_native_provider",
+                  "vortex_scout_ingress_anomaly_count": "0",
+                  "vortex_scout_ingress_metadata_range_refs": "local-csv-fnv64-9211f66c69aae71a:split=1:bytes=0..47",
+                  "vortex_scout_ingress_no_standalone_lane_status": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
+                  "vortex_scout_ingress_quarantine_required": "false",
+                  "vortex_scout_ingress_source_state_id": "local-csv-fnv64-9211f66c69aae71a",
+                  "vortex_scout_ingress_status": "admitted_scout_ingress_clean",
+                  "writer_row_count": "3"
+                },
+                "stage_id": "local_csv_vortex_ingest",
+                "status": "passed"
+              },
+              {
+                "argv": [
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+                  "vortex-filter-project",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex",
+                  "gte:amount:10",
+                  "label",
+                  "--execute-local-primitive",
+                  "1",
+                  "2",
+                  "--format",
+                  "json"
+                ],
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/local_prepared_vortex_filter_project.json",
+                "blockers": [],
+                "command": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom vortex-filter-project /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex gte:amount:10 label --execute-local-primitive 1 2 --format json",
+                "envelope_status": "success",
+                "kind": "cli",
+                "returncode": 0,
+                "selected_fields": {
+                  "filter_project_local_execution_external_effects_executed": "false",
+                  "filter_project_local_execution_fallback_attempted": "false",
+                  "filter_project_local_execution_mode": "vortex_scan_pushdown",
+                  "filter_project_local_execution_native_io_certified": "true",
+                  "filter_project_local_execution_rows_projected": "2",
+                  "filter_project_local_execution_rows_selected": "2",
+                  "filter_project_local_execution_status": "executed",
+                  "local_primitive_execution_certificate_status": "not_available",
+                  "local_primitive_native_io_certificate_id": "cg19.local_primitive.filter_and_project.native_io",
+                  "local_primitive_native_io_certificate_status": "certified",
+                  "mode": "vortex_filter_project",
+                  "scan_pushdown_status": "scan_pushdown_supported"
+                },
+                "stage_id": "local_prepared_vortex_filter_project",
+                "status": "passed"
+              },
+              {
+                "argv": [
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+                  "run",
+                  "dataframe",
+                  "--input",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex",
+                  "--input-format",
+                  "vortex",
+                  "--sql",
+                  "SELECT id,label,amount FROM '/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex' WHERE amount >= 10 LIMIT 2",
+                  "--plan",
+                  "read_vortex(local-csv-orders.vortex) -> filter(amount >= 10) -> select(id,label,amount) -> limit(2) -> write_jsonl(local-query-output.jsonl)",
+                  "--request",
+                  "write_jsonl",
+                  "--output",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-query-output.jsonl",
+                  "--fanout-output",
+                  "csv=/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-query-output.csv",
+                  "--execution-policy",
+                  "native_vortex",
+                  "--materialization-policy",
+                  "zero_decode",
+                  "--evidence-level",
+                  "runtime_smoke",
+                  "--bounded",
+                  "true",
+                  "--allow-overwrite",
+                  "--native-vortex-operation-family",
+                  "sink",
+                  "--vortex-primitive",
+                  "filter_project",
+                  "--vortex-predicate",
+                  "gte:amount:10",
+                  "--vortex-columns",
+                  "id,label,amount",
+                  "--vortex-source-order-limit",
+                  "2",
+                  "--max-parallelism",
+                  "1",
+                  "--format",
+                  "json"
+                ],
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/local_prepared_vortex_row_export_jsonl_csv_fanout.json",
+                "blockers": [],
+                "command": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom run dataframe --input /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex --input-format vortex --sql SELECT id,label,amount FROM '/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-csv-orders.vortex' WHERE amount >= 10 LIMIT 2 --plan read_vortex(local-csv-orders.vortex) -> filter(amount >= 10) -> select(id,label,amount) -> limit(2) -> write_jsonl(local-query-output.jsonl) --request write_jsonl --output /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-query-output.jsonl --fanout-output csv=/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-query-output.csv --execution-policy native_vortex --materialization-policy zero_decode --evidence-level runtime_smoke --bounded true --allow-overwrite --native-vortex-operation-family sink --vortex-primitive filter_project --vortex-predicate gte:amount:10 --vortex-columns id,label,amount --vortex-source-order-limit 2 --max-parallelism 1 --format json",
+                "envelope_status": "success",
+                "kind": "cli",
+                "returncode": 0,
+                "selected_fields": {
+                  "claim_gate_status": "not_claim_grade",
+                  "data_decoded": "true",
+                  "data_materialized": "true",
+                  "data_read": "true",
+                  "decode_materialization_boundary": "native_vortex_scan_pushdown_then_selected_column_decode_at_compatibility_sink",
+                  "execution": "native_vortex_primitive_row_export_performed",
+                  "external_engine_invoked": "false",
+                  "fallback_attempted": "false",
+                  "native_vortex_result_export_fanout_count": "1",
+                  "native_vortex_result_export_fanout_performed": "true",
+                  "native_vortex_result_export_format": "jsonl",
+                  "native_vortex_result_export_kind": "primitive_row_stream",
+                  "native_vortex_result_export_projected_columns": "id,label,amount",
+                  "native_vortex_result_export_rows_written": "2",
+                  "native_vortex_result_export_target_count": "2",
+                  "native_vortex_result_export_target_formats": "jsonl,csv",
+                  "native_vortex_result_export_target_paths": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-query-output.jsonl,/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/local-query-output.csv",
+                  "native_vortex_result_export_target_roles": "primary,fanout",
+                  "native_vortex_result_export_target_rows_written": "2,2",
+                  "output_io_performed": "true",
+                  "public_workflow_decode_materialization_boundary": "native_vortex_scan_pushdown_then_selected_column_decode_at_compatibility_sink",
+                  "public_workflow_execution_mode": "native_vortex",
+                  "public_workflow_fanout_output_count": "1",
+                  "public_workflow_native_vortex_capability_status": "supported_with_explicit_decode_sink_boundary",
+                  "public_workflow_native_vortex_required_feature_gate": "vortex-local-primitives",
+                  "public_workflow_requested_output": "write_jsonl",
+                  "public_workflow_resolved_internal_command": "vortex-local-primitive-row-export",
+                  "public_workflow_route_id": "native_vortex_primitive_row_export",
+                  "public_workflow_route_status": "admitted",
+                  "public_workflow_typed_sink_contract": "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink",
+                  "public_workflow_vortex_middle_status": "native_vortex_primitive",
+                  "runtime_execution": "true",
+                  "typed_sink_contract": "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink",
+                  "upstream_vortex_scan_called": "true",
+                  "write_io": "true"
+                },
+                "stage_id": "local_prepared_vortex_row_export_jsonl_csv_fanout",
+                "status": "passed"
+              },
+              {
+                "argv": "python -c \nimport json\nimport sys\nfrom shardloom import context\n\nrepo_root, binary, source_path, target_path = sys.argv[1:5]\nctx = context(repo_root=repo_root, binary=binary, profile_order=(\"debug\",))\nreport = ctx.prepare_vortex(source_path, target_path, allow_overwrite=True)\nprint(json.dumps({\n    \"schema_version\": \"shardloom.python_golden_workflow_prepare_vortex.v1\",\n    \"source_format\": report.source_format,\n    \"vortex_ingest_status\": report.vortex_ingest_status,\n    \"prepared_state_created\": report.prepared_state_created,\n    \"input_row_count\": report.input_row_count,\n    \"writer_row_count\": report.writer_row_count,\n    \"reopen_row_count\": report.reopen_row_count,\n    \"reopen_verification_status\": report.reopen_verification_status,\n    \"certification_status\": report.certification_status,\n    \"claim_gate_status\": report.claim_gate_status,\n    \"fallback_attempted\": report.fallback_attempted,\n    \"external_engine_invoked\": report.external_engine_invoked,\n}, sort_keys=True))\n /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913 /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/python-wrapper-orders.csv /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/python-wrapper-orders.vortex",
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/python_prepare_vortex_wrapper.json",
+                "blockers": [],
+                "command": "python -c <ctx.prepare_vortex smoke>",
+                "kind": "python_wrapper",
+                "returncode": 0,
+                "selected_fields": {
+                  "certification_status": "production_admitted_local_workflow_certified",
+                  "claim_gate_status": "local_workflow_runtime_supported",
+                  "external_engine_invoked": false,
+                  "fallback_attempted": false,
+                  "input_row_count": 3,
+                  "prepared_state_created": true,
+                  "reopen_row_count": 3,
+                  "reopen_verification_status": "reopen_metadata_row_count_verified",
+                  "schema_version": "shardloom.python_golden_workflow_prepare_vortex.v1",
+                  "source_format": "csv",
+                  "vortex_ingest_status": "prepared_state_created",
+                  "writer_row_count": 3
+                },
+                "stage_id": "python_prepare_vortex_wrapper",
+                "status": "passed"
+              }
+            ],
+            "status": "passed",
+            "workflow_id": "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output"
+          },
+          {
+            "artifact_refs": [
+              "target/golden-workflows/runs/20260913-040830-91002/generated-source-output.vortex"
+            ],
+            "blockers": [],
+            "claim_boundary": "source-free local Vortex output and replay proof only; not broad generated SQL, object-store, table, or production sink support",
+            "execution_route": "vortex_reopen_and_local_filter_project_replay",
+            "output_route": "local_vortex_output",
+            "preparation_route": "generated_rows_to_vortex_sink",
+            "row_counts": {
+              "generated_rows": 3,
+              "replay_rows_selected": 2,
+              "vortex_reopen_rows": 3
+            },
+            "source_route": "source_free_generated_user_rows",
+            "stages": [
+              {
+                "argv": [
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+                  "generated-source-user-rows",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/generated-source-output.vortex",
+                  "id:int64,label:utf8,score:float64",
+                  "id=1,label=alpha,score=1.5;id=2,label=beta,score=2.25;id=3,label=gamma,score=4.5",
+                  "--output-format",
+                  "vortex",
+                  "--allow-overwrite",
+                  "--format",
+                  "json"
+                ],
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/generated_source_vortex_output.json",
+                "blockers": [],
+                "command": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom generated-source-user-rows /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/generated-source-output.vortex id:int64,label:utf8,score:float64 id=1,label=alpha,score=1.5;id=2,label=beta,score=2.25;id=3,label=gamma,score=4.5 --output-format vortex --allow-overwrite --format json",
+                "envelope_status": "success",
+                "kind": "cli",
+                "returncode": 0,
+                "selected_fields": {
+                  "claim_gate_status": "not_claim_grade",
+                  "correctness_digest": "sha256:6a68027fe86d1875486934637edd95993134a56d3377fb67a97a5f3e71796807",
+                  "execution_mode": "source_free_generated_output",
+                  "external_engine_invoked": "false",
+                  "fallback_attempted": "false",
+                  "generated_source_certificate_status": "present",
+                  "generated_source_created": "true",
+                  "generated_source_kind": "user_rows",
+                  "generated_source_plan_digest": "fnv64:9411693f5b793651",
+                  "generated_source_row_count": "3",
+                  "generated_source_schema_digest": "fnv64:63454384f2064698",
+                  "output_commit_status": "committed",
+                  "output_digest": "sha256:6a68027fe86d1875486934637edd95993134a56d3377fb67a97a5f3e71796807",
+                  "output_fidelity_report_status": "blocked_unverified_output_replay",
+                  "output_format": "vortex",
+                  "output_io_performed": "true",
+                  "output_native_io_certificate_status": "certified_local_vortex_sink",
+                  "output_replay_status": "blocked_unverified_local_sink_artifact",
+                  "runtime_execution": "true",
+                  "schema_version": "shardloom.generated_source_user_rows_runtime.v1",
+                  "upstream_vortex_scan_called": "false",
+                  "upstream_vortex_write_called": "true",
+                  "vortex_artifact_digest": "sha256:6a68027fe86d1875486934637edd95993134a56d3377fb67a97a5f3e71796807",
+                  "vortex_output_column_count": "3",
+                  "vortex_output_reopen_verified": "true",
+                  "vortex_output_row_count": "3",
+                  "vortex_output_runtime_execution": "true",
+                  "write_io": "true"
+                },
+                "stage_id": "generated_source_vortex_output",
+                "status": "passed"
+              },
+              {
+                "argv": [
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+                  "vortex-filter-project",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/generated-source-output.vortex",
+                  "gte:id:2",
+                  "label",
+                  "--execute-local-primitive",
+                  "1",
+                  "2",
+                  "--format",
+                  "json"
+                ],
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/generated_vortex_replay_filter_project.json",
+                "blockers": [],
+                "command": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom vortex-filter-project /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/golden-workflows/runs/20260913-040830-91002/generated-source-output.vortex gte:id:2 label --execute-local-primitive 1 2 --format json",
+                "envelope_status": "success",
+                "kind": "cli",
+                "returncode": 0,
+                "selected_fields": {
+                  "filter_project_local_execution_native_io_certified": "true",
+                  "filter_project_local_execution_projected_columns": "label",
+                  "filter_project_local_execution_rows_projected": "2",
+                  "filter_project_local_execution_rows_selected": "2",
+                  "filter_project_local_execution_status": "executed",
+                  "local_primitive_execution_certificate_status": "not_available",
+                  "local_primitive_native_io_certificate_id": "cg19.local_primitive.filter_and_project.native_io",
+                  "local_primitive_native_io_certificate_status": "certified",
+                  "mode": "vortex_filter_project",
+                  "scan_pushdown_status": "scan_pushdown_supported"
+                },
+                "stage_id": "generated_vortex_replay_filter_project",
+                "status": "passed"
+              }
+            ],
+            "status": "passed",
+            "workflow_id": "generated_source_to_local_vortex_output_replay_fidelity"
+          },
+          {
+            "artifact_refs": [
+              "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex"
+            ],
+            "blockers": [],
+            "claim_boundary": "scoped fixture-certified native Vortex primitives only; not arbitrary operator completeness or production Vortex runtime support",
+            "execution_route": "vortex_local_primitives_count_project_filter_project",
+            "output_route": "inline_typed_envelope_certificates",
+            "preparation_route": "checked_in_prepared_vortex_fixture",
+            "row_counts": {
+              "count_where_rows": 3,
+              "filter_project_rows": 3,
+              "fixture_rows": 5,
+              "project_rows": 5
+            },
+            "source_route": "local_vortex_fixture",
+            "stages": [
+              {
+                "argv": [
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+                  "vortex-count-where",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+                  "gte:value:3",
+                  "--execute-local-primitive",
+                  "1",
+                  "2",
+                  "--format",
+                  "json"
+                ],
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/fixture_vortex_count_where_certificate.json",
+                "blockers": [],
+                "command": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom vortex-count-where /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex gte:value:3 --execute-local-primitive 1 2 --format json",
+                "envelope_status": "success",
+                "kind": "cli",
+                "returncode": 0,
+                "selected_fields": {
+                  "count": "3",
+                  "filtered_count_local_execution_correctness_certified": "true",
+                  "filtered_count_local_execution_count": "3",
+                  "filtered_count_local_execution_filter_pushdown_applied": "true",
+                  "filtered_count_local_execution_native_io_certified": "true",
+                  "filtered_count_local_execution_rows_selected": "3",
+                  "filtered_count_local_execution_status": "executed",
+                  "local_primitive_execution_certificate_correctness_passed": "true",
+                  "local_primitive_execution_certificate_external_query_engine_invoked": "false",
+                  "local_primitive_execution_certificate_fallback_attempted": "false",
+                  "local_primitive_execution_certificate_id": "vortex-local-count-where-struct-five.count_where.execution-certificate",
+                  "local_primitive_execution_certificate_provider_api_surface": "VortexFile::scan.into_array_iter",
+                  "local_primitive_execution_certificate_provider_kind": "vortex_scan",
+                  "local_primitive_execution_certificate_status": "certified",
+                  "local_primitive_native_io_certificate_id": "cg19.local_primitive.count_where.native_io",
+                  "local_primitive_native_io_certificate_status": "certified",
+                  "mode": "vortex_count_where"
+                },
+                "stage_id": "fixture_vortex_count_where_certificate",
+                "status": "passed"
+              },
+              {
+                "argv": [
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+                  "vortex-project",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+                  "metric",
+                  "--execute-local-primitive",
+                  "1",
+                  "2",
+                  "--format",
+                  "json"
+                ],
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/fixture_vortex_project_certificate.json",
+                "blockers": [],
+                "command": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom vortex-project /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex metric --execute-local-primitive 1 2 --format json",
+                "envelope_status": "success",
+                "kind": "cli",
+                "returncode": 0,
+                "selected_fields": {
+                  "local_primitive_execution_certificate_correctness_passed": "true",
+                  "local_primitive_execution_certificate_external_query_engine_invoked": "false",
+                  "local_primitive_execution_certificate_fallback_attempted": "false",
+                  "local_primitive_execution_certificate_id": "vortex-local-project-struct-five.project_columns.execution-certificate",
+                  "local_primitive_execution_certificate_provider_api_surface": "VortexFile::scan.into_array_iter",
+                  "local_primitive_execution_certificate_provider_kind": "vortex_scan",
+                  "local_primitive_execution_certificate_status": "certified",
+                  "local_primitive_native_io_certificate_id": "cg19.local_primitive.project_columns.native_io",
+                  "local_primitive_native_io_certificate_status": "certified",
+                  "mode": "vortex_project",
+                  "project_local_execution_correctness_certified": "true",
+                  "project_local_execution_native_io_certified": "true",
+                  "project_local_execution_rows_projected": "5",
+                  "project_local_execution_status": "executed",
+                  "scan_projection_pushed_down": "true"
+                },
+                "stage_id": "fixture_vortex_project_certificate",
+                "status": "passed"
+              },
+              {
+                "argv": [
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+                  "vortex-filter-project",
+                  "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+                  "gte:value:3",
+                  "metric",
+                  "--execute-local-primitive",
+                  "1",
+                  "2",
+                  "--format",
+                  "json"
+                ],
+                "artifact_ref": "target/golden-workflows/runs/20260913-040830-91002/command-envelopes/fixture_vortex_filter_project_certificate.json",
+                "blockers": [],
+                "command": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom vortex-filter-project /Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex gte:value:3 metric --execute-local-primitive 1 2 --format json",
+                "envelope_status": "success",
+                "kind": "cli",
+                "returncode": 0,
+                "selected_fields": {
+                  "filter_project_local_execution_correctness_certified": "true",
+                  "filter_project_local_execution_native_io_certified": "true",
+                  "filter_project_local_execution_rows_projected": "3",
+                  "filter_project_local_execution_rows_selected": "3",
+                  "filter_project_local_execution_status": "executed",
+                  "local_primitive_execution_certificate_correctness_passed": "true",
+                  "local_primitive_execution_certificate_external_query_engine_invoked": "false",
+                  "local_primitive_execution_certificate_fallback_attempted": "false",
+                  "local_primitive_execution_certificate_id": "vortex-local-filter-project-struct-five.filter_and_project.execution-certificate",
+                  "local_primitive_execution_certificate_provider_api_surface": "VortexFile::scan.into_array_iter",
+                  "local_primitive_execution_certificate_provider_kind": "vortex_scan",
+                  "local_primitive_execution_certificate_status": "certified",
+                  "local_primitive_native_io_certificate_id": "cg19.local_primitive.filter_and_project.native_io",
+                  "local_primitive_native_io_certificate_status": "certified",
+                  "mode": "vortex_filter_project",
+                  "scan_filter_pushed_down": "true",
+                  "scan_projection_pushed_down": "true"
+                },
+                "stage_id": "fixture_vortex_filter_project_certificate",
+                "status": "passed"
+              }
+            ],
+            "status": "passed",
+            "workflow_id": "prepared_native_vortex_count_filter_project_execution_certificates"
+          }
+        ]
+      },
+      "sha256": "9bdfb5ade5d9c190fe78bde253449da71716b779adf90a3fb8ed54a3bb0bfb15"
+    },
+    "prior_transcript_sha256": "ffdc1387adf602a4b409e210dca5deb7c92e13d5fe6cfa409a3f9edfd9e61f7e",
+    "recovered_attempt": {
+      "ref": "target/published-cli-golden-024-timrileh/proof.json",
+      "report": {
+        "blockers": [
+          "ValueError: golden_workflows failed; see preserved stdout/stderr"
+        ],
+        "external_engine_invoked": false,
+        "fallback_attempted": false,
+        "input_identities": [
+          {
+            "generation": [
+              16777232,
+              89406795,
+              8431,
+              1789246837532150184,
+              1789246837532150184
+            ],
+            "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+            "resolved": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+            "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+          },
+          {
+            "generation": [
+              16777232,
+              90030113,
+              13417,
+              1789287997174208805,
+              1789287997174208805
+            ],
+            "path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/verify_bundled_registry_024.py",
+            "resolved": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/verify_bundled_registry_024.py",
+            "sha256": "2742f55f803fa6427c4f4bfbe24f0724a0298a53fc3f39d4f33c8d6bbde23302"
+          },
+          {
+            "generation": [
+              16777232,
+              90031471,
+              69093224,
+              1789288130179945907,
+              1789288130179945907
+            ],
+            "path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/github-package-proof-v0.2.4/downloads/shardloom",
+            "resolved": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/github-package-proof-v0.2.4/downloads/shardloom",
+            "sha256": "f232eb1850ff1b41f3b03c4b84483ce6a898d8e6a86d252c80ae0ef1a492c365"
+          }
+        ],
+        "package_channel_submission_attempted_by_this_tool": false,
+        "package_upload_attempted_by_this_tool": false,
+        "proof_directory": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-timrileh",
+        "proof_status": "failed",
+        "publication_attempted_by_this_tool": false,
+        "registry_upload_attempted_by_this_tool": false,
+        "secrets_required": false,
+        "source_commit": "8759b16e3421153302c9034e5a00c9d80b61d3d9",
+        "steps": [
+          {
+            "cleanup_grace_seconds_per_signal": 3.0,
+            "command": [
+              "/opt/homebrew/opt/python@3.13/bin/python3.13",
+              "-B",
+              "scripts/check_golden_workflows.py",
+              "--binary",
+              "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/github-package-proof-v0.2.4/downloads/shardloom",
+              "--skip-build",
+              "--features",
+              "release-user-surfaces"
+            ],
+            "direct_child_reaped": true,
+            "group_absence_unproved_at_cleanup": false,
+            "interrupted_signal": null,
+            "name": "golden_workflows",
+            "output_bytes": 2613,
+            "output_limit_bytes": 8388608,
+            "pid": 90984,
+            "process_group_drained": true,
+            "returncode": 1,
+            "seconds": 0.046698749996721745,
+            "stderr_path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-timrileh/00-golden_workflows.stderr.txt",
+            "stdout_path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-timrileh/00-golden_workflows.stdout.txt",
+            "timed_out": false,
+            "timeout_seconds": 240
+          }
+        ],
+        "total_log_limit_bytes": 16777216,
+        "whole_run_timeout_seconds": 300
+      },
+      "sha256": "f7babe1f16a3947e0f9f7e85b673075c2d00197146d9adf8f26c08f05d552a43"
+    },
+    "recovery": "The initial attempt could not launch the raw downloaded file because HTTP download does not preserve its executable mode. A separate byte-identical copy was made executable and all three workflows/nine stages passed; the downloaded asset and failed attempt were preserved. No recompilation or package-source change occurred.",
+    "scope": "Published GitHub CLI with the source-tree Python wrapper at unchanged release sources. This supplements, and does not replace or expand, the separate clean bundled-wheel proof.",
+    "status": "passed",
+    "supervision": {
+      "ref": "target/published-cli-golden-024-anutmco9/proof.json",
+      "report": {
+        "blockers": [],
+        "downloaded_asset_identity": {
+          "generation": [
+            16777232,
+            90031471,
+            69093224,
+            1789288130179945907,
+            1789288130179945907
+          ],
+          "path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/github-package-proof-v0.2.4/downloads/shardloom",
+          "resolved": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/github-package-proof-v0.2.4/downloads/shardloom",
+          "sha256": "f232eb1850ff1b41f3b03c4b84483ce6a898d8e6a86d252c80ae0ef1a492c365"
+        },
+        "external_engine_invoked": false,
+        "fallback_attempted": false,
+        "golden_workflow_report_sha256": "9bdfb5ade5d9c190fe78bde253449da71716b779adf90a3fb8ed54a3bb0bfb15",
+        "input_identities": [
+          {
+            "generation": [
+              16777232,
+              89406795,
+              8431,
+              1789246837532150184,
+              1789246837532150184
+            ],
+            "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+            "resolved": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+            "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+          },
+          {
+            "generation": [
+              16777232,
+              90030113,
+              13417,
+              1789287997174208805,
+              1789287997174208805
+            ],
+            "path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/verify_bundled_registry_024.py",
+            "resolved": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/verify_bundled_registry_024.py",
+            "sha256": "2742f55f803fa6427c4f4bfbe24f0724a0298a53fc3f39d4f33c8d6bbde23302"
+          },
+          {
+            "generation": [
+              16777232,
+              90081429,
+              69093224,
+              1789290510830611516,
+              1789290510830716725
+            ],
+            "path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+            "resolved": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+            "sha256": "f232eb1850ff1b41f3b03c4b84483ce6a898d8e6a86d252c80ae0ef1a492c365"
+          }
+        ],
+        "package_channel_submission_attempted_by_this_tool": false,
+        "package_upload_attempted_by_this_tool": false,
+        "proof_directory": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9",
+        "proof_status": "passed",
+        "publication_attempted_by_this_tool": false,
+        "registry_upload_attempted_by_this_tool": false,
+        "secrets_required": false,
+        "source_commit": "8759b16e3421153302c9034e5a00c9d80b61d3d9",
+        "steps": [
+          {
+            "cleanup_grace_seconds_per_signal": 3.0,
+            "command": [
+              "/opt/homebrew/opt/python@3.13/bin/python3.13",
+              "-B",
+              "scripts/check_golden_workflows.py",
+              "--binary",
+              "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/shardloom",
+              "--skip-build",
+              "--features",
+              "release-user-surfaces"
+            ],
+            "direct_child_reaped": true,
+            "group_absence_unproved_at_cleanup": false,
+            "interrupted_signal": null,
+            "name": "golden_workflows",
+            "output_bytes": 91,
+            "output_limit_bytes": 8388608,
+            "pid": 91002,
+            "process_group_drained": true,
+            "returncode": 0,
+            "seconds": 1.0312537499994505,
+            "stderr_path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/00-golden_workflows.stderr.txt",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_path": "/Users/dylan/LocalData/shardloom/publish-0.2.4-20260913/target/published-cli-golden-024-anutmco9/00-golden_workflows.stdout.txt",
+            "stdout_sha256": "c4f2c33b5435d688496724c3d9bcac4bfe00171fa21be8998924ec012bcd259d",
+            "timed_out": false,
+            "timeout_seconds": 240
+          }
+        ],
+        "total_log_limit_bytes": 16777216,
+        "whole_run_timeout_seconds": 300
+      },
+      "sha256": "a7020f233186e1581d243dd208e9dce4a6525f31732ffd9845e94899a2301d76"
+    }
+  },
   "install_transcript_status": "passed",
   "manifest_verification_status": "passed",
   "package_channel_submission_attempted_by_this_tool": false,

@@ -2,7 +2,13 @@
 
 # V1 Local Source And Package Release Track
 
-Status: selected local/source/package v1 release track with v0.2.3 GitHub pre-release, TestPyPI,
+Current selected publication: v0.2.4, after all four channel proofs passed. See
+[publication verification](v0.2.4-publication-verification.md) for exact release,
+tag and build identities. The earlier release addenda below remain historical.
+Package access is technical-preview only; production and unfinished capability
+gates remain open.
+
+Historical v0.2.3 status: selected local/source/package v1 release track with v0.2.3 GitHub pre-release, TestPyPI,
 PyPI, and Homebrew channel proof complete.
 
 Schema marker: `shardloom.v1_local_source_package_release.v1`.
@@ -14,14 +20,23 @@ python scripts\check_v1_local_source_package_release.py
 ```
 
 This page narrows the feasible v1 release after excluding real production environments. Maintainer
-approval and channel proof now exist for the v0.2.3 GitHub pre-release, TestPyPI, PyPI, and
+approval and channel proof now exist for the v0.2.4 GitHub pre-release, TestPyPI, PyPI, and
 Homebrew sequence. This page does not itself publish additional packages, create new tags, create
 new GitHub releases, upload new artifacts, sign artifacts, add secrets, run production services, or
 authorize fallback execution.
 
-## v0.2.3 Publication Addendum
+Current package publication state:
 
-The source tree, public package channels, and checked-in channel proofs now point at v0.2.3 for the
+```text
+package_channel_status=published_v0.2.4_selected_channels
+package_install_commands_visible=true
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+```
+
+## Historical v0.2.3 Publication Addendum
+
+The source tree, public package channels and checked-in channel proofs pointed at v0.2.3 for the
 resident-runtime foundation, ingest cleanup, bounded collection, homepage, and
 native-platform packaging release. Public install commands remain scoped to
 technical-preview install access and do not authorize production, performance, broad runtime,
@@ -37,12 +52,12 @@ object-store/lakehouse, Foundry, or fallback-execution claims.
 | API/schema stability | Stable local v1 machine-readable contract. | `docs/release/v1-api-schema-stability.md`, `docs/release/schemas/v1/*`, `scripts/check_v1_api_schema_stability.py` |
 | Benchmark/public comparison surface | ClickBench handoff publicly; local benchmark artifacts remain separate, claim-gated evidence. | `website-src/src/pages/benchmarks.astro`, `scripts/check_benchmark_publish_doctor.py` |
 | Docs/website/readme | Claim-safe public interpretation layer. | `README.md`, `docs/release/public-status-matrix.md`, `website-src/` |
-| GitHub pre-release | Published v0.2.3 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.2.3-transcript.json` |
-| TestPyPI | Published v0.2.3 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.2.3-transcript.json` |
-| PyPI | Published v0.2.3 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v0.2.3-transcript.json` |
-| Homebrew tap | Published v0.2.3 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v0.2.3-transcript.json` |
+| GitHub pre-release | Published v0.2.4 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.2.4-transcript.json` |
+| TestPyPI | Published v0.2.4 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.2.4-transcript.json` |
+| PyPI | Published v0.2.4 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v0.2.4-transcript.json` |
+| Homebrew tap | Published v0.2.4 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v0.2.4-transcript.json` |
 
-## Publication Sequence Completed For Selected Channels
+## Historical v0.2.3 Publication Sequence
 
 The selected v0.2.3 channel order was:
 
@@ -67,16 +82,7 @@ The completed publication proof records:
 - rollback, yank, delete, or advisory plan per channel
 - clean release gate evidence at the selected revision
 
-The package publication state is:
-
-```text
-package_channel_status=published_v0.2.3_selected_channels
-package_install_commands_visible=true
-public_release_claim_allowed=false
-public_package_claim_allowed=false
-```
-
-## v0.2.3 Tag Verification Result
+## Historical v0.2.3 Tag Verification Result
 
 The `v0.2.3` GitHub release uses a lightweight tag pointing at the GitHub-verified merge commit
 `79f1ad6d96345d9ef9b36b89159e4d9ee673fb9c`. Local GPG/SSH tag signing was unavailable during this
@@ -86,7 +92,7 @@ the exact tag ref type, target commit, and commit verification state.
 
 ## Runtime Feature-Gate Packaging Note
 
-The selected GitHub, PyPI, and Homebrew channels expose the v0.2.3 package/CLI posture selected by
+The selected GitHub, PyPI, and Homebrew channels expose the v0.2.4 package/CLI posture selected by
 the release build. Release-user packages build the CLI with
 `--features release-user-surfaces`, which enables the modular user-facing runtime capabilities that
 are already part of the release surface. Feature gates remain runtime/build-scope qualifiers and do
@@ -127,17 +133,20 @@ when supported so repeated public-route calls do not relaunch the CLI process. T
 package transport optimization only; execution evidence and no-fallback fields continue to come from
 the delegated ShardLoom command envelope. `SHARDLOOM_PERSISTENT_WORKER=0` disables it.
 
-Runtime binary download is rejected for this release track. Any wheel that includes a bundled CLI
-must carry checksum, SBOM/provenance, clean install/uninstall, and no-fallback smoke evidence for
-that exact platform artifact before publication. On POSIX platforms, bundled CLI resources must
-preserve the executable bit; non-executable packaged binaries are ignored and normal resolver
-fallbacks continue in order.
+Runtime binary download is rejected for this release track. A verified installation claim for a
+platform requires checksum, SBOM/provenance, clean install/uninstall and no-fallback smoke evidence
+for that exact artifact. The v0.2.4 transcripts provide executed installation proof on macOS arm64;
+Linux and Windows wheels have successful build and registry-metadata evidence, while their runtime
+installation proof remains outstanding. On POSIX platforms, bundled CLI resources must preserve
+the executable bit; non-executable packaged binaries are ignored and binary resolution continues
+in the documented order.
 
-The PyPI Trusted Publisher draft workflow must build publishable wheel/sdist artifacts from the
-same staged package tree used by the release dry-run proof: build `shardloom-cli`, copy the CLI into
-`shardloom/bin/<platform-tag>/`, build artifacts from the staged package directory, and upload only
-that staged `dist` directory. Direct `python -m build python` publication is not sufficient for
-bundled-CLI releases because it omits the managed-environment binary resource.
+The PyPI Trusted Publisher workflow builds platform wheels from a staged package tree: build
+`shardloom-cli`, copy it into `shardloom/bin/<platform-tag>/`, then build the bundled wheel. The Linux
+job separately runs `python -m build --sdist` against `python/` to produce a clean source
+distribution. The publisher uploads those three wheels and that source distribution. The sdist
+does not bundle a CLI and requires a compatible CLI from Homebrew, a release asset or a source
+build. Building directly from `python/` does not produce a bundled-CLI wheel.
 
 ## Deferred Environment Gates
 

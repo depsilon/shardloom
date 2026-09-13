@@ -2,7 +2,13 @@
 
 # Maintainer Publication Handoff
 
-Status: release handoff packet after `RELEASE-PACKAGE-15`, amended through the proof-backed v0.2.3
+Current selected publication: v0.2.4, after all four channel proofs passed. See
+[publication verification](v0.2.4-publication-verification.md) for exact release,
+tag and build identities. The earlier release addenda below remain historical.
+Package access is technical-preview only; production and unfinished capability
+gates remain open.
+
+Historical handoff status: release handoff packet after `RELEASE-PACKAGE-15`, amended through the proof-backed v0.2.3
 GitHub/TestPyPI/PyPI/Homebrew selected-channel publication sequence. This document does not itself
 create tags, publish packages, sign artifacts, upload SBOMs, submit package-channel manifests, add
 secrets, or authorize fallback execution.
@@ -203,12 +209,12 @@ handoff packet.
 
 ## Decision Summary
 
-Maintainer approval and proof are recorded for the v0.2.3 GitHub pre-release, TestPyPI, PyPI, and
-Homebrew selected-channel publication sequence. The current repository has release-candidate
-evidence for build, package smoke, SBOM/checksum/provenance dry run, package-channel readiness
-classification, production-usability blocking, final no-publication rehearsal, and current
-benchmark-publication artifacts. Public package install claims are allowed only for the selected
-proof-backed technical-preview channels.
+Maintainer approval and proof are recorded for the v0.2.4 GitHub pre-release,
+TestPyPI, PyPI and Homebrew sequence in the
+[publication record](v0.2.4-publication-verification.md). Source-validation and
+pre-bump implementation UAT retain their separate identities. Public package
+install claims are allowed only for the selected proof-backed technical-preview
+channels.
 
 Allowed now:
 
@@ -217,7 +223,7 @@ Allowed now:
 - Scoped local usability evidence with `public_release_claim_allowed=false`.
 - Current scoped full-local benchmark-publication evidence with public performance claims still
   disallowed.
-- Selected v0.2.3 package-channel install proof for GitHub pre-release, TestPyPI, PyPI, and
+- Selected v0.2.4 package-channel install proof for GitHub pre-release, TestPyPI, PyPI, and
   Homebrew.
 
 Not allowed now:
@@ -231,7 +237,10 @@ Not allowed now:
 
 ## Evidence Packet
 
-Primary release evidence:
+Current channel evidence is recorded in
+[v0.2.4 publication verification](v0.2.4-publication-verification.md).
+The following `RELEASE-PACKAGE-15` artifact references and checksums are
+historical local evidence, not the current release's artifact identities:
 
 - `target/release-readiness-audit/release-validation-evidence-release-package-15-final.json`
 - `target/release-readiness-audit/hard-release-readiness-gate-release-package-15-final.json`
@@ -279,19 +288,14 @@ signing/attestation policy, and destination channels.
 
 ## Current Blockers
 
-The hard release gate remains blocked by:
+Selected v0.2.4 package-channel verification is complete. Production
+compatibility, signing, future package channels, competitive performance and
+broad runtime claims still require separate proof. The phase plan retains 116
+open items; publication does not close those PERF/CG obligations.
 
-- Package-channel readiness is no longer blocked for the selected v0.2.3 channels; GitHub
-  pre-release, TestPyPI, PyPI, and Homebrew proofs are attached.
-- Publication/API/schema stability: functional v1 surfaces are approved as stable for v0.2.3, but
-  production compatibility, signing, future package-channel, and broad runtime claims still require
-  separate proof.
-- Per-claim evidence: release, package, performance, Spark-displacement, production, platform, and
-  broad runtime claims remain not claim-grade.
-- Channel evidence is present for the selected channels and remains missing for future package
-  channels.
-
-Current local release evidence that is no longer a hard-gate blocker:
+Historical `RELEASE-PACKAGE-15` local evidence recorded the following results.
+These older reports do not establish current architecture or performance-gate
+completion:
 
 - Architecture tracker:
   `target/release-readiness-audit/release-architecture-tracker-release-package-15-final.json`
@@ -314,12 +318,12 @@ Current local release evidence that is no longer a hard-gate blocker:
 
 ## Channel Handoff
 
-| Channel | Current status | Remaining action required before publication/proof |
+| Channel | Current status | Proof or remaining action |
 | --- | --- | --- |
-| GitHub pre-release | Published/proof-backed for v0.2.3 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v0.2.3-transcript.json`. |
-| TestPyPI | Published/proof-backed for v0.2.3 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v0.2.3-transcript.json`. |
-| PyPI | Published/proof-backed for v0.2.3 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v0.2.3-transcript.json`. |
-| Homebrew tap | Published/proof-backed for v0.2.3 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v0.2.3-transcript.json`. |
+| GitHub pre-release | Published/proof-backed for v0.2.4 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v0.2.4-transcript.json`. |
+| TestPyPI | Published/proof-backed for v0.2.4 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v0.2.4-transcript.json`. |
+| PyPI | Published/proof-backed for v0.2.4 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v0.2.4-transcript.json`. |
+| Homebrew tap | Published/proof-backed for v0.2.4 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v0.2.4-transcript.json`. |
 | Scoop | Blocked | Approve bucket manifest, checksums, install/uninstall/smoke transcript, update/rollback policy. |
 | winget | Blocked | Approve manifest/submission, installer proof, install/uninstall/smoke transcript, update/rollback policy. |
 | conda-forge | Blocked | Approve staged-recipes/feedstock submission, clean feedstock install/uninstall/smoke, maintainer policy. |
@@ -328,7 +332,7 @@ Current local release evidence that is no longer a hard-gate blocker:
 
 ## Approval Record
 
-Publication approval for v0.2.3 is recorded in
+Publication approval for v0.2.4 is recorded in
 `docs/release/final-release-approval-post-release-verification.json`. The approved channels are
 GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 
@@ -338,13 +342,13 @@ GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 - Approved checksum, SBOM, provenance, signing, and attestation policy.
 - Approved rollback, yank, delete, deprecate, and advisory plan per destination channel.
 - Approved secrets/OIDC/environment setup for each selected channel.
-- Passing strict hard release gate for the approved source revision.
+- Passed selected-channel checks, with unfinished production and capability gates preserved.
 
-Selected-channel package install claims are now allowed for v0.2.3. Production, performance,
+Selected-channel package install claims are now allowed for v0.2.4. Production, performance,
 Spark-replacement, platform, broad runtime, future package-channel, and fallback-execution claims
 remain prohibited.
 
-## Required Re-Run Before Approval
+## Checks Before A Future Release Approval
 
 Run these from a clean worktree at the exact source revision being approved:
 
@@ -360,7 +364,7 @@ python scripts/final_release_rehearsal.py
 python scripts/check_release_readiness.py
 ```
 
-For the current release candidate, also refresh or regenerate benchmark publication evidence before
+For any future release candidate, also refresh or regenerate benchmark publication evidence before
 any public benchmark claim:
 
 ```bash
