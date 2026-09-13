@@ -245,25 +245,27 @@ the ledger.
 ## Planned
 
 Latest maintainer instruction, September 12: **full UAT first, then the
-performance PR, then the `0.2.4` version bump.** This resumes validation of the
-combined source and supersedes the testing pause below. Run focused and required
-workspace/native checks, then guarded full-size ingest, complete output parity,
-Full43 and the affected heldout/result-ownership acceptance. Fix failures before
-opening the performance PR. Preserve the accepted controls and storage guards;
-earlier component receipts are not combined-source acceptance.
+performance PR, then the `0.2.4` version bump.** Combined-source UAT at
+`4f2c7b97` now passes: required formatting/Clippy, 3,417 default tests,
+3,321 native tests (nine existing manual cases ignored), 1,310 accepted protocol
+executions including 20 expected overflow diagnostics, and complete fresh native
+artifact value/schema/footer parity. Fresh ingest is 95.923669 seconds;
+Full43 passes 129/129 exact results with a 91.825940-second per-query-minimum sum.
+The matched Q14/control feasibility gate passes; Q35's +4.06% paired median and
+sample variability remain explicit. The first log-limited Full43 attempt is
+preserved and excluded from the complete rerun. Resource limits and the
+historical timing control are unchanged. See the
+[combined acceptance report](../benchmarks/combined-performance-uat-2026-09-12.md).
 
-Latest maintainer handoff, September 12: **pause testing and consolidate the
-measured improvements for a PR, followed by a version-bump train.** The PR branch
-starts from current `main` (`5e8af695`), which already includes the retained
-numeric ingest, owned integer DISTINCT, native source reuse and ownership/pressure
-work. Carry the focused UTF8-grouped integer DISTINCT change plus the separately
-accepted integer owned COUNT, UTF8 owned COUNT and scalar-footer aggregate
-improvements. Keep their existing tests and evidence; do not run new tests,
-builds or benchmarks during the requested pause. The newly combined source needs
-its own validation when testing resumes; earlier timings keep their original
-binary and workload scope. Other paused or rejected work stays outside this PR.
-The proposed next train is a compatible `0.2.4` technical preview after the PR;
-source versions and published-channel proofs remain `0.2.3` during preparation.
+Open the cohesive performance PR from main `5e8af695`, preserving its inherited
+numeric ingest, owned integer DISTINCT, native reuse and ownership/pressure work.
+The four selected additions are UTF8-grouped integer DISTINCT, owned integer
+COUNT, prepared/owned UTF8 COUNT and scalar-footer completion. Other paused or
+rejected experiments remain outside this PR; broad phase completion stays paused.
+Then prepare a separate `0.2.4` technical-preview PR stacked on the performance
+PR's exact tip, without assuming a merge or publication. Source versions remain
+`0.2.3` in the performance PR; published-channel proofs stay at `0.2.3` until
+new channel-specific proof exists. Preserve the experimental Rust migration note.
 See the [PR and release handoff](performance-pr-release-handoff-2026-09-12.md).
 
 Latest maintainer priority, September 12: **focus on measured performance and

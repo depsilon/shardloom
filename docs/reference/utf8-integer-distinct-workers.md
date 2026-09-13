@@ -1,5 +1,10 @@
 # UTF8 group and integer DISTINCT workers
 
+Combined-source UAT at `4f2c7b97` passed; see the
+[acceptance report](../benchmarks/combined-performance-uat-2026-09-12.md) for
+new complete-value, paired-query and full-workload evidence. Earlier component
+measurements below remain bound to their original source.
+
 This focused continuation of `2ad143da` admits one nonnullable UTF8 identity
 group and one nonnullable integer identity `COUNT(DISTINCT value)` measure
 through the existing native compound workers. The Struct root is nonnullable.

@@ -1,9 +1,10 @@
 # Owned COUNT results
 
-The performance PR ports the previously measured integer and nonnullable UTF8
-COUNT(*) result paths. The combined PR tree is source-only while testing is
-paused; historical validation and timings apply to their named earlier
-checkpoints, not to this assembled tree.
+The integer and nonnullable UTF8 COUNT(*) paths passed combined-source UAT at
+`4f2c7b97`. The [acceptance report](../benchmarks/combined-performance-uat-2026-09-12.md)
+records 552 complete owned-result executions, persistence/lifetime tests and
+nine public CLI/Python session calls. Historical timings below retain their
+original source scope.
 
 `PreparedVortexAggregate::execute_owned()` accepts one identity integer or UTF8
 group key and one COUNT(*) measure, ordered by count descending with an optional
@@ -61,4 +62,7 @@ The port's focused source tests cover all integer widths and extrema, exact
 UTF8 bytes and dictionary domains, ties/offset/empty results, fresh execution,
 source replacement, complete-state and heavy-hitter refinement, allocation
 denial, source-error precedence, cloned owners and native/compatibility sinks.
-They have not been executed on the assembled PR tree.
+They passed on the assembled source in the focused and broad native suites.
+New large-output JSON/owned median ratios are 6.354×/8.630× for integer COUNT
+and 2.743×/3.505× for UTF8 COUNT at P1/P4; see the combined report for small-output
+controls, all raw samples and clock boundaries.

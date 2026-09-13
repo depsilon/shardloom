@@ -1,12 +1,11 @@
 # Exact footer aggregate completion
 
-September 12 PR assembly of the previously validated scalar-footer enhancement.
-The runtime helper and pure proof tests are copied from `4b59e025`, the validated
-successor of `8634a4d`; both remain byte-identical in the later `8ba36c76` runtime.
-The native fixtures are adapted to this branch's existing aliases and HAVING
-contract. The assembled source and copied tests have not been built, formatted,
-tested or benchmarked while the maintainer's testing pause is active. Historical
-evidence below applies to predecessor code, not to this combined PR tree.
+The scalar-footer implementation passed combined-source UAT at `4f2c7b97`:
+12 focused footer tests (including four native-file tests), broad native checks,
+and a new exact Q7/Q19 paired screen. The
+[combined acceptance report](../benchmarks/combined-performance-uat-2026-09-12.md)
+records Q7 medians 42.049459 → 13.536334 ms with zero query payload arrays.
+Historical predecessor evidence below retains its original source scope.
 
 An unfiltered global aggregate containing identity integer MIN, MAX or COUNT
 columns, optionally accompanied by COUNT(*), can complete from the already held
@@ -55,8 +54,8 @@ Required tests cover exact/inexact/absent metadata, every integer width and
 extreme, nullable/empty/all-null cases, parent validity, all-or-nothing decline,
 real statistics-on/off native files, complete scalar values, observed query
 payload reads, aliases/HAVING/text export and source mutation. Shared aggregate
-output projection is outside this port. The copied 12 tests remain unexecuted
-in this assembly; no new test or measurement was run to prepare this change.
+output projection is outside this port. All 12 focused tests passed on the
+assembled source, alongside the prepared, metadata and broad native checks.
 
 The predecessor `phase-resume-focused-r21` packet passed 12 footer tests, including
 four native-file tests with an observed same-descriptor read control, plus 51
@@ -78,12 +77,12 @@ These are prior observations, not measurements of this PR assembly. The roughly
 whole-workload control, stability or competitive claim. Missing exact statistics
 retain the existing native scan and never authorize changing a saved artifact.
 
-When testing resumes, the focused command is:
+The executed focused command is:
 
 ```text
 cargo test -p shardloom-vortex --features release-user-surfaces --lib footer_aggregate -- --test-threads=1
 ```
 
 Prepared aggregate, empty aggregate, metadata certificate, formatter and required
-workspace checks still apply to the assembled tree. No metadata epic, PERF gate
-or CG gate is closed by copying predecessor evidence.
+workspace checks passed on the assembled tree. No broad metadata epic, PERF
+gate or CG gate is closed by this finite acceptance.

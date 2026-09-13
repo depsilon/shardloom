@@ -1,9 +1,13 @@
 # Focused UTF8-grouped integer DISTINCT acceptance
 
+This historical packet remains scoped to `4730003f`. The later combined
+candidate's full UAT is recorded separately in the
+[combined acceptance report](combined-performance-uat-2026-09-12.md).
+
 This packet records the frozen `4730003f` experiment. The subsequent
 [PR assembly](../architecture/performance-pr-release-handoff-2026-09-12.md)
-adds separately measured owned COUNT and scalar-footer work while testing is
-paused. Its combined source is not certified or timed by this earlier packet.
+added separately measured owned COUNT and scalar-footer work during the earlier
+testing pause. Its combined source is not certified or timed by this earlier packet.
 
 Status: retain the isolated operator on `codex/perf-focused-distinct-20260912`;
 do not advance the whole-workload timing control. The paired target improves
