@@ -23,6 +23,21 @@ SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
 # selected release value itself is the current proof-backed package version.
 SELECTED_PACKAGE_RELEASE_VERSION = "0.2.4"
 SELECTED_PACKAGE_RELEASE_TAG = f"v{SELECTED_PACKAGE_RELEASE_VERSION}"
+# Approved identities observed during the publication train. Keep these keyed
+# by release so advancing the selected version cannot reuse a prior build's
+# source/run binding. PyPI's source adds only the prerequisite proof documents.
+PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
+    "0.2.4": {
+        "testpypi": {
+            "source_commit": "8759b16e3421153302c9034e5a00c9d80b61d3d9",
+            "workflow_run_id": 34747808607,
+        },
+        "pypi": {
+            "source_commit": "1f180c47419b420509ff59831e416db618ce5ce7",
+            "workflow_run_id": 34748638941,
+        },
+    },
+}
 SELECTED_PACKAGE_CHANNEL_STATUS_MARKER = (
     f"published_v{SELECTED_PACKAGE_RELEASE_VERSION}_selected_channels"
 )

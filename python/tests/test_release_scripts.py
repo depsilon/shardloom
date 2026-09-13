@@ -32,6 +32,7 @@ from release_report_utils import (
     workspace_version_env,
 )
 from release_channel_contract import (
+    PUBLISHED_REGISTRY_BUILD_IDENTITIES,
     SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
     SELECTED_PACKAGE_RELEASE_TAG,
     SELECTED_PACKAGE_RELEASE_VERSION,
@@ -8037,12 +8038,13 @@ class ReleaseScriptTests(unittest.TestCase):
         (root / row["checksum_ref"]).write_text("".join(
             f"{item['sha256']}  {item['filename']}\n" for item in artifacts
         ))
+        identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES[SELECTED_PACKAGE_RELEASE_VERSION]["testpypi"]
         provenance = {
             "schema_version": "shardloom.registry_release_evidence.v1",
             "channel_id": "testpypi", "package_version": SELECTED_PACKAGE_RELEASE_VERSION,
             "proof_status": "passed", "provenance_status": "unsigned_post_publication_observation",
-            "source_commit": "a" * 40, "workflow_run_id": 123,
-            "workflow_url": "https://github.com/depsilon/shardloom/actions/runs/123",
+            **identity,
+            "workflow_url": f"https://github.com/depsilon/shardloom/actions/runs/{identity['workflow_run_id']}",
             "artifact_refs": [
                 {"filename": item["filename"], "sha256": item["sha256"],
                  "size_bytes": item["size"], "url": item["url"]} for item in artifacts
@@ -8077,6 +8079,8 @@ class ReleaseScriptTests(unittest.TestCase):
             ("invalid_path", "is not readable"),
             ("invalid_size", "requires a positive byte size"),
             ("boolean_run_id", "requires its publishing workflow run"),
+            ("unrelated_source", "source_commit must match the approved channel build"),
+            ("unrelated_workflow", "workflow_run_id must match the approved channel build"),
         ):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
@@ -8098,6 +8102,11 @@ class ReleaseScriptTests(unittest.TestCase):
                 elif mutation == "boolean_run_id":
                     provenance["workflow_run_id"] = True
                     provenance["workflow_url"] = "https://github.com/depsilon/shardloom/actions/runs/True"
+                elif mutation == "unrelated_source":
+                    provenance["source_commit"] = "f" * 40
+                elif mutation == "unrelated_workflow":
+                    provenance["workflow_run_id"] = 123
+                    provenance["workflow_url"] = "https://github.com/depsilon/shardloom/actions/runs/123"
                 elif mutation == "tampered_sbom":
                     with (root / "sbom.json").open("a") as handle:
                         handle.write("\n")
@@ -8127,6 +8136,10 @@ class ReleaseScriptTests(unittest.TestCase):
             matrix["channels"][0]["ready"] = True
             self.assertEqual(module.validate_registry_supply_chain_evidence(
                 Path(temp), matrix, {})["status"], "blocked")
+            matrix, proofs, _ = self._registry_supply_chain_fixture(Path(temp))
+            module.PUBLISHED_REGISTRY_BUILD_IDENTITIES = {}
+            report = module.validate_registry_supply_chain_evidence(Path(temp), matrix, proofs)
+            self.assertIn("no approved registry build identity", "; ".join(report["blockers"]))
 
     def test_python_registry_package_proof_commands_are_channel_specific(self) -> None:
         module = self._load_script_module(

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from release_channel_contract import (
+    PUBLISHED_REGISTRY_BUILD_IDENTITIES,
     SELECTED_PACKAGE_RELEASE_VERSION,
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
@@ -1008,6 +1009,15 @@ def validate_registry_supply_chain_evidence(
             f"https://github.com/depsilon/shardloom/actions/runs/{run_id}"
         ):
             blockers.append(prefix + "registry provenance requires its publishing workflow run")
+        expected_identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES.get(
+            SELECTED_PACKAGE_RELEASE_VERSION, {}
+        ).get(channel_id)
+        if expected_identity is None:
+            blockers.append(prefix + "selected release has no approved registry build identity")
+        else:
+            for field, expected in expected_identity.items():
+                if provenance.get(field) != expected:
+                    blockers.append(prefix + f"registry provenance {field} must match the approved channel build")
         for field, data in (("sbom_ref", sbom_bytes), ("checksum_ref", checksum_bytes)):
             binding = provenance.get(field)
             if not isinstance(binding, dict) or binding.get("path") != row.get(field) or (
