@@ -33,6 +33,7 @@ from release_report_utils import (
 )
 from release_channel_contract import (
     PUBLISHED_REGISTRY_BUILD_IDENTITIES,
+    PUBLISHED_REGISTRY_DISTRIBUTIONS,
     SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
     SELECTED_PACKAGE_RELEASE_TAG,
     SELECTED_PACKAGE_RELEASE_VERSION,
@@ -8020,13 +8021,19 @@ class ReleaseScriptTests(unittest.TestCase):
 
     def _registry_supply_chain_fixture(self, root: Path) -> tuple[dict, dict, dict]:
         proof = self._python_registry_proof_fixture()
-        artifacts = proof["registry_release_artifacts"]
-        artifacts.append({
-            "filename": f"shardloom-{SELECTED_PACKAGE_RELEASE_VERSION}.tar.gz",
-            "sha256": "b" * 64, "size": 19000,
-            "url": "https://example.invalid/source.tar.gz",
-        })
+        artifacts = [
+            {"filename": filename, "sha256": chr(ord("a") + index) * 64,
+             "size": 19000 + index, "url": f"https://example.invalid/{filename}"}
+            for index, filename in enumerate(PUBLISHED_REGISTRY_DISTRIBUTIONS[SELECTED_PACKAGE_RELEASE_VERSION])
+        ]
+        proof["registry_release_artifacts"] = artifacts
+        proof["registry_release_artifact_count"] = len(artifacts)
+        proof["installed_registry_artifact"] = artifacts[0]
+        for prefix in ("downloaded", "installed"):
+            proof[f"{prefix}_registry_artifact_filename"] = artifacts[0]["filename"]
+            proof[f"{prefix}_registry_artifact_sha256"] = artifacts[0]["sha256"]
         row = self._python_registry_matrix_row_fixture(proof=proof)
+        row["registry_release_artifact_count"] = len(artifacts)
         row.update({"sbom_ref": "sbom.json", "checksum_ref": "checksums.sha256",
                     "provenance_ref": "provenance.json"})
         sbom = {"bomFormat": "CycloneDX", "specVersion": "1.5", "components": [
@@ -8081,6 +8088,8 @@ class ReleaseScriptTests(unittest.TestCase):
             ("boolean_run_id", "requires its publishing workflow run"),
             ("unrelated_source", "source_commit must match the approved channel build"),
             ("unrelated_workflow", "workflow_run_id must match the approved channel build"),
+            ("consistent_omission", "must cover the exact approved distribution filenames"),
+            ("wrong_declared_count", "artifact count must match the approved distribution inventory"),
         ):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
@@ -8107,6 +8116,22 @@ class ReleaseScriptTests(unittest.TestCase):
                 elif mutation == "unrelated_workflow":
                     provenance["workflow_run_id"] = 123
                     provenance["workflow_url"] = "https://github.com/depsilon/shardloom/actions/runs/123"
+                elif mutation == "wrong_declared_count":
+                    proofs["testpypi"]["registry_release_artifact_count"] = 3
+                    row["registry_release_artifact_count"] = 3
+                elif mutation == "consistent_omission":
+                    omitted = provenance["artifact_refs"].pop(1)["filename"]
+                    proofs["testpypi"]["registry_release_artifacts"].pop(1)
+                    proofs["testpypi"]["registry_release_artifact_count"] = 3
+                    row["registry_release_artifact_count"] = 3
+                    sbom = json.loads((root / "sbom.json").read_text())
+                    sbom["components"] = [item for item in sbom["components"] if item["name"] != omitted]
+                    (root / "sbom.json").write_text(json.dumps(sbom))
+                    (root / "checksums.sha256").write_text("".join(
+                        f"{item['sha256']}  {item['filename']}\n" for item in provenance["artifact_refs"]
+                    ))
+                    for field in ("sbom_ref", "checksum_ref"):
+                        provenance[field]["sha256"] = hashlib.sha256((root / row[field]).read_bytes()).hexdigest()
                 elif mutation == "tampered_sbom":
                     with (root / "sbom.json").open("a") as handle:
                         handle.write("\n")
@@ -8140,6 +8165,9 @@ class ReleaseScriptTests(unittest.TestCase):
             module.PUBLISHED_REGISTRY_BUILD_IDENTITIES = {}
             report = module.validate_registry_supply_chain_evidence(Path(temp), matrix, proofs)
             self.assertIn("no approved registry build identity", "; ".join(report["blockers"]))
+            module.PUBLISHED_REGISTRY_DISTRIBUTIONS = {}
+            report = module.validate_registry_supply_chain_evidence(Path(temp), matrix, proofs)
+            self.assertIn("no approved registry distribution inventory", "; ".join(report["blockers"]))
 
     def test_python_registry_package_proof_commands_are_channel_specific(self) -> None:
         module = self._load_script_module(

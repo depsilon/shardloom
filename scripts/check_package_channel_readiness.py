@@ -18,6 +18,7 @@ from typing import Any
 
 from release_channel_contract import (
     PUBLISHED_REGISTRY_BUILD_IDENTITIES,
+    PUBLISHED_REGISTRY_DISTRIBUTIONS,
     SELECTED_PACKAGE_RELEASE_VERSION,
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
@@ -1056,6 +1057,16 @@ def validate_registry_supply_chain_evidence(
                 destination[filename] = (digest, size, url)
         if actual_artifacts != expected_artifacts:
             blockers.append(prefix + "registry provenance must match every registry artifact digest, size and URL")
+        approved_filenames = PUBLISHED_REGISTRY_DISTRIBUTIONS.get(SELECTED_PACKAGE_RELEASE_VERSION)
+        if not approved_filenames:
+            blockers.append(prefix + "selected release has no approved registry distribution inventory")
+        else:
+            if set(expected_artifacts) != set(approved_filenames) or set(actual_artifacts) != set(approved_filenames):
+                blockers.append(prefix + "registry proof and provenance must cover the exact approved distribution filenames")
+            for label, evidence in (("proof", proof), ("matrix", row)):
+                count = evidence.get("registry_release_artifact_count")
+                if type(count) is not int or count != len(approved_filenames):
+                    blockers.append(prefix + f"registry {label} artifact count must match the approved distribution inventory")
         expected_hashes = {name: values[0] for name, values in expected_artifacts.items()}
         checksums: dict[str, str] = {}
         try:

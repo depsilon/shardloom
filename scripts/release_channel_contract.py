@@ -38,6 +38,14 @@ PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
         },
     },
 }
+PUBLISHED_REGISTRY_DISTRIBUTIONS = {
+    "0.2.4": (
+        "shardloom-0.2.4-cp313-cp313-macosx_26_0_arm64.whl",
+        "shardloom-0.2.4-cp313-cp313-manylinux_2_39_x86_64.whl",
+        "shardloom-0.2.4-cp313-cp313-win_amd64.whl",
+        "shardloom-0.2.4.tar.gz",
+    ),
+}
 SELECTED_PACKAGE_CHANNEL_STATUS_MARKER = (
     f"published_v{SELECTED_PACKAGE_RELEASE_VERSION}_selected_channels"
 )
