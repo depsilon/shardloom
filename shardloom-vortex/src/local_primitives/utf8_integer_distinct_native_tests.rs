@@ -210,6 +210,7 @@ fn utf8_integer_distinct_native_admission_pressure_and_late_generation_release_e
                     session,
                     runtime,
                     Some(resident.memory()),
+                    Some(resident.memory()),
                     None,
                 )
             })
@@ -243,6 +244,7 @@ fn utf8_integer_distinct_native_admission_pressure_and_late_generation_release_e
             file,
             session,
             runtime,
+            Some(resident.memory()),
             Some(resident.memory()),
             None,
         )?;

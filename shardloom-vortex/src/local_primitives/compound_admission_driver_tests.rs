@@ -111,6 +111,7 @@ fn actual_compound_worker_admission_denial_restores_same_runtime_provider_driver
                         session,
                         runtime,
                         Some(resident.memory()),
+                        Some(resident.memory()),
                         None,
                     )
                 })
@@ -206,6 +207,7 @@ fn cached_compound_admission_denial_reports_actual_restored_provider_drivers() {
                             file,
                             session,
                             runtime,
+                            Some(resident.memory()),
                             Some(resident.memory()),
                             Some(&mut retry),
                         )

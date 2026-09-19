@@ -27,6 +27,7 @@ use super::{AggregateDirectColumnAccessor, NativeNumericOwner, vortex_error};
 #[derive(Clone, Default)]
 pub(super) struct NativeNumericAccessorWork {
     pub(super) encoded_reduction: super::encoded_numeric_reduction::EncodedNumericReductionWork,
+    pub(super) utf8: Utf8AccessorWork,
     calls: u64,
     rows: u64,
     source_logical_bytes: u64,
@@ -35,6 +36,16 @@ pub(super) struct NativeNumericAccessorWork {
     elapsed_nanos: u128,
     max_array_rows: u64,
     columns: BTreeSet<String>,
+}
+
+#[derive(Clone, Default)]
+pub(super) struct Utf8AccessorWork {
+    pub calls: u64,
+    pub rows: u64,
+    pub entries: u64,
+    pub copied_bytes: u64,
+    pub provider_nanos: u128,
+    pub dictionary_nanos: u128,
 }
 
 impl NativeNumericAccessorWork {
@@ -62,6 +73,12 @@ impl NativeNumericAccessorWork {
 
     pub(super) fn add(&mut self, other: &Self) -> Result<()> {
         self.encoded_reduction.add(&other.encoded_reduction)?;
+        self.utf8.calls += other.utf8.calls;
+        self.utf8.rows += other.utf8.rows;
+        self.utf8.entries += other.utf8.entries;
+        self.utf8.copied_bytes += other.utf8.copied_bytes;
+        self.utf8.provider_nanos += other.utf8.provider_nanos;
+        self.utf8.dictionary_nanos += other.utf8.dictionary_nanos;
         for (total, increment) in [
             (&mut self.calls, other.calls),
             (&mut self.rows, other.rows),
@@ -99,6 +116,17 @@ impl NativeNumericAccessorWork {
             .as_object_mut()
             .ok_or_else(|| failed("summary is not an object"))?;
         self.encoded_reduction.annotate(object);
+        if self.utf8.calls != 0 {
+            object.insert("aggregate_utf8_chunk_accessor".into(), serde_json::json!({
+                "calls": self.utf8.calls,
+                "selected_rows": self.utf8.rows,
+                "dictionary_entries": self.utf8.entries,
+                "copied_utf8_bytes": self.utf8.copied_bytes,
+                "provider_execute_nanos": u64::try_from(self.utf8.provider_nanos).unwrap_or(u64::MAX),
+                "dictionary_build_nanos": u64::try_from(self.utf8.dictionary_nanos).unwrap_or(u64::MAX),
+                "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;selected_rows_counted_per_column;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads",
+            }));
+        }
         object.insert("aggregate_native_numeric_accessor".into(), serde_json::json!({
             "native_decode_calls": self.calls,
             "rows": self.rows,
@@ -185,6 +213,7 @@ pub(super) fn decode(
     }
     let rows = u64::try_from(array.len()).map_err(|_| failed("row count overflow"))?;
     let work = NativeNumericAccessorWork {
+        utf8: Utf8AccessorWork::default(),
         encoded_reduction: super::encoded_numeric_reduction::EncodedNumericReductionWork::default(),
         calls: 1,
         rows,

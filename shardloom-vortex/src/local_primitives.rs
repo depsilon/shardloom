@@ -49,6 +49,9 @@ mod encoded_numeric_reduction;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/exact_distinct_pairs.rs"]
 mod exact_distinct_pairs;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/filtered_string_count_tests.rs"]
+mod filtered_string_count_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_footer_aggregate.rs"]
 // Held-file proof construction is Unix-only; report validation remains shared.
@@ -72,6 +75,9 @@ pub mod prepared_aggregate;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/utf8_distinct_output.rs"]
 mod utf8_distinct_output;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/weighted_string_partial.rs"]
+mod weighted_string_partial;
 
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_aggregate_owned.rs"]
@@ -20060,6 +20066,7 @@ fn read_local_vortex_simple_aggregate_scan(
                         file,
                         session,
                         runtime,
+                        Some(resident.memory()),
                         worker_memory,
                         Some(&mut retry),
                     )
@@ -20072,7 +20079,15 @@ fn read_local_vortex_simple_aggregate_scan(
             let (mut result, drivers) =
                 prepared.with_native_execution_temporary_drivers(|file, session, runtime| {
                     read_prepared_vortex_simple_aggregate_scan(
-                        source_uri, request, policy, file, session, runtime, None, None,
+                        source_uri,
+                        request,
+                        policy,
+                        file,
+                        session,
+                        runtime,
+                        Some(resident.memory()),
+                        None,
+                        None,
                     )
                 })?;
             let mut summary: serde_json::Value = serde_json::from_str(&result.result_summary)
@@ -20092,6 +20107,7 @@ fn read_local_vortex_simple_aggregate_scan(
                 file,
                 session,
                 runtime,
+                Some(resident.memory()),
                 worker_memory,
                 None,
             )
@@ -20121,7 +20137,7 @@ fn read_local_vortex_simple_aggregate_scan(
                 ))
             })?;
         read_prepared_vortex_simple_aggregate_scan(
-            source_uri, request, policy, &file, &session, &runtime, None, None,
+            source_uri, request, policy, &file, &session, &runtime, None, None, None,
         )
     }
 }
@@ -20135,6 +20151,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
     file: &vortex::file::VortexFile,
     session: &vortex::session::VortexSession,
     runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
+    memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
 ) -> Result<LocalVortexAggregateScan> {
@@ -20147,6 +20164,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         file,
         session,
         runtime,
+        memory,
         worker_memory,
         uncached_retry,
         &lowering,
@@ -20164,6 +20182,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     file: &vortex::file::VortexFile,
     session: &vortex::session::VortexSession,
     runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
+    memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
     lowering: &aggregate_lowering::AggregateLowering,
@@ -20223,7 +20242,11 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 source_row_count,
                 aggregate,
                 request,
-                pushdown_predicate.is_none() && residual_predicate.is_none(),
+                string_count_histogram_selected_input_admitted(
+                    aggregate,
+                    pushdown_predicate.as_ref(),
+                    residual_predicate.as_ref(),
+                ),
                 policy.resource_envelope(),
             );
     let string_count_distinct_topk_heavy_hitter_enabled = nonnullable_group_keys
@@ -20285,6 +20308,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
     };
     if let Some(states) = grouped_states.as_mut() {
         states.native_execution_ctx = native_numeric_execution_ctx(session);
+        if nonnullable_group_keys && residual_free_predicate {
+            states.weighted_string_memory = memory.cloned();
+        }
     }
     let residual_evaluator = residual_predicate
         .as_ref()
@@ -20401,6 +20427,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
                         file,
                         session,
                         runtime,
+                        memory,
                         None,
                         None,
                         lowering,
@@ -21376,16 +21403,36 @@ fn aggregate_group_key_dtypes_nonnullable(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn string_count_histogram_selected_input_admitted(
+    aggregate: &VortexSimpleAggregateRequest,
+    pushdown: Option<&PredicateExpr>,
+    residual: Option<&PredicateExpr>,
+) -> bool {
+    // The native scan owns selection. A residual or another column would need a
+    // separate provenance proof; do not admit it merely because it is filterable.
+    if residual.is_some() {
+        return false;
+    }
+    let Some(predicate) = pushdown else {
+        return true;
+    };
+    let [key] = aggregate.group_by.as_slice() else {
+        return false;
+    };
+    matches!(predicate, PredicateExpr::Compare { column, value: StatValue::Utf8(_), .. } if column == key)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn string_count_topk_first_pass_exact_histogram_route_enabled(
     source_row_count: u64,
     aggregate: &VortexSimpleAggregateRequest,
     request: &VortexQueryPrimitiveRequest,
-    predicate_free: bool,
+    selected_input_admitted: bool,
     resource_envelope: VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
     const MIN_EXACT_HISTOGRAM_ROWS: u64 = 10_000_000;
     if source_row_count < MIN_EXACT_HISTOGRAM_ROWS
-        || !predicate_free
+        || !selected_input_admitted
         || resource_envelope.memory_gb < STRING_COUNT_TOPK_FIRST_PASS_EXACT_HISTOGRAM_MIN_MEMORY_GB
     {
         return false;
@@ -25203,6 +25250,7 @@ impl SimpleAggregateStates {
 #[allow(clippy::struct_excessive_bools)]
 struct GroupedAggregateStates<'a> {
     native_execution_ctx: vortex::array::ExecutionCtx,
+    weighted_string_memory: Option<shardloom_exec::live_memory::LiveMemoryPool>,
     request: &'a VortexSimpleAggregateRequest,
     result_limit: Option<usize>,
     resource_envelope: VortexLocalPrimitiveResourceEnvelope,
@@ -27387,6 +27435,16 @@ impl TransformedDictionaryDenseGeneralState {
         value: &std::sync::Arc<str>,
         weight: u64,
     ) -> Result<()> {
+        self.update_weighted_utf8_value(plan, value, weight, || std::sync::Arc::clone(value))
+    }
+
+    fn update_weighted_utf8_value(
+        &mut self,
+        plan: TransformedDictionaryDenseGeneralPlan,
+        value: &str,
+        weight: u64,
+        own: impl Fn() -> std::sync::Arc<str>,
+    ) -> Result<()> {
         if weight == 0 {
             return Ok(());
         }
@@ -27422,14 +27480,14 @@ impl TransformedDictionaryDenseGeneralState {
         }
         if plan.needs_utf8_min {
             match self.min_utf8.as_ref() {
-                Some(current) if current.as_ref() <= value.as_ref() => {}
-                Some(_) | None => self.min_utf8 = Some(std::sync::Arc::clone(value)),
+                Some(current) if current.as_ref() <= value => {}
+                Some(_) | None => self.min_utf8 = Some(own()),
             }
         }
         if plan.needs_utf8_max {
             match self.max_utf8.as_ref() {
-                Some(current) if current.as_ref() >= value.as_ref() => {}
-                Some(_) | None => self.max_utf8 = Some(std::sync::Arc::clone(value)),
+                Some(current) if current.as_ref() >= value => {}
+                Some(_) | None => self.max_utf8 = Some(own()),
             }
         }
         Ok(())
@@ -28131,6 +28189,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let compact_measure_specs = state_template.compact_group_measure_specs();
         Ok(Self {
             native_execution_ctx: native_numeric_execution_ctx(vortex::array::legacy_session()),
+            weighted_string_memory: None,
             request,
             result_limit,
             resource_envelope,
@@ -31618,6 +31677,11 @@ impl<'a> GroupedAggregateStates<'a> {
         row_indices: Option<&[usize]>,
         timing: &mut aggregate_timing::AggregateFirstPassTiming,
     ) -> Result<bool> {
+        if row_indices.is_none()
+            && self.update_owned_weighted_string_chunk(chunk, declared_columns, timing)?
+        {
+            return Ok(true);
+        }
         let started = Instant::now();
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
@@ -41904,8 +41968,11 @@ fn aggregate_column_accessor_in_context(
     if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array)? {
         return Ok((accessor, NativeNumericAccessorWork::default()));
     }
-    if let Some(accessor) = aggregate_direct_utf8_chunk_dictionary_accessor(column, array)? {
-        return Ok((accessor, NativeNumericAccessorWork::default()));
+    let mut work = NativeNumericAccessorWork::default();
+    if let Some(accessor) =
+        aggregate_direct_utf8_chunk_dictionary_accessor_profiled(column, array, &mut work.utf8)?
+    {
+        return Ok((accessor, work));
     }
     Ok((
         AggregateDirectColumnAccessor::materialized(
@@ -41970,6 +42037,19 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
     column: &str,
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
+    aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
+        column,
+        array,
+        &mut native_numeric_accessor::Utf8AccessorWork::default(),
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+    work: &mut native_numeric_accessor::Utf8AccessorWork,
+) -> Result<Option<AggregateDirectColumnAccessor>> {
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::VarBinViewArray;
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
@@ -41985,10 +42065,13 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
         AggregateUtf8DictionarySource::DecodedUtf8ChunkDictionary
     };
     let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let started = Instant::now();
     let utf8 = array
         .clone()
         .execute::<VarBinViewArray>(&mut ctx)
         .map_err(vortex_error)?;
+    work.provider_nanos += started.elapsed().as_nanos();
+    let started = Instant::now();
     let validity = utf8.varbinview_validity();
     let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let mut row_nulls = Vec::<bool>::new();
@@ -42027,12 +42110,17 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
                 )
             })?;
             let owned: std::sync::Arc<str> = std::sync::Arc::from(value);
+            work.copied_bytes += value.len() as u64;
             values.push(std::sync::Arc::clone(&owned));
             ids.insert(owned, id);
             id
         };
         row_ids.push(id);
     }
+    work.calls += 1;
+    work.rows += utf8.len() as u64;
+    work.entries += values.len() as u64;
+    work.dictionary_nanos += started.elapsed().as_nanos();
     Ok(Some(AggregateDirectColumnAccessor::Utf8Dictionary {
         row_ids,
         values,
@@ -51962,7 +52050,7 @@ mod tests {
         );
         assert_eq!(
             payload["aggregate_accessor_summary"],
-            serde_json::json!("URL:chunk_utf8_dictionary")
+            serde_json::json!("native_canonical_utf8_owned_all_key_count_partial")
         );
         let values = payload["values"].as_array().expect("grouped rows");
         assert_eq!(values.len(), 2);
@@ -59649,6 +59737,59 @@ mod tests {
             true,
             production_envelope,
         ));
+    }
+
+    #[test]
+    fn filtered_string_histogram_requires_complete_native_key_selection() {
+        let aggregate = VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("renamed_key").unwrap()],
+            vec![VortexSimpleAggregateMeasure::new("count", None, "n".into())],
+        );
+        for op in [
+            ComparisonOp::Eq,
+            ComparisonOp::NotEq,
+            ComparisonOp::Lt,
+            ComparisonOp::LtEq,
+            ComparisonOp::Gt,
+            ComparisonOp::GtEq,
+        ] {
+            let predicate = PredicateExpr::Compare {
+                column: ColumnRef::new("renamed_key").unwrap(),
+                op,
+                value: StatValue::Utf8("東京".into()),
+            };
+            assert!(string_count_histogram_selected_input_admitted(
+                &aggregate,
+                Some(&predicate),
+                None
+            ));
+            assert!(!string_count_histogram_selected_input_admitted(
+                &aggregate,
+                None,
+                Some(&predicate)
+            ));
+        }
+        for predicate in [
+            PredicateExpr::Compare {
+                column: ColumnRef::new("other").unwrap(),
+                op: ComparisonOp::NotEq,
+                value: StatValue::Utf8(String::new()),
+            },
+            PredicateExpr::Compare {
+                column: ColumnRef::new("renamed_key").unwrap(),
+                op: ComparisonOp::NotEq,
+                value: StatValue::Null,
+            },
+            PredicateExpr::IsNull {
+                column: ColumnRef::new("renamed_key").unwrap(),
+            },
+        ] {
+            assert!(!string_count_histogram_selected_input_admitted(
+                &aggregate,
+                Some(&predicate),
+                None
+            ));
+        }
     }
 
     #[test]

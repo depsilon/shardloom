@@ -29,6 +29,7 @@ use vortex::{
 #[derive(Clone, Copy)]
 enum KeyKind {
     Utf8,
+    I32,
     I64,
     U64,
 }
@@ -45,6 +46,7 @@ enum Partial {
     Partitioned(PartitionReceipt),
     RetryString(ArrayRef),
     Selected(PartitionSelection),
+    Signed32(OwnedNumericCounts<i32>, NumericWork),
     Signed(OwnedNumericCounts<i64>, NumericWork),
     Unsigned(OwnedNumericCounts<u64>, NumericWork),
 }
@@ -184,10 +186,28 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
         .iter()
         .map(|column| column.as_str().to_owned())
         .collect::<Vec<_>>();
-    matches!(aggregate.group_by.len(), 1 | 2)
+    let ordinary = matches!(aggregate.group_by.len(), 1 | 2)
         && super::aggregate_group_expressions_are_reconstructable_constants(aggregate)
         && super::SimpleAggregateStates::new(aggregate, &columns)
-            .is_ok_and(|states| states.is_count_star_only())
+            .is_ok_and(|states| states.is_count_star_only());
+    if ordinary {
+        return true;
+    }
+    // The request precheck must not discard the physical-key proof before
+    // schema admission. Construct the same lowering state, without any source
+    // access or worker allocation. Actual admission still checks native dtype.
+    let Ok(envelope) = super::VortexLocalPrimitiveResourceEnvelope::new(1, 1) else {
+        return false;
+    };
+    GroupedAggregateStates::new_with_resource_envelope(
+        aggregate,
+        request.source_order_limit,
+        &columns,
+        false,
+        false,
+        envelope,
+    )
+    .is_ok_and(|states| numeric_state_admitted(&states))
 }
 
 /// Multi-role shapes must restore provider CPU drivers when their original
@@ -233,6 +253,7 @@ pub(super) struct SingleCountWorkers {
     dictionary_chunks: u64,
     dictionary_values: u64,
     constant_chunks: u64,
+    numeric_dictionary_bypass: bool,
     peak_partial_bytes: u64,
     max_parallelism: usize,
 }
@@ -299,15 +320,15 @@ impl SingleCountWorkers {
             {
                 KeyKind::Utf8
             }
-            DType::Primitive(ptype @ (PType::I64 | PType::U64), Nullability::NonNullable)
-                if numeric_state_admitted(states) =>
-            {
-                if ptype == PType::I64 {
-                    KeyKind::I64
-                } else {
-                    KeyKind::U64
-                }
-            }
+            DType::Primitive(
+                ptype @ (PType::I32 | PType::I64 | PType::U64),
+                Nullability::NonNullable,
+            ) if numeric_state_admitted(states) => match ptype {
+                PType::I32 => KeyKind::I32,
+                PType::I64 => KeyKind::I64,
+                PType::U64 => KeyKind::U64,
+                _ => unreachable!("admitted integer dtype"),
+            },
             _ => return Ok(None),
         };
         let max_parallelism = policy
@@ -403,6 +424,7 @@ impl SingleCountWorkers {
             dictionary_chunks: 0,
             dictionary_values: 0,
             constant_chunks: 0,
+            numeric_dictionary_bypass: false,
             peak_partial_bytes: 0,
             max_parallelism,
         }))
@@ -443,17 +465,20 @@ impl SingleCountWorkers {
         let array = super::logical_field_from_native_array(chunk, &self.column)?;
         if !matches!(self.kind, KeyKind::Utf8) && array.as_opt::<Dict>().is_some() {
             self.drain(states)?;
+            self.numeric_dictionary_bypass = true;
             return Ok(false);
         }
+        let numeric_rows = if array.as_opt::<Constant>().is_some() {
+            usize::from(!array.is_empty())
+        } else {
+            array.len()
+        };
         let partial_bytes = match self.kind {
             KeyKind::Utf8 => string_count_partial::partial_bytes(&array)?,
-            KeyKind::I64 | KeyKind::U64 => numeric_count_partial::partial_bytes::<u64>(
-                if array.as_opt::<Constant>().is_some() {
-                    usize::from(!array.is_empty())
-                } else {
-                    array.len()
-                },
-            )?,
+            KeyKind::I32 => numeric_count_partial::partial_bytes::<i32>(numeric_rows)?,
+            KeyKind::I64 | KeyKind::U64 => {
+                numeric_count_partial::partial_bytes::<u64>(numeric_rows)?
+            }
         };
         let deferred_metadata = if self.partitions.is_some() {
             StringCountPartial::deferred_metadata_bytes()
@@ -588,6 +613,26 @@ impl SingleCountWorkers {
                         partial.work.rows,
                         partial.work.partial_entries,
                         partial.work.partial_capacity_bytes,
+                    )
+                }
+                Partial::Signed32(partial, work) => {
+                    merge_numeric(
+                        states,
+                        partial.pairs().iter().map(|&(key, count)| {
+                            (
+                                AggregateSingleNumericKey {
+                                    bits: u64::from_ne_bytes(i64::from(key).to_ne_bytes()),
+                                    signed: true,
+                                },
+                                count,
+                            )
+                        }),
+                    )?;
+                    self.observe_numeric(work);
+                    (
+                        partial.rows(),
+                        partial.pairs().len() as u64,
+                        partial.reserved_bytes(),
                     )
                 }
                 Partial::Signed(partial, work) => {
@@ -738,6 +783,14 @@ impl SingleCountWorkers {
     /// drains: only EOF makes partition-local top-K safe.
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         self.drain(states)?;
+        if self.numeric_dictionary_bypass && states.group_columns.len() > 1 {
+            // Dictionary chunks deliberately retain their established native
+            // path. Validate every observed physical key before result pruning,
+            // including keys contributed by that non-worker path.
+            for key in states.groups.keys() {
+                validate_numeric_group_reconstruction(states, key)?;
+            }
+        }
         if self
             .partitions
             .as_ref()
@@ -1043,16 +1096,35 @@ fn numeric_state_admitted(states: &GroupedAggregateStates<'_>) -> bool {
             .state_template
             .count_star_alias()
             .is_ok_and(|count_alias| count_alias == alias)
-        && states.group_columns.len() == 1
-        && states.groups.is_empty()
+        && states.group_key_indices.len() == 1
+        && states.can_reconstruct_count_star_group_values_from_key()
+        && (states.group_columns.len() > 1 || states.groups.is_empty())
+        && (states.group_columns.len() == 1 || states.single_numeric_count_groups.is_none())
         && states.group_order.is_empty()
         && states.numeric_pair_compact_groups.is_none()
         && states.numeric_pair_late_measure_count_groups.is_none()
         && states.numeric_minute_string_count_groups.is_none()
-        && states.group_columns.iter().all(|column| {
-            column.extra_column_indices.is_empty()
-                && matches!(column.transform, AggregateValueTransform::Identity)
+        && states.group_key_indices.iter().all(|index| {
+            states.group_columns.get(*index).is_some_and(|column| {
+                column.extra_column_indices.is_empty()
+                    && matches!(column.transform, AggregateValueTransform::Identity)
+            })
         })
+}
+
+fn validate_numeric_group_reconstruction(
+    states: &GroupedAggregateStates<'_>,
+    key: &super::AggregateGroupKey,
+) -> Result<()> {
+    // These transforms depend only on the complete physical key. Checking one
+    // weighted key therefore preserves errors without repeating work per row,
+    // and cannot hide overflow in a group that loses top-K selection.
+    for index in 0..states.group_columns.len() {
+        if states.key_position_for_group_index(index).is_none() {
+            states.reconstruct_group_value_from_key(key, index)?;
+        }
+    }
+    Ok(())
 }
 
 fn merge_numeric(
@@ -1063,6 +1135,33 @@ fn merge_numeric(
         return Err(failed(
             "numeric global state lost its admitted count contract",
         ));
+    }
+    if states.group_columns.len() > 1 {
+        // The existing generic COUNT renderer reconstructs all dependent output
+        // columns and preserves its complete tie comparator. The single-numeric
+        // renderer intentionally emits only an identity key and is not reused.
+        super::reserve_hash_map_capacity(
+            &mut states.groups,
+            pairs.len(),
+            "worker physical-key exact global count",
+        )?;
+        for (key, weight) in pairs {
+            if weight == 0 {
+                return Err(failed("numeric partial contains zero weight"));
+            }
+            let key = key.aggregate_group_key();
+            validate_numeric_group_reconstruction(states, &key)?;
+            states
+                .groups
+                .entry(key)
+                .or_insert_with(|| super::GroupedAggregateState::new_compact_count_star(None))
+                .increment_count_star_by(weight)?;
+        }
+        states.count_star_direct_updates = true;
+        states
+            .aggregate_accessor_summary
+            .insert("native_integer_owned_all_key_count_partial".into());
+        return Ok(());
     }
     let groups = states.single_numeric_count_groups.get_or_insert_default();
     super::reserve_hash_map_capacity(groups, pairs.len(), "worker numeric exact global count")?;
@@ -1083,6 +1182,7 @@ fn merge_numeric(
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
 fn count_numeric_chunk(
     array: &ArrayRef,
     session: &VortexSession,
@@ -1092,6 +1192,7 @@ fn count_numeric_chunk(
 ) -> Result<Partial> {
     worker.check_cancelled()?;
     let ptype = match kind {
+        KeyKind::I32 => PType::I32,
         KeyKind::I64 => PType::I64,
         KeyKind::U64 => PType::U64,
         KeyKind::Utf8 => return Err(failed("string job entered numeric worker")),
@@ -1136,6 +1237,21 @@ fn count_numeric_chunk(
         ..NumericWork::default()
     };
     match kind {
+        KeyKind::I32 => {
+            let slice = values.as_slice::<i32>();
+            let counts = if native_constant && rows > 0 {
+                numeric_count_partial::count_numeric_constant(
+                    *slice.first().ok_or_else(|| failed("empty constant"))?,
+                    rows,
+                    worker,
+                    lease,
+                )?
+            } else {
+                numeric_count_partial::count_numeric_values(slice, worker, lease)?
+            };
+            work.count_nanos = started.elapsed().as_nanos();
+            Ok(Partial::Signed32(counts, work))
+        }
         KeyKind::I64 => {
             let slice = values.as_slice::<i64>();
             let counts = if native_constant && rows > 0 {
@@ -1179,3 +1295,7 @@ fn failed(message: &str) -> ShardLoomError {
 #[cfg(test)]
 #[path = "aggregate_count_workers_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "aggregate_count_physical_key_tests.rs"]
+mod physical_key_tests;

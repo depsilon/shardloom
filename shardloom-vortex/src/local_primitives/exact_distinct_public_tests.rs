@@ -252,6 +252,7 @@ fn exact_distinct_finalized_counts_fail_retained_source_generation_validation() 
                 session,
                 runtime,
                 Some(resident.memory()),
+                Some(resident.memory()),
                 None,
             )?;
             let values: serde_json::Value = serde_json::from_str(&result.result_summary).unwrap();
