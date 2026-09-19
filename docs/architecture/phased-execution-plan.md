@@ -293,10 +293,19 @@ now passes the speed gate: 9.501540 s control versus 6.102660 s candidate, using
 each role's fastest valid complete run. All six complete outputs match, and all
 three candidate runs prove the new route. Fastest-run peak RSS increases 13.3%;
 no memory win is claimed. Broad regression gates and all 129 Full43 calls pass;
-open E's PR and advance to Q33. This retains the existing one-second saving gate or
-separate 30% RSS reduction gate with nonregressing complete time. Q33 (F),
-duplicate ingest traversals (G), serving queues (H) and result delivery (I) follow
-in that order, each conditional on its own attribution and ship/drop gate. After
+E merged in PR #1447 as `2be959bf`.
+
+Candidate F's [exact numeric-pair reduction](q33-exact-partition-reduction-2026-09-19.md)
+passes both gates: fastest valid complete Q33 calls are 5.536625 s control versus
+1.800403 s candidate, saving 3.736222 s (67.5%), with 32.1% lower peak RSS for
+those calls. All six paired outputs and all 129 Full43 calls match complete
+references; only Q33 activates the new family in Full43. Three native-file
+lifecycle tests and 12 focused semantic tests pass. Broad regression checks pass;
+open F's cohesive PR before advancing to G. The observed Full43 best sum is 82.196766 s; it is
+unpaired and does not establish an overall suite speedup.
+
+Duplicate ingest traversals (G), serving queues (H) and result delivery (I) follow
+F in that order, each conditional on its own attribution and ship/drop gate. After
 each successful set, open its PR before advancing; record failed screens as drops.
 Broad capability completion and parked experiments
 remain paused. Scoped retention does not close whole PERF/CG gates or any of the

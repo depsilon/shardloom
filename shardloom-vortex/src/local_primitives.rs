@@ -69,6 +69,14 @@ mod native_numeric_accessor;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_owner.rs"]
 mod native_numeric_owner;
+#[cfg(all(
+    test,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    unix
+))]
+#[path = "local_primitive_pair_partition_native_tests.rs"]
+mod pair_partition_native_tests;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/pair_partition_tests.rs"]
 mod pair_partition_tests;

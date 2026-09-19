@@ -21,6 +21,7 @@ fn request(offset: usize) -> VortexSimpleAggregateRequest {
     .with_order_by(vec![VortexAggregateOrderExpr::new(COUNT, true)])
     .with_offset(offset)
 }
+#[cfg(all(feature = "vortex-write", unix))]
 fn query(path: &std::path::Path, offset: usize, limit: usize) -> VortexQueryPrimitiveRequest {
     VortexQueryPrimitiveRequest::simple_aggregate(
         DatasetUri::new(path.display().to_string()).unwrap(),
