@@ -175,7 +175,7 @@ ShardLoom is a technical-preview compute engine with a globally reusable local V
 admitted operations. It does not claim broad pandas/Polars/DataFrame parity, broad ANSI SQL
 compliance, production object-store or lakehouse support, production Foundry support, Spark
 replacement, or public performance superiority.
-`production_claim_allowed` must remain false unless a later production gate authorizes the specific workload.
+`production_claim_allowed`: Must remain false unless a later production gate authorizes the specific workload.
 
 Use these canonical references instead of reading support claims out of README prose:
 
