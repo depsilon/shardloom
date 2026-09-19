@@ -217,6 +217,12 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         self.cancellation.cancel();
     }
 
+    pub(super) fn check_cancelled(&self) -> Result<()> {
+        self.cancellation
+            .check()
+            .map_err(|error| self.failure_or(error))
+    }
+
     /// Join and release the CPU owners before another native stage takes their
     /// grant. A successful drain must not cancel the shared operation flag.
     #[cfg(all(feature = "vortex-write", unix))]

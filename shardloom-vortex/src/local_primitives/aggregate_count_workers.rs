@@ -55,6 +55,7 @@ enum Partial {
 // an additional heap owner just to make the two private variants equally sized.
 #[allow(clippy::large_enum_variant)]
 pub(super) enum CountWorkers {
+    Triple(super::triple_count_workers::TripleWorkers),
     Single(SingleCountWorkers),
     Compound(super::compound_count_workers::CompoundWorkers),
     ExactDistinct(super::exact_distinct_pairs::workers::ExactDistinctWorkers),
@@ -78,6 +79,11 @@ impl CountWorkers {
                     .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)
                     .expect("one-shot pressure reserves only currently available query credit")
             });
+        if let Some(workers) = super::triple_count_workers::TripleWorkers::admit(
+            states, dtype, columns, policy, memory,
+        )? {
+            return Ok(Some(Self::Triple(workers)));
+        }
         if let Some(workers) = super::exact_distinct_pairs::workers::ExactDistinctWorkers::admit(
             states, dtype, columns, policy, session, memory,
         )? {
@@ -93,6 +99,7 @@ impl CountWorkers {
     }
     pub(super) fn before_next(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         match self {
+            Self::Triple(workers) => workers.before_next(),
             Self::Single(workers) => workers.before_next(states),
             Self::Compound(workers) => workers.before_next(states),
             Self::ExactDistinct(workers) => workers.before_next(states),
@@ -104,6 +111,7 @@ impl CountWorkers {
         states: &mut GroupedAggregateStates<'_>,
     ) -> Result<bool> {
         match self {
+            Self::Triple(workers) => workers.submit(chunk, states),
             Self::Single(workers) => workers.submit(chunk, states),
             Self::Compound(workers) => workers.submit(chunk, states),
             Self::ExactDistinct(workers) => workers.submit(chunk, states),
@@ -111,6 +119,7 @@ impl CountWorkers {
     }
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         match self {
+            Self::Triple(workers) => workers.finish(states),
             Self::Single(workers) => workers.finish(states),
             Self::Compound(workers) => workers.finish(states),
             Self::ExactDistinct(workers) => {
@@ -122,6 +131,7 @@ impl CountWorkers {
     }
     pub(super) fn annotate_summary(&self, summary: &mut String) -> Result<()> {
         match self {
+            Self::Triple(workers) => workers.annotate_summary(summary),
             Self::Single(workers) => workers.annotate_summary(summary),
             Self::Compound(workers) => workers.annotate_summary(summary),
             Self::ExactDistinct(workers) => workers.annotate_summary(summary),
@@ -129,6 +139,9 @@ impl CountWorkers {
     }
     pub(super) fn has_active_partitions(&self) -> bool {
         match self {
+            // Triple state has no certified bounded serial/spill destination.
+            // It must fail and release owners on source pressure, never replay.
+            Self::Triple(_) => false,
             Self::Single(workers) => workers.has_active_partitions(),
             Self::Compound(workers) => workers.has_active_partitions(),
             Self::ExactDistinct(workers) => workers.has_active_partitions(),
@@ -136,6 +149,7 @@ impl CountWorkers {
     }
     pub(super) fn cancel_for_source_replay(&self) {
         match self {
+            Self::Triple(workers) => workers.cancel(),
             Self::Single(workers) => workers.cancel_for_source_replay(),
             Self::Compound(workers) => workers.cancel_for_source_replay(),
             Self::ExactDistinct(workers) => workers.cancel_for_source_replay(),
@@ -150,6 +164,7 @@ impl CountWorkers {
         use vortex::array::memory::HostAllocator as _;
 
         let committed = match self {
+            Self::Triple(workers) => workers.has_committed_groups(),
             Self::Single(workers) => return workers.inject_scan_fault_for_test(memory, chunks),
             Self::Compound(workers) => workers.has_committed_groups(),
             Self::ExactDistinct(workers) => workers.has_committed_groups(),
@@ -175,6 +190,9 @@ impl CountWorkers {
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
 pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    if super::triple_count_workers::request_may_be_admitted(request) {
+        return true;
+    }
     if super::exact_distinct_pairs::workers::request_may_be_admitted(request) {
         return true;
     }
@@ -216,6 +234,9 @@ pub(super) fn restore_provider_drivers(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
 ) -> bool {
+    if super::triple_count_workers::request_may_be_admitted(request) {
+        return !super::triple_count_workers::request_schema_may_be_admitted(request, dtype);
+    }
     if super::exact_distinct_pairs::workers::request_may_be_admitted(request) {
         return !super::exact_distinct_pairs::workers::request_schema_may_be_admitted(
             request, dtype,

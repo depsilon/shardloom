@@ -72,6 +72,12 @@ mod native_numeric_owner;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/triple_count_tests.rs"]
+mod triple_count_tests;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/triple_count_workers.rs"]
+mod triple_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/utf8_distinct_output.rs"]
 mod utf8_distinct_output;
@@ -25324,6 +25330,7 @@ struct GroupedAggregateStates<'a> {
     group_order: Vec<AggregateGroupKey>,
     string_interner: AggregateStringInterner,
     complete_key_partition_group_count: Option<usize>,
+    complete_key_selected_lease: Option<shardloom_exec::live_memory::MemoryLease>,
     transformed_dictionary_dense_general_groups:
         Option<rustc_hash::FxHashMap<u64, TransformedDictionaryDenseGeneralState>>,
     transformed_dictionary_dense_general_plan: Option<TransformedDictionaryDenseGeneralPlan>,
@@ -28243,6 +28250,7 @@ impl<'a> GroupedAggregateStates<'a> {
             group_order: Vec::new(),
             string_interner: AggregateStringInterner::default(),
             complete_key_partition_group_count: None,
+            complete_key_selected_lease: None,
             transformed_dictionary_dense_general_groups: None,
             transformed_dictionary_dense_general_plan: None,
             count_star_direct_updates: false,
@@ -36027,7 +36035,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "topk_retention_strategy": "cached_worst_numeric_minute_string_retained_window",
             "numeric_minute_string_direct_slice_updates": self.numeric_minute_string_direct_slice_updates,
             "numeric_minute_string_direct_slice_update_rows": self.numeric_minute_string_direct_slice_update_rows,
-            "candidate_groups": groups.len(),
+            "candidate_groups": self.complete_key_partition_group_count.unwrap_or(groups.len()),
             "retained_candidate_groups": retained_cap.min(groups.len()),
             "evicted_or_spilled_group_count": 0,
             "compact_group_state_strategy": self.compact_group_state_strategy(),
