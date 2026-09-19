@@ -127,3 +127,10 @@ work with a credible saving of at least one second on this query, then screen
 complete results and memory/storage costs before broader acceptance. Renamed
 schemas, Unicode/NULL/empty values, exact MIN/order and floating accumulation
 semantics must remain unchanged. No new query run or speedup is claimed here.
+
+The subsequent [domain-transfer research](performance-domain-transfer-2026-09-19.md)
+extracts existing first-run counters and audits the retained source. It identifies
+accessor construction as the largest recorded Q29 first-pass span and proposes
+reusing owned string-count partials before another transform-only experiment.
+That span still needs internal attribution; it is not exclusive CPU time or a
+measurement of the hardening binary. The research leaves this decision gate open.

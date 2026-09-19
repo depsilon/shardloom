@@ -9,7 +9,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Patent Pending](https://img.shields.io/badge/patent--pending-designs-7c3aed)](#what-makes-shardloom-different)
 
-ShardLoom is a Vortex-first local compute engine foundation. Its public Python, SQL, and CLI front
+ShardLoom is a local encoded-columnar compute engine built around Vortex. Its public Python, SQL, and CLI front
 doors lower admitted work into ShardLoom-native and Vortex-native routes, emit machine-readable
 evidence about what ran, and fail closed instead of using hidden pandas, Polars, DuckDB,
 DataFusion, Spark, or other execution fallback.
@@ -22,100 +22,79 @@ ShardLoom is not an official Vortex project and is not Vortex-endorsed.
 
 ## What Makes ShardLoom Different
 
-ShardLoom's differentiators are execution and evidence contracts around Vortex-native data, not
-blanket performance claims:
+ShardLoom brings compressed execution, reusable local sessions, owned native results, and
+inspectable resource decisions into one Vortex-native workflow. The capabilities below apply to
+admitted local routes; their linked evidence defines the supported shapes and remaining limits.
 
-- **Vortex-native middle, no hidden fallback**: public compatibility workflows normalize into an
-  admitted Vortex route or fail closed, native Vortex inputs stay native, and non-admitted plans
-  emit deterministic diagnostics instead of running through Spark, DataFusion, DuckDB, Polars,
-  pandas, or another engine.
-  - Compatibility inputs are source adapters, not alternate execution engines.
-  - Native/prepared Vortex routes report their route ID, feature gate, and runtime mode.
-  - Direct local diagnostic paths stay internal safeguards and cannot masquerade as product
-    runtime.
-- **Evidence-certified routes**: every public workflow is expected to expose what actually ran:
-  source admission, Vortex preparation, execution mode, output planning, certificate state,
-  fallback/external-engine status, and claim posture.
-  - `SourceState` records the admitted input boundary.
-  - `VortexPreparedState` records the native prepared middle.
-  - Route certificates connect execution evidence to output artifacts and claim gates.
-  - A successful result and an unsupported diagnostic are different explicit outcomes; neither
-    authorizes an external engine to finish the work. The route's evidence explains that boundary.
-- **PulseWeave**: ShardLoom's route-control vocabulary for bounded local work shaping.
-  - `FlowInventory` tracks in-flight source, execution, and writer work.
-  - `ScarcityLedger` records memory, decode, sink, and pressure signals.
-  - `EndoPulse` applies run-local feedback without delegating to another engine.
-  - `ProofBound` blocks adaptive behavior until the route has certificate evidence.
-- **Capillary work units**: ingest, preparation, execution, and output work can be split into small
-  typed units instead of opaque tasks.
-  - Each unit carries source range, projection/filter mask, and target artifact references.
-  - Each unit records materialization posture, retry/idempotency state, sink pressure, memory
-    pressure, and no-fallback evidence.
-  - Universal Ingest carries source-native units such as Parquet row groups or Arrow IPC batches
-    into `SourceState` split evidence before Vortex preparation.
-  - Units can be coalesced, split, retried, reused, or audited without hiding execution
-    boundaries.
-  - Native aggregates and bounded top-K routes use capillary retained windows; large bounded
-    top-N payload projections keep row references/order keys in the candidate loop and materialize
-    only the final retained rows from the single `.vortex` artifact.
-- **Dynamic work shaping**: metadata, workload shape, route evidence, and measured feedback guide
-  how ShardLoom sizes work.
-  - Small units can be coalesced when scheduling overhead dominates.
-  - Large units can be split when memory, decode, sink, or source pressure requires it.
-  - Product columnar preparation uses a larger streaming batch policy than internal smoke readers;
-    Parquet preparation can coalesce row groups into bounded parallel capillary tasks when
-    `max_parallelism` is greater than one, while preserving deterministic evidence for
-    source-unit hints and dictionary handoff posture. Large-source UAT currently uses adaptive
-    stream shaping to reduce Vortex segment churn; writer-profile timing remains an explicit tuning
-    surface, not a hidden claim.
-  - Hard proof lanes remain separate from fast lanes so CI, benchmarks, and release gates stay
-    evidence-preserving.
-- **Metadata-first, late-materialized execution**: ShardLoom tries to answer from metadata, prune
-  segments, compute over encoded Vortex data, decode only what is needed, and materialize at
-  explicit output boundaries.
-  - Metadata and statistics checks run before row reads where the route supports them.
-  - Segment pruning and encoded kernels are preferred before decode.
-  - Prepared `.vortex` artifacts carry the active single-artifact OLAP posture: writer/layout
-    policy, row-block sizing, footer statistics, segment-map membership, layout encoding inventory,
-    dictionary/domain status, row-position locality, and layout-reader cache evidence are reported
-    from the artifact instead of a query sidecar.
-  - Universal Ingest persists reusable derived intelligence inside the same `.vortex` file. The
-    preferred shape is compact source-native or dictionary/code-derived metadata for URL/domain,
-    string length, date/time buckets, segment membership, and row-position locality; physical hidden
-    columns are used only when an admitted adapter can build them in the existing pass without
-    adding an expensive per-row preprocessing step. Large columnar ingest uses a lean runtime profile
-    first, retaining high-value URL, Referer, SearchPhrase, and EventTime helpers before broader
-    candidate metadata. Writer compression is selected from the admitted source schema, so real
-    source UTF-8 and dictionary-UTF8 payload columns can pay text-compression cost; generated hidden
-    helpers and numeric columns stay on typed layout paths. Native SQL/DataFrame-style routes consume this
-    embedded structure automatically when present while keeping implementation fields out of normal
-    `select *` output.
-  - Scalar and grouped OLAP routes use typed/dictionary state where available before row export:
-    direct scalar `count`/`sum`/`avg`/`min`/`max`, exact scalar distinct over used dictionary codes,
-    repeated numeric SUM/AVG expression fusion, compact grouped count/sum/avg, URL-domain/length
-    grouping over chunk dictionary IDs, and chunk-local exact partial maps for materialized UTF-8
-    when the current Vortex layout does not expose dictionary codes.
-  - Runtime evidence separates true Vortex dictionary accessors, chunk-local UTF-8 dictionaries,
-    primitive direct accessors, and materialized accessors so slow routes can be improved from the
-    actual consumed layout instead of route labels alone.
-  - Collect and compatibility writes report bounded decode/materialization evidence.
-- **Reusable preparation, distinct from result caching**: prepared native routes can reuse source
-  identity, layout metadata, and embedded helpers while computing the requested result.
-  - Reusing preparation is not the same as returning a cached query answer. Benchmark evidence
-    must declare which lifecycle and reuse policy it measures.
-  - The durable `.vortex` artifact keeps reusable structure with its data; a compatibility export
-    remains an explicit output boundary with its own fidelity report.
-- **Timing-surface discipline**: hot runtime, replay proof, and publication proof are separated so
-  proof-heavy evidence work does not silently become a query-runtime claim.
-  - `hot_runtime` covers the query/runtime lane.
-  - `full_replay_proof` covers replayable machine proof.
-  - `publication_proof` covers result-sink and human evidence rendering work.
-  - Runtime-only timing is not end-to-end completion. Replay and publication surfaces include
-    their declared proof/output work; no duration should be compared without its boundary.
-- **Patent-pending design notice**: PulseWeave, capillary work units, dynamic work shaping, and
-  related route/evidence/certificate machinery include patent-pending design elements. ShardLoom
-  remains distributed under Apache-2.0; this notice is informational, preserves attribution, and
-  deters bad-faith copying without expanding the technical-preview support claim.
+- **One native execution contract across Python, SQL, and CLI.** Compatibility inputs enter through
+  source adapters and Vortex preparation; native Vortex inputs stay native. Unsupported plans
+  return deterministic diagnostics with no hidden external-engine execution. `SourceState` and
+  `VortexPreparedState` make the input and preparation boundaries inspectable.
+  See the [front-door contract](docs/architecture/v1-front-door-runtime-scope.md).
+- **Avoid data work before adding compute.** Supported routes answer from exact metadata, prune
+  segments, consume encoded values, and defer payload materialization until the result needs it.
+  Constant and run-end numeric reductions can work on values and repetition counts; bounded
+  top-N projections retain row references and order keys before fetching final payloads.
+  Runtime evidence distinguishes native dictionary access, dictionaries built from decoded UTF-8,
+  typed numeric decode, and materialized access. See the
+  [encoded numeric consumers](docs/architecture/perf-encoded-numeric-reductions-2026-09-06.md) and
+  [runtime scope](docs/architecture/v1-vortex-runtime-scope.md).
+- **Exact aggregation that uses repetition and delays expensive measures.** Admitted kernels
+  aggregate dictionary codes and weighted values, fuse repeated numeric SUM/AVG expressions,
+  and preserve exact DISTINCT and complete grouping-key equality. Selected grouped top-K routes
+  identify candidates before exact recount or late measure evaluation; ordering, ties, NULLs,
+  and floating accumulation retain their route's declared semantics. These mechanisms already
+  exist—the [performance plan](docs/architecture/phased-execution-plan.md) records both retained
+  implementations and experiments that did not earn retention.
+- **Reusable structure stays with the data.** Prepared local OLAP workflows use a single `.vortex`
+  artifact containing data, native layouts, statistics, and admitted derived metadata. Consumers
+  can reuse embedded string-length or time-bucket helpers without exposing implementation fields
+  in ordinary `select *` output. Vortex remains the highest-fidelity persistence target;
+  compatibility export reports its own fidelity and materialization boundary.
+  See the [source/prepared-state scope](docs/architecture/v1-source-prepared-state-scope.md).
+- **Prepare once; execute each call with fresh state.** Resident sessions retain source handles,
+  generation identity, and prepared lowering for supported operations. Python contexts can reuse
+  a local worker to avoid per-call process startup. Prepared integer MIN/MAX/AVG joins the retained
+  aggregate families; repeated calls compute their results again. Source-generation checks reject
+  detected replacement or mutation. See the
+  [prepared execution evidence](docs/benchmarks/native-completion-boundaries-2026-09-12.md).
+- **Results remain executable native data.** Admitted source and computed aggregate results own
+  Vortex arrays, validity, and memory credits. Supported owned COUNT and grouped DISTINCT results
+  can reach native Vortex, Arrow IPC, or Parquet sinks without a row/JSON reconstruction roundtrip;
+  owned payloads can outlive the input source. See the
+  [result ownership contract](docs/reference/resident-native-results.md) and
+  [local sink scope](docs/architecture/v1-local-output-sink-scope.md).
+- **Resource ownership follows the work.** Shared workers, bounded queues, reservations, and
+  cancellation cleanup govern admitted native operations. The non-null UTF8 COUNT worker path
+  can transfer committed state into native temporary runs under memory pressure. Spill support
+  remains operator-specific, and reservations do not cover every provider allocation or establish
+  a process RSS ceiling. See the [resource contract](docs/rfcs/0044-resident-runtime-resource-ownership.md)
+  and [implemented spill boundary](docs/benchmarks/native-completion-boundaries-2026-09-12.md).
+- **PulseWeave and capillary work units make control decisions inspectable.** Typed units carry
+  source ranges, projection/filter and artifact references, ownership, and execution evidence.
+  PulseWeave combines `FlowInventory`, `ScarcityLedger`, `EndoPulse`, and `ProofBound` to describe
+  bounded work, pressure, feedback, and permission to apply a policy. Dynamic work shaping is
+  scoped to admitted preparation and native batch routes; a policy report alone does not prove
+  that execution changed. Broader topology/coalescing experiments remain parked after regressions.
+  See the [control model](docs/architecture/pulseweave-runtime-control.md) and
+  [current execution priorities](docs/architecture/phased-execution-plan.md#planned).
+- **Evidence that developers and agents can inspect.** Route certificates connect source
+  admission, provider/feature selection, execution, and output artifacts. Structured diagnostics
+  explain unsupported work and expose `fallback_attempted=false` and
+  `external_engine_invoked=false`. The
+  [user-surface index](docs/reference/shardloom-user-surface-index.md) provides a shared entry point
+  for humans and automation. `hot_runtime`, `full_replay_proof`, and `publication_proof` name
+  separate timing surfaces; benchmarks must also state whether startup, transport, and complete
+  output are included.
+
+These are technical-preview capabilities and design contracts, not a claim of performance
+superiority or complete production support. Consult the
+[public support matrix](docs/release/public-status-matrix.md) for release scope and the
+[canonical terminology](docs/architecture/canonical-terminology.md) for deeper definitions.
+
+**Patent-pending design notice:** PulseWeave, capillary work units, dynamic work shaping, and
+related route/evidence/certificate machinery include patent-pending design elements. ShardLoom
+remains distributed under Apache-2.0; this informational notice does not expand its support claims.
 
 ## Quick Start
 
@@ -195,7 +174,7 @@ ShardLoom is a technical-preview compute engine with a globally reusable local V
 admitted operations. It does not claim broad pandas/Polars/DataFrame parity, broad ANSI SQL
 compliance, production object-store or lakehouse support, production Foundry support, Spark
 replacement, or public performance superiority.
-`production_claim_allowed` Must remain false unless a later production gate authorizes the specific workload.
+`production_claim_allowed` must remain false unless a later production gate authorizes the specific workload.
 
 Use these canonical references instead of reading support claims out of README prose:
 
@@ -263,6 +242,10 @@ and claim gates must be read together.
 - ClickBench coverage map: [benchmarks/clickbench/README.md](benchmarks/clickbench/README.md)
 - ClickBench 100M local UAT burndown:
   [docs/benchmarks/clickbench-100m-uat-burndown.json](docs/benchmarks/clickbench-100m-uat-burndown.json)
+- Source-bound local correctness and timing evidence:
+  [combined performance UAT](docs/benchmarks/combined-performance-uat-2026-09-12.md)
+- Current profiling hypotheses and material ship/drop gates:
+  [performance research](docs/architecture/performance-domain-transfer-2026-09-19.md)
 
 Check ClickBench OLAP route coverage locally:
 

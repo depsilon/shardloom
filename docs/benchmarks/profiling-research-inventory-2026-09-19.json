@@ -1,0 +1,1000 @@
+{
+  "schema_version": "shardloom.profiling_research_inventory.v1",
+  "status": "historical_evidence_extraction_not_new_benchmark",
+  "analysis_date": "2026-09-19",
+  "source_build_commit": "4f2c7b97007864d0396b10bdc5dc2bbfef52df38",
+  "source_binary_sha256": "3af1c45d90b6466a0af26ee205cfff4219bffce61880b444bfd30b28a5f6feeb",
+  "summary_sha256": "caf2d8cfd1760db20f6438814e802941421033a1a93ad73f5069ac96767d281b",
+  "summary_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260913T000635689641Z/summary.json",
+  "queries_sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+  "current_inspected_source": "b254bbcec08ead7334bfbdade933440350f55ed9",
+  "timing_boundary": "native process creation through completed public CLI output and process exit",
+  "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
+  "max_parallelism": 12,
+  "memory_gb": 24,
+  "query_best_sum_seconds": 91.82594003793201,
+  "runs_passed": 129,
+  "attribution_limit": "First-run stage counters are elapsed instrumentation spans, not exclusive CPU attribution. Missing counters are omitted, not zero. Best-of-three time and max RSS may come from different runs. Historical records do not measure the current hardening source.",
+  "queries": [
+    {
+      "query": 1,
+      "sql": "SELECT COUNT(*) FROM hits",
+      "native_process_seconds": [
+        0.024999457993544638,
+        0.019304374989587814,
+        0.01943333300005179
+      ],
+      "best_seconds": 0.019304374989587814,
+      "max_native_peak_rss_bytes": 54919168,
+      "first_run_envelope": "q01_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "4799ebd5f75800aab802d4d921d3d8e4ee5cde9669ec115b30e9183c9b5a5ace",
+      "first_run_counters": {}
+    },
+    {
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0",
+      "native_process_seconds": [
+        0.07349654199788347,
+        0.0696269170002779,
+        0.06925854099972639
+      ],
+      "best_seconds": 0.06925854099972639,
+      "max_native_peak_rss_bytes": 148176896,
+      "first_run_envelope": "q02_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "724c94e62690a57867a6a2b4a248b8e3db5aea9b299be0168a6c7c154d65d5f3",
+      "first_run_counters": {}
+    },
+    {
+      "query": 3,
+      "sql": "SELECT SUM(AdvEngineID), COUNT(*), AVG(ResolutionWidth) FROM hits",
+      "native_process_seconds": [
+        1.0239385000022594,
+        1.0530286249995697,
+        1.0490609999978915
+      ],
+      "best_seconds": 1.0239385000022594,
+      "max_native_peak_rss_bytes": 168427520,
+      "first_run_envelope": "q03_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "0774b336c6bc5261eb0f2e9aa68ef837dc46008342e631c8cc8412a7b33ba14d",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 28536623,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update"
+      }
+    },
+    {
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits",
+      "native_process_seconds": [
+        0.40994170799967833,
+        0.43940291699254885,
+        0.4188419580023037
+      ],
+      "best_seconds": 0.40994170799967833,
+      "max_native_peak_rss_bytes": 179453952,
+      "first_run_envelope": "q04_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "e5b8146bafcff3f1c06e480bb084e1be6f05b69b7f754c5f924c975208d0b1ba",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 24626745,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update"
+      }
+    },
+    {
+      "query": 5,
+      "sql": "SELECT COUNT(DISTINCT UserID) FROM hits",
+      "native_process_seconds": [
+        1.6445833329926245,
+        1.5320617920078803,
+        1.5073296670016134
+      ],
+      "best_seconds": 1.5073296670016134,
+      "max_native_peak_rss_bytes": 1841364992,
+      "first_run_envelope": "q05_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "d4b9193cc3cdfdd9682cfaa9eecf54bf6991f7da595e2eed59653631d51928a3",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 25778472,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update"
+      }
+    },
+    {
+      "query": 6,
+      "sql": "SELECT COUNT(DISTINCT SearchPhrase) FROM hits",
+      "native_process_seconds": [
+        3.908423834000132,
+        3.918806166999275,
+        3.915110874993843
+      ],
+      "best_seconds": 3.908423834000132,
+      "max_native_peak_rss_bytes": 1159053312,
+      "first_run_envelope": "q06_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "2b3cd3280bb37b5186d0de18fd65c3bce1f754d6019773e2425a2d178c1eb422",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 23015271,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update"
+      }
+    },
+    {
+      "query": 7,
+      "sql": "SELECT MIN(EventDate), MAX(EventDate) FROM hits",
+      "native_process_seconds": [
+        0.02038570800505113,
+        0.020261500001652166,
+        0.02049795800121501
+      ],
+      "best_seconds": 0.020261500001652166,
+      "max_native_peak_rss_bytes": 57622528,
+      "first_run_envelope": "q07_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "419969b58ba7c2541b9058ccf4e67df041bf851a8b73e291d6b711b9a67fed5e",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 0,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_update_strategy": "exact_file_footer_scalar_completion"
+      }
+    },
+    {
+      "query": 8,
+      "sql": "SELECT AdvEngineID, COUNT(*) FROM hits WHERE AdvEngineID <> 0 GROUP BY AdvEngineID ORDER BY COUNT(*) DESC",
+      "native_process_seconds": [
+        0.08792012499179691,
+        0.0848877079988597,
+        0.08633816600195132
+      ],
+      "best_seconds": 0.0848877079988597,
+      "max_native_peak_rss_bytes": 146784256,
+      "first_run_envelope": "q08_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "8f710486ef9186e1441092f406006654ace87aec40a575c856003899f7ea0e1e",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 16819585,
+        "aggregate_first_pass_group_update_nanos": 13612884,
+        "aggregate_first_pass_scan_next_nanos": 24688940,
+        "aggregate_first_pass_accessor_rows": 630500,
+        "aggregate_accessor_summary": "AdvEngineID:direct_i64",
+        "aggregate_update_strategy": "count_star_direct_group_update",
+        "group_key_storage": "typed_single_key",
+        "group_state_mode": "all_hot_hash_map",
+        "candidate_groups": 18,
+        "retained_candidate_groups": 18
+      }
+    },
+    {
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10",
+      "native_process_seconds": [
+        1.5087696659902576,
+        1.1914776250050636,
+        1.1667542080103885
+      ],
+      "best_seconds": 1.1667542080103885,
+      "max_native_peak_rss_bytes": 4261052416,
+      "first_run_envelope": "q09_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "1df37236919cf2ccf61144f86e45d9d67da58d84638bb12a5f4bada250fdffe8",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 81179468,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_accessor_summary": "native_complete_integer_pair_owned_distinct_partial",
+        "aggregate_update_strategy": "complete_integer_pair_partition_distinct",
+        "group_key_storage": "owned_native_integer_pair_bits",
+        "group_state_mode": "complete_pair_state_released_after_EOF_group_reduction",
+        "candidate_groups": 9040,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        4.749268374987878,
+        4.767773125000531,
+        4.75474070799828
+      ],
+      "best_seconds": 4.749268374987878,
+      "max_native_peak_rss_bytes": 1095385088,
+      "first_run_envelope": "q10_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "97e17377b0023f066eab53992bc4b295345db3ceadb54fe014fca48268e2e1dc",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 294512048,
+        "aggregate_first_pass_group_update_nanos": 4324184922,
+        "aggregate_first_pass_scan_next_nanos": 38971691,
+        "aggregate_first_pass_accessor_rows": 99997497,
+        "aggregate_accessor_summary": "AdvEngineID:direct_i64,RegionID:direct_i64,ResolutionWidth:direct_i64,UserID:direct_i64",
+        "aggregate_update_strategy": "direct_accessor_count_distinct_pair_preunion_chunk_group_update",
+        "group_key_storage": "typed_single_key+packed_integer_pair_preunion+chunk_group_partials",
+        "group_state_mode": "direct_accessor_count_distinct_pair_preunion_chunk_group_partials",
+        "candidate_groups": 9040,
+        "retained_candidate_groups": 10,
+        "grouped_count_distinct_pair_preunion_unique_pairs": 21922971
+      }
+    },
+    {
+      "query": 11,
+      "sql": "SELECT MobilePhoneModel, COUNT(DISTINCT UserID) AS u FROM hits WHERE MobilePhoneModel <> '' GROUP BY MobilePhoneModel ORDER BY u DESC LIMIT 10",
+      "native_process_seconds": [
+        0.7795711250073509,
+        0.8313872500002617,
+        0.7952462499961257
+      ],
+      "best_seconds": 0.7795711250073509,
+      "max_native_peak_rss_bytes": 577191936,
+      "first_run_envelope": "q11_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "f075b36faf7399889827963eef24c4315c78b0e2e73e2e36172a0fbad4eb6996",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 577477968,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_accessor_summary": "none",
+        "aggregate_update_strategy": "native_utf8_group_integer_complete_pair_distinct",
+        "group_key_storage": "owned_complete_integer_value_pairs_and_group_hash_partitioned_utf8_domains",
+        "group_state_mode": "complete_pair_state_released_after_EOF_group_reduction",
+        "candidate_groups": 165,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 12,
+      "sql": "SELECT MobilePhone, MobilePhoneModel, COUNT(DISTINCT UserID) AS u FROM hits WHERE MobilePhoneModel <> '' GROUP BY MobilePhone, MobilePhoneModel ORDER BY u DESC LIMIT 10",
+      "native_process_seconds": [
+        1.516307500001858,
+        1.5169159999932162,
+        1.5351355419988977
+      ],
+      "best_seconds": 1.516307500001858,
+      "max_native_peak_rss_bytes": 300711936,
+      "first_run_envelope": "q12_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "c4d75e60326585f73be0297685242effdd95b04be7cdfd0bd6947321d4550c49",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 628832371,
+        "aggregate_first_pass_group_update_nanos": 809535878,
+        "aggregate_first_pass_scan_next_nanos": 37501869,
+        "aggregate_first_pass_accessor_rows": 5563212,
+        "aggregate_accessor_summary": "MobilePhone:direct_i64,MobilePhoneModel:chunk_utf8_dictionary,UserID:direct_i64",
+        "aggregate_update_strategy": "direct_accessor_count_distinct_group_update",
+        "group_key_storage": "typed_tuple_key+interned_utf8",
+        "group_state_mode": "direct_accessor_hot_hash_map",
+        "candidate_groups": 302,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 13,
+      "sql": "SELECT SearchPhrase, COUNT(*) AS c FROM hits WHERE SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        6.393958375003422,
+        6.4094500420033,
+        6.337156333000166
+      ],
+      "best_seconds": 6.337156333000166,
+      "max_native_peak_rss_bytes": 1099644928,
+      "first_run_envelope": "q13_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "80aeb82a0dc915016e1cbb49b290c13ba4e2c7effd47ab3a7a81e3fc98c64e61",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 2110549789,
+        "aggregate_first_pass_group_update_nanos": 1839754733,
+        "aggregate_first_pass_scan_next_nanos": 27623692,
+        "aggregate_first_pass_accessor_rows": 13172392,
+        "aggregate_accessor_summary": "SearchPhrase:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_late_recount",
+        "group_key_storage": "bounded_string_dictionary_code_heavy_hitter_candidates",
+        "group_state_mode": "string_dictionary_code_candidate_state_then_exact_recount",
+        "candidate_groups": 10017,
+        "retained_candidate_groups": 10,
+        "string_count_topk_heavy_hitter_second_pass": true,
+        "string_count_topk_dictionary_histogram_recount": true
+      }
+    },
+    {
+      "query": 14,
+      "sql": "SELECT SearchPhrase, COUNT(DISTINCT UserID) AS u FROM hits WHERE SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY u DESC LIMIT 10",
+      "native_process_seconds": [
+        1.5194048339908477,
+        1.6952166669943836,
+        1.6435790420073317
+      ],
+      "best_seconds": 1.5194048339908477,
+      "max_native_peak_rss_bytes": 3747905536,
+      "first_run_envelope": "q14_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "c11a6677d3fb65f185089c2ae67d56f7de3e33b5fff5075a3fff5b8cd7a9a466",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 192634877,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_accessor_summary": "none",
+        "aggregate_update_strategy": "native_utf8_group_integer_complete_pair_distinct",
+        "group_key_storage": "owned_complete_integer_value_pairs_and_group_hash_partitioned_utf8_domains",
+        "group_state_mode": "complete_pair_state_released_after_EOF_group_reduction",
+        "candidate_groups": 6019102,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 15,
+      "sql": "SELECT SearchEngineID, SearchPhrase, COUNT(*) AS c FROM hits WHERE SearchPhrase <> '' GROUP BY SearchEngineID, SearchPhrase ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        1.4995148749876535,
+        1.5110373749921564,
+        1.595708166991244
+      ],
+      "best_seconds": 1.4995148749876535,
+      "max_native_peak_rss_bytes": 2593554432,
+      "first_run_envelope": "q15_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "95cd30fef2f3ebf327fa9ea583721199a96c690399bcb0a80822f3d7e7c4a5df",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 179885228,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_accessor_summary": "native_compound_complete_key_partition_counts",
+        "aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+        "group_key_storage": "owned_original_width_integer_partial_and_partition_utf8_domains",
+        "group_state_mode": "numeric_utf8_heavy_hitter_exact_first_pass",
+        "candidate_groups": 6474212,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 16,
+      "sql": "SELECT UserID, COUNT(*) FROM hits GROUP BY UserID ORDER BY COUNT(*) DESC LIMIT 10",
+      "native_process_seconds": [
+        2.940053291997174,
+        2.9179333329957444,
+        2.9355297919973964
+      ],
+      "best_seconds": 2.9179333329957444,
+      "max_native_peak_rss_bytes": 2696396800,
+      "first_run_envelope": "q16_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "e0452b19cd9c3b1d6f31e4bd694176b5fa4c5cf3154458592e7943d9806f6afa",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 35156207,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_accessor_summary": "UserID:direct_i64",
+        "aggregate_update_strategy": "single_numeric_count_direct_group_update",
+        "group_key_storage": "typed_single_numeric_key",
+        "group_state_mode": "single_numeric_hot_hash_map",
+        "candidate_groups": 17630976,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 17,
+      "sql": "SELECT UserID, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10",
+      "native_process_seconds": [
+        3.80527916700521,
+        3.4788887500035344,
+        3.8233700420096284
+      ],
+      "best_seconds": 3.4788887500035344,
+      "max_native_peak_rss_bytes": 5542051840,
+      "first_run_envelope": "q17_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "7196087dd1cb19160101154aa54a294a358a238f478b7de48db8c7b92358962e",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 101144334,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_accessor_summary": "native_compound_complete_key_partition_counts",
+        "aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+        "group_key_storage": "owned_original_width_integer_partial_and_partition_utf8_domains",
+        "group_state_mode": "numeric_utf8_heavy_hitter_exact_first_pass",
+        "candidate_groups": 24070560,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 18,
+      "sql": "SELECT UserID, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, SearchPhrase LIMIT 10",
+      "native_process_seconds": [
+        3.705382792002638,
+        3.5358626660017762,
+        3.544376000005286
+      ],
+      "best_seconds": 3.5358626660017762,
+      "max_native_peak_rss_bytes": 294027264,
+      "first_run_envelope": "q18_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "a6c867ef513a0de75569f571971fb879154263aef8805a2f119a01d5e145b8f3",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 3065003223,
+        "aggregate_first_pass_group_update_nanos": 490055633,
+        "aggregate_first_pass_scan_next_nanos": 27820804,
+        "aggregate_first_pass_accessor_rows": 99997497,
+        "aggregate_accessor_summary": "SearchPhrase:chunk_utf8_dictionary,UserID:direct_i64",
+        "aggregate_update_strategy": "source_order_numeric_utf8_dictionary_code_count_star_group_update",
+        "group_key_storage": "source_order_retained_numeric_utf8_dictionary_code_keys",
+        "group_state_mode": "source_order_numeric_utf8_dictionary_candidate_slots",
+        "candidate_groups": 10,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 19,
+      "sql": "SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, m, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10",
+      "native_process_seconds": [
+        8.852776125000673,
+        8.722760374992504,
+        8.705121374994633
+      ],
+      "best_seconds": 8.705121374994633,
+      "max_native_peak_rss_bytes": 5207490560,
+      "first_run_envelope": "q19_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "7727081b22d2815302079f2a1fa9e0775d9fda5d1a0ff90c49c8e790dbad6291",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 3104216469,
+        "aggregate_first_pass_group_update_nanos": 5117684112,
+        "aggregate_first_pass_scan_next_nanos": 36997041,
+        "aggregate_first_pass_accessor_rows": 99997497,
+        "aggregate_accessor_summary": "SearchPhrase:chunk_utf8_dictionary,UserID:direct_i64,__shardloom_derived_extract_minute_EventTime:direct_u64",
+        "aggregate_update_strategy": "numeric_minute_string_dictionary_code_direct_group_update",
+        "group_key_storage": "typed_numeric_minute_dictionary_code_key",
+        "group_state_mode": "numeric_minute_string_dictionary_code_hot_hash_map",
+        "candidate_groups": 56384822,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 20,
+      "sql": "SELECT UserID FROM hits WHERE UserID = 435090932899640449",
+      "native_process_seconds": [
+        0.07299766699725296,
+        0.0763035420095548,
+        0.07735508399491664
+      ],
+      "best_seconds": 0.07299766699725296,
+      "max_native_peak_rss_bytes": 171458560,
+      "first_run_envelope": "q20_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "4e32e473d4de905b1179d080092a9348709975c6bc32347d0da287474ed92010",
+      "first_run_counters": {}
+    },
+    {
+      "query": 21,
+      "sql": "SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%'",
+      "native_process_seconds": [
+        0.7831007080094423,
+        0.7552487499924609,
+        0.7533705829991959
+      ],
+      "best_seconds": 0.7533705829991959,
+      "max_native_peak_rss_bytes": 1288093696,
+      "first_run_envelope": "q21_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "2d1e95d7868ede6fd225d5d4b9c2ff94813d062560d080bb003041c45709acf3",
+      "first_run_counters": {}
+    },
+    {
+      "query": 22,
+      "sql": "SELECT SearchPhrase, MIN(URL), COUNT(*) AS c FROM hits WHERE URL LIKE '%google%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        1.2728309169906424,
+        1.2674308749992633,
+        1.2745411659998354
+      ],
+      "best_seconds": 1.2674308749992633,
+      "max_native_peak_rss_bytes": 1071087616,
+      "first_run_envelope": "q22_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "c19db18e03ea1a2f0fc89d40b4c2ef6bc7fe389273901fd13273ff8d906cf028",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 1012117825,
+        "aggregate_first_pass_group_update_nanos": 2481416,
+        "aggregate_first_pass_scan_next_nanos": 211881365,
+        "aggregate_first_pass_accessor_rows": 1038,
+        "aggregate_accessor_summary": "SearchPhrase:chunk_utf8_dictionary,URL:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+        "group_key_storage": "bounded_string_dictionary_code_heavy_hitter_candidates",
+        "group_state_mode": "string_dictionary_code_heavy_hitter_exact_first_pass_late_measure",
+        "candidate_groups": 677,
+        "retained_candidate_groups": 10,
+        "string_count_topk_heavy_hitter_second_pass": false,
+        "string_count_topk_dictionary_histogram_recount": false
+      }
+    },
+    {
+      "query": 23,
+      "sql": "SELECT SearchPhrase, MIN(URL), MIN(Title), COUNT(*) AS c, COUNT(DISTINCT UserID) FROM hits WHERE Title LIKE '%Google%' AND URL NOT LIKE '%.google.%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        4.459524333011359,
+        4.549223207999603,
+        4.586400291998871
+      ],
+      "best_seconds": 4.459524333011359,
+      "max_native_peak_rss_bytes": 2217672704,
+      "first_run_envelope": "q23_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "c04a6d569ea5aad2c7f50040521c437e2f616bcafc2867f48fe9c550d4c31afd",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 4219083506,
+        "aggregate_first_pass_group_update_nanos": 12095453,
+        "aggregate_first_pass_scan_next_nanos": 121436291,
+        "aggregate_first_pass_accessor_rows": 7128,
+        "aggregate_accessor_summary": "SearchPhrase:chunk_utf8_dictionary,Title:chunk_utf8_dictionary,URL:chunk_utf8_dictionary,UserID:direct_i64",
+        "aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+        "group_key_storage": "bounded_string_dictionary_code_heavy_hitter_candidates",
+        "group_state_mode": "string_dictionary_code_heavy_hitter_exact_first_pass_late_measure",
+        "candidate_groups": 3673,
+        "retained_candidate_groups": 10,
+        "string_count_topk_heavy_hitter_second_pass": false,
+        "string_count_topk_dictionary_histogram_recount": false
+      }
+    },
+    {
+      "query": 24,
+      "sql": "SELECT * FROM hits WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10",
+      "native_process_seconds": [
+        0.9004054169927258,
+        0.8428887500049314,
+        0.8658623340015765
+      ],
+      "best_seconds": 0.8428887500049314,
+      "max_native_peak_rss_bytes": 1208565760,
+      "first_run_envelope": "q24_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "58abf8041789219c7b11000b359c9128bb998e6846039229880abb0e62c34000",
+      "first_run_counters": {}
+    },
+    {
+      "query": 25,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY EventTime LIMIT 10",
+      "native_process_seconds": [
+        0.5059567090065684,
+        0.4841805839969311,
+        0.47940020900568925
+      ],
+      "best_seconds": 0.47940020900568925,
+      "max_native_peak_rss_bytes": 276168704,
+      "first_run_envelope": "q25_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "09936407f226096afd3be4cc5339f1c9c5d2792fb6c78faf8bc8da2828484ede",
+      "first_run_counters": {}
+    },
+    {
+      "query": 26,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY SearchPhrase LIMIT 10",
+      "native_process_seconds": [
+        2.7346724170056405,
+        2.712064624996856,
+        2.7663512919971254
+      ],
+      "best_seconds": 2.712064624996856,
+      "max_native_peak_rss_bytes": 278331392,
+      "first_run_envelope": "q26_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "bd2e957ca7583becf358b5d84606efd0fa16cd8dc2594ef1cc5f3d858db1e653",
+      "first_run_counters": {}
+    },
+    {
+      "query": 27,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY EventTime, SearchPhrase LIMIT 10",
+      "native_process_seconds": [
+        2.7404111249925336,
+        2.790371791998041,
+        2.78678100000252
+      ],
+      "best_seconds": 2.7404111249925336,
+      "max_native_peak_rss_bytes": 320339968,
+      "first_run_envelope": "q27_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "8f9bf86598c0c2d93d999ae92bf5211b131d0b3c18de2646262d4cb175635b35",
+      "first_run_counters": {}
+    },
+    {
+      "query": 28,
+      "sql": "SELECT CounterID, AVG(length(URL)) AS l, COUNT(*) AS c FROM hits WHERE URL <> '' GROUP BY CounterID HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25",
+      "native_process_seconds": [
+        2.4658663750014966,
+        2.5602690420055296,
+        2.4652424159867223
+      ],
+      "best_seconds": 2.4652424159867223,
+      "max_native_peak_rss_bytes": 201015296,
+      "first_run_envelope": "q28_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "3447821a81781b9f010e715450e114f4049e69afa3c1dbb391036e08840e4f0c",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 42680527,
+        "aggregate_first_pass_group_update_nanos": 2349701284,
+        "aggregate_first_pass_scan_next_nanos": 31677159,
+        "aggregate_first_pass_accessor_rows": 99929734,
+        "aggregate_accessor_summary": "CounterID:direct_i64,__shardloom_derived_utf8_len_URL:direct_u64",
+        "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+        "group_key_storage": "typed_single_key",
+        "group_state_mode": "all_hot_hash_map",
+        "candidate_groups": 100,
+        "retained_candidate_groups": 25
+      }
+    },
+    {
+      "query": 29,
+      "sql": "SELECT REGEXP_REPLACE(Referer, '^https?://(?:www\\.)?([^/]+)/.*$', '\\1') AS k, AVG(length(Referer)) AS l, COUNT(*) AS c, MIN(Referer) FROM hits WHERE Referer <> '' GROUP BY k HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25",
+      "native_process_seconds": [
+        9.70482462500513,
+        9.672615124989534,
+        9.299822208995465
+      ],
+      "best_seconds": 9.299822208995465,
+      "max_native_peak_rss_bytes": 1456635904,
+      "first_run_envelope": "q29_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "ea237b7ba22c10c7dee1a6c590bde93753c118dd3aa0e70ba27450debe249483",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 7168500128,
+        "aggregate_first_pass_group_update_nanos": 1916905466,
+        "aggregate_first_pass_scan_next_nanos": 65225102,
+        "aggregate_first_pass_accessor_rows": 81032736,
+        "aggregate_accessor_summary": "Referer:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "transformed_dictionary_dense_general_chunk_partial_group_update",
+        "group_key_storage": "dense_transformed_dictionary_interned_utf8_key",
+        "group_state_mode": "dense_transformed_dictionary_chunk_partial_accumulators",
+        "candidate_groups": 74,
+        "retained_candidate_groups": 25,
+        "transformed_dictionary_dense_general_chunk_partial_input_values": 25771910,
+        "transformed_dictionary_dense_general_pre_having_groups": 1798248,
+        "transformed_dictionary_dense_general_selected_groups": 74
+      }
+    },
+    {
+      "query": 30,
+      "sql": "SELECT SUM(ResolutionWidth), SUM(ResolutionWidth + 1), SUM(ResolutionWidth + 2), SUM(ResolutionWidth + 3), SUM(ResolutionWidth + 4), SUM(ResolutionWidth + 5), SUM(ResolutionWidth + 6), SUM(ResolutionWidth + 7), SUM(ResolutionWidth + 8), SUM(ResolutionWidth + 9), SUM(ResolutionWidth + 10), SUM(ResolutionWidth + 11), SUM(ResolutionWidth + 12), SUM(ResolutionWidth + 13), SUM(ResolutionWidth + 14), SUM(ResolutionWidth + 15), SUM(ResolutionWidth + 16), SUM(ResolutionWidth + 17), SUM(ResolutionWidth + 18), SUM(ResolutionWidth + 19), SUM(ResolutionWidth + 20), SUM(ResolutionWidth + 21), SUM(ResolutionWidth + 22), SUM(ResolutionWidth + 23), SUM(ResolutionWidth + 24), SUM(ResolutionWidth + 25), SUM(ResolutionWidth + 26), SUM(ResolutionWidth + 27), SUM(ResolutionWidth + 28), SUM(ResolutionWidth + 29), SUM(ResolutionWidth + 30), SUM(ResolutionWidth + 31), SUM(ResolutionWidth + 32), SUM(ResolutionWidth + 33), SUM(ResolutionWidth + 34), SUM(ResolutionWidth + 35), SUM(ResolutionWidth + 36), SUM(ResolutionWidth + 37), SUM(ResolutionWidth + 38), SUM(ResolutionWidth + 39), SUM(ResolutionWidth + 40), SUM(ResolutionWidth + 41), SUM(ResolutionWidth + 42), SUM(ResolutionWidth + 43), SUM(ResolutionWidth + 44), SUM(ResolutionWidth + 45), SUM(ResolutionWidth + 46), SUM(ResolutionWidth + 47), SUM(ResolutionWidth + 48), SUM(ResolutionWidth + 49), SUM(ResolutionWidth + 50), SUM(ResolutionWidth + 51), SUM(ResolutionWidth + 52), SUM(ResolutionWidth + 53), SUM(ResolutionWidth + 54), SUM(ResolutionWidth + 55), SUM(ResolutionWidth + 56), SUM(ResolutionWidth + 57), SUM(ResolutionWidth + 58), SUM(ResolutionWidth + 59), SUM(ResolutionWidth + 60), SUM(ResolutionWidth + 61), SUM(ResolutionWidth + 62), SUM(ResolutionWidth + 63), SUM(ResolutionWidth + 64), SUM(ResolutionWidth + 65), SUM(ResolutionWidth + 66), SUM(ResolutionWidth + 67), SUM(ResolutionWidth + 68), SUM(ResolutionWidth + 69), SUM(ResolutionWidth + 70), SUM(ResolutionWidth + 71), SUM(ResolutionWidth + 72), SUM(ResolutionWidth + 73), SUM(ResolutionWidth + 74), SUM(ResolutionWidth + 75), SUM(ResolutionWidth + 76), SUM(ResolutionWidth + 77), SUM(ResolutionWidth + 78), SUM(ResolutionWidth + 79), SUM(ResolutionWidth + 80), SUM(ResolutionWidth + 81), SUM(ResolutionWidth + 82), SUM(ResolutionWidth + 83), SUM(ResolutionWidth + 84), SUM(ResolutionWidth + 85), SUM(ResolutionWidth + 86), SUM(ResolutionWidth + 87), SUM(ResolutionWidth + 88), SUM(ResolutionWidth + 89) FROM hits",
+      "native_process_seconds": [
+        0.21262449999630917,
+        0.21664383300230838,
+        0.21285929200530518
+      ],
+      "best_seconds": 0.21262449999630917,
+      "max_native_peak_rss_bytes": 127451136,
+      "first_run_envelope": "q30_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "e09f07a0f783706567d047356e572c0537fee2190e14901b15893483689eb160",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 25678377,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_update_strategy": "dictionary_or_typed_direct_scalar_update"
+      }
+    },
+    {
+      "query": 31,
+      "sql": "SELECT SearchEngineID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits WHERE SearchPhrase <> '' GROUP BY SearchEngineID, ClientIP ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        0.8726709580078023,
+        0.8620494159986265,
+        0.8701949579990469
+      ],
+      "best_seconds": 0.8620494159986265,
+      "max_native_peak_rss_bytes": 889225216,
+      "first_run_envelope": "q31_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "32ca902230d6a7aaebb410f33ec8abe931b68ecff2c5194434eebafcc7a3cf2c",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 242032024,
+        "aggregate_first_pass_group_update_nanos": 243925110,
+        "aggregate_first_pass_scan_next_nanos": 42378097,
+        "aggregate_first_pass_accessor_rows": 13172392,
+        "aggregate_accessor_summary": "ClientIP:direct_i64,IsRefresh:direct_i64,ResolutionWidth:direct_i64,SearchEngineID:direct_i64",
+        "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+        "group_key_storage": "typed_numeric_pair_key",
+        "group_state_mode": "numeric_pair_count_state_then_retained_measure_state",
+        "candidate_groups": 5730331,
+        "retained_candidate_groups": 10,
+        "numeric_pair_late_measure_second_pass": true
+      }
+    },
+    {
+      "query": 32,
+      "sql": "SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits WHERE SearchPhrase <> '' GROUP BY WatchID, ClientIP ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        1.2392983749887208,
+        1.0483627499925205,
+        1.0498974580114009
+      ],
+      "best_seconds": 1.0483627499925205,
+      "max_native_peak_rss_bytes": 2441854976,
+      "first_run_envelope": "q32_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "32e1322d2242e30f62f0a636db0ab1bd17affa556ab4d460a0ab63120467c23d",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 310597438,
+        "aggregate_first_pass_group_update_nanos": 422823240,
+        "aggregate_first_pass_scan_next_nanos": 51965761,
+        "aggregate_first_pass_accessor_rows": 13172392,
+        "aggregate_accessor_summary": "ClientIP:direct_i64,IsRefresh:direct_i64,ResolutionWidth:direct_i64,WatchID:direct_i64",
+        "aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+        "group_key_storage": "typed_numeric_pair_key",
+        "group_state_mode": "numeric_pair_count_state_then_retained_measure_state",
+        "candidate_groups": 13172392,
+        "retained_candidate_groups": 10,
+        "numeric_pair_late_measure_second_pass": true
+      }
+    },
+    {
+      "query": 33,
+      "sql": "SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits GROUP BY WatchID, ClientIP ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        5.456461499998113,
+        5.176546624992625,
+        5.149699707995751
+      ],
+      "best_seconds": 5.149699707995751,
+      "max_native_peak_rss_bytes": 5829623808,
+      "first_run_envelope": "q33_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "288f2ed1e14862d1aacf05811982b59bb4b3f7885cd64e94ffd5a76a704c5562",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 288717474,
+        "aggregate_first_pass_group_update_nanos": 4120384129,
+        "aggregate_first_pass_scan_next_nanos": 37434192,
+        "aggregate_first_pass_accessor_rows": 99997497,
+        "aggregate_accessor_summary": "ClientIP:direct_i64,IsRefresh:direct_i64,ResolutionWidth:direct_i64,WatchID:direct_i64",
+        "aggregate_update_strategy": "numeric_pair_near_unique_directory_count_topk_late_measure_second_pass",
+        "group_key_storage": "typed_numeric_pair_near_unique_seen_key_directory",
+        "group_state_mode": "numeric_pair_near_unique_count_directory_then_retained_measure_state",
+        "candidate_groups": 99997493,
+        "retained_candidate_groups": 10,
+        "numeric_pair_late_measure_second_pass": true
+      }
+    },
+    {
+      "query": 34,
+      "sql": "SELECT URL, COUNT(*) AS c FROM hits GROUP BY URL ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        4.226773083006265,
+        4.7272141669964185,
+        4.551380999997491
+      ],
+      "best_seconds": 4.226773083006265,
+      "max_native_peak_rss_bytes": 5350817792,
+      "first_run_envelope": "q34_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "4e666cc99d55694812b832e465a96165d50bdcc35523c5ba6793f909393e8d91",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 87905001,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_accessor_summary": "native_complete_key_partition_counts",
+        "aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+        "group_key_storage": "owned_utf8_complete_key_partitions",
+        "group_state_mode": "string_heavy_hitter_exact_first_pass",
+        "candidate_groups": 18342019,
+        "retained_candidate_groups": 10,
+        "string_count_topk_heavy_hitter_second_pass": false,
+        "string_count_topk_dictionary_histogram_recount": false
+      }
+    },
+    {
+      "query": 35,
+      "sql": "SELECT 1, URL, COUNT(*) AS c FROM hits GROUP BY 1, URL ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        4.423711708994233,
+        4.053711291009677,
+        4.420097000009264
+      ],
+      "best_seconds": 4.053711291009677,
+      "max_native_peak_rss_bytes": 5766660096,
+      "first_run_envelope": "q35_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "1692abe1bb585b40ec78ea572dcd735e0a97fd4d739625ddb745161971a8c54a",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_first_pass_scan_next_nanos": 76492042,
+        "aggregate_first_pass_accessor_rows": 0,
+        "aggregate_accessor_summary": "native_complete_key_partition_counts",
+        "aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+        "group_key_storage": "owned_utf8_complete_key_partitions",
+        "group_state_mode": "string_heavy_hitter_exact_first_pass",
+        "candidate_groups": 18342019,
+        "retained_candidate_groups": 10,
+        "string_count_topk_heavy_hitter_second_pass": false,
+        "string_count_topk_dictionary_histogram_recount": false
+      }
+    },
+    {
+      "query": 36,
+      "sql": "SELECT ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3, COUNT(*) AS c FROM hits GROUP BY ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3 ORDER BY c DESC LIMIT 10",
+      "native_process_seconds": [
+        6.802917291992344,
+        6.5438065829948755,
+        6.618520583011559
+      ],
+      "best_seconds": 6.5438065829948755,
+      "max_native_peak_rss_bytes": 5737824256,
+      "first_run_envelope": "q36_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "68ea8ca8b214e77752a00bd2633762bb64249cd14b1c7ec4e9a95307b55ba867",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 89162467,
+        "aggregate_first_pass_group_update_nanos": 5965743707,
+        "aggregate_first_pass_scan_next_nanos": 29945528,
+        "aggregate_first_pass_accessor_rows": 99997497,
+        "aggregate_accessor_summary": "ClientIP:direct_i64",
+        "aggregate_update_strategy": "count_star_direct_group_update",
+        "group_key_storage": "typed_single_key",
+        "group_state_mode": "all_hot_hash_map",
+        "candidate_groups": 9762046,
+        "retained_candidate_groups": 10
+      }
+    },
+    {
+      "query": 37,
+      "sql": "SELECT URL, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND DontCountHits = 0 AND IsRefresh = 0 AND URL <> '' GROUP BY URL ORDER BY PageViews DESC LIMIT 10",
+      "native_process_seconds": [
+        0.22343970800284296,
+        0.20235720799246337,
+        0.20453558300505392
+      ],
+      "best_seconds": 0.20235720799246337,
+      "max_native_peak_rss_bytes": 271187968,
+      "first_run_envelope": "q37_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "d50124ace6302d68c2135a273a6cf9e03d0c3fcf59809431288b704120930882",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 67034456,
+        "aggregate_first_pass_group_update_nanos": 62272294,
+        "aggregate_first_pass_scan_next_nanos": 52296835,
+        "aggregate_first_pass_accessor_rows": 671505,
+        "aggregate_accessor_summary": "URL:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_first_pass_exact",
+        "group_key_storage": "bounded_string_dictionary_code_heavy_hitter_candidates",
+        "group_state_mode": "string_dictionary_code_heavy_hitter_exact_first_pass",
+        "candidate_groups": 408,
+        "retained_candidate_groups": 10,
+        "string_count_topk_heavy_hitter_second_pass": false,
+        "string_count_topk_dictionary_histogram_recount": false
+      }
+    },
+    {
+      "query": 38,
+      "sql": "SELECT Title, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND DontCountHits = 0 AND IsRefresh = 0 AND Title <> '' GROUP BY Title ORDER BY PageViews DESC LIMIT 10",
+      "native_process_seconds": [
+        0.16827233300136868,
+        0.13586912499158643,
+        0.1378635829896666
+      ],
+      "best_seconds": 0.13586912499158643,
+      "max_native_peak_rss_bytes": 489848832,
+      "first_run_envelope": "q38_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "1c45689b0564af5b3eeea05dc0f677bd4b73d7345c1ee60faf1e06a1f2125894",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 45890334,
+        "aggregate_first_pass_group_update_nanos": 10513875,
+        "aggregate_first_pass_scan_next_nanos": 76950086,
+        "aggregate_first_pass_accessor_rows": 660343,
+        "aggregate_accessor_summary": "Title:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_first_pass_exact",
+        "group_key_storage": "bounded_string_dictionary_code_heavy_hitter_candidates",
+        "group_state_mode": "string_dictionary_code_heavy_hitter_exact_first_pass",
+        "candidate_groups": 42155,
+        "retained_candidate_groups": 10,
+        "string_count_topk_heavy_hitter_second_pass": false,
+        "string_count_topk_dictionary_histogram_recount": false
+      }
+    },
+    {
+      "query": 39,
+      "sql": "SELECT URL, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND IsLink <> 0 AND IsDownload = 0 GROUP BY URL ORDER BY PageViews DESC LIMIT 10 OFFSET 1000",
+      "native_process_seconds": [
+        0.10603541700402275,
+        0.10310783299792092,
+        0.10545991599792615
+      ],
+      "best_seconds": 0.10310783299792092,
+      "max_native_peak_rss_bytes": 217382912,
+      "first_run_envelope": "q39_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "d636448b9c63cf651efd843e1ff3c0d050ed06d556f3ad97e0ca2b8ac9a21c34",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 28439292,
+        "aggregate_first_pass_group_update_nanos": 2401040,
+        "aggregate_first_pass_scan_next_nanos": 40147625,
+        "aggregate_first_pass_accessor_rows": 47740,
+        "aggregate_accessor_summary": "URL:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "string_dictionary_code_count_topk_heavy_hitter_first_pass_exact",
+        "group_key_storage": "bounded_string_dictionary_code_heavy_hitter_candidates",
+        "group_state_mode": "string_dictionary_code_heavy_hitter_exact_first_pass",
+        "candidate_groups": 13299,
+        "retained_candidate_groups": 1010,
+        "string_count_topk_heavy_hitter_second_pass": false,
+        "string_count_topk_dictionary_histogram_recount": false
+      }
+    },
+    {
+      "query": 40,
+      "sql": "SELECT TraficSourceID, SearchEngineID, AdvEngineID, CASE WHEN (SearchEngineID = 0 AND AdvEngineID = 0) THEN Referer ELSE '' END AS Src, URL AS Dst, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 GROUP BY TraficSourceID, SearchEngineID, AdvEngineID, Src, Dst ORDER BY PageViews DESC LIMIT 10 OFFSET 1000",
+      "native_process_seconds": [
+        0.6869824589957716,
+        0.6914296670001931,
+        0.6815824579971377
+      ],
+      "best_seconds": 0.6815824579971377,
+      "max_native_peak_rss_bytes": 718962688,
+      "first_run_envelope": "q40_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "17cea68045054c66455fc0ab5c059f6e5f6b8df74e30047172c34965c6c4abe5",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 136116335,
+        "aggregate_first_pass_group_update_nanos": 316359038,
+        "aggregate_first_pass_scan_next_nanos": 57233961,
+        "aggregate_first_pass_accessor_rows": 722688,
+        "aggregate_accessor_summary": "AdvEngineID:direct_i64,Referer:chunk_utf8_dictionary,SearchEngineID:direct_i64,TraficSourceID:direct_i64,URL:chunk_utf8_dictionary",
+        "aggregate_update_strategy": "count_star_direct_group_update",
+        "group_key_storage": "typed_tuple_key+interned_utf8",
+        "group_state_mode": "all_hot_hash_map",
+        "candidate_groups": 426328,
+        "retained_candidate_groups": 1010
+      }
+    },
+    {
+      "query": 41,
+      "sql": "SELECT URLHash, EventDate, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND TraficSourceID IN (-1, 6) AND RefererHash = 3594120000172545465 GROUP BY URLHash, EventDate ORDER BY PageViews DESC LIMIT 10 OFFSET 100",
+      "native_process_seconds": [
+        0.09999674999562558,
+        0.09645166700647678,
+        0.09856966699589975
+      ],
+      "best_seconds": 0.09645166700647678,
+      "max_native_peak_rss_bytes": 207257600,
+      "first_run_envelope": "q41_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "a05db1d58a8076993e378cc8d9720d307aa6f2aa752e5e1fc697adc8f7540010",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 310666,
+        "aggregate_first_pass_group_update_nanos": 5280876,
+        "aggregate_first_pass_scan_next_nanos": 46094500,
+        "aggregate_first_pass_accessor_rows": 89914,
+        "aggregate_accessor_summary": "EventDate:direct_u64,URLHash:direct_i64",
+        "aggregate_update_strategy": "count_star_direct_group_update",
+        "group_key_storage": "typed_tuple_key",
+        "group_state_mode": "all_hot_hash_map",
+        "candidate_groups": 41194,
+        "retained_candidate_groups": 110
+      }
+    },
+    {
+      "query": 42,
+      "sql": "SELECT WindowClientWidth, WindowClientHeight, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND DontCountHits = 0 AND URLHash = 2868770270353813622 GROUP BY WindowClientWidth, WindowClientHeight ORDER BY PageViews DESC LIMIT 10 OFFSET 10000",
+      "native_process_seconds": [
+        0.08647216700774152,
+        0.0837913749855943,
+        0.08503087499411777
+      ],
+      "best_seconds": 0.0837913749855943,
+      "max_native_peak_rss_bytes": 170016768,
+      "first_run_envelope": "q42_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "d8fd37e16cb7805b0d7d41a396d8a783f2d4cc213ab6137b38366b93c9e59765",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 2914666,
+        "aggregate_first_pass_group_update_nanos": 3604080,
+        "aggregate_first_pass_scan_next_nanos": 46510999,
+        "aggregate_first_pass_accessor_rows": 102676,
+        "aggregate_accessor_summary": "WindowClientHeight:direct_i64,WindowClientWidth:direct_i64",
+        "aggregate_update_strategy": "count_star_direct_group_update",
+        "group_key_storage": "typed_tuple_key",
+        "group_state_mode": "all_hot_hash_map",
+        "candidate_groups": 10948,
+        "retained_candidate_groups": 10010
+      }
+    },
+    {
+      "query": 43,
+      "sql": "SELECT DATE_TRUNC('minute', EventTime) AS M, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-14' AND EventDate <= '2013-07-15' AND IsRefresh = 0 AND DontCountHits = 0 GROUP BY DATE_TRUNC('minute', EventTime) ORDER BY DATE_TRUNC('minute', EventTime) LIMIT 10 OFFSET 1000",
+      "native_process_seconds": [
+        0.08440679201157764,
+        0.08401045900245663,
+        0.08347104200220201
+      ],
+      "best_seconds": 0.08347104200220201,
+      "max_native_peak_rss_bytes": 154779648,
+      "first_run_envelope": "q43_run1.stdout.json.gz",
+      "first_run_stdout_sha256": "f6e70c9064aa5567e0fadf6a0abbc1aa3bbe127a8a364789cbc3ccacd276e820",
+      "first_run_counters": {
+        "aggregate_first_pass_accessor_nanos": 1372834,
+        "aggregate_first_pass_group_update_nanos": 15105707,
+        "aggregate_first_pass_scan_next_nanos": 38365083,
+        "aggregate_first_pass_accessor_rows": 671519,
+        "aggregate_accessor_summary": "__shardloom_derived_date_trunc_minute_EventTime:direct_i64",
+        "aggregate_update_strategy": "count_star_direct_group_update",
+        "group_key_storage": "typed_single_key",
+        "group_state_mode": "all_hot_hash_map",
+        "candidate_groups": 1440,
+        "retained_candidate_groups": 1010
+      }
+    }
+  ]
+}

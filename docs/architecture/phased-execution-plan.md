@@ -244,6 +244,18 @@ the ledger.
 
 ## Planned
 
+September 19 research follow-up: the maintainer requested clearer README
+differentiators, reuse of retained mechanisms, and domain-transfer proposals for
+material gains and subsecond query latency. The
+[research and ship/drop packet](performance-domain-transfer-2026-09-19.md) records
+the source audit, historical counter extraction, candidate gates, and explicit
+drops. Q29 attribution remains first; subsequent Q36 worker-admission, Q13
+filtered-count, and Q23 accessor proposals require their own evidence gates.
+The subsequent maintainer request authorizes these ship/drop implementations and
+bounded complete-operation screens. Candidates remain provisional until correctness,
+resource and material-gain gates pass. Broad capability completion remains paused;
+no PERF/CG completion status changes from implementation authorization alone.
+
 September 19 maintainer direction: complete the cohesive residual lifecycle
 hardening and reconcile stale current-action text. The batch is now complete
 and locally validated, ready for PR review; it is not yet merged or published. The
@@ -2303,7 +2315,10 @@ is complete and locally validated for PR review. Preserve its publication
 collision safety and bounded codec-cancellation/native-writer serving evidence.
 Q29's recorded 9.299822-second contribution is the next attribution target under
 the packet's bounded decision gate; it is not yet a diagnosed internal bottleneck
-or an accepted new optimization. The historical inventory
+or an accepted new optimization. The subsequent
+[domain-transfer research](performance-domain-transfer-2026-09-19.md) narrows the
+first attribution to accessor construction and reuse of owned weighted string
+partials; its other ideas remain proposals. The historical inventory
 in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
 already-shipped families.
 
