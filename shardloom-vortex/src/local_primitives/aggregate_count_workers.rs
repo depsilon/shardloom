@@ -55,6 +55,7 @@ enum Partial {
 // an additional heap owner just to make the two private variants equally sized.
 #[allow(clippy::large_enum_variant)]
 pub(super) enum CountWorkers {
+    PairPartitions(super::pair_partition_workers::PairWorkers),
     Triple(super::triple_count_workers::TripleWorkers),
     Single(SingleCountWorkers),
     Compound(super::compound_count_workers::CompoundWorkers),
@@ -79,6 +80,11 @@ impl CountWorkers {
                     .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)
                     .expect("one-shot pressure reserves only currently available query credit")
             });
+        if let Some(workers) = super::pair_partition_workers::PairWorkers::admit(
+            states, dtype, columns, policy, memory,
+        )? {
+            return Ok(Some(Self::PairPartitions(workers)));
+        }
         if let Some(workers) = super::triple_count_workers::TripleWorkers::admit(
             states, dtype, columns, policy, memory,
         )? {
@@ -99,6 +105,7 @@ impl CountWorkers {
     }
     pub(super) fn before_next(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         match self {
+            Self::PairPartitions(workers) => workers.before_next(),
             Self::Triple(workers) => workers.before_next(),
             Self::Single(workers) => workers.before_next(states),
             Self::Compound(workers) => workers.before_next(states),
@@ -111,6 +118,7 @@ impl CountWorkers {
         states: &mut GroupedAggregateStates<'_>,
     ) -> Result<bool> {
         match self {
+            Self::PairPartitions(workers) => workers.submit(chunk, states),
             Self::Triple(workers) => workers.submit(chunk, states),
             Self::Single(workers) => workers.submit(chunk, states),
             Self::Compound(workers) => workers.submit(chunk, states),
@@ -119,6 +127,7 @@ impl CountWorkers {
     }
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         match self {
+            Self::PairPartitions(workers) => workers.finish(states),
             Self::Triple(workers) => workers.finish(states),
             Self::Single(workers) => workers.finish(states),
             Self::Compound(workers) => workers.finish(states),
@@ -131,6 +140,7 @@ impl CountWorkers {
     }
     pub(super) fn annotate_summary(&self, summary: &mut String) -> Result<()> {
         match self {
+            Self::PairPartitions(workers) => workers.annotate_summary(summary),
             Self::Triple(workers) => workers.annotate_summary(summary),
             Self::Single(workers) => workers.annotate_summary(summary),
             Self::Compound(workers) => workers.annotate_summary(summary),
@@ -139,9 +149,9 @@ impl CountWorkers {
     }
     pub(super) fn has_active_partitions(&self) -> bool {
         match self {
-            // Triple state has no certified bounded serial/spill destination.
+            // Pair/triple state has no certified bounded serial/spill destination.
             // It must fail and release owners on source pressure, never replay.
-            Self::Triple(_) => false,
+            Self::PairPartitions(_) | Self::Triple(_) => false,
             Self::Single(workers) => workers.has_active_partitions(),
             Self::Compound(workers) => workers.has_active_partitions(),
             Self::ExactDistinct(workers) => workers.has_active_partitions(),
@@ -149,6 +159,7 @@ impl CountWorkers {
     }
     pub(super) fn cancel_for_source_replay(&self) {
         match self {
+            Self::PairPartitions(workers) => workers.cancel(),
             Self::Triple(workers) => workers.cancel(),
             Self::Single(workers) => workers.cancel_for_source_replay(),
             Self::Compound(workers) => workers.cancel_for_source_replay(),
@@ -164,6 +175,7 @@ impl CountWorkers {
         use vortex::array::memory::HostAllocator as _;
 
         let committed = match self {
+            Self::PairPartitions(workers) => workers.has_committed_input(),
             Self::Triple(workers) => workers.has_committed_groups(),
             Self::Single(workers) => return workers.inject_scan_fault_for_test(memory, chunks),
             Self::Compound(workers) => workers.has_committed_groups(),
@@ -185,11 +197,20 @@ impl CountWorkers {
             }
         }))
     }
+
+    /// True only after this family's job pool has been retired. Other families
+    /// retain their existing CPU ownership and never request this transition.
+    pub(super) fn provider_restore_requested(&self) -> bool {
+        matches!(self, Self::PairPartitions(workers) if workers.provider_restore_requested())
+    }
 }
 
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
 pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    if super::pair_partition_workers::request_may_be_admitted(request) {
+        return true;
+    }
     if super::triple_count_workers::request_may_be_admitted(request) {
         return true;
     }
@@ -234,6 +255,9 @@ pub(super) fn restore_provider_drivers(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
 ) -> bool {
+    if super::pair_partition_workers::request_may_be_admitted(request) {
+        return !super::pair_partition_workers::request_schema_may_be_admitted(request, dtype);
+    }
     if super::triple_count_workers::request_may_be_admitted(request) {
         return !super::triple_count_workers::request_schema_may_be_admitted(request, dtype);
     }

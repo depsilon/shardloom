@@ -46,6 +46,8 @@ admitted local routes; their linked evidence defines the supported shapes and re
   measure evaluation; ordering, ties, NULLs, and floating accumulation retain their route's declared
   semantics. See the [filtered-count and derived-key evidence](docs/architecture/performance-ship-drop-2026-09-19.md)
   and [complete triple-key count partitions](docs/architecture/q19-complete-key-partitions-2026-09-19.md).
+  Near-unique integer pairs can use [exact partition sorting and reduction](docs/architecture/q33-exact-partition-reduction-2026-09-19.md)
+  to avoid a nearly one-entry-per-row hash directory before evaluating retained measures.
   The [performance plan](docs/architecture/phased-execution-plan.md) records both retained
   implementations and experiments that did not earn retention.
 - **Reusable structure stays with the data.** Prepared local OLAP workflows use a single `.vortex`

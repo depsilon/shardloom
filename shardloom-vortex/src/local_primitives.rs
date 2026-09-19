@@ -69,6 +69,20 @@ mod native_numeric_accessor;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_owner.rs"]
 mod native_numeric_owner;
+#[cfg(all(
+    test,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    unix
+))]
+#[path = "local_primitive_pair_partition_native_tests.rs"]
+mod pair_partition_native_tests;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/pair_partition_tests.rs"]
+mod pair_partition_tests;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/pair_partition_workers.rs"]
+mod pair_partition_workers;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
@@ -20322,7 +20336,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     // admission can still decline under memory pressure. Restore progress on
     // this SAME runtime before scanning; no input has been processed or replayed.
     // `worker_memory` is supplied only by a caller-only aggregate session.
-    let (provider_drivers, provider_background_workers) =
+    let (mut provider_drivers, mut provider_background_workers) =
         if worker_memory.is_some() && count_workers.is_none() && metadata_completion.is_none() {
             let (drivers, count) =
                 runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
@@ -20330,6 +20344,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         } else {
             (None, 0)
         };
+    let mut provider_resume_after_pair_retirement = false;
     let mut aggregate_timing = aggregate_timing::AggregateFirstPassTiming::default();
 
     let mut pre_limit_result_row_count = if metadata_completion.is_some() {
@@ -20624,6 +20639,17 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 } else {
                     false
                 };
+                if provider_drivers.is_none()
+                    && count_workers.as_ref().is_some_and(
+                        aggregate_count_workers::CountWorkers::provider_restore_requested,
+                    )
+                {
+                    let (drivers, count) =
+                        runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
+                    provider_drivers = Some(drivers);
+                    provider_background_workers = count;
+                    provider_resume_after_pair_retirement = true;
+                }
                 let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
                     states.update_direct_from_chunk(
                         &chunk,
@@ -20679,6 +20705,17 @@ fn read_lowered_vortex_simple_aggregate_scan(
     }
     if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut()) {
         workers.finish(states)?;
+    }
+    if provider_drivers.is_none()
+        && count_workers
+            .as_ref()
+            .is_some_and(aggregate_count_workers::CountWorkers::provider_restore_requested)
+    {
+        let (drivers, count) =
+            runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
+        provider_drivers = Some(drivers);
+        provider_background_workers = count;
+        provider_resume_after_pair_retirement = true;
     }
     let result_limit = request.source_order_limit;
     if let Some(states) = grouped_states.as_mut()
@@ -21155,7 +21192,11 @@ fn read_lowered_vortex_simple_aggregate_scan(
         let mut summary: serde_json::Value = serde_json::from_str(&result_summary)
             .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
         summary["aggregate_provider_background_workers"] = provider_background_workers.into();
-        summary["aggregate_provider_cpu_scope"] = "same_prepared_source;actual_aggregate_worker_admission_declined_before_scan;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay".into();
+        summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement {
+            "same_prepared_source;numeric_pair_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
+        } else {
+            "same_prepared_source;actual_aggregate_worker_admission_declined_before_scan;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
+        }.into();
         result_summary = summary.to_string();
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
@@ -25258,6 +25299,8 @@ struct GroupedAggregateStates<'a> {
     numeric_pair_late_measure_near_unique_directory: Option<NumericPairNearUniqueCountDirectory>,
     numeric_pair_late_measure_retained_keys: Option<rustc_hash::FxHashSet<AggregateNumericPairKey>>,
     numeric_pair_late_measure_retained_candidates: Option<Vec<NumericPairAggregateOrderCandidate>>,
+    numeric_pair_partition_selection: Option<pair_partition_workers::PairSelection>,
+    numeric_pair_partition_selection_lease: Option<shardloom_exec::live_memory::MemoryLease>,
     numeric_pair_late_measure_candidate_group_count: Option<usize>,
     numeric_pair_late_measure_near_unique_directory_updates: bool,
     numeric_pair_late_measure_near_unique_rows: u64,
@@ -28183,6 +28226,8 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_pair_late_measure_near_unique_directory: None,
             numeric_pair_late_measure_retained_keys: None,
             numeric_pair_late_measure_retained_candidates: None,
+            numeric_pair_partition_selection: None,
+            numeric_pair_partition_selection_lease: None,
             numeric_pair_late_measure_candidate_group_count: None,
             numeric_pair_late_measure_near_unique_directory_updates: false,
             numeric_pair_late_measure_near_unique_rows: 0,
@@ -33028,9 +33073,12 @@ impl<'a> GroupedAggregateStates<'a> {
             ));
         };
         let retained_cap = self.request.offset.saturating_add(limit);
-        let (candidate_group_count, mut retained) = if let Some(counts) =
-            self.numeric_pair_late_measure_count_groups.as_ref()
+        let (candidate_group_count, mut retained) = if let Some(selection) =
+            self.numeric_pair_partition_selection.take()
         {
+            self.numeric_pair_partition_selection_lease = Some(selection.lease);
+            (selection.groups, selection.retained)
+        } else if let Some(counts) = self.numeric_pair_late_measure_count_groups.as_ref() {
             (
                 counts.len(),
                 Self::numeric_pair_late_measure_retained_candidates_from_counts(
@@ -35589,6 +35637,7 @@ impl<'a> GroupedAggregateStates<'a> {
 
     fn needs_numeric_pair_late_measure_second_pass(&self) -> bool {
         (self.numeric_pair_late_measure_count_groups.is_some()
+            || self.numeric_pair_partition_selection.is_some()
             || self
                 .numeric_pair_late_measure_near_unique_directory
                 .is_some())
