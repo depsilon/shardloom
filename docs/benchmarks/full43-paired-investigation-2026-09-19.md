@@ -60,3 +60,36 @@ The repository has no Rust runtime changes for this investigation. Prior complet
 workspace/native gates remain applicable to the frozen binaries. New Python
 harness/counter changes require focused tests and independent review before UAT.
 Final results, provenance and the ship decision are appended after execution.
+
+## Q17 investigation extension
+
+The Full43 run completed 258/258 correct calls. Q11, Q12, Q17 and Q34 crossed
+the registered follow-up threshold. The reversed-order block completed 24/24;
+only Q17 crossed it again (control median 5.164006 s, candidate 5.733804 s).
+This keeps Q17 open rather than accepting the faster aggregate score.
+
+Before changing runtime code, collect two additional Q17-only blocks, one in each
+order, using the same frozen binaries, clock, input and guards. Preserve every
+sample from all four blocks, including the initial signal, and report each block
+separately. This adds six pairs to the existing six and balances which binary
+starts. Compare route, state size, partition work and OS counters alongside wall
+time. The extension is diagnostic, not permission to discard the slower samples;
+an unexplained repeatable material regression still blocks acceptance.
+
+The two extra blocks pass 12/12 complete comparisons. Q17's normal-order medians
+are 9.883091 / 13.927719 s (control/candidate), while the reversed block is
+10.609329 / 6.583687 s. This sign reversal demonstrates instability, but does not
+erase the three earlier signals. All 12 samples per binary remain in evidence.
+
+Source inspection finds unchanged compound key counting/partition algorithms,
+unchanged admitted routes and logical state, and no direct UTF8 accessor calls.
+However, candidate D adds 64 bytes of fields to shared numeric work bookkeeping,
+including 1,202 Q17 numeric owner observations per run. Its per-chunk zero-valued
+counter accumulation is reachable. Actual compiled layout/optimization effects
+are unmeasured; source inspection alone cannot acquit the instrumentation.
+
+Next isolate D: build B/C with only the D instrumentation removed, then run Q17
+against frozen `69ce65ac` in both starting orders. This is an ablation, not a claim
+that D caused the signal. Follow any retained source change with the required
+workspace/native checks and complete query acceptance. Do not trade away the
+measured Q13/Q36 changes on the strength of uncontrolled historical totals.
