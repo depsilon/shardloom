@@ -29,6 +29,49 @@ fn filtered_request() -> VortexSimpleAggregateRequest {
     .with_order_by(vec![VortexAggregateOrderExpr::new("n", true)])
 }
 
+#[test]
+fn filtered_histogram_admission_survives_the_native_embedded_length_rewrite() {
+    use super::{
+        aggregate_lowering::AggregateLowering, string_count_histogram_selected_input_admitted,
+    };
+    use crate::VortexQueryPrimitiveRequest;
+    use shardloom_core::{ComparisonOp, DatasetUri, PredicateExpr, StatValue};
+    use vortex::array::dtype::{DType, Nullability, PType, StructFields};
+    let aggregate = filtered_request();
+    let mut request = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new("renamed.vortex").unwrap(),
+        aggregate,
+    )
+    .with_source_order_limit(2);
+    request.predicate = Some(PredicateExpr::Compare {
+        column: ColumnRef::new("renamed_key").unwrap(),
+        op: ComparisonOp::NotEq,
+        value: StatValue::Utf8(String::new()),
+    });
+    let hidden = super::shardloom_utf8_length_derived_column("renamed_key");
+    let dtype = DType::Struct(
+        StructFields::new(
+            FieldNames::from(["renamed_key", hidden.as_str()]),
+            vec![
+                DType::Utf8(Nullability::NonNullable),
+                DType::Primitive(PType::U64, Nullability::NonNullable),
+            ],
+        ),
+        Nullability::NonNullable,
+    );
+    let lowering = AggregateLowering::new(&request, &dtype).unwrap();
+    assert!(
+        matches!(lowering.pushdown.as_ref(), Some(PredicateExpr::Compare { column, op: ComparisonOp::Gt, value: StatValue::UInt64(0) }) if column.as_str() == hidden)
+    );
+    assert!(lowering.residual.is_none());
+    assert!(lowering.plan.filter.is_some());
+    assert!(string_count_histogram_selected_input_admitted(
+        &lowering.rewrite.aggregate,
+        request.predicate.as_ref(),
+        lowering.residual.as_ref(),
+    ));
+}
+
 fn filtered_chunk(codes: &[u8], values: &[&str], selected: &[bool]) -> ArrayRef {
     let dictionary = DictArray::try_new(
         PrimitiveArray::new(codes.to_vec(), Validity::NonNullable).into_array(),

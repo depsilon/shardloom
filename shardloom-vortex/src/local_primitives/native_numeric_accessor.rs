@@ -119,12 +119,12 @@ impl NativeNumericAccessorWork {
         if self.utf8.calls != 0 {
             object.insert("aggregate_utf8_chunk_accessor".into(), serde_json::json!({
                 "calls": self.utf8.calls,
-                "selected_rows": self.utf8.rows,
+                "accessor_rows": self.utf8.rows,
                 "dictionary_entries": self.utf8.entries,
                 "copied_utf8_bytes": self.utf8.copied_bytes,
                 "provider_execute_nanos": u64::try_from(self.utf8.provider_nanos).unwrap_or(u64::MAX),
                 "dictionary_build_nanos": u64::try_from(self.utf8.dictionary_nanos).unwrap_or(u64::MAX),
-                "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;selected_rows_counted_per_column;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads",
+                "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads",
             }));
         }
         object.insert("aggregate_native_numeric_accessor".into(), serde_json::json!({

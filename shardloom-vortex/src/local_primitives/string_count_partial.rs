@@ -178,14 +178,6 @@ impl StringCountPartial {
         self.work.rows = rows;
         self.work.partial_entries = self.counts.len() as u64;
     }
-
-    pub(super) fn value_domain_len(&self) -> usize {
-        if self.work.native_dictionary {
-            self.values.len()
-        } else {
-            self.counts.len()
-        }
-    }
     /// The ordinary count path records canonical keys in first-occurrence order.
     /// Native Dict already enumerates referenced values in its own domain order.
     pub(super) fn preserve_existing_key_order(&mut self) {

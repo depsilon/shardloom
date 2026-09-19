@@ -11,12 +11,6 @@ pub(super) struct AggregateFirstPassTiming {
     pub finalization_nanos: u128,
     pub accessor_chunks: u64,
     pub accessor_rows: u64,
-    pub weighted_string_rows: u64,
-    pub weighted_string_entries: u64,
-    pub weighted_string_canonicalization_nanos: u128,
-    pub weighted_string_count_nanos: u128,
-    pub weighted_string_hash_bytes: u64,
-    pub weighted_string_peak_capacity: u64,
 }
 
 impl AggregateFirstPassTiming {
@@ -54,37 +48,6 @@ impl AggregateFirstPassTiming {
         }
         object.insert("aggregate_timing_scope".into(),
             "disjoint_caller_elapsed_scopes_first_pass_scan_next_reader_evidence_compact_group_accessors_and_updates_plus_final_result_render_not_cpu_or_complete_wall;scan_next_includes_provider_progress;residual_row_updates_and_later_passes_not_instrumented".into());
-        if self.weighted_string_rows != 0 {
-            for (key, value) in [
-                (
-                    "weighted_string_partial_rows",
-                    u128::from(self.weighted_string_rows),
-                ),
-                (
-                    "weighted_string_partial_entries",
-                    u128::from(self.weighted_string_entries),
-                ),
-                (
-                    "weighted_string_partial_canonicalization_nanos",
-                    self.weighted_string_canonicalization_nanos,
-                ),
-                (
-                    "weighted_string_partial_count_and_order_nanos",
-                    self.weighted_string_count_nanos,
-                ),
-                (
-                    "weighted_string_partial_hash_bytes",
-                    u128::from(self.weighted_string_hash_bytes),
-                ),
-                (
-                    "weighted_string_partial_peak_capacity_bytes",
-                    u128::from(self.weighted_string_peak_capacity),
-                ),
-            ] {
-                object.insert(key.into(), u64::try_from(value).unwrap_or(u64::MAX).into());
-            }
-            object.insert("weighted_string_partial_scope".into(), "exact_source_value_counts;source_or_native_dictionary_order;no_row_codes_or_copied_source_dictionary;owned_utf8_extrema;shared_partial_capacity_reservation;provider_allocations_outside_host_allocator_and_existing_global_state_not_covered".into());
-        }
         *summary = payload.to_string();
         Ok(())
     }
