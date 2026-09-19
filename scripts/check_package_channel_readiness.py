@@ -10,11 +10,20 @@ the required evidence.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
+
+from check_registry_bundled_proof import bundled_registry_proof_blockers
+from check_published_channel_proofs import validate_published_channel_proofs
 
 from release_channel_contract import (
+    PUBLISHED_REGISTRY_BUILD_IDENTITIES,
+    PUBLISHED_REGISTRY_PROVENANCE_SHA256,
+    PUBLISHED_REGISTRY_DISTRIBUTIONS,
     SELECTED_PACKAGE_RELEASE_VERSION,
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
@@ -938,6 +947,293 @@ def python_registry_proof_summary(proof: dict[str, Any] | None) -> dict[str, Any
     }
 
 
+def registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom):
+    """Require the observed platform executables and their complete SBOM graph."""
+    prefix = f"{channel_id}: registry bundled CLI inventory "
+    blockers = []
+    expected_components, expected_edges = {}, {}
+    layouts = {
+        "cp313-cp313-macosx_26_0_arm64": ("macos-aarch64", "shardloom"),
+        "cp313-cp313-manylinux_2_39_x86_64": ("linux-x86_64", "shardloom"),
+        "cp313-cp313-win_amd64": ("windows-x86_64", "shardloom.exe"),
+    }
+    for artifact in artifact_rows if isinstance(artifact_rows, list) else []:
+        if not isinstance(artifact, dict) or not isinstance(artifact.get("filename"), str):
+            continue  # The enclosing distribution validator rejects this row.
+        filename, digest = artifact["filename"], artifact.get("sha256")
+        parent = f"sha256:{digest}"
+        expected_components[parent] = {
+            "type": "file", "name": filename, "hashes": [{"alg": "SHA-256", "content": digest}],
+            "externalReferences": [{"type": "distribution", "url": artifact.get("url")}],
+        }
+        if filename.endswith(".tar.gz"):
+            if "bundled_cli" in artifact or artifact.get("clean_sdist_no_bundled_cli") is not True:
+                blockers.append(prefix + "source distribution must record no bundled CLI")
+            continue
+        tag = filename.removeprefix(f"shardloom-{SELECTED_PACKAGE_RELEASE_VERSION}-").removesuffix(".whl")
+        layout = layouts.get(tag)
+        binary = artifact.get("bundled_cli")
+        if layout is None or not isinstance(binary, dict):
+            blockers.append(prefix + f"requires its approved platform CLI record: {filename}")
+            continue
+        platform, executable = layout
+        member = f"shardloom/bin/{platform}/{executable}"
+        allowed_members = {member, f"shardloom-{SELECTED_PACKAGE_RELEASE_VERSION}.data/purelib/{member}"}
+        binary_digest, size = binary.get("sha256"), binary.get("size_bytes")
+        if (binary.get("platform") != platform or not isinstance(binary.get("member"), str)
+                or binary.get("member") not in allowed_members
+                or artifact.get("wheel_tag") != tag
+                or not isinstance(binary_digest, str) or not re.fullmatch(r"[0-9a-f]{64}", binary_digest)
+                or type(size) is not int or not 0 < size <= 128 << 20):
+            blockers.append(prefix + f"requires a valid member, platform, digest and size: {filename}")
+            continue
+        child = parent + ":bundled-cli"
+        expected_components[child] = {
+            "type": "file", "name": filename + "!/" + binary["member"],
+            "hashes": [{"alg": "SHA-256", "content": binary_digest}], "externalReferences": [],
+        }
+        expected_edges[parent] = [child]
+    actual_components = {}
+    for component in sbom.get("components", []) if isinstance(sbom.get("components"), list) else []:
+        ref = component.get("bom-ref") if isinstance(component, dict) else None
+        if not isinstance(ref, str) or ref in actual_components:
+            blockers.append(prefix + "SBOM requires unique component references")
+            continue
+        actual_components[ref] = {field: component.get(field, [] if field == "externalReferences" else None)
+                                  for field in ("type", "name", "hashes", "externalReferences")}
+    if actual_components != expected_components:
+        blockers.append(prefix + "SBOM must contain the exact distribution and bundled CLI components")
+    actual_edges = {}
+    for edge in sbom.get("dependencies", []) if isinstance(sbom.get("dependencies"), list) else []:
+        ref = edge.get("ref") if isinstance(edge, dict) else None
+        if not isinstance(ref, str) or ref in actual_edges:
+            blockers.append(prefix + "SBOM requires unique dependency references")
+            continue
+        actual_edges[ref] = edge.get("dependsOn")
+    if actual_edges != expected_edges:
+        blockers.append(prefix + "SBOM must bind each wheel to its bundled CLI dependency")
+    return blockers
+
+
+def validate_registry_supply_chain_evidence(
+    repo_root: Path,
+    matrix: dict[str, Any] | None,
+    proofs: dict[str, dict[str, Any] | None],
+) -> dict[str, Any]:
+    """Bind every ready registry channel to its own checked-in artifact evidence.
+
+    Registry uploads rebuild the distributions. A source-equivalent GitHub wheel's
+    checksum or SBOM cannot certify the bytes distributed by either registry.
+    This check is offline and does not assert signed build provenance.
+    """
+    blockers: list[str] = []
+    verified_channels: list[str] = []
+    for channel_id in ("testpypi", "pypi"):
+        row = find_channel(matrix, channel_id)
+        if not row or row.get("ready") is not True:
+            continue
+        start = len(blockers)
+        prefix = f"{channel_id}: "
+
+        def read_evidence(field: str) -> bytes | None:
+            ref = row.get(field)
+            if not isinstance(ref, str) or not ref:
+                blockers.append(prefix + f"missing registry {field}")
+                return None
+            path = Path(ref)
+            if path.is_absolute() or ":" in ref or ".." in path.parts:
+                blockers.append(prefix + f"registry {field} must be a checked-in relative path")
+                return None
+            try:
+                evidence_path = repo_root / path
+                if not evidence_path.resolve().is_relative_to(repo_root.resolve()):
+                    raise ValueError("evidence path escapes repository")
+                return evidence_path.read_bytes()
+            except (OSError, ValueError):
+                blockers.append(prefix + f"registry {field} is not readable: {ref}")
+                return None
+
+        def object_evidence(data: bytes | None, field: str) -> dict[str, Any]:
+            try:
+                value = json.loads(data) if data is not None else None
+            except (ValueError, UnicodeError):
+                value = None
+            if not isinstance(value, dict):
+                blockers.append(prefix + f"registry {field} must contain a JSON object")
+                return {}
+            return value
+
+        provenance_bytes = read_evidence("provenance_ref")
+        provenance = object_evidence(provenance_bytes, "provenance_ref")
+        approved_provenance_sha = PUBLISHED_REGISTRY_PROVENANCE_SHA256.get(
+            SELECTED_PACKAGE_RELEASE_VERSION, {}).get(channel_id)
+        if (approved_provenance_sha is None or provenance_bytes is None
+                or hashlib.sha256(provenance_bytes).hexdigest() != approved_provenance_sha):
+            blockers.append(prefix + "registry provenance SHA256 must match the approved observation")
+        if row.get("provenance_ref") != (
+            f"docs/release/channel-proofs/{channel_id}-v{SELECTED_PACKAGE_RELEASE_VERSION}-provenance.json"
+        ):
+            blockers.append(prefix + "registry provenance must reference the approved observation path")
+        sbom_bytes = read_evidence("sbom_ref")
+        sbom = object_evidence(sbom_bytes, "sbom_ref")
+        checksum_bytes = read_evidence("checksum_ref")
+        for field, expected in {
+            "schema_version": "shardloom.registry_release_evidence.v1",
+            "channel_id": channel_id,
+            "package_version": SELECTED_PACKAGE_RELEASE_VERSION,
+            "proof_status": "passed",
+            "provenance_status": "unsigned_post_publication_observation",
+        }.items():
+            if provenance.get(field) != expected:
+                blockers.append(prefix + f"registry provenance {field} must be {expected}")
+        for field in ("publication_attempted", "package_upload_attempted", "fallback_attempted",
+                      "external_engine_invoked", "crypto_attestation_verification_performed",
+                      "complete_compiled_dependency_inventory_claimed", "local_build_or_package_execution_performed"):
+            if provenance.get(field) is not False:
+                blockers.append(prefix + f"registry provenance {field} must be false")
+        if not re.fullmatch(r"[0-9a-f]{40}", str(provenance.get("source_commit", ""))):
+            blockers.append(prefix + "registry provenance requires the actual build source commit")
+        run_id = provenance.get("workflow_run_id")
+        if type(run_id) is not int or run_id <= 0 or provenance.get("workflow_url") != (
+            f"https://github.com/depsilon/shardloom/actions/runs/{run_id}"
+        ):
+            blockers.append(prefix + "registry provenance requires its publishing workflow run")
+        expected_identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES.get(
+            SELECTED_PACKAGE_RELEASE_VERSION, {}
+        ).get(channel_id)
+        if expected_identity is None:
+            blockers.append(prefix + "selected release has no approved registry build identity")
+        else:
+            for field, expected in expected_identity.items():
+                if provenance.get(field) != expected:
+                    blockers.append(prefix + f"registry provenance {field} must match the approved channel build")
+        for field, data in (("sbom_ref", sbom_bytes), ("checksum_ref", checksum_bytes)):
+            binding = provenance.get(field)
+            if not isinstance(binding, dict) or binding.get("path") != row.get(field) or (
+                data is not None and binding.get("sha256") != hashlib.sha256(data).hexdigest()
+            ):
+                blockers.append(prefix + f"registry provenance must bind {field} path and SHA256")
+
+        proof = proofs.get(channel_id) or {}
+        proof_bytes = read_evidence("registry_release_artifacts_ref")
+        canonical_proof = object_evidence(proof_bytes, "registry_release_artifacts_ref")
+        binding = provenance.get("channel_proof_ref")
+        if (canonical_proof != proof or not isinstance(binding, dict)
+                or binding.get("path") != row.get("registry_release_artifacts_ref")
+                or proof_bytes is None
+                or binding.get("sha256") != hashlib.sha256(proof_bytes).hexdigest()):
+            blockers.append(prefix + "registry provenance must bind the complete channel proof path and SHA256")
+        for field in ("install_transcript_ref", "uninstall_transcript_ref", "clean_install_transcript_ref", "smoke_transcript_ref"):
+            if row.get(field) != row.get("registry_release_artifacts_ref"):
+                blockers.append(prefix + f"{field} must reference the bound channel proof")
+        runtime_identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES.get(SELECTED_PACKAGE_RELEASE_VERSION, {}).get("testpypi", {})
+        stdout_path = repo_root / (f"docs/release/channel-proofs/{channel_id}-v"
+                                  f"{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json")
+        try:
+            if not stdout_path.resolve().is_relative_to(repo_root.resolve()):
+                raise ValueError("smoke stdout escapes repository")
+            with stdout_path.open("rb") as capture:
+                smoke_stdout = capture.read(65537)
+        except (OSError, ValueError):
+            smoke_stdout = None
+        blockers.extend(bundled_registry_proof_blockers(
+            proof, channel_id=channel_id, package_version=SELECTED_PACKAGE_RELEASE_VERSION,
+            runtime_source_commit=runtime_identity.get("source_commit"),
+            smoke_stdout=smoke_stdout,
+        ))
+        registry_rows = proof.get("registry_release_artifacts")
+        artifact_rows = provenance.get("artifact_refs")
+        expected_artifacts: dict[str, tuple[Any, Any, Any]] = {}
+        actual_artifacts: dict[str, tuple[Any, Any, Any]] = {}
+        for rows, destination, label, size_field in (
+            (registry_rows, expected_artifacts, "registry proof", "size"),
+            (artifact_rows, actual_artifacts, "registry provenance", "size_bytes"),
+        ):
+            if not isinstance(rows, list) or not rows:
+                blockers.append(prefix + f"{label} requires a complete artifact inventory")
+                continue
+            for artifact in rows:
+                if not isinstance(artifact, dict) or not isinstance(artifact.get("filename"), str):
+                    blockers.append(prefix + f"{label} contains an invalid artifact")
+                    continue
+                filename = artifact["filename"]
+                if filename in destination:
+                    blockers.append(prefix + f"{label} duplicates {filename}")
+                digest = artifact.get("sha256")
+                if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    blockers.append(prefix + f"{label} requires SHA256 for {filename}")
+                size = artifact.get(size_field)
+                url = artifact.get("url")
+                if type(size) is not int or size <= 0:
+                    blockers.append(prefix + f"{label} requires a positive byte size for {filename}")
+                expected_host = "test-files.pythonhosted.org" if channel_id == "testpypi" else "files.pythonhosted.org"
+                try:
+                    parsed_url = urlsplit(url) if isinstance(url, str) else None
+                    valid_url = (parsed_url is not None and parsed_url.scheme == "https"
+                                 and url == parsed_url.geturl()
+                                 and parsed_url.netloc == expected_host
+                                 and parsed_url.path.rsplit("/", 1)[-1] == filename
+                                 and not parsed_url.query and not parsed_url.fragment)
+                except ValueError:
+                    valid_url = False
+                if not valid_url:
+                    blockers.append(prefix + f"{label} URL must identify {filename} on {expected_host}")
+                if label == "registry provenance" and artifact.get("registry_digest_match") is not True:
+                    blockers.append(prefix + f"registry provenance must record a passed digest match for {filename}")
+                destination[filename] = (digest, size, url)
+        if actual_artifacts != expected_artifacts:
+            blockers.append(prefix + "registry provenance must match every registry artifact digest, size and URL")
+        installed = proof.get("installed_registry_artifact")
+        installed_name = proof.get("installed_registry_artifact_filename")
+        installed_expected = expected_artifacts.get(installed_name) if isinstance(installed_name, str) else None
+        if (not isinstance(installed, dict) or installed_expected is None
+                or installed.get("filename") != installed_name
+                or installed.get("sha256") != installed_expected[0]
+                or installed.get("url") != installed_expected[2]
+                or row.get("installed_registry_artifact_ref") != installed_expected[2]):
+            blockers.append(prefix + "installed artifact and matrix URL must match the registry inventory")
+        approved_filenames = PUBLISHED_REGISTRY_DISTRIBUTIONS.get(SELECTED_PACKAGE_RELEASE_VERSION)
+        if not approved_filenames:
+            blockers.append(prefix + "selected release has no approved registry distribution inventory")
+        else:
+            if set(expected_artifacts) != set(approved_filenames) or set(actual_artifacts) != set(approved_filenames):
+                blockers.append(prefix + "registry proof and provenance must cover the exact approved distribution filenames")
+            for label, evidence in (("proof", proof), ("matrix", row)):
+                count = evidence.get("registry_release_artifact_count")
+                if type(count) is not int or count != len(approved_filenames):
+                    blockers.append(prefix + f"registry {label} artifact count must match the approved distribution inventory")
+        expected_hashes = {name: values[0] for name, values in expected_artifacts.items()}
+        checksums: dict[str, str] = {}
+        try:
+            for line in (checksum_bytes or b"").decode("utf-8").splitlines():
+                match = re.fullmatch(r"([0-9a-f]{64})  ([^/\\]+)", line)
+                if match is None or match[2] in checksums:
+                    raise ValueError("invalid or duplicate checksum row")
+                checksums[match[2]] = match[1]
+        except (ValueError, UnicodeError):
+            blockers.append(prefix + "registry checksum manifest is malformed")
+        if checksums != expected_hashes:
+            blockers.append(prefix + "registry checksum manifest must cover every registry artifact")
+        if sbom.get("bomFormat") != "CycloneDX" or sbom.get("specVersion") != "1.5":
+            blockers.append(prefix + "registry SBOM must be CycloneDX 1.5")
+        components = sbom.get("components")
+        components = components if isinstance(components, list) else []
+        for filename, digest in expected_hashes.items():
+            matches = [item for item in components if isinstance(item, dict)
+                       and item.get("type") == "file" and item.get("name") == filename]
+            hashes = matches[0].get("hashes") if len(matches) == 1 else None
+            if not isinstance(hashes, list) or {"alg": "SHA-256", "content": digest} not in hashes:
+                blockers.append(prefix + f"registry SBOM must bind artifact SHA256: {filename}")
+        blockers.extend(registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom))
+        if len(blockers) == start:
+            verified_channels.append(channel_id)
+    return {
+        "status": "passed" if not blockers else "blocked",
+        "verified_channels": verified_channels,
+        "blockers": blockers,
+    }
+
+
 def validate_python_registry_package_proofs(
     matrix: dict[str, Any] | None,
     *,
@@ -1258,6 +1554,10 @@ def main() -> int:
         testpypi_proof=testpypi_proof,
         pypi_proof=pypi_proof,
     )
+    registry_supply_chain_evidence = validate_registry_supply_chain_evidence(
+        repo_root, matrix, {"testpypi": testpypi_proof, "pypi": pypi_proof}
+    )
+    published_channel_proofs = validate_published_channel_proofs(repo_root, matrix)
     local_gate_evidence = validate_local_gate_evidence(
         repo_root=repo_root,
         dependency_audit_report=dependency_audit,
@@ -1268,6 +1568,8 @@ def main() -> int:
     blockers = list(matrix_blockers)
     blockers.extend(package_identity_contract["blockers"])
     blockers.extend(python_registry_package_proofs["blockers"])
+    blockers.extend(registry_supply_chain_evidence["blockers"])
+    blockers.extend(published_channel_proofs["blockers"])
     if args.require_local_evidence:
         blockers.extend(local_gate_evidence["blockers"])
     if args.self_test:
@@ -1286,6 +1588,8 @@ def main() -> int:
         "package_identity_contract": package_identity_contract,
         "python_registry_package_proof_status": python_registry_package_proofs["status"],
         "python_registry_package_proofs": python_registry_package_proofs,
+        "registry_supply_chain_evidence": registry_supply_chain_evidence,
+        "published_channel_proofs": published_channel_proofs,
         "local_gate_evidence_required": args.require_local_evidence,
         "local_gate_evidence_status": local_gate_evidence["status"],
         "local_gate_evidence": local_gate_evidence,

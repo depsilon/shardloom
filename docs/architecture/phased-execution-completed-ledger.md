@@ -17,6 +17,46 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Selected performance consolidation and `0.2.4` publication train.
+  - Date: 2026-09-13. Performance PR [#1443](https://github.com/depsilon/shardloom/pull/1443)
+    merged at `2c9b84b76757bf1fd3e1a2e71c76d692ab7b7afb`; version PR
+    [#1444](https://github.com/depsilon/shardloom/pull/1444) merged at
+    `8759b16e3421153302c9034e5a00c9d80b61d3d9` after its performance-branch stack
+    was retargeted to main. This closes the selected release train, not a PERF/CG
+    capability item or the 116 remaining open phase items.
+  - Scope: ordinary nonnullable UTF8-group/integer DISTINCT workers, owned integer
+    COUNT, prepared/owned UTF8 COUNT and exact scalar integer footer completion.
+    Previously accepted numeric ingest, native reuse, integer DISTINCT and
+    ownership/pressure behavior are inherited from main. Slower or separately
+    scoped experiments remain excluded as recorded in the
+    [handoff](performance-pr-release-handoff-2026-09-12.md).
+  - Implementation evidence remains bound to frozen `4f2c7b97`: formatting,
+    workspace/native/minimal Clippy, 3,417 workspace and 3,321 native tests passed
+    (nine existing manual cases ignored; feature counts overlap). The acceptance
+    packet contains 1,310 accepted protocol executions, including 20 expected
+    overflow diagnostics, plus full fresh-artifact value/schema/footer parity.
+    Nine public CLI/Python calls prove complete values and actual retained reuse.
+  - Fresh ingest: 99,997,497 rows in 95.923669 seconds. Full43: 129/129 exact
+    results; per-query best-of-three sum 91.825940 seconds, all 129 native calls
+    281.793539 seconds. These clocks remain distinct. The matched Q14/control
+    gate passed; Q35/Q17 variability, the failed log-limited 86-result prefix,
+    lossless archives and explicitly retired reproducible text payload remain
+    documented in the [combined report](../benchmarks/combined-performance-uat-2026-09-12.md).
+    The historical 91.215296-second query control is unchanged.
+  - Version-source checks passed at `fbef9625`; exact commands and counts remain
+    in [source validation](../release/v0.2.4-source-validation.json). They do not
+    turn the pre-bump performance binary into a published 0.2.4 artifact.
+  - Publication completed in the authorized order: GitHub pre-release,
+    TestPyPI, PyPI and Homebrew. The
+    [publication verification](../release/v0.2.4-publication-verification.md)
+    binds each channel's artifact hashes, install/smoke/uninstall, source and
+    tested-platform scope. Historical 0.2.3 transcripts remain unchanged.
+  - Claim boundary: technical-preview install access and scoped implementation
+    evidence only. No production, competitive-superiority, broad SQL/DataFrame,
+    distributed/lakehouse, future-channel or public Rust crate availability
+    claim; no external query-engine fallback. The phase plan remains the sole
+    owner of unfinished work, with broad capability completion paused.
+
 - [x] `PERF-C7-SCOPED-ACCEPTANCE` resident calls, native results and bounded publication.
   - Date: 2026-09-05. C7 CLI/library remain frozen at `3c7ea538`.
     Final public resident records pass 744/744; all 248 candidate worker/Python
