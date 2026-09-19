@@ -8020,46 +8020,20 @@ class ReleaseScriptTests(unittest.TestCase):
         }
 
     def _registry_supply_chain_fixture(self, root: Path) -> tuple[dict, dict, dict]:
-        proof = json.loads((REPO_ROOT / "docs/release/channel-proofs" /
-                            f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-transcript.json").read_text())
-        artifacts = proof["registry_release_artifacts"]
-        row = self._python_registry_matrix_row_fixture(proof=proof)
-        row["registry_release_artifact_count"] = len(artifacts)
-        row.update({"sbom_ref": "sbom.json", "checksum_ref": "checksums.sha256",
-                    "provenance_ref": "provenance.json"})
-        for field in ("registry_release_artifacts_ref", "install_transcript_ref", "uninstall_transcript_ref",
-                      "clean_install_transcript_ref", "smoke_transcript_ref"):
-            row[field] = "transcript.json"
-        (root / "transcript.json").write_text(json.dumps(proof))
+        matrix = json.loads((REPO_ROOT / "docs/release/package-channel-readiness-matrix.json").read_text())
+        row = next(item for item in matrix["channels"] if item["channel_id"] == "testpypi")
+        for field in ("registry_release_artifacts_ref", "sbom_ref", "checksum_ref", "provenance_ref"):
+            source = REPO_ROOT / row[field]
+            target = root / row[field]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
         stdout_ref = ("docs/release/channel-proofs/"
                       f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json")
         (root / stdout_ref).parent.mkdir(parents=True, exist_ok=True)
         (root / stdout_ref).write_bytes((REPO_ROOT / stdout_ref).read_bytes())
-        sbom = json.loads((REPO_ROOT / "docs/release/channel-proofs" /
-                          f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-sbom.cdx.json").read_text())
-        (root / row["sbom_ref"]).write_text(json.dumps(sbom))
-        (root / row["checksum_ref"]).write_text("".join(
-            f"{item['sha256']}  {item['filename']}\n" for item in artifacts
-        ))
-        identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES[SELECTED_PACKAGE_RELEASE_VERSION]["testpypi"]
-        provenance = {
-            "schema_version": "shardloom.registry_release_evidence.v1",
-            "channel_id": "testpypi", "package_version": SELECTED_PACKAGE_RELEASE_VERSION,
-            "proof_status": "passed", "provenance_status": "unsigned_post_publication_observation",
-            **{field: False for field in ("publication_attempted", "package_upload_attempted", "fallback_attempted",
-                "external_engine_invoked", "crypto_attestation_verification_performed",
-                "complete_compiled_dependency_inventory_claimed", "local_build_or_package_execution_performed")},
-            **identity,
-            "workflow_url": f"https://github.com/depsilon/shardloom/actions/runs/{identity['workflow_run_id']}",
-            "artifact_refs": json.loads((REPO_ROOT / "docs/release/channel-proofs" /
-                f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-provenance.json").read_text())["artifact_refs"],
-            "channel_proof_ref": {"path": "transcript.json", "sha256": hashlib.sha256(
-                (root / "transcript.json").read_bytes()).hexdigest()},
-        }
-        for field in ("sbom_ref", "checksum_ref"):
-            provenance[field] = {"path": row[field], "sha256": hashlib.sha256(
-                (root / row[field]).read_bytes()).hexdigest()}
-        (root / row["provenance_ref"]).write_text(json.dumps(provenance))
+        transcript_path = root / row["registry_release_artifacts_ref"]
+        proof = json.loads(transcript_path.read_text())
+        provenance = json.loads((root / row["provenance_ref"]).read_text())
         return {"channels": [row]}, {"testpypi": proof}, provenance
 
     def test_registry_supply_chain_accepts_complete_channel_artifact_binding(self) -> None:
@@ -8111,12 +8085,18 @@ class ReleaseScriptTests(unittest.TestCase):
             ("wrong_cli_platform", "valid member, platform, digest and size"),
             ("invalid_cli_size", "valid member, platform, digest and size"),
             ("invalid_cli_digest", "valid member, platform, digest and size"),
+            ("consistent_cli_digest", "registry provenance SHA256 must match the approved observation"),
+            ("consistent_cli_size", "registry provenance SHA256 must match the approved observation"),
             ("sdist_cli", "source distribution must record no bundled CLI"),
         ):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 matrix, proofs, provenance = self._registry_supply_chain_fixture(root)
                 row = matrix["channels"][0]
+                transcript_path = root / row["registry_release_artifacts_ref"]
+                sbom_path = root / row["sbom_ref"]
+                checksum_path = root / row["checksum_ref"]
+                provenance_path = root / row["provenance_ref"]
                 if mutation == "github_refs":
                     row["provenance_ref"] = "https://github.com/depsilon/shardloom/releases/download/v0.2.4/supply-chain-release-evidence.json"
                 elif mutation == "other_channel":
@@ -8174,8 +8154,9 @@ class ReleaseScriptTests(unittest.TestCase):
                         proofs["testpypi"]["bundled_cli_supplemental_proof"]["steps"][3]["stdout_sha256"] = hashlib.sha256(b"{}\n").hexdigest()
                 elif mutation in {"omitted_cli_inventory", "missing_cli_component", "wrong_cli_component_digest",
                                   "wrong_cli_dependency", "missing_cli_dependency", "wrong_cli_member",
-                                  "wrong_cli_platform", "invalid_cli_size", "invalid_cli_digest", "sdist_cli"}:
-                    sbom = json.loads((root / "sbom.json").read_text())
+                                  "wrong_cli_platform", "invalid_cli_size", "invalid_cli_digest",
+                                  "consistent_cli_digest", "consistent_cli_size", "sdist_cli"}:
+                    sbom = json.loads(sbom_path.read_text())
                     wheel = next(item for item in provenance["artifact_refs"] if "bundled_cli" in item)
                     child_ref = "sha256:" + wheel["sha256"] + ":bundled-cli"
                     if mutation == "omitted_cli_inventory":
@@ -8193,14 +8174,19 @@ class ReleaseScriptTests(unittest.TestCase):
                         sbom["dependencies"] = []
                     elif mutation == "sdist_cli":
                         next(item for item in provenance["artifact_refs"] if item["filename"].endswith(".tar.gz"))["bundled_cli"] = wheel["bundled_cli"]
+                    elif mutation == "consistent_cli_digest":
+                        wheel["bundled_cli"]["sha256"] = "f" * 64
+                        next(item for item in sbom["components"] if item["bom-ref"] == child_ref)["hashes"][0]["content"] = "f" * 64
+                    elif mutation == "consistent_cli_size":
+                        wheel["bundled_cli"]["size_bytes"] = 1
                     else:
                         field, value = {"wrong_cli_member": ("member", "shardloom/bin/other/shardloom"),
                                         "wrong_cli_platform": ("platform", "other"),
                                         "invalid_cli_size": ("size_bytes", False),
                                         "invalid_cli_digest": ("sha256", "invalid")}[mutation]
                         wheel["bundled_cli"][field] = value
-                    (root / "sbom.json").write_text(json.dumps(sbom))
-                    provenance["sbom_ref"]["sha256"] = hashlib.sha256((root / "sbom.json").read_bytes()).hexdigest()
+                    sbom_path.write_text(json.dumps(sbom))
+                    provenance["sbom_ref"]["sha256"] = hashlib.sha256(sbom_path.read_bytes()).hexdigest()
                 elif mutation == "consistent_omission":
                     removed = provenance["artifact_refs"].pop(1)
                     omitted = removed["filename"]
@@ -8208,39 +8194,39 @@ class ReleaseScriptTests(unittest.TestCase):
                         proofs["testpypi"]["registry_release_artifacts"] if item["filename"] != omitted]
                     proofs["testpypi"]["registry_release_artifact_count"] = 3
                     row["registry_release_artifact_count"] = 3
-                    sbom = json.loads((root / "sbom.json").read_text())
+                    sbom = json.loads(sbom_path.read_text())
                     sbom["components"] = [item for item in sbom["components"] if item["name"] != omitted
                                           and not item["name"].startswith(omitted + "!/")]
                     sbom["dependencies"] = [item for item in sbom["dependencies"]
                                             if item["ref"] != "sha256:" + removed["sha256"]]
-                    (root / "sbom.json").write_text(json.dumps(sbom))
-                    (root / "checksums.sha256").write_text("".join(
+                    sbom_path.write_text(json.dumps(sbom))
+                    checksum_path.write_text("".join(
                         f"{item['sha256']}  {item['filename']}\n" for item in provenance["artifact_refs"]
                     ))
                     for field in ("sbom_ref", "checksum_ref"):
                         provenance[field]["sha256"] = hashlib.sha256((root / row[field]).read_bytes()).hexdigest()
                 elif mutation == "tampered_sbom":
-                    with (root / "sbom.json").open("a") as handle:
+                    with sbom_path.open("a") as handle:
                         handle.write("\n")
                 elif mutation == "incomplete_checksum":
-                    (root / "checksums.sha256").write_text("")
+                    checksum_path.write_text("")
                     provenance["checksum_ref"]["sha256"] = hashlib.sha256(b"").hexdigest()
                 elif mutation in {"wrong_sbom_digest", "malformed_sbom_hashes"}:
-                    sbom = json.loads((root / "sbom.json").read_text())
+                    sbom = json.loads(sbom_path.read_text())
                     component = next(item for item in sbom["components"] if "!/" not in item["name"])
                     if mutation == "wrong_sbom_digest":
                         component["hashes"][0]["content"] = "c" * 64
                     else:
                         component["hashes"] = None
-                    (root / "sbom.json").write_text(json.dumps(sbom))
+                    sbom_path.write_text(json.dumps(sbom))
                     provenance["sbom_ref"]["sha256"] = hashlib.sha256(
-                        (root / "sbom.json").read_bytes()).hexdigest()
-                (root / "transcript.json").write_text(json.dumps(proofs["testpypi"]))
-                provenance["channel_proof_ref"]["sha256"] = hashlib.sha256((root / "transcript.json").read_bytes()).hexdigest()
+                        sbom_path.read_bytes()).hexdigest()
+                transcript_path.write_text(json.dumps(proofs["testpypi"]))
+                provenance["channel_proof_ref"]["sha256"] = hashlib.sha256(transcript_path.read_bytes()).hexdigest()
                 if mutation == "unbound_transcript":
-                    with (root / "transcript.json").open("a") as handle:
+                    with transcript_path.open("a") as handle:
                         handle.write("\n")
-                (root / "provenance.json").write_text(json.dumps(provenance))
+                provenance_path.write_text(json.dumps(provenance))
                 report = module.validate_registry_supply_chain_evidence(root, matrix, proofs)
                 self.assertEqual(report["status"], "blocked")
                 self.assertIn(expected, "; ".join(report["blockers"]))

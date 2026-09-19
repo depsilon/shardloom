@@ -22,6 +22,7 @@ from check_published_channel_proofs import validate_published_channel_proofs
 
 from release_channel_contract import (
     PUBLISHED_REGISTRY_BUILD_IDENTITIES,
+    PUBLISHED_REGISTRY_PROVENANCE_SHA256,
     PUBLISHED_REGISTRY_DISTRIBUTIONS,
     SELECTED_PACKAGE_RELEASE_VERSION,
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
@@ -1062,7 +1063,17 @@ def validate_registry_supply_chain_evidence(
                 return {}
             return value
 
-        provenance = object_evidence(read_evidence("provenance_ref"), "provenance_ref")
+        provenance_bytes = read_evidence("provenance_ref")
+        provenance = object_evidence(provenance_bytes, "provenance_ref")
+        approved_provenance_sha = PUBLISHED_REGISTRY_PROVENANCE_SHA256.get(
+            SELECTED_PACKAGE_RELEASE_VERSION, {}).get(channel_id)
+        if (approved_provenance_sha is None or provenance_bytes is None
+                or hashlib.sha256(provenance_bytes).hexdigest() != approved_provenance_sha):
+            blockers.append(prefix + "registry provenance SHA256 must match the approved observation")
+        if row.get("provenance_ref") != (
+            f"docs/release/channel-proofs/{channel_id}-v{SELECTED_PACKAGE_RELEASE_VERSION}-provenance.json"
+        ):
+            blockers.append(prefix + "registry provenance must reference the approved observation path")
         sbom_bytes = read_evidence("sbom_ref")
         sbom = object_evidence(sbom_bytes, "sbom_ref")
         checksum_bytes = read_evidence("checksum_ref")

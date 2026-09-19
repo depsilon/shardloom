@@ -68,6 +68,15 @@ PUBLISHED_CHANNEL_TRANSCRIPTS = {
             "bf4d86205eabab40727bb000dc82c9a1fb6d0ff1b0e9f3cb8fa1af0aabd05e94"),
     },
 }
+# These observations were produced by inspecting the eight downloaded workflow
+# distributions against the published wheel hashes. Their immutable records bind
+# the extracted CLI hashes/sizes, source inputs, and checksum/SBOM hashes.
+PUBLISHED_REGISTRY_PROVENANCE_SHA256 = {
+    "0.2.4": {
+        "testpypi": "0e8af91e69e09c005be2e1a455959d50fef637ef7a92738ae15a85ba9f102d43",
+        "pypi": "e288722b5b34a5e639deb7c47c78a8b56b2bcad638ce5824132d879091b0d3e7",
+    },
+}
 SELECTED_PACKAGE_CHANNEL_STATUS_MARKER = (
     f"published_v{SELECTED_PACKAGE_RELEASE_VERSION}_selected_channels"
 )
