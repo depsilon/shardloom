@@ -301,12 +301,26 @@ passes both gates: fastest valid complete Q33 calls are 5.536625 s control versu
 those calls. All six paired outputs and all 129 Full43 calls match complete
 references; only Q33 activates the new family in Full43. Three native-file
 lifecycle tests and 12 focused semantic tests pass. Broad regression checks pass;
-open F's cohesive PR before advancing to G. The observed Full43 best sum is 82.196766 s; it is
+F merged in PR #1448 as `676e1f10` after all 40 CI checks passed.
+The observed Full43 best sum is 82.196766 s; it is
 unpaired and does not establish an overall suite speedup.
 
-Duplicate ingest traversals (G), serving queues (H) and result delivery (I) follow
-F in that order, each conditional on its own attribution and ship/drop gate. After
-each successful set, open its PR before advancing; record failed screens as drops.
+The [remaining admission screens](remaining-performance-admission-2026-09-19.md)
+close the bounded G/H/I packet: G finds no new matching duplicate ingest traversal;
+H's observed admission queue lies outside existing worker-grant control; I's
+65,536-row SUM/AVG calls complete in 84–91 ms, below its 100 ms absolute-savings
+gate. All 24 I results pass. These are scoped drops, not completion of the broader
+ingest, serving or result-delivery obligations.
+
+Next: screen persistent complete-integer partitions for Q36, reusing retained
+Q33 reduction ownership while preserving Q36's dependency proofs and derived
+outputs. Its latest 4.144340-second complete run records 3.330456 seconds in the
+caller merge of chunk partials. The existing worker-admission improvement stays
+retained; this new candidate targets repeated merge work, with the same one-second
+complete-query / 30% RSS retention gate. Put the G/H/I evidence into its cohesive
+PR before advancing; successful implementations get a PR and failed prototypes
+are removed with their evidence retained. Q29 and Q34/Q35 remain attribution
+follow-ups rather than newly admitted runtime changes.
 Broad capability completion and parked experiments
 remain paused. Scoped retention does not close whole PERF/CG gates or any of the
 116 broader unchecked phase items.

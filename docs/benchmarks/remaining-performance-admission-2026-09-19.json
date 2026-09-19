@@ -1,0 +1,1261 @@
+{
+  "schema": "shardloom.remaining_performance_admission.v1",
+  "runtime_revision": "676e1f1006efb23c296f821a4e53f4e57fcbece6",
+  "scope": "admission only; no production runtime changes or measured candidate speedup",
+  "G": {
+    "disposition": "drop_no_new_same_semantic_duplicate_traversal",
+    "gate": "at least 10 percent complete ingest savings",
+    "source_audit": {
+      "candidate": "G",
+      "revision": "676e1f10",
+      "scope": "read-only source/evidence inventory; no ship/drop decision",
+      "status": "NEEDS_REASONING",
+      "already_fused_or_removed": [
+        {
+          "path": "shardloom-vortex/src/universal_format_io.rs",
+          "lines": "1613-1650",
+          "evidence": "append_embedded_derived_columns_to_batch recognizes UTF8 length + URL domain and computes both through embedded_utf8_length_and_url_domain_arrays, and recognizes extract-minute + date-trunc-minute and computes both through embedded_extract_and_date_trunc_minute_arrays.",
+          "semantic_result": "paired traversals are fused at the producer call site"
+        },
+        {
+          "path": "shardloom-vortex/src/universal_format_io.rs",
+          "lines": "1698-1714",
+          "evidence": "UTF8 fallback loops source rows once and appends length and URL domain for each non-null value; dictionary input is handled first.",
+          "semantic_result": "length/domain work is same-row, same-value traversal"
+        },
+        {
+          "path": "shardloom-vortex/src/universal_format_io.rs",
+          "lines": "1839-1847, 1849-1866",
+          "evidence": "minute and minute-bucket are delegated together to build_embedded_minute_arrays for each supported integer dtype.",
+          "semantic_result": "minute/bucket work is fused"
+        },
+        {
+          "path": "docs/architecture/performance-domain-transfer-2026-09-19.md",
+          "lines": "266-272",
+          "evidence": "G explicitly records identity-projection and discarded-fingerprint work as already removed and requires retained numeric probe improvements."
+        },
+        {
+          "path": "shardloom-vortex/src/vortex_ingest.rs",
+          "lines": "11366-11371",
+          "evidence": "project_record_batch_for_vortex detects the identity case and returns batch.clone(); the identity_projection call is telemetry only after the projection decision, not a second row traversal.",
+          "semantic_result": "identity projection traversal is absent; residual counter must not be treated as work"
+        },
+        {
+          "path": "shardloom-vortex/src/vortex_ingest_numeric_encoding.rs",
+          "lines": "48-55",
+          "evidence": "NumericDataStrategy configures BtrBlocks with with_stats(&[]), with the comment that BtrBlocks computes required statistics inside the measured call and an additional Stat::all pass is avoided.",
+          "semantic_result": "explicit extra statistics pass already suppressed"
+        },
+        {
+          "path": "shardloom-vortex/src/vortex_ingest_numeric_encoding.rs",
+          "lines": "142-169",
+          "evidence": "measured_probe skips compressor probing for canonical Primitive chunks when Dict is not admitted; encoded inputs remain on provider route because execution may be required for safe root decisions.",
+          "semantic_result": "numeric probe skip is retained; broad removal is not semantics-safe"
+        }
+      ],
+      "plausible_remaining_overlaps": [
+        {
+          "candidate": "Arrow source conversion versus embedded derived-column traversal",
+          "paths": [
+            "shardloom-vortex/src/universal_format_io.rs:1613-1650",
+            "shardloom-vortex/src/vortex_ingest.rs:11360-11410"
+          ],
+          "producer_consumer": "derived columns are appended to an Arrow RecordBatch before Vortex conversion; conversion then consumes the complete batch",
+          "equivalence": "not provable from these sites: derived functions read Arrow values and preserve null/dictionary semantics, while conversion consumes all columns and may copy/encode them; no duplicate same-output traversal is shown",
+          "classification": "NEEDS_REASONING"
+        },
+        {
+          "candidate": "numeric probe versus final numeric compression",
+          "paths": [
+            "shardloom-vortex/src/vortex_ingest_numeric_encoding.rs:142-169",
+            "shardloom-vortex/src/vortex_ingest_numeric_encoding.rs:60-138"
+          ],
+          "producer_consumer": "probe decides/advises an encoding; NumericCompressor processes emitted chunks and records final output",
+          "equivalence": "not provable: probe may canonicalize/compact and gather constant-detection statistics, while final compression owns emitted representation; encoded roots can require execution",
+          "classification": "retain existing boundary; no SAME-SEMANTIC duplicate established"
+        },
+        {
+          "candidate": "physical/file statistics versus compression-internal statistics",
+          "paths": [
+            "shardloom-vortex/src/vortex_ingest_numeric_encoding.rs:48-55",
+            "docs/benchmarks/ingest-stage-balance-2026-09-12.md:197-200"
+          ],
+          "producer_consumer": "BtrBlocks computes required compression statistics; existing zoned/file-level statistics serve layout and metadata contracts",
+          "equivalence": "not provable and likely distinct: statistics consumers, scope, validity/null handling, and lifetime differ; profile spans overlap but are not exclusive attribution",
+          "classification": "NEEDS_REASONING"
+        },
+        {
+          "candidate": "source fingerprint/checksum/digest versus writer or prepared-state identity",
+          "paths": [
+            "shardloom-vortex/src/vortex_ingest.rs:1250-1290",
+            "shardloom-vortex/src/vortex_ingest.rs:2520-2611",
+            "shardloom-vortex/src/vortex_ingest.rs:4351-4626"
+          ],
+          "producer_consumer": "source/artifact fingerprints validate generation and prepared-state reuse; writer checksums/publication identity protect different lifecycle boundaries",
+          "equivalence": "not provable: digest inputs and validation timing differ; removing one could break mutation detection or publication/reuse safety",
+          "classification": "NEEDS_REASONING"
+        },
+        {
+          "candidate": "reopen row-count/metadata scan versus ingest-time row counting",
+          "paths": [
+            "shardloom-vortex/src/vortex_ingest.rs:3703-3814",
+            "shardloom-vortex/src/vortex_ingest.rs:19229-19289"
+          ],
+          "producer_consumer": "prepared metadata fingerprints and reopen receipts use layout/footer inventory; writer/reopen validation proves persisted artifact properties",
+          "equivalence": "not provable: reopen verification is post-publication evidence and may inspect persisted layout metadata; ingest counters are producer-side values",
+          "classification": "NEEDS_REASONING"
+        }
+      ],
+      "evidence_limits": [
+        "docs/benchmarks/ingest-stage-balance-2026-09-12.md:34-36 reports overlapping conversion/compression/probe/statistics spans and explicitly says they cannot be summed into exclusive CPU or wall time.",
+        "docs/benchmarks/ingest-stage-balance-2026-09-12.md:197-201 says repeated representation work requires actual duplication and safe reuse evidence; existing owned copies, post-coalescing compression, physical statistics and checksums have distinct contracts.",
+        "No remaining concrete SAME-SEMANTIC duplicate traversal is proven by the inspected sources. A ship/drop determination requires producer/consumer reads, validity, Unicode length versus byte length, extrema, generation, probe and writer contract evidence per docs/architecture/performance-domain-transfer-2026-09-19.md:274-280."
+      ]
+    }
+  },
+  "H": {
+    "disposition": "drop_grant_control_does_not_reach_session_admission_queue",
+    "gate": "at least 30 percent p99 reduction with at most 5 percent throughput loss at declared fixed arrival rate",
+    "source_boundaries": [
+      "shardloom-vortex/src/resident_session.rs:392",
+      "shardloom-vortex/src/resident_session.rs:662",
+      "shardloom-vortex/src/resident_file_serving_tests.rs:197",
+      "shardloom-exec/src/compute_pool.rs:313"
+    ],
+    "scope": "source proven mechanism mismatch; no new serving benchmark"
+  },
+  "I": {
+    "disposition": "drop_bounded_sum_avg_result_ownership_candidate",
+    "gate": {
+      "min_complete_latency_savings_ms": 100,
+      "min_relative_savings": 0.2
+    },
+    "reason": "All measured complete calls already take less than 100 ms; removing the whole call could not save the absolute gate. No claim about wider payloads, transport or other families.",
+    "screen": {
+      "binary_sha256": "sha256:089865690d482aedb9f31843f6b783f47f3badf5a4354b3d457a26a4c98a1187",
+      "bytes_scope": "serialized result summary bytes; not allocation, copy, decode or transport bytes",
+      "cache_scope": "retained source; fresh aggregate state; uncontrolled OS cache; no answer cache",
+      "caller_span_scope": "disjoint caller elapsed scopes; provider activity may overlap; finalization includes ranking/render and state drop but excludes later report annotations",
+      "cases": [
+        {
+          "aggregate": "sum",
+          "calls": [
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 0,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 434917,
+                "aggregate_first_pass_group_update_nanos": 22561667,
+                "aggregate_first_pass_reader_evidence_nanos": 32291,
+                "aggregate_first_pass_scan_next_nanos": 441249,
+                "aggregate_result_finalization_nanos": 6089959
+              },
+              "complete_nanos": 29997875,
+              "complete_values_verified": true,
+              "drop_nanos": 2750,
+              "execution_nanos": 29995125,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5794,
+              "warmup": true
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 1,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 257625,
+                "aggregate_first_pass_group_update_nanos": 14002751,
+                "aggregate_first_pass_reader_evidence_nanos": 12292,
+                "aggregate_first_pass_scan_next_nanos": 192543,
+                "aggregate_result_finalization_nanos": 4832292
+              },
+              "complete_nanos": 19434208,
+              "complete_values_verified": true,
+              "drop_nanos": 2583,
+              "execution_nanos": 19431625,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5794,
+              "warmup": false
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 2,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 238082,
+                "aggregate_first_pass_group_update_nanos": 13009624,
+                "aggregate_first_pass_reader_evidence_nanos": 8293,
+                "aggregate_first_pass_scan_next_nanos": 154915,
+                "aggregate_result_finalization_nanos": 4454875
+              },
+              "complete_nanos": 17989250,
+              "complete_values_verified": true,
+              "drop_nanos": 2000,
+              "execution_nanos": 17987250,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5793,
+              "warmup": false
+            }
+          ],
+          "groups": 65536,
+          "limit": 32,
+          "native_certificate_is_certified": true,
+          "output_rows": 32,
+          "owned_rejection": "owned aggregate output: requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending; no fallback execution was attempted",
+          "report_has_errors": false,
+          "resource_policy": 1073741824,
+          "workers": 1
+        },
+        {
+          "aggregate": "sum",
+          "calls": [
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 0,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 188041,
+                "aggregate_first_pass_group_update_nanos": 12010334,
+                "aggregate_first_pass_reader_evidence_nanos": 8334,
+                "aggregate_first_pass_scan_next_nanos": 143501,
+                "aggregate_result_finalization_nanos": 39593583
+              },
+              "complete_nanos": 88232208,
+              "complete_values_verified": true,
+              "drop_nanos": 4333,
+              "execution_nanos": 88227875,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3406305,
+              "warmup": true
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 1,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 232333,
+                "aggregate_first_pass_group_update_nanos": 17534084,
+                "aggregate_first_pass_reader_evidence_nanos": 14542,
+                "aggregate_first_pass_scan_next_nanos": 213959,
+                "aggregate_result_finalization_nanos": 40254708
+              },
+              "complete_nanos": 91483291,
+              "complete_values_verified": true,
+              "drop_nanos": 3625,
+              "execution_nanos": 91479666,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3406306,
+              "warmup": false
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 2,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 227707,
+                "aggregate_first_pass_group_update_nanos": 17522541,
+                "aggregate_first_pass_reader_evidence_nanos": 13083,
+                "aggregate_first_pass_scan_next_nanos": 194791,
+                "aggregate_result_finalization_nanos": 36833125
+              },
+              "complete_nanos": 88189083,
+              "complete_values_verified": true,
+              "drop_nanos": 4708,
+              "execution_nanos": 88184375,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3406306,
+              "warmup": false
+            }
+          ],
+          "groups": 65536,
+          "limit": 65536,
+          "native_certificate_is_certified": true,
+          "output_rows": 65536,
+          "owned_rejection": "owned aggregate output: requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending; no fallback execution was attempted",
+          "report_has_errors": false,
+          "resource_policy": 1073741824,
+          "workers": 1
+        },
+        {
+          "aggregate": "sum",
+          "calls": [
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 0,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 214125,
+                "aggregate_first_pass_group_update_nanos": 18929250,
+                "aggregate_first_pass_reader_evidence_nanos": 14167,
+                "aggregate_first_pass_scan_next_nanos": 169292,
+                "aggregate_result_finalization_nanos": 4495083
+              },
+              "complete_nanos": 23949833,
+              "complete_values_verified": true,
+              "drop_nanos": 2250,
+              "execution_nanos": 23947583,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5794,
+              "warmup": true
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 1,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 258167,
+                "aggregate_first_pass_group_update_nanos": 17777625,
+                "aggregate_first_pass_reader_evidence_nanos": 12250,
+                "aggregate_first_pass_scan_next_nanos": 160834,
+                "aggregate_result_finalization_nanos": 4644416
+              },
+              "complete_nanos": 22976416,
+              "complete_values_verified": true,
+              "drop_nanos": 2166,
+              "execution_nanos": 22974250,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5794,
+              "warmup": false
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 2,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 231083,
+                "aggregate_first_pass_group_update_nanos": 18118626,
+                "aggregate_first_pass_reader_evidence_nanos": 11458,
+                "aggregate_first_pass_scan_next_nanos": 165250,
+                "aggregate_result_finalization_nanos": 4639208
+              },
+              "complete_nanos": 23267459,
+              "complete_values_verified": true,
+              "drop_nanos": 1542,
+              "execution_nanos": 23265917,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5794,
+              "warmup": false
+            }
+          ],
+          "groups": 65536,
+          "limit": 32,
+          "native_certificate_is_certified": true,
+          "output_rows": 32,
+          "owned_rejection": "owned aggregate output: requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending; no fallback execution was attempted",
+          "report_has_errors": false,
+          "resource_policy": 1073741824,
+          "workers": 4
+        },
+        {
+          "aggregate": "sum",
+          "calls": [
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 0,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 249916,
+                "aggregate_first_pass_group_update_nanos": 17104791,
+                "aggregate_first_pass_reader_evidence_nanos": 9917,
+                "aggregate_first_pass_scan_next_nanos": 156498,
+                "aggregate_result_finalization_nanos": 34591958
+              },
+              "complete_nanos": 83938459,
+              "complete_values_verified": true,
+              "drop_nanos": 3834,
+              "execution_nanos": 83934625,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3406305,
+              "warmup": true
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 1,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 270709,
+                "aggregate_first_pass_group_update_nanos": 20063374,
+                "aggregate_first_pass_reader_evidence_nanos": 12917,
+                "aggregate_first_pass_scan_next_nanos": 191958,
+                "aggregate_result_finalization_nanos": 34855833
+              },
+              "complete_nanos": 87935042,
+              "complete_values_verified": true,
+              "drop_nanos": 4417,
+              "execution_nanos": 87930625,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3406306,
+              "warmup": false
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 2,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 222251,
+                "aggregate_first_pass_group_update_nanos": 17468459,
+                "aggregate_first_pass_reader_evidence_nanos": 12917,
+                "aggregate_first_pass_scan_next_nanos": 194959,
+                "aggregate_result_finalization_nanos": 35091916
+              },
+              "complete_nanos": 85094917,
+              "complete_values_verified": true,
+              "drop_nanos": 4083,
+              "execution_nanos": 85090834,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3406306,
+              "warmup": false
+            }
+          ],
+          "groups": 65536,
+          "limit": 65536,
+          "native_certificate_is_certified": true,
+          "output_rows": 65536,
+          "owned_rejection": "owned aggregate output: requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending; no fallback execution was attempted",
+          "report_has_errors": false,
+          "resource_policy": 1073741824,
+          "workers": 4
+        },
+        {
+          "aggregate": "avg",
+          "calls": [
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 0,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 206333,
+                "aggregate_first_pass_group_update_nanos": 17191082,
+                "aggregate_first_pass_reader_evidence_nanos": 13542,
+                "aggregate_first_pass_scan_next_nanos": 157749,
+                "aggregate_result_finalization_nanos": 4701667
+              },
+              "complete_nanos": 22385833,
+              "complete_values_verified": true,
+              "drop_nanos": 2416,
+              "execution_nanos": 22383417,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5722,
+              "warmup": true
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 1,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 252834,
+                "aggregate_first_pass_group_update_nanos": 18168625,
+                "aggregate_first_pass_reader_evidence_nanos": 12584,
+                "aggregate_first_pass_scan_next_nanos": 159873,
+                "aggregate_result_finalization_nanos": 4668250
+              },
+              "complete_nanos": 23386708,
+              "complete_values_verified": true,
+              "drop_nanos": 2208,
+              "execution_nanos": 23384500,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5722,
+              "warmup": false
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 2,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 232459,
+                "aggregate_first_pass_group_update_nanos": 17762667,
+                "aggregate_first_pass_reader_evidence_nanos": 9418,
+                "aggregate_first_pass_scan_next_nanos": 163791,
+                "aggregate_result_finalization_nanos": 4665166
+              },
+              "complete_nanos": 22948959,
+              "complete_values_verified": true,
+              "drop_nanos": 1959,
+              "execution_nanos": 22947000,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5721,
+              "warmup": false
+            }
+          ],
+          "groups": 65536,
+          "limit": 32,
+          "native_certificate_is_certified": true,
+          "output_rows": 32,
+          "owned_rejection": "owned aggregate output: requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending; no fallback execution was attempted",
+          "report_has_errors": false,
+          "resource_policy": 1073741824,
+          "workers": 1
+        },
+        {
+          "aggregate": "avg",
+          "calls": [
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 0,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 233833,
+                "aggregate_first_pass_group_update_nanos": 17730375,
+                "aggregate_first_pass_reader_evidence_nanos": 9375,
+                "aggregate_first_pass_scan_next_nanos": 146000,
+                "aggregate_result_finalization_nanos": 35254833
+              },
+              "complete_nanos": 85271542,
+              "complete_values_verified": true,
+              "drop_nanos": 3917,
+              "execution_nanos": 85267625,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3221369,
+              "warmup": true
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 1,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 214958,
+                "aggregate_first_pass_group_update_nanos": 18009165,
+                "aggregate_first_pass_reader_evidence_nanos": 10708,
+                "aggregate_first_pass_scan_next_nanos": 185708,
+                "aggregate_result_finalization_nanos": 35414709
+              },
+              "complete_nanos": 85660750,
+              "complete_values_verified": true,
+              "drop_nanos": 3792,
+              "execution_nanos": 85656958,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3221370,
+              "warmup": false
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 2,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 223417,
+                "aggregate_first_pass_group_update_nanos": 16791208,
+                "aggregate_first_pass_reader_evidence_nanos": 12417,
+                "aggregate_first_pass_scan_next_nanos": 192333,
+                "aggregate_result_finalization_nanos": 34734208
+              },
+              "complete_nanos": 83788542,
+              "complete_values_verified": true,
+              "drop_nanos": 3333,
+              "execution_nanos": 83785209,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3221370,
+              "warmup": false
+            }
+          ],
+          "groups": 65536,
+          "limit": 65536,
+          "native_certificate_is_certified": true,
+          "output_rows": 65536,
+          "owned_rejection": "owned aggregate output: requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending; no fallback execution was attempted",
+          "report_has_errors": false,
+          "resource_policy": 1073741824,
+          "workers": 1
+        },
+        {
+          "aggregate": "avg",
+          "calls": [
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 0,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 236957,
+                "aggregate_first_pass_group_update_nanos": 16849168,
+                "aggregate_first_pass_reader_evidence_nanos": 12875,
+                "aggregate_first_pass_scan_next_nanos": 155293,
+                "aggregate_result_finalization_nanos": 4688250
+              },
+              "complete_nanos": 22050167,
+              "complete_values_verified": true,
+              "drop_nanos": 1750,
+              "execution_nanos": 22048417,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5722,
+              "warmup": true
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 1,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 228292,
+                "aggregate_first_pass_group_update_nanos": 17839334,
+                "aggregate_first_pass_reader_evidence_nanos": 10374,
+                "aggregate_first_pass_scan_next_nanos": 158001,
+                "aggregate_result_finalization_nanos": 4642041
+              },
+              "complete_nanos": 22986958,
+              "complete_values_verified": true,
+              "drop_nanos": 1333,
+              "execution_nanos": 22985625,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5722,
+              "warmup": false
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 2,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 243793,
+                "aggregate_first_pass_group_update_nanos": 17285375,
+                "aggregate_first_pass_reader_evidence_nanos": 9334,
+                "aggregate_first_pass_scan_next_nanos": 151500,
+                "aggregate_result_finalization_nanos": 4562583
+              },
+              "complete_nanos": 22352541,
+              "complete_values_verified": true,
+              "drop_nanos": 1500,
+              "execution_nanos": 22351041,
+              "group_output_strategy": "capillary_ordered_topk",
+              "result_summary_bytes": 5721,
+              "warmup": false
+            }
+          ],
+          "groups": 65536,
+          "limit": 32,
+          "native_certificate_is_certified": true,
+          "output_rows": 32,
+          "owned_rejection": "owned aggregate output: requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending; no fallback execution was attempted",
+          "report_has_errors": false,
+          "resource_policy": 1073741824,
+          "workers": 4
+        },
+        {
+          "aggregate": "avg",
+          "calls": [
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 0,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 235625,
+                "aggregate_first_pass_group_update_nanos": 17270874,
+                "aggregate_first_pass_reader_evidence_nanos": 9291,
+                "aggregate_first_pass_scan_next_nanos": 144874,
+                "aggregate_result_finalization_nanos": 35046125
+              },
+              "complete_nanos": 84537625,
+              "complete_values_verified": true,
+              "drop_nanos": 3208,
+              "execution_nanos": 84534417,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3221369,
+              "warmup": true
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 1,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 228583,
+                "aggregate_first_pass_group_update_nanos": 17148625,
+                "aggregate_first_pass_reader_evidence_nanos": 12125,
+                "aggregate_first_pass_scan_next_nanos": 187958,
+                "aggregate_result_finalization_nanos": 35879083
+              },
+              "complete_nanos": 85236875,
+              "complete_values_verified": true,
+              "drop_nanos": 3084,
+              "execution_nanos": 85233791,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3221370,
+              "warmup": false
+            },
+            {
+              "aggregate_update_strategy": "direct_count_sum_avg_group_update",
+              "call": 2,
+              "caller_spans": {
+                "aggregate_first_pass_accessor_nanos": 239958,
+                "aggregate_first_pass_group_update_nanos": 17662000,
+                "aggregate_first_pass_reader_evidence_nanos": 14042,
+                "aggregate_first_pass_scan_next_nanos": 185500,
+                "aggregate_result_finalization_nanos": 35121750
+              },
+              "complete_nanos": 85087792,
+              "complete_values_verified": true,
+              "drop_nanos": 3625,
+              "execution_nanos": 85084167,
+              "group_output_strategy": "ordered_group_sort",
+              "result_summary_bytes": 3221370,
+              "warmup": false
+            }
+          ],
+          "groups": 65536,
+          "limit": 65536,
+          "native_certificate_is_certified": true,
+          "output_rows": 65536,
+          "owned_rejection": "owned aggregate output: requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending; no fallback execution was attempted",
+          "report_has_errors": false,
+          "resource_policy": 1073741824,
+          "workers": 4
+        }
+      ],
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "fixture": {
+        "bytes": 758456,
+        "groups": 65536,
+        "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/computed-result-baseline/computed-result-cost-1789855674840246000-92469.vortex",
+        "rows": 262144,
+        "schema": "delivery_zone:nonnullable i64; package_value:nonnullable i64",
+        "sha256": "sha256:080c2b2ae8fbb03fdf54b82c695170926573f8340a98ad00dea882e623ca2371",
+        "writer": "pinned Vortex default writer",
+        "writer_input_batch_rows": 8192
+      },
+      "memory_scope": "one GiB session policy; total RSS, harness/oracle and JSON allocation are not measured or enforced by this policy",
+      "schema_version": "shardloom.computed_result_cost.v1",
+      "source_revision": "676e1f1006efb23c296f821a4e53f4e57fcbece6",
+      "timing": "execution and result drop only; prepare, fixture, oracle and transport excluded"
+    },
+    "best_measured_calls": [
+      {
+        "aggregate": "sum",
+        "workers": 1,
+        "limit": 32,
+        "best_complete_ms": 17.98925,
+        "best_finalization_ms": 4.454875
+      },
+      {
+        "aggregate": "sum",
+        "workers": 1,
+        "limit": 65536,
+        "best_complete_ms": 88.189083,
+        "best_finalization_ms": 36.833125
+      },
+      {
+        "aggregate": "sum",
+        "workers": 4,
+        "limit": 32,
+        "best_complete_ms": 22.976416,
+        "best_finalization_ms": 4.644416
+      },
+      {
+        "aggregate": "sum",
+        "workers": 4,
+        "limit": 65536,
+        "best_complete_ms": 85.094917,
+        "best_finalization_ms": 35.091916
+      },
+      {
+        "aggregate": "avg",
+        "workers": 1,
+        "limit": 32,
+        "best_complete_ms": 22.948959,
+        "best_finalization_ms": 4.665166
+      },
+      {
+        "aggregate": "avg",
+        "workers": 1,
+        "limit": 65536,
+        "best_complete_ms": 83.788542,
+        "best_finalization_ms": 34.734208
+      },
+      {
+        "aggregate": "avg",
+        "workers": 4,
+        "limit": 32,
+        "best_complete_ms": 22.352541,
+        "best_finalization_ms": 4.562583
+      },
+      {
+        "aggregate": "avg",
+        "workers": 4,
+        "limit": 65536,
+        "best_complete_ms": 85.087792,
+        "best_finalization_ms": 35.12175
+      }
+    ]
+  },
+  "environment": {
+    "cpu": "Apple M5",
+    "logical_cpus": 10,
+    "memory_bytes": 17179869184,
+    "os": "macOS 27.0 (26A428)",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+    "host": "aarch64-apple-darwin",
+    "profile": "ordinary release; no PGO",
+    "features": [
+      "vortex-local-primitives",
+      "vortex-write"
+    ]
+  },
+  "reproduction": {
+    "source_example": "shardloom-vortex/examples/computed_result_cost.rs",
+    "source_sha256": "69f87ffc2c30b6185f075f453e91380fd7b48937af74096660c94485789b724d",
+    "frozen_binary": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/computed-result-cost-676e1f10",
+    "binary_sha256": "089865690d482aedb9f31843f6b783f47f3badf5a4354b3d457a26a4c98a1187",
+    "build": {
+      "command": [
+        "cargo",
+        "build",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--example",
+        "computed_result_cost",
+        "--features",
+        "vortex-local-primitives vortex-write"
+      ],
+      "exit_code": 0,
+      "seconds": 1.3779636249964824,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-release-build-v2.log",
+      "sha256": "de0229779594993e7f4bb91997a0932e73ce32c2c7a13f241e3ee64174d48ab8"
+    },
+    "guard": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/run-computed-result-screen.py",
+    "guard_sha256": "6c7593ba5ce3a3b319665e39e664aa6fc2bd19b61e5a03a15a72f9a9cad5bda1",
+    "raw_output": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/computed-result-baseline/logs/1789855674308332000.stdout.json",
+    "raw_output_sha256": "d2e378baaa2d4b4e7d19aabc6772d89e4694aca24bd070f0380963cba4fef343",
+    "receipt": {
+      "command": [
+        "/Users/dylan/.cache/shardloom/cargo-target/release/examples/computed_result_cost",
+        "--workspace",
+        "/Users/dylan/LocalData/shardloom/ship-drop-20260919/computed-result-baseline",
+        "--source-revision",
+        "676e1f1006efb23c296f821a4e53f4e57fcbece6"
+      ],
+      "exit_code": 0,
+      "supervisor_seconds": 2.0990346660037176,
+      "binary_sha256": "089865690d482aedb9f31843f6b783f47f3badf5a4354b3d457a26a4c98a1187",
+      "stdout": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/computed-result-baseline/logs/1789855674308332000.stdout.json",
+      "stderr": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/computed-result-baseline/logs/1789855674308332000.stderr.log",
+      "stdout_sha256": "d2e378baaa2d4b4e7d19aabc6772d89e4694aca24bd070f0380963cba4fef343",
+      "storage_samples": [
+        {
+          "workspace_bytes": 4096,
+          "log_bytes": 0,
+          "free_bytes": 90553634816,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 4096,
+          "log_bytes": 0,
+          "free_bytes": 90553634816,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 4096,
+          "log_bytes": 0,
+          "free_bytes": 90553634816,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 4096,
+          "log_bytes": 0,
+          "free_bytes": 90553634816,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 770048,
+          "log_bytes": 0,
+          "free_bytes": 90552922112,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 770048,
+          "log_bytes": 0,
+          "free_bytes": 90552922112,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 770048,
+          "log_bytes": 0,
+          "free_bytes": 90552885248,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 770048,
+          "log_bytes": 0,
+          "free_bytes": 90552877056,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 770048,
+          "log_bytes": 0,
+          "free_bytes": 90552868864,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 770048,
+          "log_bytes": 0,
+          "free_bytes": 90552868864,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 770048,
+          "log_bytes": 0,
+          "free_bytes": 90552864768,
+          "reserved_candidate_bytes": 67108864
+        },
+        {
+          "workspace_bytes": 786432,
+          "log_bytes": 20480,
+          "free_bytes": 90552844288,
+          "reserved_candidate_bytes": 67108864
+        }
+      ],
+      "source_revision": "676e1f1006efb23c296f821a4e53f4e57fcbece6"
+    }
+  },
+  "latest_query_inventory": {
+    "schema": "post_q33_profile_targets.v1",
+    "source": {
+      "q33_screen": "docs/benchmarks/q33-exact-partition-reduction-2026-09-19.json",
+      "full43_audit": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q33-full43-audit.json",
+      "scope": "mechanical inventory for refresh after G/H/I screens; no raw archives opened or hashes recomputed"
+    },
+    "latest_full43_status": "unpaired_latest_full43; complete_result_validation_passed; timing_is_not_a_matched_speedup_or_regression",
+    "latest_full43_totals": {
+      "records": 129,
+      "queries": 43,
+      "runs_per_query": 3,
+      "query_total_seconds": 82.19676607999281,
+      "hot_total_seconds": 83.45977891099756,
+      "all_raw_run_seconds": 259.1582018290137
+    },
+    "top12_slowest_queries_by_fastest_valid_run": [
+      {
+        "rank": 1,
+        "query_id": 29,
+        "best_run": 3,
+        "seconds": 9.720690333000675,
+        "native_peak_rss_bytes": 1467678720
+      },
+      {
+        "rank": 2,
+        "query_id": 17,
+        "best_run": 3,
+        "seconds": 6.1234834999995655,
+        "native_peak_rss_bytes": 4914642944
+      },
+      {
+        "rank": 3,
+        "query_id": 19,
+        "best_run": 3,
+        "seconds": 5.3921980839950265,
+        "native_peak_rss_bytes": 4023058432
+      },
+      {
+        "rank": 4,
+        "query_id": 34,
+        "best_run": 3,
+        "seconds": 5.14019766599813,
+        "native_peak_rss_bytes": 5140430848
+      },
+      {
+        "rank": 5,
+        "query_id": 35,
+        "best_run": 1,
+        "seconds": 4.8796041250025155,
+        "native_peak_rss_bytes": 5326438400
+      },
+      {
+        "rank": 6,
+        "query_id": 10,
+        "best_run": 2,
+        "seconds": 4.671558499998355,
+        "native_peak_rss_bytes": 1093713920
+      },
+      {
+        "rank": 7,
+        "query_id": 23,
+        "best_run": 3,
+        "seconds": 4.593005416994856,
+        "native_peak_rss_bytes": 2142961664
+      },
+      {
+        "rank": 8,
+        "query_id": 36,
+        "best_run": 1,
+        "seconds": 4.144340042003023,
+        "native_peak_rss_bytes": 6417039360
+      },
+      {
+        "rank": 9,
+        "query_id": 6,
+        "best_run": 3,
+        "seconds": 3.906256458001735,
+        "native_peak_rss_bytes": 1160888320
+      },
+      {
+        "rank": 10,
+        "query_id": 18,
+        "best_run": 3,
+        "seconds": 3.6954768329960643,
+        "native_peak_rss_bytes": 293109760
+      },
+      {
+        "rank": 11,
+        "query_id": 16,
+        "best_run": 3,
+        "seconds": 2.8259175829953165,
+        "native_peak_rss_bytes": 2693808128
+      },
+      {
+        "rank": 12,
+        "query_id": 27,
+        "best_run": 2,
+        "seconds": 2.7444840829994064,
+        "native_peak_rss_bytes": 322879488
+      }
+    ],
+    "saved_small_record_fields": {
+      "output_rows": "absent in supplied compact records",
+      "actual_family": "present only for Q33 candidate screen: complete_numeric_pair_partition_sort_reduce",
+      "candidate_groups": "present only for Q33 candidate screen: 99997493",
+      "candidate_rows": "present only for Q33 candidate screen: 99997497",
+      "first_run_caller_spans": "absent in supplied compact records"
+    },
+    "q33_candidate_context": {
+      "family": "complete_numeric_pair_partition_sort_reduce",
+      "groups": 99997493,
+      "rows": 99997497,
+      "candidate_best_wall_seconds": 1.8004032500030007,
+      "control_best_wall_seconds": 5.536625041000661,
+      "comparison_label": "paired Q33 screen; separate from unpaired latest Full43 timings",
+      "full43_pair_family_activation": [
+        [
+          33,
+          1,
+          99997497,
+          99997493
+        ],
+        [
+          33,
+          2,
+          99997497,
+          99997493
+        ],
+        [
+          33,
+          3,
+          99997497,
+          99997493
+        ]
+      ]
+    },
+    "missing_fields_are_absent": true
+  },
+  "selected_query_first_run_spans": [
+    {
+      "query": 29,
+      "run": 1,
+      "seconds": 10.24845891699806,
+      "stdout_raw_sha256": "1d13c8dd8b91fefda169b8bff82da383b714864669647f59f421e098b6660557",
+      "fields": {
+        "aggregate_first_pass_accessor_nanos": 7575242366,
+        "aggregate_first_pass_group_update_nanos": 1976909056,
+        "aggregate_key_encoding_mode": "dense_transformed_dictionary_interned_utf8_hash_key",
+        "aggregate_result_finalization_nanos": 161250750,
+        "aggregate_update_strategy": "transformed_dictionary_dense_general_chunk_partial_group_update",
+        "candidate_groups": 74,
+        "group_by": "k",
+        "group_output_strategy": "capillary_transformed_dictionary_dense_general_topk",
+        "group_state_mode": "dense_transformed_dictionary_chunk_partial_accumulators",
+        "rows": 25,
+        "transformed_dictionary_dense_general_pre_having_groups": 1798248
+      }
+    },
+    {
+      "query": 36,
+      "run": 1,
+      "seconds": 4.144340042003023,
+      "stdout_raw_sha256": "23b6c956285d3164cdebe4367df3a1b19841a449def3e4e510e211c7b54804ba",
+      "fields": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_key_encoding_mode": "typed_hash_key_functional_dependency",
+        "aggregate_result_finalization_nanos": 639883542,
+        "aggregate_update_strategy": "count_star_direct_group_update",
+        "candidate_groups": 9762046,
+        "group_by": "ClientIP,ClientIP_minus1,ClientIP_minus2,ClientIP_minus3",
+        "group_output_strategy": "capillary_streaming_count_star_topk",
+        "group_state_mode": "all_hot_hash_map",
+        "rows": 10,
+        "aggregate_workers_caller_merge_nanos": 3330456077,
+        "aggregate_workers_caller_join_wait_nanos": 2376756,
+        "aggregate_workers_worker_busy_elapsed_nanos": 1302420753,
+        "aggregate_workers_count_work_nanos": 1200807795,
+        "aggregate_workers_canonicalization_work_nanos": 99633323,
+        "aggregate_workers_completed_chunks": 1550,
+        "aggregate_workers_rows": 99997497
+      }
+    },
+    {
+      "query": 34,
+      "run": 1,
+      "seconds": 5.864004542003386,
+      "stdout_raw_sha256": "f294ae346ff69c14a999cd340060870b9116df359451ab0755fd47981f8bd8d4",
+      "fields": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_key_encoding_mode": "proofbound_string_heavy_hitter_key",
+        "aggregate_result_finalization_nanos": 404500,
+        "aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+        "candidate_groups": 18342019,
+        "group_by": "URL",
+        "group_output_strategy": "complete_key_partition_exact_topk",
+        "group_state_mode": "string_heavy_hitter_exact_first_pass",
+        "rows": 10,
+        "aggregate_workers_caller_merge_nanos": 13137923,
+        "aggregate_workers_caller_join_wait_nanos": 5471807712,
+        "aggregate_workers_worker_busy_elapsed_nanos": 49713267439,
+        "aggregate_workers_count_work_nanos": 12019159165,
+        "aggregate_workers_canonicalization_work_nanos": 5381808199,
+        "aggregate_workers_completed_chunks": 1550,
+        "aggregate_workers_rows": 99997497
+      }
+    },
+    {
+      "query": 35,
+      "run": 1,
+      "seconds": 4.8796041250025155,
+      "stdout_raw_sha256": "7c8dce90646545a4b2c8499cb5983cc271768417e329752a8df5272494c92560",
+      "fields": {
+        "aggregate_first_pass_accessor_nanos": 0,
+        "aggregate_first_pass_group_update_nanos": 0,
+        "aggregate_key_encoding_mode": "proofbound_string_heavy_hitter_key",
+        "aggregate_result_finalization_nanos": 136125,
+        "aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+        "candidate_groups": 18342019,
+        "group_by": "URL,literal_1",
+        "group_output_strategy": "complete_key_partition_exact_topk",
+        "group_state_mode": "string_heavy_hitter_exact_first_pass",
+        "rows": 10,
+        "aggregate_workers_caller_merge_nanos": 4262156,
+        "aggregate_workers_caller_join_wait_nanos": 4593534030,
+        "aggregate_workers_worker_busy_elapsed_nanos": 41893537973,
+        "aggregate_workers_count_work_nanos": 14376884078,
+        "aggregate_workers_canonicalization_work_nanos": 5058028540,
+        "aggregate_workers_completed_chunks": 1550,
+        "aggregate_workers_rows": 99997497
+      }
+    }
+  ],
+  "validation": {
+    "fmt": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 2.1925016249952023,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "example-clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "shardloom-vortex",
+        "--example",
+        "computed_result_cost",
+        "--features",
+        "vortex-local-primitives vortex-write",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 0.7221957090005162,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-example-clippy.log",
+      "sha256": "c3b686f7bcb9642eb870832ad60a868df78c227a1aee9a57570651137c676bc7"
+    },
+    "example-tests-v2": {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "shardloom-vortex",
+        "--example",
+        "computed_result_cost",
+        "--features",
+        "vortex-local-primitives vortex-write",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 1.8525558749970514,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-example-tests-v2.log",
+      "sha256": "28c4f7857294b28b3204f127dd731b7f625d9266ef13facb0e7e630245e5be34"
+    },
+    "workspace-clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 0.20719595800619572,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-workspace-clippy.log",
+      "sha256": "fecede7c2157efe2f16c8c8b9dce94b0fb4dd384dca8207046c8bf7636eb0ffe"
+    },
+    "workspace-tests": {
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 7.079444582996075,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-workspace-tests.log",
+      "sha256": "e2322e538e23954443ec68e77b61368776f26c403ab6beca8ee45fa4ff98bf4a",
+      "passed_tests": 3424
+    },
+    "benchmark-constitution": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/check_benchmark_constitution.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04746912499831524,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-benchmark-constitution.log",
+      "sha256": "908bf26caf6d5a12582c06786528fbc90ecd288c5e4f2b0a010645bfe0f654ce"
+    },
+    "optimization-targets": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/check_benchmark_optimization_targets.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04450854099559365,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-optimization-targets.log",
+      "sha256": "6152a3d20b5bd655864605f3de7ea1f06b95624a5635c1794ba427e67a3bd6eb"
+    },
+    "claim-language": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/check_public_claim_language.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.08918341599928681,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-claim-language.log",
+      "sha256": "362b47f6b593c5bb5e6dae5ea4e495a1be792e358bef05873b61f125989935d5"
+    },
+    "release-tracker": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/check_release_architecture_tracker.py",
+        "--allow-blocked"
+      ],
+      "exit_code": 0,
+      "seconds": 0.08600537500024075,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-release-tracker.log",
+      "sha256": "ad953be84d2f69f08e3e8cc7d43045396e7027d114b28d9a8d117a681e996cb7"
+    },
+    "contribution-governance": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/check_contribution_governance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04205287500371924,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-contribution-governance.log",
+      "sha256": "1293845b7623969482b659b6e5abc38268f178b55f0f8a005b1babc013368d5c"
+    },
+    "supervisor-lock-tests": {
+      "terminated_child_lock_released": true,
+      "preexisting_lock_preserved": true,
+      "supervisor_lock_released": true
+    }
+  }
+}
