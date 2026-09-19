@@ -138,7 +138,10 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains(&field("output_symlink_followed", "false")));
     assert!(stdout.contains(&field("output_overwrite_allowed", "false")));
     assert!(stdout.contains(&field("output_overwrite_performed", "false")));
-    assert!(stdout.contains(&field("output_commit_mode", "atomic_rename_same_directory")));
+    assert!(stdout.contains(&field(
+        "output_commit_mode",
+        "atomic_create_if_absent_hard_link_same_directory"
+    )));
     assert!(stdout.contains(&field("output_commit_status", "committed")));
     assert!(stdout.contains(&field(
         "output_cleanup_status",
@@ -1724,7 +1727,7 @@ fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
     )));
     assert!(stdout.contains(&field(
         "fanout_output_commit_modes",
-        "csv:atomic_rename_same_directory"
+        "csv:atomic_create_if_absent_hard_link_same_directory"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));

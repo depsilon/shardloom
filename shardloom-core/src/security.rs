@@ -1186,6 +1186,10 @@ impl WorkspaceSafeLocalWritePlan {
 
 const WORKSPACE_SAFE_LOCAL_STAGING_BUFFER_BYTES: usize = 256 * 1024;
 
+#[cfg(test)]
+#[path = "workspace_publication_tests.rs"]
+mod workspace_publication_tests;
+
 /// Same-directory staging writer for workspace-safe local outputs.
 ///
 /// Callers use this through [`write_workspace_safe_bytes_with_producer`] when an
@@ -1549,6 +1553,10 @@ pub fn write_workspace_safe_bytes_with_validated_producer<T>(
     let operation_label = operation_label.into();
     let plan =
         plan_workspace_safe_local_output(workspace_root, requested_output_path, allow_overwrite)?;
+    let target_before = workspace_output_metadata(&plan.target_path)?;
+    if target_before.is_some() != plan.target_existed_before {
+        return Err(workspace_output_changed(&plan));
+    }
     reject_workspace_safe_symlink_race(&plan)?;
     fs::create_dir_all(&plan.parent_path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -1584,7 +1592,7 @@ pub fn write_workspace_safe_bytes_with_validated_producer<T>(
     }
     drop(staging_writer);
     let (commit_mode, cleanup_status, rollback_status, overwrite_performed) =
-        commit_workspace_safe_staging_file(&plan, &staging_path)?;
+        commit_workspace_safe_staging_file(&plan, &staging_path, target_before.as_ref())?;
 
     Ok((
         producer_output,
@@ -1655,27 +1663,106 @@ fn create_workspace_safe_staging_writer(
 fn commit_workspace_safe_staging_file(
     plan: &WorkspaceSafeLocalWritePlan,
     staging_path: &Path,
+    target_before: Option<&fs::Metadata>,
 ) -> Result<(String, String, String, bool)> {
-    let target_existed_at_commit = plan.target_path.exists();
-    if target_existed_at_commit && !plan.overwrite_allowed {
+    let validation = (|| {
+        reject_workspace_safe_symlink_race(plan)?;
+        let current = workspace_output_metadata(&plan.target_path)?;
+        match (target_before, current.as_ref()) {
+            (None, None) => Ok(()),
+            (Some(before), Some(now)) if same_workspace_output(before, now, true) => Ok(()),
+            _ => Err(workspace_output_changed(plan)),
+        }
+    })();
+    if let Err(error) = validation {
         let _ = fs::remove_file(staging_path);
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "workspace-safe local output target '{}' appeared before commit and overwrite is disabled; staging cleanup attempted; no fallback execution was attempted",
-            plan.target_path.display()
-        )));
+        return Err(error);
     }
-
-    if target_existed_at_commit {
-        replace_workspace_safe_existing_target(plan, staging_path)
+    if let Some(before) = target_before {
+        replace_workspace_safe_existing_target(plan, staging_path, before)
     } else {
         commit_workspace_safe_new_target(plan, staging_path)
+    }
+}
+
+fn workspace_output_metadata(path: &Path) -> Result<Option<fs::Metadata>> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => Ok(Some(metadata)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(ShardLoomError::InvalidOperation(format!(
+            "cannot inspect workspace-safe output '{}': {error}; no fallback execution was attempted",
+            path.display()
+        ))),
+    }
+}
+
+fn workspace_output_changed(plan: &WorkspaceSafeLocalWritePlan) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "workspace-safe local output target '{}' changed or appeared before commit; destination preserved; staging cleanup attempted; no fallback execution was attempted",
+        plan.target_path.display()
+    ))
+}
+
+fn same_workspace_output(
+    before: &fs::Metadata,
+    now: &fs::Metadata,
+    check_change_time: bool,
+) -> bool {
+    if !before.is_file()
+        || !now.is_file()
+        || before.len() != now.len()
+        || before.modified().ok() != now.modified().ok()
+    {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        before.dev() == now.dev()
+            && before.ino() == now.ino()
+            && before.nlink() == now.nlink()
+            && (!check_change_time
+                || (before.ctime(), before.ctime_nsec()) == (now.ctime(), now.ctime_nsec()))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = check_change_time;
+        before.created().ok() == now.created().ok()
     }
 }
 
 fn replace_workspace_safe_existing_target(
     plan: &WorkspaceSafeLocalWritePlan,
     staging_path: &Path,
+    target_before: &fs::Metadata,
 ) -> Result<(String, String, String, bool)> {
+    replace_workspace_safe_target_with_link_check(plan, staging_path, target_before, |from, to| {
+        fs::hard_link(from, to)
+    })
+}
+
+fn replace_workspace_safe_target_with_link_check(
+    plan: &WorkspaceSafeLocalWritePlan,
+    staging_path: &Path,
+    target_before: &fs::Metadata,
+    create_probe_link: impl FnOnce(&Path, &Path) -> std::io::Result<()>,
+) -> Result<(String, String, String, bool)> {
+    // Reject filesystems without hard-link support before moving the admitted
+    // old file. Publication and restoration both require this operation.
+    let probe_path = unique_sidecar_path(&plan.parent_path, &plan.target_path, "link-probe");
+    if let Err(error) = create_probe_link(staging_path, &probe_path) {
+        let _ = fs::remove_file(staging_path);
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "workspace-safe replacement requires same-directory hard-link support: {error}; destination preserved; staging cleanup attempted; no fallback execution was attempted"
+        )));
+    }
+    if let Err(error) = fs::remove_file(&probe_path) {
+        let _ = fs::remove_file(staging_path);
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "failed to remove workspace-safe hard-link probe '{}': {error}; destination preserved; probe cleanup required; no fallback execution was attempted",
+            probe_path.display()
+        )));
+    }
     let backup_path = unique_sidecar_path(&plan.parent_path, &plan.target_path, "backup");
     fs::rename(&plan.target_path, &backup_path).map_err(|error| {
         let _ = fs::remove_file(staging_path);
@@ -1684,22 +1771,54 @@ fn replace_workspace_safe_existing_target(
             plan.target_path.display()
         ))
     })?;
-    if let Err(error) = fs::rename(staging_path, &plan.target_path) {
-        let rollback = fs::rename(&backup_path, &plan.target_path).is_ok();
+    // Renaming can change ctime. Recheck the acquired backup's identity and
+    // contents metadata before publication; it may have raced the earlier stat.
+    let backup_matches = workspace_output_metadata(&backup_path)
+        .ok()
+        .flatten()
+        .is_some_and(|now| same_workspace_output(target_before, &now, false));
+    finish_workspace_safe_replacement(plan, staging_path, &backup_path, backup_matches)
+}
+
+fn finish_workspace_safe_replacement(
+    plan: &WorkspaceSafeLocalWritePlan,
+    staging_path: &Path,
+    backup_path: &Path,
+    backup_matches: bool,
+) -> Result<(String, String, String, bool)> {
+    let publication = if backup_matches {
+        fs::hard_link(staging_path, &plan.target_path)
+    } else {
+        Err(std::io::Error::other(
+            "destination changed during replacement",
+        ))
+    };
+    if let Err(error) = publication {
+        // Restoration must never overwrite a competing writer's new target.
+        let rollback = fs::hard_link(backup_path, &plan.target_path).is_ok();
+        let backup_removed = rollback && fs::remove_file(backup_path).is_ok();
         let _ = fs::remove_file(staging_path);
         return Err(ShardLoomError::InvalidOperation(format!(
-            "failed to commit workspace-safe local output target '{}': {error}; rollback_restored_existing_target={rollback}; no fallback execution was attempted",
-            plan.target_path.display()
+            "failed to commit workspace-safe local output target '{}': {error}; rollback_restored_existing_target={rollback}; backup_retained={}; backup_path='{}'; destination preserved; no fallback execution was attempted",
+            plan.target_path.display(),
+            !backup_removed,
+            backup_path.display()
         )));
     }
-    let backup_cleanup_status = if fs::remove_file(&backup_path).is_ok() {
+    let staging_removed = fs::remove_file(staging_path).is_ok();
+    let backup_cleanup_status = if fs::remove_file(backup_path).is_ok() {
         "backup_removed"
     } else {
         "backup_cleanup_failed_or_not_needed"
     };
     Ok((
-        "staged_replace_with_backup_same_directory".to_string(),
-        "no_staging_artifacts_remaining".to_string(),
+        "staged_replace_with_backup_exclusive_hard_link_same_directory".to_string(),
+        if staging_removed {
+            "no_staging_artifacts_remaining"
+        } else {
+            "published_staging_cleanup_failed"
+        }
+        .to_string(),
         backup_cleanup_status.to_string(),
         true,
     ))
@@ -1709,16 +1828,22 @@ fn commit_workspace_safe_new_target(
     plan: &WorkspaceSafeLocalWritePlan,
     staging_path: &Path,
 ) -> Result<(String, String, String, bool)> {
-    fs::rename(staging_path, &plan.target_path).map_err(|error| {
+    fs::hard_link(staging_path, &plan.target_path).map_err(|error| {
         let _ = fs::remove_file(staging_path);
         ShardLoomError::InvalidOperation(format!(
-            "failed to atomically commit workspace-safe local output target '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
+            "failed to exclusively commit workspace-safe local output target '{}': {error}; destination preserved; staging cleanup attempted; no fallback execution was attempted",
             plan.target_path.display()
         ))
     })?;
+    let staging_removed = fs::remove_file(staging_path).is_ok();
     Ok((
-        "atomic_rename_same_directory".to_string(),
-        "no_staging_artifacts_remaining".to_string(),
+        "atomic_create_if_absent_hard_link_same_directory".to_string(),
+        if staging_removed {
+            "no_staging_artifacts_remaining"
+        } else {
+            "published_staging_cleanup_failed"
+        }
+        .to_string(),
         "not_required_new_target".to_string(),
         false,
     ))
@@ -3242,7 +3367,10 @@ mod tests {
         let output_path = workspace.join("results/out.jsonl");
         assert_eq!(std::fs::read(&output_path).unwrap(), b"{\"id\":1}\n");
         assert_eq!(report.commit_status, "committed");
-        assert_eq!(report.commit_mode, "atomic_rename_same_directory");
+        assert_eq!(
+            report.commit_mode,
+            "atomic_create_if_absent_hard_link_same_directory"
+        );
         assert_eq!(report.cleanup_status, "no_staging_artifacts_remaining");
         assert!(!report.staging_path.exists());
         assert!(report.path_safety_report.accepted());
@@ -3273,7 +3401,10 @@ mod tests {
         assert_eq!(report.bytes_written, 10);
         assert_eq!(report.output_digest, sha256_digest_bytes(b"alpha-beta"));
         assert_eq!(report.commit_status, "committed");
-        assert_eq!(report.commit_mode, "atomic_rename_same_directory");
+        assert_eq!(
+            report.commit_mode,
+            "atomic_create_if_absent_hard_link_same_directory"
+        );
         assert!(!report.staging_path.exists());
         assert!(report.path_safety_report.accepted());
         assert!(report.no_fallback_invariant_holds());
@@ -3391,7 +3522,7 @@ mod tests {
         assert!(report.overwrite_performed);
         assert_eq!(
             report.commit_mode,
-            "staged_replace_with_backup_same_directory"
+            "staged_replace_with_backup_exclusive_hard_link_same_directory"
         );
         assert!(report.no_fallback_invariant_holds());
         std::fs::remove_dir_all(workspace).unwrap();

@@ -5133,7 +5133,10 @@ fn local_source_runtime_writes_local_jsonl_output_with_certificate_fields() {
     assert!(stdout.contains(&field("output_within_workspace", "true")));
     assert!(stdout.contains(&field("output_symlink_followed", "false")));
     assert!(stdout.contains(&field("output_overwrite_allowed", "false")));
-    assert!(stdout.contains(&field("output_commit_mode", "atomic_rename_same_directory")));
+    assert!(stdout.contains(&field(
+        "output_commit_mode",
+        "atomic_create_if_absent_hard_link_same_directory"
+    )));
     assert!(stdout.contains(&field("output_commit_status", "committed")));
     assert!(stdout.contains(&field(
         "output_cleanup_status",
@@ -5502,7 +5505,7 @@ fn sql_local_source_output_capillary_writes_local_jsonl_csv_fanout_with_evidence
     )));
     assert!(stdout.contains(&field(
         "fanout_output_commit_modes",
-        "jsonl:atomic_rename_same_directory,csv:atomic_rename_same_directory"
+        "jsonl:atomic_create_if_absent_hard_link_same_directory,csv:atomic_create_if_absent_hard_link_same_directory"
     )));
 
     fs::remove_file(source_path).expect("remove source csv");

@@ -8,9 +8,32 @@ use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use shardloom_exec::live_memory::LiveMemorySnapshot;
 use std::{sync::mpsc, thread, time::Duration};
 use vortex::{
-    VortexSessionDefault as _, array::VortexSessionExecute as _, file::OpenOptionsSessionExt as _,
-    io::runtime::BlockingRuntime as _, io::session::RuntimeSessionExt as _,
+    VortexSessionDefault as _,
+    array::VortexSessionExecute as _,
+    file::{OpenOptionsSessionExt as _, WriteOptionsSessionExt as _},
+    io::runtime::BlockingRuntime as _,
+    io::session::RuntimeSessionExt as _,
 };
+
+/// A per-writer fixture gate after real Zstd work; absent from production builds.
+#[derive(Debug)]
+pub(super) struct CodecCompletionGate {
+    entered: mpsc::Sender<()>,
+    release: Mutex<Option<mpsc::Receiver<()>>>,
+}
+
+impl CodecCompletionGate {
+    pub(super) fn checkpoint(&self) -> vortex::error::VortexResult<()> {
+        let release = self.release.lock().unwrap().take();
+        if let Some(release) = release {
+            self.entered.send(()).map_err(vortex_stream_error)?;
+            release
+                .recv_timeout(Duration::from_secs(20))
+                .map_err(vortex_stream_error)?;
+        }
+        Ok(())
+    }
+}
 
 struct FixtureDirectory(PathBuf);
 
@@ -530,6 +553,136 @@ fn streaming_pressure_full_writer_validation_failure_preserves_existing_destinat
             assert_files(&directory.0, &[&input, &output]);
             fs::remove_file(output).unwrap();
         }
+    });
+}
+
+fn codec_cancel_iterator(memory: &NativeIngestMemory) -> StreamingColumnarVortexArrayIterator {
+    let first_batch = batch(0, 32, 1024);
+    let shape = FlatColumnarSourceShape {
+        projected_columns: schema()
+            .fields()
+            .iter()
+            .enumerate()
+            .map(|(index, field)| ColumnarProjectedColumn {
+                column: field.name().clone(),
+                reader_index: index,
+                dtype_hint: None,
+                arrow_dtype_hint: Some(field.data_type().clone()),
+            })
+            .collect(),
+    };
+    let timing = VortexStreamingIngestTiming::default();
+    let mut lease = memory.reserve_input(1).unwrap();
+    let first = record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
+        &first_batch,
+        &shape,
+        &timing.stages,
+        Some((memory, &mut lease)),
+    )
+    .unwrap();
+    drop((first_batch, lease));
+    let reader = arrow_array::RecordBatchIterator::new(
+        (1..12).map(|index| Ok(batch(index * 32, 32, 1024))),
+        schema(),
+    );
+    StreamingColumnarVortexArrayIterator::new(
+        first.dtype().clone(),
+        first,
+        Box::new(reader),
+        schema()
+            .fields()
+            .iter()
+            .map(|field| field.name().clone())
+            .collect(),
+        shape,
+        Arc::new(AtomicUsize::new(1)),
+        timing,
+        2,
+        2,
+        1,
+        8 << 20,
+        Some(memory.clone()),
+    )
+    .unwrap()
+}
+
+#[test]
+fn streaming_codec_blocked_cancellation_drains_and_prevents_publication() {
+    bounded_completion(|| {
+        let directory = FixtureDirectory::new("codec-cancel");
+        let output = directory.0.join("cancelled.vortex");
+        let (entered, entry) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let gate = Arc::new(CodecCompletionGate {
+            entered,
+            release: Mutex::new(Some(released)),
+        });
+        let (ready, resources) = mpsc::channel();
+        let worker_output = output.clone();
+        let writer = thread::spawn(move || {
+            let memory = NativeIngestMemory::new(64 << 20).unwrap();
+            let iterator = codec_cancel_iterator(&memory);
+            let prefetch = iterator.prefetch.as_ref().unwrap();
+            let weak = Arc::downgrade(&prefetch.context);
+            ready
+                .send((prefetch.cancellation.clone(), memory.pool.clone()))
+                .unwrap();
+            let writer_timing = VortexWriterStageTiming {
+                codec_completion_gate: Some(gate),
+                ..VortexWriterStageTiming::default()
+            };
+            // Use the actual codec and bounded source-batch strategy, with the
+            // same native allocator. A later input remains behind the held codec.
+            let result = LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
+                let context = context.borrow();
+                let child = large_source_text_vortex_write_strategy(
+                    32,
+                    1 << 20,
+                    1,
+                    1,
+                    &["renamed_payload".into()],
+                    &writer_timing,
+                    &memory.session,
+                );
+                let options = memory.session.write_options().with_strategy(Arc::new(
+                    bounded_ingest_layout::BoundedIngestLayout::new(
+                        child,
+                        0,
+                        memory.pool.reserve(0).unwrap(),
+                    ),
+                ));
+                shardloom_core::write_workspace_safe_bytes_with_producer(
+                    &directory.0,
+                    &worker_output,
+                    false,
+                    "codec cancellation fixture",
+                    |writer| {
+                        options
+                            .blocking(&context.runtime)
+                            .write(writer, iterator)
+                            .map_err(vortex_error)
+                    },
+                )
+            });
+            assert!(weak.upgrade().is_none());
+            assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
+            assert!(!worker_output.exists());
+            assert_files(&directory.0, &[]);
+            result.map(|_| ()).map_err(|error| error.to_string())
+        });
+        let (cancel, memory) = resources.recv_timeout(Duration::from_secs(20)).unwrap();
+        let reached = entry.recv_timeout(Duration::from_secs(20));
+        let held = memory.snapshot();
+        cancel.cancel();
+        // Always release before assertions or join. Cancellation does not
+        // preempt a provider call; it takes effect when that call returns.
+        let _ = release.send(());
+        let result = writer.join().unwrap();
+        reached.unwrap();
+        assert!(held.reserved_bytes > 0);
+        assert!(held.peak_reserved_bytes <= held.limit_bytes);
+        assert!(result.unwrap_err().contains("execution cancelled"));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     });
 }
 

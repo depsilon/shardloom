@@ -20,7 +20,10 @@ pair establishes neither a stable 4.02% speedup nor a cause for that difference.
 The 91.215296-second Full43 figure is a query-suite result, not ingest time.
 The 95.447305-second native ingest is the previous accepted control. The latest
 retained numeric implementation records 90.303309 and 93.945037 seconds with
-identical artifact bytes; combined `2ad143da` acceptance remains in progress.
+identical artifact bytes; combined `2ad143da` scoped acceptance subsequently
+completed. The selected `4f2c7b97` UAT later completed fresh ingest and all 129
+Full43 results; the [release handoff](performance-pr-release-handoff-2026-09-12.md)
+owns that evidence. Neither result relabels an isolated numeric observation.
 The [control ledger](performance-control-progression-2026-09-12.md) records the
 revision and profile scope. Advance ingest and query controls as faster versions
 complete validation; reuse existing evidence without needless unchanged-control
@@ -150,6 +153,19 @@ SHA-256. This establishes metadata identity, not an independent statistic oracle
 or a paired query-performance improvement.
 
 ## Additional acceptance tests
+
+September 19 reconciliation: source replacement/truncation/same-size mutation
+before the first pull and after EOF (including empty input), skewed Parquet
+pages, late oversized IPC batches, full-writer failure, blocked-source
+cancellation and partial/empty EOF already have focused implementation tests.
+Do not list those fixtures as unimplemented. The
+[hardening/cleanup packet](runtime-hardening-cleanup-2026-09-19.md) adds the
+remaining publication collision, held-codec cancellation and bounded
+same-session native-writer/short-count cases. These do not establish preemptive
+blocked-I/O cancellation, FIFO fairness, a shared Parquet-ingest/session global
+budget or production latency distributions. Those broader obligations remain
+open; this table is the acceptance contract for future changes, not a list of
+entirely missing tests.
 
 | Boundary | Required cases and evidence |
 |---|---|
