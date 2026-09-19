@@ -1115,7 +1115,85 @@
       }
     }
   ],
+  "ci_lifecycle_correction": {
+    "failed_job": "https://github.com/depsilon/shardloom/actions/runs/35472847986/job/105976874439",
+    "failed_test": "resident_session::segment_reuse::tests::io_tests::repeated_native_segment_consumers_reduce_completed_read_bytes_including_copy_cost_evidence",
+    "observed_reserved_bytes_before_driver_join": 1297284,
+    "cause": "Successful provider delivery can wake the consumer before coalesced parent-buffer release; zero pending read jobs does not join provider post-delivery cleanup.",
+    "correction": "Test-only terminal zero-credit assertions retain the memory pool, drop the final resident owner to join drivers, then require exactly zero reserved bytes. Per-call cache retention and read-drain assertions stay unchanged.",
+    "ignored_benchmark_change": "Final zero-credit evidence follows resident teardown and is named session_owned_bytes_after_resident_teardown; query clocks are unchanged.",
+    "production_runtime_changed": false,
+    "ignored_release_experiment_rerun": false,
+    "independent_review": "No actionable findings after source ownership and diff review."
+  },
   "validation": {
+    "native-lifecycle-tests": {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "resident_session::segment_reuse"
+      ],
+      "exit_code": 0,
+      "seconds": 11.844257915996423,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-native-lifecycle-tests.log",
+      "sha256": "4153d0af37b1b5c661be0b3c735077b99781f9a241ce5dd9aab514b824e7f37e",
+      "passed_tests": 21
+    },
+    "native-ci-parallel": {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "exit_code": 0,
+      "seconds": 15.307163790996128,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-native-ci-parallel.log",
+      "sha256": "7472e1e53dad8acef0b947b49fd62ecaece8acb9a355da6c2fffa68911c1d8f7",
+      "passed_tests": 1835,
+      "ignored_manual_experiments": 9
+    },
+    "native-ci-clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 5.128612666994741,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-native-ci-clippy.log",
+      "sha256": "00403e37549be5065a463c3b82b2b7c0cfe07660451ec7cf2dd2aa797170b65b"
+    },
+    "lifecycle-fmt": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 2.241181333003624,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-lifecycle-fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
     "fmt": {
       "command": [
         "cargo",

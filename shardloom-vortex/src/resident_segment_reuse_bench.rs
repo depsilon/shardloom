@@ -249,16 +249,19 @@ fn run(fixture: &Fixture, cached: bool) -> Value {
         }))
     }).unwrap();
     let snapshot = resident.snapshot();
-    assert_eq!(snapshot.memory.reserved_bytes, 0);
-    assert_eq!(snapshot.memory.denied_reservations, 0);
-    report["session_peak_owned_bytes"] = json!(snapshot.memory.peak_reserved_bytes);
-    report["session_owned_bytes_after_all_results_and_reads_drop"] =
-        json!(snapshot.memory.reserved_bytes);
-    report["session_denied_reservations"] = json!(snapshot.memory.denied_reservations);
+    let memory = resident.memory().clone();
     report["provider_background_cpu_drivers"] = json!(snapshot.provider_background_workers);
     let teardown_started = Instant::now();
     drop(resident);
     report["resident_teardown_nanos"] = json!(elapsed(teardown_started));
+    // Completed I/O does not join the provider's post-delivery buffer cleanup.
+    // Whole-session zero-credit evidence belongs after all drivers are joined.
+    let memory = memory.snapshot();
+    assert_eq!(memory.reserved_bytes, 0);
+    assert_eq!(memory.denied_reservations, 0);
+    report["session_peak_owned_bytes"] = json!(memory.peak_reserved_bytes);
+    report["session_owned_bytes_after_resident_teardown"] = json!(memory.reserved_bytes);
+    report["session_denied_reservations"] = json!(memory.denied_reservations);
     report
 }
 

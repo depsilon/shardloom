@@ -213,7 +213,25 @@ Clippy plus both adversarial verifier/lock tests pass. The screen validates all
 24 complete results and all eight deterministic owned rejections. An independent
 review checked G/H's source claims and the screen's clocks and oracle; its SUM
 JSON-type and abnormal-lock-cleanup findings were fixed before the retained run.
-Q33's prior full UAT remains the production-runtime proof; no source under
-`shardloom-vortex/src` changed in this packet. Package publication, broad
-capability completion and all parked codec/topology/binding experiments remain
-outside this decision.
+Q33's prior full UAT remains the production-runtime proof; no production runtime
+logic changed in this packet. Package publication, broad capability completion
+and all parked codec/topology/binding experiments remain outside this decision.
+
+The first PR CI run exposed a preexisting lifecycle assertion race in
+`resident_segment_reuse_io_tests`: a successful Vortex segment delivery wakes its
+consumer before the provider necessarily releases the coalesced parent buffer.
+The read observer's zero pending jobs proves completed I/O, not joined provider
+cleanup. Terminal whole-session zero-credit assertions now retain the memory
+pool, drop the resident session to join its drivers, then require exactly zero
+reserved bytes. Per-call cache-retention and read-drain checks remain in place.
+The ignored release experiment uses the same terminal boundary and names its
+evidence `session_owned_bytes_after_resident_teardown`; query timing intervals
+are unchanged. This is a test/evidence lifecycle correction, not a runtime
+memory or performance fix.
+
+The corrected segment-reuse suite passes all 21 active tests. The complete CI
+native-library command also passes with default parallelism: 1,835 passed and
+nine existing manual experiments ignored. Native release all-target Clippy and
+formatter checks pass. Independent review found no remaining ownership gap in
+the changed assertions. The ignored release experiment was compiled but not
+rerun; this packet claims no new timing from that experiment.
