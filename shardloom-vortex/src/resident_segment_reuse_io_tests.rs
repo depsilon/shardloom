@@ -162,6 +162,14 @@ fn io_policy() -> SegmentReusePolicy {
     }
 }
 
+fn assert_session_released(resident: ResidentVortexSession) {
+    let memory = resident.memory().clone();
+    // A completed read can wake its consumer before the provider drops its
+    // coalesced buffer. Join the resident drivers before checking all owners.
+    drop(resident);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 #[test]
 fn repeated_native_segment_consumers_reduce_completed_read_bytes_including_copy_cost_evidence() {
     let fixture = Fixture::new();
@@ -227,7 +235,7 @@ fn repeated_native_segment_consumers_reduce_completed_read_bytes_including_copy_
                 ))
             })
             .unwrap();
-        assert_eq!(resident.snapshot().memory.reserved_bytes, 0);
+        assert_session_released(resident);
         observations.push(measured);
     }
     let (plain_bytes, _, _, logical_bytes) = observations[0];
@@ -355,7 +363,7 @@ fn duplicate_predicate_native_scan_preserves_flat_control_and_reduces_columnar_r
                     Ok(completed.completed_read_bytes - opened.completed_read_bytes)
                 })
                 .unwrap();
-            assert_eq!(resident.snapshot().memory.reserved_bytes, 0);
+            assert_session_released(resident);
             observed.push(read_bytes);
         }
         if columnar {
@@ -410,7 +418,7 @@ fn prepared_reuse_admission_keeps_one_open_and_does_not_execute() {
                 .is_err()
         );
         drop(prepared);
-        assert_eq!(resident.snapshot().memory.reserved_bytes, 0);
+        assert_session_released(resident);
     }
 }
 
@@ -472,7 +480,7 @@ fn prepared_cached_execution_closes_per_call_and_rejects_path_replacement_after_
     );
     assert_eq!(resident.snapshot().completed_executions, 2);
     drop(prepared);
-    assert_eq!(resident.snapshot().memory.reserved_bytes, 0);
+    assert_session_released(resident);
 }
 
 #[test]
@@ -558,7 +566,7 @@ fn cache_retry_gate_rejects_corruption_with_a_simultaneous_owned_denial() {
     assert_eq!(calls, 1);
     assert_eq!(resident.snapshot().completed_executions, 0);
     drop(prepared);
-    assert_eq!(resident.snapshot().memory.reserved_bytes, 0);
+    assert_session_released(resident);
 }
 
 #[test]
@@ -607,7 +615,7 @@ fn temporary_provider_drivers_run_native_work_without_reopening_or_oversubscribi
             if permanent { expected_drivers } else { 0 }
         );
         drop(prepared);
-        assert_eq!(resident.snapshot().memory.reserved_bytes, 0);
+        assert_session_released(resident);
     }
 }
 
@@ -741,7 +749,7 @@ fn typed_source_pressure_replays_complete_two_range_native_query_once_without_ca
         .unwrap();
     assert_eq!(rows, row_counts.into_iter().sum::<usize>());
     drop(prepared);
-    assert_eq!(resident.snapshot().memory.reserved_bytes, 0);
+    assert_session_released(resident);
     std::fs::remove_file(path).unwrap();
     std::fs::remove_dir(directory).unwrap();
 }
