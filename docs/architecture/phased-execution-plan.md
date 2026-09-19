@@ -2385,10 +2385,13 @@ collision safety and bounded codec-cancellation/native-writer serving evidence.
 The subsequent [ship/drop implementation](performance-ship-drop-2026-09-19.md)
 retains Q36 proof-preserving worker admission and Q13 filtered exact partitions;
 Q29 owned weighted partials and Q23 dictionary reconstruction did not earn
-retention. Preserve those measured decisions. The next conditional target is Q19
-complete-key traffic, probes, duplicates, ownership and skew, under the material
-gate stated at the start of Planned. Q33, ingest, serving and delivery proposals
-remain evidence-gated. The historical inventory
+retention. Q19 complete-key partitions and Q33 exact numeric-pair reduction have
+since merged in PRs #1447 and #1448 with complete Full43 acceptance. The
+[remaining admission screens](remaining-performance-admission-2026-09-19.md)
+close the bounded G/H/I proposals as scoped drops. Next is Q36 persistent
+complete-integer partition reduction, preserving its existing per-chunk weighted
+counts and dependency proofs, under the material gate at the start of Planned.
+Broader ingest, serving and delivery obligations remain open. The historical inventory
 in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
 already-shipped families.
 
