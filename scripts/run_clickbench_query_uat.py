@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import gzip
 import hashlib
 import json
 import math
@@ -90,6 +91,39 @@ def equivalent(actual, expected) -> bool:
 def file_sha256(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def read_json_log(path: Path):
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        raw = gzip.decompress(path.with_suffix(path.suffix + ".gz").read_bytes())
+    return strict_json(raw.decode("utf-8"))
+
+
+def compress_completed_log(path: Path, guard) -> dict:
+    """Archive a completed owned log after its timed operation and validation.
+
+    Exclusive creation and a byte-for-byte readback preserve evidence before
+    removing the uncompressed copy. This never raises the storage guard limits.
+    """
+    raw = path.read_bytes()
+    compressed = gzip.compress(raw, mtime=0)
+    target = path.with_suffix(path.suffix + ".gz")
+    block_bytes = max(4096, os.statvfs(path.parent).f_frsize)
+    reserved_bytes = math.ceil(len(compressed) / block_bytes) * block_bytes
+    guard(reserved_bytes)
+    with target.open("xb") as stream:
+        stream.write(compressed)
+    if gzip.decompress(target.read_bytes()) != raw:
+        raise ValueError("completed log archive differs from original bytes")
+    guard(0)
+    evidence = {"path": str(target), "raw_sha256": hashlib.sha256(raw).hexdigest(),
+                "gzip_sha256": file_sha256(target), "raw_bytes": len(raw),
+                "gzip_bytes": target.stat().st_size}
+    path.unlink()
+    guard(0)
+    return evidence
 
 
 def stop_process(process: subprocess.Popen) -> None:
@@ -205,6 +239,7 @@ def main() -> int:
     parser.add_argument("--max-parallelism", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--query-ids", help="comma-separated targeted query ids; never a full-suite score")
+    parser.add_argument("--compress-logs", action="store_true", help="losslessly archive each completed stdout/stderr after validation, within the unchanged log budget")
     args = parser.parse_args()
     if args.memory_gb <= 0 or args.max_parallelism <= 0 or not math.isfinite(args.timeout) or args.timeout <= 0:
         parser.error("memory, parallelism and timeout must be positive")
@@ -218,9 +253,9 @@ def main() -> int:
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     logs = root / "logs" / f"full43_{stamp}"
 
-    def guard():
-        check_budgets(root, source, logs, min_free_bytes=12 * GIB, reserve_bytes=0,
-                      max_workspace_bytes=100 * GIB, max_log_bytes=256 * MIB)
+    def guard(reserve_log_bytes=0):
+        check_budgets(root, source, logs, min_free_bytes=12 * GIB, reserve_bytes=reserve_log_bytes,
+                      max_workspace_bytes=100 * GIB, max_log_bytes=256 * MIB - reserve_log_bytes)
 
     guard()
     root.mkdir(parents=True, exist_ok=True)
@@ -240,7 +275,7 @@ def main() -> int:
             if override and override["query"] == index:
                 references.append(override["values"])
             else:
-                references.append(extract_result(strict_json((args.reference_dir / f"q{index:02d}_run1.stdout.json").read_text())))
+                references.append(extract_result(read_json_log(args.reference_dir / f"q{index:02d}_run1.stdout.json")))
         identity = source.stat()
         summary = {
             "schema_version": "shardloom.clickbench.public_result_regression.v1",
@@ -306,10 +341,17 @@ def main() -> int:
                 result["validation_seconds"] = time.perf_counter() - validation_started
                 result["stdout_bytes"] = prefix.with_suffix(".stdout.json").stat().st_size
                 result["stderr_bytes"] = prefix.with_suffix(".stderr.txt").stat().st_size
+                if args.compress_logs:
+                    result["completed_log_archives"] = [
+                        compress_completed_log(prefix.with_suffix(suffix), guard)
+                        for suffix in (".stdout.json", ".stderr.txt")
+                        if prefix.with_suffix(suffix).stat().st_size
+                    ]
                 records.append(result)
                 summary.update(score(records, 43, selected))
                 summary["full_result_validation"] = len(records) == 129 and all(record.get("validation") == "complete_values" for record in records)
                 (logs / "summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+                guard()
                 print(json.dumps(result), flush=True)
                 if not result["passed"]:
                     return 1

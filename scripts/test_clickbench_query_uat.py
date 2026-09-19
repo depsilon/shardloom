@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import json
+import gzip
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -7,7 +9,8 @@ import tempfile
 import time
 import unittest
 
-from run_clickbench_query_uat import equivalent, extract_result, run_command, run_profiled_command, score, strict_json
+from local_uat_storage import StorageGuardError, accounted_bytes, check_budgets
+from run_clickbench_query_uat import compress_completed_log, equivalent, extract_result, read_json_log, run_command, run_profiled_command, score, strict_json
 
 
 def envelope(summary):
@@ -18,6 +21,47 @@ def envelope(summary):
 
 
 class ClickBenchUatTests(unittest.TestCase):
+    def test_completed_log_archive_preserves_bytes_and_rejects_clobber(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "q01_run1.stdout.json"
+            raw = ("東京 complete values\n" * 100).encode()
+            path.write_bytes(raw)
+            evidence = compress_completed_log(path, lambda reserved: None)
+            self.assertEqual(gzip.decompress(Path(evidence["path"]).read_bytes()), raw)
+            self.assertEqual(evidence["raw_sha256"], hashlib.sha256(raw).hexdigest())
+            self.assertFalse(path.exists())
+            path.write_bytes(b"competing log")
+            with self.assertRaises(FileExistsError):
+                compress_completed_log(path, lambda reserved: None)
+            self.assertEqual(path.read_bytes(), b"competing log")
+            self.assertEqual(gzip.decompress(Path(evidence["path"]).read_bytes()), raw)
+
+    def test_completed_archive_remains_a_complete_result_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "q01_run1.stdout.json"
+            expected = envelope("value summary: 99997497")
+            path.write_text(json.dumps(expected))
+            self.assertEqual(read_json_log(path), expected)
+            compress_completed_log(path, lambda reserved: None)
+            self.assertEqual(extract_result(read_json_log(path)), 99997497)
+
+    def test_archive_budget_rejection_preserves_raw_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            logs = root / "logs"
+            logs.mkdir()
+            path = logs / "q01_run1.stdout.json"
+            raw = b"complete result" * 100
+            path.write_bytes(raw)
+            budget = accounted_bytes(logs)
+            def guard(reserved):
+                check_budgets(root, path, logs, min_free_bytes=0, reserve_bytes=reserved,
+                              max_workspace_bytes=10**9, max_log_bytes=budget - reserved)
+            with self.assertRaises(StorageGuardError):
+                compress_completed_log(path, guard)
+            self.assertEqual(path.read_bytes(), raw)
+            self.assertFalse(path.with_suffix(".json.gz").exists())
+
     def test_complete_scalar_and_row_results_preserve_integer_precision(self):
         self.assertEqual(extract_result(envelope("value summary: 99997497")), 99997497)
         rows = [{"UserID": 435090932899640449, "label": "\u03bb", "absent": None}]
