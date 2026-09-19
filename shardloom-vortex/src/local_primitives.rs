@@ -41933,8 +41933,11 @@ fn aggregate_column_accessor_in_context(
     if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array)? {
         return Ok((accessor, NativeNumericAccessorWork::default()));
     }
-    if let Some(accessor) = aggregate_direct_utf8_chunk_dictionary_accessor(column, array)? {
-        return Ok((accessor, NativeNumericAccessorWork::default()));
+    let mut work = NativeNumericAccessorWork::default();
+    if let Some(accessor) =
+        aggregate_direct_utf8_chunk_dictionary_accessor_profiled(column, array, &mut work.utf8)?
+    {
+        return Ok((accessor, work));
     }
     Ok((
         AggregateDirectColumnAccessor::materialized(
@@ -41999,6 +42002,19 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
     column: &str,
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
+    aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
+        column,
+        array,
+        &mut native_numeric_accessor::Utf8AccessorWork::default(),
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+    work: &mut native_numeric_accessor::Utf8AccessorWork,
+) -> Result<Option<AggregateDirectColumnAccessor>> {
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::VarBinViewArray;
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
@@ -42014,10 +42030,13 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
         AggregateUtf8DictionarySource::DecodedUtf8ChunkDictionary
     };
     let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let started = Instant::now();
     let utf8 = array
         .clone()
         .execute::<VarBinViewArray>(&mut ctx)
         .map_err(vortex_error)?;
+    work.provider_nanos += started.elapsed().as_nanos();
+    let started = Instant::now();
     let validity = utf8.varbinview_validity();
     let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let mut row_nulls = Vec::<bool>::new();
@@ -42056,12 +42075,17 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
                 )
             })?;
             let owned: std::sync::Arc<str> = std::sync::Arc::from(value);
+            work.copied_bytes += value.len() as u64;
             values.push(std::sync::Arc::clone(&owned));
             ids.insert(owned, id);
             id
         };
         row_ids.push(id);
     }
+    work.calls += 1;
+    work.rows += utf8.len() as u64;
+    work.entries += values.len() as u64;
+    work.dictionary_nanos += started.elapsed().as_nanos();
     Ok(Some(AggregateDirectColumnAccessor::Utf8Dictionary {
         row_ids,
         values,

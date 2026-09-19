@@ -244,12 +244,18 @@ the ledger.
 
 ## Planned
 
-September 19 acceptance follow-up: before further profiling or PR work, resolve
-the historical/full-suite timing mismatch with the
+September 19 acceptance follow-up: correctness passes, but Q17 performance
+acceptance remains open after the
 [counterbalanced Full43 investigation](../benchmarks/full43-paired-investigation-2026-09-19.md).
-It compares frozen control and retained binaries query by query, preserves complete
-results, and requires reversed-order follow-ups for repeatable regression signals.
-No new engine behavior, ingest, publication or broader phase completion is implied.
+The matched best-sums are 141.156433 s control / 133.708041 s retained, with all
+318 investigation calls matching complete references. Q11/Q12/Q34 signals do not
+repeat; Q17 is mixed across later blocks and still unexplained. Removing D's
+instrumentation did not help and was reverted, restoring runtime `69ce65ac`.
+Next: six Q17 pairs with both starting orders after unrelated heavy work is paused,
+preserving VM/CPU observations and every sample. If the signal persists, isolate
+B/C or compiled layout effects before accepting the branch. Q19 expansion and
+PR/release performance acceptance remain behind this gate. No new engine behavior,
+ingest, publication or broader phase completion is implied.
 
 September 19 approved ship/drop follow-up: the
 [implementation packet](performance-ship-drop-2026-09-19.md) records Q36
@@ -260,7 +266,8 @@ dropped as a material opportunity, with provider attribution retained. The
 [research packet](performance-domain-transfer-2026-09-19.md) preserves the original
 proposals and their gates. Full43 acceptance is recorded with the implementation.
 
-Next bounded profiling decision: attribute Q19 complete-key traffic, probes,
+After the Q17 acceptance gate, the next bounded profiling decision is to attribute
+Q19 complete-key traffic, probes,
 duplicate reduction, dictionary ownership and skew before admitting proposal E's
 triple-key partitions. Reuse the existing worker/reservation contracts; retain only
 at least one second of complete-query savings, or an explicitly selected resource

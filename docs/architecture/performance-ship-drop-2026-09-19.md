@@ -131,6 +131,15 @@ allocation is admitted under the same storage limits. No limits were raised.
 
 ## Acceptance
 
+**Current follow-up:** the later
+[matched investigation](../benchmarks/full43-paired-investigation-2026-09-19.md)
+passes 318 additional complete native calls and finds a lower same-session full
+score (141.156433 s control / 133.708041 s retained). Q17 still has an unexplained,
+pressure-sensitive performance signal, so PR/release performance acceptance remains
+open. Removing the new UTF8 attribution did not improve it; the experiment was
+reverted and runtime `69ce65ac` remains intact. The original results below remain
+historical observations rather than being replaced or pooled with the new runs.
+
 The retained source passes **129/129 complete Full43 result comparisons**. The
 new per-query best-of-three sum is **95.927383 s**, hot sum (best of runs 2/3)
 96.232309 s, and all 129 native calls total 298.696499 s. Q13 is
@@ -197,7 +206,9 @@ made. These changes are locally validated and remain unmerged/unpublished.
 
 ## Remaining decisions
 
-The [phase plan](phased-execution-plan.md) remains the only active queue. Q19 triple
+The [phase plan](phased-execution-plan.md) remains the only active queue. First
+resolve the Q17 performance acceptance gate described in the matched investigation.
+Q19 triple
 keys and Q33 near-unique duplicate reduction remain conditional on state/probe/
 distribution attribution. Duplicate ingest traversal, serving queue policy and
 large-payload delivery remain conditional on their own exclusive-work, queue-delay

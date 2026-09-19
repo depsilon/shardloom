@@ -17,6 +17,24 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Matched Full43 correctness replay and performance diagnosis.
+  - Date: 2026-09-19. All 318 calls across the full paired suite, reversed signal
+    checks, Q17 extensions, instrumentation ablation and historical-binary checks
+    match complete references. Archive members, timing records and result hashes
+    are replayed and verified in the
+    [investigation](../benchmarks/full43-paired-investigation-2026-09-19.md).
+  - Matched best-sums: `289fa42c` 141.156433 s, retained `69ce65ac` 133.708041 s.
+    The 7.448392 s improvement does not erase Q17's unresolved signal; memory
+    compression and competing work prevent a clean causal conclusion. Q11/Q12/Q34
+    do not repeat the registered regression screen in reversed order.
+  - D removal at `76b97d2c` does not improve Q17 and is rejected. The final runtime
+    is restored to `69ce65ac`; no new optimization or performance fix is claimed.
+    Harness tests pass 15/15. Earlier workspace/native checks remain attached to
+    the identical retained runtime, not to a newly shipped ablation.
+  - Scope: this completed evidence collection does not close performance
+    acceptance. The phase plan keeps PR/release and Q19 expansion behind a quieter
+    Q17 comparison. Historical ingest/storage/timing evidence remains unchanged.
+
 - [x] Material query ship/drop screen and native operator reuse.
   - Date: 2026-09-19. The approved research follow-up retains physical-key COUNT
     worker admission and filtered complete-key exact counts at `69ce65ac`, with
