@@ -84,6 +84,8 @@ while still reporting 116 unchecked phase items and 36 unchecked global review
 items. Source comparison verifies that all runtime crates and Cargo manifests
 match `69ce65ac`; its prior full workspace/native gates remain applicable. No
 new runtime speedup, PR readiness, merge or publication is claimed.
+The final release rebuild succeeds and reproduces the frozen `69ce65ac` binary's
+SHA-256 exactly, restoring the ordinary Cargo release output after the ablation.
 
 ## Method and decision
 

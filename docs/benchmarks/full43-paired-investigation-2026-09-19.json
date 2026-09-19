@@ -5,7 +5,26 @@
   "counter_scope": "CPU/RSS/page faults are native child measurements; VM counters are host-wide and cannot be uniquely attributed to ShardLoom.",
   "historical_gap": "95.927383 versus 91.825940 seconds are unmatched historical observations; the exact contributors cannot be reconstructed.",
   "audit_script": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/audit-paired-evidence.py",
-  "audit_script_sha256": "02efa3c51ff6f50c9e548ca0286137f4aec9a1ab84767cc07dd17180740572db",
+  "audit_script_sha256": "fe4d48197149cdb34dbeac88786c2d4bd655973c974e3698279b92ba9e54a2cb",
+  "restored_release_build": {
+    "source_commit": "ebacdce61df8fa9f9898ba51d47e369b831e6bde",
+    "binary": "/Users/dylan/.cache/shardloom/cargo-target/release/shardloom",
+    "binary_sha256": "3fa5b72e098b02d3f5c8803df259d6c65d54ce98e636cfdd6ada30a398a24bed",
+    "frozen_69ce65ac_sha256": "3fa5b72e098b02d3f5c8803df259d6c65d54ce98e636cfdd6ada30a398a24bed",
+    "matches_frozen_69ce65ac": true,
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "-p",
+      "shardloom-cli",
+      "--features",
+      "release-user-surfaces"
+    ],
+    "exit_code": 0,
+    "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/build-restored-ebacdce6.log",
+    "log_sha256": "6578fcc434b4f65120f0af1f97c062a73d7a4600710f5d280dca0b31e06d7791"
+  },
   "validation": {
     "documentation": {
       "schema_version": "shardloom.ship_drop_documentation_validation_receipts.v1",
