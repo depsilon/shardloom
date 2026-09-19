@@ -1,7 +1,13 @@
 # Native artifact storage reduction
 
-Status: active exploration requested September 12, alongside the remaining
-phased work. This is part of PERF-08/09/10/12 and the existing production writer
+Status: historical exploration requested September 12. The later selected
+performance scope **dropped the slower text-storage replacement**; it is not
+waiting to ship. Retained numeric compression/probe improvements remain shipped.
+See the [release handoff](performance-pr-release-handoff-2026-09-12.md) and
+[combined UAT](../benchmarks/combined-performance-uat-2026-09-12.md), including
+the recorded retirement of the rejected payload. A new storage candidate requires
+a new measured lifecycle opportunity under the canonical plan; do not restart
+this experiment unchanged. This is part of PERF-08/09/10/12 and the production writer
 codec-portfolio item, not a new engine, scheduler or canonical phase.
 
 The maintainer explicitly requests retention of the faster canonical numeric
@@ -22,7 +28,7 @@ required physical statistics checks and native query acceptance before retiremen
 or promotion. No public field, derived metadata or query may be removed to reduce
 bytes. One logical native artifact and explicit no-fallback execution remain.
 
-## Execution checklist
+## Historical exploration checklist
 
 - [ ] Attribute physical bytes from the existing footer/layout/segment inventory
   by column and encoding, accounting for shared segments, metadata and gaps.

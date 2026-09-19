@@ -10723,6 +10723,8 @@ impl VortexStreamingIngestTiming {
 struct VortexWriterStageTiming {
     compression_micros: Arc<AtomicU64>,
     stages: IngestStageTimings,
+    #[cfg(all(test, feature = "universal-format-io"))]
+    codec_completion_gate: Option<Arc<pipeline_pressure_tests::CodecCompletionGate>>,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -14107,6 +14109,10 @@ fn large_source_fast_zstd_text_leaf_strategy(
                 .map_or(0, vortex::array::ArrayRef::nbytes),
         );
         let compressed = compressed?;
+        #[cfg(all(test, feature = "universal-format-io"))]
+        if let Some(gate) = &writer_stage_timing.codec_completion_gate {
+            gate.checkpoint()?;
+        }
         writer_stage_timing.add_compression_elapsed(compression_start.elapsed());
         Ok(compressed)
     };
@@ -15105,7 +15111,7 @@ mod tests {
         assert_eq!(report.workspace_write_report.commit_status, "committed");
         assert_eq!(
             report.workspace_write_report.commit_mode,
-            "atomic_rename_same_directory"
+            "atomic_create_if_absent_hard_link_same_directory"
         );
         assert!(
             matches!(

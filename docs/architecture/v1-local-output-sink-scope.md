@@ -116,6 +116,17 @@ The v1 write-policy vocabulary is:
 | `atomic_rename_same_directory` | Admitted local sinks use same-directory atomic commit posture where the runtime writer supports it. |
 | `partial_write_cleanup_reported` | Partial-write cleanup or non-required cleanup posture is reported through output fields instead of hidden. |
 
+The stable policy id `atomic_rename_same_directory` remains the compatibility label for the
+same-directory atomic commit posture. The shared publisher's actual create-if-absent mode is
+`atomic_create_if_absent_hard_link_same_directory`: it creates a staged file, hard-links it into
+the destination directory, then unlinks the staging name. Replacement mode is
+`atomic_replace_rename_same_directory`: after final metadata and symlink checks, a single
+`fs::rename` replaces the admitted target without first removing its published name. New-file
+collisions preserve the competing target. Explicit overwrite rejects changes observed before
+commit, but is not compare-and-swap against a writer arriving after the final metadata check.
+Replacement failure does not trigger a remove/copy/backup retry. Neither mode adds a file or
+directory fsync durability guarantee.
+
 Unsupported write modes must fail before hidden reads, writes, external engine execution, or
 best-effort append emulation.
 

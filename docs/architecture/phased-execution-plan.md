@@ -244,6 +244,71 @@ the ledger.
 
 ## Planned
 
+September 19 maintainer direction: use the existing candidate packet as a finite
+ship/drop cycle. Implement and validate a bounded candidate; put successful
+candidates into a cohesive PR and advance to the next set. Revert failed or
+non-material experiments, preserve their evidence and advance immediately.
+Complete the remaining E–I screens before refreshing the overall profiling/timing
+targets and generating a new research list. Targeted attribution needed to admit
+an existing conditional candidate remains part of its screen. Correctness and
+required validation still gate retention; a demonstrated regression requires a
+fix or drop. Do not reopen rejected ideas without new dominant-cost evidence.
+For performance decisions on this shared host, use each query's fastest valid
+complete run under comparable conditions, applying the same statistic to control
+and candidate. Successful fast runs establish achievable performance; slower
+samples during concurrent activity are diagnostic and do not alone veto retention.
+Keep every sample and memory observation, without converting a best-run result
+into a latency guarantee or a claim about the cause of every slower run.
+
+The current successful set is Q13 filtered complete-key counts and Q36 physical-key
+worker admission, together with the validated lifecycle hardening/cleanup. Advance
+this set to PR review now. Q29's owned partials and Q23's proposed dictionary
+rewrite remain dropped; useful Q23 attribution stays. This supersedes the prior
+quiet-host wait before PR/Q19 progression. The
+[counterbalanced Full43 investigation](../benchmarks/full43-paired-investigation-2026-09-19.md)
+records the evidence and the explicit maintainer disposition.
+The matched best-sums are 141.156433 s control / 133.708041 s retained, with all
+318 investigation calls matching complete references. Q11/Q12/Q34 signals do not
+repeat; Q17 is mixed across later blocks and still unexplained. Removing D's
+instrumentation did not help and was reverted, restoring runtime `69ce65ac`.
+Q17's slower samples remain recorded as load-sensitive timing variation, not a
+candidate failure or a blocking retry loop for this packet. This is the
+maintainer's best-valid-run decision rule; it does not erase the original screen
+or establish a cause for every slower sample. No new engine behavior, ingest,
+publication or
+broader phase completion is implied by that decision.
+
+September 19 approved ship/drop follow-up: the
+[implementation packet](performance-ship-drop-2026-09-19.md) records Q36
+proof-preserving numeric worker admission and Q13 filtered complete-key counts,
+both clearing the one-second complete-query gate in same-day comparisons. Q29's
+owned weighted partial candidate is removed; Q23 dictionary reconstruction is
+dropped as a material opportunity, with provider attribution retained. The
+[research packet](performance-domain-transfer-2026-09-19.md) preserves the original
+proposals and their gates. Full43 acceptance is recorded with the implementation.
+
+After opening the current PR, the next bounded candidate is E: attribute
+Q19 complete-key traffic, probes,
+duplicate reduction, dictionary ownership and skew before admitting proposal E's
+triple-key partitions. Reuse the existing worker/reservation contracts; retain only
+at least one second of complete-query savings, or an explicitly selected resource
+objective of at least 30% lower peak RSS without slower completion. Q33 (F),
+duplicate ingest traversals (G), serving queues (H) and result delivery (I) follow
+in that order, each conditional on its own attribution and ship/drop gate. After
+each successful set, open its PR before advancing; record failed screens as drops.
+Broad capability completion and parked experiments
+remain paused. Scoped retention does not close whole PERF/CG gates or any of the
+116 broader unchecked phase items.
+
+September 19 maintainer direction: complete the cohesive residual lifecycle
+hardening and reconcile stale current-action text. The batch is now complete
+and locally validated, ready for PR review; it is not yet merged or published. The
+[hardening/cleanup packet](runtime-hardening-cleanup-2026-09-19.md) owns this
+batch under PERF-03/06/08/09/11/12 and the next bounded profiling decision.
+Broad capability expansion and the rejected/parked experiments below remain
+paused. The 116 unchecked phase items describe broader obligations, not 116
+unshipped optimizations; scoped completions do not close whole PERF/CG gates.
+
 September 13 status under the latest maintainer direction: the selected performance PR and
 `0.2.4` publication train are complete. PR #1443 merged at `2c9b84b7` and
 PR #1444 at `8759b16e`; all four selected channel proofs passed. Completion
@@ -304,12 +369,13 @@ Implementation status and proof gaps are recorded in
 `performance-overhaul-implementation-2026-09-05.md`. None of the thirteen whole
 PERF packets is complete merely because its shared runtime foundation exists.
 
-The maintainer's September 12 instruction resumes all actionable items in this
-phased plan, including the five older production epics below the PERF sequence.
+An earlier September 12 instruction resumed all actionable items in this
+phased plan, including the five older production epics below the PERF sequence;
+the later measured-performance priority above superseded that broad authorization.
 The [current reconciliation](performance-plan-exhaustion-2026-09-12.md) maps every
 remaining checklist row to retained code, a measured rejection, a concrete
-implementation/acceptance task or a real prerequisite. It is the execution
-checklist for this continuation; it does not create new phases, close competitive
+implementation/acceptance task or a real prerequisite. It preserves the historical
+inventory for that continuation; it does not create new phases, close competitive
 gates or restart rejected experiments. The
 [control ledger](performance-control-progression-2026-09-12.md) advances recorded
 ingest and query controls as faster retained versions complete validation;
@@ -324,8 +390,10 @@ the existing writer codec-portfolio item. The
 bytes, ingest, native query behavior and memory together. Its completed validated
 gains can advance the applicable controls; it does not restart rejected
 topology/codec experiments unchanged. Retained numeric `6bc73e8d` records
-90.303309/93.945037-second ingests with identical bytes, while combined
-`2ad143da` acceptance remains in progress. Those are not new combined Full43 scores.
+90.303309/93.945037-second ingests with identical bytes. Combined
+`2ad143da` scoped acceptance subsequently completed; its results do not promote
+the historical query timing control. Those ingest observations are not new
+combined Full43 scores.
 
 After PR #1433 merged, the maintainer requested the next performance iteration.
 The [numeric and aggregation continuation](perf-numeric-aggregation-2026-09-06.md)
@@ -445,8 +513,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     results, bounded JSON collect and matching-handle reuse in the public worker.
     PR #1437 adds retained integer COUNT/COUNT DISTINCT/SUM and completes the
     scoped nine-case, three-surface 1,674-check resident acceptance on `572bd52c`.
-    Python native binding and migration of the remaining operator families are
-    still open.
+    Later accepted scope includes prepared identity integer MIN/MAX/AVG and
+    bounded nonnullable UTF8 COUNT. Native Python binding remains parked;
+    migration of additional operator families remains open.
   - Execution checklist:
     - [ ] Extend prepared native execution to the remaining operator families.
     - [ ] Complete the native Python prototype/binding decision and migration;
@@ -522,8 +591,11 @@ records the measured scope and preserved staged work. No PERF or competitive gat
   - Source: supplied plan and RFC 0044 temporary-workspace decision; depends on PERF-03.
   - Implemented scope: bounded numeric-sort runs and merge use real native
     Vortex query data, with source-generation checks and owned disk cleanup.
-    This is distinct from historical synthetic spill fixtures. Shared spill for
-    aggregate, distinct and join families remains open.
+    This is distinct from historical synthetic spill fixtures. Native weighted
+    COUNT and integer DISTINCT runs are retained; non-null single-key UTF8
+    COUNT now drains worker state into native runs under pressure. Compound
+    COUNT retains its serial spill route. Broader worker transfer, join spill
+    and production resource/recovery acceptance remain open.
   - Execution checklist:
     - [ ] Extend quota-accounted native runs and exact pressure transitions to
       the remaining aggregate/distinct/join families.
@@ -540,8 +612,10 @@ records the measured scope and preserved staged work. No PERF or competitive gat
   - Implemented scope: executable Vortex arrays whose buffer credits survive
     clones/slices and session drop. Single-file project/filter collect renders
     complete bounded values, and the native array sink persists them directly.
-    Other materializing, multi-source and compatibility sink families still
-    require migration; see the completed ledger for the bounded reopen evidence.
+    Later bounded integer COUNT/DISTINCT and UTF8 COUNT results also finalize
+    directly into owned arrays with Vortex/IPC/Parquet sink acceptance. Additional
+    computed and multi-source families still require migration; see the completed
+    ledger and combined September 12 UAT for the exact scope.
   - Execution checklist:
     - [ ] Carry executable arrays, selections, validity and retained ownership
       through the remaining physical result and compatibility sink families.
@@ -2279,6 +2353,19 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     sink-parity evidence.
 
 Current autonomous execution order:
+
+The approved September 19 [hardening/cleanup batch](runtime-hardening-cleanup-2026-09-19.md)
+is complete and locally validated for PR review. Preserve its publication
+collision safety and bounded codec-cancellation/native-writer serving evidence.
+The subsequent [ship/drop implementation](performance-ship-drop-2026-09-19.md)
+retains Q36 proof-preserving worker admission and Q13 filtered exact partitions;
+Q29 owned weighted partials and Q23 dictionary reconstruction did not earn
+retention. Preserve those measured decisions. The next conditional target is Q19
+complete-key traffic, probes, duplicates, ownership and skew, under the material
+gate stated at the start of Planned. Q33, ingest, serving and delivery proposals
+remain evidence-gated. The historical inventory
+in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
+already-shipped families.
 
 The selected performance/publication train is complete. The latest maintainer
 priority at the start of Planned governs the remaining constraints and deferred

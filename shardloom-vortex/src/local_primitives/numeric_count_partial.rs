@@ -16,6 +16,7 @@ use std::{fmt::Debug, mem::size_of};
 
 mod sealed {
     pub trait Sealed {}
+    impl Sealed for i32 {}
     impl Sealed for i64 {}
     impl Sealed for u64 {}
 }
@@ -24,6 +25,7 @@ pub(super) trait NumericCountKey:
     sealed::Sealed + Copy + Ord + Debug + Send + 'static
 {
 }
+impl NumericCountKey for i32 {}
 impl NumericCountKey for i64 {}
 impl NumericCountKey for u64 {}
 

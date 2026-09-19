@@ -174,7 +174,7 @@ struct CountObservation {
 }
 
 #[allow(clippy::too_many_lines)]
-fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
+fn shared_session_serving_case(workers: usize, cancel_scan: bool, native_write: bool) {
     let fixture = FileFixture::new();
     let session = ResidentVortexSession::new(16 << 20, workers).unwrap();
     let source = session.prepare_file(fixture.path()).unwrap();
@@ -190,10 +190,13 @@ fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
     let scan_expected = fixture.expected.clone();
     let scan_active = Arc::clone(&active);
     let scan_cancel = cancellation.clone();
+    let output_path = fixture.directory.join("written.vortex");
+    let worker_output = output_path.clone();
+    let counts_per_caller = if native_write { 32 } else { COUNTS_PER_CALLER };
     let scan_worker = thread::spawn(move || {
         let result = scan_source.with_native_execution(|file, native, runtime| {
             assert_eq!(scan_active.fetch_add(1, Ordering::SeqCst), 0);
-            let result = (|| {
+            let scan = |push: &mut dyn FnMut(ArrayRef) -> Result<()>| {
                 let mut rows = 0;
                 for start in (0..ROWS).step_by(RANGE_ROWS) {
                     // These are real ordered scans of one held file. Explicit
@@ -220,10 +223,36 @@ fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
                         // cancellation of callers queued on the session mutex.
                         scan_cancel.check()?;
                         rows += array.len();
+                        push(array)?;
                     }
                 }
                 Ok(rows)
-            })();
+            };
+            let result = if native_write {
+                (|| {
+                    // Same session, provider drivers and memory pool as the
+                    // competing counts. This exercises native file ingestion,
+                    // not the separate Parquet conversion pool or global fairness.
+                    let _metadata = scan_source.0.runtime.memory.reserve(128 << 10)?;
+                    let ((), report) = shardloom_core::write_workspace_safe_bytes_with_producer(
+                        worker_output.parent().unwrap(), &worker_output, false,
+                        "same-session native writer fixture", |sink| {
+                            let mut writer = native.write_options()
+                                .with_strategy(Arc::new(vortex::layout::layouts::chunked::writer::ChunkedLayoutStrategy::new(FlatLayoutStrategy::default())))
+                                .with_file_statistics(Vec::new())
+                                .blocking(runtime).writer(sink, file.dtype().clone());
+                            let rows = scan(&mut |array| writer.push(array).map_err(native_error))?;
+                            let summary = writer.finish().map_err(native_error)?;
+                            assert_eq!(summary.row_count(), u64::try_from(rows).unwrap());
+                            Ok(())
+                        },
+                    )?;
+                    assert!(!report.staging_path.exists());
+                    Ok(ROWS)
+                })()
+            } else {
+                scan(&mut |_| Ok(()))
+            };
             assert_eq!(scan_active.fetch_sub(1, Ordering::SeqCst), 1);
             result
         });
@@ -256,7 +285,7 @@ fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
             let first_arrival = Instant::now();
             arrived.send(caller).unwrap();
             let mut observations = Vec::new();
-            for index in 0..COUNTS_PER_CALLER {
+            for index in 0..counts_per_caller {
                 let arrival = if index == 0 {
                     first_arrival
                 } else {
@@ -319,16 +348,18 @@ fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
         samples.extend(recv(&completions));
     }
     owned_workers.finish();
-    assert_eq!(samples.len(), COUNT_CALLERS * COUNTS_PER_CALLER);
+    assert_eq!(samples.len(), COUNT_CALLERS * counts_per_caller);
     for sample in &samples {
         assert_eq!(sample.rows, u64::try_from(ROWS).unwrap());
         assert!(sample.queue_residence <= sample.completed_latency);
     }
     samples.sort_by_key(|sample| sample.completed_latency);
     eprintln!(
-        "file-serving fixture only: workers={workers} cancelled_scan={cancel_scan} calls={} p50={:?} max={:?} max_queue={:?}",
+        "file-serving fixture only: workers={workers} native_write={native_write} cancelled_scan={cancel_scan} calls={} p50={:?} p95={:?} p99={:?} max={:?} max_queue={:?}",
         samples.len(),
-        samples[samples.len() / 2].completed_latency,
+        samples[(samples.len() * 50).div_ceil(100) - 1].completed_latency,
+        samples[(samples.len() * 95).div_ceil(100) - 1].completed_latency,
+        samples[(samples.len() * 99).div_ceil(100) - 1].completed_latency,
         samples.last().unwrap().completed_latency,
         samples
             .iter()
@@ -339,7 +370,7 @@ fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
     assert_eq!(active.load(Ordering::SeqCst), 0);
     let snapshot = session.snapshot();
     assert_eq!(snapshot.prepared_source_opens, 1);
-    let count_completions = COUNT_CALLERS * (COUNTS_PER_CALLER + 1);
+    let count_completions = COUNT_CALLERS * (counts_per_caller + 1);
     assert_eq!(
         snapshot.completed_executions,
         u64::try_from(count_completions + usize::from(!cancel_scan)).unwrap()
@@ -362,6 +393,26 @@ fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
         .unwrap();
     assert_complete(&result, &fixture.expected);
     drop(result);
+    if native_write {
+        assert_eq!(output_path.exists(), !cancel_scan);
+        assert_eq!(
+            std::fs::read_dir(&fixture.directory).unwrap().count(),
+            if cancel_scan { 1 } else { 2 }
+        );
+        if !cancel_scan {
+            let written = session.prepare_file(&output_path).unwrap();
+            let result = written
+                .prepare_projection(
+                    &["renamed_boundary_key", "renamed_nullable_text"],
+                    ROWS as u64,
+                    8 << 20,
+                )
+                .unwrap()
+                .execute()
+                .unwrap();
+            assert_complete(&result, &fixture.expected);
+        }
+    }
     drop(source);
     drop(session);
     assert!(owner.upgrade().is_none());
@@ -371,14 +422,23 @@ fn shared_session_serving_case(workers: usize, cancel_scan: bool) {
 #[test]
 fn resident_file_serving_short_counts_wait_for_complete_scan_and_then_all_finish() {
     for workers in [1, 4] {
-        shared_session_serving_case(workers, false);
+        shared_session_serving_case(workers, false, false);
     }
 }
 
 #[test]
 fn resident_file_serving_cooperative_scan_cancellation_releases_queued_counts() {
     for workers in [1, 4] {
-        shared_session_serving_case(workers, true);
+        shared_session_serving_case(workers, true, false);
+    }
+}
+
+#[test]
+fn resident_file_serving_counts_progress_after_native_writer_commit_or_cancel() {
+    for workers in [1, 4] {
+        for cancel in [false, true] {
+            shared_session_serving_case(workers, cancel, true);
+        }
     }
 }
 

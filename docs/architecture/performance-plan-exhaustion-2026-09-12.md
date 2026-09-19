@@ -12,6 +12,13 @@ the whole program complete or replace the canonical
 [phased plan](phased-execution-plan.md). No new phase IDs or competitive-gate
 closures are introduced; CG-1 through CG-23 retain their existing status.
 
+Current-status note: the later completion and combined-UAT packets record scoped
+prepared integer MIN/MAX/AVG, non-null UTF8 COUNT worker-to-spill, owned integer
+COUNT/COUNT DISTINCT and UTF8 COUNT, source-generation checks, and bounded
+file-backed serving lifecycle acceptance. They do not close the broader PERF or
+CG plan. Broad expansion remains paused; rejected or parked experiments stay
+excluded from shipping.
+
 Recorded ingest and query controls advance as faster retained versions complete
 validation; see the [control ledger](performance-control-progression-2026-09-12.md).
 Previous accepted native `572bd52c` ingested in **95.447305458 seconds**. The
@@ -37,10 +44,12 @@ below; the protected Full43 timing control does not advance. The tables below re
 inventory scope; they are not evidence that these changes were already present
 at `a8775c4f`, nor do the scoped implementations close every entry in their epics.
 
-Typed string/NULL constant group outputs and a measured native text storage
-candidate are the next active implementations. The
-[storage exploration](native-storage-reduction-2026-09-12.md) preserves existing
-derived helpers and statistics and requires complete validation of changed bytes.
+At that checkpoint, typed string/NULL constant group outputs and a native text
+storage candidate were the proposed next implementations. The later performance
+selection left broad family expansion paused and dropped the slower text-storage
+replacement; see the [release handoff](performance-pr-release-handoff-2026-09-12.md).
+The [storage exploration](native-storage-reduction-2026-09-12.md) remains historical
+evidence, not an active instruction to restart that candidate.
 
 ## Combined validation checkpoint
 
@@ -75,42 +84,27 @@ wall-clock interruption, are preserved. This is not proof of stable global
 nonregression. These checks supply no combined full-size ingest measurement and
 do not close the broader inventory below.
 
-## Work that can proceed now
+## Current scoped status and residual work
 
-1. **Connect aggregate workers to exact native spill under pressure.** The
-   weighted COUNT accumulator's `transfer_drained_epoch` is test-only, while
-   `weighted_count_spill_query` feeds a serial source accumulator. Existing
-   `AggregateChunkJobs`, string/compound partitions and native runs provide the
-   components. Implement a production transition that stops submission, drains
-   workers, transfers the committed prefix once, consumes each untouched suffix
-   once, and continues into the same admitted native run store. Keep source
-   generation, ordering, cancellation and memory credits intact. Start with the
-   already admitted non-null UTF8 COUNT family, then its optional integer key;
-   exact grouped distinct needs its own pair-deduplication transfer contract.
-   This closes a real bounded-completion gap without restarting topology work.
-2. **Extend prepared aggregates through existing consumers.**
-   `PreparedVortexAggregate` admits only identity COUNT/COUNT DISTINCT/SUM over
-   integer group/measure fields. Ordinary consumers already implement MIN/MAX
-   and other measures. Start with integer MIN/MAX, preserving ordinary result
-   types, NULL/empty behavior, exact comparisons and fresh state on every call.
-   Then evaluate existing text grouping and additional measures as explicit
-   families. Reuse `AggregateLowering`, the held source and the public worker's
-   handle path; extend native/worker/Python/fresh-process acceptance. This is
-   source/lowering reuse, not answer caching or new aggregate mathematics.
-3. **Complete file-backed serving and pressure acceptance.** The resident
-   admission mutex is held across complete operations. Add a bounded same-session
-   long-scan/short-count workload that measures queue delay, completion, p50/p95/p99,
-   cancellation and shared ownership. Existing mixed in-memory intake samples do
-   not cover it. If serialization causes material short-call delay, design a
-   bounded admission change through the existing runtime with explicit CPU/I/O
-   progress. Do not add independent unbudgeted session lanes.
-4. **Carry additional computed results as owned native arrays.** The direct
+The later completion packet records the non-null UTF8 COUNT worker-to-spill
+transition, prepared integer MIN/MAX/AVG, owned bounded integer grouped DISTINCT
+and integer/UTF8 COUNT results, source-generation validation, and bounded
+file-backed serving lifecycle checks. These are scoped implementation and
+correctness results, not whole-PERF or CG closure.
+
+Residual work is to extend pressure handoff to the optional integer-key and
+grouped-distinct contracts, complete production-size resource and recovery
+acceptance, and cover remaining aggregate/result families. Keep source
+generation, ordering, cancellation, memory credits, exact types and fresh state
+in every extension. Additional computed results remain open:
+
+1. **Carry additional computed results as owned native arrays.** The direct
    native sink admits source projection/filter and source-column expressions.
    Extend one existing computed aggregate/result family to `OwnedVortexResultBatch`
    and the retained native/compatibility sinks, avoiding a row/JSON roundtrip.
    Prove dtype, validity, ordering, result lifetime and bytes actually avoided.
    Multi-source joins/windows remain separate follow-on families.
-5. **Finish existing operator families outside the PERF shorthand.** Generalize
+2. **Finish existing operator families outside the PERF shorthand.** Generalize
    the retained literal-integer constant-key pruning to provable string/NULL
    constants with exact output reconstruction; define a three-key grouped worker
    state through the retained aggregate jobs/partitions; and connect one admitted
@@ -119,13 +113,23 @@ do not close the broader inventory below.
    and metadata epics. Keep their tests and execution certificates coupled to
    the corresponding implementation, not a second registry or scheduler.
 
-These tasks need implementation and focused acceptance; absence of an existing
-benchmark is not a reason to leave them indefinitely deferred. Initial bounded
-tests should prove exact behavior and work/resource reduction before expensive
-acceptance. Full43 or large ingest runs are not prerequisites for writing these
-tests or integrating existing ownership/spill machinery.
+These are residual capability obligations, not the current execution queue.
+Broad family expansion remains paused by the later maintainer direction. When
+a specific family is admitted again, bounded tests must prove exact behavior
+and work/resource reduction before expensive acceptance; an unchanged Full43
+or large ingest rerun is not a prerequisite for those focused checks.
 
-## Source and evidence anchors
+## Historical source inventory at a8775c4f
+
+The tables below preserve the September 12 inventory at `a8775c4f`, including
+its then-open implementation tasks. They are **not the current work queue**.
+Prepared MIN/MAX/AVG, single-key UTF8 COUNT spill handoff, bounded owned results
+and source/serving checks subsequently landed. Use the
+[current hardening and cleanup packet](runtime-hardening-cleanup-2026-09-19.md)
+and [canonical execution order](phased-execution-plan.md) for current actions;
+the [native completion](../benchmarks/native-completion-boundaries-2026-09-12.md)
+and [combined UAT](../benchmarks/combined-performance-uat-2026-09-12.md) packets
+own the later accepted scopes. No historical measurement is reattributed.
 
 | Surface | Current source/evidence |
 |---|---|
