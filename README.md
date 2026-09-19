@@ -27,9 +27,9 @@ inspectable resource decisions into one Vortex-native workflow. The capabilities
 admitted local routes; their linked evidence defines the supported shapes and remaining limits.
 
 - **One native execution contract across Python, SQL, and CLI.** Compatibility inputs enter through
-  source adapters and Vortex preparation; native Vortex inputs stay native. Unsupported plans
-  return deterministic diagnostics with no hidden external-engine execution. `SourceState` and
-  `VortexPreparedState` make the input and preparation boundaries inspectable.
+  source adapters and Vortex preparation; native Vortex inputs stay native.
+  Unsupported work must emit deterministic diagnostics with no hidden external-engine execution.
+  `SourceState` and `VortexPreparedState` make the input and preparation boundaries inspectable.
   See the [front-door contract](docs/architecture/v1-front-door-runtime-scope.md).
 - **Avoid data work before adding compute.** Supported routes answer from exact metadata, prune
   segments, consume encoded values, and defer payload materialization until the result needs it.
@@ -81,7 +81,7 @@ admitted local routes; their linked evidence defines the supported shapes and re
   [current execution priorities](docs/architecture/phased-execution-plan.md#planned).
 - **Evidence that developers and agents can inspect.** Route certificates connect source
   admission, provider/feature selection, execution, and output artifacts. Structured diagnostics
-  explain unsupported work and expose `fallback_attempted=false` and
+  explain rejected work and expose `fallback_attempted=false` and
   `external_engine_invoked=false`. The
   [user-surface index](docs/reference/shardloom-user-surface-index.md) provides a shared entry point
   for humans and automation. `hot_runtime`, `full_replay_proof`, and `publication_proof` name
