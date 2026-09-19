@@ -88,10 +88,29 @@ If retained, finish broad regression gates and full UAT, then open the cohesive
 PR before moving to Q33. Otherwise remove the prototype and record its evidence
 and drop reason before advancing.
 
-Pre-screen validation: 13 focused tests pass, including cross-chunk dictionary
+Pre-screen validation: 14 focused tests pass, including cross-chunk dictionary
 domains, global winners, signed extrema, negative timestamps, U8 prepared minutes,
 invalid losing groups, empty input, ties/OFFSET, large result windows,
 nullable/spill rejection, cancellation and committed capacity denial. Formatting
 and native-feature all-target Clippy pass. Independent source review found no
 remaining actionable issues for the bounded screen. Full-suite UAT and broad
 regression gates remain conditional on retention.
+
+## Admission correction before the decisive screen
+
+The first six unsampled paired calls all matched complete reference values but
+did not activate the candidate. They are admission diagnostics, not a prototype
+performance comparison. Their saved summary is
+`/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260919T200214061560Z/summary.json`.
+
+File metadata confirms that the original integer timestamp is nonnullable while
+its embedded prepared minute field is nullable. The existing derived-column
+rewrite therefore caused actual worker admission to decline correctly. For the
+otherwise eligible, unfiltered triple COUNT shape only, lowering now preserves
+the original nonnullable integer minute expression when its prepared replacement
+is nullable. Explicit nullable keys remain declined, and predicates retain the
+existing rewrite. The source precheck uses this same lowering. A regression test
+uses renamed columns, negative timestamps and an all-null prepared field to
+verify raw semantics and admission without assuming prepared-field validity.
+The actual raw timestamp scan, decode and minute extraction costs belong in the
+repeated complete-query screen; no prepared-column timings are carried forward.

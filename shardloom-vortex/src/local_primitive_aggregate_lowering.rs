@@ -19,11 +19,19 @@ pub(super) struct AggregateLowering {
 
 impl AggregateLowering {
     pub(super) fn new(request: &VortexQueryPrimitiveRequest, dtype: &DType) -> Result<Self> {
-        let rewrite = rewrite_simple_aggregate_for_embedded_derived_columns(
-            dtype,
-            required_simple_aggregate(request)?,
-            request.predicate.as_ref(),
-        )?;
+        let rewrite = if super::triple_count_workers::preserve_raw_minute_input(request, dtype) {
+            AggregateEmbeddedDerivedRewrite {
+                aggregate: required_simple_aggregate(request)?.clone(),
+                predicate: request.predicate.clone(),
+                rewritten_columns: Vec::new(),
+            }
+        } else {
+            rewrite_simple_aggregate_for_embedded_derived_columns(
+                dtype,
+                required_simple_aggregate(request)?,
+                request.predicate.as_ref(),
+            )?
+        };
         let mut projected_columns = rewrite.aggregate.projected_columns();
         let (pushdown, residual) = rewrite
             .predicate

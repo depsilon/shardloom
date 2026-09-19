@@ -35,6 +35,84 @@ fn columns(prepared: bool) -> Vec<String> {
     ]
 }
 
+#[test]
+fn triple_lowering_preserves_nonnullable_raw_minutes_when_prepared_dtype_is_nullable() {
+    use super::{
+        aggregate_count_workers::restore_provider_drivers, aggregate_lowering::AggregateLowering,
+    };
+    use crate::VortexQueryPrimitiveRequest;
+    use shardloom_core::{ComparisonOp, DatasetUri, PredicateExpr, StatValue};
+    let aggregate = request(false);
+    let query = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new("renamed.vortex").unwrap(),
+        aggregate.clone(),
+    )
+    .with_source_order_limit(2);
+    let mut names = columns(false);
+    let hidden = shardloom_extract_minute_derived_column("event_seconds");
+    names.push(hidden.clone());
+    // A nullable physical field is not a nonnull proof, even when a source
+    // expression is total. The raw source remains the semantic authority.
+    let chunk = StructArray::try_new(
+        names.into_iter().collect::<FieldNames>(),
+        vec![
+            integers(&[7, 7]),
+            dictionary(&[0, 0], &["x"]),
+            integers(&[-1, 61]),
+            PrimitiveArray::new(vec![0_u8, 0], Validity::AllInvalid).into_array(),
+        ],
+        2,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let lowering = AggregateLowering::new(&query, chunk.dtype()).unwrap();
+    assert!(lowering.rewrite.rewritten_columns.is_empty());
+    assert_eq!(
+        lowering.rewrite.aggregate.group_expressions[0].function,
+        "extract_minute"
+    );
+    assert!(!restore_provider_drivers(&query, chunk.dtype()));
+    let expected = serial_values(&aggregate, std::slice::from_ref(&chunk), false, 2);
+    assert_eq!(
+        worker_values(
+            &lowering.rewrite.aggregate,
+            std::slice::from_ref(&chunk),
+            false,
+            2,
+            3
+        ),
+        expected
+    );
+
+    // An explicit nullable prepared-key request is still declined.
+    let prepared_query = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new("renamed.vortex").unwrap(),
+        request(true),
+    )
+    .with_source_order_limit(2);
+    assert!(restore_provider_drivers(&prepared_query, chunk.dtype()));
+
+    // The shortcut must not bypass existing predicate rewrites.
+    let mut filtered = query;
+    filtered.predicate = Some(PredicateExpr::Compare {
+        column: ColumnRef::new("subject_code").unwrap(),
+        op: ComparisonOp::Gt,
+        value: StatValue::Int64(0),
+    });
+    assert!(!super::triple_count_workers::preserve_raw_minute_input(
+        &filtered,
+        chunk.dtype()
+    ));
+    assert_eq!(
+        AggregateLowering::new(&filtered, chunk.dtype())
+            .unwrap()
+            .rewrite
+            .rewritten_columns,
+        vec![hidden]
+    );
+}
+
 fn request(prepared: bool) -> VortexSimpleAggregateRequest {
     let columns = columns(prepared);
     let mut request = VortexSimpleAggregateRequest::grouped(

@@ -67,26 +67,68 @@ pub(super) fn request_schema_may_be_admitted(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
 ) -> bool {
-    let Ok(aggregate) = required_simple_aggregate(request) else {
+    let Ok(lowering) = super::aggregate_lowering::AggregateLowering::new(request, dtype) else {
         return false;
     };
+    if lowering.residual.is_some() {
+        return false;
+    }
+    aggregate_roles(
+        &lowering.rewrite.aggregate,
+        request.source_order_limit,
+        dtype,
+    )
+    .is_some()
+}
+
+fn aggregate_roles(
+    aggregate: &crate::VortexSimpleAggregateRequest,
+    limit: Option<usize>,
+    dtype: &DType,
+) -> Option<Roles> {
     let columns = aggregate
         .projected_columns()
         .iter()
         .map(|column| column.as_str().to_owned())
         .collect::<Vec<_>>();
-    let Ok(envelope) = VortexLocalPrimitiveResourceEnvelope::new(1, 1) else {
+    let envelope = VortexLocalPrimitiveResourceEnvelope::new(1, 1).ok()?;
+    GroupedAggregateStates::new_with_resource_envelope(
+        aggregate, limit, &columns, false, false, envelope,
+    )
+    .ok()
+    .and_then(|states| roles(&states, dtype, &columns))
+}
+
+/// A nullable prepared field does not prove a nonnullable worker key. Keep the
+/// original integer expression when it already satisfies the complete-key
+/// contract; charge its actual scan/decode cost in the comparison.
+pub(super) fn preserve_raw_minute_input(
+    request: &VortexQueryPrimitiveRequest,
+    dtype: &DType,
+) -> bool {
+    if request.predicate.is_some() {
+        return false;
+    }
+    let Ok(aggregate) = required_simple_aggregate(request) else {
         return false;
     };
-    GroupedAggregateStates::new_with_resource_envelope(
-        aggregate,
-        request.source_order_limit,
-        &columns,
-        false,
-        false,
-        envelope,
+    let Some(roles) = aggregate_roles(aggregate, request.source_order_limit, dtype) else {
+        return false;
+    };
+    if roles.minute_column_prepared {
+        return false;
+    }
+    let columns = aggregate.projected_columns();
+    let Some(source) = columns.get(roles.minute_column) else {
+        return false;
+    };
+    let DType::Struct(fields, _) = dtype else {
+        return false;
+    };
+    matches!(
+        fields.field(super::shardloom_extract_minute_derived_column(source.as_str()).as_str()),
+        Some(DType::Primitive(_, Nullability::Nullable))
     )
-    .is_ok_and(|states| roles(&states, dtype, &columns).is_some())
 }
 
 fn roles(states: &GroupedAggregateStates<'_>, dtype: &DType, columns: &[String]) -> Option<Roles> {
