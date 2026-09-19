@@ -136,6 +136,8 @@ class ClickBenchUatTests(unittest.TestCase):
             self.assertGreater(result["native_peak_rss_bytes"], 0)
             self.assertGreaterEqual(result["user_cpu_seconds"], 0)
             self.assertGreaterEqual(result["system_cpu_seconds"], 0)
+            for key in ("minor_page_faults", "major_page_faults", "input_block_operations", "output_block_operations"):
+                self.assertGreaterEqual(result[key], 0)
             self.assertLess(result["seconds"], result["supervised_wall_seconds"])
             self.assertEqual(prefix.with_suffix(".stdout.json").read_text(), "complete output\n")
 

@@ -194,6 +194,10 @@ def run_profiled_command(command: list[str], prefix: Path, timeout: float, guard
         result["native_peak_rss_bytes"] = native["peak_rss_bytes"]
         result["user_cpu_seconds"] = native["user_cpu_seconds"]
         result["system_cpu_seconds"] = native["system_cpu_seconds"]
+        for key in ("minor_page_faults", "major_page_faults", "input_block_operations",
+                    "output_block_operations", "os_counter_scope"):
+            if key in native:
+                result[key] = native[key]
         if native["returncode"] != 0:
             result["guard_failures"].append("profiled native command failed")
     else:

@@ -244,6 +244,13 @@ the ledger.
 
 ## Planned
 
+September 19 acceptance follow-up: before further profiling or PR work, resolve
+the historical/full-suite timing mismatch with the
+[counterbalanced Full43 investigation](../benchmarks/full43-paired-investigation-2026-09-19.md).
+It compares frozen control and retained binaries query by query, preserves complete
+results, and requires reversed-order follow-ups for repeatable regression signals.
+No new engine behavior, ingest, publication or broader phase completion is implied.
+
 September 19 approved ship/drop follow-up: the
 [implementation packet](performance-ship-drop-2026-09-19.md) records Q36
 proof-preserving numeric worker admission and Q13 filtered complete-key counts,

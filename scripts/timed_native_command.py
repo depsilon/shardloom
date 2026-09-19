@@ -67,6 +67,11 @@ def main():
             "peak_rss_bytes": peak_rss_bytes,
             "user_cpu_seconds": usage.ru_utime,
             "system_cpu_seconds": usage.ru_stime,
+            "minor_page_faults": usage.ru_minflt,
+            "major_page_faults": usage.ru_majflt,
+            "input_block_operations": usage.ru_inblock,
+            "output_block_operations": usage.ru_oublock,
+            "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies",
             "cpu_timing_boundary": "native child CPU work; parallel work overlaps wall time",
             "peak_rss_scope": "native_child_os_high_water_mark_not_a_reservation_limit",
             "timing_boundary": "native process creation through complete output and process exit"}) + "\n")
