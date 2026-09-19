@@ -225,7 +225,6 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
 
     /// Join and release the CPU owners before another native stage takes their
     /// grant. A successful drain must not cancel the shared operation flag.
-    #[cfg(all(feature = "vortex-write", unix))]
     pub(super) fn retire(&mut self) -> Result<()> {
         if !self.pending.is_empty() || self.outstanding() != 0 {
             return Err(failed(
