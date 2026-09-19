@@ -260,9 +260,10 @@ samples during concurrent activity are diagnostic and do not alone veto retentio
 Keep every sample and memory observation, without converting a best-run result
 into a latency guarantee or a claim about the cause of every slower run.
 
-The current successful set is Q13 filtered complete-key counts and Q36 physical-key
-worker admission, together with the validated lifecycle hardening/cleanup. Advance
-this set to PR review now. Q29's owned partials and Q23's proposed dictionary
+Q13 filtered complete-key counts and Q36 physical-key worker admission, together
+with the validated lifecycle hardening/cleanup, merged in
+PR [#1446](https://github.com/depsilon/shardloom/pull/1446) as `40087458` after all
+40 CI checks passed. Q29's owned partials and Q23's proposed dictionary
 rewrite remain dropped; useful Q23 attribution stays. This supersedes the prior
 quiet-host wait before PR/Q19 progression. The
 [counterbalanced Full43 investigation](../benchmarks/full43-paired-investigation-2026-09-19.md)
@@ -287,12 +288,13 @@ dropped as a material opportunity, with provider attribution retained. The
 [research packet](performance-domain-transfer-2026-09-19.md) preserves the original
 proposals and their gates. Full43 acceptance is recorded with the implementation.
 
-After opening the current PR, the next bounded candidate is E: attribute
-Q19 complete-key traffic, probes,
-duplicate reduction, dictionary ownership and skew before admitting proposal E's
-triple-key partitions. Reuse the existing worker/reservation contracts; retain only
-at least one second of complete-query savings, or an explicitly selected resource
-objective of at least 30% lower peak RSS without slower completion. Q33 (F),
+Candidate E's [Q19 complete-key partition screen](q19-complete-key-partitions-2026-09-19.md)
+now passes the speed gate: 9.501540 s control versus 6.102660 s candidate, using
+each role's fastest valid complete run. All six complete outputs match, and all
+three candidate runs prove the new route. Fastest-run peak RSS increases 13.3%;
+no memory win is claimed. Broad regression gates and all 129 Full43 calls pass;
+open E's PR and advance to Q33. This retains the existing one-second saving gate or
+separate 30% RSS reduction gate with nonregressing complete time. Q33 (F),
 duplicate ingest traversals (G), serving queues (H) and result delivery (I) follow
 in that order, each conditional on its own attribution and ship/drop gate. After
 each successful set, open its PR before advancing; record failed screens as drops.
@@ -301,8 +303,8 @@ remain paused. Scoped retention does not close whole PERF/CG gates or any of the
 116 broader unchecked phase items.
 
 September 19 maintainer direction: complete the cohesive residual lifecycle
-hardening and reconcile stale current-action text. The batch is now complete
-and locally validated, ready for PR review; it is not yet merged or published. The
+hardening and reconcile stale current-action text. The batch is complete and
+merged in PR #1446; package publication is a separate operation. The
 [hardening/cleanup packet](runtime-hardening-cleanup-2026-09-19.md) owns this
 batch under PERF-03/06/08/09/11/12 and the next bounded profiling decision.
 Broad capability expansion and the rejected/parked experiments below remain

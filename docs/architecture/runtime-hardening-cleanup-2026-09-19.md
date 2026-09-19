@@ -1,8 +1,9 @@
 # Runtime lifecycle hardening and plan reconciliation
 
-Status: complete and locally validated on branch
-`codex/runtime-hardening-cleanup-20260919`, based on `f5163364`. This batch is
-ready for PR review; it is not part of the already-published 0.2.4 artifacts.
+Status: complete and merged through
+PR [#1446](https://github.com/depsilon/shardloom/pull/1446) at `40087458`.
+The branch was `codex/runtime-hardening-cleanup-20260919`, based on `f5163364`.
+This batch is not part of the already-published 0.2.4 artifacts.
 
 This is the approved post-0.2.4 cleanup and resource/lifecycle batch under
 PERF-03/06/08/09/11/12. It does not reopen broad capability completion, parked

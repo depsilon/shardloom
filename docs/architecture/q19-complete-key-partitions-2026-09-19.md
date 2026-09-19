@@ -1,6 +1,6 @@
 # Q19 complete-key partition screen
 
-Status: bounded prototype under validation; no retained speedup claimed.
+Status: retained after the complete-query speed gate, broad regression checks and Full43 UAT.
 
 This is candidate E in the [existing ship/drop packet](performance-domain-transfer-2026-09-19.md#e-complete-key-worker-partitions-for-the-existing-tri-key-state--conditional),
 under PERF-03/04/05/06. PR [#1446](https://github.com/depsilon/shardloom/pull/1446)
@@ -114,3 +114,61 @@ uses renamed columns, negative timestamps and an all-null prepared field to
 verify raw semantics and admission without assuming prepared-field validity.
 The actual raw timestamp scan, decode and minute extraction costs belong in the
 repeated complete-query screen; no prepared-column timings are carried forward.
+
+## Activated paired screen
+
+The corrected frozen runtime is `e96f8896536949352880c1fdc7b5bdc3d77759b8`, binary
+SHA-256 `d2506a5135337c00ae670917edc75eca384fed642d3ab57674e43b270c94a8f5`.
+All six complete results match the retained native reference. Each of the three
+candidate runs reports `complete_numeric_minute_string_partitions`, 99,997,497
+input rows, 56,384,822 exact groups and 43,612,675 existing-key updates.
+
+| Pair | Control seconds | Candidate seconds | Saved seconds | Control peak GiB | Candidate peak GiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 9.501540 | 6.102660 | 3.398880 | 3.332 | 3.775 |
+| 2 | 9.541134 | 6.513406 | 3.027727 | 3.299 | 3.484 |
+| 3 | 10.568104 | 9.810903 | 0.757201 | 3.344 | 3.214 |
+
+The symmetric fastest-valid comparison saves **3.398880 seconds (35.8%)**, clearing
+the one-second speed gate. Fastest-run RSS increases 13.3%; the separate memory
+gate does not pass. All samples remain part of the record, including the slower
+third pair. This is a scoped achievable-time result on the shared host, not a
+latency guarantee or an attribution of the third pair's variation.
+
+The [machine-readable evidence](../benchmarks/q19-complete-key-partitions-2026-09-19.json)
+preserves per-run counters, identities, host/build configuration, archive hashes
+and the registered decision. The raw summary is
+`/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260919T201636584675Z/summary.json`.
+The complete native-reference comparison is regression evidence, not an
+independent correctness oracle. Renamed focused fixtures compare with native
+serial semantics. Full43 and broad gates must pass before the PR is retained.
+
+Broad checks pass on the frozen runtime: formatting, workspace Clippy, native
+all-target Clippy, 3,424 workspace tests and 3,347 native-feature tests. The suites
+overlap; nine existing manual native cases remain ignored. Fourteen focused
+triple-key tests are included in the native total. Independent runtime review
+found no actionable issues. Benchmark constitution, optimization-target and
+public-claim validators pass; the architecture tracker retains its expected
+116 open phase items. Commands, exit codes and log hashes are in
+`/Users/dylan/LocalData/shardloom/ship-drop-20260919/q19-retention-validation.json`
+and `q19-docs-validation.json`; the native Clippy log is `q19-native-clippy-v3.log`.
+
+The first Full43 attempt stopped at the existing 256 MiB accumulated-log guard
+after 31 passing calls. It is incomplete evidence, not an engine mismatch or a
+full-suite score. Fifty-four closed stdout logs were losslessly gzip archived,
+verified byte-for-byte and hashed before their raw copies were removed, freeing
+6,836,224 accounted bytes. The archive receipt is
+`/Users/dylan/LocalData/shardloom/ship-drop-20260919/log-compaction-20260919/receipt.json`.
+No storage guard, source artifact or frozen executable changed. The complete
+suite is rerun from the beginning rather than combining partial score records.
+
+The complete rerun passes **129/129 calls across all 43 queries**, using the same
+frozen `e96f8896` binary and native artifact. Every compressed stdout archive's
+raw/compressed hashes and complete results were checked. Q19 is the only Full43
+query using the new family, and all three calls report the full expected rows and
+groups. The best-of-three sum is **117.174841 seconds**; this later, unpaired suite
+is correctness acceptance and a separate timing observation, not a matched
+performance delta. Its summary is
+`/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260919T202919608170Z/summary.json`.
+No ingest rerun is needed for this query-only change on unchanged bytes. Candidate
+E is ready for PR; Q33 (F) is next in the existing queue.
