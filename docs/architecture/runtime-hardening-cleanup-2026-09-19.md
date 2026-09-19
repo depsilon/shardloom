@@ -102,7 +102,13 @@ no further actionable issue. macOS native test linking emitted the existing
 large unwind-table warning; test exit codes were zero. No new full-size ingest,
 Full43 timing control, cross-platform runtime certification or release is claimed.
 
-## Next performance decision from existing evidence
+## Historical next performance decision from existing evidence
+
+The following decision led to the now-executed
+[ship/drop implementation packet](performance-ship-drop-2026-09-19.md). Its Q29
+owned-partial candidate was dropped; Q36 and Q13 were retained. The phase plan
+owns the current next action. The timings below remain historical evidence for
+the original hardening decision, not a second active queue.
 
 The completed source `4f2c7b97007864d0396b10bdc5dc2bbfef52df38` records
 129/129 exact Full43 results and a 91.825940038-second sum of per-query best of

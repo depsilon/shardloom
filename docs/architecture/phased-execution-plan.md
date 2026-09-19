@@ -244,17 +244,24 @@ the ledger.
 
 ## Planned
 
-September 19 research follow-up: the maintainer requested clearer README
-differentiators, reuse of retained mechanisms, and domain-transfer proposals for
-material gains and subsecond query latency. The
-[research and ship/drop packet](performance-domain-transfer-2026-09-19.md) records
-the source audit, historical counter extraction, candidate gates, and explicit
-drops. Q29 attribution remains first; subsequent Q36 worker-admission, Q13
-filtered-count, and Q23 accessor proposals require their own evidence gates.
-The subsequent maintainer request authorizes these ship/drop implementations and
-bounded complete-operation screens. Candidates remain provisional until correctness,
-resource and material-gain gates pass. Broad capability completion remains paused;
-no PERF/CG completion status changes from implementation authorization alone.
+September 19 approved ship/drop follow-up: the
+[implementation packet](performance-ship-drop-2026-09-19.md) records Q36
+proof-preserving numeric worker admission and Q13 filtered complete-key counts,
+both clearing the one-second complete-query gate in same-day comparisons. Q29's
+owned weighted partial candidate is removed; Q23 dictionary reconstruction is
+dropped as a material opportunity, with provider attribution retained. The
+[research packet](performance-domain-transfer-2026-09-19.md) preserves the original
+proposals and their gates. Full43 acceptance is recorded with the implementation.
+
+Next bounded profiling decision: attribute Q19 complete-key traffic, probes,
+duplicate reduction, dictionary ownership and skew before admitting proposal E's
+triple-key partitions. Reuse the existing worker/reservation contracts; retain only
+at least one second of complete-query savings, or an explicitly selected resource
+objective of at least 30% lower peak RSS without slower completion. Q33 and the
+ingest/serving/delivery proposals remain conditional on their own evidence; they
+are not automatically activated. Broad capability completion and parked experiments
+remain paused. Scoped retention does not close whole PERF/CG gates or any of the
+116 broader unchecked phase items.
 
 September 19 maintainer direction: complete the cohesive residual lifecycle
 hardening and reconcile stale current-action text. The batch is now complete
@@ -2313,12 +2320,13 @@ Current autonomous execution order:
 The approved September 19 [hardening/cleanup batch](runtime-hardening-cleanup-2026-09-19.md)
 is complete and locally validated for PR review. Preserve its publication
 collision safety and bounded codec-cancellation/native-writer serving evidence.
-Q29's recorded 9.299822-second contribution is the next attribution target under
-the packet's bounded decision gate; it is not yet a diagnosed internal bottleneck
-or an accepted new optimization. The subsequent
-[domain-transfer research](performance-domain-transfer-2026-09-19.md) narrows the
-first attribution to accessor construction and reuse of owned weighted string
-partials; its other ideas remain proposals. The historical inventory
+The subsequent [ship/drop implementation](performance-ship-drop-2026-09-19.md)
+retains Q36 proof-preserving worker admission and Q13 filtered exact partitions;
+Q29 owned weighted partials and Q23 dictionary reconstruction did not earn
+retention. Preserve those measured decisions. The next conditional target is Q19
+complete-key traffic, probes, duplicates, ownership and skew, under the material
+gate stated at the start of Planned. Q33, ingest, serving and delivery proposals
+remain evidence-gated. The historical inventory
 in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
 already-shipped families.
 

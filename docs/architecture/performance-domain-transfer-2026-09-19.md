@@ -4,10 +4,12 @@ Status: research and ship/drop proposals, inspected at `b254bbce` on September 1
 2026. The maintainer requested README polish, reuse of ShardLoom concepts, and
 additional domain-transfer research targeting drastic gains and subsecond latency.
 The subsequent maintainer request authorizes ship/drop implementation and bounded
-complete-operation screens in the sequence below. Work is in progress; no candidate
-is retained or measured faster until its acceptance gate passes. Broader capability
-completion stays paused. The original documentation-only evidence remains separate
-from this implementation follow-up.
+complete-operation screens in the sequence below. The
+[implementation packet](performance-ship-drop-2026-09-19.md) records the subsequent
+Q36/Q13 retention decisions, Q29 removal and Q23 attribution. The mechanisms and
+numbers below retain their original pre-implementation source scope. Broader
+capability completion stays paused; the original documentation-only evidence is
+separate from the implementation's new measurements.
 
 ## Decision
 

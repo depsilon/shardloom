@@ -42,9 +42,10 @@ admitted local routes; their linked evidence defines the supported shapes and re
 - **Exact aggregation that uses repetition and delays expensive measures.** Admitted kernels
   aggregate dictionary codes and weighted values, fuse repeated numeric SUM/AVG expressions,
   and preserve exact DISTINCT and complete grouping-key equality. Selected grouped top-K routes
-  identify candidates before exact recount or late measure evaluation; ordering, ties, NULLs,
-  and floating accumulation retain their route's declared semantics. These mechanisms already
-  exist—the [performance plan](docs/architecture/phased-execution-plan.md) records both retained
+  finish from complete exact key partitions or identify candidates before exact recount or late
+  measure evaluation; ordering, ties, NULLs, and floating accumulation retain their route's declared
+  semantics. See the [filtered-count and derived-key evidence](docs/architecture/performance-ship-drop-2026-09-19.md).
+  The [performance plan](docs/architecture/phased-execution-plan.md) records both retained
   implementations and experiments that did not earn retention.
 - **Reusable structure stays with the data.** Prepared local OLAP workflows use a single `.vortex`
   artifact containing data, native layouts, statistics, and admitted derived metadata. Consumers

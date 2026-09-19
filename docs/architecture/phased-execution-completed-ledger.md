@@ -17,6 +17,33 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Material query ship/drop screen and native operator reuse.
+  - Date: 2026-09-19. The approved research follow-up retains physical-key COUNT
+    worker admission and filtered complete-key exact counts at `69ce65ac`, with
+    the guarded log harness at `f1e29694`. Q29's owned weighted partial prototype
+    at `42e6ec11` is removed; Q23 dictionary reconstruction is rejected as a
+    material opportunity, with accessor attribution retained.
+  - Same-day complete comparison blocks: Q13 median 6.242 to 0.666 s and Q36
+    7.371 to 4.942 s. Q13 peak RSS rises about 1.01 to 1.59 GiB; Q36 remains
+    about 4.50 GiB. P1/2/4/8/12 preserve Q36 results. The
+    [implementation packet](performance-ship-drop-2026-09-19.md) owns full samples,
+    rejected attempts, later matched checks, source hashes and measurement limits.
+  - Full43 passes 129/129 complete returned-value comparisons. Its best-of-three
+    sum is 95.927383 s, slower than the historical 91.825940 s; it does not advance
+    the historical timing control or establish a whole-suite gain. No new ingest
+    timing is claimed. The preexisting 18.59 GB native artifact is unchanged.
+  - Formatting and workspace/native Clippy pass; 3,424 workspace and 3,333 native
+    tests pass (overlapping counts; nine existing manual cases ignored). Eleven
+    query-harness tests and nine documentation/status/version validators pass.
+    The architecture tracker still records 116 open phase items.
+  - The interrupted comparison hit the existing 256 MiB log budget. All completed
+    values and orphan evidence were preserved; lossless owned-log archives and
+    guarded compression restored headroom without changing the limits.
+  - Scope: PERF-04/05/07/10 operator/evidence reuse, local correctness and benchmark
+    evidence only; no entire PERF/CG gate, public availability, merge, publication,
+    cross-platform or production certification. Conditional Q19/Q33 and broader
+    ingest/serving/delivery work remain governed by the phase plan.
+
 - [x] Selected performance consolidation and `0.2.4` publication train.
   - Date: 2026-09-13. Performance PR [#1443](https://github.com/depsilon/shardloom/pull/1443)
     merged at `2c9b84b76757bf1fd3e1a2e71c76d692ab7b7afb`; version PR
