@@ -244,18 +244,39 @@ the ledger.
 
 ## Planned
 
-September 19 acceptance follow-up: correctness passes, but Q17 performance
-acceptance remains open after the
-[counterbalanced Full43 investigation](../benchmarks/full43-paired-investigation-2026-09-19.md).
+September 19 maintainer direction: use the existing candidate packet as a finite
+ship/drop cycle. Implement and validate a bounded candidate; put successful
+candidates into a cohesive PR and advance to the next set. Revert failed or
+non-material experiments, preserve their evidence and advance immediately.
+Complete the remaining E–I screens before refreshing the overall profiling/timing
+targets and generating a new research list. Targeted attribution needed to admit
+an existing conditional candidate remains part of its screen. Correctness and
+required validation still gate retention; a demonstrated regression requires a
+fix or drop. Do not reopen rejected ideas without new dominant-cost evidence.
+For performance decisions on this shared host, use each query's fastest valid
+complete run under comparable conditions, applying the same statistic to control
+and candidate. Successful fast runs establish achievable performance; slower
+samples during concurrent activity are diagnostic and do not alone veto retention.
+Keep every sample and memory observation, without converting a best-run result
+into a latency guarantee or a claim about the cause of every slower run.
+
+The current successful set is Q13 filtered complete-key counts and Q36 physical-key
+worker admission, together with the validated lifecycle hardening/cleanup. Advance
+this set to PR review now. Q29's owned partials and Q23's proposed dictionary
+rewrite remain dropped; useful Q23 attribution stays. This supersedes the prior
+quiet-host wait before PR/Q19 progression. The
+[counterbalanced Full43 investigation](../benchmarks/full43-paired-investigation-2026-09-19.md)
+records the evidence and the explicit maintainer disposition.
 The matched best-sums are 141.156433 s control / 133.708041 s retained, with all
 318 investigation calls matching complete references. Q11/Q12/Q34 signals do not
 repeat; Q17 is mixed across later blocks and still unexplained. Removing D's
 instrumentation did not help and was reverted, restoring runtime `69ce65ac`.
-Next: six Q17 pairs with both starting orders after unrelated heavy work is paused,
-preserving VM/CPU observations and every sample. If the signal persists, isolate
-B/C or compiled layout effects before accepting the branch. Q19 expansion and
-PR/release performance acceptance remain behind this gate. No new engine behavior,
-ingest, publication or broader phase completion is implied.
+Q17's slower samples remain recorded as load-sensitive timing variation, not a
+candidate failure or a blocking retry loop for this packet. This is the
+maintainer's best-valid-run decision rule; it does not erase the original screen
+or establish a cause for every slower sample. No new engine behavior, ingest,
+publication or
+broader phase completion is implied by that decision.
 
 September 19 approved ship/drop follow-up: the
 [implementation packet](performance-ship-drop-2026-09-19.md) records Q36
@@ -266,14 +287,16 @@ dropped as a material opportunity, with provider attribution retained. The
 [research packet](performance-domain-transfer-2026-09-19.md) preserves the original
 proposals and their gates. Full43 acceptance is recorded with the implementation.
 
-After the Q17 acceptance gate, the next bounded profiling decision is to attribute
+After opening the current PR, the next bounded candidate is E: attribute
 Q19 complete-key traffic, probes,
 duplicate reduction, dictionary ownership and skew before admitting proposal E's
 triple-key partitions. Reuse the existing worker/reservation contracts; retain only
 at least one second of complete-query savings, or an explicitly selected resource
-objective of at least 30% lower peak RSS without slower completion. Q33 and the
-ingest/serving/delivery proposals remain conditional on their own evidence; they
-are not automatically activated. Broad capability completion and parked experiments
+objective of at least 30% lower peak RSS without slower completion. Q33 (F),
+duplicate ingest traversals (G), serving queues (H) and result delivery (I) follow
+in that order, each conditional on its own attribution and ship/drop gate. After
+each successful set, open its PR before advancing; record failed screens as drops.
+Broad capability completion and parked experiments
 remain paused. Scoped retention does not close whole PERF/CG gates or any of the
 116 broader unchecked phase items.
 

@@ -1,6 +1,7 @@
 # Full43 matched performance investigation
 
-Status: correctness passes; performance acceptance remains open for Q17. The
+Status: correctness passes; the maintainer directs PR progression using fastest
+valid comparable runs, retaining slower Q17 samples as timing history. The
 experiment was registered before execution to investigate the maintainer's
 question about the 95.927383 s query acceptance sum versus the historical
 91.825940 s, before further profiling or PR work. The
@@ -61,15 +62,22 @@ Counters are pages/events as reported by macOS, not unique bytes read or copied.
 Host counters include unrelated work; correlation does not identify which process
 caused the pressure or establish that it explains the entire candidate difference.
 
-**Decision:** preserve the measured B/C changes and useful D attribution, with no
-new runtime optimization retained from this investigation. Keep PR/release
-performance acceptance and Q19 expansion behind a quieter-host Q17 check. Ask the
-maintainer to pause unrelated heavy work; do not terminate their applications.
-Then run six paired Q17 comparisons, balanced across both starting orders, using
-the same frozen control/candidate and guards. Inspect VM/CPU evidence and retain
-every sample. If the material signal persists, isolate B and C or their compiled
-layout effects before accepting the branch. No change to memory/P12 settings or
-historical baseline is used to make the current gate pass.
+**Current maintainer decision (September 19):** advance successful candidates to
+PR and then the next existing set; drop failed candidates and move on; refresh
+profiling/timing targets and research only once the current list is exhausted.
+Preserve B/C and useful D attribution, with no additional runtime optimization
+retained from this investigation. Use the fastest valid complete query run under
+comparable conditions for both control and candidate. Faster valid runs establish
+achievable performance; slower concurrent-load samples are diagnostic and do not
+alone veto a successful candidate. Preserve all samples and memory tradeoffs;
+do not claim a general latency guarantee from a best run. Q17 does not require a
+separate blocking retry or scheduled follow-up for this packet. This supersedes the earlier
+recommendation to wait for six quiet-host Q17 pairs before PR/Q19 progression.
+It is a maintainer decision rule, not a claim that the earlier median-based Q17
+screen passed or that host contention explains every difference. All measurements, signal flags
+and the rejected ablation remain intact. No memory/P12 settings or historical
+baseline are changed. Correctness, required validation, CI and future demonstrated
+regressions retain their normal gates; this decision does not publish a release.
 
 The [machine-readable audit](full43-paired-investigation-2026-09-19.json) binds
 all eight summaries, all query samples, native CPU/RSS/page faults, host VM deltas,
@@ -83,11 +91,15 @@ validators pass; the architecture tracker exits successfully with `--allow-block
 while still reporting 116 unchecked phase items and 36 unchecked global review
 items. Source comparison verifies that all runtime crates and Cargo manifests
 match `69ce65ac`; its prior full workspace/native gates remain applicable. No
-new runtime speedup, PR readiness, merge or publication is claimed.
+additional runtime speedup, merge or publication is claimed. The current PR
+progression decision is separate from the original investigation recommendation.
 The final release rebuild succeeds and reproduces the frozen `69ce65ac` binary's
 SHA-256 exactly, restoring the ordinary Cargo release output after the ablation.
 
-## Method and decision
+## Method and decision registered before execution
+
+The following experiment decisions preserve the original investigation record.
+The subsequent maintainer disposition above owns current PR/queue progression.
 
 Run each of the 43 canonical queries three times on each frozen binary:
 control `289fa42c` (SHA-256 `2fc973fac249216dc24f3b39a8b09946df734d1513f6cb945c9fca126038beda`)
@@ -142,7 +154,7 @@ complete workspace/native gates remain applicable to those binaries. New Python
 harness/counter changes require focused tests and independent review before UAT.
 Final results, provenance and the ship decision are appended after execution.
 
-## Q17 investigation extension
+## Historical Q17 investigation extension
 
 The Full43 run completed 258/258 correct calls. Q11, Q12, Q17 and Q34 crossed
 the registered follow-up threshold. The reversed-order block completed 24/24;

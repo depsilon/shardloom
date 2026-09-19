@@ -1,11 +1,26 @@
 {
   "schema_version": "shardloom.full43.matched_investigation.v1",
-  "status": "correctness_passed_performance_acceptance_open_q17",
+  "status": "correctness_passed_maintainer_directed_pr_progression",
+  "investigation_status_at_completion": "correctness_passed_performance_acceptance_open_q17",
+  "maintainer_disposition": {
+    "date": "2026-09-19",
+    "workflow": "Successful validated candidates -> PR -> next existing set; failed candidates -> drop -> next; refresh profiling/timing targets and research after exhausting the current list.",
+    "performance_decision_rule": "Use fastest valid complete runs under comparable conditions for both control and candidate; retain all samples and memory observations. Slower concurrent-load samples do not alone veto a successful candidate. Best runs show achievable performance, not a general latency guarantee.",
+    "q17": "Slower samples remain in timing history, not a blocking retry or scheduled follow-up for this packet. The earlier quiet-host wait is superseded by maintainer direction; the original median-based screen and unproven causal attribution remain unchanged.",
+    "measurement_records_changed": false,
+    "release_publication_authorized_by_this_disposition": false
+  },
+  "workflow_documentation_validation": {
+    "receipt": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/ship-cycle-documentation-validation-r2.json",
+    "sha256": "8850ac85c02a5edfd7978654feb5929394bb55f5c61b697c4eea9d1e8761d5dc",
+    "commands_passed": 10,
+    "scope": "Nine public/status/version validators; architecture validator exits 0 with --allow-blocked and still reports 116 unchecked phase items."
+  },
   "runtime_decision": "Preserve B/C and D at 69ce65ac; D-removal ablation did not resolve Q17 and is rejected. No new measured runtime change retained.",
   "counter_scope": "CPU/RSS/page faults are native child measurements; VM counters are host-wide and cannot be uniquely attributed to ShardLoom.",
   "historical_gap": "95.927383 versus 91.825940 seconds are unmatched historical observations; the exact contributors cannot be reconstructed.",
   "audit_script": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/audit-paired-evidence.py",
-  "audit_script_sha256": "fe4d48197149cdb34dbeac88786c2d4bd655973c974e3698279b92ba9e54a2cb",
+  "audit_script_sha256": "92675f86164393c11039b9d69f260900fd5ff08283828c29276e9223fe890dc9",
   "restored_release_build": {
     "source_commit": "ebacdce61df8fa9f9898ba51d47e369b831e6bde",
     "binary": "/Users/dylan/.cache/shardloom/cargo-target/release/shardloom",

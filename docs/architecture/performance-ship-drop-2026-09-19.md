@@ -135,8 +135,11 @@ allocation is admitted under the same storage limits. No limits were raised.
 [matched investigation](../benchmarks/full43-paired-investigation-2026-09-19.md)
 passes 318 additional complete native calls and finds a lower same-session full
 score (141.156433 s control / 133.708041 s retained). Q17 still has an unexplained,
-pressure-sensitive performance signal, so PR/release performance acceptance remains
-open. Removing the new UTF8 attribution did not improve it; the experiment was
+pressure-sensitive performance signal in the original median-based screen. The
+maintainer subsequently directed PR progression using fastest valid comparable
+runs, preserving slower samples as timing history rather than a candidate veto.
+Removing the new UTF8 attribution did not
+improve it; the experiment was
 reverted and runtime `69ce65ac` remains intact. The original results below remain
 historical observations rather than being replaced or pooled with the new runs.
 
@@ -206,8 +209,10 @@ made. These changes are locally validated and remain unmerged/unpublished.
 
 ## Remaining decisions
 
-The [phase plan](phased-execution-plan.md) remains the only active queue. First
-resolve the Q17 performance acceptance gate described in the matched investigation.
+The [phase plan](phased-execution-plan.md) remains the only active queue. Follow the
+maintainer's implement/validate → PR → next-set cycle, or drop → next candidate on
+failure; refresh the profiling/research list only after the current packet is
+exhausted. Q17 remains recorded under the disposition in the matched investigation.
 Q19 triple
 keys and Q33 near-unique duplicate reduction remain conditional on state/probe/
 distribution attribution. Duplicate ingest traversal, serving queue policy and

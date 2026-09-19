@@ -31,9 +31,14 @@ phase plan first.
     is restored to `69ce65ac`; no new optimization or performance fix is claimed.
     Harness tests pass 15/15. Earlier workspace/native checks remain attached to
     the identical retained runtime, not to a newly shipped ablation.
-  - Scope: this completed evidence collection does not close performance
-    acceptance. The phase plan keeps PR/release and Q19 expansion behind a quieter
-    Q17 comparison. Historical ingest/storage/timing evidence remains unchanged.
+  - Subsequent maintainer disposition: proceed with successful candidates to PR
+    and then the next existing set; drop failed ideas and refresh profiling/research
+    after exhausting the packet. Use fastest valid comparable runs for both
+    control and candidate; slower concurrent-load samples do not alone veto
+    retention. Q17 stays in the timing history; the earlier quiet-host wait is
+    superseded, not
+    reclassified as a passed timing screen. Historical ingest/storage/timing
+    evidence remains unchanged, and release publication is not implied.
 
 - [x] Material query ship/drop screen and native operator reuse.
   - Date: 2026-09-19. The approved research follow-up retains physical-key COUNT
