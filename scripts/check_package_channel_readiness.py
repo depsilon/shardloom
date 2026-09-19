@@ -945,6 +945,74 @@ def python_registry_proof_summary(proof: dict[str, Any] | None) -> dict[str, Any
     }
 
 
+def registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom):
+    """Require the observed platform executables and their complete SBOM graph."""
+    prefix = f"{channel_id}: registry bundled CLI inventory "
+    blockers = []
+    expected_components, expected_edges = {}, {}
+    layouts = {
+        "cp313-cp313-macosx_26_0_arm64": ("macos-aarch64", "shardloom"),
+        "cp313-cp313-manylinux_2_39_x86_64": ("linux-x86_64", "shardloom"),
+        "cp313-cp313-win_amd64": ("windows-x86_64", "shardloom.exe"),
+    }
+    for artifact in artifact_rows if isinstance(artifact_rows, list) else []:
+        if not isinstance(artifact, dict) or not isinstance(artifact.get("filename"), str):
+            continue  # The enclosing distribution validator rejects this row.
+        filename, digest = artifact["filename"], artifact.get("sha256")
+        parent = f"sha256:{digest}"
+        expected_components[parent] = {
+            "type": "file", "name": filename, "hashes": [{"alg": "SHA-256", "content": digest}],
+            "externalReferences": [{"type": "distribution", "url": artifact.get("url")}],
+        }
+        if filename.endswith(".tar.gz"):
+            if "bundled_cli" in artifact or artifact.get("clean_sdist_no_bundled_cli") is not True:
+                blockers.append(prefix + "source distribution must record no bundled CLI")
+            continue
+        tag = filename.removeprefix(f"shardloom-{SELECTED_PACKAGE_RELEASE_VERSION}-").removesuffix(".whl")
+        layout = layouts.get(tag)
+        binary = artifact.get("bundled_cli")
+        if layout is None or not isinstance(binary, dict):
+            blockers.append(prefix + f"requires its approved platform CLI record: {filename}")
+            continue
+        platform, executable = layout
+        member = f"shardloom/bin/{platform}/{executable}"
+        allowed_members = {member, f"shardloom-{SELECTED_PACKAGE_RELEASE_VERSION}.data/purelib/{member}"}
+        binary_digest, size = binary.get("sha256"), binary.get("size_bytes")
+        if (binary.get("platform") != platform or not isinstance(binary.get("member"), str)
+                or binary.get("member") not in allowed_members
+                or artifact.get("wheel_tag") != tag
+                or not isinstance(binary_digest, str) or not re.fullmatch(r"[0-9a-f]{64}", binary_digest)
+                or type(size) is not int or not 0 < size <= 128 << 20):
+            blockers.append(prefix + f"requires a valid member, platform, digest and size: {filename}")
+            continue
+        child = parent + ":bundled-cli"
+        expected_components[child] = {
+            "type": "file", "name": filename + "!/" + binary["member"],
+            "hashes": [{"alg": "SHA-256", "content": binary_digest}], "externalReferences": [],
+        }
+        expected_edges[parent] = [child]
+    actual_components = {}
+    for component in sbom.get("components", []) if isinstance(sbom.get("components"), list) else []:
+        ref = component.get("bom-ref") if isinstance(component, dict) else None
+        if not isinstance(ref, str) or ref in actual_components:
+            blockers.append(prefix + "SBOM requires unique component references")
+            continue
+        actual_components[ref] = {field: component.get(field, [] if field == "externalReferences" else None)
+                                  for field in ("type", "name", "hashes", "externalReferences")}
+    if actual_components != expected_components:
+        blockers.append(prefix + "SBOM must contain the exact distribution and bundled CLI components")
+    actual_edges = {}
+    for edge in sbom.get("dependencies", []) if isinstance(sbom.get("dependencies"), list) else []:
+        ref = edge.get("ref") if isinstance(edge, dict) else None
+        if not isinstance(ref, str) or ref in actual_edges:
+            blockers.append(prefix + "SBOM requires unique dependency references")
+            continue
+        actual_edges[ref] = edge.get("dependsOn")
+    if actual_edges != expected_edges:
+        blockers.append(prefix + "SBOM must bind each wheel to its bundled CLI dependency")
+    return blockers
+
+
 def validate_registry_supply_chain_evidence(
     repo_root: Path,
     matrix: dict[str, Any] | None,
@@ -1144,6 +1212,7 @@ def validate_registry_supply_chain_evidence(
             hashes = matches[0].get("hashes") if len(matches) == 1 else None
             if not isinstance(hashes, list) or {"alg": "SHA-256", "content": digest} not in hashes:
                 blockers.append(prefix + f"registry SBOM must bind artifact SHA256: {filename}")
+        blockers.extend(registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom))
         if len(blockers) == start:
             verified_channels.append(channel_id)
     return {

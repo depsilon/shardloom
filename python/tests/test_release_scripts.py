@@ -8035,11 +8035,8 @@ class ReleaseScriptTests(unittest.TestCase):
                       f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json")
         (root / stdout_ref).parent.mkdir(parents=True, exist_ok=True)
         (root / stdout_ref).write_bytes((REPO_ROOT / stdout_ref).read_bytes())
-        sbom = {"bomFormat": "CycloneDX", "specVersion": "1.5", "components": [
-            {"type": "file", "name": item["filename"],
-             "hashes": [{"alg": "SHA-256", "content": item["sha256"]}]}
-            for item in artifacts
-        ]}
+        sbom = json.loads((REPO_ROOT / "docs/release/channel-proofs" /
+                          f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-sbom.cdx.json").read_text())
         (root / row["sbom_ref"]).write_text(json.dumps(sbom))
         (root / row["checksum_ref"]).write_text("".join(
             f"{item['sha256']}  {item['filename']}\n" for item in artifacts
@@ -8054,10 +8051,8 @@ class ReleaseScriptTests(unittest.TestCase):
                 "complete_compiled_dependency_inventory_claimed", "local_build_or_package_execution_performed")},
             **identity,
             "workflow_url": f"https://github.com/depsilon/shardloom/actions/runs/{identity['workflow_run_id']}",
-            "artifact_refs": [
-                {"filename": item["filename"], "sha256": item["sha256"],
-                 "size_bytes": item["size"], "url": item["url"], "registry_digest_match": True} for item in artifacts
-            ],
+            "artifact_refs": json.loads((REPO_ROOT / "docs/release/channel-proofs" /
+                f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-provenance.json").read_text())["artifact_refs"],
             "channel_proof_ref": {"path": "transcript.json", "sha256": hashlib.sha256(
                 (root / "transcript.json").read_bytes()).hexdigest()},
         }
@@ -8107,6 +8102,16 @@ class ReleaseScriptTests(unittest.TestCase):
             ("untrusted_installed_url", "installed artifact and matrix URL must match"),
             ("missing_smoke_capture", "captured smoke stdout must match"),
             ("changed_smoke_capture", "result must equal the captured smoke stdout"),
+            ("omitted_cli_inventory", "requires its approved platform CLI record"),
+            ("missing_cli_component", "exact distribution and bundled CLI components"),
+            ("wrong_cli_component_digest", "exact distribution and bundled CLI components"),
+            ("wrong_cli_dependency", "bind each wheel to its bundled CLI dependency"),
+            ("missing_cli_dependency", "bind each wheel to its bundled CLI dependency"),
+            ("wrong_cli_member", "valid member, platform, digest and size"),
+            ("wrong_cli_platform", "valid member, platform, digest and size"),
+            ("invalid_cli_size", "valid member, platform, digest and size"),
+            ("invalid_cli_digest", "valid member, platform, digest and size"),
+            ("sdist_cli", "source distribution must record no bundled CLI"),
         ):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
@@ -8167,13 +8172,47 @@ class ReleaseScriptTests(unittest.TestCase):
                     else:
                         stdout_path.write_bytes(b"{}\n")
                         proofs["testpypi"]["bundled_cli_supplemental_proof"]["steps"][3]["stdout_sha256"] = hashlib.sha256(b"{}\n").hexdigest()
+                elif mutation in {"omitted_cli_inventory", "missing_cli_component", "wrong_cli_component_digest",
+                                  "wrong_cli_dependency", "missing_cli_dependency", "wrong_cli_member",
+                                  "wrong_cli_platform", "invalid_cli_size", "invalid_cli_digest", "sdist_cli"}:
+                    sbom = json.loads((root / "sbom.json").read_text())
+                    wheel = next(item for item in provenance["artifact_refs"] if "bundled_cli" in item)
+                    child_ref = "sha256:" + wheel["sha256"] + ":bundled-cli"
+                    if mutation == "omitted_cli_inventory":
+                        for item in provenance["artifact_refs"]:
+                            item.pop("bundled_cli", None)
+                        sbom["components"] = [item for item in sbom["components"] if not item["bom-ref"].endswith(":bundled-cli")]
+                        sbom["dependencies"] = []
+                    elif mutation == "missing_cli_component":
+                        sbom["components"] = [item for item in sbom["components"] if item["bom-ref"] != child_ref]
+                    elif mutation == "wrong_cli_component_digest":
+                        next(item for item in sbom["components"] if item["bom-ref"] == child_ref)["hashes"][0]["content"] = "f" * 64
+                    elif mutation == "wrong_cli_dependency":
+                        sbom["dependencies"][0]["dependsOn"] = ["sha256:unrelated"]
+                    elif mutation == "missing_cli_dependency":
+                        sbom["dependencies"] = []
+                    elif mutation == "sdist_cli":
+                        next(item for item in provenance["artifact_refs"] if item["filename"].endswith(".tar.gz"))["bundled_cli"] = wheel["bundled_cli"]
+                    else:
+                        field, value = {"wrong_cli_member": ("member", "shardloom/bin/other/shardloom"),
+                                        "wrong_cli_platform": ("platform", "other"),
+                                        "invalid_cli_size": ("size_bytes", False),
+                                        "invalid_cli_digest": ("sha256", "invalid")}[mutation]
+                        wheel["bundled_cli"][field] = value
+                    (root / "sbom.json").write_text(json.dumps(sbom))
+                    provenance["sbom_ref"]["sha256"] = hashlib.sha256((root / "sbom.json").read_bytes()).hexdigest()
                 elif mutation == "consistent_omission":
-                    omitted = provenance["artifact_refs"].pop(1)["filename"]
-                    proofs["testpypi"]["registry_release_artifacts"].pop(1)
+                    removed = provenance["artifact_refs"].pop(1)
+                    omitted = removed["filename"]
+                    proofs["testpypi"]["registry_release_artifacts"] = [item for item in
+                        proofs["testpypi"]["registry_release_artifacts"] if item["filename"] != omitted]
                     proofs["testpypi"]["registry_release_artifact_count"] = 3
                     row["registry_release_artifact_count"] = 3
                     sbom = json.loads((root / "sbom.json").read_text())
-                    sbom["components"] = [item for item in sbom["components"] if item["name"] != omitted]
+                    sbom["components"] = [item for item in sbom["components"] if item["name"] != omitted
+                                          and not item["name"].startswith(omitted + "!/")]
+                    sbom["dependencies"] = [item for item in sbom["dependencies"]
+                                            if item["ref"] != "sha256:" + removed["sha256"]]
                     (root / "sbom.json").write_text(json.dumps(sbom))
                     (root / "checksums.sha256").write_text("".join(
                         f"{item['sha256']}  {item['filename']}\n" for item in provenance["artifact_refs"]
@@ -8188,10 +8227,11 @@ class ReleaseScriptTests(unittest.TestCase):
                     provenance["checksum_ref"]["sha256"] = hashlib.sha256(b"").hexdigest()
                 elif mutation in {"wrong_sbom_digest", "malformed_sbom_hashes"}:
                     sbom = json.loads((root / "sbom.json").read_text())
+                    component = next(item for item in sbom["components"] if "!/" not in item["name"])
                     if mutation == "wrong_sbom_digest":
-                        sbom["components"][1]["hashes"][0]["content"] = "c" * 64
+                        component["hashes"][0]["content"] = "c" * 64
                     else:
-                        sbom["components"][1]["hashes"] = None
+                        component["hashes"] = None
                     (root / "sbom.json").write_text(json.dumps(sbom))
                     provenance["sbom_ref"]["sha256"] = hashlib.sha256(
                         (root / "sbom.json").read_bytes()).hexdigest()
