@@ -15,6 +15,9 @@ import json
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
+
+from check_registry_bundled_proof import bundled_registry_proof_blockers
 
 from release_channel_contract import (
     PUBLISHED_REGISTRY_BUILD_IDENTITIES,
@@ -1003,6 +1006,11 @@ def validate_registry_supply_chain_evidence(
         }.items():
             if provenance.get(field) != expected:
                 blockers.append(prefix + f"registry provenance {field} must be {expected}")
+        for field in ("publication_attempted", "package_upload_attempted", "fallback_attempted",
+                      "external_engine_invoked", "crypto_attestation_verification_performed",
+                      "complete_compiled_dependency_inventory_claimed", "local_build_or_package_execution_performed"):
+            if provenance.get(field) is not False:
+                blockers.append(prefix + f"registry provenance {field} must be false")
         if not re.fullmatch(r"[0-9a-f]{40}", str(provenance.get("source_commit", ""))):
             blockers.append(prefix + "registry provenance requires the actual build source commit")
         run_id = provenance.get("workflow_run_id")
@@ -1027,6 +1035,22 @@ def validate_registry_supply_chain_evidence(
                 blockers.append(prefix + f"registry provenance must bind {field} path and SHA256")
 
         proof = proofs.get(channel_id) or {}
+        proof_bytes = read_evidence("registry_release_artifacts_ref")
+        canonical_proof = object_evidence(proof_bytes, "registry_release_artifacts_ref")
+        binding = provenance.get("channel_proof_ref")
+        if (canonical_proof != proof or not isinstance(binding, dict)
+                or binding.get("path") != row.get("registry_release_artifacts_ref")
+                or proof_bytes is None
+                or binding.get("sha256") != hashlib.sha256(proof_bytes).hexdigest()):
+            blockers.append(prefix + "registry provenance must bind the complete channel proof path and SHA256")
+        for field in ("install_transcript_ref", "uninstall_transcript_ref", "clean_install_transcript_ref", "smoke_transcript_ref"):
+            if row.get(field) != row.get("registry_release_artifacts_ref"):
+                blockers.append(prefix + f"{field} must reference the bound channel proof")
+        runtime_identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES.get(SELECTED_PACKAGE_RELEASE_VERSION, {}).get("testpypi", {})
+        blockers.extend(bundled_registry_proof_blockers(
+            proof, channel_id=channel_id, package_version=SELECTED_PACKAGE_RELEASE_VERSION,
+            runtime_source_commit=runtime_identity.get("source_commit"),
+        ))
         registry_rows = proof.get("registry_release_artifacts")
         artifact_rows = provenance.get("artifact_refs")
         expected_artifacts: dict[str, tuple[Any, Any, Any]] = {}
@@ -1052,11 +1076,32 @@ def validate_registry_supply_chain_evidence(
                 url = artifact.get("url")
                 if type(size) is not int or size <= 0:
                     blockers.append(prefix + f"{label} requires a positive byte size for {filename}")
-                if not isinstance(url, str) or not url.startswith("https://"):
-                    blockers.append(prefix + f"{label} requires an HTTPS URL for {filename}")
+                expected_host = "test-files.pythonhosted.org" if channel_id == "testpypi" else "files.pythonhosted.org"
+                try:
+                    parsed_url = urlsplit(url) if isinstance(url, str) else None
+                    valid_url = (parsed_url is not None and parsed_url.scheme == "https"
+                                 and url == parsed_url.geturl()
+                                 and parsed_url.netloc == expected_host
+                                 and parsed_url.path.rsplit("/", 1)[-1] == filename
+                                 and not parsed_url.query and not parsed_url.fragment)
+                except ValueError:
+                    valid_url = False
+                if not valid_url:
+                    blockers.append(prefix + f"{label} URL must identify {filename} on {expected_host}")
+                if label == "registry provenance" and artifact.get("registry_digest_match") is not True:
+                    blockers.append(prefix + f"registry provenance must record a passed digest match for {filename}")
                 destination[filename] = (digest, size, url)
         if actual_artifacts != expected_artifacts:
             blockers.append(prefix + "registry provenance must match every registry artifact digest, size and URL")
+        installed = proof.get("installed_registry_artifact")
+        installed_name = proof.get("installed_registry_artifact_filename")
+        installed_expected = expected_artifacts.get(installed_name) if isinstance(installed_name, str) else None
+        if (not isinstance(installed, dict) or installed_expected is None
+                or installed.get("filename") != installed_name
+                or installed.get("sha256") != installed_expected[0]
+                or installed.get("url") != installed_expected[2]
+                or row.get("installed_registry_artifact_ref") != installed_expected[2]):
+            blockers.append(prefix + "installed artifact and matrix URL must match the registry inventory")
         approved_filenames = PUBLISHED_REGISTRY_DISTRIBUTIONS.get(SELECTED_PACKAGE_RELEASE_VERSION)
         if not approved_filenames:
             blockers.append(prefix + "selected release has no approved registry distribution inventory")

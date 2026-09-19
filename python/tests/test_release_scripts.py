@@ -8020,22 +8020,17 @@ class ReleaseScriptTests(unittest.TestCase):
         }
 
     def _registry_supply_chain_fixture(self, root: Path) -> tuple[dict, dict, dict]:
-        proof = self._python_registry_proof_fixture()
-        artifacts = [
-            {"filename": filename, "sha256": chr(ord("a") + index) * 64,
-             "size": 19000 + index, "url": f"https://example.invalid/{filename}"}
-            for index, filename in enumerate(PUBLISHED_REGISTRY_DISTRIBUTIONS[SELECTED_PACKAGE_RELEASE_VERSION])
-        ]
-        proof["registry_release_artifacts"] = artifacts
-        proof["registry_release_artifact_count"] = len(artifacts)
-        proof["installed_registry_artifact"] = artifacts[0]
-        for prefix in ("downloaded", "installed"):
-            proof[f"{prefix}_registry_artifact_filename"] = artifacts[0]["filename"]
-            proof[f"{prefix}_registry_artifact_sha256"] = artifacts[0]["sha256"]
+        proof = json.loads((REPO_ROOT / "docs/release/channel-proofs" /
+                            f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-transcript.json").read_text())
+        artifacts = proof["registry_release_artifacts"]
         row = self._python_registry_matrix_row_fixture(proof=proof)
         row["registry_release_artifact_count"] = len(artifacts)
         row.update({"sbom_ref": "sbom.json", "checksum_ref": "checksums.sha256",
                     "provenance_ref": "provenance.json"})
+        for field in ("registry_release_artifacts_ref", "install_transcript_ref", "uninstall_transcript_ref",
+                      "clean_install_transcript_ref", "smoke_transcript_ref"):
+            row[field] = "transcript.json"
+        (root / "transcript.json").write_text(json.dumps(proof))
         sbom = {"bomFormat": "CycloneDX", "specVersion": "1.5", "components": [
             {"type": "file", "name": item["filename"],
              "hashes": [{"alg": "SHA-256", "content": item["sha256"]}]}
@@ -8050,12 +8045,17 @@ class ReleaseScriptTests(unittest.TestCase):
             "schema_version": "shardloom.registry_release_evidence.v1",
             "channel_id": "testpypi", "package_version": SELECTED_PACKAGE_RELEASE_VERSION,
             "proof_status": "passed", "provenance_status": "unsigned_post_publication_observation",
+            **{field: False for field in ("publication_attempted", "package_upload_attempted", "fallback_attempted",
+                "external_engine_invoked", "crypto_attestation_verification_performed",
+                "complete_compiled_dependency_inventory_claimed", "local_build_or_package_execution_performed")},
             **identity,
             "workflow_url": f"https://github.com/depsilon/shardloom/actions/runs/{identity['workflow_run_id']}",
             "artifact_refs": [
                 {"filename": item["filename"], "sha256": item["sha256"],
-                 "size_bytes": item["size"], "url": item["url"]} for item in artifacts
+                 "size_bytes": item["size"], "url": item["url"], "registry_digest_match": True} for item in artifacts
             ],
+            "channel_proof_ref": {"path": "transcript.json", "sha256": hashlib.sha256(
+                (root / "transcript.json").read_bytes()).hexdigest()},
         }
         for field in ("sbom_ref", "checksum_ref"):
             provenance[field] = {"path": row[field], "sha256": hashlib.sha256(
@@ -8090,6 +8090,17 @@ class ReleaseScriptTests(unittest.TestCase):
             ("unrelated_workflow", "workflow_run_id must match the approved channel build"),
             ("consistent_omission", "must cover the exact approved distribution filenames"),
             ("wrong_declared_count", "artifact count must match the approved distribution inventory"),
+            ("untrusted_host", "on test-files.pythonhosted.org"),
+            ("wrong_url_filename", "on test-files.pythonhosted.org"),
+            ("unbound_transcript", "must bind the complete channel proof"),
+            ("wrong_smoke_ref", "smoke_transcript_ref must reference the bound channel proof"),
+            ("missing_supplement", "bundled CLI proof is required"),
+            ("failed_supplement", "proof_status must be passed"),
+            ("fallback_supplement", "fallback_attempted must be false"),
+            ("empty_supplement_steps", "requires all six ordered"),
+            ("provenance_fallback", "registry provenance fallback_attempted must be false"),
+            ("failed_digest_match", "must record a passed digest match"),
+            ("untrusted_installed_url", "installed artifact and matrix URL must match"),
         ):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
@@ -8119,6 +8130,29 @@ class ReleaseScriptTests(unittest.TestCase):
                 elif mutation == "wrong_declared_count":
                     proofs["testpypi"]["registry_release_artifact_count"] = 3
                     row["registry_release_artifact_count"] = 3
+                elif mutation in {"untrusted_host", "wrong_url_filename"}:
+                    for rows in (proofs["testpypi"]["registry_release_artifacts"], provenance["artifact_refs"]):
+                        for artifact in rows:
+                            host = "attacker.invalid" if mutation == "untrusted_host" else "test-files.pythonhosted.org"
+                            filename = artifact["filename"] if mutation == "untrusted_host" else "wrong.whl"
+                            artifact["url"] = f"https://{host}/packages/{filename}"
+                elif mutation == "wrong_smoke_ref":
+                    row["smoke_transcript_ref"] = "other.json"
+                elif mutation == "missing_supplement":
+                    proofs["testpypi"].pop("bundled_cli_supplemental_proof")
+                elif mutation == "failed_supplement":
+                    proofs["testpypi"]["bundled_cli_supplemental_proof"]["proof_status"] = "failed"
+                elif mutation == "fallback_supplement":
+                    proofs["testpypi"]["bundled_cli_supplemental_proof"]["fallback_attempted"] = True
+                elif mutation == "empty_supplement_steps":
+                    proofs["testpypi"]["bundled_cli_supplemental_proof"]["steps"] = []
+                elif mutation == "provenance_fallback":
+                    provenance["fallback_attempted"] = True
+                elif mutation == "failed_digest_match":
+                    provenance["artifact_refs"][0]["registry_digest_match"] = False
+                elif mutation == "untrusted_installed_url":
+                    proofs["testpypi"]["installed_registry_artifact"]["url"] = "https://attacker.invalid/file.whl"
+                    row["installed_registry_artifact_ref"] = "https://attacker.invalid/file.whl"
                 elif mutation == "consistent_omission":
                     omitted = provenance["artifact_refs"].pop(1)["filename"]
                     proofs["testpypi"]["registry_release_artifacts"].pop(1)
@@ -8147,6 +8181,11 @@ class ReleaseScriptTests(unittest.TestCase):
                     (root / "sbom.json").write_text(json.dumps(sbom))
                     provenance["sbom_ref"]["sha256"] = hashlib.sha256(
                         (root / "sbom.json").read_bytes()).hexdigest()
+                (root / "transcript.json").write_text(json.dumps(proofs["testpypi"]))
+                provenance["channel_proof_ref"]["sha256"] = hashlib.sha256((root / "transcript.json").read_bytes()).hexdigest()
+                if mutation == "unbound_transcript":
+                    with (root / "transcript.json").open("a") as handle:
+                        handle.write("\n")
                 (root / "provenance.json").write_text(json.dumps(provenance))
                 report = module.validate_registry_supply_chain_evidence(root, matrix, proofs)
                 self.assertEqual(report["status"], "blocked")
