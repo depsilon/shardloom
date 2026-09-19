@@ -45,8 +45,8 @@ The last block reverses direction, but three earlier blocks retain the signal.
 All 12 samples per role are preserved, with no outlier exclusions or post-hoc
 replacement of the Full43 score. The control alone ranges from 4.711854 to
 13.624002 s. Removing the extra profiling fields did not improve Q17 in either
-ordering; that ablation is rejected. The final runtime is restored byte-for-byte
-to the already-validated `69ce65ac` implementation.
+ordering; that ablation is rejected. At the investigation checkpoint, the runtime
+was restored byte-for-byte to the already-validated `69ce65ac` implementation.
 
 Direct checks against the exact historical executable `4f2c7b97` are also mixed:
 historical/retained medians are 6.470069 / 6.147163 s in normal order and
@@ -89,12 +89,15 @@ Historical timing records remain unchanged. No replacement ingest was run.
 Validation: 15 query/paired-harness tests pass. Nine public/status/version
 validators pass; the architecture tracker exits successfully with `--allow-blocked`
 while still reporting 116 unchecked phase items and 36 unchecked global review
-items. Source comparison verifies that all runtime crates and Cargo manifests
-match `69ce65ac`; its prior full workspace/native gates remain applicable. No
+items. At the investigation checkpoint, source comparison verified that all
+runtime crates and Cargo manifests matched `69ce65ac`. No
 additional runtime speedup, merge or publication is claimed. The current PR
 progression decision is separate from the original investigation recommendation.
-The final release rebuild succeeds and reproduces the frozen `69ce65ac` binary's
-SHA-256 exactly, restoring the ordinary Cargo release output after the ablation.
+The investigation's final release rebuild reproduced the frozen `69ce65ac`
+binary's SHA-256 exactly, restoring the ordinary Cargo release output after the
+ablation. The later [atomic replacement correction](../architecture/runtime-hardening-cleanup-2026-09-19.md#pre-merge-atomic-replacement-correction)
+changes shared publication code, with its own validation. These frozen binaries
+and measurements remain unchanged and are not a binary-identity claim for that fix.
 
 ## Method and decision registered before execution
 

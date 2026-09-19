@@ -140,7 +140,10 @@ maintainer subsequently directed PR progression using fastest valid comparable
 runs, preserving slower samples as timing history rather than a candidate veto.
 Removing the new UTF8 attribution did not
 improve it; the experiment was
-reverted and runtime `69ce65ac` remains intact. The original results below remain
+reverted to runtime `69ce65ac`. The later
+[atomic publication correction](runtime-hardening-cleanup-2026-09-19.md#pre-merge-atomic-replacement-correction)
+has separate validation and does not change the query kernels or these frozen
+benchmark records. The original results below remain
 historical observations rather than being replaced or pooled with the new runs.
 
 The retained source passes **129/129 complete Full43 result comparisons**. The

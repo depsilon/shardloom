@@ -22,25 +22,28 @@ engine is never invoked and fallback remains false.
 Before this batch, the shared publisher used an existence check followed by
 `fs::rename`, which could replace a concurrently created file. New destinations now use
 same-directory `fs::hard_link` followed by removal of the staging name: creating
-the link fails atomically when the destination exists. Use the same exclusive
-creation for replacement publication and rollback, so a competing destination
-is preserved. Revalidate destination metadata and symlink policy before moving
-an admitted old target, and preserve a backup if rollback cannot restore it.
-Probe hard-link support with the staged file before moving an existing output,
-so an unsupported filesystem leaves the original destination in place.
-Report the actual commit operation and leftover staging/backup state.
+the link fails atomically when the destination exists. Existing destinations use
+one same-directory `fs::rename` after final metadata and symlink revalidation.
+The publisher never removes or moves the old target first, so the published name
+remains available across replacement. Failed replacement cleans staging without
+a remove/copy/backup retry. Report `atomic_replace_rename_same_directory` for
+overwrite and `not_required_atomic_replace` for its rollback status.
 
 This is visibility and collision handling, not a file/directory fsync durability
 guarantee or a filesystem snapshot. Metadata checks cannot exclude every hostile
-parent-directory or in-place mutation race. Filesystems that cannot create hard
-links fail explicitly; there is no overwrite-capable rename retry.
+parent-directory or in-place mutation race. Explicit overwrite is not
+compare-and-swap: a writer arriving after the final metadata check may be replaced.
+Filesystems that cannot create hard links fail explicitly for new destinations;
+overwrite does not require a hard-link probe or backup.
 
 Provider references: Rust documents that [rename replaces an existing target](https://doc.rust-lang.org/std/fs/fn.rename.html)
 and that [hard_link fails when the new link already exists](https://doc.rust-lang.org/std/fs/fn.hard_link.html).
+The [rename manual](https://man7.org/linux/man-pages/man2/rename.2.html) specifies
+the existing target's continuous visibility during replacement on Linux.
 
 ## Completed acceptance
 
-- Deterministic competing destination, replacement and rollback tests through
+- Deterministic competing destination, continuous replacement visibility and failed-rename tests through
   the shared publisher; original producer/validation errors remain primary.
 - Native ingest failure/teardown and cancellation while work is held at a
   conversion or codec boundary; observe owner release and preserve bounded
@@ -58,7 +61,7 @@ to select a dominant cost and a bounded next decision; no new speedup is claimed
 
 ## Verification record
 
-The final source/test file hashes and logs are in
+The original hardening checkpoint's source/test file hashes and logs are in
 `/Users/dylan/LocalData/shardloom/runtime-hardening-20260919`:
 `final-source-files.json`, `validation.json`, the five validator JSON reports,
 and `native-serving-fixture.json`/`.log`. Hashes remained unchanged throughout
@@ -78,10 +81,11 @@ the final broad checks. Cargo resolved its output to
 | Local-output scope, public-status, workspace-version and public-claim validators | Passed. |
 | Architecture tracker with existing CI `--allow-blocked` | Expected blocked state: exactly 116 open phase items, zero runtime-gap blockers. |
 
-Seven deterministic publisher regression tests cover creation during production,
-creation after final validation, modified destinations, failed rollback with
-both owners preserved, restoration, symlink insertion, and unsupported hard-link
-filesystems. Existing success/error/overwrite publisher tests also passed.
+The original seven publisher tests covered creation during production,
+creation after final validation, modified destinations, failed rollback,
+restoration, symlink insertion, and unsupported hard-link filesystems. The
+pre-merge review correction below replaces the backup-specific cases.
+Existing success/error/overwrite publisher tests also passed.
 The held-codec case performs real Zstd work before its fixture gate and then
 proves cancellation prevents publication and drains native credits. Existing
 source-generation, EOF, skew, denial and teardown cases passed in the native suite.
@@ -96,11 +100,35 @@ global budget with the separate Parquet conversion pipeline. FIFO fairness,
 preemptive blocked-I/O cancellation, provider allocations outside the native
 allocator and production resource envelopes remain broader open requirements.
 
-Independent review found the unsupported-filesystem replacement failure case;
-the pre-move probe and regression test resolved it. The follow-up review found
-no further actionable issue. macOS native test linking emitted the existing
+The original independent review found an unsupported-filesystem replacement
+failure case. A later PR review found that moving the old target to a backup
+still created a missing-name interval before publication. The current single-
+rename replacement removes that interval and the entire backup/probe protocol.
+macOS native test linking emitted the existing
 large unwind-table warning; test exit codes were zero. No new full-size ingest,
 Full43 timing control, cross-platform runtime certification or release is claimed.
+
+### Pre-merge atomic replacement correction
+
+PR #1446's follow-up changes only the shared output publisher, its regression
+tests and documentation. Seven focused cases cover producer-time changes,
+post-check new-file collisions, symlink insertion, a reader observing the old
+target immediately before the single replacement syscall, injected rename
+failure, and a real missing-staging rename failure. Successful replacement
+reports the actual operation and leaves no sidecars. Query kernels and stored
+benchmark samples remain unchanged; the full-source/binary identity statements
+in earlier evidence describe their recorded checkpoint, not this later fix.
+
+The corrected publisher passes formatting, workspace and native-feature Clippy,
+3,424 workspace tests and 3,333 native-feature tests (nine existing manual cases
+ignored; the suites overlap), plus the ten documentation/architecture checks
+above. Independent review found no remaining actionable publication defect.
+An initial validation wrapper timed out and its log overlapped a subsequent run;
+that log includes an input-fixture setup failure and is excluded from acceptance.
+Fresh, individually tracked serial runs have zero failures. Their exact commands,
+exit codes and log hashes are recorded in
+`/Users/dylan/LocalData/shardloom/ship-drop-20260919/atomic-replace-final-receipt.json`.
+No new full-size query or ingest timing is attributed to this publication fix.
 
 ## Historical next performance decision from existing evidence
 

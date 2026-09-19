@@ -109,71 +109,67 @@ fn workspace_publication_replacement_rejects_changed_destination_before_commit()
 }
 
 #[test]
-fn workspace_publication_failed_replacement_and_rollback_preserve_both_owners() {
+fn workspace_publication_replacement_keeps_target_present_until_atomic_commit() {
     let fixture = Fixture::new();
     let target = fixture.0.join("result");
     fs::write(&target, b"original").unwrap();
     let plan = plan_workspace_safe_local_output(&fixture.0, &target, true).unwrap();
-    let backup = fixture.0.join("backup");
-    fs::rename(&target, &backup).unwrap();
     let staging = fixture.0.join("staging");
     fs::write(&staging, b"candidate").unwrap();
-    fs::write(&target, b"competing owner after backup").unwrap();
-    let error = finish_workspace_safe_replacement(&plan, &staging, &backup, true).unwrap_err();
-    assert!(
-        error
-            .message()
-            .contains("rollback_restored_existing_target=false")
-    );
-    assert!(error.message().contains("backup_retained=true"));
-    assert!(error.message().contains(&backup.display().to_string()));
-    assert_eq!(fs::read(&target).unwrap(), b"competing owner after backup");
-    assert_eq!(fs::read(&backup).unwrap(), b"original");
-    assert_eq!(fixture.files(), vec![backup, target]);
+    let (mode, cleanup, rollback, overwritten) =
+        replace_workspace_safe_target_with_commit(&plan, &staging, |from, to| {
+            // Observe the exact boundary before publication on a separate reader.
+            // A backup-then-publish protocol would have removed this name already.
+            std::thread::scope(|scope| {
+                scope.spawn(|| assert_eq!(fs::read(to).unwrap(), b"original"));
+            });
+            assert_eq!(fixture.files(), vec![target.clone(), staging.clone()]);
+            fs::rename(from, to)?;
+            assert_eq!(fs::read(to)?, b"candidate");
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(mode, "atomic_replace_rename_same_directory");
+    assert_eq!(cleanup, "no_staging_artifacts_remaining");
+    assert_eq!(rollback, "not_required_atomic_replace");
+    assert!(overwritten);
+    assert_eq!(fixture.files(), vec![target]);
 }
 
 #[test]
-fn workspace_publication_unsupported_hard_links_leave_original_destination_in_place() {
+fn workspace_publication_failed_atomic_replace_keeps_original_in_place() {
     let fixture = Fixture::new();
     let target = fixture.0.join("result");
     fs::write(&target, b"original").unwrap();
     let plan = plan_workspace_safe_local_output(&fixture.0, &target, true).unwrap();
-    let before = fs::metadata(&target).unwrap();
     let staging = fixture.0.join("staging");
     fs::write(&staging, b"candidate").unwrap();
-    let error = replace_workspace_safe_target_with_link_check(&plan, &staging, &before, |_, _| {
+    let error = replace_workspace_safe_target_with_commit(&plan, &staging, |_, to| {
+        assert_eq!(fs::read(to).unwrap(), b"original");
         Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "fixture filesystem cannot link",
+            std::io::ErrorKind::PermissionDenied,
+            "fixture filesystem cannot replace",
         ))
     })
     .unwrap_err();
     assert!(
         error
             .message()
-            .contains("requires same-directory hard-link support")
+            .contains("destination was not removed before commit")
     );
     assert_eq!(fs::read(&target).unwrap(), b"original");
     assert_eq!(fixture.files(), vec![target]);
 }
 
 #[test]
-fn workspace_publication_changed_backup_restores_without_publishing_candidate() {
+fn workspace_publication_real_rename_failure_keeps_original_in_place() {
     let fixture = Fixture::new();
     let target = fixture.0.join("result");
     fs::write(&target, b"original").unwrap();
     let plan = plan_workspace_safe_local_output(&fixture.0, &target, true).unwrap();
-    let backup = fixture.0.join("backup");
-    fs::rename(&target, &backup).unwrap();
-    let staging = fixture.0.join("staging");
-    fs::write(&staging, b"candidate").unwrap();
-    let error = finish_workspace_safe_replacement(&plan, &staging, &backup, false).unwrap_err();
-    assert!(
-        error
-            .message()
-            .contains("rollback_restored_existing_target=true")
-    );
-    assert!(error.message().contains("backup_retained=false"));
+    let staging = fixture.0.join("missing-staging");
+    let error = replace_workspace_safe_existing_target(&plan, &staging).unwrap_err();
+    assert!(error.message().contains("failed to atomically replace"));
     assert_eq!(fs::read(&target).unwrap(), b"original");
     assert_eq!(fixture.files(), vec![target]);
 }
