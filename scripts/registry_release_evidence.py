@@ -21,6 +21,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -28,6 +29,8 @@ import tomllib
 import urllib.parse
 import urllib.request
 import zipfile
+
+from local_uat_storage import available_bytes, require_local_path
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "0.2.4"
@@ -193,12 +196,61 @@ def validate_inventory(proof, live, channel):
     return {row["filename"]: row for row in expected}
 
 
+def resolve_cargo_target(root):
+    """Read Cargo configuration without fetching dependencies or building code."""
+    command = ["cargo", "metadata", "--offline", "--no-deps", "--format-version", "1"]
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        process = subprocess.Popen(command, cwd=root, stdin=subprocess.DEVNULL,
+            stdout=out, stderr=err, start_new_session=True)
+        started = time.monotonic()
+        try:
+            while process.poll() is None:
+                require(time.monotonic() - started < 30, "Cargo metadata deadline exceeded")
+                require(out.tell() <= MAX_JSON and err.tell() <= 65536, "Cargo metadata output exceeds bound")
+                time.sleep(0.05)
+            require(process.returncode == 0, "offline Cargo metadata failed; no observation started")
+            require(out.tell() <= MAX_JSON and err.tell() <= 65536, "Cargo metadata output exceeds bound")
+        finally:
+            for action in (signal.SIGTERM, signal.SIGKILL):
+                try:
+                    os.killpg(process.pid, action)
+                except ProcessLookupError:
+                    break
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    pass
+            process.wait(timeout=2)
+            try:
+                os.killpg(process.pid, 0)
+            except ProcessLookupError:
+                pass
+            else:
+                raise ValueError("Cargo metadata process-group cleanup unproved")
+        out.seek(0)
+        metadata = strict_json(out.read(MAX_JSON + 1))
+    value = metadata.get("target_directory") if isinstance(metadata, dict) else None
+    require(isinstance(value, str) and Path(value).is_absolute(), "Cargo metadata requires an absolute target_directory")
+    target = require_local_path(Path(value), Path.home(), sys.platform)
+    require(not any(part.casefold() in {"clouddocs", "icloud drive"} for part in target.parts),
+            "generated artifacts require a local nonsynced target directory")
+    return target
+
+
 class Observer:
     def __init__(self, root):
         self.root = root
-        self.directory = Path(tempfile.mkdtemp(prefix="registry-evidence-024-", dir=root / "target"))
+        self.target = resolve_cargo_target(root)
+        require(available_bytes(self.target) >= (12 << 30) + MAX_WORKSPACE,
+                "insufficient free space for observation and12GiB headroom")
+        self.target.mkdir(parents=True, exist_ok=True)
+        self.directory = Path(tempfile.mkdtemp(prefix="registry-evidence-024-", dir=self.target))
         self.deadline = time.monotonic() + 900
         self.commands = []
+
+    def local_ref(self, path):
+        """Keep historical checkout-relative refs; identify external Cargo outputs."""
+        return str(path.relative_to(self.root)) if path.is_relative_to(self.root) else str(path)
 
     def guard(self):
         require(time.monotonic() < self.deadline, "observation deadline exceeded")
@@ -209,8 +261,8 @@ class Observer:
     def command(self, command, destination, limit=MAX_JSON):
         self.guard()
         error_path = destination.with_name(destination.name + ".stderr")
-        record = {"command": list(map(str, command)), "stdout_ref": str(destination.relative_to(self.root)),
-                  "stderr_ref": str(error_path.relative_to(self.root)), "process_group_drained": False}
+        record = {"command": list(map(str, command)), "stdout_ref": self.local_ref(destination),
+                  "stderr_ref": self.local_ref(error_path), "process_group_drained": False}
         self.commands.append(record)
         process = None
         started = time.monotonic()
@@ -355,7 +407,7 @@ def observe_channel(observer, channel):
                     "url": expected["url"], "workflow_artifact_id": item["id"],
                     "workflow_artifact_name": name, "workflow_artifact_archive_sha256": digest,
                     "workflow_artifact_archive_size_bytes": item["size_in_bytes"],
-                    "local_path": str(distribution_path.relative_to(root)), "registry_digest_match": True,
+                    "local_path": observer.local_ref(distribution_path), "registry_digest_match": True,
                     "retrieval_source": "existing_GitHub_Actions_workflow_artifact"}
         artifact.update(inspect_distribution(distribution_path, name, project_raw))
         artifacts.append(artifact)
@@ -375,9 +427,9 @@ def observe_channel(observer, channel):
         "artifact_refs": artifacts, "sbom_ref": {"path": sbom_path, "sha256": sha_bytes(sbom)},
         "checksum_ref": {"path": checksums_path, "sha256": sha_bytes(checksums)},
         "channel_proof_ref": {"path": str(proof_path.relative_to(root)), "sha256": sha_bytes(proof_raw)},
-        "registry_inventory_ref": {"path": str(live_path.relative_to(root)), "sha256": file_sha(live_path)},
-        "workflow_metadata_ref": {"path": str(workflow_path.relative_to(root)), "sha256": file_sha(workflow_path)},
-        "workflow_artifact_inventory_ref": {"path": str(inventory_path.relative_to(root)), "sha256": file_sha(inventory_path)},
+        "registry_inventory_ref": {"path": observer.local_ref(live_path), "sha256": file_sha(live_path)},
+        "workflow_metadata_ref": {"path": observer.local_ref(workflow_path), "sha256": file_sha(workflow_path)},
+        "workflow_artifact_inventory_ref": {"path": observer.local_ref(inventory_path), "sha256": file_sha(inventory_path)},
         "source_inputs": source_inputs, "source_changes_from_release": source_delta,
         "runtime_and_packaging_source_equal_to_release": True, "release_source_commit": RELEASE_SOURCE,
         "source_declared_inventory": {"scope": "actual build source declarations;not compiled or linked dependency proof",
@@ -398,14 +450,6 @@ def main():
     args = parser.parse_args()
     root = args.repo_root.resolve()
     require(os.name == "posix" and root == ROOT, "use this generator's POSIX publication worktree")
-    # Source may be in a checkout under Documents only when target resolves to
-    # an explicitly local directory. Resolve before creating any large output.
-    target = (root / "target").resolve()
-    forbidden = [Path.home() / "Desktop", Path.home() / "Documents",
-                 Path.home() / "Library/Mobile Documents", Path.home() / "Library/CloudStorage"]
-    require(not any(target == path or path in target.parents for path in forbidden)
-            and not any(part in {"CloudDocs", "iCloud Drive"} for part in target.parts),
-            "generated artifacts require a local nonsynced target directory")
     outputs = [root / f"docs/release/channel-proofs/{channel}-v0.2.4-{suffix}"
                for channel in CHANNELS for suffix in ("sbom.cdx.json", "checksums.sha256", "provenance.json")]
     require(not any(path.exists() for path in outputs), "preserve existing registry evidence; refusing overwrite")
@@ -419,6 +463,7 @@ def main():
             with (root / path).open("xb") as output:
                 output.write(raw)
         summary = {"proof_status": "passed", "observation_directory": str(observer.directory),
+                   "cargo_target_directory": str(observer.target),
                    "distribution_count": 8, "outputs": [{"path": path, "sha256": sha_bytes(raw)} for path, raw in prepared.items()],
                    "commands": observer.commands, "publication_attempted": False, "local_build_performed": False}
         (observer.directory / "observation.json").write_bytes(json_bytes(summary))

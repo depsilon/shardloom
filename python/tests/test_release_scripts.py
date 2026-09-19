@@ -8031,6 +8031,10 @@ class ReleaseScriptTests(unittest.TestCase):
                       "clean_install_transcript_ref", "smoke_transcript_ref"):
             row[field] = "transcript.json"
         (root / "transcript.json").write_text(json.dumps(proof))
+        stdout_ref = ("docs/release/channel-proofs/"
+                      f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json")
+        (root / stdout_ref).parent.mkdir(parents=True, exist_ok=True)
+        (root / stdout_ref).write_bytes((REPO_ROOT / stdout_ref).read_bytes())
         sbom = {"bomFormat": "CycloneDX", "specVersion": "1.5", "components": [
             {"type": "file", "name": item["filename"],
              "hashes": [{"alg": "SHA-256", "content": item["sha256"]}]}
@@ -8101,6 +8105,8 @@ class ReleaseScriptTests(unittest.TestCase):
             ("provenance_fallback", "registry provenance fallback_attempted must be false"),
             ("failed_digest_match", "must record a passed digest match"),
             ("untrusted_installed_url", "installed artifact and matrix URL must match"),
+            ("missing_smoke_capture", "captured smoke stdout must match"),
+            ("changed_smoke_capture", "result must equal the captured smoke stdout"),
         ):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
@@ -8153,6 +8159,14 @@ class ReleaseScriptTests(unittest.TestCase):
                 elif mutation == "untrusted_installed_url":
                     proofs["testpypi"]["installed_registry_artifact"]["url"] = "https://attacker.invalid/file.whl"
                     row["installed_registry_artifact_ref"] = "https://attacker.invalid/file.whl"
+                elif mutation in {"missing_smoke_capture", "changed_smoke_capture"}:
+                    stdout_path = root / ("docs/release/channel-proofs/"
+                        f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json")
+                    if mutation == "missing_smoke_capture":
+                        stdout_path.unlink()
+                    else:
+                        stdout_path.write_bytes(b"{}\n")
+                        proofs["testpypi"]["bundled_cli_supplemental_proof"]["steps"][3]["stdout_sha256"] = hashlib.sha256(b"{}\n").hexdigest()
                 elif mutation == "consistent_omission":
                     omitted = provenance["artifact_refs"].pop(1)["filename"]
                     proofs["testpypi"]["registry_release_artifacts"].pop(1)

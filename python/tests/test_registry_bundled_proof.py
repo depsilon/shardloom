@@ -21,6 +21,8 @@ class RegistryBundledProofTests(unittest.TestCase):
         return bundled_registry_proof_blockers(
             proof, channel_id=channel, package_version=SELECTED_PACKAGE_RELEASE_VERSION,
             runtime_source_commit=PUBLISHED_REGISTRY_BUILD_IDENTITIES[SELECTED_PACKAGE_RELEASE_VERSION]["testpypi"]["source_commit"],
+            smoke_stdout=(ROOT / "docs/release/channel-proofs" /
+                          f"{channel}-v{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json").read_bytes(),
         )
 
     def test_accepts_both_recorded_bundled_installations(self):
@@ -45,6 +47,10 @@ class RegistryBundledProofTests(unittest.TestCase):
             (("steps", 3, "interrupted_signal"), 15, "must not be interrupted"),
             (("steps", 3, "stdout_sha256"), None, "requires stdout_sha256"),
             (("steps", 3, "command"), None, "requires an isolated Python command"),
+            (("steps", 3, "command", 3), "pass", "approved complete-value smoke program"),
+            (("steps", 3, "stdout_sha256"), "a" * 64, "captured smoke stdout must match"),
+            (("steps", 1, "command", 3), "pass", "must verify the package is absent"),
+            (("steps", 5, "command", 3), "pass", "must verify the package is absent"),
             (("steps", 3, "command"), ["/usr/bin/python", "-I", "-c", "pass"], "must use the recorded clean venv interpreter"),
             (("steps", 2, "command"), ["python", "-I", "-m", "pip", "install", "other.whl"], "install command must use the verified wheel"),
             (("wheel_identity", "sha256"), "f" * 64, "wheel digest must match"),
@@ -77,6 +83,18 @@ class RegistryBundledProofTests(unittest.TestCase):
                         target = target[key]
                     target[path[-1]] = value
                     self.assertIn(expected, "; ".join(self.validate(proof, channel)))
+
+    def test_rejects_missing_changed_or_unrelated_captured_stdout(self):
+        for channel in ("testpypi", "pypi"):
+            proof = self.proof(channel)
+            for raw in (None, b"{}\n", b"not JSON", b"x" * 65537):
+                with self.subTest(channel=channel, raw_length=None if raw is None else len(raw)):
+                    errors = bundled_registry_proof_blockers(
+                        proof, channel_id=channel, package_version=SELECTED_PACKAGE_RELEASE_VERSION,
+                        runtime_source_commit=proof["bundled_cli_supplemental_proof"]["source_commit"],
+                        smoke_stdout=raw,
+                    )
+                    self.assertTrue(errors)
 
 
 if __name__ == "__main__":

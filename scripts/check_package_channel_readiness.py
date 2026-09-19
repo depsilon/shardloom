@@ -1047,9 +1047,19 @@ def validate_registry_supply_chain_evidence(
             if row.get(field) != row.get("registry_release_artifacts_ref"):
                 blockers.append(prefix + f"{field} must reference the bound channel proof")
         runtime_identity = PUBLISHED_REGISTRY_BUILD_IDENTITIES.get(SELECTED_PACKAGE_RELEASE_VERSION, {}).get("testpypi", {})
+        stdout_path = repo_root / (f"docs/release/channel-proofs/{channel_id}-v"
+                                  f"{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json")
+        try:
+            if not stdout_path.resolve().is_relative_to(repo_root.resolve()):
+                raise ValueError("smoke stdout escapes repository")
+            with stdout_path.open("rb") as capture:
+                smoke_stdout = capture.read(65537)
+        except (OSError, ValueError):
+            smoke_stdout = None
         blockers.extend(bundled_registry_proof_blockers(
             proof, channel_id=channel_id, package_version=SELECTED_PACKAGE_RELEASE_VERSION,
             runtime_source_commit=runtime_identity.get("source_commit"),
+            smoke_stdout=smoke_stdout,
         ))
         registry_rows = proof.get("registry_release_artifacts")
         artifact_rows = provenance.get("artifact_refs")

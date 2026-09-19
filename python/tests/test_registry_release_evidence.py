@@ -2,18 +2,63 @@
 """Pure fixture checks; no network, native binaries or package execution."""
 import importlib.util
 import io
+import os
 from pathlib import Path
+import shutil
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("registry_release_evidence", ROOT / "scripts/registry_release_evidence.py")
 evidence = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(evidence)
 
 
 class RegistryReleaseEvidenceTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix" and shutil.which("cargo"), "POSIX Cargo metadata fixture")
+    def test_observer_uses_configured_external_cargo_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory).resolve()
+            root, target = base / "Documents/repo", base / "local-cache"
+            (root / "src").mkdir(parents=True)
+            (root / "src/lib.rs").write_text("")
+            (root / "Cargo.toml").write_text('[package]\nname="metadata-fixture"\nversion="0.0.0"\nedition="2021"\n')
+            with patch.dict(os.environ, {"CARGO_TARGET_DIR": str(target)}), \
+                    patch.object(evidence, "available_bytes", return_value=100 << 30):
+                observer = evidence.Observer(root)
+            self.assertEqual(observer.target, target)
+            self.assertEqual(observer.directory.parent, target)
+            self.assertFalse((root / "target").exists())
+            self.assertEqual(observer.local_ref(observer.directory / "capture.json"), str(observer.directory / "capture.json"))
+            self.assertEqual(observer.local_ref(root / "docs/proof.json"), "docs/proof.json")
+
+    @unittest.skipUnless(os.name == "posix" and shutil.which("cargo"), "POSIX Cargo metadata fixture")
+    def test_observer_rejects_synced_cargo_target_before_workspace_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory).resolve()
+            root, target = base / "repo", base / "Documents/cargo-target"
+            (root / "src").mkdir(parents=True)
+            (root / "src/lib.rs").write_text("")
+            (root / "Cargo.toml").write_text('[package]\nname="metadata-fixture"\nversion="0.0.0"\nedition="2021"\n')
+            with patch.dict(os.environ, {"CARGO_TARGET_DIR": str(target)}), \
+                    patch.object(evidence.Path, "home", return_value=base), \
+                    patch.object(evidence.sys, "platform", "darwin"):
+                with self.assertRaisesRegex(ValueError, "cloud-managed"):
+                    evidence.Observer(root)
+            self.assertFalse(target.exists())
+
+    @unittest.skipUnless(os.name == "posix" and shutil.which("cargo"), "POSIX Cargo metadata fixture")
+    def test_failed_metadata_does_not_start_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            with self.assertRaisesRegex(ValueError, "offline Cargo metadata failed"):
+                evidence.Observer(root)
+            self.assertFalse((root / "target").exists())
+
     def test_stream_digest_and_bound(self):
         self.assertEqual(evidence.stream_sha(io.BytesIO(b"fixture"), 7),
                          (evidence.sha_bytes(b"fixture"), 7))

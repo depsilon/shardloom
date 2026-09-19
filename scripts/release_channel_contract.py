@@ -46,6 +46,13 @@ PUBLISHED_REGISTRY_DISTRIBUTIONS = {
         "shardloom-0.2.4.tar.gz",
     ),
 }
+# Audited -c program embedded in both immutable bundled-wheel transcripts.
+# It executes smoke_check, a DataFrame and two SQL calls, asserts complete typed
+# results/no fallback, and prints the captured JSON result. A new release must
+# approve its own program; arbitrary isolated Python is not execution evidence.
+PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
+    "0.2.4": "d8f5c017d800ec0191dd058fd4b986b733c5f0379082f8e64450c7aa7353a6fb",
+}
 SELECTED_PACKAGE_CHANNEL_STATUS_MARKER = (
     f"published_v{SELECTED_PACKAGE_RELEASE_VERSION}_selected_channels"
 )

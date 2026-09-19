@@ -3,9 +3,13 @@
 """Validate recorded isolated bundled-CLI proof without executing its commands."""
 
 from email.parser import Parser
+import hashlib
+import json
 from pathlib import PurePosixPath
 import re
 from typing import Any
+
+from release_channel_contract import PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256
 
 
 STEP_NAMES = (
@@ -17,6 +21,7 @@ STEP_NAMES = (
 def bundled_registry_proof_blockers(
     proof: dict[str, Any], *, channel_id: str, package_version: str,
     runtime_source_commit: str | None,
+    smoke_stdout: bytes | None = None,
 ) -> list[str]:
     prefix = f"{channel_id}: bundled CLI proof "
     errors: list[str] = []
@@ -93,6 +98,23 @@ def bundled_registry_proof_blockers(
         require(all(arg in uninstall for arg in ("-m", "pip", "--isolated", "uninstall", "-y", "shardloom")),
                 "uninstall command must remove the verified package")
 
+        smoke_command = steps[3].get("command")
+        approved_program = PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256.get(package_version)
+        require(isinstance(smoke_command, list) and len(smoke_command) == 4
+                and smoke_command[1:3] == ["-I", "-c"]
+                and isinstance(smoke_command[3], str) and approved_program is not None
+                and hashlib.sha256(smoke_command[3].encode()).hexdigest() == approved_program,
+                "must execute the approved complete-value smoke program")
+        require(isinstance(smoke_stdout, bytes) and len(smoke_stdout) <= 65536
+                and hashlib.sha256(smoke_stdout).hexdigest() == steps[3].get("stdout_sha256"),
+                "captured smoke stdout must match the recorded digest")
+        try:
+            captured_result = json.loads(smoke_stdout) if isinstance(smoke_stdout, bytes) else None
+        except (ValueError, UnicodeError):
+            captured_result = None
+        require(isinstance(captured_result, dict) and captured_result == supplement.get("result"),
+                "result must equal the captured smoke stdout")
+
     result = supplement.get("result")
     result = result if isinstance(result, dict) else {}
     require(result.get("cli_version") == package_version, "CLI version must match the selected release")
@@ -119,10 +141,20 @@ def bundled_registry_proof_blockers(
     if paths_valid and steps:
         venv = PurePosixPath(directory) / "venv"
         create = steps[0].get("command")
-        require(isinstance(create, list) and create[-3:] == ["-m", "venv", str(venv)],
+        require(isinstance(create, list) and create[1:] == ["-I", "-m", "venv", str(venv)],
                 "must create the recorded clean venv")
         for step in steps[1:]:
             command = step.get("command")
             require(isinstance(command, list) and bool(command) and command[0] == str(venv / "bin/python"),
                     f"{step['name']} must use the recorded clean venv interpreter")
+        clean_program = "import importlib.util; assert importlib.util.find_spec('shardloom') is None"
+        for index in (1, 5):
+            require(steps[index].get("command") == [str(venv / "bin/python"), "-I", "-c", clean_program],
+                    f"{steps[index]['name']} must verify the package is absent")
+        require(steps[2].get("command") == [str(venv / "bin/python"), "-I", "-m", "pip", "--isolated",
+                "install", "--no-index", "--no-cache-dir", "--no-deps", wheel_path],
+                "install command must contain only the verified isolated wheel installation")
+        require(steps[4].get("command") == [str(venv / "bin/python"), "-I", "-m", "pip", "--isolated",
+                "uninstall", "-y", "shardloom"],
+                "uninstall command must contain only the verified isolated package removal")
     return errors
