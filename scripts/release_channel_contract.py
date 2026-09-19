@@ -53,6 +53,21 @@ PUBLISHED_REGISTRY_DISTRIBUTIONS = {
 PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
     "0.2.4": "d8f5c017d800ec0191dd058fd4b986b733c5f0379082f8e64450c7aa7353a6fb",
 }
+# Immutable, reviewed post-publication records. Pins bind every nested asset,
+# command, output, recovery note and lifecycle result, including non-registry
+# channels. Updating a record requires explicit review of a new approved pin.
+PUBLISHED_CHANNEL_TRANSCRIPTS = {
+    "0.2.4": {
+        "github_prerelease": ("github-prerelease", "shardloom.github_prerelease_channel_proof.v1",
+            "33ddeaae56d49a2942ea7fde303dc57902ad286722e0b0a4c04274381919ef43"),
+        "testpypi": ("testpypi", "shardloom.python_registry_package_proof.v1",
+            "1503562681588e8e1fb4b7c8195f68958b3c22d2047aa65cbee78cefd56854e8"),
+        "pypi": ("pypi", "shardloom.python_registry_package_proof.v1",
+            "2ba6c818a6fe78ed5b9954d41edf12d688125271cbe64f86620fedc7d8a1d895"),
+        "homebrew_tap": ("homebrew", "shardloom.homebrew_channel_proof.v1",
+            "bf4d86205eabab40727bb000dc82c9a1fb6d0ff1b0e9f3cb8fa1af0aabd05e94"),
+    },
+}
 SELECTED_PACKAGE_CHANNEL_STATUS_MARKER = (
     f"published_v{SELECTED_PACKAGE_RELEASE_VERSION}_selected_channels"
 )

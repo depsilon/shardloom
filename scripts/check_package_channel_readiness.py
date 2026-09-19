@@ -18,6 +18,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from check_registry_bundled_proof import bundled_registry_proof_blockers
+from check_published_channel_proofs import validate_published_channel_proofs
 
 from release_channel_contract import (
     PUBLISHED_REGISTRY_BUILD_IDENTITIES,
@@ -1545,6 +1546,7 @@ def main() -> int:
     registry_supply_chain_evidence = validate_registry_supply_chain_evidence(
         repo_root, matrix, {"testpypi": testpypi_proof, "pypi": pypi_proof}
     )
+    published_channel_proofs = validate_published_channel_proofs(repo_root, matrix)
     local_gate_evidence = validate_local_gate_evidence(
         repo_root=repo_root,
         dependency_audit_report=dependency_audit,
@@ -1556,6 +1558,7 @@ def main() -> int:
     blockers.extend(package_identity_contract["blockers"])
     blockers.extend(python_registry_package_proofs["blockers"])
     blockers.extend(registry_supply_chain_evidence["blockers"])
+    blockers.extend(published_channel_proofs["blockers"])
     if args.require_local_evidence:
         blockers.extend(local_gate_evidence["blockers"])
     if args.self_test:
@@ -1575,6 +1578,7 @@ def main() -> int:
         "python_registry_package_proof_status": python_registry_package_proofs["status"],
         "python_registry_package_proofs": python_registry_package_proofs,
         "registry_supply_chain_evidence": registry_supply_chain_evidence,
+        "published_channel_proofs": published_channel_proofs,
         "local_gate_evidence_required": args.require_local_evidence,
         "local_gate_evidence_status": local_gate_evidence["status"],
         "local_gate_evidence": local_gate_evidence,
