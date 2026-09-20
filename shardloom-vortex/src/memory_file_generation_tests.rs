@@ -162,7 +162,7 @@ fn assert_varbin_values(array: &vortex::array::ArrayRef, expected: &[Option<&[u8
 
 fn assert_generation_varbin_values(generation: &MemoryFileGeneration, expected: &[Option<&[u8]>]) {
     let result = generation
-        .prepare_projection(&["value"], None, 8, 64 * 1024)
+        .prepare_projection(&["value"], None, 8, 128 * 1024)
         .unwrap()
         .execute()
         .unwrap();
@@ -638,9 +638,11 @@ fn generation_preserves_exact_long_text_stats_without_reusing_whole_column_bound
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Both cancellation owners must release partial segments and preserve the same intake.
 fn partial_generation_cancellation_releases_segments_and_preserves_owned_intake() {
     use super::{GenerationBuildControl, MemoryFileGenerationLayout};
     use crate::resident_memory_source::OwnedMemoryColumn;
+    use shardloom_exec::compute_pool::CancellationToken;
     use vortex::array::{IntoArray as _, arrays::StructArray, validity::Validity};
     let session = ResidentVortexSession::new(2 * 1024 * 1024, 1).unwrap();
     let memory = session.memory().clone();
@@ -698,6 +700,62 @@ fn partial_generation_cancellation_releases_segments_and_preserves_owned_intake(
         )
         .is_err()
     );
+    assert_eq!(memory.snapshot().reserved_bytes, before);
+    let cancellation = CancellationToken::default();
+    let after_leaf = |completed| {
+        assert_eq!(completed, 1);
+        cancellation.cancel();
+    };
+    let result = MemoryFileGeneration::build_controlled(
+        &session,
+        &array,
+        256,
+        0,
+        MemoryFileGenerationBounds::default(),
+        MemoryFileGenerationLayout {
+            row_group_rows: 8,
+            max_segments: 4,
+        },
+        GenerationBuildControl {
+            cancelled: None,
+            cancellation: Some(&cancellation),
+            after_leaf: Some(&after_leaf),
+        },
+    );
+    assert!(result.err().unwrap().to_string().contains("cancel"));
+    assert!(cancellation.check().is_err());
+    assert_eq!(memory.snapshot().reserved_bytes, before);
+    let fresh = CancellationToken::default();
+    let generation = MemoryFileGeneration::build_controlled(
+        &session,
+        &array,
+        256,
+        0,
+        MemoryFileGenerationBounds::default(),
+        MemoryFileGenerationLayout {
+            row_group_rows: 8,
+            max_segments: 4,
+        },
+        GenerationBuildControl {
+            cancelled: None,
+            cancellation: Some(&fresh),
+            after_leaf: None,
+        },
+    )
+    .unwrap();
+    fresh.check().unwrap();
+    assert_eq!(generation.evidence().array_serializer_calls, 4);
+    let complete = generation.collect(&["key"], None, 32, 4096).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(complete.values_json.value()).unwrap(),
+        json!(
+            (0..32_i64)
+                .map(|key| json!({"key": key}))
+                .collect::<Vec<_>>()
+        )
+    );
+    drop(complete);
+    drop(generation);
     assert_eq!(memory.snapshot().reserved_bytes, before);
     drop(array);
     drop(input);

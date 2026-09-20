@@ -505,6 +505,26 @@ impl PreparedVortexAggregate {
             .as_ref()
             .ok_or_else(|| failed("prepared source URI is absent"))?;
         let memory = self.worker_pool.then(|| self.session.memory());
+        let mut scan =
+            |file: &vortex::file::VortexFile,
+             session: &vortex::session::VortexSession,
+             runtime: &vortex::io::runtime::current::CurrentThreadRuntime,
+             retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>| {
+                read_lowered_vortex_simple_aggregate_scan(
+                    uri,
+                    &self.request,
+                    self.policy,
+                    file,
+                    session,
+                    runtime,
+                    memory,
+                    retry,
+                    &self.lowering,
+                    std::time::Instant::now(),
+                    output.as_deref_mut(),
+                    context.map(NativeExecutionContext::cancellation),
+                )
+            };
         if let Some(policy) = self.reuse {
             let execute =
                 |file: &vortex::file::VortexFile,
@@ -513,20 +533,7 @@ impl PreparedVortexAggregate {
                  attempt: &mut crate::resident_session::SegmentReuseAttempt| {
                     let mut retry =
                         |error: &vortex::error::VortexError| attempt.request_uncached_retry(error);
-                    read_lowered_vortex_simple_aggregate_scan(
-                        uri,
-                        &self.request,
-                        self.policy,
-                        file,
-                        session,
-                        runtime,
-                        memory,
-                        Some(&mut retry),
-                        &self.lowering,
-                        std::time::Instant::now(),
-                        output.as_deref_mut(),
-                        context.map(NativeExecutionContext::cancellation),
-                    )
+                    scan(file, session, runtime, Some(&mut retry))
                 };
             let (mut scan, evidence) = match context {
                 Some(context) => self
@@ -554,20 +561,7 @@ impl PreparedVortexAggregate {
                 |file: &vortex::file::VortexFile,
                  session: &vortex::session::VortexSession,
                  runtime: &vortex::io::runtime::current::CurrentThreadRuntime| {
-                    read_lowered_vortex_simple_aggregate_scan(
-                        uri,
-                        &self.request,
-                        self.policy,
-                        file,
-                        session,
-                        runtime,
-                        None,
-                        None,
-                        &self.lowering,
-                        std::time::Instant::now(),
-                        output.as_deref_mut(),
-                        context.map(NativeExecutionContext::cancellation),
-                    )
+                    scan(file, session, runtime, None)
                 };
             let (mut scan, drivers) = match context {
                 Some(context) => self
@@ -584,24 +578,11 @@ impl PreparedVortexAggregate {
                 scan.restored_provider_background_workers.max(drivers);
             return Ok(scan);
         }
-        let execute =
+        let mut execute =
             |file: &vortex::file::VortexFile,
              session: &vortex::session::VortexSession,
              runtime: &vortex::io::runtime::current::CurrentThreadRuntime| {
-                read_lowered_vortex_simple_aggregate_scan(
-                    uri,
-                    &self.request,
-                    self.policy,
-                    file,
-                    session,
-                    runtime,
-                    memory,
-                    None,
-                    &self.lowering,
-                    std::time::Instant::now(),
-                    output,
-                    context.map(NativeExecutionContext::cancellation),
-                )
+                scan(file, session, runtime, None)
             };
         match context {
             Some(context) => self
@@ -741,6 +722,10 @@ fn failed(reason: &str) -> ShardLoomError {
 #[cfg(test)]
 #[path = "local_primitive_prepared_aggregate_tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "local_primitive_prepared_aggregate_cancellation_tests.rs"]
+mod cancellation_tests;
 
 #[cfg(all(test, feature = "vortex-write", unix))]
 #[path = "local_primitive_footer_aggregate_native_tests.rs"]

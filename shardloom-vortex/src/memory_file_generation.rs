@@ -1126,15 +1126,15 @@ fn slice_generation_column(
         return Ok((slice, 0));
     };
     match offsets.ptype() {
-        PType::U8 => compact_generation_varbin(&slice, varbin, offsets.as_slice::<u8>(), allocator),
+        PType::U8 => compact_generation_varbin(&slice, &varbin, offsets.as_slice::<u8>(), allocator),
         PType::U16 => {
-            compact_generation_varbin(&slice, varbin, offsets.as_slice::<u16>(), allocator)
+            compact_generation_varbin(&slice, &varbin, offsets.as_slice::<u16>(), allocator)
         }
         PType::U32 => {
-            compact_generation_varbin(&slice, varbin, offsets.as_slice::<u32>(), allocator)
+            compact_generation_varbin(&slice, &varbin, offsets.as_slice::<u32>(), allocator)
         }
         PType::U64 => {
-            compact_generation_varbin(&slice, varbin, offsets.as_slice::<u64>(), allocator)
+            compact_generation_varbin(&slice, &varbin, offsets.as_slice::<u64>(), allocator)
         }
         _ => Ok((slice, 0)),
     }
@@ -1142,7 +1142,7 @@ fn slice_generation_column(
 
 fn compact_generation_varbin<O: Copy + Into<u64>>(
     slice: &ArrayRef,
-    varbin: &VarBinArray,
+    varbin: &vortex::array::ArrayView<'_, VarBin>,
     offsets: &[O],
     allocator: &HostAllocatorRef,
 ) -> Result<(ArrayRef, u64)> {

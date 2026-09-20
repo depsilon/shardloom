@@ -414,3 +414,250 @@ fn composition_caps_and_precancellation_release_consumed_owned_inputs() {
     );
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+fn owned_fixed_bytes<const N: usize>(
+    session: &ResidentVortexSession,
+    values: &[[u8; N]],
+) -> vortex::buffer::ByteBuffer {
+    let mut buffer = session
+        .native_allocator()
+        .allocate(values.len() * N, Alignment::new(N))
+        .unwrap();
+    for (target, value) in buffer.as_mut_slice().chunks_exact_mut(N).zip(values) {
+        target.copy_from_slice(value);
+    }
+    buffer.freeze()
+}
+
+fn owned_root_validity(session: &ResidentVortexSession, valid: &[bool]) -> Validity {
+    use vortex::{array::arrays::BoolArray, buffer::BitBuffer};
+    let mut buffer = session
+        .native_allocator()
+        .allocate(valid.len().div_ceil(8), Alignment::none())
+        .unwrap();
+    buffer.as_mut_slice().fill(0);
+    for (index, valid) in valid.iter().enumerate() {
+        if *valid {
+            buffer.as_mut_slice()[index / 8] |= 1 << (index % 8);
+        }
+    }
+    Validity::Array(
+        BoolArray::new(
+            BitBuffer::new(buffer.freeze(), valid.len()),
+            Validity::NonNullable,
+        )
+        .into_array(),
+    )
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // Parent nulls, child nulls and producer/output ownership form one proof.
+fn composition_nullable_struct_batches_preserve_logical_fields_and_mixed_widths() {
+    use crate::resident_memory_source::OwnedMemoryColumn;
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let vectors = session
+        .memory()
+        .reserve((2 * std::mem::size_of::<ArrayRef>()) as u64)
+        .unwrap();
+    let mut batches = Vec::with_capacity(2);
+    assert_eq!(batches.capacity(), 2);
+    for (small, wide, offsets, text, text_valid, root_valid) in [
+        (
+            [i16::MIN, 17, i16::MAX],
+            [0_u32, u32::MAX, 17],
+            [0_u64, 2, 8, 8],
+            "λhidden",
+            [true, true, false],
+            [true, false, true],
+        ),
+        (
+            [6_i16, -7, 8],
+            [19_u32, 23, u32::MAX],
+            [0_u64, 0, 6, 6],
+            "東京",
+            [true, true, false],
+            [true, true, false],
+        ),
+    ] {
+        let small = PrimitiveArray::new(
+            Buffer::<i16>::from_byte_buffer(owned_fixed_bytes(
+                &session,
+                &small.map(i16::to_ne_bytes),
+            )),
+            Validity::NonNullable,
+        )
+        .into_array();
+        let wide = PrimitiveArray::new(
+            Buffer::<u32>::from_byte_buffer(owned_fixed_bytes(
+                &session,
+                &wide.map(u32::to_ne_bytes),
+            )),
+            Validity::NonNullable,
+        )
+        .into_array();
+        let text = OwnedMemoryColumn::utf8(
+            &session,
+            "text",
+            offsets.to_vec(),
+            text.as_bytes().to_vec(),
+            Some(text_valid.to_vec()),
+        )
+        .unwrap();
+        batches.push(
+            StructArray::try_new(
+                ["small", "wide", "text"].into(),
+                vec![small, wide, text.array().clone()],
+                3,
+                owned_root_validity(&session, &root_valid),
+            )
+            .unwrap()
+            .into_array(),
+        );
+    }
+    let producer_owners = [batches[0].clone(), batches[1].clone()];
+    let input = OwnedVortexResultBatch {
+        dtype: batches[0].dtype().clone(),
+        rows: 6,
+        logical_buffer_bytes: batches.iter().map(|batch| batch.nbytes()).sum(),
+        arrays: Budgeted::new(batches, vectors),
+        runtime: Arc::clone(&session.0),
+    };
+    assert!(input.dtype().is_nullable());
+    let generation = MemoryFileGeneration::from_owned(
+        input,
+        MemoryFileCompositionBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let expected_dtype = DType::Struct(
+        StructFields::new(
+            ["small", "wide", "text"].into(),
+            vec![
+                DType::Primitive(PType::I16, Nullability::Nullable),
+                DType::Primitive(PType::U32, Nullability::Nullable),
+                DType::Utf8(Nullability::Nullable),
+            ],
+        ),
+        Nullability::NonNullable,
+    );
+    assert_eq!(generation.dtype(), &expected_dtype);
+    let result = generation
+        .prepare_projection(&["small", "wide", "text"], None, 6, 64 << 10)
+        .unwrap()
+        .execute()
+        .unwrap();
+    assert_eq!(result.dtype(), &expected_dtype);
+    drop(generation);
+    drop(session);
+    let json = result
+        .to_bounded_json(&["small".into(), "wide".into(), "text".into()], 64 << 10)
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(json.value()).unwrap(),
+        json!([
+            {"small": i16::MIN, "wide": 0, "text": "λ"},
+            {"small": null, "wide": null, "text": null},
+            {"small": i16::MAX, "wide": 17, "text": null},
+            {"small": 6, "wide": 19, "text": ""},
+            {"small": -7, "wide": 23, "text": "東京"},
+            {"small": null, "wide": null, "text": null},
+        ])
+    );
+    drop(json);
+    drop(result);
+    assert!(
+        memory.snapshot().reserved_bytes > 0,
+        "producer clones retain their payload credits"
+    );
+    drop(producer_owners);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+fn contains_dictionary(array: &ArrayRef) -> bool {
+    array.is::<vortex::array::arrays::Dict>() || array.children_iter().any(contains_dictionary)
+}
+
+#[test]
+fn composition_dictionary_domain_obeys_serialized_cap_and_retains_native_values() {
+    use crate::resident_memory_source::OwnedMemoryColumn;
+    use vortex::array::arrays::DictArray;
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let mut offsets = vec![0_u64];
+    let mut bytes = Vec::new();
+    for index in 0..1024 {
+        bytes.extend_from_slice(format!("{index:04}:{}", "x".repeat(123)).as_bytes());
+        offsets.push(bytes.len() as u64);
+    }
+    let domain = OwnedMemoryColumn::utf8(&session, "domain", offsets, bytes, None).unwrap();
+    let codes = PrimitiveArray::new(
+        Buffer::<u32>::from_byte_buffer(owned_fixed_bytes(
+            &session,
+            &[7_u32, 63].map(u32::to_ne_bytes),
+        )),
+        Validity::NonNullable,
+    )
+    .into_array();
+    let dictionary = DictArray::try_new(codes, domain.array().clone())
+        .unwrap()
+        .into_array();
+    let array = StructArray::try_new(["text"].into(), vec![dictionary], 2, Validity::NonNullable)
+        .unwrap()
+        .into_array();
+    let retained = memory.snapshot().reserved_bytes;
+    let make_input = || {
+        let lease = session
+            .memory()
+            .reserve(std::mem::size_of::<ArrayRef>() as u64)
+            .unwrap();
+        let arrays = vec![array.clone()];
+        assert_eq!(arrays.capacity(), 1);
+        OwnedVortexResultBatch {
+            dtype: array.dtype().clone(),
+            rows: 2,
+            logical_buffer_bytes: array.nbytes(),
+            arrays: Budgeted::new(arrays, lease),
+            runtime: Arc::clone(&session.0),
+        }
+    };
+    let mut tight = MemoryFileCompositionBounds::default();
+    tight.storage.max_serialized_bytes = 4096;
+    rejected(
+        MemoryFileGeneration::from_owned(make_input(), tight, &CancellationToken::default()),
+        "serialized byte bound exceeded",
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    assert_eq!(session.snapshot().completed_executions, 0);
+    let generation = MemoryFileGeneration::from_owned(
+        make_input(),
+        MemoryFileCompositionBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert!(generation.evidence().segment_assembly_bytes_copied >= 128 * 1024);
+    assert_eq!(generation.evidence().dictionary_build_calls, 0);
+    drop(array);
+    drop(domain);
+    drop(session);
+    let result = generation
+        .prepare_projection(&["text"], None, 2, 512 << 10)
+        .unwrap()
+        .execute()
+        .unwrap();
+    assert!(
+        result.arrays().iter().any(contains_dictionary),
+        "serialized generation must retain the native dictionary"
+    );
+    let json = result.to_bounded_json(&["text".into()], 4096).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(json.value()).unwrap(),
+        json!([
+            {"text": format!("0007:{}", "x".repeat(123))}, {"text": format!("0063:{}", "x".repeat(123))},
+        ])
+    );
+    drop(json);
+    drop(result);
+    drop(generation);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

@@ -228,6 +228,7 @@ fn observed_prepare(
             worker_pool: false,
             temporary_provider_drivers: false,
             reuse: None,
+            memory_generation: None,
         },
         observer,
     )
