@@ -133,7 +133,7 @@ fn assert_memory_provenance(executed: &ExecutedVortexAggregate, uri: &DatasetUri
         "construction_native_materialization_rows=",
         "no_zero_copy_composition_claim=true",
     ] {
-        assert!(proof.contains(marker), "missing {marker}: {proof}");
+        assert!(proof.contains(marker), "missing {marker}");
     }
     assert!(proof.contains(&format!("memory_generation_uri={}", uri.as_str())));
 }
