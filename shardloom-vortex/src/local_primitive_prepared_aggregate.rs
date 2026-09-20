@@ -15,6 +15,10 @@ use crate::resident_session::{
 };
 use std::fmt::Write as _;
 
+// Bound width-dependent validation/template vectors before cloning the request
+// or allocating aggregate state. This is a schema ceiling, not an RSS limit.
+const MAX_PREPARED_AGGREGATE_MEASURES: usize = 1024;
+
 #[cfg(feature = "vortex-write")]
 #[path = "local_primitive_prepared_aggregate_spill.rs"]
 mod spill;
@@ -149,6 +153,9 @@ fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
         .as_ref()
         .ok_or_else(|| failed("source URI is required"))?;
     let aggregate = required_simple_aggregate(request)?;
+    if aggregate.measures.len() > MAX_PREPARED_AGGREGATE_MEASURES {
+        return Err(failed("prepared aggregates admit at most 1024 measures"));
+    }
     if aggregate.spill.is_some() {
         #[cfg(feature = "vortex-write")]
         spill::validate_request(request)?;
@@ -197,7 +204,8 @@ fn validate_policy(policy: VortexLocalPrimitiveExecutionPolicy) -> Result<()> {
 /// This creates exactly one session and opens the source once.
 /// # Errors
 /// Rejects malformed/extra payloads and unsupported spill before opening, then unsupported
-/// source/schema/predicate or resource grants; no external executor is used.
+/// source/schema/predicate or resource grants, including more than 1024 measures;
+/// no external executor is used.
 pub fn prepare_aggregate(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
