@@ -23,6 +23,9 @@ mod admission_drivers;
 #[path = "utf8_integer_distinct_tests.rs"]
 mod utf8_distinct;
 
+#[path = "compound_dense_tests.rs"]
+mod dense_storage;
+
 fn worker() -> ChunkWorkerContext {
     ChunkWorkerContext::Inline(CancellationToken::default())
 }
