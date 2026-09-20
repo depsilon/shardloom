@@ -133,6 +133,7 @@ impl ResidentVortexSession {
             ));
         }
         Ok(OwnedVortexResultBatch {
+            dtype: array.dtype().clone(),
             arrays: Budgeted::new(vec![array], ownership),
             runtime: Arc::clone(&self.0),
             rows,
@@ -149,6 +150,37 @@ impl ResidentVortexSession {
             .0
             .enter(CallClass::General, CancellationToken::default())?;
         execute(&self.0.session, &self.0.runtime)
+    }
+
+    /// Admit construction work without recording a completed query. Nested
+    /// operators borrow the supplied context instead of reacquiring admission.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn with_native_execution_context<T>(
+        &self,
+        cancellation: &CancellationToken,
+        execute: impl FnOnce(&NativeExecutionContext<'_>) -> Result<T>,
+    ) -> Result<T> {
+        let context = self.0.enter(CallClass::General, cancellation.clone())?;
+        let result = execute(&context);
+        context.drain_io();
+        let completion = context.check_cancelled();
+        let result = result?;
+        completion?;
+        Ok(result)
+    }
+
+    /// Reject a borrowed grant from another session before construction or I/O.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn validate_execution_context(
+        &self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if !context.belongs_to(&self.0) {
+            return Err(resident_error(
+                "native execution context belongs to a different session",
+            ));
+        }
+        context.check_cancelled()
     }
 
     /// Only engine-constructed immutable segment sources may enter here.
@@ -190,6 +222,7 @@ impl ResidentVortexSession {
             return Err(resident_error("projection exceeds completed output bounds"));
         }
         let result = OwnedVortexResultBatch {
+            dtype: array.dtype().clone(),
             arrays: Budgeted::new(vec![array], ownership),
             runtime: Arc::clone(&self.0),
             rows,
@@ -373,6 +406,12 @@ impl PreparedSourceOwner {
 pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 
 impl PreparedVortexSource {
+    /// Retain the source's existing owner without creating a second runtime.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn retained_session(&self) -> ResidentVortexSession {
+        ResidentVortexSession(Arc::clone(&self.0.runtime))
+    }
+
     /// Match prior file admission to the generation held by this native reader,
     /// then validate both its descriptor and current path. This performs no
     /// payload read, provider open, or query execution.
@@ -808,6 +847,7 @@ pub struct PreparedVortexProjection {
 /// Executable native payload, separate from the report-only opaque descriptors.
 /// Buffer credits remain attached even when arrays/slices outlive the session.
 pub struct OwnedVortexResultBatch {
+    dtype: DType,
     arrays: Budgeted<Vec<ArrayRef>>,
     runtime: Arc<RuntimeOwner>,
     rows: u64,
@@ -815,6 +855,31 @@ pub struct OwnedVortexResultBatch {
 }
 
 impl OwnedVortexResultBatch {
+    /// Authoritative result schema, including results with no data arrays.
+    #[must_use]
+    pub const fn dtype(&self) -> &DType {
+        &self.dtype
+    }
+
+    /// Validate the complete batch sequence before native composition or export.
+    /// Empty results keep their schema and must still declare zero rows.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn validate_schema_and_rows(&self) -> Result<()> {
+        let rows = self.arrays().iter().try_fold(0_u64, |rows, array| {
+            if array.dtype() != &self.dtype {
+                return Err(resident_error("completed result arrays disagree on dtype"));
+            }
+            rows.checked_add(u64::try_from(array.len()).map_err(native_error)?)
+                .ok_or_else(|| resident_error("completed result row count overflow"))
+        })?;
+        if rows != self.rows {
+            return Err(resident_error(
+                "completed result arrays disagree on row count",
+            ));
+        }
+        Ok(())
+    }
+
     #[cfg(all(feature = "vortex-write", unix))]
     pub(crate) fn retained_session(&self) -> ResidentVortexSession {
         ResidentVortexSession(Arc::clone(&self.runtime))
@@ -962,6 +1027,7 @@ impl PreparedVortexProjection {
         runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((
             OwnedVortexResultBatch {
+                dtype: self.projection.dtype().clone(),
                 arrays: Budgeted::new(arrays, lease),
                 runtime: Arc::clone(runtime),
                 rows,

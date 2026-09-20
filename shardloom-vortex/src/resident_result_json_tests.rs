@@ -79,6 +79,50 @@ fn retained_result_json_rejects_invalid_fields_and_bound_then_remains_usable() {
 }
 
 #[test]
+fn empty_retained_projection_keeps_schema_and_rejects_unknown_json_fields() {
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/local_primitive_struct_five.vortex");
+    let session = crate::resident_session::ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let source = session.prepare_file(source).unwrap();
+    let projection = source
+        .prepare_projection(&["metric", "value"], 5, 4096)
+        .unwrap()
+        .with_filter(Some(vortex::expr::lit(false).bind(source.dtype()).unwrap()));
+    let expected_dtype = vortex::expr::select(["metric", "value"], vortex::expr::root())
+        .bind(source.dtype())
+        .unwrap()
+        .dtype()
+        .clone();
+    let arrays = projection.execute().unwrap();
+    assert_eq!(arrays.row_count(), 0);
+    assert!(arrays.arrays().is_empty());
+    assert_eq!(arrays.dtype(), &expected_dtype);
+    arrays.validate_schema_and_rows().unwrap();
+    assert_eq!(session.snapshot().completed_executions, 1);
+    drop(projection);
+    drop(source);
+    drop(session);
+    let before = memory.snapshot().reserved_bytes;
+    for columns in [
+        vec!["absent".into()],
+        vec!["metric".into(), "absent".into()],
+    ] {
+        let error = arrays.to_bounded_json(&columns, 4096).err().unwrap();
+        assert!(error.to_string().contains("absent from the result schema"));
+        assert_eq!(memory.snapshot().reserved_bytes, before);
+        assert!(arrays.render_admitted_json(&columns, 4096).is_err());
+    }
+    let json = arrays
+        .to_bounded_json(&["value".into(), "metric".into()], 4096)
+        .unwrap();
+    assert_eq!(json.value(), "[]");
+    drop(json);
+    drop(arrays);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn retained_result_json_and_prepared_sink_share_admission_after_projection() {
     use std::{
         sync::{Arc, mpsc},

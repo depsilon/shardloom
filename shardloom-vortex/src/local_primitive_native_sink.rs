@@ -234,18 +234,12 @@ impl NativeSinkPlan {
     pub(super) fn completed(
         result: crate::resident_session::OwnedVortexResultBatch,
     ) -> Result<Self> {
-        let first = result
-            .arrays()
-            .first()
-            .ok_or_else(|| sink_error("completed result has no typed arrays"))?;
-        let dtype = first.dtype().clone();
+        result.validate_schema_and_rows()?;
+        let dtype = result.dtype().clone();
         let fields = dtype
             .as_struct_fields_opt()
             .ok_or_else(|| sink_error("completed result requires a struct dtype"))?;
         let columns = fields.names().iter().map(ToString::to_string).collect();
-        if result.arrays().iter().any(|array| array.dtype() != &dtype) {
-            return Err(sink_error("completed result arrays disagree on dtype"));
-        }
         Ok(Self {
             session: result.retained_session(),
             row_count: result.row_count(),

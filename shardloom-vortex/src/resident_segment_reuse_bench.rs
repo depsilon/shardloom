@@ -143,16 +143,16 @@ fn collect_owned(
         vortex::expr::is_not_null(field.clone()),
         vortex::expr::gt_eq(field, vortex::expr::lit("m")),
     );
+    let projection = vortex::expr::select(["exact_identifier"], vortex::expr::root())
+        .bind(file.dtype())
+        .unwrap();
+    let dtype = projection.dtype().clone();
     let scan = file
         .scan()
         .unwrap()
         .with_ordered(true)
         .with_concurrency(2)
-        .with_projection(
-            vortex::expr::select(["exact_identifier"], vortex::expr::root())
-                .bind(file.dtype())
-                .unwrap(),
-        )
+        .with_projection(projection)
         .with_filter(filter.bind(file.dtype()).unwrap());
     let lease = resident
         .memory()
@@ -173,6 +173,7 @@ fn collect_owned(
         arrays.push(array);
     }
     OwnedVortexResultBatch {
+        dtype,
         arrays: Budgeted::new(arrays, lease),
         runtime: Arc::clone(&resident.0),
         rows,

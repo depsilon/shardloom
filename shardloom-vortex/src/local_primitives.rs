@@ -6881,7 +6881,7 @@ fn write_csv_header(output: &mut std::fs::File, columns: &[String]) -> Result<()
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn logical_field_from_native_array(
+pub(crate) fn logical_field_from_native_array(
     array: &vortex::array::ArrayRef,
     column: &str,
 ) -> Result<vortex::array::ArrayRef> {

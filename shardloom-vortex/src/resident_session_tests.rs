@@ -70,6 +70,108 @@ impl Drop for Fixture {
     }
 }
 
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn completed_result_validation_checks_authoritative_schema_and_row_total() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let source = session.prepare_file(fixture.input()).unwrap();
+    let mut result = source
+        .prepare_projection(&["value"], 3, 4096)
+        .unwrap()
+        .execute()
+        .unwrap();
+    result.validate_schema_and_rows().unwrap();
+    let dtype = result.dtype().clone();
+    result.dtype = DType::Bool(vortex::array::dtype::Nullability::NonNullable);
+    assert!(
+        result
+            .validate_schema_and_rows()
+            .unwrap_err()
+            .to_string()
+            .contains("disagree on dtype")
+    );
+    result.dtype = dtype;
+    result.rows = 2;
+    assert!(
+        result
+            .validate_schema_and_rows()
+            .unwrap_err()
+            .to_string()
+            .contains("disagree on row count")
+    );
+    result.rows = 3;
+    result.validate_schema_and_rows().unwrap();
+    drop(result);
+    drop(source);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn construction_context_reuses_source_owner_without_nested_admission_or_query_count() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let foreign = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let source = session.prepare_file(fixture.input()).unwrap();
+    let retained = source.retained_session();
+    let rows = retained
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            session.validate_execution_context(context)?;
+            assert!(foreign.validate_execution_context(context).is_err());
+            source.with_admitted_native_execution(context, |file, _| Ok(file.row_count()))
+        })
+        .unwrap();
+    assert_eq!(rows, 5);
+    assert_eq!(session.snapshot().prepared_source_opens, 1);
+    assert_eq!(session.snapshot().completed_executions, 0);
+    drop(session);
+    assert_eq!(source.prepare_count().execute().unwrap(), 5);
+    assert_eq!(retained.snapshot().completed_executions, 1);
+    drop(source);
+    assert_eq!(retained.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn construction_context_rejects_cancellation_before_and_after_callback() {
+    let session =
+        ResidentVortexSession::with_serving_policy(8 << 20, 1, ResidentServingPolicy::default())
+            .unwrap();
+    let cancelled = CancellationToken::default();
+    cancelled.cancel();
+    let entered = std::cell::Cell::new(false);
+    assert!(
+        session
+            .with_native_execution_context(&cancelled, |_| {
+                entered.set(true);
+                Ok(())
+            })
+            .is_err()
+    );
+    assert!(!entered.get());
+    let cancellation = CancellationToken::default();
+    assert!(
+        session
+            .with_native_execution_context(&cancellation, |context| {
+                session.validate_execution_context(context)?;
+                cancellation.cancel();
+                Ok(())
+            })
+            .is_err()
+    );
+    assert_eq!(session.snapshot().completed_executions, 0);
+    let admission = session.admission_snapshot().unwrap();
+    assert_eq!(admission.active_cpu_lanes, 0);
+    assert_eq!(admission.queued_calls, 0);
+    session
+        .with_native_execution_context(&CancellationToken::default(), |_| Ok(()))
+        .unwrap();
+    assert_eq!(session.snapshot().completed_executions, 0);
+    let memory = session.memory().clone();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 #[test]
 fn prepared_file_metadata_admission_checks_the_held_provider_without_execution() {
     let fixture = Fixture::new();

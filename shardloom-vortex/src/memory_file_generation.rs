@@ -18,6 +18,7 @@ use std::{
 use futures::{FutureExt as _, future::BoxFuture};
 use sha2::{Digest, Sha256};
 use shardloom_core::{Result, ShardLoomError};
+use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
@@ -162,8 +163,21 @@ pub struct MemoryFileGeneration(Arc<GenerationOwner>);
 
 struct GenerationBuildControl<'a> {
     cancelled: Option<&'a AtomicBool>,
+    cancellation: Option<&'a CancellationToken>,
     #[cfg(test)]
     after_leaf: Option<&'a dyn Fn(usize)>,
+}
+
+impl GenerationBuildControl<'_> {
+    fn check(&self) -> Result<()> {
+        check_cancelled(self.cancelled)?;
+        self.cancellation.map_or(Ok(()), CancellationToken::check)
+    }
+}
+
+struct GenerationInputBounds {
+    rows: usize,
+    columns: usize,
 }
 
 impl MemoryFileGeneration {
@@ -203,6 +217,7 @@ impl MemoryFileGeneration {
             geometry,
             GenerationBuildControl {
                 cancelled,
+                cancellation: None,
                 #[cfg(test)]
                 after_leaf: None,
             },
@@ -619,7 +634,28 @@ impl<'a> GenerationBuilder<'a> {
         geometry: MemoryFileGenerationLayout,
         control: GenerationBuildControl<'a>,
     ) -> Result<Self> {
-        check_cancelled(control.cancelled)?;
+        Self::with_input_bounds(
+            session,
+            array,
+            bounds,
+            geometry,
+            control,
+            GenerationInputBounds {
+                rows: 65_536,
+                columns: 64,
+            },
+        )
+    }
+
+    fn with_input_bounds(
+        session: &ResidentVortexSession,
+        array: &'a ArrayRef,
+        bounds: MemoryFileGenerationBounds,
+        geometry: MemoryFileGenerationLayout,
+        control: GenerationBuildControl<'a>,
+        input: GenerationInputBounds,
+    ) -> Result<Self> {
+        control.check()?;
         if bounds.max_serialized_bytes == 0 || bounds.max_metadata_bytes < 128 * 1024 {
             return Err(generation_error(
                 "generation requires positive serialized bytes and at least 128 KiB metadata",
@@ -627,7 +663,7 @@ impl<'a> GenerationBuilder<'a> {
         }
         if array.as_opt::<Struct>().is_none()
             || array.dtype().is_nullable()
-            || array.len() > 65_536
+            || array.len() > input.rows
             || geometry.row_group_rows == 0
             || geometry.row_group_rows > 65_536
             || geometry.max_segments == 0
@@ -642,8 +678,8 @@ impl<'a> GenerationBuilder<'a> {
             .as_struct_fields_opt()
             .expect("checked Struct")
             .nfields();
-        if !(1..=64).contains(&columns) {
-            return Err(generation_error("generation requires 1..=64 columns"));
+        if columns == 0 || columns > input.columns {
+            return Err(generation_error("generation exceeds admitted field count"));
         }
         let row_groups = array.len().div_ceil(geometry.row_group_rows);
         let segment_count = columns
@@ -688,7 +724,7 @@ impl<'a> GenerationBuilder<'a> {
         for field in fields.iter_unmasked_fields() {
             let mut leaves = Vec::with_capacity(self.row_groups);
             for start in (0..self.array.len()).step_by(self.geometry.row_group_rows) {
-                check_cancelled(self.control.cancelled)?;
+                self.control.check()?;
                 let end = start
                     .saturating_add(self.geometry.row_group_rows)
                     .min(self.array.len());
@@ -735,7 +771,7 @@ impl<'a> GenerationBuilder<'a> {
                 .into_layout(),
             );
         }
-        check_cancelled(self.control.cancelled)?;
+        self.control.check()?;
         Ok((
             StructLayout::new(
                 self.array.len() as u64,
@@ -789,7 +825,7 @@ impl<'a> GenerationBuilder<'a> {
             .map(|buffer| buffer.len() as u64)
             .sum();
         drop(footer_buffers);
-        check_cancelled(self.control.cancelled)?;
+        self.control.check()?;
         let segments = Arc::new(MemorySegments {
             segments: owned,
             _metadata: self.metadata,
@@ -1170,3 +1206,7 @@ fn generation_error(error: impl std::fmt::Display) -> ShardLoomError {
 #[cfg(test)]
 #[path = "memory_file_generation_tests.rs"]
 mod tests;
+
+#[path = "memory_file_composition.rs"]
+mod composition;
+pub use composition::MemoryFileCompositionBounds;

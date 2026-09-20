@@ -371,6 +371,7 @@ fn partial_generation_cancellation_releases_segments_and_preserves_owned_intake(
         },
         GenerationBuildControl {
             cancelled: Some(&cancelled),
+            cancellation: None,
             after_leaf: Some(&after_leaf),
         },
     );
