@@ -157,50 +157,6 @@ fn native_dictionary_domains_duplicate_values_and_constants_keep_exact_content_i
 }
 
 #[test]
-fn diagnostic_probe_and_copy_counts_survive_storage_release() {
-    let memory = LiveMemoryPool::new(1 << 20).unwrap();
-    let partitions = StringCountPartitions::try_new(&memory, 1000, 10)
-        .unwrap()
-        .unwrap();
-    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
-    let values: Vec<_> = (0..80).map(|i| format!("value-{i}")).collect();
-    {
-        let mut admission = admission(&partitions, 80);
-        let mut comparisons = 0;
-        let mut partition = partitions.partitions[0].lock().unwrap();
-        for _ in 0..2 {
-            for value in &values {
-                assert_eq!(
-                    partition
-                        .update(
-                            (value.as_bytes(), 0, 1),
-                            &memory,
-                            &worker,
-                            &mut admission,
-                            &mut comparisons
-                        )
-                        .unwrap(),
-                    Update::Applied
-                );
-            }
-        }
-        assert_eq!(partition.diagnostic.insert_calls, 80);
-        assert_eq!(
-            partition.diagnostic.new_bytes,
-            values.iter().map(|s| s.len() as u64).sum::<u64>()
-        );
-        assert!(partition.diagnostic.lookup_probes > partition.diagnostic.lookup_calls);
-        assert!(partition.diagnostic.relocated_slots > 0);
-        assert!(partition.diagnostic.relocated_bytes > 0);
-    }
-    let before = partitions.evidence().unwrap().diagnostic;
-    partitions.release_storage().unwrap();
-    assert_eq!(partitions.evidence().unwrap().diagnostic, before);
-    drop(partitions);
-    assert_eq!(memory.snapshot().reserved_bytes, 0);
-}
-
-#[test]
 fn full_hash_collisions_compare_bytes_and_count_overflow_preserves_previous_value() {
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
     let partitions = StringCountPartitions::try_new(&memory, 100, 10)

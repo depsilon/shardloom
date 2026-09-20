@@ -25,51 +25,6 @@ mod owner_scheduling;
 
 pub(super) const PARTITIONS: usize = 64;
 
-// Temporary partition-local attribution; clocks run only on growth events.
-// Generated code and contention may change, so elapsed runs are not ship evidence.
-#[derive(Clone, Default)]
-pub(super) struct ReconciliationDiagnostic {
-    lookup_calls: u64,
-    lookup_probes: u64,
-    insert_calls: u64,
-    insert_probes: u64,
-    rehash_probes: u64,
-    table_growths: u64,
-    initialized_slots: u64,
-    scanned_slots: u64,
-    relocated_slots: u64,
-    arena_growths: u64,
-    relocated_bytes: u64,
-    new_bytes: u64,
-    table_allocate_nanos: u128,
-    table_initialize_nanos: u128,
-    table_rehash_nanos: u128,
-    table_retire_nanos: u128,
-    arena_allocate_nanos: u128,
-    arena_copy_nanos: u128,
-    arena_retire_nanos: u128,
-}
-
-impl ReconciliationDiagnostic {
-    fn json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "lookup_calls": self.lookup_calls, "lookup_probes": self.lookup_probes,
-            "insert_calls": self.insert_calls, "insert_probes": self.insert_probes,
-            "rehash_probes": self.rehash_probes, "table_growths": self.table_growths,
-            "initialized_slots": self.initialized_slots, "scanned_slots": self.scanned_slots,
-            "relocated_slots": self.relocated_slots, "arena_growths": self.arena_growths,
-            "relocated_bytes": self.relocated_bytes, "new_bytes": self.new_bytes,
-            "table_allocate_nanos": self.table_allocate_nanos,
-            "table_initialize_nanos": self.table_initialize_nanos,
-            "table_rehash_nanos": self.table_rehash_nanos,
-            "table_retire_nanos": self.table_retire_nanos,
-            "arena_allocate_nanos": self.arena_allocate_nanos,
-            "arena_copy_nanos": self.arena_copy_nanos,
-            "arena_retire_nanos": self.arena_retire_nanos,
-        })
-    }
-}
-
 #[derive(Clone, Copy, Default)]
 struct Slot {
     hash: u64,
@@ -79,7 +34,6 @@ struct Slot {
 }
 
 struct Partition {
-    diagnostic: ReconciliationDiagnostic,
     slots: Vec<Slot>,
     bytes: Vec<u8>,
     groups: usize,
@@ -103,7 +57,6 @@ pub(super) struct PartitionSelection {
 }
 
 pub(super) struct PartitionEvidence {
-    pub diagnostic: Vec<serde_json::Value>,
     pub groups: usize,
     pub rows: u64,
     pub lock_wait_nanos: u64,
@@ -187,7 +140,6 @@ impl StringCountPartitions {
         }
         for _ in 0..PARTITIONS {
             partitions.push(Mutex::new(Partition {
-                diagnostic: ReconciliationDiagnostic::default(),
                 slots: Vec::new(),
                 bytes: Vec::new(),
                 groups: 0,
@@ -238,16 +190,6 @@ impl StringCountPartitions {
             return Err(failed("entry credits remain outstanding at final evidence"));
         }
         Ok(PartitionEvidence {
-            diagnostic: self
-                .partitions
-                .iter()
-                .map(|partition| {
-                    partition
-                        .lock()
-                        .map(|partition| partition.diagnostic.json())
-                        .map_err(|_| failed("partition lock poisoned"))
-                })
-                .collect::<Result<Vec<_>>>()?,
             groups: credits.committed,
             rows: self.committed_rows.load(Ordering::Acquire),
             lock_wait_nanos: self.lock_wait_nanos.load(Ordering::Acquire),
@@ -604,8 +546,6 @@ impl Partition {
         }
     }
 
-    // Keep the original control flow intact while placing diagnostic clocks.
-    #[allow(clippy::too_many_lines)]
     fn insert(
         &mut self,
         value: &[u8],
@@ -625,18 +565,10 @@ impl Partition {
                 .max(8)
                 .checked_mul(2)
                 .ok_or_else(|| failed("partition table size overflowed"))?;
-            let started = Instant::now();
             let Some((mut slots, lease)) = allocate::<Slot>(capacity, memory)? else {
                 return Ok(false);
             };
-            self.diagnostic.table_allocate_nanos += started.elapsed().as_nanos();
-            self.diagnostic.table_growths += 1;
-            self.diagnostic.initialized_slots += capacity as u64;
-            let started = Instant::now();
             slots.resize(capacity, Slot::default());
-            self.diagnostic.table_initialize_nanos += started.elapsed().as_nanos();
-            let started = Instant::now();
-            self.diagnostic.scanned_slots += self.slots.len() as u64;
             for (index, slot) in self.slots.iter().copied().enumerate() {
                 if index % 4096 == 0 {
                     worker.check_cancelled()?;
@@ -644,20 +576,14 @@ impl Partition {
                 if slot.count == 0 {
                     continue;
                 }
-                self.diagnostic.relocated_slots += 1;
                 let mut bucket = hash_bucket(slot.hash, capacity)?;
-                self.diagnostic.rehash_probes += 1;
                 while slots[bucket].count != 0 {
-                    self.diagnostic.rehash_probes += 1;
                     bucket = (bucket + 1) & (capacity - 1);
                 }
                 slots[bucket] = slot;
             }
-            self.diagnostic.table_rehash_nanos += started.elapsed().as_nanos();
-            let started = Instant::now();
             self.slots = slots;
             self.slots_lease = lease;
-            self.diagnostic.table_retire_nanos += started.elapsed().as_nanos();
         }
         let needed = self
             .bytes
@@ -672,16 +598,10 @@ impl Partition {
                     .checked_mul(2)
                     .ok_or_else(|| failed("partition byte capacity overflowed"))?,
             );
-            let started = Instant::now();
             let Some((mut bytes, lease)) = allocate::<u8>(capacity, memory)? else {
                 return Ok(false);
             };
-            self.diagnostic.arena_allocate_nanos += started.elapsed().as_nanos();
-            self.diagnostic.arena_growths += 1;
-            self.diagnostic.relocated_bytes += self.bytes.len() as u64;
-            let started = Instant::now();
             bytes.extend_from_slice(&self.bytes);
-            self.diagnostic.arena_copy_nanos += started.elapsed().as_nanos();
             #[cfg(test)]
             {
                 self.benchmark_payload_bytes_copied = self
@@ -692,16 +612,11 @@ impl Partition {
                     )
                     .ok_or_else(|| failed("benchmark copy counter overflowed"))?;
             }
-            let started = Instant::now();
             self.bytes = bytes;
             self.bytes_lease = lease;
-            self.diagnostic.arena_retire_nanos += started.elapsed().as_nanos();
         }
-        self.diagnostic.insert_calls += 1;
         let mut bucket = hash_bucket(hash, self.slots.len())?;
-        self.diagnostic.insert_probes += 1;
         while self.slots[bucket].count != 0 {
-            self.diagnostic.insert_probes += 1;
             bucket = (bucket + 1) & (self.slots.len() - 1);
         }
         self.slots[bucket] = Slot {
@@ -710,7 +625,6 @@ impl Partition {
             len: value.len(),
             count,
         };
-        self.diagnostic.new_bytes += value.len() as u64;
         self.bytes.extend_from_slice(value);
         #[cfg(test)]
         {
@@ -726,11 +640,9 @@ impl Partition {
         Ok(true)
     }
 
-    fn find(&mut self, value: &[u8], hash: u64, comparisons: &mut u64) -> Result<usize> {
-        self.diagnostic.lookup_calls += 1;
+    fn find(&self, value: &[u8], hash: u64, comparisons: &mut u64) -> Result<usize> {
         let mut bucket = hash_bucket(hash, self.slots.len())?;
         loop {
-            self.diagnostic.lookup_probes += 1;
             let slot = self.slots[bucket];
             if slot.count == 0 {
                 return Ok(bucket);

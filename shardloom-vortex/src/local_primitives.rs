@@ -94,6 +94,9 @@ mod pair_partition_workers;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/source_order_candidate_filter.rs"]
+mod source_order_candidate_filter;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/triple_count_tests.rs"]
 mod triple_count_tests;
@@ -25434,6 +25437,7 @@ struct GroupedAggregateStates<'a> {
     numeric_minute_string_direct_slice_updates: bool,
     numeric_minute_string_direct_slice_update_rows: u64,
     source_order_numeric_utf8_dictionary_direct_updates: bool,
+    source_order_candidate_filter: source_order_candidate_filter::Work,
     source_order_limited_group_admission: bool,
     general_direct_group_state_pre_reserved: bool,
     native_numeric_accessor_work: NativeNumericAccessorWork,
@@ -28354,6 +28358,7 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_minute_string_direct_slice_updates: false,
             numeric_minute_string_direct_slice_update_rows: 0,
             source_order_numeric_utf8_dictionary_direct_updates: false,
+            source_order_candidate_filter: source_order_candidate_filter::Work::default(),
             source_order_limited_group_admission: false,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
@@ -28448,6 +28453,11 @@ impl<'a> GroupedAggregateStates<'a> {
     ) -> Result<bool> {
         if !self.admits_count_star_direct_updates() {
             return Ok(false);
+        }
+        let selected = self.source_order_candidate_chunk(chunk, declared_columns, row_indices)?;
+        let chunk = selected.as_ref().unwrap_or(chunk);
+        if selected.is_some() && chunk.is_empty() {
+            return Ok(true);
         }
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
@@ -31715,6 +31725,12 @@ impl<'a> GroupedAggregateStates<'a> {
         timing: &mut aggregate_timing::AggregateFirstPassTiming,
     ) -> Result<bool> {
         let started = Instant::now();
+        let selected = self.source_order_candidate_chunk(chunk, declared_columns, row_indices)?;
+        let chunk = selected.as_ref().unwrap_or(chunk);
+        if selected.is_some() && chunk.is_empty() {
+            timing.accessor_nanos += started.elapsed().as_nanos();
+            return Ok(true);
+        }
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             declared_columns,
@@ -35613,6 +35629,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "group_key_storage": self.group_key_storage(),
             "group_key_comparison_strategy": "source_order",
             "source_order_key_retention": self.source_order_key_retention(),
+            "source_order_candidate_filter": self.source_order_candidate_filter.summary(),
             "topk_retention_after_update": rows.len(),
             "materialized_group_value_count": self.materialized_group_value_count(),
             "decoded_string_count": self.string_interner.len(),
