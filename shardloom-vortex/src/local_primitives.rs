@@ -101,6 +101,9 @@ mod triple_count_tests;
 #[path = "local_primitives/triple_count_workers.rs"]
 mod triple_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/utf8_chunk_dictionary.rs"]
+mod utf8_chunk_dictionary;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/utf8_distinct_output.rs"]
 mod utf8_distinct_output;
 
@@ -42110,8 +42113,7 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
     let mut row_nulls = Vec::<bool>::new();
     let mut has_null_row = false;
 
-    let mut ids = rustc_hash::FxHashMap::<std::sync::Arc<str>, u32>::default();
-    let mut values = Vec::<std::sync::Arc<str>>::new();
+    let mut dictionary = utf8_chunk_dictionary::Utf8ChunkDictionary::default();
     let mut row_ids = Vec::with_capacity(utf8.len());
     for row_index in 0..utf8.len() {
         let row_is_null = match &validity {
@@ -42128,28 +42130,11 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
             continue;
         }
         let bytes = utf8.bytes_at(row_index);
-        let value = std::str::from_utf8(bytes.as_slice()).map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "local Vortex aggregate direct UTF-8 column '{column}' had invalid UTF-8: {error}; no fallback execution was attempted"
-            ))
-        })?;
-        let id = if let Some(id) = ids.get(value) {
-            *id
-        } else {
-            let id = u32::try_from(values.len()).map_err(|_| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex aggregate direct UTF-8 chunk dictionary exceeded u32 entries; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })?;
-            let owned: std::sync::Arc<str> = std::sync::Arc::from(value);
-            work.copied_bytes += value.len() as u64;
-            values.push(std::sync::Arc::clone(&owned));
-            ids.insert(owned, id);
-            id
-        };
+        let id = dictionary.intern(column, bytes.as_slice())?;
         row_ids.push(id);
     }
+    let (values, copied_bytes) = dictionary.into_values();
+    work.copied_bytes += copied_bytes;
     work.calls += 1;
     work.rows += utf8.len() as u64;
     work.entries += values.len() as u64;
@@ -64293,6 +64278,91 @@ mod tests {
         assert_eq!(
             row_nulls.expect("row nulls"),
             vec![false, true, false, false]
+        );
+    }
+
+    #[test]
+    fn aggregate_utf8_chunk_dictionary_handles_empty_and_all_null_inputs() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::VarBinViewArray;
+
+        for input_values in [vec![], vec![None::<&str>, None, None]] {
+            let len = input_values.len();
+            let input = VarBinViewArray::from_iter_nullable_str(input_values).into_array();
+            let accessor = aggregate_direct_utf8_chunk_dictionary_accessor("text", &input)
+                .expect("accessor")
+                .expect("UTF8");
+            let AggregateDirectColumnAccessor::Utf8Dictionary {
+                row_ids,
+                values,
+                row_nulls,
+                ..
+            } = accessor
+            else {
+                panic!("expected chunk dictionary");
+            };
+            assert_eq!(row_ids, vec![0; len]);
+            assert!(values.is_empty());
+            assert_eq!(row_nulls, (len != 0).then(|| vec![true; len]));
+        }
+    }
+
+    #[test]
+    fn transformed_chunk_dictionary_retains_min_after_input_and_accessor_drop() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::VarBinViewArray;
+
+        let request = VortexSimpleAggregateRequest::grouped(
+            Vec::new(),
+            vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "c".into()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "min",
+                    Some(ColumnRef::new("Referer").expect("column")),
+                    "m".into(),
+                ),
+            ],
+        )
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "k".into(),
+            ColumnRef::new("Referer").expect("column"),
+            "url_domain",
+        )])
+        .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
+        let columns = vec!["Referer".to_string()];
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(1), &columns, false, false).expect("states");
+        let input = VarBinViewArray::from_iter_nullable_str([
+            Some("http://example.test/z"),
+            None,
+            Some("http://example.test/a"),
+            Some("http://example.test/a"),
+            Some("http://ignored.test/a"),
+        ])
+        .into_array();
+        let accessor = aggregate_direct_utf8_chunk_dictionary_accessor("Referer", &input)
+            .expect("accessor")
+            .expect("UTF8");
+        drop(input);
+        let accessors = vec![accessor];
+        assert!(
+            states
+                .update_dense_general_direct_from_transformed_dictionary(
+                    &accessors,
+                    Some(&[0, 2, 3]),
+                )
+                .expect("selected update")
+        );
+        drop(accessors);
+        let (_, summary) = states
+            .result_row_count_and_summary(Some(1))
+            .expect("result");
+        let payload: serde_json::Value = serde_json::from_str(&summary).expect("JSON");
+        assert_eq!(
+            payload["values"],
+            serde_json::json!([
+                {"k": "example.test", "c": 3, "m": "http://example.test/a"}
+            ])
         );
     }
 

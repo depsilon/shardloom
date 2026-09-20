@@ -321,10 +321,17 @@ those calls. All six complete outputs match; all candidate runs preserve
 gates pass; the observed unpaired suite best sum is 79.856087 s. Preserve the
 existing per-chunk weighted reduction and
 dependency proofs; no new query-number dispatch or fallback is admitted.
-Next, attribute Q29's 5.080100 s chunk-dictionary construction within its
-10.215333 s complete call; existing counters already separate 2.517873 s of
-provider execution. Q34/Q35 attribution follows. Admit another implementation only from a demonstrated
-material opportunity. Successful implementations get a PR and failed prototypes
+The subsequent [Q29 UTF8 dictionary construction](q29-utf8-dictionary-validation-2026-09-20.md)
+reuses exact validated byte identity and cached hashes while preserving owned
+strings, first-seen IDs and aggregation order. Paired fastest complete calls are
+8.993470 s control and 7.815263 s candidate, saving 1.178207 s (13.1%). All six
+outputs match; Full43 passes 129/129 complete results with an unpaired best sum
+of 71.393790 s. No RSS reduction or whole-suite causal gain is claimed.
+Next, attribute Q34/Q35 worker reconciliation (current best 5.383924 / 4.851808 s),
+separating lock acquisition from exact lookup, table growth, byte-arena copying
+and native handle access. Summed worker spans are not exclusive CPU attribution.
+Admit another implementation only from a demonstrated material opportunity.
+Successful implementations get a PR and failed prototypes
 are removed with their evidence retained.
 Broad capability completion and parked experiments
 remain paused. Scoped retention does not close whole PERF/CG gates or any of the
