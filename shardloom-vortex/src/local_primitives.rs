@@ -20193,6 +20193,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         &lowering,
         attempt_started,
         None,
+        None,
     )
 }
 
@@ -20210,7 +20211,15 @@ fn read_lowered_vortex_simple_aggregate_scan(
     lowering: &aggregate_lowering::AggregateLowering,
     attempt_started: Instant,
     mut owned_output: Option<&mut aggregate_owned::OwnedAggregateFinalizer>,
+    cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
 ) -> Result<LocalVortexAggregateScan> {
+    let check_cancelled = || {
+        cancellation.map_or(
+            Ok(()),
+            shardloom_exec::compute_pool::CancellationToken::check,
+        )
+    };
+    check_cancelled()?;
     let source_row_count = file.row_count();
     let aggregate_plan = &lowering.rewrite;
     let aggregate = &aggregate_plan.aggregate;
@@ -20388,6 +20397,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         let mut scan = scan.into_array_iter(runtime).map_err(vortex_error)?;
         loop {
+            check_cancelled()?;
             if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut())
             {
                 workers.before_next(states)?;
@@ -20452,6 +20462,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
                         lowering,
                         replay_started,
                         owned_output.as_deref_mut(),
+                        cancellation,
                     )?;
                     replayed.restored_provider_background_workers = replayed
                         .restored_provider_background_workers
@@ -20721,6 +20732,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             arrays_read_count += 1;
         }
     }
+    check_cancelled()?;
     if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut()) {
         workers.finish(states)?;
     }
@@ -20735,6 +20747,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         provider_background_workers = count;
         provider_resume_after_pair_retirement = true;
     }
+    check_cancelled()?;
     let result_limit = request.source_order_limit;
     if let Some(states) = grouped_states.as_mut()
         && states.needs_numeric_pair_late_measure_second_pass()
@@ -20758,6 +20771,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
         second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
+            check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -20806,6 +20820,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
+                check_cancelled()?;
                 let chunk = chunk.map_err(vortex_error)?;
                 let rows = chunk.len();
                 let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -20870,6 +20885,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
+            check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -20926,6 +20942,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
+                check_cancelled()?;
                 let chunk = chunk.map_err(vortex_error)?;
                 let rows = chunk.len();
                 let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -21007,6 +21024,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
+            check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -21064,6 +21082,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
+                check_cancelled()?;
                 let chunk = chunk.map_err(vortex_error)?;
                 let rows = chunk.len();
                 let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -21130,6 +21149,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
+            check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -21227,6 +21247,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             &encoded_kernel_inputs,
         )
     };
+    check_cancelled()?;
     Ok(LocalVortexAggregateScan {
         metadata_completed: metadata_completion.is_some(),
         scan: LocalVortexScan {

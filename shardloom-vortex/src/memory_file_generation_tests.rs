@@ -93,6 +93,306 @@ fn generation(session: &ResidentVortexSession) -> MemoryFileGeneration {
         .unwrap()
 }
 
+fn reserved_test_bytes(
+    session: &ResidentVortexSession,
+    bytes: &[u8],
+) -> vortex::buffer::ByteBuffer {
+    let mut owned = session
+        .native_allocator()
+        .allocate(bytes.len(), vortex::buffer::Alignment::none())
+        .unwrap();
+    owned.as_mut_slice().copy_from_slice(bytes);
+    owned.freeze()
+}
+
+fn reserved_test_offsets(
+    session: &ResidentVortexSession,
+    ptype: vortex::array::dtype::PType,
+    offsets: &[u64],
+) -> vortex::array::ArrayRef {
+    use vortex::{
+        array::{IntoArray as _, arrays::PrimitiveArray, dtype::PType, validity::Validity},
+        buffer::{Alignment, Buffer},
+    };
+    macro_rules! owned_offsets {
+        ($offset:ty) => {{
+            let width = std::mem::size_of::<$offset>();
+            let mut owned = session
+                .native_allocator()
+                .allocate(offsets.len() * width, Alignment::new(width))
+                .unwrap();
+            for (destination, offset) in owned.as_mut_slice().chunks_exact_mut(width).zip(offsets) {
+                destination.copy_from_slice(&<$offset>::try_from(*offset).unwrap().to_ne_bytes());
+            }
+            PrimitiveArray::new(
+                Buffer::<$offset>::from_byte_buffer(owned.freeze()),
+                Validity::NonNullable,
+            )
+            .into_array()
+        }};
+    }
+    match ptype {
+        PType::U8 => owned_offsets!(u8),
+        PType::U16 => owned_offsets!(u16),
+        PType::U32 => owned_offsets!(u32),
+        PType::U64 => owned_offsets!(u64),
+        _ => panic!("test offsets require unsigned integers"),
+    }
+}
+
+fn assert_varbin_values(array: &vortex::array::ArrayRef, expected: &[Option<&[u8]>]) {
+    use vortex::array::dtype::DType;
+    let native = VortexSession::default();
+    let mut context = native.create_execution_ctx();
+    assert_eq!(array.len(), expected.len());
+    for (row, expected) in expected.iter().enumerate() {
+        let scalar = array.execute_scalar(row, &mut context).unwrap();
+        assert_eq!(scalar.dtype(), array.dtype());
+        let actual = match array.dtype() {
+            DType::Utf8(_) => scalar
+                .as_utf8()
+                .value()
+                .map(|value| value.as_str().as_bytes()),
+            DType::Binary(_) => scalar.as_binary().value().map(|value| value.as_slice()),
+            _ => panic!("test values require a VarBin logical dtype"),
+        };
+        assert_eq!(actual, *expected, "complete value at row {row}");
+    }
+}
+
+fn assert_generation_varbin_values(generation: &MemoryFileGeneration, expected: &[Option<&[u8]>]) {
+    let result = generation
+        .prepare_projection(&["value"], None, 8, 64 * 1024)
+        .unwrap()
+        .execute()
+        .unwrap();
+    let mut row = 0;
+    for batch in result.arrays() {
+        let projection = get_item("value", root()).bind(batch.dtype()).unwrap();
+        let values = batch.clone().apply_bound(&projection).unwrap();
+        assert_varbin_values(&values, &expected[row..row + values.len()]);
+        row += values.len();
+    }
+    assert_eq!(row, expected.len());
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // One width matrix keeps ownership and native round-trip proof together.
+fn unsigned_varbin_slices_preserve_values_schema_and_owned_lifetimes() {
+    use vortex::array::{
+        IntoArray as _,
+        arrays::{
+            Primitive, StructArray, VarBin, VarBinArray, primitive::PrimitiveArrayExt as _,
+            varbin::VarBinArraySlotsExt as _,
+        },
+        dtype::{DType, Nullability, PType},
+        validity::Validity,
+    };
+    for ptype in [PType::U8, PType::U16, PType::U32, PType::U64] {
+        for dtype in [
+            DType::Utf8(Nullability::Nullable),
+            DType::Binary(Nullability::Nullable),
+        ] {
+            let session = ResidentVortexSession::new(4 * 1024 * 1024, 1).unwrap();
+            let memory = session.memory().clone();
+            let original = VarBinArray::try_new(
+                reserved_test_offsets(&session, ptype, &[0, 7, 9, 18, 18, 24, 30]),
+                reserved_test_bytes(&session, "outsideλnullbytes東京suffix".as_bytes()),
+                dtype.clone(),
+                Validity::from_iter([true, true, false, true, true, true]),
+            )
+            .unwrap()
+            .into_array();
+            let (whole, copied) =
+                super::slice_generation_column(&original, 0..6, &session.native_allocator())
+                    .unwrap();
+            assert_eq!(copied, 0);
+            assert_eq!(
+                whole
+                    .as_opt::<VarBin>()
+                    .unwrap()
+                    .offsets()
+                    .as_opt::<Primitive>()
+                    .unwrap()
+                    .ptype(),
+                ptype
+            );
+            drop(whole);
+            let (slice, copied) =
+                super::slice_generation_column(&original, 1..5, &session.native_allocator())
+                    .unwrap();
+            assert_eq!(copied, 5 * 8);
+            assert_eq!(slice.dtype(), &dtype);
+            let compact = slice.as_opt::<VarBin>().unwrap();
+            assert_eq!(compact.bytes().len(), 17);
+            assert_eq!(
+                compact
+                    .offsets()
+                    .as_opt::<Primitive>()
+                    .unwrap()
+                    .as_slice::<u64>(),
+                &[0, 2, 11, 11, 17]
+            );
+            let expected = [
+                Some("λ".as_bytes()),
+                None,
+                Some(b"".as_slice()),
+                Some("東京".as_bytes()),
+            ];
+            drop(original);
+            assert_varbin_values(&slice, &expected);
+            let (all_null, _) =
+                super::slice_generation_column(&slice, 1..2, &session.native_allocator()).unwrap();
+            assert_varbin_values(&all_null, &[None]);
+            let (empty, _) =
+                super::slice_generation_column(&slice, 2..2, &session.native_allocator()).unwrap();
+            assert_eq!(empty.dtype(), &dtype);
+            assert_varbin_values(&empty, &[]);
+            drop(all_null);
+            drop(empty);
+            let input =
+                StructArray::try_new(["value"].into(), vec![slice], 4, Validity::NonNullable)
+                    .unwrap()
+                    .into_array();
+            let generation = MemoryFileGeneration::build_with_layout(
+                &session,
+                &input,
+                17,
+                0,
+                MemoryFileGenerationBounds::default(),
+                super::MemoryFileGenerationLayout {
+                    row_group_rows: 2,
+                    max_segments: 2,
+                },
+                None,
+            )
+            .unwrap();
+            drop(input);
+            drop(session);
+            assert!(memory.snapshot().reserved_bytes > 0);
+            assert_generation_varbin_values(&generation, &expected);
+            drop(generation);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
+fn encoded_varbin_offsets_retain_native_backing_and_obey_serialized_byte_bound() {
+    use vortex::array::{
+        IntoArray as _,
+        arrays::{
+            Constant, ConstantArray, StructArray, VarBin, VarBinArray,
+            varbin::VarBinArraySlotsExt as _,
+        },
+        dtype::{DType, Nullability},
+        validity::Validity,
+    };
+    let session = ResidentVortexSession::new(4 * 1024 * 1024, 1).unwrap();
+    let memory = session.memory().clone();
+    let mut payload = session
+        .native_allocator()
+        .allocate(64 * 1024, vortex::buffer::Alignment::none())
+        .unwrap();
+    payload.as_mut_slice().fill(0xff);
+    let original = VarBinArray::try_new(
+        ConstantArray::new(17_u32, 5).into_array(),
+        payload.freeze(),
+        DType::Binary(Nullability::Nullable),
+        Validity::from_iter([true, false, true, true]),
+    )
+    .unwrap()
+    .into_array();
+    let (slice, copied) =
+        super::slice_generation_column(&original, 1..4, &session.native_allocator()).unwrap();
+    assert_eq!(copied, 0);
+    assert!(slice.as_opt::<VarBin>().unwrap().offsets().is::<Constant>());
+    assert_eq!(slice.as_opt::<VarBin>().unwrap().bytes().len(), 64 * 1024);
+    drop(original);
+    let expected = [None, Some(b"".as_slice()), Some(b"".as_slice())];
+    assert_varbin_values(&slice, &expected);
+    let input = StructArray::try_new(["value"].into(), vec![slice], 3, Validity::NonNullable)
+        .unwrap()
+        .into_array();
+    let input_bytes = memory.snapshot().reserved_bytes;
+    let denied = MemoryFileGeneration::build(
+        &session,
+        &input,
+        0,
+        0,
+        MemoryFileGenerationBounds {
+            max_serialized_bytes: 4096,
+            ..MemoryFileGenerationBounds::default()
+        },
+    );
+    assert!(
+        denied
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("serialized byte bound exceeded")
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, input_bytes);
+    let generation = MemoryFileGeneration::build(
+        &session,
+        &input,
+        0,
+        0,
+        MemoryFileGenerationBounds::default(),
+    )
+    .unwrap();
+    assert_eq!(generation.evidence().row_group_offset_bytes_built, 0);
+    drop(input);
+    drop(session);
+    assert_generation_varbin_values(&generation, &expected);
+    drop(generation);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn memory_generation_evidence_uris_are_distinct_process_local_native_ids() {
+    let first = super::new_memory_generation_uri().unwrap();
+    let second = super::new_memory_generation_uri().unwrap();
+    assert_ne!(first, second);
+    assert!(
+        first
+            .as_str()
+            .starts_with(&format!("memory://shardloom/{}/", std::process::id()))
+    );
+    assert!(first.looks_like_vortex());
+    assert_eq!(first.scheme(), shardloom_core::UriScheme::Other);
+}
+
+#[test]
+fn varbin_compaction_rejects_invalid_payload_ranges_without_leaking_offsets() {
+    use vortex::array::{
+        IntoArray as _,
+        arrays::VarBinArray,
+        dtype::{DType, Nullability, PType},
+        validity::Validity,
+    };
+    let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
+    let memory = session.memory().clone();
+    for offsets in [&[4_u64, 3, 7][..], &[0, 8, 6], &[0, 15]] {
+        let array = VarBinArray::try_new(
+            reserved_test_offsets(&session, PType::U16, offsets),
+            reserved_test_bytes(&session, b"abcdefgh"),
+            DType::Binary(Nullability::NonNullable),
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array();
+        let before = memory.snapshot().reserved_bytes;
+        assert!(
+            super::slice_generation_column(&array, 0..array.len(), &session.native_allocator())
+                .is_err()
+        );
+        assert_eq!(memory.snapshot().reserved_bytes, before);
+    }
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 #[test]
 #[allow(clippy::too_many_lines)] // Keep the addressable query and publication proof together.
 fn column_row_group_ranges_request_only_addressed_native_segments_and_publish_exactly() {

@@ -143,6 +143,7 @@ pub struct MemoryFilePublication {
 
 struct GenerationOwner {
     source: PreparedVortexSource,
+    source_uri: shardloom_core::DatasetUri,
     session: ResidentVortexSession,
     segments: Arc<MemorySegments>,
     input_logical_bytes: u64,
@@ -160,6 +161,20 @@ struct GenerationOwner {
 /// memory. Clones share the generation and its cached native reader tree.
 #[derive(Clone)]
 pub struct MemoryFileGeneration(Arc<GenerationOwner>);
+
+static NEXT_MEMORY_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// Process-local evidence identity only; this URI is never resolved or opened.
+/// Checked monotonic allocation prevents identity reuse if the counter exhausts.
+fn new_memory_generation_uri() -> Result<shardloom_core::DatasetUri> {
+    let id = NEXT_MEMORY_GENERATION
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
+        .map_err(|_| generation_error("memory generation identity exhausted"))?;
+    shardloom_core::DatasetUri::new(format!(
+        "memory://shardloom/{}/{id}.vortex",
+        std::process::id()
+    ))
+}
 
 struct GenerationBuildControl<'a> {
     cancelled: Option<&'a AtomicBool>,
@@ -240,6 +255,7 @@ impl MemoryFileGeneration {
             .with_native_session(|native, runtime| builder.finish(native, runtime, bounds))?;
         Ok(Self(Arc::new(GenerationOwner {
             source: session.prepare_immutable_file(file),
+            source_uri: new_memory_generation_uri()?,
             session: session.clone(),
             segments,
             input_logical_bytes: input_logical_bytes as u64,
@@ -1104,18 +1120,41 @@ fn slice_generation_column(
     let Some(varbin) = slice.as_opt::<VarBin>() else {
         return Ok((slice, 0));
     };
-    let offsets = varbin
-        .offsets()
-        .as_opt::<Primitive>()
-        .ok_or_else(|| generation_error("owned UTF8 intake requires native primitive offsets"))?;
-    if offsets.ptype() != PType::U64 {
-        return Err(generation_error("owned UTF8 intake requires u64 offsets"));
-    }
-    let offsets = offsets.as_slice::<u64>();
-    let first = offsets[0];
-    let last = *offsets.last().expect("validated UTF8 offsets");
-    if first == 0 && last == varbin.bytes().len() as u64 {
+    let Some(offsets) = varbin.offsets().as_opt::<Primitive>() else {
+        // Preserve encoded offsets. Decoding only to trim the backing payload
+        // would change this native boundary; serialization still enforces its cap.
         return Ok((slice, 0));
+    };
+    match offsets.ptype() {
+        PType::U8 => compact_generation_varbin(&slice, varbin, offsets.as_slice::<u8>(), allocator),
+        PType::U16 => {
+            compact_generation_varbin(&slice, varbin, offsets.as_slice::<u16>(), allocator)
+        }
+        PType::U32 => {
+            compact_generation_varbin(&slice, varbin, offsets.as_slice::<u32>(), allocator)
+        }
+        PType::U64 => {
+            compact_generation_varbin(&slice, varbin, offsets.as_slice::<u64>(), allocator)
+        }
+        _ => Ok((slice, 0)),
+    }
+}
+
+fn compact_generation_varbin<O: Copy + Into<u64>>(
+    slice: &ArrayRef,
+    varbin: &VarBinArray,
+    offsets: &[O],
+    allocator: &HostAllocatorRef,
+) -> Result<(ArrayRef, u64)> {
+    let first = offsets[0].into();
+    let last = (*offsets.last().expect("validated VarBin offsets")).into();
+    if first > last || last > varbin.bytes().len() as u64 {
+        return Err(generation_error(
+            "VarBin offsets exceed the backing payload",
+        ));
+    }
+    if first == 0 && last == varbin.bytes().len() as u64 {
+        return Ok((slice.clone(), 0));
     }
     let bytes = offsets
         .len()
@@ -1124,6 +1163,7 @@ fn slice_generation_column(
     let mut normalized = allocator
         .allocate(bytes, Alignment::new(8))
         .map_err(generation_error)?;
+    let mut previous = first;
     for (destination, offset) in normalized
         .as_mut_slice()
         .as_chunks_mut::<8>()
@@ -1131,12 +1171,12 @@ fn slice_generation_column(
         .iter_mut()
         .zip(offsets)
     {
-        destination.copy_from_slice(
-            &offset
-                .checked_sub(first)
-                .ok_or_else(|| generation_error("UTF8 offsets are not monotonic"))?
-                .to_ne_bytes(),
-        );
+        let offset = (*offset).into();
+        if offset < previous || offset > last {
+            return Err(generation_error("VarBin offsets are not monotonic"));
+        }
+        destination.copy_from_slice(&(offset - first).to_ne_bytes());
+        previous = offset;
     }
     let payload = varbin.bytes().slice(
         usize::try_from(first).map_err(generation_error)?

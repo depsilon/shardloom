@@ -4,13 +4,17 @@
 use super::{
     GenerationBuildControl, GenerationBuilder, GenerationInputBounds, GenerationOwner,
     MemoryFileGeneration, MemoryFileGenerationBounds, MemoryFileGenerationLayout, generation_error,
+    new_memory_generation_uri,
 };
 use crate::local_primitives::logical_field_from_native_array;
-use crate::resident_session::{NativeExecutionContext, OwnedVortexResultBatch};
+use crate::local_primitives::prepared_aggregate::PreparedVortexAggregate;
+use crate::resident_session::{
+    NativeExecutionContext, OwnedVortexResultBatch, PreparedVortexSource,
+};
 use shardloom_core::Result;
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::Budgeted;
-use std::sync::Arc;
+use std::{fmt::Write as _, sync::Arc};
 use vortex::array::{
     ArrayRef, IntoArray as _,
     arrays::{ChunkedArray, StructArray},
@@ -45,6 +49,53 @@ impl Default for MemoryFileCompositionBounds {
 }
 
 impl MemoryFileGeneration {
+    /// Opaque identity for this immutable generation. It is evidence, not a
+    /// filesystem path or a URI that another session can resolve.
+    #[must_use]
+    pub fn source_uri(&self) -> &shardloom_core::DatasetUri {
+        &self.0.source_uri
+    }
+
+    pub(crate) fn retained_source(&self) -> PreparedVortexSource {
+        self.0.source.clone()
+    }
+
+    pub(crate) fn annotate_aggregate_certificate(
+        &self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) -> Result<()> {
+        let source = &mut certificate.source_capability_report;
+        source.source_kind = "immutable_vortex_file_segments".into();
+        source.adapter_id = "shardloom.resident_vortex.memory_file.v1".into();
+        source.schema_discovery_status = "validated_immutable_native_footer".into();
+        source.statistics_availability = "exact_footer_row_count;file_statistics_absent".into();
+        let work = self.evidence();
+        write!(certificate.source_pushdown_report.proof_basis,
+            ";memory_generation_uri={};immutable_generation_owner_retained=true;source_specific_file_opens=0;construction_array_serializer_calls={};construction_segment_assembly_bytes_copied={};construction_footer_serializer_calls={};construction_footer_bytes={};cumulative_memory_segment_requests={};cumulative_memory_segment_bytes_returned={};construction_excluded_from_query_work=true;no_zero_copy_composition_claim=true",
+            self.source_uri().as_str(), work.array_serializer_calls,
+            work.segment_assembly_bytes_copied, work.construction_footer_serializer_calls,
+            work.construction_footer_bytes, work.memory_segment_requests,
+            work.memory_segment_bytes_returned,
+        ).map_err(generation_error)?;
+        Ok(())
+    }
+
+    /// Prepare the ordinary native aggregate kernels against these retained
+    /// segments. The request URI must match `source_uri()`; no file is opened.
+    ///
+    /// # Errors
+    /// Rejects mismatched provenance and the existing native aggregate schema,
+    /// semantics, resource and explicit-spill admission failures.
+    pub fn prepare_aggregate(
+        &self,
+        request: &crate::VortexQueryPrimitiveRequest,
+        policy: crate::VortexLocalPrimitiveExecutionPolicy,
+    ) -> Result<PreparedVortexAggregate> {
+        crate::local_primitives::prepared_aggregate::prepare_memory_aggregate(
+            request, policy, self, None,
+        )
+    }
+
     /// Serialize complete owned native batches into one immutable memory source.
     /// This consumes the original result; downstream scans retain the constructed
     /// segments. Serialization is explicit and is not a zero-copy claim.
@@ -70,6 +121,7 @@ impl MemoryFileGeneration {
     ) -> Result<Self> {
         let session = result.retained_session();
         session.validate_execution_context(context)?;
+        context.check_general_execution()?;
         context.check_cancelled()?;
         result.validate_schema_and_rows()?;
         let array = composition_array(result, bounds, context)?;
@@ -95,6 +147,7 @@ impl MemoryFileGeneration {
             builder.finish(context.native_session(), context.runtime(), bounds.storage)?;
         context.check_cancelled()?;
         Ok(Self(Arc::new(GenerationOwner {
+            source_uri: new_memory_generation_uri()?,
             source: session.prepare_immutable_file(file),
             session,
             segments,

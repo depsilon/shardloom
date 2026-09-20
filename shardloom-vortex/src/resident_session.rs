@@ -170,7 +170,7 @@ impl ResidentVortexSession {
     }
 
     /// Reject a borrowed grant from another session before construction or I/O.
-    #[cfg(all(feature = "vortex-write", unix))]
+    #[cfg(unix)]
     pub(crate) fn validate_execution_context(
         &self,
         context: &NativeExecutionContext<'_>,
@@ -467,9 +467,22 @@ impl PreparedVortexSource {
         projected_columns: &[shardloom_core::ColumnRef],
     ) -> Result<Option<segment_reuse::SegmentReusePolicy>> {
         let source = &self.0;
-        let _context = source
+        let context = source
             .runtime
             .enter(CallClass::Metadata, CancellationToken::default())?;
+        self.segment_reuse_policy_in_context(&context, predicate, projected_columns)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn segment_reuse_policy_in_context(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        predicate: &shardloom_core::PredicateExpr,
+        projected_columns: &[shardloom_core::ColumnRef],
+    ) -> Result<Option<segment_reuse::SegmentReusePolicy>> {
+        self.retained_session()
+            .validate_execution_context(context)?;
+        let source = &self.0;
         source.validate()?;
         let policy = segment_reuse::SegmentReusePolicy::for_scan(
             predicate,
@@ -534,6 +547,7 @@ impl PreparedVortexSource {
         context: &NativeExecutionContext<'_>,
         execute: impl FnOnce(&VortexFile, &NativeExecutionContext<'_>) -> Result<T>,
     ) -> Result<T> {
+        context.check_general_execution()?;
         if !context.belongs_to(&self.0.runtime) {
             return Err(resident_error(
                 "native execution context belongs to a different session",
@@ -559,6 +573,24 @@ impl PreparedVortexSource {
         let context = source
             .runtime
             .enter(CallClass::General, CancellationToken::default())?;
+        let result = self.with_admitted_native_execution_temporary_drivers(&context, execute)?;
+        context.drain_io();
+        context.check_cancelled()?;
+        source.validate()?;
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_admitted_native_execution_temporary_drivers<T>(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
+    ) -> Result<(T, usize)> {
+        context.check_general_execution()?;
+        self.retained_session()
+            .validate_execution_context(context)?;
+        let source = &self.0;
         source.validate()?;
         let additional = context
             .cpu_lanes()
@@ -569,9 +601,8 @@ impl PreparedVortexSource {
         let result = execute(&file, &source.runtime.session, &source.runtime.runtime)?;
         drop(file);
         drop(workers);
-        context.drain_io();
+        context.check_cancelled()?;
         source.validate()?;
-        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((
             result,
             additional + source.runtime.provider_background_workers,
@@ -620,13 +651,12 @@ impl PreparedVortexSource {
     /// Temporary provider drivers are permitted only when the caller has
     /// rejected its dedicated compute pool. All driver creation and teardown
     /// occurs inside the existing source/session execution gate.
-    #[allow(clippy::too_many_lines)] // One admitted source/retry lifecycle owns this boundary.
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn with_native_execution_cached_retry_with_drivers<T>(
         &self,
         policy: segment_reuse::SegmentReusePolicy,
         restore_provider_drivers: bool,
-        mut execute: impl FnMut(
+        execute: impl FnMut(
             &VortexFile,
             &VortexSession,
             &CurrentThreadRuntime,
@@ -637,6 +667,41 @@ impl PreparedVortexSource {
         let context = source
             .runtime
             .enter(CallClass::General, CancellationToken::default())?;
+        let result = self.with_admitted_native_execution_cached_retry_with_drivers(
+            &context,
+            policy,
+            restore_provider_drivers,
+            execute,
+        )?;
+        context.drain_io();
+        context.check_cancelled()?;
+        if source.runtime.serving.is_some() {
+            source.validate()?;
+        }
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
+    /// Borrow the outer operation while owning only this stage's cache and
+    /// provider drivers. Closing a stage never closes the outer I/O scope.
+    #[allow(clippy::too_many_lines)]
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_admitted_native_execution_cached_retry_with_drivers<T>(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        policy: segment_reuse::SegmentReusePolicy,
+        restore_provider_drivers: bool,
+        mut execute: impl FnMut(
+            &VortexFile,
+            &VortexSession,
+            &CurrentThreadRuntime,
+            &mut SegmentReuseAttempt,
+        ) -> Result<T>,
+    ) -> Result<(T, segment_reuse::SegmentReuseSnapshot)> {
+        context.check_general_execution()?;
+        self.retained_session()
+            .validate_execution_context(context)?;
+        let source = &self.0;
         source.validate()?;
         let operation_file = context.file_view(&source.file, source.identity.as_ref());
         let additional = if restore_provider_drivers {
@@ -674,9 +739,8 @@ impl PreparedVortexSource {
             )?;
             drop(operation_file);
             drop(workers);
-            context.drain_io();
+            context.check_cancelled()?;
             source.validate()?;
-            source.runtime.executions.fetch_add(1, Ordering::Relaxed);
             let mut snapshot =
                 segment_reuse::SegmentReuseSnapshot::skipped(policy, &source.runtime.memory);
             snapshot.provider_background_workers = provider_workers;
@@ -706,6 +770,7 @@ impl PreparedVortexSource {
         source.validate()?;
         let result = if result.is_err() && attempt.retry_requested {
             drop(result);
+            context.check_cancelled()?;
             snapshot.uncached_replays = 1;
             snapshot.discarded_attempt_nanos =
                 u64::try_from(started.elapsed().as_nanos()).map_err(native_error)?;
@@ -730,11 +795,10 @@ impl PreparedVortexSource {
         };
         drop(operation_file);
         drop(workers);
-        context.drain_io();
+        context.check_cancelled()?;
         if source.runtime.serving.is_some() {
             source.validate()?;
         }
-        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((result, snapshot))
     }
     pub(crate) fn file(&self) -> &VortexFile {
@@ -1224,3 +1288,7 @@ mod concurrent_serving_tests;
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_file_pruning_tests.rs"]
 mod file_pruning_tests;
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "memory_file_composition_tests.rs"]
+mod composition_tests;

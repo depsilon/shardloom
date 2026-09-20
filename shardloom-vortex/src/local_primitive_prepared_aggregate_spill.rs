@@ -6,8 +6,8 @@ use super::super::{
     weighted_count_spill_admission, weighted_count_spill_query,
 };
 use super::{
-    LocalVortexAggregateScan, PreparedVortexAggregate, Result, VortexQueryPrimitiveRequest, failed,
-    required_simple_aggregate,
+    LocalVortexAggregateScan, NativeExecutionContext, PreparedVortexAggregate, Result,
+    VortexQueryPrimitiveRequest, failed, required_simple_aggregate,
 };
 use shardloom_exec::compute_pool::CancellationToken;
 use std::sync::Arc;
@@ -41,14 +41,17 @@ pub(super) fn validate_schema(request: &VortexQueryPrimitiveRequest, dtype: &DTy
 }
 
 impl PreparedVortexAggregate {
-    pub(super) fn read_spill(&self) -> Result<LocalVortexAggregateScan> {
+    pub(super) fn read_spill(
+        &self,
+        context: Option<&NativeExecutionContext<'_>>,
+    ) -> Result<LocalVortexAggregateScan> {
         let uri = self
             .request
             .source_uri
             .as_ref()
             .ok_or_else(|| failed("prepared source URI is absent"))?;
         if weighted_count_spill_admission::request_admitted(&self.request) {
-            self.run_spill(|file, session, runtime| {
+            self.run_spill(context, |file, session, runtime| {
                 weighted_count_spill_query::execute(
                     uri,
                     &self.request,
@@ -61,7 +64,7 @@ impl PreparedVortexAggregate {
                 )
             })
         } else {
-            self.run_spill(|file, session, runtime| {
+            self.run_spill(context, |file, session, runtime| {
                 exact_distinct_pairs::spill_query::execute(
                     uri,
                     &self.request,
@@ -77,6 +80,7 @@ impl PreparedVortexAggregate {
 
     fn run_spill<T>(
         &self,
+        context: Option<&NativeExecutionContext<'_>>,
         execute: impl FnOnce(
             &VortexFile,
             &VortexSession,
@@ -88,18 +92,24 @@ impl PreparedVortexAggregate {
             .as_ref()
             .ok_or_else(|| failed("prepared spill policy is absent"))?;
         let cancellation = CancellationToken::from_shared_flag(Arc::clone(&spill.cancellation));
-        let ((mut scan, owner), drivers) =
-            self.source
-                .with_native_execution_controlled(&cancellation, |file, context| {
-                    let providers = self
-                        .temporary_provider_drivers
-                        .then(|| context.runtime().provider_drivers(context.cpu_lanes()))
-                        .transpose()?;
-                    let result = execute(file, context.native_session(), context.runtime())?;
-                    let drivers = providers.as_ref().map_or(0, |(_, count)| *count);
-                    drop(providers);
-                    Ok((result, drivers))
-                })?;
+        let run = |file: &VortexFile, context: &NativeExecutionContext<'_>| {
+            cancellation.check()?;
+            let providers = self
+                .temporary_provider_drivers
+                .then(|| context.runtime().provider_drivers(context.cpu_lanes()))
+                .transpose()?;
+            let result = execute(file, context.native_session(), context.runtime())?;
+            let drivers = providers.as_ref().map_or(0, |(_, count)| *count);
+            drop(providers);
+            cancellation.check()?;
+            Ok((result, drivers))
+        };
+        let ((mut scan, owner), drivers) = match context {
+            Some(context) => self.source.with_admitted_native_execution(context, run),
+            None => self
+                .source
+                .with_native_execution_controlled(&cancellation, run),
+        }?;
         // The returned owner keeps operator/result reservations until the source
         // boundary has validated the entire generation and joined its drivers.
         drop(owner);

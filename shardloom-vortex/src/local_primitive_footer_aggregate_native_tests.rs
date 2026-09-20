@@ -468,6 +468,7 @@ fn footer_aggregate_native_generation_is_checked_before_and_after_metadata_compl
                         &prepared.lowering,
                         Instant::now(),
                         None,
+                        None,
                     )?;
                     let work: Value = serde_json::from_str(&scan.result_summary).unwrap();
                     assert_eq!(work["values"], fixture.oracle());

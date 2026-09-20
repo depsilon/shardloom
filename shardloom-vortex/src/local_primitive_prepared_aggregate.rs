@@ -10,7 +10,7 @@ use super::{
     read_lowered_vortex_simple_aggregate_scan, required_simple_aggregate, simple_aggregate_report,
 };
 use crate::resident_session::{
-    PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
+    NativeExecutionContext, PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
     segment_reuse::SegmentReusePolicy,
 };
 use std::fmt::Write as _;
@@ -106,6 +106,8 @@ pub struct PreparedVortexAggregate {
     worker_pool: bool,
     temporary_provider_drivers: bool,
     reuse: Option<SegmentReusePolicy>,
+    #[cfg(feature = "vortex-write")]
+    memory_generation: Option<crate::memory_file_generation::MemoryFileGeneration>,
 }
 
 /// Preparation never executes a query. Native lowering and source generations
@@ -275,6 +277,25 @@ fn prepare_candidate_in_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexAggregate> {
+    let (policy, physical_policy) = prepared_policy(request, policy, session)?;
+    let uri = request
+        .source_uri
+        .as_ref()
+        .ok_or_else(|| failed("source URI is required"))?;
+    let path = local_vortex_path(uri, request.kind)?
+        .ok_or_else(|| failed("requires one local Vortex file"))?;
+    let source = session.prepare_file(path)?;
+    prepare_bound_aggregate(request, policy, physical_policy, session, source, None)
+}
+
+fn prepared_policy(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+) -> Result<(
+    VortexLocalPrimitiveExecutionPolicy,
+    VortexLocalPrimitivePhysicalPolicyReport,
+)> {
     canonical(request)?;
     validate_policy(policy)?;
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
@@ -284,13 +305,42 @@ fn prepare_candidate_in_session(
             "supplied session exceeds the requested memory policy",
         ));
     }
-    let uri = request
-        .source_uri
-        .as_ref()
-        .ok_or_else(|| failed("source URI is required"))?;
-    let path = local_vortex_path(uri, request.kind)?
-        .ok_or_else(|| failed("requires one local Vortex file"))?;
-    let source = session.prepare_file(path)?;
+    Ok((policy, physical_policy))
+}
+
+#[cfg(feature = "vortex-write")]
+pub(crate) fn prepare_memory_aggregate(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    generation: &crate::memory_file_generation::MemoryFileGeneration,
+    context: Option<&NativeExecutionContext<'_>>,
+) -> Result<PreparedVortexAggregate> {
+    if request.source_uri.as_ref() != Some(generation.source_uri()) {
+        return Err(failed(
+            "request URI does not identify the supplied immutable memory generation",
+        ));
+    }
+    let source = generation.retained_source();
+    let session = source.retained_session();
+    if let Some(context) = context {
+        session.validate_execution_context(context)?;
+    }
+    let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
+    let mut prepared =
+        prepare_bound_aggregate(request, policy, physical_policy, &session, source, context)?;
+    prepared.memory_generation = Some(generation.clone());
+    Ok(prepared)
+}
+
+fn prepare_bound_aggregate(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
+    session: &ResidentVortexSession,
+    source: PreparedVortexSource,
+    context: Option<&NativeExecutionContext<'_>>,
+) -> Result<PreparedVortexAggregate> {
+    let snapshot = session.snapshot();
     let (_, parallelism) = source.resource_limits();
     if parallelism > policy.resource_envelope.max_parallelism {
         return Err(failed("supplied session exceeds the requested CPU policy"));
@@ -311,7 +361,7 @@ fn prepare_candidate_in_session(
         && !aggregate_count_workers::restore_provider_drivers(request, source.dtype());
     let temporary_provider_drivers =
         snapshot.provider_background_workers == 0 && parallelism > 1 && !worker_pool;
-    let reuse = segment_reuse_policy(&source, &lowering)?;
+    let reuse = segment_reuse_policy(&source, &lowering, context)?;
     source.validate_generation()?;
     Ok(PreparedVortexAggregate {
         request: request.clone(),
@@ -323,6 +373,8 @@ fn prepare_candidate_in_session(
         worker_pool,
         temporary_provider_drivers,
         reuse,
+        #[cfg(feature = "vortex-write")]
+        memory_generation: None,
     })
 }
 
@@ -355,6 +407,7 @@ fn cap_session_cpu(
 fn segment_reuse_policy(
     source: &PreparedVortexSource,
     lowering: &AggregateLowering,
+    context: Option<&NativeExecutionContext<'_>>,
 ) -> Result<Option<SegmentReusePolicy>> {
     if !source.has_segment_reuse_field_root()
         || !matches!(lowering.pushdown, Some(super::PredicateExpr::And(_)))
@@ -368,7 +421,10 @@ fn segment_reuse_policy(
     lowering
         .pushdown
         .as_ref()
-        .map(|predicate| source.segment_reuse_policy(predicate, &projected))
+        .map(|predicate| match context {
+            Some(context) => source.segment_reuse_policy_in_context(context, predicate, &projected),
+            None => source.segment_reuse_policy(predicate, &projected),
+        })
         .transpose()
         .map(Option::flatten)
 }
@@ -415,14 +471,25 @@ impl PreparedVortexAggregate {
 
     fn read_with_output(
         &self,
-        mut output: Option<&mut super::aggregate_owned::OwnedAggregateFinalizer>,
+        output: Option<&mut super::aggregate_owned::OwnedAggregateFinalizer>,
     ) -> Result<LocalVortexAggregateScan> {
+        self.read_with_output_in_context(output, None)
+    }
+
+    fn read_with_output_in_context(
+        &self,
+        mut output: Option<&mut super::aggregate_owned::OwnedAggregateFinalizer>,
+        context: Option<&NativeExecutionContext<'_>>,
+    ) -> Result<LocalVortexAggregateScan> {
+        if let Some(context) = context {
+            self.session.validate_execution_context(context)?;
+        }
         #[cfg(feature = "vortex-write")]
         if required_simple_aggregate(&self.request)?.spill.is_some() {
             if output.is_some() {
                 return Err(failed("owned spill output is not yet admitted"));
             }
-            return self.read_spill();
+            return self.read_spill(context);
         }
         let uri = self
             .request
@@ -431,30 +498,43 @@ impl PreparedVortexAggregate {
             .ok_or_else(|| failed("prepared source URI is absent"))?;
         let memory = self.worker_pool.then(|| self.session.memory());
         if let Some(policy) = self.reuse {
-            let (mut scan, evidence) = self
-                .source
-                .with_native_execution_cached_retry_with_drivers(
+            let execute =
+                |file: &vortex::file::VortexFile,
+                 session: &vortex::session::VortexSession,
+                 runtime: &vortex::io::runtime::current::CurrentThreadRuntime,
+                 attempt: &mut crate::resident_session::SegmentReuseAttempt| {
+                    let mut retry =
+                        |error: &vortex::error::VortexError| attempt.request_uncached_retry(error);
+                    read_lowered_vortex_simple_aggregate_scan(
+                        uri,
+                        &self.request,
+                        self.policy,
+                        file,
+                        session,
+                        runtime,
+                        memory,
+                        Some(&mut retry),
+                        &self.lowering,
+                        std::time::Instant::now(),
+                        output.as_deref_mut(),
+                        context.map(NativeExecutionContext::cancellation),
+                    )
+                };
+            let (mut scan, evidence) = match context {
+                Some(context) => self
+                    .source
+                    .with_admitted_native_execution_cached_retry_with_drivers(
+                        context,
+                        policy,
+                        self.temporary_provider_drivers,
+                        execute,
+                    ),
+                None => self.source.with_native_execution_cached_retry_with_drivers(
                     policy,
                     self.temporary_provider_drivers,
-                    |file, session, runtime, attempt| {
-                        let mut retry = |error: &vortex::error::VortexError| {
-                            attempt.request_uncached_retry(error)
-                        };
-                        read_lowered_vortex_simple_aggregate_scan(
-                            uri,
-                            &self.request,
-                            self.policy,
-                            file,
-                            session,
-                            runtime,
-                            memory,
-                            Some(&mut retry),
-                            &self.lowering,
-                            std::time::Instant::now(),
-                            output.as_deref_mut(),
-                        )
-                    },
-                )?;
+                    execute,
+                ),
+            }?;
             scan.restored_provider_background_workers = scan
                 .restored_provider_background_workers
                 .max(evidence.provider_background_workers);
@@ -462,23 +542,31 @@ impl PreparedVortexAggregate {
             return Ok(scan);
         }
         if self.temporary_provider_drivers {
-            let (mut scan, drivers) =
-                self.source
-                    .with_native_execution_temporary_drivers(|file, session, runtime| {
-                        read_lowered_vortex_simple_aggregate_scan(
-                            uri,
-                            &self.request,
-                            self.policy,
-                            file,
-                            session,
-                            runtime,
-                            None,
-                            None,
-                            &self.lowering,
-                            std::time::Instant::now(),
-                            output.as_deref_mut(),
-                        )
-                    })?;
+            let execute =
+                |file: &vortex::file::VortexFile,
+                 session: &vortex::session::VortexSession,
+                 runtime: &vortex::io::runtime::current::CurrentThreadRuntime| {
+                    read_lowered_vortex_simple_aggregate_scan(
+                        uri,
+                        &self.request,
+                        self.policy,
+                        file,
+                        session,
+                        runtime,
+                        None,
+                        None,
+                        &self.lowering,
+                        std::time::Instant::now(),
+                        output.as_deref_mut(),
+                        context.map(NativeExecutionContext::cancellation),
+                    )
+                };
+            let (mut scan, drivers) = match context {
+                Some(context) => self
+                    .source
+                    .with_admitted_native_execution_temporary_drivers(context, execute),
+                None => self.source.with_native_execution_temporary_drivers(execute),
+            }?;
             let mut summary: serde_json::Value = serde_json::from_str(&scan.result_summary)
                 .map_err(|error| failed(&error.to_string()))?;
             summary["aggregate_provider_background_workers"] = drivers.into();
@@ -488,21 +576,33 @@ impl PreparedVortexAggregate {
                 scan.restored_provider_background_workers.max(drivers);
             return Ok(scan);
         }
-        self.source.with_native_execution(|file, session, runtime| {
-            read_lowered_vortex_simple_aggregate_scan(
-                uri,
-                &self.request,
-                self.policy,
-                file,
-                session,
-                runtime,
-                memory,
-                None,
-                &self.lowering,
-                std::time::Instant::now(),
-                output,
-            )
-        })
+        let execute =
+            |file: &vortex::file::VortexFile,
+             session: &vortex::session::VortexSession,
+             runtime: &vortex::io::runtime::current::CurrentThreadRuntime| {
+                read_lowered_vortex_simple_aggregate_scan(
+                    uri,
+                    &self.request,
+                    self.policy,
+                    file,
+                    session,
+                    runtime,
+                    memory,
+                    None,
+                    &self.lowering,
+                    std::time::Instant::now(),
+                    output,
+                    context.map(NativeExecutionContext::cancellation),
+                )
+            };
+        match context {
+            Some(context) => self
+                .source
+                .with_admitted_native_execution(context, |file, context| {
+                    execute(file, context.native_session(), context.runtime())
+                }),
+            None => self.source.with_native_execution(execute),
+        }
     }
 
     /// Execute fresh complete aggregate state, then construct the ordinary report
@@ -512,6 +612,34 @@ impl PreparedVortexAggregate {
     /// Rejects source changes, pressure, provider failures or uncertified results.
     pub fn execute(&self) -> Result<ExecutedVortexAggregate> {
         let mut executed = self.execute_native()?;
+        self.annotate_prepared_execution(&mut executed)?;
+        Ok(executed)
+    }
+
+    /// Execute with cooperative operation cancellation. Ordinary aggregate scans
+    /// check the operation token before admission, at chunk/stage boundaries and
+    /// before publication. Explicit spill kernels observe their policy token;
+    /// the operation token is checked before and after that spill stage. Running
+    /// provider calls and workers must drain before this returns.
+    ///
+    /// # Errors
+    /// Returns ordinary native admission, execution, generation and cancellation
+    /// errors. Cancellation does not change this handle's lowering or source.
+    pub fn execute_cancellable(
+        &self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<ExecutedVortexAggregate> {
+        let mut executed = self
+            .source
+            .with_native_execution_controlled(cancellation, |_, context| {
+                self.execute_in_context(context)
+            })?;
+        executed.runtime = self.session.snapshot();
+        self.annotate_prepared_execution(&mut executed)?;
+        Ok(executed)
+    }
+
+    fn annotate_prepared_execution(&self, executed: &mut ExecutedVortexAggregate) -> Result<()> {
         let _ = write!(
             executed
                 .native_io_certificate
@@ -522,11 +650,22 @@ impl PreparedVortexAggregate {
             executed.runtime.completed_executions,
             required_simple_aggregate(&self.request)?.spill.is_none()
         );
-        Ok(executed)
+        Ok(())
     }
 
     fn execute_native(&self) -> Result<ExecutedVortexAggregate> {
         let scan = self.read()?;
+        self.certify(&scan)
+    }
+
+    /// Execute under the current native operation, retaining the existing
+    /// aggregate kernels and stage-owned workers without another admission.
+    pub(crate) fn execute_in_context(
+        &self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ExecutedVortexAggregate> {
+        let scan = self.read_with_output_in_context(None, Some(context))?;
+        context.check_cancelled()?;
         self.certify(&scan)
     }
 
@@ -564,6 +703,14 @@ impl PreparedVortexAggregate {
             .provider_background_workers
             .max(scan.restored_provider_background_workers);
         let native_io_certificate = local_primitive_native_io_certificate(&self.request, &report)?;
+        #[cfg(feature = "vortex-write")]
+        let native_io_certificate = {
+            let mut certificate = native_io_certificate;
+            if let Some(generation) = &self.memory_generation {
+                generation.annotate_aggregate_certificate(&mut certificate)?;
+            }
+            certificate
+        };
         if !native_io_certificate.is_certified() || report.has_errors() {
             return Err(failed(
                 "aggregate execution did not produce a certified native report",

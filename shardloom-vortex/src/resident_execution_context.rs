@@ -39,6 +39,7 @@ pub struct ResidentCallTiming {
 /// jobs before returning. Running OS reads drain before this grant is released.
 pub struct NativeExecutionContext<'a> {
     owner: &'a RuntimeOwner,
+    class: CallClass,
     cancellation: CancellationToken,
     io: Option<Arc<IoScope>>,
     admitted: Instant,
@@ -74,6 +75,7 @@ impl RuntimeOwner {
         };
         Ok(NativeExecutionContext {
             owner: self,
+            class,
             cancellation,
             io,
             admitted,
@@ -83,6 +85,17 @@ impl RuntimeOwner {
 }
 
 impl NativeExecutionContext<'_> {
+    /// Metadata-only admission cannot be expanded into scanning or construction.
+    pub(crate) fn check_general_execution(&self) -> Result<()> {
+        self.check_cancelled()?;
+        if self.class != CallClass::General {
+            return Err(resident_error(
+                "native execution requires a general operation grant",
+            ));
+        }
+        Ok(())
+    }
+
     /// Effective CPU grant includes the calling thread.
     #[must_use]
     pub fn cpu_lanes(&self) -> usize {
