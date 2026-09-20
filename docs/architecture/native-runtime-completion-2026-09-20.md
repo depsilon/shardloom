@@ -175,6 +175,23 @@ preserve this timing cost for the later profiling cycle.
 
 ### PR #1455 review follow-up
 
+Interrupted recovery also has a public retry path: both `VortexSortSpillPolicy`
+and `VortexAggregateSpillPolicy` expose `renew_cancellation()`. It revalidates and
+preserves workspace/quota/memory settings while returning a fresh owner; old
+clones remain cancelled. The prepared aggregate renewal method shares this
+constructor. Recovery tests interrupt after one real run deletion in all three
+namespaces, verify the unchanged marker and remaining run, reject the cancelled
+scope again, and finish cleanup using the renewed public policy. No test resets
+the private flag. This changes cancellation-scope construction, not query kernels
+or recovery ownership validation.
+All 12 focused run-store tests passed in
+`admission-runtime-completion-public-recovery-1.json` (14.129308 seconds; log
+SHA-256 `354342655239b3e02d3ba12a54086356409309722418bcbf1e258f42c2cf2c58`).
+Native CLI/Vortex all-target Clippy passed in
+`admission-runtime-completion-public-recovery-clippy-2.json` (18.942859 seconds;
+log SHA-256 `fdb10ab4b7f42f7eb66f3eacebc7f4a3feb7e7db9a836b88d1a28356e4b00c37`).
+Formatting and public-status documentation validation passed.
+
 Review identified two additional ownership boundaries. Waiting-queue bounds must
 not reject an immediately runnable call on a free reserved metadata lane; direct
 admission still honors earlier waiters in the same class, cancellation, closed
