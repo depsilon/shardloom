@@ -17,23 +17,45 @@ use shardloom_core::{Result, ShardLoomError};
 use crate::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 
 #[derive(Debug, Clone, Default)]
-pub struct CancellationToken(Arc<AtomicBool>);
+pub struct CancellationToken {
+    flag: Arc<AtomicBool>,
+    parent: Option<Arc<Self>>,
+}
 
 impl CancellationToken {
     /// Shares cancellation with an existing operation owner. Clones keep the
     /// same flag alive; neither construction nor normal destruction cancels it.
     #[must_use]
     pub fn from_shared_flag(flag: Arc<AtomicBool>) -> Self {
-        Self(flag)
+        Self { flag, parent: None }
+    }
+
+    /// Observe both an existing owner flag and its enclosing operation. Cancelling
+    /// this token changes only the owner flag, never the enclosing operation.
+    #[must_use]
+    pub fn from_shared_flag_with_parent(flag: Arc<AtomicBool>, parent: &Self) -> Self {
+        Self {
+            flag,
+            parent: Some(Arc::new(parent.clone())),
+        }
     }
 
     pub fn cancel(&self) {
-        self.0.store(true, Ordering::Release);
+        self.flag.store(true, Ordering::Release);
     }
 
     #[must_use]
     pub fn is_cancelled(&self) -> bool {
-        self.0.load(Ordering::Acquire)
+        let mut current = self;
+        loop {
+            if current.flag.load(Ordering::Acquire) {
+                return true;
+            }
+            match &current.parent {
+                Some(parent) => current = parent,
+                None => return false,
+            }
+        }
     }
 
     /// # Errors
@@ -361,6 +383,31 @@ fn pool_error(message: &str) -> ShardLoomError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn linked_cancellation_observes_both_owners_without_cancelling_ancestors() {
+        let parent = CancellationToken::default();
+        let owner = Arc::new(AtomicBool::new(false));
+        let child = CancellationToken::from_shared_flag_with_parent(owner.clone(), &parent);
+        let grandchild = CancellationToken::from_shared_flag_with_parent(
+            Arc::new(AtomicBool::new(false)),
+            &child,
+        );
+        assert!(grandchild.check().is_ok());
+        child.cancel();
+        assert!(owner.load(Ordering::Acquire));
+        assert!(grandchild.check().is_err());
+        assert!(parent.check().is_ok());
+
+        let fresh_owner = Arc::new(AtomicBool::new(false));
+        let renewed = CancellationToken::from_shared_flag_with_parent(fresh_owner.clone(), &parent);
+        assert!(renewed.check().is_ok());
+        parent.cancel();
+        assert!(renewed.check().is_err());
+        assert!(!fresh_owner.load(Ordering::Acquire));
+        let pre_cancelled = CancellationToken::from_shared_flag_with_parent(fresh_owner, &parent);
+        assert!(pre_cancelled.check().is_err());
+    }
 
     #[test]
     fn cancellation_token_shares_existing_flag_in_both_directions() {

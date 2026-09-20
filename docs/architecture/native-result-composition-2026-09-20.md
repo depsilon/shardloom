@@ -29,6 +29,13 @@ immutable generation. Retain input reservations while serialization and assemble
 segments overlap, reserve adapter reference vectors before allocation, and keep
 untracked upstream serializer/layout internals explicit in the evidence.
 
+Lazy slices and validity expressions are completed through the same native
+recursive-canonical provider used by persisted sinks, once per bounded column
+leaf. Already serializable encodings remain encoded; a Chunked array remains one
+Flat stream item. Construction evidence counts those completion calls and column
+rows separately from query execution. These counts do not measure physical
+decodes or copies inside upstream providers.
+
 Source-based aggregate preparation must reuse current lowering, physical-key
 proofs, exact partitions, weighted reducers and owned finalizers. Bind a stable
 opaque memory URI to the immutable generation; do not label it as a filesystem
@@ -49,6 +56,10 @@ attempt cancellation so a pressure replay cannot poison the whole operation.
 Current explicit spill kernels keep their separate policy token; a borrowed
 operation token is observed before/after that stage. Extending parent-token
 propagation inside spill kernels remains a subsequent cancellation obligation.
+Public cancellable admission observes both the spill policy and enclosing operation
+tokens while queued. Either owner can cancel admission; neither propagates
+cancellation backwards into the other owner. Renewing a spill policy retains its
+resource configuration and detaches stale cancellation owners.
 
 Acceptance covers typed empty result/source/aggregate/sink, multiple batches over
 65,536 rows, nullable and mixed-width fields, dictionary and sliced-text

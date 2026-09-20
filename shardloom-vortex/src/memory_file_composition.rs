@@ -71,10 +71,11 @@ impl MemoryFileGeneration {
         source.statistics_availability = "exact_footer_row_count;file_statistics_absent".into();
         let work = self.evidence();
         write!(certificate.source_pushdown_report.proof_basis,
-            ";memory_generation_uri={};immutable_generation_owner_retained=true;source_specific_file_opens=0;construction_array_serializer_calls={};construction_segment_assembly_bytes_copied={};construction_footer_serializer_calls={};construction_footer_bytes={};cumulative_memory_segment_requests={};cumulative_memory_segment_bytes_returned={};construction_excluded_from_query_work=true;no_zero_copy_composition_claim=true",
+            ";memory_generation_uri={};immutable_generation_owner_retained=true;source_specific_file_opens=0;construction_array_serializer_calls={};construction_segment_assembly_bytes_copied={};construction_footer_serializer_calls={};construction_footer_bytes={};construction_native_materialization_calls={};construction_native_materialization_rows={};cumulative_memory_segment_requests={};cumulative_memory_segment_bytes_returned={};construction_excluded_from_query_work=true;no_zero_copy_composition_claim=true",
             self.source_uri().as_str(), work.array_serializer_calls,
             work.segment_assembly_bytes_copied, work.construction_footer_serializer_calls,
-            work.construction_footer_bytes, work.memory_segment_requests,
+            work.construction_footer_bytes, work.construction_native_materialization_calls,
+            work.construction_native_materialization_rows, work.memory_segment_requests,
             work.memory_segment_bytes_returned,
         ).map_err(generation_error)?;
         Ok(())

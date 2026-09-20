@@ -22,7 +22,7 @@ use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
-        ArrayContext, ArrayRef, IntoArray as _,
+        ArrayContext, ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{
             Primitive, PrimitiveArray, Struct, VarBin, VarBinArray,
             primitive::PrimitiveArrayExt as _, struct_::StructArrayExt as _,
@@ -31,6 +31,7 @@ use vortex::{
         buffer::BufferHandle,
         dtype::{DType, PType},
         memory::HostAllocatorRef,
+        stream::ArrayStreamAdapter,
         validity::Validity,
     },
     buffer::{Alignment, Buffer, ByteBuffer},
@@ -124,6 +125,10 @@ pub struct MemoryFileGenerationEvidence {
     pub row_group_offset_bytes_built: u64,
     pub construction_footer_serializer_calls: u64,
     pub construction_footer_bytes: u64,
+    /// Native completion of lazy expressions/slices before serialization.
+    /// Calls and column rows, not physical decode/copy bytes inside providers.
+    pub construction_native_materialization_calls: u64,
+    pub construction_native_materialization_rows: u64,
 }
 
 /// Completed durable publication of precisely the generation's encoded bytes.
@@ -304,6 +309,8 @@ impl MemoryFileGeneration {
             row_group_offset_bytes_built: self.0.row_group_offset_bytes_built,
             construction_footer_serializer_calls: 1,
             construction_footer_bytes: self.0.construction_footer_bytes,
+            construction_native_materialization_calls: self.0.segments.array_work.materializations,
+            construction_native_materialization_rows: self.0.segments.array_work.materialized_rows,
         }
     }
 
@@ -642,6 +649,13 @@ struct GenerationBuilder<'a> {
     sink: Arc<MemorySegmentBuilder>,
 }
 
+#[derive(Default)]
+struct GenerationArrayWork {
+    offset_bytes: u64,
+    materializations: u64,
+    materialized_rows: u64,
+}
+
 impl<'a> GenerationBuilder<'a> {
     fn new(
         session: &ResidentVortexSession,
@@ -733,10 +747,12 @@ impl<'a> GenerationBuilder<'a> {
         context: &ArrayContext,
         native: &VortexSession,
         runtime: &CurrentThreadRuntime,
-    ) -> Result<(LayoutRef, u64)> {
+    ) -> Result<(LayoutRef, GenerationArrayWork)> {
         let fields = self.array.as_opt::<Struct>().expect("admitted Struct");
         let mut children = Vec::with_capacity(self.columns);
-        let mut offset_bytes_built = 0_u64;
+        let mut work = GenerationArrayWork::default();
+        let allowed = context.to_ids().into_iter().collect();
+        let mut execution = native.create_execution_ctx();
         for field in fields.iter_unmasked_fields() {
             let mut leaves = Vec::with_capacity(self.row_groups);
             for start in (0..self.array.len()).step_by(self.geometry.row_group_rows) {
@@ -746,9 +762,22 @@ impl<'a> GenerationBuilder<'a> {
                     .min(self.array.len());
                 let (chunk, offset_bytes) =
                     slice_generation_column(field, start..end, &self.sink.allocator)?;
-                offset_bytes_built = offset_bytes_built
+                work.offset_bytes = work
+                    .offset_bytes
                     .checked_add(offset_bytes)
                     .ok_or_else(|| generation_error("row-group offset work counter overflow"))?;
+                let (chunk, materialized) =
+                    crate::local_primitives::native_flat_layout::complete_for_serialization(
+                        chunk,
+                        &allowed,
+                        &mut execution,
+                    )
+                    .map_err(generation_error)?;
+                if materialized {
+                    work.materializations += 1;
+                    work.materialized_rows += chunk.len() as u64;
+                }
+                self.control.check()?;
                 let (pointer, eof) = SequenceId::root().split();
                 let leaf = runtime
                     .block_on(
@@ -757,7 +786,11 @@ impl<'a> GenerationBuilder<'a> {
                             .write_stream(
                                 LayoutWriterContext::new(context.clone()),
                                 self.sink.clone(),
-                                chunk.to_array_stream().sequenced(pointer),
+                                ArrayStreamAdapter::new(
+                                    chunk.dtype().clone(),
+                                    futures::stream::iter([Ok(chunk)]),
+                                )
+                                .sequenced(pointer),
                                 eof,
                                 native,
                             ),
@@ -795,7 +828,7 @@ impl<'a> GenerationBuilder<'a> {
                 children,
             )
             .into_layout(),
-            offset_bytes_built,
+            work,
         ))
     }
 
@@ -809,7 +842,8 @@ impl<'a> GenerationBuilder<'a> {
         enabled.sort();
         let context =
             ArrayContext::new(enabled.clone()).with_allowed_ids(enabled.into_iter().collect());
-        let (layout, offset_bytes_built) = self.write_layout(&context, native, runtime)?;
+        let (layout, array_work) = self.write_layout(&context, native, runtime)?;
+        let offset_bytes_built = array_work.offset_bytes;
         let owned = std::mem::take(
             &mut *self
                 .sink
@@ -844,6 +878,7 @@ impl<'a> GenerationBuilder<'a> {
         self.control.check()?;
         let segments = Arc::new(MemorySegments {
             segments: owned,
+            array_work,
             _metadata: self.metadata,
             requests: AtomicU64::new(0),
             returned_bytes: AtomicU64::new(0),
@@ -1047,6 +1082,7 @@ fn validate_publication_parent(
 
 struct MemorySegments {
     segments: Vec<MemorySegment>,
+    array_work: GenerationArrayWork,
     _metadata: Arc<MemoryLease>,
     requests: AtomicU64,
     returned_bytes: AtomicU64,
@@ -1126,7 +1162,9 @@ fn slice_generation_column(
         return Ok((slice, 0));
     };
     match offsets.ptype() {
-        PType::U8 => compact_generation_varbin(&slice, &varbin, offsets.as_slice::<u8>(), allocator),
+        PType::U8 => {
+            compact_generation_varbin(&slice, &varbin, offsets.as_slice::<u8>(), allocator)
+        }
         PType::U16 => {
             compact_generation_varbin(&slice, &varbin, offsets.as_slice::<u16>(), allocator)
         }

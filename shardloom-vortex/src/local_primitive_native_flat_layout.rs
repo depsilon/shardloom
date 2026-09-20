@@ -6,6 +6,7 @@
 use futures::{StreamExt as _, future::BoxFuture, stream};
 use std::sync::Arc;
 use vortex::{
+    array::{ArrayId, ArrayRef, ExecutionCtx, IntoArray as _, RecursiveCanonical},
     error::{VortexResult, vortex_err},
     layout::{
         LayoutRef, LayoutStrategy, LayoutWriterContext, layout_children,
@@ -18,6 +19,27 @@ use vortex::{
     },
     session::VortexSession,
 };
+
+/// Preserve admitted encodings; complete only pending native work that cannot
+/// be serialized in the selected file edition. This is an explicit native
+/// materialization boundary shared by durable and in-memory native sinks.
+pub(crate) fn complete_for_serialization(
+    array: ArrayRef,
+    allowed: &std::collections::BTreeSet<ArrayId>,
+    context: &mut ExecutionCtx,
+) -> VortexResult<(ArrayRef, bool)> {
+    if array
+        .depth_first_traversal()
+        .any(|node| !allowed.contains(&node.encoding_id()))
+    {
+        Ok((
+            array.execute::<RecursiveCanonical>(context)?.0.into_array(),
+            true,
+        ))
+    } else {
+        Ok((array, false))
+    }
+}
 
 /// The caller reserves the admitted layout metadata before constructing a
 /// writer. `max_chunks` also bounds the retained layout-reference vector.

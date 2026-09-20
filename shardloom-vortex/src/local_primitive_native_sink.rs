@@ -21,7 +21,7 @@ use std::{
 };
 use vortex::{
     array::{
-        IntoArray as _, RecursiveCanonical, VortexSessionExecute as _,
+        IntoArray as _, VortexSessionExecute as _,
         dtype::{DType, Nullability},
     },
     editions::{ComponentKind, EditionSessionExt as _},
@@ -382,7 +382,7 @@ impl NativeSinkPlan {
                             usize::try_from(limit.saturating_sub(rows_written))
                                 .unwrap_or(usize::MAX)
                         });
-                        let mut array = if array.len() > remaining {
+                        let array = if array.len() > remaining {
                             array.slice(0..remaining).map_err(vortex_error)?
                         } else {
                             array
@@ -390,16 +390,12 @@ impl NativeSinkPlan {
                         // File editions exclude lazy filter/slice/expression arrays.
                         // Preserve serializable encoded batches; only pending native
                         // work is completed into provider-owned canonical buffers.
-                        if array
-                            .depth_first_traversal()
-                            .any(|node| !allowed_encodings.contains(&node.encoding_id()))
-                        {
-                            array = array
-                                .execute::<RecursiveCanonical>(&mut context)
-                                .map_err(vortex_error)?
-                                .0
-                                .into_array();
-                        }
+                        let (array, _) = native_flat_layout::complete_for_serialization(
+                            array,
+                            &allowed_encodings,
+                            &mut context,
+                        )
+                        .map_err(vortex_error)?;
                         rows_written = rows_written
                             .checked_add(usize_to_u64(array.len())?)
                             .ok_or_else(|| sink_error("native sink row count overflow"))?;

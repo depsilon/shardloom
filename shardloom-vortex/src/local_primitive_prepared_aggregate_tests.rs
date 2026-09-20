@@ -234,10 +234,16 @@ fn prepared_admission_denial_reports_actual_drivers_and_releases_them_before_reu
         ));
         assert!(prepared.worker_pool);
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        for (index, pressure) in [false, true, false].into_iter().enumerate() {
+        for (index, pressure) in [false, true, false, true, false].into_iter().enumerate() {
             let denied_before = session.memory().snapshot().denied_reservations;
             ADMISSION_TEST_PRESSURE.with(|current| current.set(pressure));
-            let result = prepared.execute().unwrap();
+            let result = if index < 3 {
+                prepared.execute().unwrap()
+            } else {
+                prepared.execute_cancellable(
+                    &shardloom_exec::compute_pool::CancellationToken::default(),
+                ).unwrap()
+            };
             certified(&result, u64::try_from(index + 1).unwrap());
             assert!(!ADMISSION_TEST_PRESSURE.with(std::cell::Cell::get));
             let summary = payload(&result.report);

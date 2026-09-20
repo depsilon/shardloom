@@ -123,6 +123,8 @@ fn assert_memory_provenance(executed: &ExecutedVortexAggregate, uri: &DatasetUri
         "immutable_generation_owner_retained=true",
         "source_specific_file_opens=0",
         "construction_excluded_from_query_work=true",
+        "construction_native_materialization_calls=",
+        "construction_native_materialization_rows=",
         "no_zero_copy_composition_claim=true",
     ] {
         assert!(proof.contains(marker), "missing {marker}: {proof}");
@@ -542,6 +544,18 @@ fn composition_nullable_struct_batches_preserve_logical_fields_and_mixed_widths(
         Nullability::NonNullable,
     );
     assert_eq!(generation.dtype(), &expected_dtype);
+    assert!(
+        generation
+            .evidence()
+            .construction_native_materialization_calls
+            > 0
+    );
+    assert!(
+        generation
+            .evidence()
+            .construction_native_materialization_rows
+            >= 6
+    );
     let result = generation
         .prepare_projection(&["small", "wide", "text"], None, 6, 64 << 10)
         .unwrap()

@@ -640,12 +640,31 @@ impl PreparedVortexAggregate {
         &self,
         cancellation: &shardloom_exec::compute_pool::CancellationToken,
     ) -> Result<ExecutedVortexAggregate> {
+        // Admission must observe the spill owner even while the enclosing call
+        // waits for a lane. Neither cancellation source may cancel the other.
+        let cancellation = required_simple_aggregate(&self.request)?
+            .spill
+            .as_ref()
+            .map_or_else(
+                || cancellation.clone(),
+                |spill| {
+                    shardloom_exec::compute_pool::CancellationToken::from_shared_flag_with_parent(
+                        std::sync::Arc::clone(&spill.cancellation),
+                        cancellation,
+                    )
+                },
+            );
         let mut executed = self
             .source
-            .with_native_execution_controlled(cancellation, |_, context| {
+            .with_native_execution_controlled(&cancellation, |_, context| {
                 self.execute_in_context(context)
             })?;
+        let restored_providers = executed.runtime.provider_background_workers;
         executed.runtime = self.session.snapshot();
+        executed.runtime.provider_background_workers = executed
+            .runtime
+            .provider_background_workers
+            .max(restored_providers);
         self.annotate_prepared_execution(&mut executed)?;
         Ok(executed)
     }
