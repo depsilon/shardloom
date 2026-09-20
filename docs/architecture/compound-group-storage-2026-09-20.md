@@ -1,6 +1,7 @@
 # Compound group storage attribution
 
 Status: retained candidate; paired material gates, Full43 and broad checks passed.
+[PR #1454](https://github.com/depsilon/shardloom/pull/1454) carries this change.
 
 This follows PR #1453 under PERF-03/06/09/12 and RFC 0044. Q17 already
 uses exact complete-key partitions; adding partitions or removing a recount

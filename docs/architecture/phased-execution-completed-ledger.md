@@ -18,7 +18,8 @@ phase plan first.
 ### Recent Completed Session Ledger
 
 - [x] Retained dense payload storage for compound COUNT/DISTINCT directories.
-  - Date: 2026-09-20. Runtime `dc4ce81a` replaces empty full-record slots
+  - Date: 2026-09-20. [PR #1454](https://github.com/depsilon/shardloom/pull/1454).
+    Runtime `dc4ce81a` replaces empty full-record slots
     with native-width index directories and dense reservation-owned pages.
     Exact keys, counts, domains, partition routing and pressure contracts remain.
   - Q17 paired fastest complete calls improve 4.072863 to 2.579536 s,

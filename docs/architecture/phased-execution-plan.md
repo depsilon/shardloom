@@ -347,7 +347,8 @@ string records. Q17 paired fastest complete calls improve 4.072863 to
 All 24 paired and 129 Full43 complete values pass; Q11/Q14/Q15/Q17 use the
 existing family. Broad gates pass: 3,424 workspace tests, 1,865 native tests,
 formatting and both Clippy surfaces. The observed Full43 best sum is
-64.551416 s, with no whole-suite causal claim. After this candidate merges,
+64.551416 s, with no whole-suite causal claim. After
+[PR #1454](https://github.com/depsilon/shardloom/pull/1454) merges,
 attribute Q10 mixed-measure exact DISTINCT updates and ownership. Its existing
 packed-pair preunion and chunk group partials remain shipped foundations;
 do not propose them again as new work. Apply the same material retain/drop gates.
