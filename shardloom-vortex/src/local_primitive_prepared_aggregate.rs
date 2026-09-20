@@ -374,6 +374,35 @@ fn segment_reuse_policy(
 }
 
 impl PreparedVortexAggregate {
+    /// Start a fresh cancellation scope for this prepared spill handle while
+    /// retaining its source and policy. Call after a cancelled execution has
+    /// returned, then use the returned policy's `cancel()` to stop the next call.
+    /// Old policy clones keep their old cancellation scope and cannot cancel a
+    /// renewed execution. Exclusive access prevents renewing an active call.
+    /// No source is reopened and no query state or answer is retained.
+    ///
+    /// # Errors
+    /// Rejects handles without an explicit spill policy or invalid policy bounds.
+    #[cfg(feature = "vortex-write")]
+    pub fn renew_spill_cancellation(&mut self) -> Result<crate::VortexAggregateSpillPolicy> {
+        let previous = required_simple_aggregate(&self.request)?
+            .spill
+            .as_ref()
+            .ok_or_else(|| failed("cancellation renewal requires a prepared spill policy"))?;
+        let renewed = crate::VortexAggregateSpillPolicy::new(
+            previous.workspace.clone(),
+            previous.quota_bytes,
+            previous.memory_bytes,
+        )?;
+        self.request
+            .simple_aggregate
+            .as_mut()
+            .ok_or_else(|| failed("prepared aggregate request is absent"))?
+            .spill = Some(renewed.clone());
+        self.lowering.rewrite.aggregate.spill = Some(renewed.clone());
+        Ok(renewed)
+    }
+
     /// Read-only cumulative session counters; unrelated handles can also advance them.
     #[must_use]
     pub fn snapshot(&self) -> ResidentSessionSnapshot {

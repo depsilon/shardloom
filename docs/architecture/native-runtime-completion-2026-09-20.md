@@ -162,6 +162,18 @@ attribute the difference solely to host contention. Both roles used the same
 for tested availability and ownership behavior, without a speedup claim, and
 preserve this timing cost for the later profiling cycle.
 
+### PR #1455 review follow-up
+
+Review identified two additional ownership boundaries. Waiting-queue bounds must
+not reject an immediately runnable call on a free reserved metadata lane; direct
+admission still honors earlier waiters in the same class, cancellation, closed
+admission and the CPU ceiling. Separately, cancelled prepared spill handles now
+provide `renew_spill_cancellation(&mut self)` to retain the source/configuration
+with a fresh cancellation scope. Old policy clones remain scoped to the old call;
+exclusive mutable access prevents renewal during active execution. Tests exercise
+the public cancellation/renewal methods rather than resetting a private flag.
+Follow-up validation and the final runtime commit are recorded after these fixes.
+
 ## Finite availability inventory
 
 The completion scope is the existing native unary families, the four relational

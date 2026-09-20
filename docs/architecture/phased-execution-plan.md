@@ -2452,10 +2452,11 @@ and memory gates, Full43 and broad checks. Preserve its per-chunk weighted count
 and dependency proofs. Q29 dictionary validation reuse and Q18 source-order
 candidate filtering have since merged in PRs #1452 and #1453. The Q34/Q35
 reconciliation screen is closed without a retained replacement. The
-compound dense-storage candidate passes paired gates, Full43 and broad checks;
-after merge, Q10 mixed-measure exact DISTINCT attribution is next under the
-material gate at the start of Planned. Preserve its existing packed-pair
-preunion and chunk group partials.
+compound dense-storage candidate merged in PR #1454 after paired gates, Full43
+and broad checks. Q10 mixed-measure exact DISTINCT attribution remains the next
+query profiling target, deferred behind the maintainer's native runtime completion
+priority at the start of Planned. Preserve its existing packed-pair preunion and
+chunk group partials.
 Broader ingest, serving and delivery obligations remain open. The historical inventory
 in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
 already-shipped families.

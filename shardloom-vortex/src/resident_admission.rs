@@ -72,6 +72,9 @@ struct Ticket {
     bytes: u64,
 }
 
+#[cfg(test)]
+pub(super) const TICKET_METADATA_BYTES: u64 = size_of::<Ticket>() as u64;
+
 struct State {
     queue: Vec<Ticket>,
     active_threads: Vec<std::thread::ThreadId>,
@@ -170,11 +173,29 @@ impl Admission {
                 "nested serving admission is prohibited; borrow the existing native execution context",
             ));
         }
+        if state.snapshot.closed {
+            state.snapshot.rejected_calls += 1;
+            return Err(resident_error(
+                "serving admission is closed or its bounded queue is full",
+            ));
+        }
+        cancellation.check()?;
+        let class = if self.separate_metadata {
+            class
+        } else {
+            CallClass::General
+        };
+        // Queue bounds govern waiting work. An idle class with free capacity
+        // must not consume a ticket or be blocked by another class's waiters.
+        // Existing same-class waiters still own priority even before waking.
+        if !state.queue.iter().any(|entry| entry.class == class) && self.has_capacity(&state, class)
+        {
+            return Ok(self.grant(&mut state, class, thread, started));
+        }
         let bytes = bytes
             .checked_add(size_of::<Ticket>() as u64)
             .ok_or_else(|| resident_error("serving request byte count overflow"))?;
-        if state.snapshot.closed
-            || state.queue.len() == self.policy.max_queued_calls
+        if state.queue.len() == self.policy.max_queued_calls
             || bytes
                 > self
                     .policy
@@ -186,11 +207,6 @@ impl Admission {
                 "serving admission is closed or its bounded queue is full",
             ));
         }
-        let class = if self.separate_metadata {
-            class
-        } else {
-            CallClass::General
-        };
         let id = state.next_id;
         state.next_id = id
             .checked_add(1)
@@ -216,40 +232,9 @@ impl Admission {
                 return Err(resident_error("serving request cancelled before execution"));
             }
             let first = state.queue.iter().position(|entry| entry.class == class) == Some(position);
-            let lanes = match class {
-                CallClass::General => self.policy.general_cpu_lanes,
-                CallClass::Metadata => 1,
-            };
-            let available = match class {
-                CallClass::General => lanes <= self.general_capacity - state.general_lanes,
-                CallClass::Metadata => !state.metadata_active,
-            };
-            if first && available {
+            if first && self.has_capacity(&state, class) {
                 Self::remove_waiter(&mut state, position);
-                match class {
-                    CallClass::General => state.general_lanes += lanes,
-                    CallClass::Metadata => state.metadata_active = true,
-                }
-                state.snapshot.active_calls += 1;
-                state.snapshot.active_cpu_lanes += lanes;
-                state.snapshot.peak_active_calls = state
-                    .snapshot
-                    .peak_active_calls
-                    .max(state.snapshot.active_calls);
-                state.snapshot.peak_active_cpu_lanes = state
-                    .snapshot
-                    .peak_active_cpu_lanes
-                    .max(state.snapshot.active_cpu_lanes);
-                state.snapshot.admitted_calls += 1;
-                state.active_threads.push(thread);
-                self.changed.notify_all();
-                return Ok(Permit {
-                    admission: Arc::clone(self),
-                    class,
-                    lanes,
-                    thread,
-                    queue_time: started.elapsed(),
-                });
+                return Ok(self.grant(&mut state, class, thread, started));
             }
             // The existing cancellation flag has no notifier. This matches the
             // compute pool's bounded cancellation observation while all slots are held.
@@ -264,6 +249,52 @@ impl Admission {
                     return Err(resident_error("serving admission poisoned"));
                 }
             };
+        }
+    }
+
+    fn has_capacity(&self, state: &State, class: CallClass) -> bool {
+        match class {
+            CallClass::General => {
+                self.policy.general_cpu_lanes <= self.general_capacity - state.general_lanes
+            }
+            CallClass::Metadata => !state.metadata_active,
+        }
+    }
+
+    fn grant(
+        self: &Arc<Self>,
+        state: &mut State,
+        class: CallClass,
+        thread: std::thread::ThreadId,
+        started: Instant,
+    ) -> Permit {
+        let lanes = match class {
+            CallClass::General => self.policy.general_cpu_lanes,
+            CallClass::Metadata => 1,
+        };
+        match class {
+            CallClass::General => state.general_lanes += lanes,
+            CallClass::Metadata => state.metadata_active = true,
+        }
+        state.snapshot.active_calls += 1;
+        state.snapshot.active_cpu_lanes += lanes;
+        state.snapshot.peak_active_calls = state
+            .snapshot
+            .peak_active_calls
+            .max(state.snapshot.active_calls);
+        state.snapshot.peak_active_cpu_lanes = state
+            .snapshot
+            .peak_active_cpu_lanes
+            .max(state.snapshot.active_cpu_lanes);
+        state.snapshot.admitted_calls += 1;
+        state.active_threads.push(thread);
+        self.changed.notify_all();
+        Permit {
+            admission: Arc::clone(self),
+            class,
+            lanes,
+            thread,
+            queue_time: started.elapsed(),
         }
     }
 
@@ -318,5 +349,57 @@ impl Drop for Permit {
             .expect("active call owns its thread entry");
         state.active_threads.swap_remove(position);
         self.admission.changed.notify_all();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn free_capacity_does_not_overtake_a_queued_caller_of_the_same_class() {
+        for class in [CallClass::General, CallClass::Metadata] {
+            let memory = LiveMemoryPool::new(1 << 20).unwrap();
+            let admission = Admission::new(
+                ResidentServingPolicy {
+                    max_queued_calls: 1,
+                    max_queued_call_bytes: TICKET_METADATA_BYTES,
+                    ..Default::default()
+                },
+                2,
+                &memory,
+            )
+            .unwrap();
+            // Reproduce the lock-protected interval after capacity is released
+            // and before an existing waiter reacquires the mutex. No scheduling
+            // race is needed to verify that a new arrival cannot take its lane.
+            {
+                let mut state = admission.state.lock().unwrap();
+                assert!(admission.has_capacity(&state, class));
+                state.queue.push(Ticket {
+                    id: 0,
+                    class,
+                    bytes: TICKET_METADATA_BYTES,
+                });
+                state.next_id = 1;
+                state.snapshot.queued_calls = 1;
+                state.snapshot.queued_call_bytes = TICKET_METADATA_BYTES;
+            }
+            assert!(
+                admission
+                    .admit(class, 0, &CancellationToken::default())
+                    .is_err()
+            );
+            let snapshot = admission.snapshot();
+            assert_eq!(snapshot.active_calls, 0);
+            assert_eq!(snapshot.admitted_calls, 0);
+            assert_eq!(snapshot.queued_calls, 1);
+            {
+                let mut state = admission.state.lock().unwrap();
+                Admission::remove_waiter(&mut state, 0);
+            }
+            drop(admission);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
     }
 }

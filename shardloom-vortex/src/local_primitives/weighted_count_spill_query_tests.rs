@@ -437,14 +437,14 @@ fn public_weighted_count_workers_force_exact_spill_with_global_ties_and_offset()
 fn prepared_spill_weighted_count_reuses_source_with_fresh_runs_and_existing_cpu_owner() {
     use super::super::prepared_aggregate::{prepare_aggregate, prepare_aggregate_in_session};
     let fixture = Fixture::with_unique_keys(16_384, 128, true, false, true);
-    let request = fixture.query(&["label_renamed"], 1, 7);
     let expected = fixture.expected(&["label_renamed"], 1, 7, 0);
     for parallelism in [1, 2] {
         for supplied in [false, true] {
+            let request = fixture.query(&["label_renamed"], 1, 7);
             let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
             policy.resource_envelope.group_state_soft_item_budget = 1;
             let session = ResidentVortexSession::new(32 << 20, parallelism).unwrap();
-            let prepared = if supplied {
+            let mut prepared = if supplied {
                 prepare_aggregate_in_session(&request, policy, &session).unwrap()
             } else {
                 prepare_aggregate(&request, policy).unwrap()
@@ -477,21 +477,24 @@ fn prepared_spill_weighted_count_reuses_source_with_fresh_runs_and_existing_cpu_
                 );
                 fixture.empty();
             }
-            let cancellation = &request
+            let cancellation = request
                 .simple_aggregate
                 .as_ref()
                 .unwrap()
                 .spill
                 .as_ref()
                 .unwrap()
-                .cancellation;
-            cancellation.store(true, std::sync::atomic::Ordering::Release);
+                .clone();
+            cancellation.cancel();
             assert!(prepared.execute().is_err());
             fixture.empty();
-            cancellation.store(false, std::sync::atomic::Ordering::Release);
+            let renewed = prepared.renew_spill_cancellation().unwrap();
+            cancellation.cancel();
             let result = prepared.execute().unwrap();
             assert_eq!(summary(&result.report)["values"], expected);
             assert_eq!(result.runtime.prepared_source_opens, 1);
+            renewed.cancel();
+            assert!(prepared.execute().is_err());
             drop(prepared);
             assert_eq!(session.snapshot().memory.reserved_bytes, 0);
             fixture.empty();
