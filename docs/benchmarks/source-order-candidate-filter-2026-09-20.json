@@ -1,0 +1,3874 @@
+{
+  "schema": "shardloom.source_order_candidate_filter.ship.v1",
+  "status": "paired_material_gate_full43_and_broad_checks_passed",
+  "identity": {
+    "commit": "b6b92497d7ec1fff26caa4411512320d9f0fc97f",
+    "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/candidate-b6b92497",
+    "sha256": "e050bec18f77b9c7142bdf7a3d3d14951d0c9d01b7bb0e9c422cfeeb5b9ff205",
+    "build_command": "cargo build --release -p shardloom-cli --features release-user-surfaces"
+  },
+  "paired": {
+    "schema": "q18.source_order_candidate_filter.paired.v1",
+    "audit": {
+      "summary_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260920T103747961933Z/summary.json",
+      "summary_sha256": "fce53e64bd875714b4d38739a6c2f846382f67eb1233189881f634ada9a3bfec",
+      "records_replayed": 6,
+      "selected_query_ids": [
+        18
+      ],
+      "reverse_order": false,
+      "binaries": {
+        "control": {
+          "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/candidate-3e3b887f",
+          "sha256": "0deff1e7d58857aeb24cc32154ab81d0095defae843f6e152ea6a34c979a597e",
+          "commit": "3e3b887f2e6ada7be88751931776fb03a1a55852"
+        },
+        "candidate": {
+          "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/candidate-b6b92497",
+          "sha256": "e050bec18f77b9c7142bdf7a3d3d14951d0c9d01b7bb0e9c422cfeeb5b9ff205",
+          "commit": "b6b92497"
+        }
+      },
+      "source_generation": {
+        "device": 16777233,
+        "inode": 89944871,
+        "size_bytes": 18591586804,
+        "mtime_ns": 1789257006176803801,
+        "ctime_ns": 1789257006177025147
+      },
+      "queries_sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+      "harness_sha256": {
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/run_clickbench_paired_query_uat.py": "1e0892103029a69bd2d440657f19f0dd40cc63aabc7efc9e48a7d6f011b3a1d2",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/run_clickbench_query_uat.py": "e556690ac4f9544c66484a3bb677ad01852c710f8fc741d816a06be2526bf72e",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/timed_native_command.py": "a174e86eb6e0d525ceb5d6427c7f152642f57842fbd74c69551fc20deafb40e4",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/local_uat_storage.py": "374f0c6623ff1e24cf64c78a5e9218fe36528e57386b15a4c3838e1aa6c3d647"
+      },
+      "scores": {
+        "complete": true,
+        "score_scope": "targeted_only",
+        "roles": {
+          "control": {
+            "complete": true,
+            "queries_passed": 1,
+            "runs_completed": 3,
+            "runs_passed": 3,
+            "query_total_seconds": 3.2988277499971446,
+            "hot_total_seconds": 3.300233333000506,
+            "all_raw_run_seconds": 9.91664854199189,
+            "geomean_seconds": 3.2988277499971446,
+            "hot_geomean_seconds": 3.3002333330005063
+          },
+          "candidate": {
+            "complete": true,
+            "queries_passed": 1,
+            "runs_completed": 3,
+            "runs_passed": 3,
+            "query_total_seconds": 0.2668798329978017,
+            "hot_total_seconds": 0.2668798329978017,
+            "all_raw_run_seconds": 1.4663755829969887,
+            "geomean_seconds": 0.2668798329978017,
+            "hot_geomean_seconds": 0.2668798329978017
+          }
+        }
+      },
+      "sum_query_medians_seconds": {
+        "control": 3.300233333000506,
+        "candidate": 0.2673263750039041
+      },
+      "flagged_query_ids": [],
+      "per_query": [
+        {
+          "query": 18,
+          "seconds": {
+            "control": [
+              3.2988277499971446,
+              3.3175874589942396,
+              3.300233333000506
+            ],
+            "candidate": [
+              0.9321693749952829,
+              0.2668798329978017,
+              0.2673263750039041
+            ]
+          },
+          "median_seconds": {
+            "control": 3.300233333000506,
+            "candidate": 0.2673263750039041
+          },
+          "paired_candidate_minus_control_seconds": [
+            -2.3666583750018617,
+            -3.050707625996438,
+            -3.0329069579966017
+          ],
+          "median_delta_seconds": -3.0329069579966017,
+          "median_delta_percent": -91.89977349992837,
+          "follow_up_flag": false,
+          "samples": [
+            {
+              "run": 1,
+              "role": "candidate",
+              "pair_position": 1,
+              "user_cpu_seconds": 0.358734,
+              "system_cpu_seconds": 0.154224,
+              "native_peak_rss_bytes": 275726336,
+              "minor_page_faults": 17509,
+              "major_page_faults": 0,
+              "host_vm_counter_deltas": {
+                "Compressions": 0,
+                "Decompressions": 425,
+                "Pageins": 27212,
+                "Pageouts": 0,
+                "Swapins": 0,
+                "Swapouts": 0
+              }
+            },
+            {
+              "run": 1,
+              "role": "control",
+              "pair_position": 2,
+              "user_cpu_seconds": 3.310182,
+              "system_cpu_seconds": 0.130263,
+              "native_peak_rss_bytes": 294682624,
+              "minor_page_faults": 18704,
+              "major_page_faults": 0,
+              "host_vm_counter_deltas": {
+                "Compressions": 0,
+                "Decompressions": 112,
+                "Pageins": 223,
+                "Pageouts": 0,
+                "Swapins": 0,
+                "Swapouts": 0
+              }
+            },
+            {
+              "run": 2,
+              "role": "control",
+              "pair_position": 1,
+              "user_cpu_seconds": 3.329401,
+              "system_cpu_seconds": 0.126589,
+              "native_peak_rss_bytes": 295436288,
+              "minor_page_faults": 18581,
+              "major_page_faults": 0,
+              "host_vm_counter_deltas": {
+                "Compressions": 0,
+                "Decompressions": 149,
+                "Pageins": 207,
+                "Pageouts": 0,
+                "Swapins": 0,
+                "Swapouts": 0
+              }
+            },
+            {
+              "run": 2,
+              "role": "candidate",
+              "pair_position": 2,
+              "user_cpu_seconds": 0.29562499999999997,
+              "system_cpu_seconds": 0.112219,
+              "native_peak_rss_bytes": 270663680,
+              "minor_page_faults": 17077,
+              "major_page_faults": 0,
+              "host_vm_counter_deltas": {
+                "Compressions": 0,
+                "Decompressions": 4,
+                "Pageins": 40,
+                "Pageouts": 0,
+                "Swapins": 0,
+                "Swapouts": 0
+              }
+            },
+            {
+              "run": 3,
+              "role": "candidate",
+              "pair_position": 1,
+              "user_cpu_seconds": 0.295145,
+              "system_cpu_seconds": 0.108622,
+              "native_peak_rss_bytes": 278364160,
+              "minor_page_faults": 17545,
+              "major_page_faults": 0,
+              "host_vm_counter_deltas": {
+                "Compressions": 0,
+                "Decompressions": 0,
+                "Pageins": 41,
+                "Pageouts": 0,
+                "Swapins": 0,
+                "Swapouts": 0
+              }
+            },
+            {
+              "run": 3,
+              "role": "control",
+              "pair_position": 2,
+              "user_cpu_seconds": 3.318361,
+              "system_cpu_seconds": 0.119554,
+              "native_peak_rss_bytes": 296615936,
+              "minor_page_faults": 18692,
+              "major_page_faults": 0,
+              "host_vm_counter_deltas": {
+                "Compressions": 0,
+                "Decompressions": 823,
+                "Pageins": 5910,
+                "Pageouts": 0,
+                "Swapins": 20,
+                "Swapouts": 0
+              }
+            }
+          ]
+        }
+      ],
+      "archives": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260920T103747961933Z/q18_completed.tar.xz",
+          "sha256": "cc887918981c60c02f615293f019906129eda885c7d72e8b49f4ee2e840d3e08",
+          "members_verified": 24
+        }
+      ]
+    },
+    "all_samples": [
+      {
+        "role": "candidate",
+        "run": 1,
+        "seconds": 0.9321693749952829,
+        "native_peak_rss_bytes": 275726336,
+        "user_cpu_seconds": 0.358734,
+        "system_cpu_seconds": 0.154224,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+        "selection": {
+          "chunks": 1549,
+          "retained_rows": 27,
+          "rows": 99931961,
+          "scope": "closed_source_order_integer_utf8_count_keys;numeric_membership_before_utf8_accessor;complete_key_equality_for_survivors;chunk_local_mask;no_physical_read_or_RSS_bound"
+        },
+        "utf8_work": {
+          "accessor_rows": 65563,
+          "calls": 9,
+          "copied_utf8_bytes": 143334,
+          "dictionary_build_nanos": 1357251,
+          "dictionary_entries": 2517,
+          "provider_execute_nanos": 7317169,
+          "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+        },
+        "numeric_work": {
+          "canonical_array_nbytes_estimate": 619727888,
+          "columns": [
+            "UserID"
+          ],
+          "decode_and_typed_copy_nanos": 83255580,
+          "max_source_array_rows": 99864,
+          "native_decode_calls": 1210,
+          "rows": 77465986,
+          "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+          "source_array_nbytes_estimate": 267260600,
+          "typed_value_bytes_copied": 0
+        },
+        "accessor_nanos": 240558171,
+        "group_update_nanos": 601710
+      },
+      {
+        "role": "control",
+        "run": 1,
+        "seconds": 3.2988277499971446,
+        "native_peak_rss_bytes": 294682624,
+        "user_cpu_seconds": 3.310182,
+        "system_cpu_seconds": 0.130263,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+        "selection": null,
+        "utf8_work": {
+          "accessor_rows": 99997497,
+          "calls": 1550,
+          "copied_utf8_bytes": 518939670,
+          "dictionary_build_nanos": 1774318458,
+          "dictionary_entries": 8571186,
+          "provider_execute_nanos": 823761254,
+          "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+        },
+        "numeric_work": {
+          "canonical_array_nbytes_estimate": 619727672,
+          "columns": [
+            "UserID"
+          ],
+          "decode_and_typed_copy_nanos": 85960085,
+          "max_source_array_rows": 99864,
+          "native_decode_calls": 1202,
+          "rows": 77465959,
+          "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+          "source_array_nbytes_estimate": 257929786,
+          "typed_value_bytes_copied": 0
+        },
+        "accessor_nanos": 2686856872,
+        "group_update_nanos": 442478092
+      },
+      {
+        "role": "control",
+        "run": 2,
+        "seconds": 3.3175874589942396,
+        "native_peak_rss_bytes": 295436288,
+        "user_cpu_seconds": 3.329401,
+        "system_cpu_seconds": 0.126589,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+        "selection": null,
+        "utf8_work": {
+          "accessor_rows": 99997497,
+          "calls": 1550,
+          "copied_utf8_bytes": 518939670,
+          "dictionary_build_nanos": 1789077459,
+          "dictionary_entries": 8571186,
+          "provider_execute_nanos": 825938090,
+          "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+        },
+        "numeric_work": {
+          "canonical_array_nbytes_estimate": 619727672,
+          "columns": [
+            "UserID"
+          ],
+          "decode_and_typed_copy_nanos": 85880914,
+          "max_source_array_rows": 99864,
+          "native_decode_calls": 1202,
+          "rows": 77465959,
+          "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+          "source_array_nbytes_estimate": 257929786,
+          "typed_value_bytes_copied": 0
+        },
+        "accessor_nanos": 2703470288,
+        "group_update_nanos": 450895727
+      },
+      {
+        "role": "candidate",
+        "run": 2,
+        "seconds": 0.2668798329978017,
+        "native_peak_rss_bytes": 270663680,
+        "user_cpu_seconds": 0.29562499999999997,
+        "system_cpu_seconds": 0.112219,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+        "selection": {
+          "chunks": 1549,
+          "retained_rows": 27,
+          "rows": 99931961,
+          "scope": "closed_source_order_integer_utf8_count_keys;numeric_membership_before_utf8_accessor;complete_key_equality_for_survivors;chunk_local_mask;no_physical_read_or_RSS_bound"
+        },
+        "utf8_work": {
+          "accessor_rows": 65563,
+          "calls": 9,
+          "copied_utf8_bytes": 143334,
+          "dictionary_build_nanos": 1067627,
+          "dictionary_entries": 2517,
+          "provider_execute_nanos": 7942624,
+          "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+        },
+        "numeric_work": {
+          "canonical_array_nbytes_estimate": 619727888,
+          "columns": [
+            "UserID"
+          ],
+          "decode_and_typed_copy_nanos": 82306052,
+          "max_source_array_rows": 99864,
+          "native_decode_calls": 1210,
+          "rows": 77465986,
+          "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+          "source_array_nbytes_estimate": 267260600,
+          "typed_value_bytes_copied": 0
+        },
+        "accessor_nanos": 209136688,
+        "group_update_nanos": 390419
+      },
+      {
+        "role": "candidate",
+        "run": 3,
+        "seconds": 0.2673263750039041,
+        "native_peak_rss_bytes": 278364160,
+        "user_cpu_seconds": 0.295145,
+        "system_cpu_seconds": 0.108622,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+        "selection": {
+          "chunks": 1549,
+          "retained_rows": 27,
+          "rows": 99931961,
+          "scope": "closed_source_order_integer_utf8_count_keys;numeric_membership_before_utf8_accessor;complete_key_equality_for_survivors;chunk_local_mask;no_physical_read_or_RSS_bound"
+        },
+        "utf8_work": {
+          "accessor_rows": 65563,
+          "calls": 9,
+          "copied_utf8_bytes": 143334,
+          "dictionary_build_nanos": 986210,
+          "dictionary_entries": 2517,
+          "provider_execute_nanos": 7666418,
+          "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+        },
+        "numeric_work": {
+          "canonical_array_nbytes_estimate": 619727888,
+          "columns": [
+            "UserID"
+          ],
+          "decode_and_typed_copy_nanos": 86072535,
+          "max_source_array_rows": 99864,
+          "native_decode_calls": 1210,
+          "rows": 77465986,
+          "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+          "source_array_nbytes_estimate": 267260600,
+          "typed_value_bytes_copied": 0
+        },
+        "accessor_nanos": 210162406,
+        "group_update_nanos": 377667
+      },
+      {
+        "role": "control",
+        "run": 3,
+        "seconds": 3.300233333000506,
+        "native_peak_rss_bytes": 296615936,
+        "user_cpu_seconds": 3.318361,
+        "system_cpu_seconds": 0.119554,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+        "selection": null,
+        "utf8_work": {
+          "accessor_rows": 99997497,
+          "calls": 1550,
+          "copied_utf8_bytes": 518939670,
+          "dictionary_build_nanos": 1781105831,
+          "dictionary_entries": 8571186,
+          "provider_execute_nanos": 824522614,
+          "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+        },
+        "numeric_work": {
+          "canonical_array_nbytes_estimate": 619727672,
+          "columns": [
+            "UserID"
+          ],
+          "decode_and_typed_copy_nanos": 85798903,
+          "max_source_array_rows": 99864,
+          "native_decode_calls": 1202,
+          "rows": 77465959,
+          "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+          "source_array_nbytes_estimate": 257929786,
+          "typed_value_bytes_copied": 0
+        },
+        "accessor_nanos": 2694024539,
+        "group_update_nanos": 442308335
+      }
+    ],
+    "fastest_valid_calls": {
+      "control": {
+        "role": "control",
+        "run": 1,
+        "seconds": 3.2988277499971446,
+        "native_peak_rss_bytes": 294682624,
+        "user_cpu_seconds": 3.310182,
+        "system_cpu_seconds": 0.130263,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+        "selection": null,
+        "utf8_work": {
+          "accessor_rows": 99997497,
+          "calls": 1550,
+          "copied_utf8_bytes": 518939670,
+          "dictionary_build_nanos": 1774318458,
+          "dictionary_entries": 8571186,
+          "provider_execute_nanos": 823761254,
+          "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+        },
+        "numeric_work": {
+          "canonical_array_nbytes_estimate": 619727672,
+          "columns": [
+            "UserID"
+          ],
+          "decode_and_typed_copy_nanos": 85960085,
+          "max_source_array_rows": 99864,
+          "native_decode_calls": 1202,
+          "rows": 77465959,
+          "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+          "source_array_nbytes_estimate": 257929786,
+          "typed_value_bytes_copied": 0
+        },
+        "accessor_nanos": 2686856872,
+        "group_update_nanos": 442478092
+      },
+      "candidate": {
+        "role": "candidate",
+        "run": 2,
+        "seconds": 0.2668798329978017,
+        "native_peak_rss_bytes": 270663680,
+        "user_cpu_seconds": 0.29562499999999997,
+        "system_cpu_seconds": 0.112219,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3",
+        "selection": {
+          "chunks": 1549,
+          "retained_rows": 27,
+          "rows": 99931961,
+          "scope": "closed_source_order_integer_utf8_count_keys;numeric_membership_before_utf8_accessor;complete_key_equality_for_survivors;chunk_local_mask;no_physical_read_or_RSS_bound"
+        },
+        "utf8_work": {
+          "accessor_rows": 65563,
+          "calls": 9,
+          "copied_utf8_bytes": 143334,
+          "dictionary_build_nanos": 1067627,
+          "dictionary_entries": 2517,
+          "provider_execute_nanos": 7942624,
+          "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+        },
+        "numeric_work": {
+          "canonical_array_nbytes_estimate": 619727888,
+          "columns": [
+            "UserID"
+          ],
+          "decode_and_typed_copy_nanos": 82306052,
+          "max_source_array_rows": 99864,
+          "native_decode_calls": 1210,
+          "rows": 77465986,
+          "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+          "source_array_nbytes_estimate": 267260600,
+          "typed_value_bytes_copied": 0
+        },
+        "accessor_nanos": 209136688,
+        "group_update_nanos": 390419
+      }
+    },
+    "gate": {
+      "seconds_saved": 3.031947916999343,
+      "fraction_saved": 0.9190985849448997,
+      "rss_reduction_fraction_at_fastest_calls": 0.0815078394306683,
+      "retained": true
+    }
+  },
+  "full43": {
+    "schema": "q18.filter.full43.audit.v1",
+    "status": "passed",
+    "summary": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/summary.json",
+    "summary_sha256": "cf3bb380aaf59cc881d5b6365e47808b247522c4854bb9df9762b418fc89d645",
+    "build_commit": "b6b92497d7ec1fff26caa4411512320d9f0fc97f",
+    "binary_sha256": "e050bec18f77b9c7142bdf7a3d3d14951d0c9d01b7bb0e9c422cfeeb5b9ff205",
+    "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/performance-pr-ingest-4f2c7b970078-r1.vortex",
+    "source_generation": {
+      "device": 16777233,
+      "inode": 89944871,
+      "size_bytes": 18591586804,
+      "mtime_ns": 1789257006176803801,
+      "ctime_ns": 1789257006177025147
+    },
+    "queries_sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+    "scores": {
+      "complete": true,
+      "queries_passed": 43,
+      "query_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43
+      ],
+      "runs_completed": 129,
+      "runs_passed": 129,
+      "query_total_seconds": 103.1048879979935,
+      "hot_total_seconds": 104.19541729000775,
+      "all_raw_run_seconds": 326.49901111897634,
+      "geomean_seconds": 0.8898781093676661,
+      "hot_geomean_seconds": 0.8967555312796454,
+      "query_runs": [
+        [
+          0.019238832996052224,
+          0.01925150000170106,
+          0.019165833000442944
+        ],
+        [
+          0.07242354199843248,
+          0.0650022909976542,
+          0.06620966699847486
+        ],
+        [
+          1.0154251249987283,
+          1.021769166996819,
+          0.9989323750050971
+        ],
+        [
+          0.4027778749950812,
+          0.42946391599980416,
+          0.43250862500281073
+        ],
+        [
+          1.5234265420003794,
+          1.4281223750003846,
+          1.5675731660012389
+        ],
+        [
+          4.082630666001933,
+          3.9012980830011657,
+          4.904471417001332
+        ],
+        [
+          0.022067042002163362,
+          0.018984208996698726,
+          0.019369625006220303
+        ],
+        [
+          0.08389637499931268,
+          0.08210695799789391,
+          0.08688175000133924
+        ],
+        [
+          1.5038078750003478,
+          1.2103665839968016,
+          1.2132522079991759
+        ],
+        [
+          4.899687874996744,
+          4.813317708998511,
+          4.813740375000634
+        ],
+        [
+          0.8067886249991716,
+          0.8128662500021164,
+          0.8279484169979696
+        ],
+        [
+          1.5900419579993468,
+          1.5392552919947775,
+          1.558566082996549
+        ],
+        [
+          0.676183540999773,
+          0.6896494169996004,
+          0.7592895409979974
+        ],
+        [
+          2.1804055839966168,
+          1.962776541004132,
+          2.3061006249990896
+        ],
+        [
+          1.8381781250063796,
+          1.8404207499988843,
+          1.81832695799676
+        ],
+        [
+          3.2994593330004136,
+          3.3298936250066618,
+          3.330083749999176
+        ],
+        [
+          9.345954374999565,
+          8.920589875000587,
+          9.266660082997987
+        ],
+        [
+          0.5527382090003812,
+          0.5220025419985177,
+          0.5519840410051984
+        ],
+        [
+          10.693511624995153,
+          9.750393584006815,
+          10.006100416001573
+        ],
+        [
+          0.14105154199933168,
+          0.11966216699511278,
+          0.11180312500073342
+        ],
+        [
+          1.4532799590015202,
+          1.3909659170021769,
+          1.2863299169985112
+        ],
+        [
+          2.3344181249995017,
+          2.389647874995717,
+          2.3927185829961672
+        ],
+        [
+          8.809420166995551,
+          8.642588290997082,
+          8.55591162500059
+        ],
+        [
+          1.4969600830008858,
+          1.4853257500071777,
+          1.4396487920021173
+        ],
+        [
+          0.7961219999997411,
+          0.8216695830051322,
+          0.9604907920002006
+        ],
+        [
+          5.466571959004796,
+          4.969584124999528,
+          4.743795125003089
+        ],
+        [
+          4.369849082999281,
+          4.407367500003602,
+          4.333602874998178
+        ],
+        [
+          3.8108654579991708,
+          3.8471327500010375,
+          4.597867665994272
+        ],
+        [
+          14.809676958000637,
+          13.506347832997562,
+          12.596076791000087
+        ],
+        [
+          0.23876058399764588,
+          0.2307438329953584,
+          0.22672558300109813
+        ],
+        [
+          1.2204821249979432,
+          1.1824693329981528,
+          1.1295848329973524
+        ],
+        [
+          1.5896700840021367,
+          1.3758426249987679,
+          1.4279358749990934
+        ],
+        [
+          2.7844467499962775,
+          2.6534408330044243,
+          2.88331529199786
+        ],
+        [
+          8.15397495799698,
+          7.162667167001928,
+          6.030232417004299
+        ],
+        [
+          7.113361499999883,
+          8.050459957994462,
+          7.9638457909968565
+        ],
+        [
+          0.6719757500031847,
+          0.5503272080022725,
+          0.5180713750014547
+        ],
+        [
+          0.3276928329942166,
+          0.3119575829987298,
+          0.30646745799458586
+        ],
+        [
+          0.21232283300196286,
+          0.18303683300473494,
+          0.1815797909948742
+        ],
+        [
+          0.15394741700583836,
+          0.14444899999944028,
+          0.13515404200006742
+        ],
+        [
+          0.8494722079994972,
+          0.89580874999956,
+          0.9794749579959898
+        ],
+        [
+          0.16378883299330482,
+          0.15288000000145985,
+          0.1522616250003921
+        ],
+        [
+          0.10764741700404556,
+          0.09963708300347207,
+          0.09413512500032084
+        ],
+        [
+          0.09553654199407902,
+          0.09920158300519688,
+          0.09413416700408561
+        ]
+      ]
+    },
+    "full_result_validation": true,
+    "all_archives_and_timings_reverified": true,
+    "integer_partition_activation": [
+      {
+        "query": 16,
+        "run": 1,
+        "rows": 99997497,
+        "entries": 21804173,
+        "groups": 17630976
+      },
+      {
+        "query": 16,
+        "run": 2,
+        "rows": 99997497,
+        "entries": 21804173,
+        "groups": 17630976
+      },
+      {
+        "query": 16,
+        "run": 3,
+        "rows": 99997497,
+        "entries": 21804173,
+        "groups": 17630976
+      },
+      {
+        "query": 36,
+        "run": 1,
+        "rows": 99997497,
+        "entries": 21678299,
+        "groups": 9762046
+      },
+      {
+        "query": 36,
+        "run": 2,
+        "rows": 99997497,
+        "entries": 21678299,
+        "groups": 9762046
+      },
+      {
+        "query": 36,
+        "run": 3,
+        "rows": 99997497,
+        "entries": 21678299,
+        "groups": 9762046
+      }
+    ],
+    "per_query_best": {
+      "1": {
+        "query": 1,
+        "run": 3,
+        "seconds": 0.019165833000442944,
+        "native_peak_rss_bytes": 54280192,
+        "user_cpu_seconds": 0.01394,
+        "system_cpu_seconds": 0.004333,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q01_run3.stdout.json.gz",
+        "gzip_sha256": "b60b0cc6d24bb0977dcee825a53e7026c605f76bfb54c328b3e5164830610a36",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q01_run3.timing.json",
+        "timing_sha256": "edf890157a288018bdf69c9341f6b9b59aa9bc45498e1d21fd2331113b9518d5",
+        "complete_values": true
+      },
+      "2": {
+        "query": 2,
+        "run": 2,
+        "seconds": 0.0650022909976542,
+        "native_peak_rss_bytes": 145096704,
+        "user_cpu_seconds": 0.178398,
+        "system_cpu_seconds": 0.030324,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q02_run2.stdout.json.gz",
+        "gzip_sha256": "9970d9a8559cfa29fde4297f7f2bc178fe2e47bd77e5635c658eb70a64db8422",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q02_run2.timing.json",
+        "timing_sha256": "15f1d7b48c78f39040234a88f42646d54c2d4f1141f33efedfc92ec58a41da1f",
+        "complete_values": true
+      },
+      "3": {
+        "query": 3,
+        "run": 3,
+        "seconds": 0.9989323750050971,
+        "native_peak_rss_bytes": 164888576,
+        "user_cpu_seconds": 1.03156,
+        "system_cpu_seconds": 0.074602,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q03_run3.stdout.json.gz",
+        "gzip_sha256": "8939ac50252ba84b86cde6f2c839692c43df70e59a5edd168558817607177f44",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q03_run3.timing.json",
+        "timing_sha256": "55a9d5726faabf8aacff64eb4859e2b395a986dd0327d0759e0220c07a9409c0",
+        "complete_values": true
+      },
+      "4": {
+        "query": 4,
+        "run": 1,
+        "seconds": 0.4027778749950812,
+        "native_peak_rss_bytes": 174555136,
+        "user_cpu_seconds": 0.414232,
+        "system_cpu_seconds": 0.064216,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q04_run1.stdout.json.gz",
+        "gzip_sha256": "2a3990bb65e4e52ec6631fe01355d1391aabc7894425ce9d9ead334251142af5",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q04_run1.timing.json",
+        "timing_sha256": "bbc6c9aaa2a62adb56a2e0fd5ac4a34e4204fb366fb3a2d3cd4123f27fb7578d",
+        "complete_values": true
+      },
+      "5": {
+        "query": 5,
+        "run": 2,
+        "seconds": 1.4281223750003846,
+        "native_peak_rss_bytes": 1840791552,
+        "user_cpu_seconds": 1.324388,
+        "system_cpu_seconds": 0.179162,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q05_run2.stdout.json.gz",
+        "gzip_sha256": "6d3461189d185d0eecc6f2bce12fcf24fc92a6601135a3ae367f03112c82e123",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q05_run2.timing.json",
+        "timing_sha256": "c3f94b59a67982d6792bb1ed43856e8451a17dd2914365cadfbab4bd8beee26c",
+        "complete_values": true
+      },
+      "6": {
+        "query": 6,
+        "run": 2,
+        "seconds": 3.9012980830011657,
+        "native_peak_rss_bytes": 1161150464,
+        "user_cpu_seconds": 3.820651,
+        "system_cpu_seconds": 0.153636,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q06_run2.stdout.json.gz",
+        "gzip_sha256": "8289bc3c83688445072448f39af019426d740c13147b9be7ef64634d862f346d",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q06_run2.timing.json",
+        "timing_sha256": "7859a4782ee4efc17da7da607b48a0d3d517fac3704254750846e985418e29a0",
+        "complete_values": true
+      },
+      "7": {
+        "query": 7,
+        "run": 2,
+        "seconds": 0.018984208996698726,
+        "native_peak_rss_bytes": 57327616,
+        "user_cpu_seconds": 0.013949999999999999,
+        "system_cpu_seconds": 0.0045379999999999995,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q07_run2.stdout.json.gz",
+        "gzip_sha256": "119ce0fa11d9b8f22ad4244852133284ea4c9a85574158c35783e52179bdf5ae",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q07_run2.timing.json",
+        "timing_sha256": "f68f32fd5075134a84b9509b2646d71edc5d7080ccde0e15a8a203bfd1ab6ef8",
+        "complete_values": true
+      },
+      "8": {
+        "query": 8,
+        "run": 2,
+        "seconds": 0.08210695799789391,
+        "native_peak_rss_bytes": 146079744,
+        "user_cpu_seconds": 0.20534999999999998,
+        "system_cpu_seconds": 0.043841,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q08_run2.stdout.json.gz",
+        "gzip_sha256": "554942bf52886f0f12d7c1381970c64e30844966d902c7b3ec577efde7d3a6aa",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q08_run2.timing.json",
+        "timing_sha256": "86fbfb9f19a2b50669a9e969e6b44e5179a2290d96fb4005cd0299a4eb0090eb",
+        "complete_values": true
+      },
+      "9": {
+        "query": 9,
+        "run": 2,
+        "seconds": 1.2103665839968016,
+        "native_peak_rss_bytes": 4289200128,
+        "user_cpu_seconds": 5.112045,
+        "system_cpu_seconds": 0.690253,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q09_run2.stdout.json.gz",
+        "gzip_sha256": "ad7f3ecf36b518a7c766931585047730e89d475b3cba299378096eb819ec8e9e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q09_run2.timing.json",
+        "timing_sha256": "594b54ad3d785ece8ba6a6a2a599a65e01a17946d835e2c75b4481fc30bda58c",
+        "complete_values": true
+      },
+      "10": {
+        "query": 10,
+        "run": 2,
+        "seconds": 4.813317708998511,
+        "native_peak_rss_bytes": 1085964288,
+        "user_cpu_seconds": 4.820167,
+        "system_cpu_seconds": 0.191943,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q10_run2.stdout.json.gz",
+        "gzip_sha256": "2a216e8b360f2aa93ee08d3b69bea696a5f9321cf19e000fb774c7510fdeb5de",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q10_run2.timing.json",
+        "timing_sha256": "c5c47aa9daa941574a375248b47a07d74d8b15a4abc5f91efa5b3201c6b3087d",
+        "complete_values": true
+      },
+      "11": {
+        "query": 11,
+        "run": 1,
+        "seconds": 0.8067886249991716,
+        "native_peak_rss_bytes": 572751872,
+        "user_cpu_seconds": 1.850179,
+        "system_cpu_seconds": 0.172814,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q11_run1.stdout.json.gz",
+        "gzip_sha256": "428c3c5edfc4bc36a0f07ac59ff8f4486f825363ea90708719e2e815923d3712",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q11_run1.timing.json",
+        "timing_sha256": "28efe1113f1190d656baeda13e54ac545fd41deca837ced17121137065560657",
+        "complete_values": true
+      },
+      "12": {
+        "query": 12,
+        "run": 2,
+        "seconds": 1.5392552919947775,
+        "native_peak_rss_bytes": 307167232,
+        "user_cpu_seconds": 2.11257,
+        "system_cpu_seconds": 0.09722199999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q12_run2.stdout.json.gz",
+        "gzip_sha256": "dfb2e82b21f961587061b75a94ae2112a6fb75b3e19c7e077a89ab73310ea8e2",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q12_run2.timing.json",
+        "timing_sha256": "dc6d873e83d563c181c3f36b40ae509b93879312df67e9391e6458d70198d37d",
+        "complete_values": true
+      },
+      "13": {
+        "query": 13,
+        "run": 1,
+        "seconds": 0.676183540999773,
+        "native_peak_rss_bytes": 1685848064,
+        "user_cpu_seconds": 4.242986,
+        "system_cpu_seconds": 0.45646,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q13_run1.stdout.json.gz",
+        "gzip_sha256": "37c19966cebf9f6058e57941f81728c4251d7fb17f36c2f70f921d7aa85fbb91",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q13_run1.timing.json",
+        "timing_sha256": "cf99a6504e25f8fa7a304761475b548f9bf4a5a9a1a7c5ba560e5d66806289bf",
+        "complete_values": true
+      },
+      "14": {
+        "query": 14,
+        "run": 2,
+        "seconds": 1.962776541004132,
+        "native_peak_rss_bytes": 3709992960,
+        "user_cpu_seconds": 12.276333,
+        "system_cpu_seconds": 0.953217,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q14_run2.stdout.json.gz",
+        "gzip_sha256": "aebd5df50319d01f81108c89ce3939b16988bcc5b7f36832e719642614bdc7b7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q14_run2.timing.json",
+        "timing_sha256": "9cbdcbe62a146dc922ce0cec8e8d4fa6a095f36429b23650e2f8cb8223761482",
+        "complete_values": true
+      },
+      "15": {
+        "query": 15,
+        "run": 3,
+        "seconds": 1.81832695799676,
+        "native_peak_rss_bytes": 2572124160,
+        "user_cpu_seconds": 10.178926,
+        "system_cpu_seconds": 0.7444109999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q15_run3.stdout.json.gz",
+        "gzip_sha256": "760da73d89c5f9b4bfcfb58cfe01910ec9d3792c853e3a92ed3e069bd6955375",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q15_run3.timing.json",
+        "timing_sha256": "1fb85c3c261e783947d3cf547c4fc09a3a45dd1dc34900d844eddfa74e5c6e02",
+        "complete_values": true
+      },
+      "16": {
+        "query": 16,
+        "run": 1,
+        "seconds": 3.2994593330004136,
+        "native_peak_rss_bytes": 2339913728,
+        "user_cpu_seconds": 4.985554,
+        "system_cpu_seconds": 0.371402,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q16_run1.stdout.json.gz",
+        "gzip_sha256": "ba10484c9b126f764fe0f21df5ce21fd6f2a975c5b7c62abb11e0be23a3aa1b0",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q16_run1.timing.json",
+        "timing_sha256": "8e5436a73e4de83d8190f85d4afe71b73981ce79930fceebfd3799f6e56d0020",
+        "complete_values": true
+      },
+      "17": {
+        "query": 17,
+        "run": 2,
+        "seconds": 8.920589875000587,
+        "native_peak_rss_bytes": 4918951936,
+        "user_cpu_seconds": 25.296455,
+        "system_cpu_seconds": 16.005387,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q17_run2.stdout.json.gz",
+        "gzip_sha256": "da6473eb66e9e2a98ee465de72fd08bfa24d929550f194f135ab5630c66db0c9",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q17_run2.timing.json",
+        "timing_sha256": "e26d5c32a9ad89c7ba5bbce8e646967f4f20a903cd2490831b0b070c5ec4f192",
+        "complete_values": true
+      },
+      "18": {
+        "query": 18,
+        "run": 2,
+        "seconds": 0.5220025419985177,
+        "native_peak_rss_bytes": 257441792,
+        "user_cpu_seconds": 0.5813849999999999,
+        "system_cpu_seconds": 0.178065,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q18_run2.stdout.json.gz",
+        "gzip_sha256": "238831360982335d98f3ac3cc88d591a49ee1735e7a59749cf694fe2653c38e1",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q18_run2.timing.json",
+        "timing_sha256": "0501ae0177115b0a262cb380fbbe781c3c0aa8722c3e6f05e754ea27ad218af3",
+        "complete_values": true
+      },
+      "19": {
+        "query": 19,
+        "run": 2,
+        "seconds": 9.750393584006815,
+        "native_peak_rss_bytes": 4071424000,
+        "user_cpu_seconds": 13.552297,
+        "system_cpu_seconds": 1.8036459999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q19_run2.stdout.json.gz",
+        "gzip_sha256": "d36d344530b05409b46ebbd12ae0898e9e2aba9c019c1346bcf11eeb47aaa38f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q19_run2.timing.json",
+        "timing_sha256": "e19408f2efc769d9e529250dd47152f361e657d8408edcbb741f945e2827b141",
+        "complete_values": true
+      },
+      "20": {
+        "query": 20,
+        "run": 3,
+        "seconds": 0.11180312500073342,
+        "native_peak_rss_bytes": 169754624,
+        "user_cpu_seconds": 0.283446,
+        "system_cpu_seconds": 0.074768,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q20_run3.stdout.json.gz",
+        "gzip_sha256": "3ba0bab9ad48ea8090a137dfaf512cb937ba881c7712082d8cd3dde46c062d66",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q20_run3.timing.json",
+        "timing_sha256": "12acfd8f172c5529f13a1873c4aa8c5df15001501b475b5bd3a6cca9157d1796",
+        "complete_values": true
+      },
+      "21": {
+        "query": 21,
+        "run": 3,
+        "seconds": 1.2863299169985112,
+        "native_peak_rss_bytes": 1222787072,
+        "user_cpu_seconds": 8.753005,
+        "system_cpu_seconds": 0.61231,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q21_run3.stdout.json.gz",
+        "gzip_sha256": "ca4b25449bdd6da8a1dfc41c97c9247e9b9f9502289b88a3290fb9a9f5248257",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q21_run3.timing.json",
+        "timing_sha256": "c9d2bd36217a5898f895fa08511debdd3b3634ff6ab860b43605f16969f66a83",
+        "complete_values": true
+      },
+      "22": {
+        "query": 22,
+        "run": 1,
+        "seconds": 2.3344181249995017,
+        "native_peak_rss_bytes": 1068056576,
+        "user_cpu_seconds": 10.06183,
+        "system_cpu_seconds": 0.593376,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q22_run1.stdout.json.gz",
+        "gzip_sha256": "51f368440f7bf22fa72686034a2d3613e623a5f2db134272ee7524c0fa91b1ce",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q22_run1.timing.json",
+        "timing_sha256": "50127365cc92dcbcc1779261701e993833ae8034af137a4f31d7c799605fe82d",
+        "complete_values": true
+      },
+      "23": {
+        "query": 23,
+        "run": 3,
+        "seconds": 8.55591162500059,
+        "native_peak_rss_bytes": 1858486272,
+        "user_cpu_seconds": 19.313416,
+        "system_cpu_seconds": 1.934858,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q23_run3.stdout.json.gz",
+        "gzip_sha256": "3feb92c55ab52f2da3a8abd94e100470bac2eac7f6717fc653ccd86d7eea5d85",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q23_run3.timing.json",
+        "timing_sha256": "00738e84dfcf13bc91e1fa698b0cc63f4ef4ba1f87fdc2482b140041aed92a98",
+        "complete_values": true
+      },
+      "24": {
+        "query": 24,
+        "run": 3,
+        "seconds": 1.4396487920021173,
+        "native_peak_rss_bytes": 1063665664,
+        "user_cpu_seconds": 8.962156,
+        "system_cpu_seconds": 0.8131229999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q24_run3.stdout.json.gz",
+        "gzip_sha256": "45bc8b86b8267a73d97a1520d2e0d928c24fd5d06de4c8c2c2144a60d1680f8e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q24_run3.timing.json",
+        "timing_sha256": "5b6c6cb77335fe344ee831079901e6cecc29296330f68d1f09bcc39ba4545a7b",
+        "complete_values": true
+      },
+      "25": {
+        "query": 25,
+        "run": 1,
+        "seconds": 0.7961219999997411,
+        "native_peak_rss_bytes": 271646720,
+        "user_cpu_seconds": 1.065156,
+        "system_cpu_seconds": 0.192768,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q25_run1.stdout.json.gz",
+        "gzip_sha256": "c8bad654383e900ce6ae260156b605aca740f76ad51dbc713da56bace9f58675",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q25_run1.timing.json",
+        "timing_sha256": "c2e328bc696c6ea7236dcc5aef481b1bd8600c8ff293b9f3512ba96d6ca0c83c",
+        "complete_values": true
+      },
+      "26": {
+        "query": 26,
+        "run": 3,
+        "seconds": 4.743795125003089,
+        "native_peak_rss_bytes": 256589824,
+        "user_cpu_seconds": 4.936565,
+        "system_cpu_seconds": 0.209591,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q26_run3.stdout.json.gz",
+        "gzip_sha256": "b1e33ecf407b2d453df46e48f081c2297fbe5904e5b9d1eaf10525db08171ef7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q26_run3.timing.json",
+        "timing_sha256": "7343c8c9b6c3d5976bf2aca2db9aff8015ef196c802a5789a910b21df6415b7a",
+        "complete_values": true
+      },
+      "27": {
+        "query": 27,
+        "run": 3,
+        "seconds": 4.333602874998178,
+        "native_peak_rss_bytes": 324288512,
+        "user_cpu_seconds": 4.512092,
+        "system_cpu_seconds": 0.21449,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q27_run3.stdout.json.gz",
+        "gzip_sha256": "b8a35d7a1b5bd707dbd411bbcaf49f1b983e02139d9ac3c8ce8b8608620790ad",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q27_run3.timing.json",
+        "timing_sha256": "292ebcf6df5c8137aab4b8302aba5d338a5a52d476f8a95c332152dac0d4e411",
+        "complete_values": true
+      },
+      "28": {
+        "query": 28,
+        "run": 1,
+        "seconds": 3.8108654579991708,
+        "native_peak_rss_bytes": 198082560,
+        "user_cpu_seconds": 3.949178,
+        "system_cpu_seconds": 0.117645,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q28_run1.stdout.json.gz",
+        "gzip_sha256": "964a54d4dc836b03fc07deefda6982165aefce5b599fdde0d83555efd1d315c8",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q28_run1.timing.json",
+        "timing_sha256": "0c651b2cd7415d4a81ff654181b890d250aa1b72e67301adaa41fcfe39238e6d",
+        "complete_values": true
+      },
+      "29": {
+        "query": 29,
+        "run": 3,
+        "seconds": 12.596076791000087,
+        "native_peak_rss_bytes": 1461174272,
+        "user_cpu_seconds": 16.201641,
+        "system_cpu_seconds": 0.42289099999999996,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q29_run3.stdout.json.gz",
+        "gzip_sha256": "98865e25ea20f698ff3e9a23b7ae96db3625478a73c25f09ac9ee11350189060",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q29_run3.timing.json",
+        "timing_sha256": "ab16e29307900b87b3679d5a84314fd8df651c5cbef1b7007e31e4898306bac3",
+        "complete_values": true
+      },
+      "30": {
+        "query": 30,
+        "run": 3,
+        "seconds": 0.22672558300109813,
+        "native_peak_rss_bytes": 126664704,
+        "user_cpu_seconds": 0.239247,
+        "system_cpu_seconds": 0.030957,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q30_run3.stdout.json.gz",
+        "gzip_sha256": "4f1018344b0600d7c6253f735d0ef1acb5ca7bf225cdc68db343c4d136b7075e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q30_run3.timing.json",
+        "timing_sha256": "48085e11577e696d6ac8983eabc2697f603e606c07c36755b8feda53a1fbd902",
+        "complete_values": true
+      },
+      "31": {
+        "query": 31,
+        "run": 3,
+        "seconds": 1.1295848329973524,
+        "native_peak_rss_bytes": 885293056,
+        "user_cpu_seconds": 1.486075,
+        "system_cpu_seconds": 0.420473,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q31_run3.stdout.json.gz",
+        "gzip_sha256": "870462a3e7286e5cefb939445edf3bf94fe864f3b3a3a7f7d12854830800bca7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q31_run3.timing.json",
+        "timing_sha256": "d9ca12ccc6a90bf750eb0dd7782f67666ee9d9dbd0ce3854d0b1b1afe40dc12a",
+        "complete_values": true
+      },
+      "32": {
+        "query": 32,
+        "run": 2,
+        "seconds": 1.3758426249987679,
+        "native_peak_rss_bytes": 2458894336,
+        "user_cpu_seconds": 1.69357,
+        "system_cpu_seconds": 0.635751,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q32_run2.stdout.json.gz",
+        "gzip_sha256": "ddac6b0c8e378b1970eddae96cf4afa0eddd142e60396d2e7db166b3cd4c2b17",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q32_run2.timing.json",
+        "timing_sha256": "c8d1b2eedef8c1cc5c527453a038537a5707bdf21aa4ded20d1e81c999ff358a",
+        "complete_values": true
+      },
+      "33": {
+        "query": 33,
+        "run": 2,
+        "seconds": 2.6534408330044243,
+        "native_peak_rss_bytes": 2760409088,
+        "user_cpu_seconds": 8.353657,
+        "system_cpu_seconds": 0.936753,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q33_run2.stdout.json.gz",
+        "gzip_sha256": "dbb95758b84ba0f20afef04d8b7b2de85d9346d3a8523297ba235709a4f500d6",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q33_run2.timing.json",
+        "timing_sha256": "53f6a40f175cac361c1ec8a798bc79d0d2470c468814ecd70fb8cd813c681763",
+        "complete_values": true
+      },
+      "34": {
+        "query": 34,
+        "run": 3,
+        "seconds": 6.030232417004299,
+        "native_peak_rss_bytes": 5062361088,
+        "user_cpu_seconds": 28.479074,
+        "system_cpu_seconds": 5.826556,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q34_run3.stdout.json.gz",
+        "gzip_sha256": "a702ef1122d14b7512bd833eb0df788a623daaee63bc06903c2de7681c3f6bf8",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q34_run3.timing.json",
+        "timing_sha256": "35987a40a5e0ad6a79eacc6b145ca1cd7419d56012f9a5a53e8d2f47940af45a",
+        "complete_values": true
+      },
+      "35": {
+        "query": 35,
+        "run": 1,
+        "seconds": 7.113361499999883,
+        "native_peak_rss_bytes": 4895719424,
+        "user_cpu_seconds": 28.431624,
+        "system_cpu_seconds": 7.730907,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q35_run1.stdout.json.gz",
+        "gzip_sha256": "0d6fa1b7617f407cfbe4447e51455b994907a6819e037c3fc3652782e77f3fb7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q35_run1.timing.json",
+        "timing_sha256": "df23657751123422cd63d8106cabb39b7f11480e127e22c4b58a5b70a530e8be",
+        "complete_values": true
+      },
+      "36": {
+        "query": 36,
+        "run": 3,
+        "seconds": 0.5180713750014547,
+        "native_peak_rss_bytes": 689291264,
+        "user_cpu_seconds": 3.378355,
+        "system_cpu_seconds": 0.130248,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q36_run3.stdout.json.gz",
+        "gzip_sha256": "9491fb99bdcd8865c27d17a5b3ce171a2639c0f69695ca0765d4284ec136da87",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q36_run3.timing.json",
+        "timing_sha256": "82844204d415284aa119845509eb486463f16b00047f664a64f7a6bf4099c1ca",
+        "complete_values": true
+      },
+      "37": {
+        "query": 37,
+        "run": 3,
+        "seconds": 0.30646745799458586,
+        "native_peak_rss_bytes": 269549568,
+        "user_cpu_seconds": 0.357867,
+        "system_cpu_seconds": 0.060145,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q37_run3.stdout.json.gz",
+        "gzip_sha256": "0666d63b9853df219bb1fec3f080f0a3df79ae83e59f0cf05a6717740e759b61",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q37_run3.timing.json",
+        "timing_sha256": "f67bcbbc92a9fcafa15f1c4de5aca639ff354e0b133a3fc7dbac29c7e8dda931",
+        "complete_values": true
+      },
+      "38": {
+        "query": 38,
+        "run": 3,
+        "seconds": 0.1815797909948742,
+        "native_peak_rss_bytes": 494239744,
+        "user_cpu_seconds": 0.24800499999999998,
+        "system_cpu_seconds": 0.11226599999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q38_run3.stdout.json.gz",
+        "gzip_sha256": "bb263235a465da67a817314ca0d96efc6504f8ad65f6d406863c78b078ff910a",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q38_run3.timing.json",
+        "timing_sha256": "cf8a1fcf741e15a7b5f01c5d0856c6f58040291c81a3367be41069eeafabb87a",
+        "complete_values": true
+      },
+      "39": {
+        "query": 39,
+        "run": 3,
+        "seconds": 0.13515404200006742,
+        "native_peak_rss_bytes": 217169920,
+        "user_cpu_seconds": 0.19464399999999998,
+        "system_cpu_seconds": 0.044911,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q39_run3.stdout.json.gz",
+        "gzip_sha256": "b916fbc8d203d8f4c9cba6674d444cd51c54b2fec05833bbef441c3cf764e3cf",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q39_run3.timing.json",
+        "timing_sha256": "c8c1607ea907b1fc72617f74f34bd86ebafb8cccff0f3eaf455132a37f0e8cbd",
+        "complete_values": true
+      },
+      "40": {
+        "query": 40,
+        "run": 1,
+        "seconds": 0.8494722079994972,
+        "native_peak_rss_bytes": 713457664,
+        "user_cpu_seconds": 0.866803,
+        "system_cpu_seconds": 0.095592,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q40_run1.stdout.json.gz",
+        "gzip_sha256": "3ba9fce3b5ab296a8be5e8e61aa95474d73303c6d7f84d57bc04b0e49c1c742f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q40_run1.timing.json",
+        "timing_sha256": "7ece78a269c0cd49799a4c368b7813c98e1c854e0fd698787161d497f3911f9d",
+        "complete_values": true
+      },
+      "41": {
+        "query": 41,
+        "run": 3,
+        "seconds": 0.1522616250003921,
+        "native_peak_rss_bytes": 203800576,
+        "user_cpu_seconds": 0.216544,
+        "system_cpu_seconds": 0.049276999999999994,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q41_run3.stdout.json.gz",
+        "gzip_sha256": "a2603bf474c45f5e749ccee45bcfe0d5d950a0b4eb926a70316c97da2ef6b48e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q41_run3.timing.json",
+        "timing_sha256": "65d02c1bbf2195b3835a332a72247a22590681b8dfeeee5dd11cc98dc691d3fe",
+        "complete_values": true
+      },
+      "42": {
+        "query": 42,
+        "run": 3,
+        "seconds": 0.09413512500032084,
+        "native_peak_rss_bytes": 164986880,
+        "user_cpu_seconds": 0.153522,
+        "system_cpu_seconds": 0.036785,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q42_run3.stdout.json.gz",
+        "gzip_sha256": "258359ccf8d02e8058ddea95388f82546413713337f7cbc6bac933fccd92b3c6",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q42_run3.timing.json",
+        "timing_sha256": "c48cbfc6e293ba819a9e46441b29589ad3e7e4819098c80439445e0706e1d134",
+        "complete_values": true
+      },
+      "43": {
+        "query": 43,
+        "run": 3,
+        "seconds": 0.09413416700408561,
+        "native_peak_rss_bytes": 154812416,
+        "user_cpu_seconds": 0.151167,
+        "system_cpu_seconds": 0.030702,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q43_run3.stdout.json.gz",
+        "gzip_sha256": "d7d8769402a895699ec479d285189a38fb427bde035736d346ef3dc578eed1d4",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q43_run3.timing.json",
+        "timing_sha256": "5761079a0c4ae5d167a9ea90f1e07d45b6b9674a66e6e0b1c9d17afee60acf8c",
+        "complete_values": true
+      }
+    },
+    "runs": [
+      {
+        "query": 1,
+        "run": 1,
+        "seconds": 0.019238832996052224,
+        "native_peak_rss_bytes": 54296576,
+        "user_cpu_seconds": 0.013779999999999999,
+        "system_cpu_seconds": 0.0046289999999999994,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q01_run1.stdout.json.gz",
+        "gzip_sha256": "b60b0cc6d24bb0977dcee825a53e7026c605f76bfb54c328b3e5164830610a36",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q01_run1.timing.json",
+        "timing_sha256": "b4e13ffb96e54b0ad8dcc45c8c0291f480b3b86b9539388093e0e892c61706ad",
+        "complete_values": true
+      },
+      {
+        "query": 1,
+        "run": 2,
+        "seconds": 0.01925150000170106,
+        "native_peak_rss_bytes": 54312960,
+        "user_cpu_seconds": 0.014145,
+        "system_cpu_seconds": 0.0043939999999999995,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q01_run2.stdout.json.gz",
+        "gzip_sha256": "b60b0cc6d24bb0977dcee825a53e7026c605f76bfb54c328b3e5164830610a36",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q01_run2.timing.json",
+        "timing_sha256": "01232f3a09e1ace69c385f252532a7561c9473acfb14e5f0a81d03c0aa719a69",
+        "complete_values": true
+      },
+      {
+        "query": 1,
+        "run": 3,
+        "seconds": 0.019165833000442944,
+        "native_peak_rss_bytes": 54280192,
+        "user_cpu_seconds": 0.01394,
+        "system_cpu_seconds": 0.004333,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q01_run3.stdout.json.gz",
+        "gzip_sha256": "b60b0cc6d24bb0977dcee825a53e7026c605f76bfb54c328b3e5164830610a36",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q01_run3.timing.json",
+        "timing_sha256": "edf890157a288018bdf69c9341f6b9b59aa9bc45498e1d21fd2331113b9518d5",
+        "complete_values": true
+      },
+      {
+        "query": 2,
+        "run": 1,
+        "seconds": 0.07242354199843248,
+        "native_peak_rss_bytes": 148602880,
+        "user_cpu_seconds": 0.18837299999999998,
+        "system_cpu_seconds": 0.065135,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q02_run1.stdout.json.gz",
+        "gzip_sha256": "0027da7c0e2f8ede0950200d13d9aa14dd5d060f06fb1cc2038699d6d8a01f97",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q02_run1.timing.json",
+        "timing_sha256": "e7a24f5763d5b4be89bf020d456869db6fc01ba67cde4dd887f754feaf0b479b",
+        "complete_values": true
+      },
+      {
+        "query": 2,
+        "run": 2,
+        "seconds": 0.0650022909976542,
+        "native_peak_rss_bytes": 145096704,
+        "user_cpu_seconds": 0.178398,
+        "system_cpu_seconds": 0.030324,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q02_run2.stdout.json.gz",
+        "gzip_sha256": "9970d9a8559cfa29fde4297f7f2bc178fe2e47bd77e5635c658eb70a64db8422",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q02_run2.timing.json",
+        "timing_sha256": "15f1d7b48c78f39040234a88f42646d54c2d4f1141f33efedfc92ec58a41da1f",
+        "complete_values": true
+      },
+      {
+        "query": 2,
+        "run": 3,
+        "seconds": 0.06620966699847486,
+        "native_peak_rss_bytes": 145489920,
+        "user_cpu_seconds": 0.178142,
+        "system_cpu_seconds": 0.030284,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q02_run3.stdout.json.gz",
+        "gzip_sha256": "1878850cb4260c43ae4ca24e7519b68e2b712dd56c4e6ce66611625d3cc3954f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q02_run3.timing.json",
+        "timing_sha256": "bddab8e57e28876bccc137298d216f464163d857b27f24b04d9621e221702911",
+        "complete_values": true
+      },
+      {
+        "query": 3,
+        "run": 1,
+        "seconds": 1.0154251249987283,
+        "native_peak_rss_bytes": 162856960,
+        "user_cpu_seconds": 1.047283,
+        "system_cpu_seconds": 0.0759,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q03_run1.stdout.json.gz",
+        "gzip_sha256": "eab46b3473fa0b4a471814b8e35d9e256798be8b9e5eeac2aed08d0ebfbe52cd",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q03_run1.timing.json",
+        "timing_sha256": "9049217b3a85932df2f1108155e25bd0c2b3294a0787dd1dc4359e61612aea67",
+        "complete_values": true
+      },
+      {
+        "query": 3,
+        "run": 2,
+        "seconds": 1.021769166996819,
+        "native_peak_rss_bytes": 162119680,
+        "user_cpu_seconds": 1.054202,
+        "system_cpu_seconds": 0.075582,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q03_run2.stdout.json.gz",
+        "gzip_sha256": "1ac9b54491a532e1334c8001ba35a97a5696c13a5d44365fd46dd168174aad8b",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q03_run2.timing.json",
+        "timing_sha256": "6497cf4d9007515cfbab5dd852b8ede09b240183aec7560644c83924e5ea151f",
+        "complete_values": true
+      },
+      {
+        "query": 3,
+        "run": 3,
+        "seconds": 0.9989323750050971,
+        "native_peak_rss_bytes": 164888576,
+        "user_cpu_seconds": 1.03156,
+        "system_cpu_seconds": 0.074602,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q03_run3.stdout.json.gz",
+        "gzip_sha256": "8939ac50252ba84b86cde6f2c839692c43df70e59a5edd168558817607177f44",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q03_run3.timing.json",
+        "timing_sha256": "55a9d5726faabf8aacff64eb4859e2b395a986dd0327d0759e0220c07a9409c0",
+        "complete_values": true
+      },
+      {
+        "query": 4,
+        "run": 1,
+        "seconds": 0.4027778749950812,
+        "native_peak_rss_bytes": 174555136,
+        "user_cpu_seconds": 0.414232,
+        "system_cpu_seconds": 0.064216,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q04_run1.stdout.json.gz",
+        "gzip_sha256": "2a3990bb65e4e52ec6631fe01355d1391aabc7894425ce9d9ead334251142af5",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q04_run1.timing.json",
+        "timing_sha256": "bbc6c9aaa2a62adb56a2e0fd5ac4a34e4204fb366fb3a2d3cd4123f27fb7578d",
+        "complete_values": true
+      },
+      {
+        "query": 4,
+        "run": 2,
+        "seconds": 0.42946391599980416,
+        "native_peak_rss_bytes": 175046656,
+        "user_cpu_seconds": 0.44041199999999997,
+        "system_cpu_seconds": 0.060592,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q04_run2.stdout.json.gz",
+        "gzip_sha256": "bc549851025ac18a929c8a0225a6e9a87b31fd51b8658500c997823a8b1a0018",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q04_run2.timing.json",
+        "timing_sha256": "8f81f674ef1ff37e75dc688177e82eea1f02036196e4fefb84e75a833112afbe",
+        "complete_values": true
+      },
+      {
+        "query": 4,
+        "run": 3,
+        "seconds": 0.43250862500281073,
+        "native_peak_rss_bytes": 176537600,
+        "user_cpu_seconds": 0.436241,
+        "system_cpu_seconds": 0.065968,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q04_run3.stdout.json.gz",
+        "gzip_sha256": "ea8021a5e7a242e046d748291411c6176b32c7e7ae167eee9edfa7268253d804",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q04_run3.timing.json",
+        "timing_sha256": "a3f0d7d50d69fc5d70446501dec25c5357773e1a9b4b1854e7c341a93b4d7fae",
+        "complete_values": true
+      },
+      {
+        "query": 5,
+        "run": 1,
+        "seconds": 1.5234265420003794,
+        "native_peak_rss_bytes": 1774616576,
+        "user_cpu_seconds": 1.387599,
+        "system_cpu_seconds": 0.2176,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q05_run1.stdout.json.gz",
+        "gzip_sha256": "c42c0f7941badcc78aa0030738a0607609d1612de5a8eeda9601ef5d3596faaa",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q05_run1.timing.json",
+        "timing_sha256": "fe908a1807e082b2aa8283521df7b6366bb0f10023365b056c9abbc5cf8ecba0",
+        "complete_values": true
+      },
+      {
+        "query": 5,
+        "run": 2,
+        "seconds": 1.4281223750003846,
+        "native_peak_rss_bytes": 1840791552,
+        "user_cpu_seconds": 1.324388,
+        "system_cpu_seconds": 0.179162,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q05_run2.stdout.json.gz",
+        "gzip_sha256": "6d3461189d185d0eecc6f2bce12fcf24fc92a6601135a3ae367f03112c82e123",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q05_run2.timing.json",
+        "timing_sha256": "c3f94b59a67982d6792bb1ed43856e8451a17dd2914365cadfbab4bd8beee26c",
+        "complete_values": true
+      },
+      {
+        "query": 5,
+        "run": 3,
+        "seconds": 1.5675731660012389,
+        "native_peak_rss_bytes": 1839169536,
+        "user_cpu_seconds": 1.455944,
+        "system_cpu_seconds": 0.200698,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q05_run3.stdout.json.gz",
+        "gzip_sha256": "b8b5f04512ab2fd7fc1f78fb90de5f64e9811f25b0bbec719475b56a6897395f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q05_run3.timing.json",
+        "timing_sha256": "19507961ccb7e0f8ca07ecb5abfe02bfe943f29fa33f3eb0c927f6a5da9f5967",
+        "complete_values": true
+      },
+      {
+        "query": 6,
+        "run": 1,
+        "seconds": 4.082630666001933,
+        "native_peak_rss_bytes": 1161887744,
+        "user_cpu_seconds": 4.008766,
+        "system_cpu_seconds": 0.16863,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q06_run1.stdout.json.gz",
+        "gzip_sha256": "ea5b4ff4283d13e53dfb77164e8f406ca220e3b8b0b4608b562546e4fa19279e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q06_run1.timing.json",
+        "timing_sha256": "4192e7b0c9f40a1d0fd8cd7d983d64a13ada2c81ddd7137755c0563e5677cacf",
+        "complete_values": true
+      },
+      {
+        "query": 6,
+        "run": 2,
+        "seconds": 3.9012980830011657,
+        "native_peak_rss_bytes": 1161150464,
+        "user_cpu_seconds": 3.820651,
+        "system_cpu_seconds": 0.153636,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q06_run2.stdout.json.gz",
+        "gzip_sha256": "8289bc3c83688445072448f39af019426d740c13147b9be7ef64634d862f346d",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q06_run2.timing.json",
+        "timing_sha256": "7859a4782ee4efc17da7da607b48a0d3d517fac3704254750846e985418e29a0",
+        "complete_values": true
+      },
+      {
+        "query": 6,
+        "run": 3,
+        "seconds": 4.904471417001332,
+        "native_peak_rss_bytes": 1159888896,
+        "user_cpu_seconds": 4.828275,
+        "system_cpu_seconds": 0.152172,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q06_run3.stdout.json.gz",
+        "gzip_sha256": "9fd15cfe8cedc260a6c66622a9fd1a103d80508af0b63ee130a050cfb65b225a",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q06_run3.timing.json",
+        "timing_sha256": "f8f979f7fb654b951c6b1818982ebd57fb1584e38299fd6c71650bab7abcf4e8",
+        "complete_values": true
+      },
+      {
+        "query": 7,
+        "run": 1,
+        "seconds": 0.022067042002163362,
+        "native_peak_rss_bytes": 57327616,
+        "user_cpu_seconds": 0.016059999999999998,
+        "system_cpu_seconds": 0.005059999999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q07_run1.stdout.json.gz",
+        "gzip_sha256": "ec88879edfe9911d7b29160ddb263d1a92c18e255e6a08ad42e835aabce42eb1",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q07_run1.timing.json",
+        "timing_sha256": "bc4bb0b82191942004263fc0c9119c8456adb2bae4367f6a89e7b6efcd69be42",
+        "complete_values": true
+      },
+      {
+        "query": 7,
+        "run": 2,
+        "seconds": 0.018984208996698726,
+        "native_peak_rss_bytes": 57327616,
+        "user_cpu_seconds": 0.013949999999999999,
+        "system_cpu_seconds": 0.0045379999999999995,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q07_run2.stdout.json.gz",
+        "gzip_sha256": "119ce0fa11d9b8f22ad4244852133284ea4c9a85574158c35783e52179bdf5ae",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q07_run2.timing.json",
+        "timing_sha256": "f68f32fd5075134a84b9509b2646d71edc5d7080ccde0e15a8a203bfd1ab6ef8",
+        "complete_values": true
+      },
+      {
+        "query": 7,
+        "run": 3,
+        "seconds": 0.019369625006220303,
+        "native_peak_rss_bytes": 57262080,
+        "user_cpu_seconds": 0.014093,
+        "system_cpu_seconds": 0.004516,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q07_run3.stdout.json.gz",
+        "gzip_sha256": "578da06ee0058065967fb6081b27437f459673d9c4cc0f77efb75565dcf777c3",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q07_run3.timing.json",
+        "timing_sha256": "bd59f6e7ce91dbc3f2b4081caad9e31f88b2ea78401e482a3e24ffb5d5647ef0",
+        "complete_values": true
+      },
+      {
+        "query": 8,
+        "run": 1,
+        "seconds": 0.08389637499931268,
+        "native_peak_rss_bytes": 147750912,
+        "user_cpu_seconds": 0.20501799999999998,
+        "system_cpu_seconds": 0.03537,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q08_run1.stdout.json.gz",
+        "gzip_sha256": "37329f8c9a12ef63005db8fc4874e0cd6983261bbafe186081cf273e714bce4a",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q08_run1.timing.json",
+        "timing_sha256": "c94b3396613d9f101fed3818ee36826780f17046a3a0795dde72d3389b881f6a",
+        "complete_values": true
+      },
+      {
+        "query": 8,
+        "run": 2,
+        "seconds": 0.08210695799789391,
+        "native_peak_rss_bytes": 146079744,
+        "user_cpu_seconds": 0.20534999999999998,
+        "system_cpu_seconds": 0.043841,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q08_run2.stdout.json.gz",
+        "gzip_sha256": "554942bf52886f0f12d7c1381970c64e30844966d902c7b3ec577efde7d3a6aa",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q08_run2.timing.json",
+        "timing_sha256": "86fbfb9f19a2b50669a9e969e6b44e5179a2290d96fb4005cd0299a4eb0090eb",
+        "complete_values": true
+      },
+      {
+        "query": 8,
+        "run": 3,
+        "seconds": 0.08688175000133924,
+        "native_peak_rss_bytes": 145965056,
+        "user_cpu_seconds": 0.21570499999999998,
+        "system_cpu_seconds": 0.048429,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q08_run3.stdout.json.gz",
+        "gzip_sha256": "9bee5df037a7ba3ed893a85b192cf816baaa7de8e45806c238f8f49094ab9042",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q08_run3.timing.json",
+        "timing_sha256": "004b136c878be0886fab80ecfc1763d6e5b0a12f33870565cafae2f0d32551fe",
+        "complete_values": true
+      },
+      {
+        "query": 9,
+        "run": 1,
+        "seconds": 1.5038078750003478,
+        "native_peak_rss_bytes": 3833610240,
+        "user_cpu_seconds": 5.14702,
+        "system_cpu_seconds": 1.478342,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q09_run1.stdout.json.gz",
+        "gzip_sha256": "fe8483290dac24525112b6aa4b9bd02c301af8c62768c3424fcc9e03473dd597",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q09_run1.timing.json",
+        "timing_sha256": "2b6a5cbf6f4c7993c9c216512a37a8c8d8274ff264fcce98b35466500df1949d",
+        "complete_values": true
+      },
+      {
+        "query": 9,
+        "run": 2,
+        "seconds": 1.2103665839968016,
+        "native_peak_rss_bytes": 4289200128,
+        "user_cpu_seconds": 5.112045,
+        "system_cpu_seconds": 0.690253,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q09_run2.stdout.json.gz",
+        "gzip_sha256": "ad7f3ecf36b518a7c766931585047730e89d475b3cba299378096eb819ec8e9e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q09_run2.timing.json",
+        "timing_sha256": "594b54ad3d785ece8ba6a6a2a599a65e01a17946d835e2c75b4481fc30bda58c",
+        "complete_values": true
+      },
+      {
+        "query": 9,
+        "run": 3,
+        "seconds": 1.2132522079991759,
+        "native_peak_rss_bytes": 4223844352,
+        "user_cpu_seconds": 5.163154,
+        "system_cpu_seconds": 0.7388629999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q09_run3.stdout.json.gz",
+        "gzip_sha256": "e481e66887258f156be7bc60890e104dba692febdfe93cfb57b940d16c2073db",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q09_run3.timing.json",
+        "timing_sha256": "377e6bc337bdb8b76dde6ddab6672cdb708f4fc4412f7b2c55680b100af6b68d",
+        "complete_values": true
+      },
+      {
+        "query": 10,
+        "run": 1,
+        "seconds": 4.899687874996744,
+        "native_peak_rss_bytes": 1090306048,
+        "user_cpu_seconds": 4.903728,
+        "system_cpu_seconds": 0.237083,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q10_run1.stdout.json.gz",
+        "gzip_sha256": "68edca78450c658a720d59ec62ffb9c18bd0dce9cc2f39c185afb3cc90b1c1e1",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q10_run1.timing.json",
+        "timing_sha256": "e13912ce46ba6293299fb0c0e1fd6bdc3b13179f3bd49494f8fe1cb3af4462f6",
+        "complete_values": true
+      },
+      {
+        "query": 10,
+        "run": 2,
+        "seconds": 4.813317708998511,
+        "native_peak_rss_bytes": 1085964288,
+        "user_cpu_seconds": 4.820167,
+        "system_cpu_seconds": 0.191943,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q10_run2.stdout.json.gz",
+        "gzip_sha256": "2a216e8b360f2aa93ee08d3b69bea696a5f9321cf19e000fb774c7510fdeb5de",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q10_run2.timing.json",
+        "timing_sha256": "c5c47aa9daa941574a375248b47a07d74d8b15a4abc5f91efa5b3201c6b3087d",
+        "complete_values": true
+      },
+      {
+        "query": 10,
+        "run": 3,
+        "seconds": 4.813740375000634,
+        "native_peak_rss_bytes": 1083899904,
+        "user_cpu_seconds": 4.826104,
+        "system_cpu_seconds": 0.186823,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q10_run3.stdout.json.gz",
+        "gzip_sha256": "45832dde402a9f9be891e555b3dc8ed83b790e0f173a27e464ca96b163f23edf",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q10_run3.timing.json",
+        "timing_sha256": "ca412270575b30b0850e67aec8704d67858e1656879581c51c79e36c93c44ddb",
+        "complete_values": true
+      },
+      {
+        "query": 11,
+        "run": 1,
+        "seconds": 0.8067886249991716,
+        "native_peak_rss_bytes": 572751872,
+        "user_cpu_seconds": 1.850179,
+        "system_cpu_seconds": 0.172814,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q11_run1.stdout.json.gz",
+        "gzip_sha256": "428c3c5edfc4bc36a0f07ac59ff8f4486f825363ea90708719e2e815923d3712",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q11_run1.timing.json",
+        "timing_sha256": "28efe1113f1190d656baeda13e54ac545fd41deca837ced17121137065560657",
+        "complete_values": true
+      },
+      {
+        "query": 11,
+        "run": 2,
+        "seconds": 0.8128662500021164,
+        "native_peak_rss_bytes": 580255744,
+        "user_cpu_seconds": 1.843322,
+        "system_cpu_seconds": 0.160104,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q11_run2.stdout.json.gz",
+        "gzip_sha256": "d2b1b5d034963040cdd5b2614a9d3e344c575556c2d072217448d8e9de00c271",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q11_run2.timing.json",
+        "timing_sha256": "ecd8ba4f1e171ae884c8433ec0c1b7abd7c7742fd6400b1123ac9ce7a492de2d",
+        "complete_values": true
+      },
+      {
+        "query": 11,
+        "run": 3,
+        "seconds": 0.8279484169979696,
+        "native_peak_rss_bytes": 571637760,
+        "user_cpu_seconds": 1.861585,
+        "system_cpu_seconds": 0.166678,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q11_run3.stdout.json.gz",
+        "gzip_sha256": "2b1e296cf58cac1b6d48490782b600b9fa836389d030013dfe01c91f1f35d0ea",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q11_run3.timing.json",
+        "timing_sha256": "210e2021b04c9adb98159dae828aead204adf1f3c63dc58ea0b72d03c6f5c4ba",
+        "complete_values": true
+      },
+      {
+        "query": 12,
+        "run": 1,
+        "seconds": 1.5900419579993468,
+        "native_peak_rss_bytes": 299466752,
+        "user_cpu_seconds": 2.169077,
+        "system_cpu_seconds": 0.096054,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q12_run1.stdout.json.gz",
+        "gzip_sha256": "186be09bcc074eb17b69287e9a63bc67456fe3cf549f96c15ea1098c5049d960",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q12_run1.timing.json",
+        "timing_sha256": "840d8c2f883e5f23440c543f2511b33cbbeb23fe092bb2e4061d0c4356c002d4",
+        "complete_values": true
+      },
+      {
+        "query": 12,
+        "run": 2,
+        "seconds": 1.5392552919947775,
+        "native_peak_rss_bytes": 307167232,
+        "user_cpu_seconds": 2.11257,
+        "system_cpu_seconds": 0.09722199999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q12_run2.stdout.json.gz",
+        "gzip_sha256": "dfb2e82b21f961587061b75a94ae2112a6fb75b3e19c7e077a89ab73310ea8e2",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q12_run2.timing.json",
+        "timing_sha256": "dc6d873e83d563c181c3f36b40ae509b93879312df67e9391e6458d70198d37d",
+        "complete_values": true
+      },
+      {
+        "query": 12,
+        "run": 3,
+        "seconds": 1.558566082996549,
+        "native_peak_rss_bytes": 298729472,
+        "user_cpu_seconds": 2.136298,
+        "system_cpu_seconds": 0.088129,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q12_run3.stdout.json.gz",
+        "gzip_sha256": "efcc83bbba97296601984edb2ba593e0b844ea00323a3ce4768bff6b3c45461e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q12_run3.timing.json",
+        "timing_sha256": "a9756337232e967212f45c76fa6bdee98a04a77c3dbb32ae75796dd70d0e4be6",
+        "complete_values": true
+      },
+      {
+        "query": 13,
+        "run": 1,
+        "seconds": 0.676183540999773,
+        "native_peak_rss_bytes": 1685848064,
+        "user_cpu_seconds": 4.242986,
+        "system_cpu_seconds": 0.45646,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q13_run1.stdout.json.gz",
+        "gzip_sha256": "37c19966cebf9f6058e57941f81728c4251d7fb17f36c2f70f921d7aa85fbb91",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q13_run1.timing.json",
+        "timing_sha256": "cf99a6504e25f8fa7a304761475b548f9bf4a5a9a1a7c5ba560e5d66806289bf",
+        "complete_values": true
+      },
+      {
+        "query": 13,
+        "run": 2,
+        "seconds": 0.6896494169996004,
+        "native_peak_rss_bytes": 1683996672,
+        "user_cpu_seconds": 4.188689,
+        "system_cpu_seconds": 0.40630499999999997,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q13_run2.stdout.json.gz",
+        "gzip_sha256": "f3e3e671753ceee8c8534f1d93752f6ae3f08986f59d05b9b54ae77f2dbb8e04",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q13_run2.timing.json",
+        "timing_sha256": "2820e305a80df13f11918dc2e4ce01a2e3b695b61125e4449ea169a4d40b73de",
+        "complete_values": true
+      },
+      {
+        "query": 13,
+        "run": 3,
+        "seconds": 0.7592895409979974,
+        "native_peak_rss_bytes": 1695760384,
+        "user_cpu_seconds": 4.602745,
+        "system_cpu_seconds": 0.465296,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q13_run3.stdout.json.gz",
+        "gzip_sha256": "f3ffed3477a17b900063e321a4c235366cec1124ab43e40d083e28c27889bb6e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q13_run3.timing.json",
+        "timing_sha256": "7f8de579ffaaa6d24c979be006b17b530cb9d8e0ce2d0d49d7f390018db4bf51",
+        "complete_values": true
+      },
+      {
+        "query": 14,
+        "run": 1,
+        "seconds": 2.1804055839966168,
+        "native_peak_rss_bytes": 3178135552,
+        "user_cpu_seconds": 11.548978,
+        "system_cpu_seconds": 1.763307,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q14_run1.stdout.json.gz",
+        "gzip_sha256": "fab5e706d749f9b747202acb181e9eb603e85e590750f7dee2c303b22699990e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q14_run1.timing.json",
+        "timing_sha256": "c8a648e6218e20424af79b7a1417605152d013cadd9bcf2ea3a1aeaddce2b215",
+        "complete_values": true
+      },
+      {
+        "query": 14,
+        "run": 2,
+        "seconds": 1.962776541004132,
+        "native_peak_rss_bytes": 3709992960,
+        "user_cpu_seconds": 12.276333,
+        "system_cpu_seconds": 0.953217,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q14_run2.stdout.json.gz",
+        "gzip_sha256": "aebd5df50319d01f81108c89ce3939b16988bcc5b7f36832e719642614bdc7b7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q14_run2.timing.json",
+        "timing_sha256": "9cbdcbe62a146dc922ce0cec8e8d4fa6a095f36429b23650e2f8cb8223761482",
+        "complete_values": true
+      },
+      {
+        "query": 14,
+        "run": 3,
+        "seconds": 2.3061006249990896,
+        "native_peak_rss_bytes": 3508568064,
+        "user_cpu_seconds": 11.42025,
+        "system_cpu_seconds": 1.254661,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q14_run3.stdout.json.gz",
+        "gzip_sha256": "eb29e4d5af7c72d2dea5dc19571f8c39c89121c0288c8e9698b2f33af8d1489f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q14_run3.timing.json",
+        "timing_sha256": "cea37a6c80227f7be7b55bbf806cb933efb2782be42aa6c73230d8e2d0e8f6c3",
+        "complete_values": true
+      },
+      {
+        "query": 15,
+        "run": 1,
+        "seconds": 1.8381781250063796,
+        "native_peak_rss_bytes": 2586198016,
+        "user_cpu_seconds": 9.773593,
+        "system_cpu_seconds": 0.7548389999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q15_run1.stdout.json.gz",
+        "gzip_sha256": "7e286bcd7d292e84f68591d78a41fd51449bfb6ccef3c97c0b54f6eaab9912d4",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q15_run1.timing.json",
+        "timing_sha256": "f29e1dd0ebf4dfce42b5920437173a8c24b9521ef6f754e1d112c56f7c5c73a6",
+        "complete_values": true
+      },
+      {
+        "query": 15,
+        "run": 2,
+        "seconds": 1.8404207499988843,
+        "native_peak_rss_bytes": 2564587520,
+        "user_cpu_seconds": 10.355797,
+        "system_cpu_seconds": 0.720984,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q15_run2.stdout.json.gz",
+        "gzip_sha256": "e22e826099647ae6c73fc05db5d30ea86e3a332b4adb9cc33b321bef45b64518",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q15_run2.timing.json",
+        "timing_sha256": "a7fbd613bfaf24d1657d10dcc895fa8ba6fc3a96f1ebe39e8a80a2f548667a37",
+        "complete_values": true
+      },
+      {
+        "query": 15,
+        "run": 3,
+        "seconds": 1.81832695799676,
+        "native_peak_rss_bytes": 2572124160,
+        "user_cpu_seconds": 10.178926,
+        "system_cpu_seconds": 0.7444109999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q15_run3.stdout.json.gz",
+        "gzip_sha256": "760da73d89c5f9b4bfcfb58cfe01910ec9d3792c853e3a92ed3e069bd6955375",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q15_run3.timing.json",
+        "timing_sha256": "1fb85c3c261e783947d3cf547c4fc09a3a45dd1dc34900d844eddfa74e5c6e02",
+        "complete_values": true
+      },
+      {
+        "query": 16,
+        "run": 1,
+        "seconds": 3.2994593330004136,
+        "native_peak_rss_bytes": 2339913728,
+        "user_cpu_seconds": 4.985554,
+        "system_cpu_seconds": 0.371402,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q16_run1.stdout.json.gz",
+        "gzip_sha256": "ba10484c9b126f764fe0f21df5ce21fd6f2a975c5b7c62abb11e0be23a3aa1b0",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q16_run1.timing.json",
+        "timing_sha256": "8e5436a73e4de83d8190f85d4afe71b73981ce79930fceebfd3799f6e56d0020",
+        "complete_values": true
+      },
+      {
+        "query": 16,
+        "run": 2,
+        "seconds": 3.3298936250066618,
+        "native_peak_rss_bytes": 2318843904,
+        "user_cpu_seconds": 5.003451,
+        "system_cpu_seconds": 0.41025799999999996,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q16_run2.stdout.json.gz",
+        "gzip_sha256": "0043837cc1bd99569632923f6dccbb15279e28b9cd36f7cdc20900024a137307",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q16_run2.timing.json",
+        "timing_sha256": "06e3d05ea706860efe11a2c7a6b57d260dc3f2de795df823cfd13da38167e503",
+        "complete_values": true
+      },
+      {
+        "query": 16,
+        "run": 3,
+        "seconds": 3.330083749999176,
+        "native_peak_rss_bytes": 2354905088,
+        "user_cpu_seconds": 5.046103,
+        "system_cpu_seconds": 0.407211,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q16_run3.stdout.json.gz",
+        "gzip_sha256": "1928a212ca04f48f0da6cc41a0f7b2207871b1bfd9ccac6da8ca015590b2b669",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q16_run3.timing.json",
+        "timing_sha256": "a9d5b695f97477e92cc7d4d29215ed04b90251fa2c65d995e3840b54c3273c73",
+        "complete_values": true
+      },
+      {
+        "query": 17,
+        "run": 1,
+        "seconds": 9.345954374999565,
+        "native_peak_rss_bytes": 4496490496,
+        "user_cpu_seconds": 22.760271,
+        "system_cpu_seconds": 17.036023,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q17_run1.stdout.json.gz",
+        "gzip_sha256": "517eb8f7509042ab3c0d54ae8c1f123ca865ef54d8b67ef7cca3bcc3b484e7e1",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q17_run1.timing.json",
+        "timing_sha256": "15b577d5d400c91492b75e51145567e12d2275eebe85647d61ddc9c941c967ae",
+        "complete_values": true
+      },
+      {
+        "query": 17,
+        "run": 2,
+        "seconds": 8.920589875000587,
+        "native_peak_rss_bytes": 4918951936,
+        "user_cpu_seconds": 25.296455,
+        "system_cpu_seconds": 16.005387,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q17_run2.stdout.json.gz",
+        "gzip_sha256": "da6473eb66e9e2a98ee465de72fd08bfa24d929550f194f135ab5630c66db0c9",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q17_run2.timing.json",
+        "timing_sha256": "e26d5c32a9ad89c7ba5bbce8e646967f4f20a903cd2490831b0b070c5ec4f192",
+        "complete_values": true
+      },
+      {
+        "query": 17,
+        "run": 3,
+        "seconds": 9.266660082997987,
+        "native_peak_rss_bytes": 5052612608,
+        "user_cpu_seconds": 29.163525,
+        "system_cpu_seconds": 15.698893,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q17_run3.stdout.json.gz",
+        "gzip_sha256": "095651f18e976953adc4fc94689238fe4960b930cdff4cba04d76f814ae14ad8",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q17_run3.timing.json",
+        "timing_sha256": "3080b481e090ff55aee339d2a4db98726407b12c9762908458612db61b75f076",
+        "complete_values": true
+      },
+      {
+        "query": 18,
+        "run": 1,
+        "seconds": 0.5527382090003812,
+        "native_peak_rss_bytes": 272744448,
+        "user_cpu_seconds": 0.611864,
+        "system_cpu_seconds": 0.179588,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q18_run1.stdout.json.gz",
+        "gzip_sha256": "9e2c728eff1dadb04efc54f32f978ab1b95c628e764e40590a4101c8bf8d5a5c",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q18_run1.timing.json",
+        "timing_sha256": "65aa75146f8b7466961e80b8d8f63581a0c4138fbcdf798dc9c85921f799697f",
+        "complete_values": true
+      },
+      {
+        "query": 18,
+        "run": 2,
+        "seconds": 0.5220025419985177,
+        "native_peak_rss_bytes": 257441792,
+        "user_cpu_seconds": 0.5813849999999999,
+        "system_cpu_seconds": 0.178065,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q18_run2.stdout.json.gz",
+        "gzip_sha256": "238831360982335d98f3ac3cc88d591a49ee1735e7a59749cf694fe2653c38e1",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q18_run2.timing.json",
+        "timing_sha256": "0501ae0177115b0a262cb380fbbe781c3c0aa8722c3e6f05e754ea27ad218af3",
+        "complete_values": true
+      },
+      {
+        "query": 18,
+        "run": 3,
+        "seconds": 0.5519840410051984,
+        "native_peak_rss_bytes": 260112384,
+        "user_cpu_seconds": 0.613062,
+        "system_cpu_seconds": 0.180584,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q18_run3.stdout.json.gz",
+        "gzip_sha256": "54f5d3aae20d50ff68a38e01ede884a7c341eade54c8c4077cac55c050a3e63f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q18_run3.timing.json",
+        "timing_sha256": "4751ebe1f3df512bf75ad1f7e078026f970704092ce56fedfccbcbce6f09ee87",
+        "complete_values": true
+      },
+      {
+        "query": 19,
+        "run": 1,
+        "seconds": 10.693511624995153,
+        "native_peak_rss_bytes": 3617226752,
+        "user_cpu_seconds": 13.948933,
+        "system_cpu_seconds": 3.858385,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q19_run1.stdout.json.gz",
+        "gzip_sha256": "9f73b692e1643bad833e4f9bb8b29f6306ebccf3b45678d9756521f8afc09f7d",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q19_run1.timing.json",
+        "timing_sha256": "517d5cd7b2e645de4d7d20d756d5e2f53b2cd2aba10859274d014195a1a53ce6",
+        "complete_values": true
+      },
+      {
+        "query": 19,
+        "run": 2,
+        "seconds": 9.750393584006815,
+        "native_peak_rss_bytes": 4071424000,
+        "user_cpu_seconds": 13.552297,
+        "system_cpu_seconds": 1.8036459999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q19_run2.stdout.json.gz",
+        "gzip_sha256": "d36d344530b05409b46ebbd12ae0898e9e2aba9c019c1346bcf11eeb47aaa38f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q19_run2.timing.json",
+        "timing_sha256": "e19408f2efc769d9e529250dd47152f361e657d8408edcbb741f945e2827b141",
+        "complete_values": true
+      },
+      {
+        "query": 19,
+        "run": 3,
+        "seconds": 10.006100416001573,
+        "native_peak_rss_bytes": 4201349120,
+        "user_cpu_seconds": 14.040756,
+        "system_cpu_seconds": 1.939807,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q19_run3.stdout.json.gz",
+        "gzip_sha256": "645787cecced03640e409f1261a5fca8180c7e129a8b077e329aca00db121872",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q19_run3.timing.json",
+        "timing_sha256": "bcf8535f028d2ee1af43910843af3935a96f69ab72da42272c45670516a063a2",
+        "complete_values": true
+      },
+      {
+        "query": 20,
+        "run": 1,
+        "seconds": 0.14105154199933168,
+        "native_peak_rss_bytes": 168591360,
+        "user_cpu_seconds": 0.30229,
+        "system_cpu_seconds": 0.105733,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q20_run1.stdout.json.gz",
+        "gzip_sha256": "acf49f40a488314dd6209c36e9f4a4e1ff57f72226258416ae285098577f0749",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q20_run1.timing.json",
+        "timing_sha256": "14b7bd57c8cd235dd424f8cdfec9b1c64bf6bef4bb3a33be655841bf5b312ae5",
+        "complete_values": true
+      },
+      {
+        "query": 20,
+        "run": 2,
+        "seconds": 0.11966216699511278,
+        "native_peak_rss_bytes": 167264256,
+        "user_cpu_seconds": 0.29542799999999997,
+        "system_cpu_seconds": 0.076393,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q20_run2.stdout.json.gz",
+        "gzip_sha256": "87ce4e46bad329d6b963c54f6f10610c1c31ff79a537bd9655058798c6409f44",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q20_run2.timing.json",
+        "timing_sha256": "37da4a8abbd59de8912f06b42f62d46e0639aa9ef1bfaf1fd9dec88d8de01544",
+        "complete_values": true
+      },
+      {
+        "query": 20,
+        "run": 3,
+        "seconds": 0.11180312500073342,
+        "native_peak_rss_bytes": 169754624,
+        "user_cpu_seconds": 0.283446,
+        "system_cpu_seconds": 0.074768,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q20_run3.stdout.json.gz",
+        "gzip_sha256": "3ba0bab9ad48ea8090a137dfaf512cb937ba881c7712082d8cd3dde46c062d66",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q20_run3.timing.json",
+        "timing_sha256": "12acfd8f172c5529f13a1873c4aa8c5df15001501b475b5bd3a6cca9157d1796",
+        "complete_values": true
+      },
+      {
+        "query": 21,
+        "run": 1,
+        "seconds": 1.4532799590015202,
+        "native_peak_rss_bytes": 1248067584,
+        "user_cpu_seconds": 8.989737,
+        "system_cpu_seconds": 0.918982,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q21_run1.stdout.json.gz",
+        "gzip_sha256": "7cade12625d5d2583c7c9725314ec4e19d813c0456c8ddf6c9c989c347097dcd",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q21_run1.timing.json",
+        "timing_sha256": "f49c8a99ce399cf3c28ee48304d9bb968623282c9b6e203982c6f6196f9df3cb",
+        "complete_values": true
+      },
+      {
+        "query": 21,
+        "run": 2,
+        "seconds": 1.3909659170021769,
+        "native_peak_rss_bytes": 1223458816,
+        "user_cpu_seconds": 8.891861,
+        "system_cpu_seconds": 0.6355149999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q21_run2.stdout.json.gz",
+        "gzip_sha256": "17aa272ca5c09c2c60a6345d1ee61a46dc0c76046a432d5ab92e17509d4105e2",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q21_run2.timing.json",
+        "timing_sha256": "76db2db461eea92a3bb44f6d2dab98881972c41806779359ced613518d0200e2",
+        "complete_values": true
+      },
+      {
+        "query": 21,
+        "run": 3,
+        "seconds": 1.2863299169985112,
+        "native_peak_rss_bytes": 1222787072,
+        "user_cpu_seconds": 8.753005,
+        "system_cpu_seconds": 0.61231,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q21_run3.stdout.json.gz",
+        "gzip_sha256": "ca4b25449bdd6da8a1dfc41c97c9247e9b9f9502289b88a3290fb9a9f5248257",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q21_run3.timing.json",
+        "timing_sha256": "c9d2bd36217a5898f895fa08511debdd3b3634ff6ab860b43605f16969f66a83",
+        "complete_values": true
+      },
+      {
+        "query": 22,
+        "run": 1,
+        "seconds": 2.3344181249995017,
+        "native_peak_rss_bytes": 1068056576,
+        "user_cpu_seconds": 10.06183,
+        "system_cpu_seconds": 0.593376,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q22_run1.stdout.json.gz",
+        "gzip_sha256": "51f368440f7bf22fa72686034a2d3613e623a5f2db134272ee7524c0fa91b1ce",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q22_run1.timing.json",
+        "timing_sha256": "50127365cc92dcbcc1779261701e993833ae8034af137a4f31d7c799605fe82d",
+        "complete_values": true
+      },
+      {
+        "query": 22,
+        "run": 2,
+        "seconds": 2.389647874995717,
+        "native_peak_rss_bytes": 1050279936,
+        "user_cpu_seconds": 10.351053,
+        "system_cpu_seconds": 0.5295639999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q22_run2.stdout.json.gz",
+        "gzip_sha256": "caaff8c89098ee91f7aca06d058fc51a94e8812a2aab79bad765b6676888d198",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q22_run2.timing.json",
+        "timing_sha256": "1da58fec8a85c2cc8d01653f998cf333448deea580b4f5e6c42f9601d0018bef",
+        "complete_values": true
+      },
+      {
+        "query": 22,
+        "run": 3,
+        "seconds": 2.3927185829961672,
+        "native_peak_rss_bytes": 997982208,
+        "user_cpu_seconds": 9.929019,
+        "system_cpu_seconds": 0.537557,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q22_run3.stdout.json.gz",
+        "gzip_sha256": "47fc64a7d5bbdd0db7241c3f57c8b9ced6eedd77a4880786fa800a1a10279ae7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q22_run3.timing.json",
+        "timing_sha256": "8c6eb74e6cd17b804314975224d582ce1ff955200e8c358bcfbf44c9c9d607b7",
+        "complete_values": true
+      },
+      {
+        "query": 23,
+        "run": 1,
+        "seconds": 8.809420166995551,
+        "native_peak_rss_bytes": 1943732224,
+        "user_cpu_seconds": 19.725771,
+        "system_cpu_seconds": 2.023616,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q23_run1.stdout.json.gz",
+        "gzip_sha256": "232fbb25b47cd8b30b0e51a1ff4c9dd642499943fc452e645077f2093f297c07",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q23_run1.timing.json",
+        "timing_sha256": "c09434451bf83ed517ad581ae78b9ccb4a91d47aa16e6f16a457c6ff1570a366",
+        "complete_values": true
+      },
+      {
+        "query": 23,
+        "run": 2,
+        "seconds": 8.642588290997082,
+        "native_peak_rss_bytes": 2044575744,
+        "user_cpu_seconds": 19.315057,
+        "system_cpu_seconds": 1.930696,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q23_run2.stdout.json.gz",
+        "gzip_sha256": "2eb44f5fdcffc067581e7f9ce892eb54891ab1253b55580bbab6c8fdf3c2620e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q23_run2.timing.json",
+        "timing_sha256": "6977335315511a1563978a57343b47073bedac678fe04355ddde42b97788ad60",
+        "complete_values": true
+      },
+      {
+        "query": 23,
+        "run": 3,
+        "seconds": 8.55591162500059,
+        "native_peak_rss_bytes": 1858486272,
+        "user_cpu_seconds": 19.313416,
+        "system_cpu_seconds": 1.934858,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q23_run3.stdout.json.gz",
+        "gzip_sha256": "3feb92c55ab52f2da3a8abd94e100470bac2eac7f6717fc653ccd86d7eea5d85",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q23_run3.timing.json",
+        "timing_sha256": "00738e84dfcf13bc91e1fa698b0cc63f4ef4ba1f87fdc2482b140041aed92a98",
+        "complete_values": true
+      },
+      {
+        "query": 24,
+        "run": 1,
+        "seconds": 1.4969600830008858,
+        "native_peak_rss_bytes": 1105281024,
+        "user_cpu_seconds": 9.14752,
+        "system_cpu_seconds": 1.014239,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q24_run1.stdout.json.gz",
+        "gzip_sha256": "45bc8b86b8267a73d97a1520d2e0d928c24fd5d06de4c8c2c2144a60d1680f8e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q24_run1.timing.json",
+        "timing_sha256": "9092cb3fef287333c711739858b7583de25833467e13893a52985f6ce19ce258",
+        "complete_values": true
+      },
+      {
+        "query": 24,
+        "run": 2,
+        "seconds": 1.4853257500071777,
+        "native_peak_rss_bytes": 1020739584,
+        "user_cpu_seconds": 9.194672,
+        "system_cpu_seconds": 0.824584,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q24_run2.stdout.json.gz",
+        "gzip_sha256": "45bc8b86b8267a73d97a1520d2e0d928c24fd5d06de4c8c2c2144a60d1680f8e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q24_run2.timing.json",
+        "timing_sha256": "a1fa38951b5b4f87b8149d183f01e8df82fb998e1ab637103e2eb54801f89f55",
+        "complete_values": true
+      },
+      {
+        "query": 24,
+        "run": 3,
+        "seconds": 1.4396487920021173,
+        "native_peak_rss_bytes": 1063665664,
+        "user_cpu_seconds": 8.962156,
+        "system_cpu_seconds": 0.8131229999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q24_run3.stdout.json.gz",
+        "gzip_sha256": "45bc8b86b8267a73d97a1520d2e0d928c24fd5d06de4c8c2c2144a60d1680f8e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q24_run3.timing.json",
+        "timing_sha256": "5b6c6cb77335fe344ee831079901e6cecc29296330f68d1f09bcc39ba4545a7b",
+        "complete_values": true
+      },
+      {
+        "query": 25,
+        "run": 1,
+        "seconds": 0.7961219999997411,
+        "native_peak_rss_bytes": 271646720,
+        "user_cpu_seconds": 1.065156,
+        "system_cpu_seconds": 0.192768,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q25_run1.stdout.json.gz",
+        "gzip_sha256": "c8bad654383e900ce6ae260156b605aca740f76ad51dbc713da56bace9f58675",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q25_run1.timing.json",
+        "timing_sha256": "c2e328bc696c6ea7236dcc5aef481b1bd8600c8ff293b9f3512ba96d6ca0c83c",
+        "complete_values": true
+      },
+      {
+        "query": 25,
+        "run": 2,
+        "seconds": 0.8216695830051322,
+        "native_peak_rss_bytes": 275759104,
+        "user_cpu_seconds": 1.086779,
+        "system_cpu_seconds": 0.18442999999999998,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q25_run2.stdout.json.gz",
+        "gzip_sha256": "c8bad654383e900ce6ae260156b605aca740f76ad51dbc713da56bace9f58675",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q25_run2.timing.json",
+        "timing_sha256": "191c53d708a5c4f68890dba0ba35641fe32d2c97cbcaa117c16101ccb9b9c445",
+        "complete_values": true
+      },
+      {
+        "query": 25,
+        "run": 3,
+        "seconds": 0.9604907920002006,
+        "native_peak_rss_bytes": 275300352,
+        "user_cpu_seconds": 1.272118,
+        "system_cpu_seconds": 0.220633,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q25_run3.stdout.json.gz",
+        "gzip_sha256": "c8bad654383e900ce6ae260156b605aca740f76ad51dbc713da56bace9f58675",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q25_run3.timing.json",
+        "timing_sha256": "827c4ee5ea045d724b30e019df04be0f744110a28e0edfdd379cf768b736d231",
+        "complete_values": true
+      },
+      {
+        "query": 26,
+        "run": 1,
+        "seconds": 5.466571959004796,
+        "native_peak_rss_bytes": 253935616,
+        "user_cpu_seconds": 5.687795,
+        "system_cpu_seconds": 0.287029,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q26_run1.stdout.json.gz",
+        "gzip_sha256": "b1e33ecf407b2d453df46e48f081c2297fbe5904e5b9d1eaf10525db08171ef7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q26_run1.timing.json",
+        "timing_sha256": "525c5b19e0d0effc760a2134551d57d9fc4a49e7f15d39ae6be3ba51bb3d3af9",
+        "complete_values": true
+      },
+      {
+        "query": 26,
+        "run": 2,
+        "seconds": 4.969584124999528,
+        "native_peak_rss_bytes": 261373952,
+        "user_cpu_seconds": 5.164685,
+        "system_cpu_seconds": 0.21421099999999998,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q26_run2.stdout.json.gz",
+        "gzip_sha256": "b1e33ecf407b2d453df46e48f081c2297fbe5904e5b9d1eaf10525db08171ef7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q26_run2.timing.json",
+        "timing_sha256": "8b6c4c749cc5d64828cd2a7b7a268bdf98166317e8bea29e66bb5977285c7fb3",
+        "complete_values": true
+      },
+      {
+        "query": 26,
+        "run": 3,
+        "seconds": 4.743795125003089,
+        "native_peak_rss_bytes": 256589824,
+        "user_cpu_seconds": 4.936565,
+        "system_cpu_seconds": 0.209591,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q26_run3.stdout.json.gz",
+        "gzip_sha256": "b1e33ecf407b2d453df46e48f081c2297fbe5904e5b9d1eaf10525db08171ef7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q26_run3.timing.json",
+        "timing_sha256": "7343c8c9b6c3d5976bf2aca2db9aff8015ef196c802a5789a910b21df6415b7a",
+        "complete_values": true
+      },
+      {
+        "query": 27,
+        "run": 1,
+        "seconds": 4.369849082999281,
+        "native_peak_rss_bytes": 323305472,
+        "user_cpu_seconds": 4.5610289999999996,
+        "system_cpu_seconds": 0.23150199999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q27_run1.stdout.json.gz",
+        "gzip_sha256": "b8a35d7a1b5bd707dbd411bbcaf49f1b983e02139d9ac3c8ce8b8608620790ad",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q27_run1.timing.json",
+        "timing_sha256": "decc0f6a7a208d8a9fe2250519770d3e459d50e9e3172f092f3f98324b69338d",
+        "complete_values": true
+      },
+      {
+        "query": 27,
+        "run": 2,
+        "seconds": 4.407367500003602,
+        "native_peak_rss_bytes": 312262656,
+        "user_cpu_seconds": 4.593199,
+        "system_cpu_seconds": 0.224109,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q27_run2.stdout.json.gz",
+        "gzip_sha256": "b8a35d7a1b5bd707dbd411bbcaf49f1b983e02139d9ac3c8ce8b8608620790ad",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q27_run2.timing.json",
+        "timing_sha256": "14cb64269de086c57e90f86606f4186b06ec9c4694c48d4e698148b6d0599e14",
+        "complete_values": true
+      },
+      {
+        "query": 27,
+        "run": 3,
+        "seconds": 4.333602874998178,
+        "native_peak_rss_bytes": 324288512,
+        "user_cpu_seconds": 4.512092,
+        "system_cpu_seconds": 0.21449,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q27_run3.stdout.json.gz",
+        "gzip_sha256": "b8a35d7a1b5bd707dbd411bbcaf49f1b983e02139d9ac3c8ce8b8608620790ad",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q27_run3.timing.json",
+        "timing_sha256": "292ebcf6df5c8137aab4b8302aba5d338a5a52d476f8a95c332152dac0d4e411",
+        "complete_values": true
+      },
+      {
+        "query": 28,
+        "run": 1,
+        "seconds": 3.8108654579991708,
+        "native_peak_rss_bytes": 198082560,
+        "user_cpu_seconds": 3.949178,
+        "system_cpu_seconds": 0.117645,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q28_run1.stdout.json.gz",
+        "gzip_sha256": "964a54d4dc836b03fc07deefda6982165aefce5b599fdde0d83555efd1d315c8",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q28_run1.timing.json",
+        "timing_sha256": "0c651b2cd7415d4a81ff654181b890d250aa1b72e67301adaa41fcfe39238e6d",
+        "complete_values": true
+      },
+      {
+        "query": 28,
+        "run": 2,
+        "seconds": 3.8471327500010375,
+        "native_peak_rss_bytes": 192856064,
+        "user_cpu_seconds": 3.978403,
+        "system_cpu_seconds": 0.122358,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q28_run2.stdout.json.gz",
+        "gzip_sha256": "5fbba09dd0628b5259562fee5a89be695b666b950b4be9fe707594014f7a68dd",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q28_run2.timing.json",
+        "timing_sha256": "4ef94151896303af6ba5bc6fedc0d612e58ef8a4bc49132cbb31dd25c562208e",
+        "complete_values": true
+      },
+      {
+        "query": 28,
+        "run": 3,
+        "seconds": 4.597867665994272,
+        "native_peak_rss_bytes": 168427520,
+        "user_cpu_seconds": 4.76457,
+        "system_cpu_seconds": 0.194743,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q28_run3.stdout.json.gz",
+        "gzip_sha256": "bba9665c17466176975e3383dead31136c530114144ce5e1fd3dfba1db74970e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q28_run3.timing.json",
+        "timing_sha256": "62235b49201519da15dca22003065846cf9baea884899060e22fcc4849a920c5",
+        "complete_values": true
+      },
+      {
+        "query": 29,
+        "run": 1,
+        "seconds": 14.809676958000637,
+        "native_peak_rss_bytes": 1399488512,
+        "user_cpu_seconds": 18.836358,
+        "system_cpu_seconds": 0.734198,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q29_run1.stdout.json.gz",
+        "gzip_sha256": "e1491143b8d734c4140d5ac7ae2cda8524e031133e3571336d11753549e6ebb3",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q29_run1.timing.json",
+        "timing_sha256": "8b98774f84907bbd8c477a6a662ba8b23b54e538168c9ede55d7e20db9206e7b",
+        "complete_values": true
+      },
+      {
+        "query": 29,
+        "run": 2,
+        "seconds": 13.506347832997562,
+        "native_peak_rss_bytes": 1459027968,
+        "user_cpu_seconds": 17.35988,
+        "system_cpu_seconds": 0.418802,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q29_run2.stdout.json.gz",
+        "gzip_sha256": "548791aedb98a2078d456da372d991e0e4a4307b1b1158690285225642d11e09",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q29_run2.timing.json",
+        "timing_sha256": "9ccb64ae4eaaaf3674dc0cffcdd0338c8dce6833510baf5582cf2312d3dcbcad",
+        "complete_values": true
+      },
+      {
+        "query": 29,
+        "run": 3,
+        "seconds": 12.596076791000087,
+        "native_peak_rss_bytes": 1461174272,
+        "user_cpu_seconds": 16.201641,
+        "system_cpu_seconds": 0.42289099999999996,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q29_run3.stdout.json.gz",
+        "gzip_sha256": "98865e25ea20f698ff3e9a23b7ae96db3625478a73c25f09ac9ee11350189060",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q29_run3.timing.json",
+        "timing_sha256": "ab16e29307900b87b3679d5a84314fd8df651c5cbef1b7007e31e4898306bac3",
+        "complete_values": true
+      },
+      {
+        "query": 30,
+        "run": 1,
+        "seconds": 0.23876058399764588,
+        "native_peak_rss_bytes": 126304256,
+        "user_cpu_seconds": 0.259535,
+        "system_cpu_seconds": 0.045232,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q30_run1.stdout.json.gz",
+        "gzip_sha256": "56b9e6339dc57eb2744a5c25fee62d1393c80299bb7f3a8ead9c6453368d78fc",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q30_run1.timing.json",
+        "timing_sha256": "d8e0ce2c75ccf6750f882833bb109e6e9b86847c2b060275c29044e0d86f639c",
+        "complete_values": true
+      },
+      {
+        "query": 30,
+        "run": 2,
+        "seconds": 0.2307438329953584,
+        "native_peak_rss_bytes": 126566400,
+        "user_cpu_seconds": 0.245186,
+        "system_cpu_seconds": 0.040367,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q30_run2.stdout.json.gz",
+        "gzip_sha256": "ff06ef7b2a85e65ff22041fd429dfcaae6d8dc4d3b987b42a51ad5ddbd35b05e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q30_run2.timing.json",
+        "timing_sha256": "d2f69a8564fa5bd7aec274abb7dbe7302a3a2fa23a70e565518a5843e9685c51",
+        "complete_values": true
+      },
+      {
+        "query": 30,
+        "run": 3,
+        "seconds": 0.22672558300109813,
+        "native_peak_rss_bytes": 126664704,
+        "user_cpu_seconds": 0.239247,
+        "system_cpu_seconds": 0.030957,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q30_run3.stdout.json.gz",
+        "gzip_sha256": "4f1018344b0600d7c6253f735d0ef1acb5ca7bf225cdc68db343c4d136b7075e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q30_run3.timing.json",
+        "timing_sha256": "48085e11577e696d6ac8983eabc2697f603e606c07c36755b8feda53a1fbd902",
+        "complete_values": true
+      },
+      {
+        "query": 31,
+        "run": 1,
+        "seconds": 1.2204821249979432,
+        "native_peak_rss_bytes": 881278976,
+        "user_cpu_seconds": 1.65812,
+        "system_cpu_seconds": 0.519766,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q31_run1.stdout.json.gz",
+        "gzip_sha256": "1a88ccfa8992b9da3c39b6ad4d68d86d9ea9added24633cd7410ad341d3e4dce",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q31_run1.timing.json",
+        "timing_sha256": "fa68fcfb45f335a9796c6e6dcb6000f91a5205dbd23112700de44ed7427a5d39",
+        "complete_values": true
+      },
+      {
+        "query": 31,
+        "run": 2,
+        "seconds": 1.1824693329981528,
+        "native_peak_rss_bytes": 877379584,
+        "user_cpu_seconds": 1.562114,
+        "system_cpu_seconds": 0.441013,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q31_run2.stdout.json.gz",
+        "gzip_sha256": "dff156f1ccdba40c47e938b5e020a77b9d987c722ea6e5cb3371b06937343822",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q31_run2.timing.json",
+        "timing_sha256": "614ecb889d6d161fa41482d5cb1ddaf456c39d03228ef34b62c1bbe6e3a6316a",
+        "complete_values": true
+      },
+      {
+        "query": 31,
+        "run": 3,
+        "seconds": 1.1295848329973524,
+        "native_peak_rss_bytes": 885293056,
+        "user_cpu_seconds": 1.486075,
+        "system_cpu_seconds": 0.420473,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q31_run3.stdout.json.gz",
+        "gzip_sha256": "870462a3e7286e5cefb939445edf3bf94fe864f3b3a3a7f7d12854830800bca7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q31_run3.timing.json",
+        "timing_sha256": "d9ca12ccc6a90bf750eb0dd7782f67666ee9d9dbd0ce3854d0b1b1afe40dc12a",
+        "complete_values": true
+      },
+      {
+        "query": 32,
+        "run": 1,
+        "seconds": 1.5896700840021367,
+        "native_peak_rss_bytes": 1938751488,
+        "user_cpu_seconds": 1.836651,
+        "system_cpu_seconds": 0.914817,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q32_run1.stdout.json.gz",
+        "gzip_sha256": "5abc1db6a41638237ff425400d0a8925fd09fad221149abd99220909f0f7bee7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q32_run1.timing.json",
+        "timing_sha256": "65c239dad966a995539aef89758ebb489aeff9cc90c1d6b49024c4192d38c522",
+        "complete_values": true
+      },
+      {
+        "query": 32,
+        "run": 2,
+        "seconds": 1.3758426249987679,
+        "native_peak_rss_bytes": 2458894336,
+        "user_cpu_seconds": 1.69357,
+        "system_cpu_seconds": 0.635751,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q32_run2.stdout.json.gz",
+        "gzip_sha256": "ddac6b0c8e378b1970eddae96cf4afa0eddd142e60396d2e7db166b3cd4c2b17",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q32_run2.timing.json",
+        "timing_sha256": "c8d1b2eedef8c1cc5c527453a038537a5707bdf21aa4ded20d1e81c999ff358a",
+        "complete_values": true
+      },
+      {
+        "query": 32,
+        "run": 3,
+        "seconds": 1.4279358749990934,
+        "native_peak_rss_bytes": 2429566976,
+        "user_cpu_seconds": 1.748908,
+        "system_cpu_seconds": 0.634636,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q32_run3.stdout.json.gz",
+        "gzip_sha256": "7a60c96bee216d79c28a0d5b678720fc470d2fd056abba128057e56a5c35ef5d",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q32_run3.timing.json",
+        "timing_sha256": "560bc7db2bf2829d53ee36d33e2bc332ab1501963539e2da454a1c9206ba3b4d",
+        "complete_values": true
+      },
+      {
+        "query": 33,
+        "run": 1,
+        "seconds": 2.7844467499962775,
+        "native_peak_rss_bytes": 2769633280,
+        "user_cpu_seconds": 8.613874,
+        "system_cpu_seconds": 0.9756429999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q33_run1.stdout.json.gz",
+        "gzip_sha256": "cf973c7b50957321ceb258d761ec3c6b51d106911108bdf72a6f71a11a628ad9",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q33_run1.timing.json",
+        "timing_sha256": "61c543bcd2552650b6e3b35e30fca684f64472857c016fa814eef0aa2676af4b",
+        "complete_values": true
+      },
+      {
+        "query": 33,
+        "run": 2,
+        "seconds": 2.6534408330044243,
+        "native_peak_rss_bytes": 2760409088,
+        "user_cpu_seconds": 8.353657,
+        "system_cpu_seconds": 0.936753,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q33_run2.stdout.json.gz",
+        "gzip_sha256": "dbb95758b84ba0f20afef04d8b7b2de85d9346d3a8523297ba235709a4f500d6",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q33_run2.timing.json",
+        "timing_sha256": "53f6a40f175cac361c1ec8a798bc79d0d2470c468814ecd70fb8cd813c681763",
+        "complete_values": true
+      },
+      {
+        "query": 33,
+        "run": 3,
+        "seconds": 2.88331529199786,
+        "native_peak_rss_bytes": 2746515456,
+        "user_cpu_seconds": 8.763697,
+        "system_cpu_seconds": 0.926897,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q33_run3.stdout.json.gz",
+        "gzip_sha256": "d761135857c4a15235c2ecb2e07490c5b10ac237bca5afe88c84fe6ac2181f48",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q33_run3.timing.json",
+        "timing_sha256": "ba4d1805a09b6c03672f889114e5435a457c45f0f3969606186afae74cd7febb",
+        "complete_values": true
+      },
+      {
+        "query": 34,
+        "run": 1,
+        "seconds": 8.15397495799698,
+        "native_peak_rss_bytes": 4489314304,
+        "user_cpu_seconds": 26.767274,
+        "system_cpu_seconds": 10.55798,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q34_run1.stdout.json.gz",
+        "gzip_sha256": "0ba3046b5503967d7d1eb3d0f7d6db248398bd02a83ecbc350ea6e4159bbe194",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q34_run1.timing.json",
+        "timing_sha256": "bbdce7fe629fd1d8a7239cd82ddc1f4b148cc4ce462982ae33f6d99ef98a5d2d",
+        "complete_values": true
+      },
+      {
+        "query": 34,
+        "run": 2,
+        "seconds": 7.162667167001928,
+        "native_peak_rss_bytes": 4731469824,
+        "user_cpu_seconds": 29.323987,
+        "system_cpu_seconds": 7.827817,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q34_run2.stdout.json.gz",
+        "gzip_sha256": "3ba4b1070175ce576e2ad0ac4f1da843677c6d924b2f314f1c57aa3fa138d6ab",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q34_run2.timing.json",
+        "timing_sha256": "93898f8d2cafdd8f6311c1d2cac69678a817d7142bea2508749f872e056548f0",
+        "complete_values": true
+      },
+      {
+        "query": 34,
+        "run": 3,
+        "seconds": 6.030232417004299,
+        "native_peak_rss_bytes": 5062361088,
+        "user_cpu_seconds": 28.479074,
+        "system_cpu_seconds": 5.826556,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q34_run3.stdout.json.gz",
+        "gzip_sha256": "a702ef1122d14b7512bd833eb0df788a623daaee63bc06903c2de7681c3f6bf8",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q34_run3.timing.json",
+        "timing_sha256": "35987a40a5e0ad6a79eacc6b145ca1cd7419d56012f9a5a53e8d2f47940af45a",
+        "complete_values": true
+      },
+      {
+        "query": 35,
+        "run": 1,
+        "seconds": 7.113361499999883,
+        "native_peak_rss_bytes": 4895719424,
+        "user_cpu_seconds": 28.431624,
+        "system_cpu_seconds": 7.730907,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q35_run1.stdout.json.gz",
+        "gzip_sha256": "0d6fa1b7617f407cfbe4447e51455b994907a6819e037c3fc3652782e77f3fb7",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q35_run1.timing.json",
+        "timing_sha256": "df23657751123422cd63d8106cabb39b7f11480e127e22c4b58a5b70a530e8be",
+        "complete_values": true
+      },
+      {
+        "query": 35,
+        "run": 2,
+        "seconds": 8.050459957994462,
+        "native_peak_rss_bytes": 4945133568,
+        "user_cpu_seconds": 28.847789,
+        "system_cpu_seconds": 8.836045,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q35_run2.stdout.json.gz",
+        "gzip_sha256": "74fc35b0ced363ba5debe1290de7fb3ff2a8291edd0cbdd07433881a8d156dbc",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q35_run2.timing.json",
+        "timing_sha256": "20c17c37ae8984b7058b6e84a12321b69322892dac7164536fe89ff12dd3a7c8",
+        "complete_values": true
+      },
+      {
+        "query": 35,
+        "run": 3,
+        "seconds": 7.9638457909968565,
+        "native_peak_rss_bytes": 4537335808,
+        "user_cpu_seconds": 29.297287,
+        "system_cpu_seconds": 9.029252,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q35_run3.stdout.json.gz",
+        "gzip_sha256": "6c0c914ef2e9e40a7991614f4b47cab8c261303cae00f46d8118d6da1c2f0f15",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q35_run3.timing.json",
+        "timing_sha256": "4bd6921c5f54f0d6af3f56cf18d776002ffb3447f3da3d89c03b833cb981d064",
+        "complete_values": true
+      },
+      {
+        "query": 36,
+        "run": 1,
+        "seconds": 0.6719757500031847,
+        "native_peak_rss_bytes": 691765248,
+        "user_cpu_seconds": 3.676935,
+        "system_cpu_seconds": 0.19963999999999998,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q36_run1.stdout.json.gz",
+        "gzip_sha256": "9e4a05a005e0321f19912c1ead9d348890dbf65611dd866064bc2afd1ae6ed46",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q36_run1.timing.json",
+        "timing_sha256": "2e78f4d7f3abbd268601df56a14de2fdc6a40b18af0ab20e57c591fd78fec88a",
+        "complete_values": true
+      },
+      {
+        "query": 36,
+        "run": 2,
+        "seconds": 0.5503272080022725,
+        "native_peak_rss_bytes": 682524672,
+        "user_cpu_seconds": 3.470001,
+        "system_cpu_seconds": 0.13050799999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q36_run2.stdout.json.gz",
+        "gzip_sha256": "c4d787cccd0fbd3cab0470a7ab891d879aa4851a5c8559f444b1f072c1e92681",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q36_run2.timing.json",
+        "timing_sha256": "f2f1ea37199a512ca0ae9160d0a714b0a92f1d659f08b43f7b26f1395bb276fe",
+        "complete_values": true
+      },
+      {
+        "query": 36,
+        "run": 3,
+        "seconds": 0.5180713750014547,
+        "native_peak_rss_bytes": 689291264,
+        "user_cpu_seconds": 3.378355,
+        "system_cpu_seconds": 0.130248,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q36_run3.stdout.json.gz",
+        "gzip_sha256": "9491fb99bdcd8865c27d17a5b3ce171a2639c0f69695ca0765d4284ec136da87",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q36_run3.timing.json",
+        "timing_sha256": "82844204d415284aa119845509eb486463f16b00047f664a64f7a6bf4099c1ca",
+        "complete_values": true
+      },
+      {
+        "query": 37,
+        "run": 1,
+        "seconds": 0.3276928329942166,
+        "native_peak_rss_bytes": 267878400,
+        "user_cpu_seconds": 0.363753,
+        "system_cpu_seconds": 0.09591,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q37_run1.stdout.json.gz",
+        "gzip_sha256": "224ec08f0680cde7e306b1ec762e7aabed555b8ad7e9d173dafceb7967e690bc",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q37_run1.timing.json",
+        "timing_sha256": "f6904cd4a6c7faf37d0b4af3451e00e40095a526179a025fe50c94bdbc3735e6",
+        "complete_values": true
+      },
+      {
+        "query": 37,
+        "run": 2,
+        "seconds": 0.3119575829987298,
+        "native_peak_rss_bytes": 272318464,
+        "user_cpu_seconds": 0.364824,
+        "system_cpu_seconds": 0.070128,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q37_run2.stdout.json.gz",
+        "gzip_sha256": "a165d642eb13e358a0ebf46b91706d4f402eef11ab0c4a110be509a3d1bba4f4",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q37_run2.timing.json",
+        "timing_sha256": "60862b89bca06091079df60f425bb58bfe711eee3f2ae9eeb540354b4de82ece",
+        "complete_values": true
+      },
+      {
+        "query": 37,
+        "run": 3,
+        "seconds": 0.30646745799458586,
+        "native_peak_rss_bytes": 269549568,
+        "user_cpu_seconds": 0.357867,
+        "system_cpu_seconds": 0.060145,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q37_run3.stdout.json.gz",
+        "gzip_sha256": "0666d63b9853df219bb1fec3f080f0a3df79ae83e59f0cf05a6717740e759b61",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q37_run3.timing.json",
+        "timing_sha256": "f67bcbbc92a9fcafa15f1c4de5aca639ff354e0b133a3fc7dbac29c7e8dda931",
+        "complete_values": true
+      },
+      {
+        "query": 38,
+        "run": 1,
+        "seconds": 0.21232283300196286,
+        "native_peak_rss_bytes": 490438656,
+        "user_cpu_seconds": 0.26093299999999997,
+        "system_cpu_seconds": 0.13338,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q38_run1.stdout.json.gz",
+        "gzip_sha256": "502578a8fd32c02f57e07fef6f34e26dd969e73fd3942c743fee3cd0f862530a",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q38_run1.timing.json",
+        "timing_sha256": "e9a26fd45075b6f3bbd13d7befe5d8681bc6197c19a265193df20a0424283107",
+        "complete_values": true
+      },
+      {
+        "query": 38,
+        "run": 2,
+        "seconds": 0.18303683300473494,
+        "native_peak_rss_bytes": 486506496,
+        "user_cpu_seconds": 0.246851,
+        "system_cpu_seconds": 0.114495,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q38_run2.stdout.json.gz",
+        "gzip_sha256": "7bb0df1099544e6d4a6d3a3b79be408d2a0d6cc00c626446a7ea7fe23476156e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q38_run2.timing.json",
+        "timing_sha256": "5dc5d0f005b75331b49d9920b05b06c8d90e55e68db9df3f7651521964eacf8d",
+        "complete_values": true
+      },
+      {
+        "query": 38,
+        "run": 3,
+        "seconds": 0.1815797909948742,
+        "native_peak_rss_bytes": 494239744,
+        "user_cpu_seconds": 0.24800499999999998,
+        "system_cpu_seconds": 0.11226599999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q38_run3.stdout.json.gz",
+        "gzip_sha256": "bb263235a465da67a817314ca0d96efc6504f8ad65f6d406863c78b078ff910a",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q38_run3.timing.json",
+        "timing_sha256": "cf8a1fcf741e15a7b5f01c5d0856c6f58040291c81a3367be41069eeafabb87a",
+        "complete_values": true
+      },
+      {
+        "query": 39,
+        "run": 1,
+        "seconds": 0.15394741700583836,
+        "native_peak_rss_bytes": 217792512,
+        "user_cpu_seconds": 0.20657899999999998,
+        "system_cpu_seconds": 0.051204,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q39_run1.stdout.json.gz",
+        "gzip_sha256": "874525274cd3c0fd627e5fe410be6a17af77aee5c53a400493ecc9229d0932e3",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q39_run1.timing.json",
+        "timing_sha256": "a830bc5018b71e585a40fe71dc43694e1b0388c170994fb8a026c2625f03f6e5",
+        "complete_values": true
+      },
+      {
+        "query": 39,
+        "run": 2,
+        "seconds": 0.14444899999944028,
+        "native_peak_rss_bytes": 216268800,
+        "user_cpu_seconds": 0.205588,
+        "system_cpu_seconds": 0.044978,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q39_run2.stdout.json.gz",
+        "gzip_sha256": "0720f8fd23850889019fafb5319ee81253e0fb8bdd3cd066fcf29d4b378b1fb5",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q39_run2.timing.json",
+        "timing_sha256": "0e6159a6b4eed2291ba5854489b7e7ab5bcd1cbb281d63e0a8d4100778fac6c0",
+        "complete_values": true
+      },
+      {
+        "query": 39,
+        "run": 3,
+        "seconds": 0.13515404200006742,
+        "native_peak_rss_bytes": 217169920,
+        "user_cpu_seconds": 0.19464399999999998,
+        "system_cpu_seconds": 0.044911,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q39_run3.stdout.json.gz",
+        "gzip_sha256": "b916fbc8d203d8f4c9cba6674d444cd51c54b2fec05833bbef441c3cf764e3cf",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q39_run3.timing.json",
+        "timing_sha256": "c8c1607ea907b1fc72617f74f34bd86ebafb8cccff0f3eaf455132a37f0e8cbd",
+        "complete_values": true
+      },
+      {
+        "query": 40,
+        "run": 1,
+        "seconds": 0.8494722079994972,
+        "native_peak_rss_bytes": 713457664,
+        "user_cpu_seconds": 0.866803,
+        "system_cpu_seconds": 0.095592,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q40_run1.stdout.json.gz",
+        "gzip_sha256": "3ba9fce3b5ab296a8be5e8e61aa95474d73303c6d7f84d57bc04b0e49c1c742f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q40_run1.timing.json",
+        "timing_sha256": "7ece78a269c0cd49799a4c368b7813c98e1c854e0fd698787161d497f3911f9d",
+        "complete_values": true
+      },
+      {
+        "query": 40,
+        "run": 2,
+        "seconds": 0.89580874999956,
+        "native_peak_rss_bytes": 715997184,
+        "user_cpu_seconds": 0.915194,
+        "system_cpu_seconds": 0.094301,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q40_run2.stdout.json.gz",
+        "gzip_sha256": "136908345e94404394e10434007f2fa2bc762cb72db34defa63efb05f5aa58a3",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q40_run2.timing.json",
+        "timing_sha256": "959e4701e5440c2468d5bdd22b09d4edb665ba3a90de368400775b2e326d3226",
+        "complete_values": true
+      },
+      {
+        "query": 40,
+        "run": 3,
+        "seconds": 0.9794749579959898,
+        "native_peak_rss_bytes": 719192064,
+        "user_cpu_seconds": 0.9996189999999999,
+        "system_cpu_seconds": 0.11341699999999999,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q40_run3.stdout.json.gz",
+        "gzip_sha256": "14538ff0823ee6ab5004ecfdb9af61af44c8916ecccd5b433f57d988fc44e73f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q40_run3.timing.json",
+        "timing_sha256": "a2bf990374c065d86c6d4f4766ed456108baba4b51afc7c5f2b7303879341378",
+        "complete_values": true
+      },
+      {
+        "query": 41,
+        "run": 1,
+        "seconds": 0.16378883299330482,
+        "native_peak_rss_bytes": 206487552,
+        "user_cpu_seconds": 0.220797,
+        "system_cpu_seconds": 0.054497,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q41_run1.stdout.json.gz",
+        "gzip_sha256": "c911adb8daa61f243bb98dd88ccb4fe0982f2b6e659320f15e5a823f4332535a",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q41_run1.timing.json",
+        "timing_sha256": "2187c83de94599df9d565a2932458eb17bce29ed824958c99a652b6c59ad91e1",
+        "complete_values": true
+      },
+      {
+        "query": 41,
+        "run": 2,
+        "seconds": 0.15288000000145985,
+        "native_peak_rss_bytes": 204341248,
+        "user_cpu_seconds": 0.218667,
+        "system_cpu_seconds": 0.052298,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q41_run2.stdout.json.gz",
+        "gzip_sha256": "adf356eaac947113374ee0c6ae49f6bdde277fcfe2a27ffd95c224cf8825e1b6",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q41_run2.timing.json",
+        "timing_sha256": "df77d9e6941db96c2b193f7bee384793087cdbf498f6212db0485f001b123fd4",
+        "complete_values": true
+      },
+      {
+        "query": 41,
+        "run": 3,
+        "seconds": 0.1522616250003921,
+        "native_peak_rss_bytes": 203800576,
+        "user_cpu_seconds": 0.216544,
+        "system_cpu_seconds": 0.049276999999999994,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q41_run3.stdout.json.gz",
+        "gzip_sha256": "a2603bf474c45f5e749ccee45bcfe0d5d950a0b4eb926a70316c97da2ef6b48e",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q41_run3.timing.json",
+        "timing_sha256": "65d02c1bbf2195b3835a332a72247a22590681b8dfeeee5dd11cc98dc691d3fe",
+        "complete_values": true
+      },
+      {
+        "query": 42,
+        "run": 1,
+        "seconds": 0.10764741700404556,
+        "native_peak_rss_bytes": 169345024,
+        "user_cpu_seconds": 0.16613899999999998,
+        "system_cpu_seconds": 0.041963,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q42_run1.stdout.json.gz",
+        "gzip_sha256": "ea1e62ef0ba312d3df755f4448433efbddad906e76be26d13838bf08aa7b3853",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q42_run1.timing.json",
+        "timing_sha256": "3aedfcd65acb2028dacfa1b84517250ac0f6e3beff5e750f1dee90aa4944779b",
+        "complete_values": true
+      },
+      {
+        "query": 42,
+        "run": 2,
+        "seconds": 0.09963708300347207,
+        "native_peak_rss_bytes": 170328064,
+        "user_cpu_seconds": 0.160028,
+        "system_cpu_seconds": 0.039174,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q42_run2.stdout.json.gz",
+        "gzip_sha256": "9c5bf07d5d2931f7aff776676df64590b320cc75f64225bfc1f6de737cd4ef5b",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q42_run2.timing.json",
+        "timing_sha256": "e1b73160cc0f55e62dc4ca90f337467028b47e061948161c75aecdfc5a218d60",
+        "complete_values": true
+      },
+      {
+        "query": 42,
+        "run": 3,
+        "seconds": 0.09413512500032084,
+        "native_peak_rss_bytes": 164986880,
+        "user_cpu_seconds": 0.153522,
+        "system_cpu_seconds": 0.036785,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q42_run3.stdout.json.gz",
+        "gzip_sha256": "258359ccf8d02e8058ddea95388f82546413713337f7cbc6bac933fccd92b3c6",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q42_run3.timing.json",
+        "timing_sha256": "c48cbfc6e293ba819a9e46441b29589ad3e7e4819098c80439445e0706e1d134",
+        "complete_values": true
+      },
+      {
+        "query": 43,
+        "run": 1,
+        "seconds": 0.09553654199407902,
+        "native_peak_rss_bytes": 154877952,
+        "user_cpu_seconds": 0.152331,
+        "system_cpu_seconds": 0.03831,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q43_run1.stdout.json.gz",
+        "gzip_sha256": "2369e50193769701ce8212559b82327c3d4ac738665c6d5efc96d771ba4a946f",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q43_run1.timing.json",
+        "timing_sha256": "54e93b5f4891d5e65e39eb9eb2373dbf0bdb8f16cc08398c4f4ebe7b68214f69",
+        "complete_values": true
+      },
+      {
+        "query": 43,
+        "run": 2,
+        "seconds": 0.09920158300519688,
+        "native_peak_rss_bytes": 154370048,
+        "user_cpu_seconds": 0.158802,
+        "system_cpu_seconds": 0.041323,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q43_run2.stdout.json.gz",
+        "gzip_sha256": "483d5b255da97760e320f5d23faaf605f04242034fa8c9a44348fb18203421f6",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q43_run2.timing.json",
+        "timing_sha256": "086c7fac6b5ad8c9ad537f0b22db40104f9ea58b85832841eaf51bf6547dbb43",
+        "complete_values": true
+      },
+      {
+        "query": 43,
+        "run": 3,
+        "seconds": 0.09413416700408561,
+        "native_peak_rss_bytes": 154812416,
+        "user_cpu_seconds": 0.151167,
+        "system_cpu_seconds": 0.030702,
+        "stdout": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q43_run3.stdout.json.gz",
+        "gzip_sha256": "d7d8769402a895699ec479d285189a38fb427bde035736d346ef3dc578eed1d4",
+        "timing": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/q43_run3.timing.json",
+        "timing_sha256": "5761079a0c4ae5d167a9ea90f1e07d45b6b9674a66e6e0b1c9d17afee60acf8c",
+        "complete_values": true
+      }
+    ]
+  },
+  "full43_unpaired_screen": {
+    "scope": "unpaired timing screen; not causal regression evidence; only Q18 activates retained-key selection; slower shared-host samples alone do not veto the matched gate",
+    "prior_summary": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T093549118609Z/summary.json",
+    "current_summary": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T103833464763Z/summary.json",
+    "rows": [
+      {
+        "query": 1,
+        "prior_seconds": 0.018334208994929213,
+        "current_seconds": 0.019165833000442944,
+        "delta_seconds": 0.0008316240055137314,
+        "flag": false
+      },
+      {
+        "query": 2,
+        "prior_seconds": 0.06343475000176113,
+        "current_seconds": 0.0650022909976542,
+        "delta_seconds": 0.0015675409958930686,
+        "flag": false
+      },
+      {
+        "query": 3,
+        "prior_seconds": 0.9509193749981932,
+        "current_seconds": 0.9989323750050971,
+        "delta_seconds": 0.048013000006903894,
+        "flag": false
+      },
+      {
+        "query": 4,
+        "prior_seconds": 0.38768316600180697,
+        "current_seconds": 0.4027778749950812,
+        "delta_seconds": 0.015094708993274253,
+        "flag": false
+      },
+      {
+        "query": 5,
+        "prior_seconds": 1.2698400000008405,
+        "current_seconds": 1.4281223750003846,
+        "delta_seconds": 0.15828237499954412,
+        "flag": true
+      },
+      {
+        "query": 6,
+        "prior_seconds": 3.5347838750021765,
+        "current_seconds": 3.9012980830011657,
+        "delta_seconds": 0.36651420799898915,
+        "flag": true
+      },
+      {
+        "query": 7,
+        "prior_seconds": 0.019367291999515146,
+        "current_seconds": 0.018984208996698726,
+        "delta_seconds": -0.00038308300281642005,
+        "flag": false
+      },
+      {
+        "query": 8,
+        "prior_seconds": 0.08010775000002468,
+        "current_seconds": 0.08210695799789391,
+        "delta_seconds": 0.0019992079978692345,
+        "flag": false
+      },
+      {
+        "query": 9,
+        "prior_seconds": 1.1571176669967826,
+        "current_seconds": 1.2103665839968016,
+        "delta_seconds": 0.05324891700001899,
+        "flag": false
+      },
+      {
+        "query": 10,
+        "prior_seconds": 4.445721000003687,
+        "current_seconds": 4.813317708998511,
+        "delta_seconds": 0.36759670899482444,
+        "flag": false
+      },
+      {
+        "query": 11,
+        "prior_seconds": 0.7734234579984332,
+        "current_seconds": 0.8067886249991716,
+        "delta_seconds": 0.03336516700073844,
+        "flag": false
+      },
+      {
+        "query": 12,
+        "prior_seconds": 1.4243894170067506,
+        "current_seconds": 1.5392552919947775,
+        "delta_seconds": 0.11486587498802692,
+        "flag": false
+      },
+      {
+        "query": 13,
+        "prior_seconds": 0.6358022499989602,
+        "current_seconds": 0.676183540999773,
+        "delta_seconds": 0.04038129100081278,
+        "flag": false
+      },
+      {
+        "query": 14,
+        "prior_seconds": 1.559190125000896,
+        "current_seconds": 1.962776541004132,
+        "delta_seconds": 0.4035864160032361,
+        "flag": true
+      },
+      {
+        "query": 15,
+        "prior_seconds": 1.33324575000006,
+        "current_seconds": 1.81832695799676,
+        "delta_seconds": 0.48508120799669996,
+        "flag": true
+      },
+      {
+        "query": 16,
+        "prior_seconds": 2.1613276669959305,
+        "current_seconds": 3.2994593330004136,
+        "delta_seconds": 1.1381316660044831,
+        "flag": true
+      },
+      {
+        "query": 17,
+        "prior_seconds": 5.373173708001559,
+        "current_seconds": 8.920589875000587,
+        "delta_seconds": 3.547416166999028,
+        "flag": true
+      },
+      {
+        "query": 18,
+        "prior_seconds": 3.289600124997378,
+        "current_seconds": 0.5220025419985177,
+        "delta_seconds": -2.76759758299886,
+        "flag": false
+      },
+      {
+        "query": 19,
+        "prior_seconds": 4.5668072090047644,
+        "current_seconds": 9.750393584006815,
+        "delta_seconds": 5.183586375002051,
+        "flag": true
+      },
+      {
+        "query": 20,
+        "prior_seconds": 0.06731687499996042,
+        "current_seconds": 0.11180312500073342,
+        "delta_seconds": 0.044486250000773,
+        "flag": false
+      },
+      {
+        "query": 21,
+        "prior_seconds": 0.6675396670034388,
+        "current_seconds": 1.2863299169985112,
+        "delta_seconds": 0.6187902499950724,
+        "flag": true
+      },
+      {
+        "query": 22,
+        "prior_seconds": 1.1305683339960524,
+        "current_seconds": 2.3344181249995017,
+        "delta_seconds": 1.2038497910034494,
+        "flag": true
+      },
+      {
+        "query": 23,
+        "prior_seconds": 4.213784334002412,
+        "current_seconds": 8.55591162500059,
+        "delta_seconds": 4.342127290998178,
+        "flag": true
+      },
+      {
+        "query": 24,
+        "prior_seconds": 0.8485820830028388,
+        "current_seconds": 1.4396487920021173,
+        "delta_seconds": 0.5910667089992785,
+        "flag": true
+      },
+      {
+        "query": 25,
+        "prior_seconds": 0.44213208300061524,
+        "current_seconds": 0.7961219999997411,
+        "delta_seconds": 0.35398991699912585,
+        "flag": true
+      },
+      {
+        "query": 26,
+        "prior_seconds": 2.552562333003152,
+        "current_seconds": 4.743795125003089,
+        "delta_seconds": 2.191232791999937,
+        "flag": true
+      },
+      {
+        "query": 27,
+        "prior_seconds": 2.6119660419935826,
+        "current_seconds": 4.333602874998178,
+        "delta_seconds": 1.7216368330045952,
+        "flag": true
+      },
+      {
+        "query": 28,
+        "prior_seconds": 2.3758067500020843,
+        "current_seconds": 3.8108654579991708,
+        "delta_seconds": 1.4350587079970865,
+        "flag": true
+      },
+      {
+        "query": 29,
+        "prior_seconds": 7.828941334002593,
+        "current_seconds": 12.596076791000087,
+        "delta_seconds": 4.767135456997494,
+        "flag": true
+      },
+      {
+        "query": 30,
+        "prior_seconds": 0.20847008299460867,
+        "current_seconds": 0.22672558300109813,
+        "delta_seconds": 0.018255500006489456,
+        "flag": false
+      },
+      {
+        "query": 31,
+        "prior_seconds": 0.8262959159983438,
+        "current_seconds": 1.1295848329973524,
+        "delta_seconds": 0.3032889169990085,
+        "flag": true
+      },
+      {
+        "query": 32,
+        "prior_seconds": 1.0060224589979043,
+        "current_seconds": 1.3758426249987679,
+        "delta_seconds": 0.36982016600086354,
+        "flag": true
+      },
+      {
+        "query": 33,
+        "prior_seconds": 1.7484809579982539,
+        "current_seconds": 2.6534408330044243,
+        "delta_seconds": 0.9049598750061705,
+        "flag": true
+      },
+      {
+        "query": 34,
+        "prior_seconds": 5.383924333000323,
+        "current_seconds": 6.030232417004299,
+        "delta_seconds": 0.6463080840039765,
+        "flag": true
+      },
+      {
+        "query": 35,
+        "prior_seconds": 4.851808458995947,
+        "current_seconds": 7.113361499999883,
+        "delta_seconds": 2.2615530410039355,
+        "flag": true
+      },
+      {
+        "query": 36,
+        "prior_seconds": 0.31043133400089573,
+        "current_seconds": 0.5180713750014547,
+        "delta_seconds": 0.207640041000559,
+        "flag": true
+      },
+      {
+        "query": 37,
+        "prior_seconds": 0.18488370800332632,
+        "current_seconds": 0.30646745799458586,
+        "delta_seconds": 0.12158374999125954,
+        "flag": false
+      },
+      {
+        "query": 38,
+        "prior_seconds": 0.11038283300149487,
+        "current_seconds": 0.1815797909948742,
+        "delta_seconds": 0.07119695799337933,
+        "flag": false
+      },
+      {
+        "query": 39,
+        "prior_seconds": 0.09882741700130282,
+        "current_seconds": 0.13515404200006742,
+        "delta_seconds": 0.0363266249987646,
+        "flag": false
+      },
+      {
+        "query": 40,
+        "prior_seconds": 0.6286614580021705,
+        "current_seconds": 0.8494722079994972,
+        "delta_seconds": 0.22081074999732664,
+        "flag": true
+      },
+      {
+        "query": 41,
+        "prior_seconds": 0.09354141599760624,
+        "current_seconds": 0.1522616250003921,
+        "delta_seconds": 0.05872020900278585,
+        "flag": false
+      },
+      {
+        "query": 42,
+        "prior_seconds": 0.07981062500039116,
+        "current_seconds": 0.09413512500032084,
+        "delta_seconds": 0.014324499999929685,
+        "flag": false
+      },
+      {
+        "query": 43,
+        "prior_seconds": 0.07878054200409679,
+        "current_seconds": 0.09413416700408561,
+        "delta_seconds": 0.015353624999988824,
+        "flag": false
+      }
+    ],
+    "flagged_query_ids": [
+      5,
+      6,
+      14,
+      15,
+      16,
+      17,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      40
+    ]
+  },
+  "retained_profile": {
+    "artifact": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T093549118609Z",
+    "candidate": "3e3b887f",
+    "summary_sha256": "21d58fccab9c1ebc960bd0cd236a6c400a14bf4e8e1d69d4c280871e9430a7d7",
+    "selection": {
+      "q17": {
+        "run": 2,
+        "stdout_archive": "q17_run2.stdout.json.gz",
+        "stdout_archive_sha256": "c8f628f1e322de28f384aea73455e3baf55c58ac2e1b10aa5602a0053202e324",
+        "seconds": 5.373173708001559,
+        "native_peak_rss_bytes": 5243600896,
+        "user_cpu_seconds": 18.128133,
+        "system_cpu_seconds": 9.778694,
+        "summary": "native Vortex aggregate primitive",
+        "sql": {
+          "source": "benchmarks/clickbench/queries.sql",
+          "physical_line": 21,
+          "statement": "SELECT UserID, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10"
+        },
+        "values": {
+          "aggregate_accessor_summary": "native_compound_complete_key_partition_counts",
+          "aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+          "aggregate_workers_compute_threads": 9,
+          "aggregate_workers_provider_background_workers": 0,
+          "aggregate_workers_cpu_ceiling": 10,
+          "aggregate_workers_submitted_chunks": 1550,
+          "aggregate_workers_completed_chunks": 1550,
+          "aggregate_workers_count_work_nanos": 7445288791,
+          "aggregate_workers_worker_busy_elapsed_nanos": 47027318632,
+          "aggregate_workers_caller_join_wait_nanos": 5173521820,
+          "aggregate_workers_caller_merge_nanos": 1630362,
+          "aggregate_workers_caller_submit_elapsed_nanos": 2992698,
+          "aggregate_workers_canonicalization_work_nanos": 1328068054,
+          "aggregate_workers_equality_comparisons": 73112578,
+          "aggregate_workers_utf8_bytes_hashed": 739636342,
+          "aggregate_workers_compound_partition_strings": 8825862,
+          "aggregate_workers_compound_partition_utf8_bytes_copied": 1075898560,
+          "aggregate_workers_partial_entries": 26884919,
+          "aggregate_workers_partition_count": 64,
+          "aggregate_workers_partition_complete_groups": 24070560,
+          "aggregate_workers_partition_committed_rows": 99997497,
+          "aggregate_workers_partition_equality_comparisons": 2814359,
+          "aggregate_workers_partition_lock_wait_nanos": 12172537428,
+          "aggregate_workers_partition_reconcile_work_nanos": 24753617258,
+          "aggregate_workers_partition_selection_work_nanos": 609400537,
+          "aggregate_workers_partition_selection_jobs": 64,
+          "aggregate_workers_partition_entry_credit_claim_calls": 99200,
+          "aggregate_workers_partition_entry_credit_return_calls": 99200,
+          "aggregate_workers_partition_native_handoffs": 0,
+          "aggregate_workers_partition_retry_jobs": 0,
+          "aggregate_workers_shared_live_peak_bytes": 4964946618,
+          "aggregate_workers_shared_live_limit_bytes": 25769803776,
+          "aggregate_workers_peak_partial_capacity_bytes": 10485968,
+          "aggregate_workers_peak_outstanding_chunks": 20,
+          "aggregate_workers_rows": 99997497,
+          "aggregate_chunk_dictionary_accessor_columns": "none",
+          "aggregate_primitive_accessor_columns": "none",
+          "aggregate_materialized_accessor_columns": "UserID",
+          "aggregate_first_pass_accessor_chunks": 0,
+          "aggregate_first_pass_accessor_rows": 0,
+          "aggregate_first_pass_accessor_nanos": 0,
+          "aggregate_first_pass_group_update_nanos": 0,
+          "compact_group_state_strategy": "numeric_utf8_heavy_hitter_exact_count_star_group_state",
+          "group_state_mode": "numeric_utf8_heavy_hitter_exact_first_pass",
+          "group_output_strategy": "complete_numeric_utf8_key_partition_exact_topk",
+          "group_key_comparison_strategy": "proofbound_count_desc_declared_group_key_order",
+          "distinct_state_strategy": "none",
+          "candidate_groups": 24070560,
+          "retained_candidate_groups": 10,
+          "rows": 10,
+          "decoded_string_count": 640,
+          "estimated_group_key_storage_bytes": 15360,
+          "estimated_group_string_storage_bytes": 0,
+          "evicted_or_spilled_group_count": 0,
+          "spill_state": "not_spilled"
+        }
+      },
+      "q18": {
+        "run": 3,
+        "stdout_archive": "q18_run3.stdout.json.gz",
+        "stdout_archive_sha256": "4a48a2cb26fa66ff08397f4da48cfc66e0d7f351e697a4867c156826d91128e8",
+        "seconds": 3.289600124997378,
+        "native_peak_rss_bytes": 294551552,
+        "user_cpu_seconds": 3.308907,
+        "system_cpu_seconds": 0.116822,
+        "summary": "native Vortex aggregate primitive",
+        "sql": {
+          "source": "benchmarks/clickbench/queries.sql",
+          "physical_line": 22,
+          "statement": "SELECT UserID, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, SearchPhrase LIMIT 10"
+        },
+        "values": {
+          "aggregate_accessor_summary": "SearchPhrase:chunk_utf8_dictionary,UserID:direct_i64",
+          "aggregate_update_strategy": "source_order_numeric_utf8_dictionary_code_count_star_group_update",
+          "aggregate_provider_background_workers": 9,
+          "aggregate_chunk_dictionary_accessor_columns": "SearchPhrase",
+          "aggregate_primitive_accessor_columns": "UserID",
+          "aggregate_materialized_accessor_columns": "UserID",
+          "aggregate_first_pass_accessor_chunks": 1550,
+          "aggregate_first_pass_accessor_rows": 99997497,
+          "aggregate_first_pass_accessor_nanos": 2682916141,
+          "aggregate_first_pass_group_update_nanos": 444695625,
+          "aggregate_utf8_chunk_accessor": {
+            "accessor_rows": 99997497,
+            "calls": 1550,
+            "copied_utf8_bytes": 518939670,
+            "dictionary_build_nanos": 1772459874,
+            "dictionary_entries": 8571186,
+            "provider_execute_nanos": 822092103
+          },
+          "aggregate_native_numeric_accessor": {
+            "rows": 77465959,
+            "native_decode_calls": 1202,
+            "decode_and_typed_copy_nanos": 85821858,
+            "canonical_array_nbytes_estimate": 619727672,
+            "source_array_nbytes_estimate": 257929786,
+            "typed_value_bytes_copied": 0
+          },
+          "compact_group_state_strategy": "source_order_numeric_utf8_dictionary_code_compact_count_star_group_state",
+          "group_state_mode": "source_order_numeric_utf8_dictionary_candidate_slots",
+          "group_output_strategy": "source_order_limited_group_admission_no_sort",
+          "group_admission_strategy": "first_k_source_order_groups_then_existing_key_updates",
+          "group_key_comparison_strategy": "source_order",
+          "distinct_state_strategy": "none",
+          "candidate_groups": 10,
+          "retained_candidate_groups": 10,
+          "rows": 10,
+          "decoded_string_count": 3,
+          "estimated_group_key_storage_bytes": 160,
+          "estimated_group_string_storage_bytes": 129,
+          "evicted_or_spilled_group_count": 0,
+          "spill_state": "not_spilled"
+        }
+      }
+    },
+    "assertions": {
+      "q17_aggregate_accessor_summary": "native_compound_complete_key_partition_counts",
+      "q18_aggregate_update_strategy_prefix": "source_order_numeric_utf8_dictionary_code_",
+      "q18_source_order_dictionary": true
+    },
+    "runtime_symbols": {
+      "q17": "shardloom-vortex/src/local_primitives/compound_count_workers.rs::CompoundCountWorkers complete-key partition finish path",
+      "q18": "shardloom-vortex/src/local_primitives.rs::source-order numeric UTF-8 dictionary route around line 28959+"
+    }
+  },
+  "selection_activation": {
+    "query_ids": [
+      18
+    ],
+    "all_full43_calls_replayed": 129,
+    "q18_rows_after_first_chunk": 99931961,
+    "q18_numeric_survivors": 27,
+    "q18_utf8_accessor_rows": 65563
+  },
+  "scope": "paired fastest valid complete calls determine the target gate; unpaired suite totals and flags do not establish causal gains or regressions; complete saved references are not a new independent oracle; no ingest/storage/production fairness claim",
+  "platform": {
+    "cpu": "Apple M5",
+    "physical_ram_gib": 16,
+    "os": "macOS 27",
+    "query_policy_gib": 24,
+    "requested_parallelism": 12,
+    "host_cpu_ceiling": 10,
+    "cache_and_host_load": "uncontrolled",
+    "clock": "fresh native CLI startup through complete output and exit"
+  },
+  "validation": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 2.6063772499983315,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-final-fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "shardloom-cli/release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 23.161789124998904,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-filter-clippy-v2.log",
+      "sha256": "2df85f7e057a225067243c07991b84f63071c0f5e708fc2b257bc6117dc08606"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "exit_code": 0,
+      "seconds": 49.72705070799566,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-native-tests.log",
+      "sha256": "040196613a586f63d911c08776679773a7673eddeed567fb7afc39da154b8a62"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 28.338473874995543,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-workspace-clippy.log",
+      "sha256": "f7121ce0929a63b382c929d5221d1fb84cd9fe38b4589f650c9b4b7e191001db"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 262.4389622089948,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-workspace-tests.log",
+      "sha256": "c1376588ab9b15ef8d52baaac4e41ac2948c0d7d3c012af787fa9b7a212eb431"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "vortex-local-primitives",
+        "source_order_candidate_filter"
+      ],
+      "exit_code": 0,
+      "seconds": 8.84890479099704,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-filter-focused-v3.log",
+      "sha256": "6b1c270c0faeffcbc9ac0e548ed013f0719194da1d3c7a6162f8b03f6a089614"
+    }
+  ],
+  "test_totals": {
+    "q18-native-tests": {
+      "passed": 1859,
+      "failed": 0,
+      "ignored": 9
+    },
+    "q18-workspace-tests": {
+      "passed": 3424,
+      "failed": 0,
+      "ignored": 0
+    },
+    "q18-filter-focused-v3": {
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "documentation_validation": {
+    "results": [
+      {
+        "name": "public_claim_language",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "scripts/check_public_claim_language.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-public_claim_language.json"
+        ],
+        "exit_code": 0,
+        "output": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-public_claim_language.json",
+        "output_sha256": "d3b0def80b40ce0e86e462b38d573e07ee1d4473ac997537681fb37880ad18ef",
+        "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-public_claim_language.log",
+        "log_sha256": "117d5c9888b77b6959632514628710b67c4252bffdef66827d3ac27cf219c154"
+      },
+      {
+        "name": "public_status_docs",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "scripts/check_public_status_docs.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-public_status_docs.json"
+        ],
+        "exit_code": 0,
+        "output": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-public_status_docs.json",
+        "output_sha256": "540192acf2fc159dd0dcc46dd4ca44ebf8d0bcf62fdcd173d8c81e8de6561f8d",
+        "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-public_status_docs.log",
+        "log_sha256": "e71414bc5405754fd85b02dcaeeac4ae500ee838edfc94e5f39d1e9471a59f8c"
+      },
+      {
+        "name": "workspace_version_sources",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "scripts/check_workspace_version_sources.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-workspace_version_sources.json"
+        ],
+        "exit_code": 0,
+        "output": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-workspace_version_sources.json",
+        "output_sha256": "f7398b83f9fb9d9b427f58f2eabcbe74c95d955e764ac8cddd8955a214c90d9e",
+        "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-workspace_version_sources.log",
+        "log_sha256": "006ddcf42cf8317c86e2bbec48a17f7632e5ac246a0d4edd9a14d9e5633efd79"
+      },
+      {
+        "name": "release_architecture_tracker",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "scripts/check_release_architecture_tracker.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-release_architecture_tracker.json",
+          "--allow-blocked"
+        ],
+        "exit_code": 0,
+        "output": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-release_architecture_tracker.json",
+        "output_sha256": "ff17f29eb0ef46d30721e55cb74b5bc83dfd9b0160adf3bb3b01e9b20c7bfe45",
+        "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q18-final2-release_architecture_tracker.log",
+        "log_sha256": "572d1ffe0710143545f6164c60eb3077cbde772375320a6d351df733269b9bd3"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "command": [
+        "cargo",
+        "build",
+        "--release",
+        "-p",
+        "shardloom-cli",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "exit_code": 0,
+      "seconds": 126.79716145800194,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-filter-release-build.log",
+      "sha256": "af89ebf741fa46ccc07144e3430db742cab59b7209d8889a860a0ac362cfa3e3"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "scripts/run_clickbench_paired_query_uat.py",
+        "--control-binary",
+        "/Users/dylan/LocalData/shardloom/ship-drop-20260919/candidate-3e3b887f",
+        "--control-commit",
+        "3e3b887f2e6ada7be88751931776fb03a1a55852",
+        "--candidate-binary",
+        "/Users/dylan/LocalData/shardloom/ship-drop-20260919/candidate-b6b92497",
+        "--candidate-commit",
+        "b6b92497",
+        "--input",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/performance-pr-ingest-4f2c7b970078-r1.vortex",
+        "--uat-root",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat",
+        "--reference-dir",
+        "/Users/dylan/LocalData/shardloom/ship-drop-20260919/references",
+        "--query-ids",
+        "18",
+        "--memory-gb",
+        "24",
+        "--max-parallelism",
+        "12",
+        "--timeout",
+        "120"
+      ],
+      "exit_code": 0,
+      "seconds": 14.679271291999612,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-filter-paired.log",
+      "sha256": "c22996c784d595577792afc8555e38875d9137c59a9da9a7e88e30dde7c810e2"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "scripts/run_clickbench_query_uat.py",
+        "--binary",
+        "/Users/dylan/LocalData/shardloom/ship-drop-20260919/candidate-b6b92497",
+        "--build-commit",
+        "b6b92497d7ec1fff26caa4411512320d9f0fc97f",
+        "--input",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/performance-pr-ingest-4f2c7b970078-r1.vortex",
+        "--uat-root",
+        "/Users/dylan/LocalData/shardloom/clickbench-100m-uat",
+        "--reference-dir",
+        "/Users/dylan/LocalData/shardloom/ship-drop-20260919/references",
+        "--memory-gb",
+        "24",
+        "--max-parallelism",
+        "12",
+        "--timeout",
+        "120",
+        "--compress-logs"
+      ],
+      "exit_code": 0,
+      "seconds": 416.0471975420005,
+      "log": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/admission-q18-filter-full43.log",
+      "sha256": "25fe6a71aaadde8d43b619b6a4ce4d8ff2410f7ef3765c2f8565eb87e667a82c"
+    }
+  ],
+  "verification_scripts": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/audit-paired-evidence.py",
+      "sha256": "92675f86164393c11039b9d69f260900fd5ff08283828c29276e9223fe890dc9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/audit-q18-filter-paired.py",
+      "sha256": "beda6cbaf345e61bf38924e2fdc1a6f35abfa29bf52bfc97a2f4d46726540473"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/audit-q18-filter-full43.py",
+      "sha256": "d9282b09f8428ff77e981b1a248bbb100f58f082dda55e7aa1009e6fe18a25eb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/build-q18-filter-packet.py",
+      "sha256": "c54ef46638be15ced7d7a7c07bc8e5a57885d594db516251dedc5fc9f1f3f93f"
+    }
+  ]
+}

@@ -17,6 +17,36 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Retained source-order COUNT numeric-key selection before UTF8 access.
+  - Date: 2026-09-20. Runtime `b6b92497` reuses native FilterArray/Mask after
+    complete first-K admission and preserves exact compound-key counts. Nullable,
+    ordered, offset, transformed and larger retained states retain prior execution.
+  - Q18 paired fastest complete calls improve 3.298828 to 0.266880 s, saving
+    3.031948 s (91.9%). All six paired outputs and 129 Full43 outputs pass. Only
+    Q18 activates the new filter; 99,931,961 rows after the first chunk reduce to
+    27 numeric survivors before UTF8 access. All calls and hashes remain in the
+    [evidence](source-order-candidate-filter-2026-09-20.md).
+  - Seven focused cases, 1,859 native and 3,424 workspace tests, both Clippy
+    surfaces, formatting and four documentation checks pass. Nine existing native
+    benchmark fixtures are ignored. Independent review found no remaining blocker.
+  - Full43 best sum 103.104888 s is unpaired; 23 slower-query screen flags remain
+    recorded without a causal regression or overall gain claim. No release,
+    ingest/storage gain or broader PERF/CG completion is claimed.
+
+- [x] Q34/Q35 partition growth and probing attribution screen.
+  - Date: 2026-09-20. The
+    [screen](q34-q35-reconciliation-screen-2026-09-20.md) preserves six complete
+    result-checked stack samples and six temporary diagnostic calls. Mean lookup
+    probes are 1.6639–1.6648; worker growth/copy spans do not establish a one-second
+    complete-call opportunity. Growth-only, arena-copy-only and validation-only
+    proposals are not admitted; this does not prove improvements impossible.
+  - Diagnostic `6a17dbb2` and its patch remain in external evidence. All temporary
+    instrumentation is removed; the three affected runtime files match `814c16f5`.
+    Seventeen focused tests, native Clippy and formatting passed for that diagnostic.
+    No diagnostic timing is used as a ship-gate sample or a new Full43 claim.
+  - [Machine-readable evidence](../benchmarks/q34-q35-reconciliation-screen-2026-09-20.json)
+    preserves raw source hashes and counters. Broader PERF/CG obligations remain open.
+
 - [x] Matched Full43 correctness replay and performance diagnosis.
   - Date: 2026-09-19. All 318 calls across the full paired suite, reversed signal
     checks, Q17 extensions, instrumentation ablation and historical-binary checks

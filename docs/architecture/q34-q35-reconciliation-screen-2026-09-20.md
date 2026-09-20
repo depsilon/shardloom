@@ -78,5 +78,5 @@ and PERF/CG obligations remain open.
 Verification of the temporary build: 17 focused partition tests passed (one
 existing benchmark fixture ignored), native Clippy and formatting passed,
 independent review found no pre-run blocker, and all six full-size complete
-values passed. The final runtime files are restored exactly to merged main;
+values passed. The three diagnostic runtime files are restored exactly to `814c16f5`;
 this diagnostic screen is not a new Full43 or runtime speed claim.
