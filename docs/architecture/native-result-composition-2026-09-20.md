@@ -65,5 +65,63 @@ Acceptance covers typed empty result/source/aggregate/sink, multiple batches ove
 65,536 rows, nullable and mixed-width fields, dictionary and sliced-text
 amplification, explicit bounds and partial-build cancellation, source lifetime,
 foreign contexts, memory provenance, and P1 composition without nested admission.
-File aggregates retain their existing physical choices and Full43 values. General
-joins and further prepared/owned/public families follow this source contract.
+Full43 is the regression gate for file aggregates and their existing physical
+choices. General joins and further prepared/owned/public families follow this
+source contract.
+
+## Local acceptance
+
+The implementation at `ef957adf` passes the native value and ownership checks;
+release UAT and PR acceptance are still pending. Builds use the resolved local
+Cargo target `/Users/dylan/.cache/shardloom/cargo-target`. Command logs and hashed
+JSON receipts are retained under
+`/Users/dylan/LocalData/shardloom/ship-drop-20260919/`.
+
+| Check | Result and receipt |
+| --- | --- |
+| Workspace all-target tests, one test thread | 3,425 passed across 102 targets, no failures/ignores; `composition-workspace-tests-1.json`, 341.086564 s |
+| CLI/Vortex all-target tests, `release-user-surfaces`, one test thread | 3,435 passed across 86 targets, ten explicitly ignored, no failures; `composition-native-all-targets-1.json`, 354.904390 s |
+| Workspace all-target Clippy with `-D warnings` | Passed; `composition-workspace-clippy-1.json`, 39.236725 s |
+| CLI/Vortex native all-target Clippy with `-D warnings` | Passed; `composition-native-clippy-final.json`, 28.421312 s |
+| Lean no-default `vortex-local-primitives` check | Passed; `composition-lean-check-1.json`, 9.280233 s |
+| Formatting, diff whitespace, public-status docs, release architecture tracker | Passed; architecture tracker used its existing `--allow-blocked` audit mode and does not certify release readiness |
+
+The workspace test preceded the final recovery-policy API addition from PR #1455;
+the complete native suite and both final Clippy checks include that addition.
+Native acceptance includes 98,304 composed rows across three batches, repeated
+complete aggregate values after producer owners are dropped, typed zero-array
+results through Vortex and Arrow IPC sinks, nullable root/field validity, mixed
+integer widths, dictionary/backing amplification denial, explicit construction
+limits and partial-build cancellation. A 65,536-row composed source also executes
+real exact DISTINCT spill, validates all results, removes every owned run after
+each call and retries using public cancellation renewal. Memory-source certificates
+retain zero source-file opens and explicit construction work.
+
+Cancellation coverage includes cancellation during a segment request, a fresh
+retry on the same prepared source, cache-pressure replay without poisoning the
+parent, both cancellation owners while queued for each admitted spill family,
+and provider-worker evidence on cancellable calls after worker admission denial.
+
+Log SHA-256 values, respectively, for the two test suites, two Clippy checks and
+lean check above:
+
+```text
+397d64caba300d54f19dff454eca7b82dd9baa24e7e730c8407ccf82c3c3243f
+ffb4e9e5d37244c411f448154a0b03b443b143cf8a0bc6b85019d2e366863ee8
+170b807c53c4eb9b4a41cdcf32193ba06299f89b04a306f32ef242dd27adb2ad
+e028075af1c3373266413ba486634b0326740d693ebbdf1177c0ddad1193c481
+5b01bc20d1c7a60362bda4d41c6f075643cd2d2d7b5110efb71a74a37b14c4a8
+```
+
+No performance gain, total RSS bound, broad public parity, completed join support
+or production serving fairness is claimed by this prerequisite.
+
+The explicitly invoked fixed-arrival serving fixture also passes at 1,000 µs
+arrival intervals (`composition-serving-load-1.json`, 25.513484 s including build;
+log SHA-256 `3095462839c33d8f854d28cce950d379244564e8cf333d96b2899104ea8889fe`).
+Serving completed 96/96 requests with exact values, zero rejections/errors and
+zero final reservations. Peak ownership was four CPU lanes, four queued calls
+(96 bytes of admission metadata), and one I/O request/264,124 bytes. Exclusive
+mode completed 47 requests and rejected 49 at the bounded client queue, with no
+engine errors and zero final reservations. This debug fixture is lifecycle
+acceptance, not a production-scale latency comparison.

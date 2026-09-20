@@ -31,7 +31,8 @@ impl CancellationToken {
     }
 
     /// Observe both an existing owner flag and its enclosing operation. Cancelling
-    /// this token changes only the owner flag, never the enclosing operation.
+    /// this token writes only the supplied flag; observing parent cancellation
+    /// does not set that flag. Use distinct flags for independent owners.
     #[must_use]
     pub fn from_shared_flag_with_parent(flag: Arc<AtomicBool>, parent: &Self) -> Self {
         Self {
