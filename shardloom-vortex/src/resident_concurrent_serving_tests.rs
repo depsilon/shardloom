@@ -333,6 +333,118 @@ fn serving_queue_cancellation_removes_waiter_preserves_fifo_and_rejects_overflow
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Release and join every held caller before asserting outcomes.
+fn full_general_waiter_queue_preserves_reserved_metadata_progress_and_p1_bounds() {
+    let fixture = Fixture::new();
+    for parallelism in [1, 2] {
+        if thread::available_parallelism().unwrap().get() < parallelism {
+            continue;
+        }
+        let session = ResidentVortexSession::with_serving_policy(
+            32 << 20,
+            parallelism,
+            ResidentServingPolicy {
+                max_queued_calls: 1,
+                max_queued_call_bytes: serving_admission::TICKET_METADATA_BYTES,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let source = session.prepare_file(fixture.path()).unwrap();
+        let memory = session.memory().clone();
+        let queued_cancellation = CancellationToken::default();
+        let (entered, entry) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let (metadata_done, metadata_result) = mpsc::channel();
+        let outcomes = thread::scope(|threads| {
+            let held_session = session.clone();
+            let held = threads.spawn(move || -> Result<()> {
+                let _context = held_session
+                    .0
+                    .enter(CallClass::General, CancellationToken::default())?;
+                entered.send(()).map_err(native_error)?;
+                released.recv_timeout(DEADLINE).map_err(native_error)?;
+                Ok(())
+            });
+            let observed_holder = entry.recv_timeout(DEADLINE).is_ok();
+            let queued_source = &source;
+            let cancellation = queued_cancellation.clone();
+            let queued = threads.spawn(move || {
+                queued_source
+                    .with_native_execution_controlled(&cancellation, |file, _| Ok(file.row_count()))
+            });
+            let started = Instant::now();
+            while session.admission_snapshot().unwrap().queued_calls != 1
+                && started.elapsed() < DEADLINE
+            {
+                thread::yield_now();
+            }
+            let waiting = session.admission_snapshot().unwrap();
+            let count_source = &source;
+            let metadata = threads.spawn(move || {
+                let result = count_source.prepare_count().execute();
+                let _ = metadata_done.send(result);
+            });
+            let metadata_before_release = metadata_result.recv_timeout(Duration::from_secs(2));
+            let overflow_rejected = waiting.queued_calls == 1
+                && session
+                    .0
+                    .enter(CallClass::General, CancellationToken::default())
+                    .is_err();
+            // Cleanup precedes assertions, including timeout regressions. A
+            // failed observation cannot strand a waiter behind this fixture.
+            if !observed_holder || waiting.queued_calls != 1 {
+                queued_cancellation.cancel();
+            }
+            let _ = release.send(());
+            let held_result = held.join();
+            let queued_result = queued.join();
+            let metadata_joined = metadata.join();
+            (
+                observed_holder,
+                waiting,
+                metadata_before_release,
+                overflow_rejected,
+                held_result,
+                queued_result,
+                metadata_joined,
+            )
+        });
+        let (observed_holder, waiting, metadata, overflow, held, queued, metadata_joined) =
+            outcomes;
+        assert!(observed_holder);
+        assert_eq!(waiting.queued_calls, 1);
+        assert_eq!(
+            waiting.queued_call_bytes,
+            serving_admission::TICKET_METADATA_BYTES
+        );
+        assert!(overflow);
+        held.unwrap().unwrap();
+        assert_eq!(queued.unwrap().unwrap(), 4096);
+        metadata_joined.unwrap();
+        let metadata = metadata.expect("metadata admission must finish before holder release");
+        if parallelism == 2 {
+            assert_eq!(metadata.unwrap(), 4096);
+        } else {
+            assert!(metadata.is_err(), "P1 has no independent metadata lane");
+        }
+        let after = session.admission_snapshot().unwrap();
+        assert_eq!(after.queued_calls, 0);
+        assert_eq!(after.queued_call_bytes, 0);
+        assert_eq!(after.active_cpu_lanes, 0);
+        assert!(after.peak_active_cpu_lanes <= parallelism);
+        assert_eq!(after.peak_queued_calls, 1);
+        assert_eq!(
+            after.peak_queued_call_bytes,
+            serving_admission::TICKET_METADATA_BYTES
+        );
+        drop(source);
+        drop(session);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn serving_queued_public_projection_cancels_before_provider_work_and_remains_reusable() {
     let fixture = Fixture::new();
     let session =

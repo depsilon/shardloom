@@ -11,6 +11,11 @@ across text, numeric and nullable schemas, derived grouping keys, transformed
 measures and wide measure sets. Each call computes fresh state. With `vortex-write`,
 the admitted weighted UTF8 COUNT and exact integer DISTINCT spill families retain
 the source while rebuilding spill lowering and runs for every execution.
+After a cancelled prepared spill call returns, call
+`renew_spill_cancellation(&mut self)` before re-execution. It retains the source
+and workspace/quotas and returns a policy whose `cancel()` controls the new scope.
+Old policy clones cannot cancel the renewed call. Exclusive mutable access
+prevents changing cancellation while a prepared execution still borrows the handle.
 
 `execute_owned()` has a separate, narrower contract for bounded
 [owned COUNT results](owned-count-results.md) with integer and nonnullable UTF8

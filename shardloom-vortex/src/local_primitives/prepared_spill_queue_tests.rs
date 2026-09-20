@@ -5,7 +5,7 @@ use crate::{
 };
 use shardloom_exec::compute_pool::CancellationToken;
 use std::{
-    sync::{Arc, atomic::Ordering, mpsc},
+    sync::mpsc,
     thread,
     time::{Duration, Instant},
 };
@@ -58,23 +58,21 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
             },
         )
         .unwrap();
-        let prepared = prepare_aggregate_in_session(
+        let mut prepared = prepare_aggregate_in_session(
             &request,
             VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
             &session,
         )
         .unwrap();
         let source = session.prepare_file(fixture.path()).unwrap();
-        let cancellation = Arc::clone(
-            &request
-                .simple_aggregate
-                .as_ref()
-                .unwrap()
-                .spill
-                .as_ref()
-                .unwrap()
-                .cancellation,
-        );
+        let cancellation = request
+            .simple_aggregate
+            .as_ref()
+            .unwrap()
+            .spill
+            .as_ref()
+            .unwrap()
+            .clone();
         let (entered, waiting) = mpsc::sync_channel(1);
         let (release, held) = mpsc::sync_channel(1);
         let (done, finished) = mpsc::sync_channel(1);
@@ -101,7 +99,7 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
                 thread::sleep(Duration::from_millis(1));
             }
             let observed_queue = session.admission_snapshot().unwrap().queued_calls == 1;
-            cancellation.store(true, Ordering::Release);
+            cancellation.cancel();
             let cancelled = finished.recv_timeout(Duration::from_secs(5));
             // Always release the blocker even when the regression returns no
             // cancellation response, so a failing scoped test cannot deadlock.
@@ -120,7 +118,9 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
         assert_eq!(session.admission_snapshot().unwrap().queued_calls, 0);
         assert_eq!(session.admission_snapshot().unwrap().active_cpu_lanes, 0);
         fixture.empty();
-        cancellation.store(false, Ordering::Release);
+        let renewed = prepared.renew_spill_cancellation().unwrap();
+        // A stale cancellation owner cannot poison the new execution scope.
+        cancellation.cancel();
         let actual = prepared.execute().unwrap();
         assert_eq!(
             summary(&actual.report)["values"],
@@ -128,6 +128,8 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
         );
         assert!(actual.native_io_certificate.is_certified());
         assert_eq!(actual.runtime.prepared_source_opens, 2);
+        renewed.cancel();
+        assert!(prepared.execute().is_err());
         fixture.empty();
         let memory = session.memory().clone();
         drop(prepared);
