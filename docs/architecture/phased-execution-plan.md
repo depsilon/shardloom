@@ -338,10 +338,20 @@ improves Q18 paired fastest calls from 3.298828 to 0.266880 s
 All six paired and 129 Full43 complete values pass. Only Q18 activates the filter;
 after initial admission, 99,931,961 rows reduce to 27 numeric-key survivors before
 UTF8 access. Broad gates pass: 3,424 workspace and 1,859 native tests, formatting
-and Clippy. [PR #1453](https://github.com/depsilon/shardloom/pull/1453) carries the
-candidate; after merge, attribute Q17 compound partition reconciliation and memory
-ownership. The new Full43 best sum is
-103.104888 s, an unpaired observation with no whole-suite causal claim.
+and Clippy. [PR #1453](https://github.com/depsilon/shardloom/pull/1453) merged.
+Its Full43 best sum is 103.104888 s, an unpaired observation.
+The subsequent [compound storage candidate](compound-group-storage-2026-09-20.md)
+separates sparse lookup directories from dense, reservation-owned group and
+string records. Q17 paired fastest complete calls improve 4.072863 to
+2.579536 s (1.493328 s / 36.7% saved), with 42.1% lower OS peak RSS.
+All 24 paired and 129 Full43 complete values pass; Q11/Q14/Q15/Q17 use the
+existing family. Broad gates pass: 3,424 workspace tests, 1,865 native tests,
+formatting and both Clippy surfaces. The observed Full43 best sum is
+64.551416 s, with no whole-suite causal claim. After
+[PR #1454](https://github.com/depsilon/shardloom/pull/1454) merges,
+attribute Q10 mixed-measure exact DISTINCT updates and ownership. Its existing
+packed-pair preunion and chunk group partials remain shipped foundations;
+do not propose them again as new work. Apply the same material retain/drop gates.
 Successful implementations get a PR and failed prototypes
 are removed with their evidence retained.
 Broad capability completion and parked experiments
@@ -2414,8 +2424,13 @@ since merged in PRs #1447 and #1448 with complete Full43 acceptance. The
 close the bounded G/H/I proposals as scoped drops and merged in PR #1449. Q36
 persistent complete-integer partition reduction is retained with paired speed
 and memory gates, Full43 and broad checks. Preserve its per-chunk weighted counts
-and dependency proofs. Q29 now receives accessor-stage attribution, followed by
-Q34/Q35, under the material gate at the start of Planned.
+and dependency proofs. Q29 dictionary validation reuse and Q18 source-order
+candidate filtering have since merged in PRs #1452 and #1453. The Q34/Q35
+reconciliation screen is closed without a retained replacement. The
+compound dense-storage candidate passes paired gates, Full43 and broad checks;
+after merge, Q10 mixed-measure exact DISTINCT attribution is next under the
+material gate at the start of Planned. Preserve its existing packed-pair
+preunion and chunk group partials.
 Broader ingest, serving and delivery obligations remain open. The historical inventory
 in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
 already-shipped families.

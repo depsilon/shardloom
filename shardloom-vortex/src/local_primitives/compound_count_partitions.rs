@@ -18,14 +18,19 @@ use std::{
 };
 
 pub(super) const PARTITIONS: usize = 64;
+#[path = "compound_pages.rs"]
+mod pages;
+use pages::DensePages;
 #[path = "compound_distinct_partition_output.rs"]
 pub(super) mod distinct_output;
+#[cfg(test)]
+#[path = "compound_storage_pressure_tests.rs"]
+mod storage_pressure_tests;
 #[derive(Clone, Copy, Default)]
 struct TextSlot {
     hash: u64,
     offset: usize,
     len: usize,
-    occupied: bool,
 }
 #[derive(Clone, Copy, Default)]
 struct Group {
@@ -36,11 +41,11 @@ struct Group {
     count: u64,
 }
 struct Partition {
-    groups: Vec<Group>,
-    text: Vec<TextSlot>,
+    groups: DensePages<Group>,
+    group_slots: Vec<usize>,
+    text: DensePages<TextSlot>,
+    text_slots: Vec<usize>,
     bytes: Vec<u8>,
-    group_len: usize,
-    text_len: usize,
     groups_lease: MemoryLease,
     text_lease: MemoryLease,
     bytes_lease: MemoryLease,
@@ -136,11 +141,11 @@ impl CompoundPartitions {
         }
         for _ in 0..PARTITIONS {
             partitions.push(Mutex::new(Partition {
-                groups: Vec::new(),
-                text: Vec::new(),
+                groups: DensePages::new(memory)?,
+                group_slots: Vec::new(),
+                text: DensePages::new(memory)?,
+                text_slots: Vec::new(),
                 bytes: Vec::new(),
-                group_len: 0,
-                text_len: 0,
                 groups_lease: memory.reserve(0)?,
                 text_lease: memory.reserve(0)?,
                 bytes_lease: memory.reserve(0)?,
@@ -317,7 +322,7 @@ impl CompoundPartitions {
             let mut partition = partition
                 .lock()
                 .map_err(|_| failed("partition mutex poisoned"))?;
-            for group in &partition.groups {
+            for group in partition.groups.iter() {
                 if group.count != 0 {
                     visit(group.key, partition.value(*group)?, group.count)?;
                 }
@@ -344,7 +349,7 @@ impl CompoundPartitions {
             .selection_lease
             .take()
             .ok_or_else(|| failed("partition selected twice"))?;
-        let cap = self.retained.min(partition.group_len);
+        let cap = self.retained.min(partition.groups.len());
         let mut groups = Vec::new();
         groups
             .try_reserve_exact(cap)
@@ -487,24 +492,25 @@ impl Partition {
         hash: u64,
         comparisons: &mut u64,
     ) -> Result<Option<usize>> {
-        if self.groups.is_empty() {
+        if self.group_slots.is_empty() {
             return Ok(None);
         }
-        let mut bucket = compound_count_partial::bucket(hash, self.groups.len());
+        let mut bucket = compound_count_partial::bucket(hash, self.group_slots.len());
         loop {
-            let group = self.groups[bucket];
-            if group.count == 0 {
+            let index = self.group_slots[bucket];
+            if index == 0 {
                 return Ok(None);
             }
+            let group = self.groups[index - 1];
             if group.hash == hash && group.key.bits == key.bits && group.key.signed == key.signed {
                 *comparisons = comparisons
                     .checked_add(1)
                     .ok_or_else(|| failed("comparison count overflowed"))?;
                 if self.bytes[group.offset..group.offset + group.len] == *bytes {
-                    return Ok(Some(bucket));
+                    return Ok(Some(index - 1));
                 }
             }
-            bucket = (bucket + 1) & (self.groups.len() - 1);
+            bucket = (bucket + 1) & (self.group_slots.len() - 1);
         }
     }
     fn insert(
@@ -516,48 +522,53 @@ impl Partition {
         shared: &CompoundPartitions,
         worker: &ChunkWorkerContext,
     ) -> Result<bool> {
-        if self.groups.is_empty() || self.group_len + 1 > self.groups.len() / 2 {
+        let ordinal = self
+            .groups
+            .len()
+            .checked_add(1)
+            .ok_or_else(|| failed("group ordinal overflowed"))?;
+        if self.group_slots.is_empty() || ordinal > self.group_slots.len() / 2 {
             let cap = self
-                .groups
+                .group_slots
                 .len()
                 .max(8)
                 .checked_mul(2)
                 .ok_or_else(|| failed("group capacity overflowed"))?;
-            let Some((mut groups, lease)) = allocate::<Group>(cap, &shared.memory)? else {
+            let Some((mut slots, lease)) = allocate::<usize>(cap, &shared.memory)? else {
                 return Ok(false);
             };
-            groups.resize(cap, Group::default());
+            slots.resize(cap, 0);
             for (index, group) in self.groups.iter().copied().enumerate() {
                 if index % 4096 == 0 {
                     worker.check_cancelled()?;
                 }
-                if group.count == 0 {
-                    continue;
-                }
                 let mut bucket = compound_count_partial::bucket(group.hash, cap);
-                while groups[bucket].count != 0 {
+                while slots[bucket] != 0 {
                     bucket = (bucket + 1) & (cap - 1);
                 }
-                groups[bucket] = group;
+                slots[bucket] = index + 1;
             }
-            self.groups = groups;
+            self.group_slots = slots;
             self.groups_lease = lease;
+        }
+        if !self.groups.reserve_one(&shared.memory)? {
+            return Ok(false);
         }
         let Some((offset, len)) = self.intern(bytes, shared, worker)? else {
             return Ok(false);
         };
-        let mut bucket = compound_count_partial::bucket(hash, self.groups.len());
-        while self.groups[bucket].count != 0 {
-            bucket = (bucket + 1) & (self.groups.len() - 1);
+        let mut bucket = compound_count_partial::bucket(hash, self.group_slots.len());
+        while self.group_slots[bucket] != 0 {
+            bucket = (bucket + 1) & (self.group_slots.len() - 1);
         }
-        self.groups[bucket] = Group {
+        self.groups.push(Group {
             hash,
             key,
             offset,
             len,
             count,
-        };
-        self.group_len += 1;
+        });
+        self.group_slots[bucket] = ordinal;
         Ok(true)
     }
     fn intern(
@@ -567,44 +578,49 @@ impl Partition {
         worker: &ChunkWorkerContext,
     ) -> Result<Option<(usize, usize)>> {
         let hash = compound_count_partial::string_hash(bytes);
-        if !self.text.is_empty() {
-            let mut bucket = compound_count_partial::bucket(hash, self.text.len());
-            while self.text[bucket].occupied {
-                let value = self.text[bucket];
+        if !self.text_slots.is_empty() {
+            let mut bucket = compound_count_partial::bucket(hash, self.text_slots.len());
+            while self.text_slots[bucket] != 0 {
+                let value = self.text[self.text_slots[bucket] - 1];
                 if value.hash == hash
                     && self.bytes[value.offset..value.offset + value.len] == *bytes
                 {
                     return Ok(Some((value.offset, value.len)));
                 }
-                bucket = (bucket + 1) & (self.text.len() - 1);
+                bucket = (bucket + 1) & (self.text_slots.len() - 1);
             }
         }
-        if self.text.is_empty() || self.text_len + 1 > self.text.len() / 2 {
+        let ordinal = self
+            .text
+            .len()
+            .checked_add(1)
+            .ok_or_else(|| failed("text ordinal overflowed"))?;
+        if self.text_slots.is_empty() || ordinal > self.text_slots.len() / 2 {
             let cap = self
-                .text
+                .text_slots
                 .len()
                 .max(8)
                 .checked_mul(2)
                 .ok_or_else(|| failed("domain capacity overflowed"))?;
-            let Some((mut text, lease)) = allocate::<TextSlot>(cap, &shared.memory)? else {
+            let Some((mut slots, lease)) = allocate::<usize>(cap, &shared.memory)? else {
                 return Ok(None);
             };
-            text.resize(cap, TextSlot::default());
+            slots.resize(cap, 0);
             for (index, value) in self.text.iter().copied().enumerate() {
                 if index % 4096 == 0 {
                     worker.check_cancelled()?;
                 }
-                if !value.occupied {
-                    continue;
-                }
                 let mut bucket = compound_count_partial::bucket(value.hash, cap);
-                while text[bucket].occupied {
+                while slots[bucket] != 0 {
                     bucket = (bucket + 1) & (cap - 1);
                 }
-                text[bucket] = value;
+                slots[bucket] = index + 1;
             }
-            self.text = text;
+            self.text_slots = slots;
             self.text_lease = lease;
+        }
+        if !self.text.reserve_one(&shared.memory)? {
+            return Ok(None);
         }
         let needed = self
             .bytes
@@ -631,25 +647,24 @@ impl Partition {
         self.bytes.extend_from_slice(bytes);
         add(&shared.string_bytes_copied, bytes.len() as u64)?;
         add(&shared.strings, 1)?;
-        let mut bucket = compound_count_partial::bucket(hash, self.text.len());
-        while self.text[bucket].occupied {
-            bucket = (bucket + 1) & (self.text.len() - 1);
+        let mut bucket = compound_count_partial::bucket(hash, self.text_slots.len());
+        while self.text_slots[bucket] != 0 {
+            bucket = (bucket + 1) & (self.text_slots.len() - 1);
         }
-        self.text[bucket] = TextSlot {
+        self.text.push(TextSlot {
             hash,
             offset,
             len: bytes.len(),
-            occupied: true,
-        };
-        self.text_len += 1;
+        });
+        self.text_slots[bucket] = ordinal;
         Ok(Some((offset, bytes.len())))
     }
     fn release(&mut self) -> Result<()> {
-        self.groups = Vec::new();
-        self.text = Vec::new();
+        self.groups.release()?;
+        self.group_slots = Vec::new();
+        self.text.release()?;
+        self.text_slots = Vec::new();
         self.bytes = Vec::new();
-        self.group_len = 0;
-        self.text_len = 0;
         self.groups_lease.resize(0)?;
         self.text_lease.resize(0)?;
         self.bytes_lease.resize(0)?;

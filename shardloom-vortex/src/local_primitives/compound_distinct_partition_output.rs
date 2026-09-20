@@ -58,7 +58,7 @@ impl CompoundPartitions {
                 .ok_or_else(|| failed("UTF8 DISTINCT count overflowed"))?;
         }
         let complete_groups = counts.values.iter().filter(|count| **count != 0).count();
-        if complete_groups != partition.text_len {
+        if complete_groups != partition.text.len() {
             return Err(failed(
                 "complete UTF8 DISTINCT domain includes uncommitted text",
             ));
@@ -129,21 +129,22 @@ impl Partition {
     ) -> Result<usize> {
         let bytes = &self.bytes[offset..offset + len];
         let hash = compound_count_partial::string_hash(bytes);
-        let mut index = compound_count_partial::bucket(hash, self.text.len());
+        let mut index = compound_count_partial::bucket(hash, self.text_slots.len());
         let mut probes = 0_usize;
         loop {
             if probes.is_multiple_of(4096) {
                 worker.check_cancelled()?;
             }
             probes += 1;
-            let slot = self.text[index];
-            if !slot.occupied {
+            let ordinal = self.text_slots[index];
+            if ordinal == 0 {
                 return Err(failed("complete pair lost its UTF8 domain"));
             }
+            let slot = self.text[ordinal - 1];
             if slot.offset == offset && slot.len == len {
-                return Ok(index);
+                return Ok(ordinal - 1);
             }
-            index = (index + 1) & (self.text.len() - 1);
+            index = (index + 1) & (self.text_slots.len() - 1);
         }
     }
     fn worse_distinct(&self, left: (usize, u64), right: (usize, u64)) -> bool {
