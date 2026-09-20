@@ -13,10 +13,11 @@ continues counting only those groups. Once admission closes, a numeric component
 absent from every retained key proves the complete key cannot contribute. Apply
 that conservative membership test before constructing the UTF8 accessor. Keep
 the existing complete numeric/text equality and checked counts for survivors.
-The ten retained Q18 compound keys have counts of 1–26, totaling 44. Numeric
-selectivity across other text values remains unmeasured; the candidate records
-survivor counts. Dictionary construction alone provides the initial opportunity,
-without assuming the native provider avoids full child canonicalization.
+The ten retained Q18 compound keys have counts of 1–26, totaling 44. Before
+implementation, numeric selectivity across other text values was unmeasured;
+the paired and Full43 evidence below now establishes 27 survivors after the first
+chunk. Dictionary construction supplied the initial opportunity without assuming
+the native provider avoids full child canonicalization.
 
 Scope: the existing non-null identity integer/UTF8 pair COUNT family, after the
 existing direct source-order route has closed admission, with at most 64 retained

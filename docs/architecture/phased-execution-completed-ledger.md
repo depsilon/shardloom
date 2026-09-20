@@ -18,7 +18,8 @@ phase plan first.
 ### Recent Completed Session Ledger
 
 - [x] Retained source-order COUNT numeric-key selection before UTF8 access.
-  - Date: 2026-09-20. Runtime `b6b92497` reuses native FilterArray/Mask after
+  - Date: 2026-09-20. [PR #1453](https://github.com/depsilon/shardloom/pull/1453).
+    Runtime `b6b92497` reuses native FilterArray/Mask after
     complete first-K admission and preserves exact compound-key counts. Nullable,
     ordered, offset, transformed and larger retained states retain prior execution.
   - Q18 paired fastest complete calls improve 3.298828 to 0.266880 s, saving
