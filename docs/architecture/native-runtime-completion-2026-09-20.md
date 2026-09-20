@@ -224,6 +224,16 @@ cloning or the projection builder's duplicate searches. Tests admit the exact
 combined boundary and reject excess keys, expressions, arguments and mixed lists
 before source opening or reservation. Existing derived/triple-key and 90-measure
 coverage is retained. All 166 focused prepared tests passed after this guard.
+Native all-target Clippy also passed (`admission-runtime-completion-shape-clippy-1`).
+Frozen runtime `049e33da62e4efbb2c61c48e02e7bf711edcf204` then passed **129/129**
+Full43 complete results, with **70.563004s** summed minima. Receipt:
+`clickbench-100m-uat/logs/full43_20260920T151930650527Z/summary.json`, SHA-256
+`112925d3ba52eb39e25f26879b81ebf0dbbfbfe9d206fd9f25d90ef57e1bd851`.
+Binary `candidate-049e33da` SHA-256:
+`0d528140c4166e95440c5fcdcc5f2fe2707ae8eefa0a627dc48708c7f1643793`.
+The prior three completed Full43 stdout/stderr sets were losslessly packed into
+verified raw-member archives before this run; summary identities, raw bytes and
+the unchanged storage guard limits are preserved in `archive_completed_full43.json`.
 
 ## Finite availability inventory
 
