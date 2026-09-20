@@ -172,7 +172,50 @@ provide `renew_spill_cancellation(&mut self)` to retain the source/configuration
 with a fresh cancellation scope. Old policy clones remain scoped to the old call;
 exclusive mutable access prevents renewal during active execution. Tests exercise
 the public cancellation/renewal methods rather than resetting a private flag.
-Follow-up validation and the final runtime commit are recorded after these fixes.
+The fixes at `af047f5c694d726883e9ee13fd92634197abc39f` passed 3,415 combined
+native CLI/Vortex all-target tests (10 explicitly ignored), 3,424 workspace tests,
+workspace/native Clippy, formatting and the lean native feature check. The
+1,000-microsecond serving rerun completed all 96 requests with zero engine errors
+and zero final reservations. Its peak was four CPU lanes and one positional read;
+the exclusive mode completed 57/rejected 39. This remains bounded debug-fixture
+evidence, not a production comparison. The receipts use the
+`admission-runtime-completion-review-` prefix.
+
+Full43 on that frozen runtime passed **129/129** complete results and recorded
+**65.769553s** summed minima. Receipt:
+`clickbench-100m-uat/logs/full43_20260920T143949591215Z/summary.json`, SHA-256
+`8e62163af531f3517bb979755441cff1965cfaf475649f3ad39f0d2440e3d984`.
+Binary `candidate-af047f5c` SHA-256:
+`d525d026d86ea21ab58c3a0bbfdb2884fd1266ee91d230a966598a6551b1fed3`.
+The earlier held-out/public-call receipts remain attributed to `739a311e`.
+
+Subsequent review identified unbounded width-dependent allocation in preparation.
+Prepared requests now admit at most 1,024 measures, checked before request cloning
+or aggregate-state construction. This retains the tested 90-measure behavior and
+adds complete repeated results at the exact ceiling, plus rejection at 1,025
+before any source open or retained reservation. It is a schema ceiling, not an
+RSS/accounting claim. The 165 focused prepared tests and native all-target Clippy
+passed after this guard. Final frozen runtime `f4245c53` passed **129/129** Full43
+complete results, recording **68.524554s** summed minima. Receipt:
+`clickbench-100m-uat/logs/full43_20260920T145420087484Z/summary.json`, SHA-256
+`694a536d547a17ee2ac52e9a9cb21e7c8f1242bb0513011a80b48c48be9d2483`.
+Binary `candidate-f4245c53` SHA-256:
+`e5591d73274eb45ce31bc397b14e84125ee678881f7ee869dc71161cd501c7a9`.
+These separate Full43 runs remain unpaired, with unchanged source and timing
+boundaries; no performance improvement is claimed.
+
+Linux CI exposed a race in the blocking-completion test's final assertion:
+the read buffer and I/O permits were released, but the completion destructor
+could still hold its last scope reference and 80-byte metadata reservation after
+waking the drain. The test now uses the existing bounded wait for that destructor
+epilogue, while keeping immediate zero-I/O assertions and eventual zero-memory
+ownership mandatory. Runtime behavior is unchanged by this test correction.
+The exact CI native-library command passed locally with normal test concurrency:
+1,885 passed, ten explicitly ignored, zero failed. Its log SHA-256 is
+`111e3a7709fafd1d6868e36fb13b03b628ef7dc411af0219990bd7389767213f`
+(`admission-runtime-completion-ci-native-parallel-1`). An additional immediate
+assertion requires only the measured scope metadata to remain after drain,
+preserving a direct payload-release check before waiting for final metadata drop.
 
 ## Finite availability inventory
 

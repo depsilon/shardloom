@@ -497,6 +497,7 @@ fn serving_cancelled_blocking_completion_keeps_io_and_buffer_owners_until_return
     let budget = io_ownership::IoBudget::new(1, 4096);
     let token = CancellationToken::default();
     let scope = io_ownership::IoScope::new(Arc::clone(&budget), &memory, token.clone()).unwrap();
+    let scope_metadata = memory.snapshot().reserved_bytes;
     let runtime = CurrentThreadRuntime::new();
     let job = scope.admit(4096).unwrap();
     assert!(scope.admit(1).is_err());
@@ -520,10 +521,16 @@ fn serving_cancelled_blocking_completion_keeps_io_and_buffer_owners_until_return
     scope.close_and_drain(&runtime);
     assert_eq!(budget.snapshot().active_requests, 0);
     assert_eq!(budget.snapshot().active_bytes, 0);
+    assert_eq!(memory.snapshot().reserved_bytes, scope_metadata);
     assert!(scope.admit(1).is_err());
     drop(scope);
     drop(runtime);
     drop(budget);
+    // The job decrements pending and wakes the drain before Rust drops its
+    // final Arc<IoScope> field. The read and buffer are already gone, but that
+    // destructor epilogue can briefly retain the scope's metadata reservation.
+    // Require eventual release without racing that final field destruction.
+    wait_for(|| memory.snapshot().reserved_bytes == 0);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
