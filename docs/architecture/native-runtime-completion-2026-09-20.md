@@ -194,7 +194,28 @@ Prepared requests now admit at most 1,024 measures, checked before request cloni
 or aggregate-state construction. This retains the tested 90-measure behavior and
 adds complete repeated results at the exact ceiling, plus rejection at 1,025
 before any source open or retained reservation. It is a schema ceiling, not an
-RSS/accounting claim. Final runtime acceptance follows this additional guard.
+RSS/accounting claim. The 165 focused prepared tests and native all-target Clippy
+passed after this guard. Final frozen runtime `f4245c53` passed **129/129** Full43
+complete results, recording **68.524554s** summed minima. Receipt:
+`clickbench-100m-uat/logs/full43_20260920T145420087484Z/summary.json`, SHA-256
+`694a536d547a17ee2ac52e9a9cb21e7c8f1242bb0513011a80b48c48be9d2483`.
+Binary `candidate-f4245c53` SHA-256:
+`e5591d73274eb45ce31bc397b14e84125ee678881f7ee869dc71161cd501c7a9`.
+These separate Full43 runs remain unpaired, with unchanged source and timing
+boundaries; no performance improvement is claimed.
+
+Linux CI exposed a race in the blocking-completion test's final assertion:
+the read buffer and I/O permits were released, but the completion destructor
+could still hold its last scope reference and 80-byte metadata reservation after
+waking the drain. The test now uses the existing bounded wait for that destructor
+epilogue, while keeping immediate zero-I/O assertions and eventual zero-memory
+ownership mandatory. Runtime behavior is unchanged by this test correction.
+The exact CI native-library command passed locally with normal test concurrency:
+1,885 passed, ten explicitly ignored, zero failed. Its log SHA-256 is
+`111e3a7709fafd1d6868e36fb13b03b628ef7dc411af0219990bd7389767213f`
+(`admission-runtime-completion-ci-native-parallel-1`). An additional immediate
+assertion requires only the measured scope metadata to remain after drain,
+preserving a direct payload-release check before waiting for final metadata drop.
 
 ## Finite availability inventory
 
