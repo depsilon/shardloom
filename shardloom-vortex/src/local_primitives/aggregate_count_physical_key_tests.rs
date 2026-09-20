@@ -140,6 +140,7 @@ fn physical_integer_key_workers_keep_i32_and_reconstruct_all_dependent_outputs()
             ])
         );
         assert_eq!(result["candidate_groups"], 4);
+        assert_eq!(result["aggregate_workers_integer_dictionary_handoff"], true);
         assert_eq!(result["aggregate_workers_submitted_chunks"], 3);
         assert_eq!(result["aggregate_workers_rows"], 9);
         assert_eq!(result["aggregate_workers_native_constant_chunks"], 1);
@@ -167,7 +168,40 @@ fn physical_integer_key_workers_preserve_complete_ties_across_partials() {
             ])
         );
         assert_eq!(result["candidate_groups"], 6);
+        assert_eq!(
+            result["group_output_strategy"],
+            "complete_weighted_integer_partition_topk"
+        );
+        assert_eq!(
+            result["aggregate_workers_integer_partition_selection_jobs"],
+            64
+        );
         assert_eq!(result["aggregate_workers_rows"], 25);
+    }
+}
+
+#[test]
+fn physical_integer_partition_limit_boundary_preserves_existing_count_results() {
+    let chunks = [chunk(
+        PrimitiveArray::new(vec![3_i64, 3, 9], Validity::NonNullable).into_array(),
+    )];
+    for workers in [1, 4] {
+        for (offset, limit, partitioned) in [(1, 127, true), (1, 128, false), (0, 0, false)] {
+            let result =
+                execute(&chunks, &request(&[1]).with_offset(offset), limit, workers).unwrap();
+            assert_eq!(
+                result["aggregate_workers_integer_partition_selection_jobs"] == 64,
+                partitioned
+            );
+            assert_eq!(
+                result["values"],
+                if limit == 0 {
+                    serde_json::json!([])
+                } else {
+                    serde_json::json!([{"renamed_number": 9, "shifted_0": 10, "occurrences": 1}])
+                }
+            );
+        }
     }
 }
 
@@ -333,6 +367,11 @@ fn physical_integer_key_workers_are_dispatched_by_the_native_file_query_route() 
                 > 0
         );
         assert_eq!(result["aggregate_workers_rows"], 6);
+        assert_eq!(result["candidate_groups"], 3);
+        assert_eq!(
+            result["group_output_strategy"],
+            "complete_weighted_integer_partition_topk"
+        );
         assert_eq!(result["aggregate_workers_outstanding_chunks"], 0);
         assert!(!report.fallback_execution_allowed);
     }

@@ -24,10 +24,29 @@ mod sealed {
 pub(super) trait NumericCountKey:
     sealed::Sealed + Copy + Ord + Debug + Send + 'static
 {
+    fn aggregate_key(self) -> super::AggregateSingleNumericKey;
 }
-impl NumericCountKey for i32 {}
-impl NumericCountKey for i64 {}
-impl NumericCountKey for u64 {}
+impl NumericCountKey for i32 {
+    fn aggregate_key(self) -> super::AggregateSingleNumericKey {
+        i64::from(self).aggregate_key()
+    }
+}
+impl NumericCountKey for i64 {
+    fn aggregate_key(self) -> super::AggregateSingleNumericKey {
+        super::AggregateSingleNumericKey {
+            bits: u64::from_ne_bytes(self.to_ne_bytes()),
+            signed: true,
+        }
+    }
+}
+impl NumericCountKey for u64 {
+    fn aggregate_key(self) -> super::AggregateSingleNumericKey {
+        super::AggregateSingleNumericKey {
+            bits: self,
+            signed: false,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub(super) struct OwnedNumericCounts<K: NumericCountKey> {

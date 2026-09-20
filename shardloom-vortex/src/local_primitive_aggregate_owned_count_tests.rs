@@ -53,7 +53,12 @@ fn work(completed: &ExecutedOwnedVortexAggregate) -> serde_json::Value {
     assert!(work["values"].is_null());
     assert_eq!(
         work["group_output_strategy"],
-        "bounded_heap_after_complete_count_group_reduction"
+        if work["aggregate_workers_integer_partition_selection_jobs"] == 64 {
+            assert_eq!(work["aggregate_workers_integer_dictionary_handoff"], false);
+            "complete_weighted_integer_partition_topk"
+        } else {
+            "bounded_heap_after_complete_count_group_reduction"
+        }
     );
     assert!(completed.execution.native_io_certificate.is_certified());
     assert!(!completed.execution.report.fallback_execution_allowed);
