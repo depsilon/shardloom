@@ -836,6 +836,15 @@ impl VortexSortSpillPolicy {
         })
     }
 
+    /// Return the same validated configuration with an independent live cancellation
+    /// scope. Use this for another operation or to retry interrupted owned cleanup;
+    /// old clones remain cancelled and cannot cancel the returned policy.
+    /// # Errors
+    /// Rejects invalid configuration if public resource fields were changed.
+    pub fn renew_cancellation(&self) -> Result<Self> {
+        Self::new(self.workspace.clone(), self.quota_bytes, self.memory_bytes)
+    }
+
     /// Cancel this operation and its clones at the next native spill checkpoint.
     pub fn cancel(&self) {
         self.cancellation
@@ -982,6 +991,15 @@ impl VortexAggregateSpillPolicy {
             memory_bytes,
             cancellation: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         })
+    }
+
+    /// Return the same validated configuration with an independent live cancellation
+    /// scope for another execution or interrupted owned cleanup. Existing clones
+    /// keep their cancellation state and cannot cancel the returned policy.
+    /// # Errors
+    /// Rejects invalid configuration if public resource fields were changed.
+    pub fn renew_cancellation(&self) -> Result<Self> {
+        Self::new(self.workspace.clone(), self.quota_bytes, self.memory_bytes)
     }
 
     /// Cancel this operation and its clones at the next native checkpoint.

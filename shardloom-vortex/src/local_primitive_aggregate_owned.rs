@@ -300,7 +300,7 @@ impl OwnedAggregateFinalizer {
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(test, feature = "vortex-write", unix))]
 pub(super) fn utf8_count_admitted(request: &VortexQueryPrimitiveRequest, dtype: &DType) -> bool {
     matches!(admitted_key_kind(request, dtype), Ok(KeyKind::Utf8))
 }

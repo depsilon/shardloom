@@ -515,13 +515,8 @@ fn owned_utf8_count_admission_rejects_nullable_wrong_shape_and_unbounded_outputs
     spill.simple_aggregate = Some(spill.simple_aggregate.take().unwrap().with_spill(
         crate::VortexAggregateSpillPolicy::new(&workspace.0, 16 << 20, 4 << 20).unwrap(),
     ));
-    assert!(
-        prepare_aggregate(&spill, VortexLocalPrimitiveExecutionPolicy::new(2).unwrap())
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("explicit spill")
-    );
+    // Ordinary prepared spill is now admitted; owned completion still rejects
+    // this shape through the finalizer below, without opening the source.
     cases.push(spill);
     for invalid in cases {
         assert!(
@@ -574,7 +569,7 @@ fn owned_utf8_count_complete_byte_bound_and_selection_denial_release_ownership()
 }
 
 #[test]
-fn prepared_utf8_count_declines_nullable_schema_without_reopening() {
+fn prepared_utf8_count_retains_nullable_schema_without_reopening() {
     let fixture = Fixture::new();
     let nullable =
         VarBinViewArray::from_iter_nullable_str([Some("x"), None, Some("x")]).into_array();
@@ -586,18 +581,24 @@ fn prepared_utf8_count_declines_nullable_schema_without_reopening() {
     )
     .unwrap()
     .unwrap();
-    let PreparedAggregateDisposition::Unretained(operation) = disposition else {
-        panic!("nullable UTF8 must decline retained admission");
+    let PreparedAggregateDisposition::Reusable(operation) = disposition else {
+        panic!("nullable UTF8 native execution is reusable");
     };
-    let session = operation.0.session.clone();
-    let result = operation.execute().unwrap();
-    assert!(result.native_io_certificate.is_certified());
-    assert_eq!(session.snapshot().prepared_source_opens, 1);
-    assert_eq!(session.snapshot().completed_executions, 1);
-    assert_eq!(payload(&result)["rows"], 2);
-    assert!(
-        prepare_aggregate(&query, VortexLocalPrimitiveExecutionPolicy::new(2).unwrap()).is_err()
-    );
+    let session = operation.session.clone();
+    for execution in 1..=3 {
+        let result = operation.execute().unwrap();
+        assert!(result.native_io_certificate.is_certified());
+        assert_eq!(session.snapshot().prepared_source_opens, 1);
+        assert_eq!(session.snapshot().completed_executions, execution);
+        assert_eq!(
+            payload(&result)["values"],
+            serde_json::json!([
+                {KEY:"x",COUNT:2}, {KEY:null,COUNT:1},
+            ])
+        );
+    }
+    assert!(operation.execute_owned().is_err());
+    assert_eq!(session.snapshot().completed_executions, 3);
 }
 
 #[test]

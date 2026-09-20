@@ -58,10 +58,11 @@ admitted local routes; their linked evidence defines the supported shapes and re
   See the [source/prepared-state scope](docs/architecture/v1-source-prepared-state-scope.md).
 - **Prepare once; execute each call with fresh state.** Resident sessions retain source handles,
   generation identity, and prepared lowering for supported operations. Python contexts can reuse
-  a local worker to avoid per-call process startup. Prepared integer MIN/MAX/AVG joins the retained
-  aggregate families; repeated calls compute their results again. Source-generation checks reject
-  detected replacement or mutation. See the
-  [prepared execution evidence](docs/benchmarks/native-completion-boundaries-2026-09-12.md).
+  a local worker to avoid per-call process startup. Ordinary native aggregates retain the same
+  lowering across text, numeric and nullable schemas, derived keys, transformed measures, and wide
+  measure sets. Explicit COUNT/DISTINCT spill reuses the source and creates fresh run state on each
+  call. Source-generation checks reject detected replacement or mutation. See the
+  [runtime completion scope and evidence](docs/architecture/native-runtime-completion-2026-09-20.md).
 - **Results remain executable native data.** Admitted source and computed aggregate results own
   Vortex arrays, validity, and memory credits. Supported owned COUNT and grouped DISTINCT results
   can reach native Vortex, Arrow IPC, or Parquet sinks without a row/JSON reconstruction roundtrip;
@@ -69,7 +70,10 @@ admitted local routes; their linked evidence defines the supported shapes and re
   [result ownership contract](docs/reference/resident-native-results.md) and
   [local sink scope](docs/architecture/v1-local-output-sink-scope.md).
 - **Resource ownership follows the work.** Shared workers, bounded queues, reservations, and
-  cancellation cleanup govern admitted native operations. The non-null UTF8 COUNT worker path
+  cancellation cleanup govern admitted native operations. An explicit resident serving policy
+  bounds concurrent calls, CPU grants and positional I/O, with a reserved metadata lane when
+  enabled. See the [serving contract and bounded load evidence](docs/architecture/concurrent-native-serving-2026-09-20.md).
+  The non-null UTF8 COUNT worker path
   can transfer committed state into native temporary runs under memory pressure. Spill support
   remains operator-specific, and reservations do not cover every provider allocation or establish
   a process RSS ceiling. See the [resource contract](docs/rfcs/0044-resident-runtime-resource-ownership.md)

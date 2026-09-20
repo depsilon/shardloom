@@ -188,7 +188,9 @@ impl CountWorkers {
         }
         let fault = SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::take)?;
         let snapshot = memory.snapshot();
-        let len = usize::try_from(snapshot.limit_bytes - snapshot.reserved_bytes).ok()?;
+        // Workers may release reservations after this snapshot. Request the
+        // whole limit so alignment capacity guarantees denial even at zero use.
+        let len = usize::try_from(snapshot.limit_bytes).ok()?;
         let denied = crate::owned_buffers::ReservedHostAllocator::new(memory.clone())
             .allocate(len, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)
             .expect_err("native allocator denial includes alignment capacity");
@@ -329,7 +331,9 @@ impl SingleCountWorkers {
         }
         let fault = SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::take)?;
         let snapshot = memory.snapshot();
-        let len = usize::try_from(snapshot.limit_bytes - snapshot.reserved_bytes).ok()?;
+        // Do not base fault injection on concurrently changing free capacity.
+        // The allocator charges alignment in addition to this entire limit.
+        let len = usize::try_from(snapshot.limit_bytes).ok()?;
         let allocator = crate::owned_buffers::ReservedHostAllocator::new(memory.clone());
         let denied = allocator
             .allocate(len, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)

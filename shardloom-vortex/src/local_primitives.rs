@@ -20012,6 +20012,7 @@ fn read_local_vortex_simple_aggregate_scan(
                             session,
                             runtime,
                             resident.memory(),
+                            true,
                         )
                     })?;
                 drop(owner);

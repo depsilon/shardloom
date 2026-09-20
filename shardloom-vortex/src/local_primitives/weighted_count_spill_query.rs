@@ -62,6 +62,7 @@ pub(super) fn execute(
     session: &VortexSession,
     runtime: &impl AggregateScanRuntime,
     memory: &LiveMemoryPool,
+    allow_workers: bool,
 ) -> Result<(LocalVortexAggregateScan, Arc<OwnedResult>)> {
     let contract = weighted_count_spill_admission::admit(request, file.dtype())?;
     let aggregate = request
@@ -103,7 +104,7 @@ pub(super) fn execute(
     if let Some(filter) = plan.filter.as_ref() {
         embedded_layout.mark_pruning_consulted(file.can_prune(filter).map_err(vortex_error)?);
     }
-    let caller_only = worker_request_admitted(request);
+    let caller_only = allow_workers && worker_request_admitted(request);
     let mut workers = if caller_only && !embedded_layout.metadata_pruned_entire_input {
         Workers::try_new(
             accumulator.worker_contract(),

@@ -244,6 +244,21 @@ the ledger.
 
 ## Planned
 
+September 20 maintainer override after PR #1454: complete native spill/recovery,
+prepared/public-call availability, and concurrent serving before the next ingest
+CPU and persisted-storage ship/drop cycle. This explicitly resumes capability
+implementation for PERF-02/03/06/07/11/12; Q10 profiling is deferred. Establish
+the executable operator/surface matrix from current source, implement missing
+contracts, validate full returned results and failure/resource lifecycles, and
+merge cohesive PRs before advancing to ingest/storage. Availability work is not
+subject to the one-second optimization gate. The maintainer explicitly includes
+currently unsupported native operator families, including joins, and requires
+reuse of the optimized ClickBench accessors, partitions, exact state and native
+result/spill foundations instead of a parallel engine. Existing no-fallback, Vortex-native,
+source-generation, explicit spill workspace and ownership requirements remain.
+Keep broader CG obligations visible and open until their own acceptance passes;
+this instruction does not authorize package publication or competitor claims.
+
 September 19 maintainer direction: use the existing candidate packet as a finite
 ship/drop cycle. Implement and validate a bounded candidate; put successful
 candidates into a cohesive PR and advance to the next set. Revert failed or
@@ -572,8 +587,12 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     PR #1437 adds retained integer COUNT/COUNT DISTINCT/SUM and completes the
     scoped nine-case, three-surface 1,674-check resident acceptance on `572bd52c`.
     Later accepted scope includes prepared identity integer MIN/MAX/AVG and
-    bounded nonnullable UTF8 COUNT. Native Python binding remains parked;
-    migration of additional operator families remains open.
+    bounded nonnullable UTF8 COUNT. The September 20 implementation broadens
+    ordinary aggregate retention to the existing native schema/expression
+    families and source reuse for explicit COUNT/DISTINCT spill; validation and
+    merge status is in `native-runtime-completion-2026-09-20.md`.
+    Native Python binding remains parked; migration of additional operator
+    families and general native joins remains open.
   - Execution checklist:
     - [ ] Extend prepared native execution to the remaining operator families.
     - [ ] Complete the native Python prototype/binding decision and migration;
@@ -2412,6 +2431,12 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
+The September 20 maintainer override at the start of Planned takes precedence:
+finish spill/recovery, prepared/public availability and concurrent serving with
+implementation, full validation and merges, then screen ingest CPU and persisted
+storage for material improvements. The Q10 selection below is retained history
+and is deferred by that priority change.
+
 The approved September 19 [hardening/cleanup batch](runtime-hardening-cleanup-2026-09-19.md)
 is complete and merged in PR #1446. Preserve its publication
 collision safety and bounded codec-cancellation/native-writer serving evidence.
@@ -2427,17 +2452,18 @@ and memory gates, Full43 and broad checks. Preserve its per-chunk weighted count
 and dependency proofs. Q29 dictionary validation reuse and Q18 source-order
 candidate filtering have since merged in PRs #1452 and #1453. The Q34/Q35
 reconciliation screen is closed without a retained replacement. The
-compound dense-storage candidate passes paired gates, Full43 and broad checks;
-after merge, Q10 mixed-measure exact DISTINCT attribution is next under the
-material gate at the start of Planned. Preserve its existing packed-pair
-preunion and chunk group partials.
+compound dense-storage candidate merged in PR #1454 after paired gates, Full43
+and broad checks. Q10 mixed-measure exact DISTINCT attribution remains the next
+query profiling target, deferred behind the maintainer's native runtime completion
+priority at the start of Planned. Preserve its existing packed-pair preunion and
+chunk group partials.
 Broader ingest, serving and delivery obligations remain open. The historical inventory
 in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
 already-shipped families.
 
 The selected performance/publication train is complete. The latest maintainer
 priority at the start of Planned governs the remaining constraints and deferred
-work below; broad capability completion remains paused. This list does not
+work below; only its selected capability families resume. This list does not
 restart completed release checks or authorize parked experiments.
 
 1. Preserve completed PR #1437, matched-owner ingest, September 12 attribution,

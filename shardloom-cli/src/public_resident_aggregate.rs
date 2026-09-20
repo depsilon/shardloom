@@ -29,6 +29,7 @@ struct Executed {
     primitive_arg: String,
     opened: bool,
     retained: bool,
+    lowering_retained: bool,
 }
 
 pub(super) fn run(
@@ -93,9 +94,32 @@ fn execute(
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
 ) -> Result<Option<Executed>, ShardLoomError> {
-    let (primitive, primitive_arg, _) =
+    let (mut primitive, primitive_arg, _) =
         native_vortex_bound_request_and_arg(request, PublicVortexPrimitive::Aggregate, binding)?;
     let policy = native_vortex_materializing_policy(request)?;
+    // CLI JSON carries workspace/quotas, not cancellation identity. Rebind a
+    // matching freshly parsed spill configuration to this worker's existing
+    // token before comparing requests; external Rust tokens keep identity semantics.
+    if let Some(entry) = execution_session.aggregate.as_ref()
+        && entry.request == *request
+        && entry.policy == policy
+        && let (Some(current), Some(previous)) = (
+            primitive
+                .simple_aggregate
+                .as_mut()
+                .and_then(|aggregate| aggregate.spill.as_mut()),
+            entry
+                .primitive
+                .simple_aggregate
+                .as_ref()
+                .and_then(|aggregate| aggregate.spill.as_ref()),
+        )
+        && current.workspace == previous.workspace
+        && current.quota_bytes == previous.quota_bytes
+        && current.memory_bytes == previous.memory_bytes
+    {
+        *current = previous.clone();
+    }
     let matches = execution_session.aggregate.as_ref().is_some_and(|entry| {
         entry.request == *request && entry.primitive == primitive && entry.policy == policy
     });
@@ -109,6 +133,7 @@ fn execute(
                     primitive_arg,
                     opened: true,
                     retained: false,
+                    lowering_retained: false,
                 }));
             }
             Some(PreparedAggregateDisposition::Reusable(operation)) => {
@@ -131,6 +156,11 @@ fn execute(
         primitive_arg,
         opened: !matches,
         retained: true,
+        lowering_retained: prepared
+            .primitive
+            .simple_aggregate
+            .as_ref()
+            .is_some_and(|aggregate| aggregate.spill.is_none()),
     }))
 }
 
@@ -180,7 +210,7 @@ fn render(
         ),
         (
             "resident_aggregate_lowering_reused".into(),
-            (executed.retained && !executed.opened).to_string(),
+            (executed.lowering_retained && !executed.opened).to_string(),
         ),
         (
             "resident_source_generation_validation".into(),

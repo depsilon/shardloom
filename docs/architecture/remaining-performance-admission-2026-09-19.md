@@ -71,10 +71,14 @@ experiment, and does not imply that all service delay is irreducible.
 
 ## I: drop the bounded SUM/AVG owned-result candidate
 
-`PreparedVortexAggregate::execute` admits integer SUM/AVG, while
+At this candidate's measurement, `PreparedVortexAggregate::execute` admitted integer SUM/AVG, while
 `execute_owned` currently admits only its documented COUNT/DISTINCT shapes.
 The existing owned COUNT results remain retained. Tiny Full43 output rendering
 remains dropped from the heavy-query queue.
+
+September 20 capability completion broadens ordinary retained aggregate schemas
+and expressions. It does not change this candidate's measured outcome or establish
+owned SUM/AVG output. See `native-runtime-completion-2026-09-20.md` for current scope.
 
 The bounded `computed_result_cost` example selects one missing family without
 changing execution: one nonnullable I64 group key and one I64 measure, SUM or

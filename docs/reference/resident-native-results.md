@@ -6,9 +6,60 @@ Use a Unix build with `vortex-local-primitives` for the interfaces on this page.
 They execute through the pinned native Vortex provider. Unsupported requests fail
 explicitly; no external query engine participates.
 
-The prepared aggregate API also has bounded [owned COUNT results](owned-count-results.md)
-for integer and nonnullable UTF8 group keys. That reference separates the
-historically measured result paths from the assembled PR's pending validation.
+`PreparedVortexAggregate::execute()` retains ordinary native aggregate lowering
+across text, numeric and nullable schemas, derived grouping keys, transformed
+measures and wide measure sets of at most 1,024 measures. Grouping, expression
+arguments, ordering and HAVING share a separate 1,024-entry syntax limit.
+These limits are checked before projection building, request cloning or
+aggregate-state allocation; this schema ceiling is not a
+whole-process memory bound. Each call computes fresh state. With `vortex-write`,
+the admitted weighted UTF8 COUNT and exact integer DISTINCT spill families retain
+the source while rebuilding spill lowering and runs for every execution.
+After a cancelled prepared spill call returns, call
+`renew_spill_cancellation(&mut self)` before re-execution. It retains the source
+and workspace/quotas and returns a policy whose `cancel()` controls the new scope.
+Old policy clones cannot cancel the renewed call. Exclusive mutable access
+prevents changing cancellation while a prepared execution still borrows the handle.
+
+`execute_owned()` has a separate, narrower contract for bounded
+[owned COUNT results](owned-count-results.md) with integer and nonnullable UTF8
+group keys. Its restrictions do not limit ordinary prepared aggregate reports.
+See the [current completion evidence](../architecture/native-runtime-completion-2026-09-20.md).
+
+## Concurrent Rust Sessions
+
+Ordinary sessions keep exclusive batch admission. Choose bounded concurrency
+explicitly when multiple callers share a session:
+
+```rust
+use shardloom_vortex::resident_session::{ResidentServingPolicy, ResidentVortexSession};
+
+fn main() -> shardloom_core::Result<()> {
+    let session = ResidentVortexSession::with_serving_policy(
+        512 * 1024 * 1024,
+        4,
+        ResidentServingPolicy::default(),
+    )?;
+    let source = session.prepare_file("events.vortex")?;
+    let count = source.prepare_count();
+    println!("{}", count.execute()?);
+    Ok(())
+}
+```
+
+The default serving policy gives general calls one CPU lane including the caller,
+reserves a metadata lane when at least two CPUs are available, and bounds the
+waiting queue and positional I/O across the session's sources. Queue bytes cover
+admission tickets, not payloads held by callers. `execute_timed(&cancellation)` on
+prepared count/projection returns separate queue and native service durations;
+complete delivery also includes the chosen result sink. I/O limits reject excess
+work explicitly. Cancellation is cooperative and drains already running reads.
+`admission_snapshot()` and `io_snapshot()` expose the corresponding counters.
+`close_admission()` rejects new/queued calls while active calls finish and drain.
+
+This policy is currently an explicit Rust surface; the broader public serving
+rollout and production-scale acceptance remain in the
+[runtime completion plan](../architecture/native-runtime-completion-2026-09-20.md).
 
 ## Typed Rust Memory Intake
 

@@ -146,16 +146,7 @@ impl Fixture {
     }
 
     fn prepared_request(&self) -> VortexQueryPrimitiveRequest {
-        // Retained aggregate API admits identity keys; the ordinary native
-        // entrypoint below covers the derived SQL execution contract.
-        let mut request = self.request();
-        request
-            .simple_aggregate
-            .as_mut()
-            .unwrap()
-            .group_expressions
-            .clear();
-        request
+        self.request()
     }
 
     fn verify(&self, execution: &ExecutedVortexAggregate, completed: u64) {
@@ -179,13 +170,7 @@ impl Fixture {
                 .1,
         )
         .unwrap();
-        let mut identity_expected = self.expected.clone();
-        for row in identity_expected.as_array_mut().unwrap() {
-            for column in ["prior_one", "prior_two", "prior_three"] {
-                row.as_object_mut().unwrap().remove(column);
-            }
-        }
-        assert_eq!(summary["values"], identity_expected);
+        assert_eq!(summary["values"], self.expected);
         assert_eq!(summary["candidate_groups"], self.groups);
         assert_eq!(
             summary["group_output_strategy"],

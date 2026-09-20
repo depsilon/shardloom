@@ -789,6 +789,7 @@ fn crash_recovery_refuses_unknown_files_then_removes_only_recorded_inodes() {
         )
         .unwrap();
     let directory = spill.store.directory().to_path_buf();
+    spill.store.abandon_for_recovery_test();
     let unknown = directory.join("user-note.txt");
     fs::write(&unknown, b"preserve me").unwrap();
     assert!(
@@ -821,6 +822,7 @@ fn recovery_tolerates_interrupted_known_file_cleanup() {
         )
         .unwrap();
     fs::remove_file(&spill.runs[0].native.path).unwrap();
+    spill.store.abandon_for_recovery_test();
     policy.cleanup_abandoned(spill.store.directory()).unwrap();
     workspace.assert_empty();
 }
