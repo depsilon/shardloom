@@ -312,15 +312,20 @@ H's observed admission queue lies outside existing worker-grant control; I's
 gate. All 24 I results pass. These are scoped drops, not completion of the broader
 ingest, serving or result-delivery obligations.
 
-Next: screen persistent complete-integer partitions for Q36, reusing retained
-Q33 reduction ownership while preserving Q36's dependency proofs and derived
-outputs. Its latest 4.144340-second complete run records 3.330456 seconds in the
-caller merge of chunk partials. The existing worker-admission improvement stays
-retained; this new candidate targets repeated merge work, with the same one-second
-complete-query / 30% RSS retention gate. Put the G/H/I evidence into its cohesive
-PR before advancing; successful implementations get a PR and failed prototypes
-are removed with their evidence retained. Q29 and Q34/Q35 remain attribution
-follow-ups rather than newly admitted runtime changes.
+G/H/I evidence merged in PR #1449 as `6c56a435`. The subsequent
+[Q36 weighted integer partitions](q36-weighted-integer-partitions-2026-09-19.md)
+pass the paired material gates: fastest complete calls are 4.402201 s control and
+0.299872 s candidate, saving 4.102329 s (93.2%), with 85.3% lower peak RSS for
+those calls. All six complete outputs match; all candidate runs preserve
+99,997,497 rows and 9,762,046 complete groups. All 129 Full43 calls and broad
+gates pass; the observed unpaired suite best sum is 79.856087 s. Preserve the
+existing per-chunk weighted reduction and
+dependency proofs; no new query-number dispatch or fallback is admitted.
+Next, attribute Q29's 5.080100 s chunk-dictionary construction within its
+10.215333 s complete call; existing counters already separate 2.517873 s of
+provider execution. Q34/Q35 attribution follows. Admit another implementation only from a demonstrated
+material opportunity. Successful implementations get a PR and failed prototypes
+are removed with their evidence retained.
 Broad capability completion and parked experiments
 remain paused. Scoped retention does not close whole PERF/CG gates or any of the
 116 broader unchecked phase items.
@@ -2380,7 +2385,7 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 Current autonomous execution order:
 
 The approved September 19 [hardening/cleanup batch](runtime-hardening-cleanup-2026-09-19.md)
-is complete and locally validated for PR review. Preserve its publication
+is complete and merged in PR #1446. Preserve its publication
 collision safety and bounded codec-cancellation/native-writer serving evidence.
 The subsequent [ship/drop implementation](performance-ship-drop-2026-09-19.md)
 retains Q36 proof-preserving worker admission and Q13 filtered exact partitions;
@@ -2388,9 +2393,11 @@ Q29 owned weighted partials and Q23 dictionary reconstruction did not earn
 retention. Q19 complete-key partitions and Q33 exact numeric-pair reduction have
 since merged in PRs #1447 and #1448 with complete Full43 acceptance. The
 [remaining admission screens](remaining-performance-admission-2026-09-19.md)
-close the bounded G/H/I proposals as scoped drops. Next is Q36 persistent
-complete-integer partition reduction, preserving its existing per-chunk weighted
-counts and dependency proofs, under the material gate at the start of Planned.
+close the bounded G/H/I proposals as scoped drops and merged in PR #1449. Q36
+persistent complete-integer partition reduction is retained with paired speed
+and memory gates, Full43 and broad checks. Preserve its per-chunk weighted counts
+and dependency proofs. Q29 now receives accessor-stage attribution, followed by
+Q34/Q35, under the material gate at the start of Planned.
 Broader ingest, serving and delivery obligations remain open. The historical inventory
 in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
 already-shipped families.
