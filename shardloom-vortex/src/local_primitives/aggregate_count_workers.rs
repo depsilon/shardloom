@@ -1092,6 +1092,10 @@ impl SingleCountWorkers {
             );
         }
         if let Some(evidence) = self.partition_evidence.as_ref() {
+            object.insert("aggregate_workers_partition_diagnostic".into(), serde_json::json!({
+                "scope": "temporary_partition_local_probe_counters_and_coarse_growth_clocks;sum_worker_elapsed_not_cpu_or_wall;observer_effect_excludes_ship_timing;survives_storage_release",
+                "partitions": evidence.diagnostic,
+            }));
             for (name, value) in [
                 (
                     "partition_count",
